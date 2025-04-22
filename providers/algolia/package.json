@@ -1,5 +1,8 @@
 {
   "name": "@reactionary/provider-algolia",
   "version": "0.0.1",
-  "dependencies": {}
+  "dependencies": {
+    "@reactionary/core": "0.0.1",
+    "algoliasearch": "^5.23.4"
+  }
 }

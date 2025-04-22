@@ -1,5 +1,7 @@
 {
   "name": "@reactionary/core",
   "version": "0.0.1",
-  "dependencies": {}
+  "dependencies": {
+    "zod": "^3.24.3"
+  }
 }

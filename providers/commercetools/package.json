@@ -1,5 +1,9 @@
 {
   "name": "@reactionary/provider-commercetools",
   "version": "0.0.1",
-  "dependencies": {}
+  "dependencies": {
+    "@commercetools/ts-client": "^3.2.2",
+    "@commercetools/platform-sdk": "^8.8.0",
+    "@reactionary/core": "0.0.1"
+  }
 }
