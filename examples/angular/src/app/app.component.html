@@ -1,10 +1,11 @@
 <header>
-
+    <input (keydown)="this.term.set(inputTerm.value)" #inputTerm/>
 </header>
 <main>
     @for (product of search.value()?.products; track $index) {
         <article>
-            {{ product.name }}
+            <img [src]="product.image.replace('w_200', 'w_200,h_200')" [alt]="product.name" />
+            <h3>{{ product.name }}</h3>
         </article>
     }
 </main>
