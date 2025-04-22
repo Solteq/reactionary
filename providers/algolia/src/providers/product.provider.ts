@@ -2,7 +2,7 @@ import { Product, ProductIdentifier, ProductIdentifierSchema, ProductProvider, P
 import { algoliasearch } from 'algoliasearch';
 import { AlgoliaConfig } from '../core/configuration';
 
-export class AlgoliaProductProvider extends ProductProvider {
+export class AlgoliaProductProvider<T extends Product> extends ProductProvider<T> {
   protected config: AlgoliaConfig;
 
   constructor(config: AlgoliaConfig) {
@@ -11,7 +11,11 @@ export class AlgoliaProductProvider extends ProductProvider {
     this.config = config;
   }
 
-  public async get(identifier: ProductIdentifier): Promise<Product> {
+  protected override schema() {
+    return ProductSchema;
+  }
+
+  public async get(identifier: ProductIdentifier): Promise<T> {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
 
     const remote = await client.search({
@@ -29,10 +33,10 @@ export class AlgoliaProductProvider extends ProductProvider {
         id: p.objectID
     });
 
-    return this.schema().parse({
+    return (this.schema().parse({
         identifier: id,
         name: p.name,
         image: p.image
-    });
+    }) as any);
   }
 }

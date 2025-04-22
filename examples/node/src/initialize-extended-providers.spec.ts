@@ -9,27 +9,34 @@ describe('initialize extended providers', () => {
     const ExtendedProductSchema = ProductSchema.extend({
       extendedProductField: z.string().default('default value'),
     });
+    type ExtendedProduct = z.infer<typeof ExtendedProductSchema>;
 
-    class ExtendedAlgoliaProductProvider extends AlgoliaProductProvider {
+    class ExtendedAlgoliaProductProvider extends AlgoliaProductProvider<ExtendedProduct> {
       protected override schema() {
         return ExtendedProductSchema;
       }
     }
 
-    const client = buildClient([
+    const provider = new ExtendedAlgoliaProductProvider({
+      apiKey: process.env['ALGOLIA_API_KEY'] || '',
+      appId: process.env['ALGOLIA_APP_ID'] || '',
+      indexName: process.env['ALGOLIA_INDEX'] || '',
+    });
+
+    /**const client = buildClient([
       {
-        product: new ExtendedAlgoliaProductProvider({
-          apiKey: process.env['ALGOLIA_API_KEY'] || '',
-          appId: process.env['ALGOLIA_APP_ID'] || '',
-          indexName: process.env['ALGOLIA_INDEX'] || '',
-        }),
+        product: provider
       },
-    ]);
+    ]);*/
+
+    const client = {
+      product: provider
+    }
 
     const product = await client.product.get({
       id: '4d28f98d-c446-446e-b59a-d9f718e5b98a',
     });
 
-    expect((product as any).extendedProductField).toBe('default value');
+    expect(product.extendedProductField).toBe('default value');
   });
 });
