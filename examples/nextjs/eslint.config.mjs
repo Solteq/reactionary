@@ -1,3 +1,4 @@
+import playwright from 'eslint-plugin-playwright';
 import { FlatCompat } from '@eslint/eslintrc';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -11,11 +12,17 @@ const compat = new FlatCompat({
 });
 
 export default [
+  playwright.configs['flat/recommended'],
   ...fixupConfigRules(compat.extends('next')),
   ...fixupConfigRules(compat.extends('next/core-web-vitals')),
   ...baseConfig,
   ...nx.configs['flat/react-typescript'],
   {
     ignores: ['.next/**/*'],
+  },
+  {
+    files: ['**/*.ts', '**/*.js'],
+    // Override or add rules here
+    rules: {},
   },
 ];
