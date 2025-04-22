@@ -2,7 +2,7 @@ import { ProductProvider, ProductIdentifier, Product, ProductSchema } from '@rea
 import { CommercetoolsConfig } from '../core/configuration';
 import { CommercetoolsClient } from '../core/client';
 
-export class CommercetoolsProductProvider extends ProductProvider {
+export class CommercetoolsProductProvider<T extends Product> extends ProductProvider<T> {
   protected config: CommercetoolsConfig;
 
   constructor(config: CommercetoolsConfig) {
@@ -11,7 +11,7 @@ export class CommercetoolsProductProvider extends ProductProvider {
     this.config = config;
   }
 
-  public async get(identifier: ProductIdentifier): Promise<Product> {
+  public async get(identifier: ProductIdentifier): Promise<T> {
     const result = ProductSchema.parse({});
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
@@ -36,6 +36,6 @@ export class CommercetoolsProductProvider extends ProductProvider {
     }
     
 
-    return ProductSchema.parse(result);
+    return ProductSchema.parse(result) as T;
   }
 }

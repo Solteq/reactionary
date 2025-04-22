@@ -4,8 +4,8 @@ import { AlgoliaConfig } from "./configuration";
 import { AlgoliaProductProvider } from "../providers/product.provider";
 import { AlgoliaSearchProvider } from "../providers/search.provider";
 
-export function withAlgoliaCapabilities(configuration: AlgoliaConfig, capabilities: Partial<AlgoliaCapabilities>): Partial<Client> {
-    const client = {} as Partial<Client>;
+export function withAlgoliaCapabilities(configuration: AlgoliaConfig, capabilities: Partial<AlgoliaCapabilities>) {
+    const client = {} as Client;
 
     if (capabilities.products) {
         client.product = new AlgoliaProductProvider(configuration);

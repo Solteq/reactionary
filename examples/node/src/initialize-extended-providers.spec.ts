@@ -12,7 +12,7 @@ describe('initialize extended providers', () => {
     type ExtendedProduct = z.infer<typeof ExtendedProductSchema>;
 
     class ExtendedAlgoliaProductProvider extends AlgoliaProductProvider<ExtendedProduct> {
-      protected override schema() {
+      public override schema() {
         return ExtendedProductSchema;
       }
     }
@@ -23,15 +23,11 @@ describe('initialize extended providers', () => {
       indexName: process.env['ALGOLIA_INDEX'] || '',
     });
 
-    /**const client = buildClient([
+    const client = buildClient([
       {
         product: provider
-      },
-    ]);*/
-
-    const client = {
-      product: provider
-    }
+      }
+    ]);
 
     const product = await client.product.get({
       id: '4d28f98d-c446-446e-b59a-d9f718e5b98a',

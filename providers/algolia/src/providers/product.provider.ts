@@ -11,7 +11,7 @@ export class AlgoliaProductProvider<T extends Product> extends ProductProvider<T
     this.config = config;
   }
 
-  protected override schema() {
+  public override schema() {
     return ProductSchema;
   }
 
@@ -33,10 +33,10 @@ export class AlgoliaProductProvider<T extends Product> extends ProductProvider<T
         id: p.objectID
     });
 
-    return (this.schema().parse({
+    return this.schema().parse({
         identifier: id,
         name: p.name,
         image: p.image
-    }) as any);
+    }) as T;
   }
 }
