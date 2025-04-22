@@ -2,10 +2,12 @@ import { ProductProvider, ProductIdentifier, Product, ProductSchema } from '@rea
 import { CommercetoolsConfig } from '../core/configuration';
 import { CommercetoolsClient } from '../core/client';
 
-export class CommercetoolsProductProvider implements ProductProvider {
+export class CommercetoolsProductProvider extends ProductProvider {
   protected config: CommercetoolsConfig;
 
   constructor(config: CommercetoolsConfig) {
+    super();
+
     this.config = config;
   }
 

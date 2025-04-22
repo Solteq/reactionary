@@ -2,10 +2,12 @@ import { Product, ProductIdentifier, ProductIdentifierSchema, ProductProvider, P
 import { algoliasearch } from 'algoliasearch';
 import { AlgoliaConfig } from '../core/configuration';
 
-export class AlgoliaProductProvider implements ProductProvider {
+export class AlgoliaProductProvider extends ProductProvider {
   protected config: AlgoliaConfig;
 
   constructor(config: AlgoliaConfig) {
+    super();
+
     this.config = config;
   }
 
@@ -27,7 +29,7 @@ export class AlgoliaProductProvider implements ProductProvider {
         id: p.objectID
     });
 
-    return ProductSchema.parse({
+    return this.schema().parse({
         identifier: id,
         name: p.name,
         image: p.image

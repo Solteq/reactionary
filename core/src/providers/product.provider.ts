@@ -1,6 +1,10 @@
 import { ProductIdentifier } from "../schemas/identifiers.schema";
-import { Product } from "../schemas/product.schema";
+import { ProductSchema } from "../schemas/product.schema";
+import { z } from 'zod';
 
-export interface ProductProvider {
-    get(identifier: ProductIdentifier): Promise<Product>;
+export abstract class ProductProvider<T extends typeof ProductSchema = typeof ProductSchema> {
+    public abstract get(identifier: ProductIdentifier): Promise<z.infer<T>>;
+    protected schema() {
+        return ProductSchema;
+    }
 }

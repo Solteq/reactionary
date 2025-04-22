@@ -1,0 +1,21 @@
+{
+  "name": "examples-node",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/node/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/examples/node",
+        "main": "examples/node/src/index.ts",
+        "tsConfig": "examples/node/tsconfig.lib.json",
+        "assets": ["examples/node/*.md"],
+        "format": ["cjs"],
+        "generatePackageJson": true
+      }
+    }
+  }
+}
