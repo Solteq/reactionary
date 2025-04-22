@@ -25,7 +25,7 @@ describe('initialize extended providers', () => {
 
     const client = buildClient([
       {
-        product: provider
+        product: provider,
       }
     ]);
 

@@ -1,0 +1,10 @@
+<header>
+
+</header>
+<main>
+    @for (product of search.value()?.products; track $index) {
+        <article>
+            {{ product.name }}
+        </article>
+    }
+</main>

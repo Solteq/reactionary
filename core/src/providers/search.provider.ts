@@ -1,6 +1,9 @@
 import { SearchIdentifier } from "../schemas/identifiers.schema";
-import { SearchResult } from "../schemas/search.schema";
+import { SearchResult, SearchResultSchema } from "../schemas/search.schema";
 
-export interface SearchProvider {
-    get(identifier: SearchIdentifier): Promise<SearchResult>;
+export abstract class SearchProvider<T = SearchResult> {
+    public abstract get(identifier: SearchIdentifier): Promise<T>;
+    public schema() {
+        return SearchResultSchema;
+    }
 }

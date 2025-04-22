@@ -1,0 +1,14 @@
+:host {
+    display: block;
+}
+
+main {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.5rem;
+}
+
+article {
+    background: red;
+    color: white;
+}

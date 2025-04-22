@@ -7,14 +7,16 @@ import {
 import { algoliasearch } from 'algoliasearch';
 import { AlgoliaConfig } from '../core/configuration';
 
-export class AlgoliaSearchProvider implements SearchProvider {
+export class AlgoliaSearchProvider<T extends SearchResult> extends SearchProvider<T> {
   protected config: AlgoliaConfig;
 
   constructor(config: AlgoliaConfig) {
+    super();
+
     this.config = config;
   }
 
-  public async get(identifier: SearchIdentifier): Promise<SearchResult> {
+  public async get(identifier: SearchIdentifier): Promise<T> {
     const result: SearchResult = SearchResultSchema.parse({});
     const client = algoliasearch(this.config.appId, this.config.apiKey);
 
@@ -44,6 +46,6 @@ export class AlgoliaSearchProvider implements SearchProvider {
     result.identifier = identifier;
     result.pages = remoteProducts.nbHits;
 
-    return SearchResultSchema.parse(result);
+    return SearchResultSchema.parse(result) as T;
   }
 }

@@ -22,7 +22,7 @@
         "main": "providers/commercetools/src/index.ts",
         "tsConfig": "providers/commercetools/tsconfig.lib.json",
         "assets": ["providers/commercetools/*.md"],
-        "format": ["cjs"],
+        "format": ["esm"],
         "generatePackageJson": true
       }
     },
