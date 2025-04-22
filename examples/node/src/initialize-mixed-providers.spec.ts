@@ -25,7 +25,7 @@ describe('initialize mixed providers', () => {
       ),
     ]);
 
-    const search = await client.search.get({ term: 'glass', page: 0, pageSize: 10 });
+    const search = await client.search.get({ term: 'glass', page: 0, pageSize: 10, facets: [] });
 
     expect(search.products.length).toBeGreaterThan(0);
 

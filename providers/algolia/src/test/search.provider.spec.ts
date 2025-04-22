@@ -8,7 +8,7 @@ describe('Algolia Search Provider', () => {
         indexName: process.env['ALGOLIA_INDEX'] || ''
     });
 
-    const result = await provider.get({ term: 'glass', page: 0, pageSize: 20 });
+    const result = await provider.get({ term: 'glass', page: 0, pageSize: 20, facets: [] });
 
     expect(result.products.length).toBeGreaterThan(0);
   });

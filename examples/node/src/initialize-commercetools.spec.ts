@@ -22,6 +22,7 @@ describe('initialize commercetools', () => {
       term: 'glass',
       page: 0,
       pageSize: 10,
+      facets: []
     });
 
     expect(result.identifier.term).toBe('glass');

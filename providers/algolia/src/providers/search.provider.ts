@@ -38,6 +38,7 @@ export class AlgoliaSearchProvider<T extends SearchResult> extends SearchProvide
         identifier: {
             id: p.objectID
         },
+        slug: p.slug,
         name: p.name,
         image: p.image,
       });

@@ -24,9 +24,10 @@ export class AppComponent {
   protected pageSize = signal(20);
   protected page = signal(0);
   protected term = signal('glass');
+  protected facets = signal([]);
 
   protected search = resource({
-    request: () => ({ pageSize: this.pageSize(), page: this.page(), term: this.term() }),
+    request: () => ({ pageSize: this.pageSize(), page: this.page(), term: this.term(), facets: this.facets() }),
     loader: async ({ request }) => {
       return this.client.search.get(request);
     }
