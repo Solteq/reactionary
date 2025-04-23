@@ -2,10 +2,37 @@
     <input (keydown)="this.term.set(inputTerm.value)" #inputTerm/>
 </header>
 <main>
-    @for (product of search.value()?.products; track $index) {
-        <article>
-            <img [src]="product.image.replace('w_200', 'w_200,h_200')" [alt]="product.name" />
-            <h3>{{ product.name }}</h3>
-        </article>
-    }
+    <aside>
+        @for (facet of search()?.facets; track $index) {
+            <details [open]="true">
+                <summary>{{ facet.name }}</summary>
+                
+                <div class="content">
+                    @for (value of facet.values; track $index) {
+                        <label>
+                            <span>{{ value.name }}</span>
+                            <span>{{ value.count }}</span>
+                            <input type="checkbox" (click)="toggleFacet(value.identifier)" [checked]="value.active"/>
+                        </label>
+                    }
+                </div>
+            </details>
+        }
+    </aside>
+    <section>
+        @for (product of search()?.products; track $index) {
+            <article>
+                <img [src]="product.image.replace('w_200', 'w_200,h_200')" [alt]="product.name" />
+                <h3>{{ product.name }}</h3>
+            </article>
+        }
+    </section>
 </main>
+<footer>
+    <button (click)="previousPage()" [disabled]="hasPrevious()">
+        &lt;
+    </button>
+    <button (click)="nextPage()" [disabled]="hasNext()">
+        &gt;
+    </button>
+</footer>

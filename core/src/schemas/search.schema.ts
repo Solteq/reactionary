@@ -11,11 +11,12 @@ export const SearchResultProductSchema = z.object({
 export const SearchResultFacetValueSchema = z.object({
     identifier: FacetValueIdentifierSchema.default(FacetValueIdentifierSchema.parse({})),
     name: z.string().default(''),
-    count: z.number().default(0)
+    count: z.number().default(0),
+    active: z.boolean().default(false)
 });
 
 export const SearchResultFacetSchema = z.object({
-    id: FacetIdentifierSchema.default(FacetIdentifierSchema.parse({})),
+    identifier: FacetIdentifierSchema.default(FacetIdentifierSchema.parse({})),
     name: z.string().default(''),
     values: z.array(SearchResultFacetValueSchema).default([])
 });
