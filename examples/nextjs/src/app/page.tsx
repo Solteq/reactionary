@@ -1,8 +1,14 @@
 import styles from './page.module.scss';
 import { buildClient } from '@reactionary/core';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
+import Link from 'next/link';
 
-export default async function Index() {
+export default async function Index({ searchParams }) {
+  const params = await searchParams;
+  const term = params.term || '';
+  const pageSize = Number(params.pageSize) || 20;
+  const page = Number(params.page) || 0;
+
   const client = buildClient([
     withAlgoliaCapabilities(
       {
@@ -15,12 +21,11 @@ export default async function Index() {
   ]);
 
   const result = await client.search.get({
-    term: 'glass',
+    term,
     facets: [],
-    page: 0,
-    pageSize: 20
+    page,
+    pageSize
   });
-
 
   /*
    * Replace the elements below with your own.
@@ -43,11 +48,15 @@ export default async function Index() {
                 <div>
                   {
                       facet.values.map(facetValue =>
-                        <label key={ facetValue.identifier.id }>
-                          <span>{ facetValue.name }</span>
-                          <span>{ facetValue.count }</span>
-                          <input type="checkbox" checked={ facetValue.active } readOnly />
-                        </label>
+                        <Link key={ facetValue.identifier.id } href={{
+                          query: { ...params, name: 'foo' }
+                        }}>
+                          <label>
+                            <span>{ facetValue.name }</span>
+                            <span>{ facetValue.count }</span>
+                            <input type="checkbox" checked={ facetValue.active } readOnly />
+                          </label>
+                        </Link>
                       )
                   }
                 </div>

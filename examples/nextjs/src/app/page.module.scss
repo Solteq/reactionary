@@ -3,7 +3,8 @@
 
   input,
   h3,
-  button {
+  button,
+  a {
     all: unset;
     box-sizing: border-box;
   }
@@ -73,6 +74,10 @@ aside {
     grid-auto-rows: min-content;
     padding: 0.5rem;
     gap: 0.5rem;
+
+    a {
+      display: contents;
+    }
 
     label {
       grid-column: span 3;
