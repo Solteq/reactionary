@@ -12,9 +12,9 @@ export default async function Index({ searchParams }) {
   const client = buildClient([
     withAlgoliaCapabilities(
       {
-        apiKey: '1f3c6a681eadb77fbf42ca148ace0767',
-        appId: 'G10R4JEVO1',
-        indexName: 'martinrogne-products',
+        apiKey: '06895056a3e91be5f5a1bc6d580d3ca4',
+        appId: '3WEOFTHPZD',
+        indexName: 'reactionary-products',
       },
       { search: true, products: true }
     ),
