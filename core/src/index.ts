@@ -1,3 +1,5 @@
+export * from './cache/cache';
+
 export * from './client/client';
 
 export * from './providers/product.provider';
