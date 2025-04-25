@@ -1,0 +1,11 @@
+:host {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    color: rgb(205, 214, 244);
+}
+
+img {
+    width: 100%;
+    border-radius: 0.5rem;
+}

@@ -1,31 +1,88 @@
+'use client'
+
 import styles from './page.module.scss';
-import { buildClient } from '@reactionary/core';
+import { buildClient, FacetValueIdentifier, SearchIdentifier, SearchResult } from '@reactionary/core';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
-export default async function Index({ searchParams }) {
-  const params = await searchParams;
-  const term = params.term || '';
-  const pageSize = Number(params.pageSize) || 20;
-  const page = Number(params.page) || 0;
-
-  const client = buildClient([
-    withAlgoliaCapabilities(
-      {
-        apiKey: '06895056a3e91be5f5a1bc6d580d3ca4',
-        appId: '3WEOFTHPZD',
-        indexName: 'reactionary-products',
-      },
-      { search: true, products: true }
-    ),
-  ]);
-
-  const result = await client.search.get({
-    term,
+export default function Index() {
+  const [query, setQuery] = useState<SearchIdentifier>({
+    term: 'glass',
     facets: [],
-    page,
-    pageSize
+    page: 0,
+    pageSize: 20
   });
+
+  const [pagination, setPagination] = useState({
+    hasNextPage: false,
+    hasPreviousPage: false
+  });
+
+  const [search, setSearch] = useState<SearchResult | undefined>(undefined);
+
+  useEffect(() => {
+    const client = buildClient([
+      withAlgoliaCapabilities(
+        {
+          apiKey: '06895056a3e91be5f5a1bc6d580d3ca4',
+          appId: '3WEOFTHPZD',
+          indexName: 'reactionary-products',
+        },
+        { search: true, products: true }
+      ),
+    ]);
+
+    async function fetchPosts() {
+      const data = await client.search.get(query);
+      
+      setSearch(data);
+      setPagination({
+        hasPreviousPage: data.identifier.page > 0,
+        hasNextPage: query.page < (data.pages - 1)
+      });
+    }
+
+    fetchPosts()
+  }, [query])
+
+  function toggleFacet(value: FacetValueIdentifier) {
+    const newQuery = {
+      ...query
+    };
+
+    const old = newQuery.facets;
+    const existingIndex = old.findIndex(
+      (x) => JSON.stringify(x) === JSON.stringify(value)
+    );
+  
+    if (existingIndex > -1) {
+      newQuery.facets.splice(existingIndex, 1);
+    } else {
+      newQuery.facets.push(value);
+    }
+
+    setQuery(newQuery);
+  }
+
+  function previousPage() {
+    const newQuery = {
+      ...query,
+    }
+
+    newQuery.page--;
+
+    setQuery(newQuery);
+  }
+
+  function nextPage() {
+    const newQuery = {
+      ...query,
+    }
+
+    newQuery.page++;
+
+    setQuery(newQuery);
+  }
 
   /*
    * Replace the elements below with your own.
@@ -40,7 +97,7 @@ export default async function Index({ searchParams }) {
       <main>
         <aside>
           {
-            result.facets.map(facet =>
+            search?.facets.map(facet =>
               <details key={ facet.identifier.id }>
                 <summary>
                   { facet.name }
@@ -48,15 +105,11 @@ export default async function Index({ searchParams }) {
                 <div>
                   {
                       facet.values.map(facetValue =>
-                        <Link key={ facetValue.identifier.id } href={{
-                          query: { ...params, name: 'foo' }
-                        }}>
-                          <label>
-                            <span>{ facetValue.name }</span>
-                            <span>{ facetValue.count }</span>
-                            <input type="checkbox" checked={ facetValue.active } readOnly />
-                          </label>
-                        </Link>
+                        <label key={ facetValue.identifier.id }>
+                          <span>{ facetValue.name }</span>
+                          <span>{ facetValue.count }</span>
+                          <input type="checkbox" checked={ facetValue.active } onChange={(e) => toggleFacet(facetValue.identifier) } />
+                        </label>
                       )
                   }
                 </div>
@@ -66,7 +119,7 @@ export default async function Index({ searchParams }) {
         </aside>
         <section>
           {
-            result.products.map(product =>
+            search?.products.map(product =>
               <article key={ product.identifier.id }>
                 <img src={product.image.replace('w_200', 'w_200,h_200')} />
                 <h3>{ product.name }</h3>
@@ -76,8 +129,8 @@ export default async function Index({ searchParams }) {
         </section>
       </main>
       <footer>
-        <button>&lt;</button>
-        <button>&gt;</button>
+        <button disabled={ !pagination.hasPreviousPage } onClick={ previousPage }>&lt;</button>
+        <button disabled={ !pagination.hasNextPage} onClick={ nextPage }>&gt;</button>
       </footer>
     </div>
   );

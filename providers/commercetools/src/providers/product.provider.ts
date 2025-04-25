@@ -1,8 +1,15 @@
-import { ProductProvider, ProductIdentifier, Product, ProductSchema } from '@reactionary/core';
+import {
+  ProductProvider,
+  Product,
+  ProductSchema,
+  ProductQuery,
+} from '@reactionary/core';
 import { CommercetoolsConfig } from '../core/configuration';
 import { CommercetoolsClient } from '../core/client';
 
-export class CommercetoolsProductProvider<T extends Product> extends ProductProvider<T> {
+export class CommercetoolsProductProvider<
+  T extends Product
+> extends ProductProvider<T> {
   protected config: CommercetoolsConfig;
 
   constructor(config: CommercetoolsConfig) {
@@ -11,30 +18,50 @@ export class CommercetoolsProductProvider<T extends Product> extends ProductProv
     this.config = config;
   }
 
-  public async get(identifier: ProductIdentifier): Promise<T> {
+  public async get(query: ProductQuery): Promise<T> {
     const result = ProductSchema.parse({});
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
-    const remote = await client
-      .withProjectKey({ projectKey: this.config.projectKey })
-      .productProjections()
-      .withId({
-        ID: identifier.id,
-      })
-      .get()
-      .execute();
+    let remote;
 
-    result.identifier.id = remote.body.id;
-    result.name = remote.body.name['en-US'];
+    if (query.id) {
+      const result = await client
+        .withProjectKey({ projectKey: this.config.projectKey })
+        .productProjections()
+        .withId({
+          ID: query.id,
+        })
+        .get()
+        .execute();
 
-    if (remote.body.description) {
-        result.description = remote.body.description['en-US'];
+        remote = result.body;
+    } else {
+      const result = await client
+        .withProjectKey({ projectKey: this.config.projectKey })
+        .productProjections()
+        .get({
+          queryArgs: {
+            where: 'slug(en-US=:slug)',
+            'var.slug': query.slug
+          }
+        })
+        .execute();
+
+      remote = result.body.results[0];
     }
 
-    if (remote.body.masterVariant.images) {
-        result.image = remote.body.masterVariant.images[0].url;
+    result.identifier.id = remote.id;
+    result.name = remote.name['en-US'];
+
+    console.log('result: ', remote);
+
+    if (remote.description) {
+      result.description = remote.description['en-US'];
     }
-    
+
+    if (remote.masterVariant.images) {
+      result.image = remote.masterVariant.images[0].url;
+    }
 
     return ProductSchema.parse(result) as T;
   }

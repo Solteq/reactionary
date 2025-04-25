@@ -1,0 +1,14 @@
+@if (productResource.value(); as product) {
+    <section>
+        <img [src]="product.image" [alt]="product.name" />
+    </section>
+    <section>
+        <h2>{{ product.name }}</h2>
+        <h3>{{ product.description }}</h3>
+        <ol>
+            @for (attribute of product.attributes; track $index) {
+                ${{ attribute | json }}
+            }
+        </ol>
+    </section>
+}

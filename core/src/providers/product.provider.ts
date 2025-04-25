@@ -1,8 +1,7 @@
-import { ProductIdentifier } from "../schemas/identifiers.schema";
-import { Product, ProductSchema } from "../schemas/product.schema";
+import { Product, ProductQuery, ProductSchema } from "../schemas/product.schema";
 
 export abstract class ProductProvider<T = Product> {
-    public abstract get(identifier: ProductIdentifier): Promise<T>;
+    public abstract get(query: ProductQuery): Promise<T>;
     public schema() {
         return ProductSchema;
     }

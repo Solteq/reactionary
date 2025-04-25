@@ -1,4 +1,4 @@
-import { Product, ProductIdentifier, ProductIdentifierSchema, ProductProvider, ProductSchema } from '@reactionary/core';
+import { Product, ProductIdentifierSchema, ProductProvider, ProductQuery, ProductSchema } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
 import { AlgoliaConfig } from '../core/configuration';
 
@@ -15,14 +15,14 @@ export class AlgoliaProductProvider<T extends Product> extends ProductProvider<T
     return ProductSchema;
   }
 
-  public async get(identifier: ProductIdentifier): Promise<T> {
+  public async get(query: ProductQuery): Promise<T> {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
 
     const remote = await client.search({
       requests: [
         {
           indexName: this.config.indexName,
-          filters: `objectID:${ identifier.id }`,
+          filters: `objectID:${ query.id } OR slug:${ query.slug }`,
         },
       ],
     });

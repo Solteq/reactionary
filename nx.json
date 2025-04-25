@@ -50,6 +50,14 @@
         "style": "scss",
         "linter": "eslint"
       }
+    },
+    "@nx/angular:component": {
+      "style": "scss",
+      "displayBlock": true,
+      "skipTests": true,
+      "standalone": true,
+      "changeDetection": "OnPush",
+      "viewEncapsulation": "ShadowDom"
     }
   },
   "release": {

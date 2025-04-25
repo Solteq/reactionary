@@ -1,86 +1,111 @@
 <script setup lang="ts">
-  import { buildClient } from '@reactionary/core';
-  import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
-  import { ref, watch, reactive, computed } from 'vue';
+import {
+  buildClient,
+  FacetValueIdentifier,
+  SearchResult,
+} from '@reactionary/core';
+import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
+import { ref, watch, reactive, computed } from 'vue';
 
-  const client = buildClient([
-    withAlgoliaCapabilities(
-      {
-        apiKey: '06895056a3e91be5f5a1bc6d580d3ca4',
-        appId: '3WEOFTHPZD',
-        indexName: 'reactionary-products',
-      },
-      { search: true, products: true }
-    ),
-  ]);
+const client = buildClient([
+  withAlgoliaCapabilities(
+    {
+      apiKey: '06895056a3e91be5f5a1bc6d580d3ca4',
+      appId: '3WEOFTHPZD',
+      indexName: 'reactionary-products',
+    },
+    { search: true, products: true }
+  ),
+]);
 
-  const result = ref(null);
-  const query = reactive({
-    term: '',
-    facets: [],
-    page: 0,
-    pageSize: 20
-  });
+const result = ref<SearchResult | undefined>(undefined);
+const query = reactive({
+  term: '',
+  facets: new Array<FacetValueIdentifier>(),
+  page: 0,
+  pageSize: 20,
+});
 
-  watch(query, async (q) => {
+watch(
+  query,
+  async (q) => {
     result.value = await client.search.get({
       term: q.term,
       facets: q.facets,
       page: q.page,
-      pageSize: q.pageSize
+      pageSize: q.pageSize,
     });
-  }, { immediate: true });
+  },
+  { immediate: true }
+);
 
-  const hasNextPage = computed(() => {
-    return query.page <= (result.value?.pages || 0) - 1;
-  });
+const hasNextPage = computed(() => {
+  return query.page < (result.value?.pages || 0) - 1;
+});
 
-  const hasPreviousPage = computed(() => {
-    return query.page > 0;
-  });
+const hasPreviousPage = computed(() => {
+  return query.page > 0;
+});
 
-  function toggleFacet(value) {
-    const old = query.facets;
-    const existingIndex = old.findIndex(x => JSON.stringify(x) === JSON.stringify(value));
+function toggleFacet(value: FacetValueIdentifier) {
+  const old = query.facets;
+  const existingIndex = old.findIndex(
+    (x) => JSON.stringify(x) === JSON.stringify(value)
+  );
 
-    if (existingIndex > -1) {
-      query.facets.splice(existingIndex, 1)
-    } else {
-      query.facets.push(value);
-    }
+  if (existingIndex > -1) {
+    query.facets.splice(existingIndex, 1);
+  } else {
+    query.facets.push(value);
   }
+}
+
+function updateTerm(e: Event) {
+  if (e.target && e.target instanceof HTMLInputElement) {
+    query.term = e.target.value;
+  }
+}
 </script>
 
 <template>
   <div class="host">
     <header>
-      <input @change="event => query.term = event.target.value"/>
+      <input @change="(event) => updateTerm(event)" />
     </header>
     <main>
       <aside>
-        <details v-for="facet in result?.facets">
+        <details v-for="facet in result?.facets" :key="facet.identifier.id">
           <summary>
             {{ facet.name }}
           </summary>
           <div>
-            <label v-for="value of facet.values">
+            <label v-for="value of facet.values" :key="value.identifier.id">
               <span>{{ value.name }}</span>
               <span>{{ value.count }}</span>
-              <input type="checkbox" :checked="value.active" @click="event => toggleFacet(value.identifier)" />
+              <input
+                type="checkbox"
+                :checked="value.active"
+                @click="() => toggleFacet(value.identifier)"
+              />
             </label>
           </div>
         </details>
       </aside>
       <section>
-        <article v-for="product in result?.products">
+        <article
+          v-for="product in result?.products"
+          :key="product.identifier.id"
+        >
           <img :src="product.image.replace('w_200', 'w_200,h_200')" />
           <h3>{{ product.name }}</h3>
         </article>
       </section>
     </main>
     <footer>
-      <button :disabled="!hasPreviousPage" @click="event => query.page--">&lt;</button>
-      <button :disabled="!hasNextPage" @click="event => query.page++">&gt;</button>
+      <button :disabled="!hasPreviousPage" @click="() => query.page--">
+        &lt;
+      </button>
+      <button :disabled="!hasNextPage" @click="() => query.page++">&gt;</button>
     </footer>
   </div>
 </template>
@@ -95,156 +120,152 @@
     box-sizing: border-box;
   }
 
-header {
-  width: 100%;
-  padding: 0.5rem;
-
-  input {
-    padding-inline: 1rem;
-    color: rgb(205, 214, 244);
-    background: rgb(88, 91, 112);
+  header {
     width: 100%;
-    height: 3rem;
+    padding: 0.5rem;
+
+    input {
+      padding-inline: 1rem;
+      color: rgb(205, 214, 244);
+      background: rgb(88, 91, 112);
+      width: 100%;
+      height: 3rem;
+      border-radius: 0.5rem;
+    }
+  }
+
+  main {
+    padding-inline: 0.5rem;
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: 300px 1fr;
+    color: rgb(205, 214, 244);
+  }
+
+  details[open] {
+    summary:after {
+      content: '-';
+    }
+  }
+
+  details {
+    position: relative;
+    background: rgb(49, 50, 68);
     border-radius: 0.5rem;
   }
-}
 
-main {
-  padding-inline: 0.5rem;
-  display: grid;
-  gap: 0.5rem;
-  grid-template-columns: 300px 1fr;
-  color: rgb(205, 214, 244);
-}
-
-details[open] {
-  summary:after {
-    content: '-';
-  }
-}
-
-details {
-  position: relative;
-  background: rgb(49, 50, 68);
-  border-radius: 0.5rem;
-}
-
-summary {
-  font-weight: bold;
-  text-transform: capitalize;
-  list-style: none;
-  padding: 0.5rem;
-
-  &::-webkit-details-marker {
-    display: none;
-  }
-
-  &::after {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    content: '+';
-    line-height: 1;
-  }
-}
-
-aside {
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-auto-rows: min-content;
-  gap: 0.25rem;
-
-  div {
-    display: grid;
-    grid-template-columns: 1fr min-content min-content;
-    grid-auto-rows: min-content;
+  summary {
+    font-weight: bold;
+    text-transform: capitalize;
+    list-style: none;
     padding: 0.5rem;
-    gap: 0.5rem;
 
-    a {
-      display: contents;
+    &::-webkit-details-marker {
+      display: none;
     }
 
-    label {
-      grid-column: span 3;
+    &::after {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      content: '+';
+      line-height: 1;
+    }
+  }
+
+  aside {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-auto-rows: min-content;
+    gap: 0.25rem;
+
+    div {
       display: grid;
-      grid-template-columns: subgrid;
-      align-items: center;
+      grid-template-columns: 1fr min-content min-content;
+      grid-auto-rows: min-content;
+      padding: 0.5rem;
       gap: 0.5rem;
 
-      input {
-        width: 1.5rem;
-        height: 1.5rem;
-        background: rgb(147, 153, 178);
-        border-radius: 0.125rem;
+      a {
+        display: contents;
+      }
 
-        &:checked {
+      label {
+        grid-column: span 3;
+        display: grid;
+        grid-template-columns: subgrid;
+        align-items: center;
+        gap: 0.5rem;
+
+        input {
+          width: 1.5rem;
+          height: 1.5rem;
+          background: rgb(147, 153, 178);
+          border-radius: 0.125rem;
+
+          &:checked {
             background: rgb(137, 220, 235);
+          }
         }
       }
     }
   }
-}
 
-section {
-  justify-content: center;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  grid-auto-rows: min-content;
-  gap: 0.5rem;
-}
-
-article {
-  background: rgb(49, 50, 68);
-  border-radius: 0.25rem;
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: 1fr min-content;
-  gap: 1rem;
-
-  h3 {
-    line-height: 1.2;
-    font-size: 1rem;
-    text-align: center;
-    margin-bottom: 1rem;
+  section {
+    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-auto-rows: min-content;
+    gap: 0.5rem;
   }
 
-  img {
-    object-fit: contain;
-    border-top-left-radius: inherit;
-    border-top-right-radius: inherit;
-    max-width: 100%;
-    width: 100%;
+  article {
+    background: rgb(49, 50, 68);
+    border-radius: 0.25rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr min-content;
+    gap: 1rem;
+
+    h3 {
+      line-height: 1.2;
+      font-size: 1rem;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    img {
+      object-fit: contain;
+      border-top-left-radius: inherit;
+      border-top-right-radius: inherit;
+      max-width: 100%;
+      width: 100%;
+    }
+  }
+
+  footer {
+    margin: 0.5rem;
+    gap: 0.25rem;
+    display: grid;
+    grid-template-columns: min-content min-content;
+    align-items: center;
+    justify-content: center;
+  }
+
+  button {
+    display: grid;
+    justify-content: center;
+    align-items: center;
+
+    height: 3rem;
+    background: rgb(49, 50, 68);
+    color: rgb(205, 214, 244);
+    aspect-ratio: 1 / 1;
+    border-radius: 0.25rem;
+
+    &:disabled {
+      opacity: 0.5;
+    }
   }
 }
-
-footer {
-  margin: 0.5rem;
-  gap: 0.25rem;
-  display: grid;
-  grid-template-columns: min-content min-content;
-  align-items: center;
-  justify-content: center;
-}
-
-button {
-  display: grid;
-  justify-content: center;
-  align-items: center;
-
-  height: 3rem;
-  background: rgb(49, 50, 68);
-  color: rgb(205, 214, 244);
-  aspect-ratio: 1 / 1;
-  border-radius: 0.25rem;
-
-  &:disabled {
-    opacity: 0.5;
-  }
-}
-}
-
-
-
-
 </style>

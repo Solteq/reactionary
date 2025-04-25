@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { ProductIdentifierSchema } from './identifiers.schema';
 
+export const ProductQuerySchema = z.object({
+    slug: z.string(),
+    id: z.string(),
+}).partial().refine(data => data.id || data.slug, 'Either slug or id must be defined');
+
 export const ProductAttributeSchema = z.object({
     id: z.string(),
     name: z.string().default(''),
@@ -18,3 +23,5 @@ export const ProductSchema = z.object({
 });
 
 export type Product = z.infer<typeof ProductSchema>;
+export type ProductAttribute = z.infer<typeof ProductAttributeSchema>;
+export type ProductQuery = z.infer<typeof ProductQuerySchema>;
