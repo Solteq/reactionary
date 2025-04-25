@@ -24,9 +24,9 @@ export default function Index() {
     const client = buildClient([
       withAlgoliaCapabilities(
         {
-          apiKey: '06895056a3e91be5f5a1bc6d580d3ca4',
-          appId: '3WEOFTHPZD',
-          indexName: 'reactionary-products',
+          apiKey: '6182ae56fe75db797b05a2d41fcd8ef9',
+          appId: 'BPS0QU5YHD',
+          indexName: 'products',
         },
         { search: true, products: true }
       ),
@@ -34,7 +34,7 @@ export default function Index() {
 
     async function fetchPosts() {
       const data = await client.search.get(query);
-      
+
       setSearch(data);
       setPagination({
         hasPreviousPage: data.identifier.page > 0,
@@ -54,7 +54,7 @@ export default function Index() {
     const existingIndex = old.findIndex(
       (x) => JSON.stringify(x) === JSON.stringify(value)
     );
-  
+
     if (existingIndex > -1) {
       newQuery.facets.splice(existingIndex, 1);
     } else {

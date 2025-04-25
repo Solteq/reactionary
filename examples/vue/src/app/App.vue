@@ -10,9 +10,9 @@ import { ref, watch, reactive, computed } from 'vue';
 const client = buildClient([
   withAlgoliaCapabilities(
     {
-      apiKey: '06895056a3e91be5f5a1bc6d580d3ca4',
-      appId: '3WEOFTHPZD',
-      indexName: 'reactionary-products',
+      apiKey: 'd67221c03e6e4b3bd47e1a35bfa46f36',
+      appId: 'BPS0QU5YHD',
+      indexName: 'products',
     },
     { search: true, products: true }
   ),

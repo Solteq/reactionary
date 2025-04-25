@@ -9,9 +9,9 @@ export class SearchService {
   protected client = buildClient([
     withAlgoliaCapabilities(
       {
-        apiKey: '06895056a3e91be5f5a1bc6d580d3ca4',
-        appId: '3WEOFTHPZD',
-        indexName: 'reactionary-products',
+        apiKey: '49a820e012607cd2c5a72b8ffc8d0029',
+        appId: 'BPS0QU5YHD',
+        indexName: 'products',
       },
       { search: true, products: true }
     ),

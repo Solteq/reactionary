@@ -4,7 +4,6 @@ import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
 import { buildClient } from '@reactionary/core';
-import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 
 @Component({
@@ -20,24 +19,16 @@ export class ProductComponent {
     { initialValue: '' }
   );
   protected client = buildClient([
-    withAlgoliaCapabilities(
-      {
-        // Read key
-        apiKey: '06895056a3e91be5f5a1bc6d580d3ca4',
-        appId: '3WEOFTHPZD',
-        indexName: 'reactionary-products',
-      },
-      { search: true, products: false }
-    ),
     withCommercetoolsCapabilities(
       {
         apiUrl: 'https://api.europe-west1.gcp.commercetools.com',
         authUrl: 'https://auth.europe-west1.gcp.commercetools.com',
-        clientId: '',
-        clientSecret: '',
+        // Read key
+        clientId: 'qerkG2wiftLupQnKHeW-OZ6a',
+        clientSecret: '0LK3aWUDBRrMUXh5rJBKtC5S1qZJznsn',
         projectKey: 'perpendicular'
       },
-      { products: true }
+      { products: true, search: true }
     ),
   ]);
 

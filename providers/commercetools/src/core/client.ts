@@ -5,7 +5,6 @@ import { createApiBuilderFromCtpClient } from '@commercetools/platform-sdk';
 const ANONYMOUS_SCOPES = [
   'view_published_products',
   'view_products',
-  'manage_my_profile',
 ];
 
 export class CommercetoolsClient {
