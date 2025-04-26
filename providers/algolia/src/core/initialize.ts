@@ -1,4 +1,4 @@
-import { Client } from "@reactionary/core";
+import { Client, ProductSchema } from "@reactionary/core";
 import { AlgoliaCapabilities } from "./capabilities";
 import { AlgoliaConfig } from "./configuration";
 import { AlgoliaProductProvider } from "../providers/product.provider";
@@ -8,7 +8,7 @@ export function withAlgoliaCapabilities(configuration: AlgoliaConfig, capabiliti
     const client = {} as Client;
 
     if (capabilities.products) {
-        client.product = new AlgoliaProductProvider(configuration);
+        client.product = new AlgoliaProductProvider(configuration, ProductSchema);
     }
 
     if (capabilities.search) {

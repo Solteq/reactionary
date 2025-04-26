@@ -1,21 +1,18 @@
-import { Product, ProductIdentifierSchema, ProductProvider, ProductQuery, ProductSchema } from '@reactionary/core';
+import { ProductIdentifierSchema, ProductProvider, ProductQuery } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
 import { AlgoliaConfig } from '../core/configuration';
+import { z } from 'zod';
 
-export class AlgoliaProductProvider<T extends Product> extends ProductProvider<T> {
+export class AlgoliaProductProvider<T extends z.ZodTypeAny> extends ProductProvider<T> {
   protected config: AlgoliaConfig;
 
-  constructor(config: AlgoliaConfig) {
-    super();
+  constructor(config: AlgoliaConfig, schema: T) {
+    super(schema);
 
     this.config = config;
   }
 
-  public override schema() {
-    return ProductSchema;
-  }
-
-  public async get(query: ProductQuery): Promise<T> {
+  public async get(query: ProductQuery) {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
 
     const remote = await client.search({
@@ -26,17 +23,18 @@ export class AlgoliaProductProvider<T extends Product> extends ProductProvider<T
         },
       ],
     });
-    
+
     const p = (remote.results[0] as any).hits[0];
 
     const id = ProductIdentifierSchema.parse({
         id: p.objectID
     });
 
-    return this.schema().parse({
+    return this.parse({
         identifier: id,
         name: p.name,
         image: p.image
-    }) as T;
+    });
   }
 }
+

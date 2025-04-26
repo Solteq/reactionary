@@ -1,4 +1,4 @@
-import { Client } from "@reactionary/core";
+import { Client, ProductSchema } from "@reactionary/core";
 import { CommercetoolsConfig } from "./configuration";
 import { CommercetoolsCapabilities } from "./capabilities";
 import { CommercetoolsProductProvider } from "../providers/product.provider";
@@ -8,7 +8,7 @@ export function withCommercetoolsCapabilities(configuration: CommercetoolsConfig
     const client = {} as Client;
 
     if (capabilities.products) {
-        client.product = new CommercetoolsProductProvider(configuration);
+        client.product = new CommercetoolsProductProvider(configuration, ProductSchema);
     }
 
     if (capabilities.search) {

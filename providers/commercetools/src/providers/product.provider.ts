@@ -1,24 +1,24 @@
 import {
   ProductProvider,
-  Product,
   ProductSchema,
   ProductQuery,
 } from '@reactionary/core';
 import { CommercetoolsConfig } from '../core/configuration';
 import { CommercetoolsClient } from '../core/client';
+import { z } from 'zod';
 
 export class CommercetoolsProductProvider<
-  T extends Product
+  T extends z.ZodTypeAny
 > extends ProductProvider<T> {
   protected config: CommercetoolsConfig;
 
-  constructor(config: CommercetoolsConfig) {
-    super();
+  constructor(config: CommercetoolsConfig, schema: T) {
+    super(schema);
 
     this.config = config;
   }
 
-  public async get(query: ProductQuery): Promise<T> {
+  public async get(query: ProductQuery) {
     const result = ProductSchema.parse({});
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
@@ -63,6 +63,6 @@ export class CommercetoolsProductProvider<
       result.image = remote.masterVariant.images[0].url;
     }
 
-    return ProductSchema.parse(result) as T;
+    return this.schema.parse(result);
   }
 }

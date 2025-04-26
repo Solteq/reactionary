@@ -9,19 +9,12 @@ describe('initialize extended providers', () => {
     const ExtendedProductSchema = ProductSchema.extend({
       extendedProductField: z.string().default('default value'),
     });
-    type ExtendedProduct = z.infer<typeof ExtendedProductSchema>;
 
-    class ExtendedAlgoliaProductProvider extends AlgoliaProductProvider<ExtendedProduct> {
-      public override schema() {
-        return ExtendedProductSchema;
-      }
-    }
-
-    const provider = new ExtendedAlgoliaProductProvider({
+    const provider = new AlgoliaProductProvider({
       apiKey: process.env['ALGOLIA_API_KEY'] || '',
       appId: process.env['ALGOLIA_APP_ID'] || '',
       indexName: process.env['ALGOLIA_INDEX'] || '',
-    });
+    }, ExtendedProductSchema);
 
     const client = buildClient([
       {
