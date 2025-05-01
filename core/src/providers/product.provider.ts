@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { Product, ProductQuery, ProductSchema } from '../schemas/product.schema';
+import { ProductQuery, ProductSchema } from '../schemas/product.schema';
 
-export abstract class ProductProvider<T extends z.ZodType<Product>> {
-    protected schema = ProductSchema;
+export abstract class ProductProvider<T extends z.ZodType> {
+    protected schema: typeof ProductSchema = ProductSchema;
 
     protected validate(value: unknown): z.infer<T> {
       return this.schema.parse(value);

@@ -26,8 +26,9 @@ export class AlgoliaProductProvider<T extends z.ZodType<Product>> extends Produc
 
     const p = (remote.results[0] as any).hits[0];
     const parsed = this.parse(p);
+    const validated = this.validate(parsed);
 
-    return this.validate(parsed);
+    return validated;
   }
 
   public override parse(data: any): z.infer<T> {

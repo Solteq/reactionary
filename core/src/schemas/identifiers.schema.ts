@@ -9,18 +9,17 @@ import { z } from 'zod';
  * - Serverside Next example
  */
 
-// TODO: rename to key
 export const FacetIdentifierSchema = z.interface({
-    id: z.string().default('')
+    key: z.string().default('')
 });
 
 export const FacetValueIdentifierSchema = z.interface({
     facet: FacetIdentifierSchema.default(FacetIdentifierSchema.parse({})),
-    id: z.string().default('')
+    key: z.string().default('')
 });
 
 export const ProductIdentifierSchema = z.interface({
-    id: z.string().default(''),
+    key: z.string().default(''),
 });
 
 export const SearchIdentifierSchema = z.interface({
