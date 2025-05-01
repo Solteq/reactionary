@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * TODOS THAT DON'T ACTUALLY BELONG HERE:
- * 
+ *
  * - Caching story (redis or similar - cross transactional with expiry and cache ids)
  * - Clean up bootstrapping in examples to be idiomatic with language
  * - TRPC example for Angular
@@ -10,20 +10,20 @@ import { z } from 'zod';
  */
 
 // TODO: rename to key
-export const FacetIdentifierSchema = z.object({
+export const FacetIdentifierSchema = z.interface({
     id: z.string().default('')
 });
 
-export const FacetValueIdentifierSchema = z.object({
+export const FacetValueIdentifierSchema = z.interface({
     facet: FacetIdentifierSchema.default(FacetIdentifierSchema.parse({})),
     id: z.string().default('')
 });
 
-export const ProductIdentifierSchema = z.object({
+export const ProductIdentifierSchema = z.interface({
     id: z.string().default(''),
 });
 
-export const SearchIdentifierSchema = z.object({
+export const SearchIdentifierSchema = z.interface({
     term: z.string().default(''),
     page: z.number().default(0),
     pageSize: z.number().default(20),

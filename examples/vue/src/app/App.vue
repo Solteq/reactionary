@@ -19,6 +19,7 @@ const client = buildClient([
 ]);
 
 const result = ref<SearchResult | undefined>(undefined);
+
 const query = reactive({
   term: '',
   facets: new Array<FacetValueIdentifier>(),
@@ -79,7 +80,7 @@ function updateTerm(e: Event) {
             {{ facet.name }}
           </summary>
           <div>
-            <label v-for="value of facet.values" :key="value.identifier.id">
+            <label v-for="value of facet.values" :key="facet.identifier.id">
               <span>{{ value.name }}</span>
               <span>{{ value.count }}</span>
               <input
