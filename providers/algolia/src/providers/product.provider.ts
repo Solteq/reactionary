@@ -3,11 +3,11 @@ import { algoliasearch } from 'algoliasearch';
 import { AlgoliaConfig } from '../core/configuration';
 import { z } from 'zod';
 
-export class AlgoliaProductProvider<T extends z.ZodTypeAny> extends ProductProvider<T> {
+export class AlgoliaProductProvider<T extends z.ZodType<Product>> extends ProductProvider<T> {
   protected config: AlgoliaConfig;
 
-  constructor(config: AlgoliaConfig, schema: T) {
-    super(schema);
+  constructor(config: AlgoliaConfig) {
+    super();
 
     this.config = config;
   }
