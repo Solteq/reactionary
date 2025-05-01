@@ -8,18 +8,19 @@ export const ProductQuerySchema = z.object({
 
 export const ProductAttributeSchema = z.object({
     id: z.string(),
-    name: z.string().default(''),
-    value: z.string().default('')
+    name: z.string(),
+    value: z.string()
 });
  
 export const ProductSchema = z.object({
     identifier: ProductIdentifierSchema.default(ProductIdentifierSchema.parse({})),
-    name: z.string().default(''),
-    slug: z.string().default(''),
-    description: z.string().default(''),
+    name: z.string(),
+    slug: z.string(),
+    description: z.string().optional(),
     image: z.string().url().default('https://placehold.co/400'),
     images: z.string().url().array().default([]),
-    attributes: z.array(ProductAttributeSchema).default([])
+    attributes: z.array(ProductAttributeSchema).default([]),
+    status: z.enum(["Retiring", "Active", "Presales"])
 });
 
 export type Product = z.infer<typeof ProductSchema>;

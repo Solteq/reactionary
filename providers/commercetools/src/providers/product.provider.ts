@@ -53,8 +53,6 @@ export class CommercetoolsProductProvider<
     result.identifier.id = remote.id;
     result.name = remote.name['en-US'];
 
-    console.log('result: ', remote);
-
     if (remote.description) {
       result.description = remote.description['en-US'];
     }

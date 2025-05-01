@@ -8,10 +8,11 @@ export abstract class ProductProvider<T extends z.ZodTypeAny> {
       this.schema = schema;
     }
 
-    public parse(value: unknown): z.infer<T> {
+    protected validate(value: unknown): z.infer<T> {
       return this.schema.parse(value);
     }
 
+    public abstract parse(data: unknown) : z.infer<T>;
     public abstract get(query: ProductQuery): Promise<z.infer<T>>;
 }
 

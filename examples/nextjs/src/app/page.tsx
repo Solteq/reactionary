@@ -21,6 +21,7 @@ export default function Index() {
   const [search, setSearch] = useState<SearchResult | undefined>(undefined);
 
   useEffect(() => {
+    // TODO: Move out into a getDataClient(...)
     const client = buildClient([
       withAlgoliaCapabilities(
         {

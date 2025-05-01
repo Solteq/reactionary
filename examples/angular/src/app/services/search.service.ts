@@ -13,7 +13,7 @@ export class SearchService {
         appId: 'BPS0QU5YHD',
         indexName: 'products',
       },
-      { search: true, products: true }
+      { search: true, products: false }
     ),
   ]);
 
@@ -31,7 +31,7 @@ export class SearchService {
     }),
     loader: async ({ request }) => {
       return this.client.search.get(request);
-    },
+    }
   });
 
   public search = linkedSignal<

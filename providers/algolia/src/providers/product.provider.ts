@@ -1,4 +1,4 @@
-import { ProductIdentifierSchema, ProductProvider, ProductQuery } from '@reactionary/core';
+import { Product, ProductProvider, ProductQuery } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
 import { AlgoliaConfig } from '../core/configuration';
 import { z } from 'zod';
@@ -25,16 +25,28 @@ export class AlgoliaProductProvider<T extends z.ZodTypeAny> extends ProductProvi
     });
 
     const p = (remote.results[0] as any).hits[0];
+    const parsed = this.parse(p);
 
-    const id = ProductIdentifierSchema.parse({
-        id: p.objectID
-    });
-
-    return this.parse({
-        identifier: id,
-        name: p.name,
-        image: p.image
-    });
+    return this.validate(parsed);
   }
+
+  public override parse(data: any): z.infer<T> {
+    const id = {
+      id: data.objectID
+    };
+
+    const result: Product = {
+      identifier: id,
+      name: data.name,
+      image: data.image,
+      description: 'test',
+      status: 'Active',
+      slug: '',
+      images: [],
+      attributes: []
+    };
+
+    return result;
+  }  
 }
 

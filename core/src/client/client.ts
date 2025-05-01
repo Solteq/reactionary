@@ -11,7 +11,7 @@ export interface Client {
 
 export function buildClient<T extends Partial<Client>>(providers: Array<T>): T {
     let client = {
-      cache: new Cache()
+      cache: new Cache(),
     } as T;
 
     for (const provider of providers) {
