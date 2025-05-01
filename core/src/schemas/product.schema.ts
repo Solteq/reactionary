@@ -20,7 +20,6 @@ export const ProductSchema = z.interface({
     image: z.string().url().default('https://placehold.co/400'),
     images: z.string().url().array().default([]),
     attributes: z.array(ProductAttributeSchema).default([]),
-    status: z.enum(["Retiring", "Active", "Presales"])
 });
 
 export type Product = z.infer<typeof ProductSchema>;

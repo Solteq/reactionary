@@ -1,14 +1,10 @@
 import { AlgoliaConfig, AlgoliaProductProvider } from '@reactionary/provider-algolia';
-import { z } from 'zod';
 import { CustomProduct, CustomProductSchema } from '../schemas/custom-product.schema';
 
-export class CustomAlgoliaProductProvider extends AlgoliaProductProvider<z.ZodType<CustomProduct>> {
-    // TODO: Type inference still problematic. The below can be ProductSchema...
-    override schema = CustomProductSchema;
-    
+export class CustomAlgoliaProductProvider extends AlgoliaProductProvider<CustomProduct> {    
     constructor(config: AlgoliaConfig) {
-        super(config);
-    }
+        super(config, CustomProductSchema);
+      }
     
     public override parse(data: any): CustomProduct {
         const result = super.parse(data);

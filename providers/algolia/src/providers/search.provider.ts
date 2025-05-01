@@ -32,7 +32,7 @@ export class AlgoliaSearchProvider<
           page: identifier.page,
           hitsPerPage: identifier.pageSize,
           facets: ['*'],
-          facetFilters: identifier.facets.map((x) => `${encodeURIComponent(x.facet.id)}:${x.id}`),
+          facetFilters: identifier.facets.map((x) => `${encodeURIComponent(x.facet.key)}:${x.key}`),
         },
       ],
     });
@@ -43,7 +43,7 @@ export class AlgoliaSearchProvider<
       const f = remoteProducts.facets[id];
 
       const facet = SearchResultFacetSchema.parse({});
-      facet.identifier.id = id;
+      facet.identifier.key = id;
       facet.name = id;
 
       for (const vid in f) {
@@ -52,14 +52,14 @@ export class AlgoliaSearchProvider<
         const facetValue = SearchResultFacetValueSchema.parse({});
         facetValue.count = fv;
         facetValue.name = vid;
-        facetValue.identifier.id = vid;
+        facetValue.identifier.key = vid;
         facetValue.identifier.facet = facet.identifier;
 
         if (
           identifier.facets.find(
             (x) =>
-              x.facet.id == facetValue.identifier.facet.id &&
-              x.id == facetValue.identifier.id
+              x.facet.key == facetValue.identifier.facet.key &&
+              x.key == facetValue.identifier.key
           )
         ) {
           facetValue.active = true;
@@ -74,7 +74,7 @@ export class AlgoliaSearchProvider<
     for (const p of remoteProducts.hits) {
       result.products.push({
         identifier: {
-          id: p.objectID,
+          key: p.objectID,
         },
         slug: p.slug,
         name: p.name,

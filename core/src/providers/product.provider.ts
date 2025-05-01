@@ -1,14 +1,15 @@
 import { z } from 'zod';
-import { ProductQuery, ProductSchema } from '../schemas/product.schema';
+import { ProductQuery } from '../schemas/product.schema';
 
-export abstract class ProductProvider<T extends z.ZodType> {
-    protected schema: typeof ProductSchema = ProductSchema;
+export abstract class ProductProvider<T> {
+  constructor(protected schema: z.ZodType<T>) {}
 
-    protected validate(value: unknown): z.infer<T> {
-      return this.schema.parse(value);
-    }
+  protected validate(value: unknown): T {
+    return this.schema.parse(value);
+  }
 
-    public abstract parse(data: unknown) : z.infer<T>;
-    public abstract get(query: ProductQuery): Promise<z.infer<T>>;
+  public parse(data: unknown): T {
+    return data as T;
+  }
+  public abstract get(query: ProductQuery): Promise<T>;
 }
-
