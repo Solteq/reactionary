@@ -1,10 +1,10 @@
 import { Client, ProductSchema, SearchResultSchema } from "@reactionary/core";
-import { AlgoliaConfig } from "./configuration";
 import { AlgoliaProductProvider } from "../providers/product.provider";
 import { AlgoliaSearchProvider } from "../providers/search.provider";
 import { AlgoliaCapabilities } from "../schema/capabilities.schema";
+import { AlgoliaConfiguration } from "../schema/configuration.schema";
 
-export function withAlgoliaCapabilities(configuration: AlgoliaConfig, capabilities: AlgoliaCapabilities) {
+export function withAlgoliaCapabilities(configuration: AlgoliaConfiguration, capabilities: AlgoliaCapabilities) {
     const client: Partial<Client> = {};
 
     if (capabilities.product) {

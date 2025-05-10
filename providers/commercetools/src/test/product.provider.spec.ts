@@ -1,3 +1,4 @@
+import { ProductSchema } from '@reactionary/core';
 import { CommercetoolsProductProvider } from '../providers/product.provider';
 
 describe('Commercetools Product Provider', () => {
@@ -8,11 +9,11 @@ describe('Commercetools Product Provider', () => {
         clientId: process.env['COMMERCETOOLS_CLIENT_ID'] || '',
         clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
         projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || ''
-    });
+    }, ProductSchema);
 
     const result = await provider.get({ id: '4d28f98d-c446-446e-b59a-d9f718e5b98a'});
 
-    expect(result.identifier.id).toBe('4d28f98d-c446-446e-b59a-d9f718e5b98a');
+    expect(result.identifier.key).toBe('4d28f98d-c446-446e-b59a-d9f718e5b98a');
     expect(result.name).toBe('Sunnai Glass Bowl');
     expect(result.image).toBe('https://storage.googleapis.com/merchant-center-europe/sample-data/goodstore/Sunnai_Glass_Bowl-1.1.jpeg');
   });

@@ -1,6 +1,6 @@
-import { CommercetoolsConfig } from './configuration';
 import { ClientBuilder } from '@commercetools/ts-client';
 import { createApiBuilderFromCtpClient } from '@commercetools/platform-sdk';
+import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 
 const ANONYMOUS_SCOPES = [
   'view_published_products',
@@ -8,9 +8,9 @@ const ANONYMOUS_SCOPES = [
 ];
 
 export class CommercetoolsClient {
-  protected config: CommercetoolsConfig;
+  protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfig) {
+  constructor(config: CommercetoolsConfiguration) {
     this.config = config;
   }
 

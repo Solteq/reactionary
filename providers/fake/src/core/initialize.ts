@@ -1,10 +1,10 @@
 import { Client, ProductSchema, SearchResultSchema } from "@reactionary/core";
-import { FakeConfig } from "./configuration";
-import { FakeCapabilities } from "./capabilities";
 import { FakeProductProvider } from "../providers/product.provider";
 import { FakeSearchProvider } from "../providers/search.provider";
+import { FakeConfiguration } from "../schema/configuration.schema";
+import { FakeCapabilities } from "../schema/capabilities.schema";
 
-export function withFakeCapabilities(configuration: FakeConfig, capabilities: FakeCapabilities) {
+export function withFakeCapabilities(configuration: FakeConfiguration, capabilities: FakeCapabilities) {
     const client = {} as Client;
 
     if (capabilities.product) {

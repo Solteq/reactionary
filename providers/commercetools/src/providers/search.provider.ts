@@ -4,16 +4,16 @@ import {
   SearchResult,
   SearchResultProductSchema,
 } from '@reactionary/core';
-import { CommercetoolsConfig } from '../core/configuration';
 import { CommercetoolsClient } from '../core/client';
 import z from 'zod';
+import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 
 export class CommercetoolsSearchProvider<
   T extends SearchResult
 > extends SearchProvider<T> {
-  protected config: CommercetoolsConfig;
+  protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfig, schema: z.ZodType<T>) {
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>) {
     super(schema);
 
     this.config = config;

@@ -1,11 +1,11 @@
 import { Product, ProductProvider, ProductQuery } from "@reactionary/core";
 import z from "zod";
-import { FakeConfig } from "../core/configuration";
+import { FakeConfiguration } from "../schema/configuration.schema";
 
 export class FakeProductProvider<Q extends Product> extends ProductProvider<Q> {
-    protected config: FakeConfig;
+    protected config: FakeConfiguration;
   
-    constructor(config: FakeConfig, schema: z.ZodType<Q>) {
+    constructor(config: FakeConfiguration, schema: z.ZodType<Q>) {
       super(schema);
   
       this.config = config;

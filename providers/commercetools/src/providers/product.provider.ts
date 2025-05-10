@@ -1,19 +1,18 @@
 import {
   ProductProvider,
-  ProductSchema,
   ProductQuery,
   Product,
   InMemoryCache,
 } from '@reactionary/core';
-import { CommercetoolsConfig } from '../core/configuration';
 import { CommercetoolsClient } from '../core/client';
 import { z } from 'zod';
+import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 
 export class CommercetoolsProductProvider<Q extends Product> extends ProductProvider<Q>  {
-  protected config: CommercetoolsConfig;
+  protected config: CommercetoolsConfiguration;
   protected cache = new InMemoryCache(1000, 60 * 1000);
 
-  constructor(config: CommercetoolsConfig, schema: z.ZodType<Q>) {
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<Q>) {
     super(schema);
 
     this.config = config;
@@ -21,9 +20,7 @@ export class CommercetoolsProductProvider<Q extends Product> extends ProductProv
 
   public async get(query: ProductQuery) {
     const cached = this.cache.get(query.slug || '');
-
-    const result = this.base();
-
+    
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
     let remote;

@@ -1,10 +1,10 @@
 import { Client, ProductSchema, SearchResultSchema } from "@reactionary/core";
-import { CommercetoolsConfig } from "./configuration";
 import { CommercetoolsCapabilities } from "../schema/capabilities.schema";
 import { CommercetoolsSearchProvider } from "../providers/search.provider";
 import { CommercetoolsProductProvider } from '../providers/product.provider';
+import { CommercetoolsConfiguration } from "../schema/configuration.schema";
 
-export function withCommercetoolsCapabilities(configuration: CommercetoolsConfig, capabilities: CommercetoolsCapabilities) {
+export function withCommercetoolsCapabilities(configuration: CommercetoolsConfiguration, capabilities: CommercetoolsCapabilities) {
     const client: Partial<Client> = {};
 
     if (capabilities.product) {

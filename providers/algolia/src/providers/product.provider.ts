@@ -1,14 +1,14 @@
 import { Product, ProductProvider, ProductQuery } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
-import { AlgoliaConfig } from '../core/configuration';
 import { z } from 'zod';
+import { AlgoliaConfiguration } from '../schema/configuration.schema';
 
 export class AlgoliaProductProvider<
   T extends Product
 > extends ProductProvider<T> {
-  protected config: AlgoliaConfig;
+  protected config: AlgoliaConfiguration;
 
-  constructor(config: AlgoliaConfig, schema: z.ZodType<T>) {
+  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>) {
     super(schema);
 
     this.config = config;
