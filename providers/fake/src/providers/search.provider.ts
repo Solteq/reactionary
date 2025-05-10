@@ -3,15 +3,16 @@ import {
     SearchProvider,
     SearchResult,
   } from '@reactionary/core';
-import { MockConfig } from '../core/configuration';
+import { FakeConfig } from '../core/configuration';
+import z from 'zod';
   
-  export class MockSearchProvider<
+  export class FakeSearchProvider<
     T extends SearchResult
   > extends SearchProvider<T> {
-    protected config: MockConfig;
+    protected config: FakeConfig;
   
-    constructor(config: MockConfig) {
-      super();
+    constructor(config: FakeConfig, schema: z.ZodType<T>) {
+      super(schema);
   
       this.config = config;
     }

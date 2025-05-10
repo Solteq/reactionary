@@ -7,20 +7,14 @@ export class InMemoryCache {
     this.capacity = capacity;
     this.evictionTime = evictionTime;
     this.cache = new Map();
-
-    console.log('rebuild?!');
   }
 
   get(key: string): any | null {
-    console.log('get by key: ', key);
-
     if (!this.cache.has(key)) {
       return null;
     }
 
     const { value, expiration } = this.cache.get(key)!;
-
-    console.log('value, expiration: ', value, expiration);
 
     if (Date.now() > expiration) {
       this.cache.delete(key);
@@ -34,8 +28,6 @@ export class InMemoryCache {
   }
 
   put(key: string, value: any): void {
-    console.log('put by key: ', key);
-
     if (this.cache.has(key)) {
       this.cache.delete(key);
     }

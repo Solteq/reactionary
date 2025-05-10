@@ -4,24 +4,23 @@ import {
   SearchResult,
   SearchResultFacetSchema,
   SearchResultFacetValueSchema,
-  SearchResultSchema,
 } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
 import { AlgoliaConfig } from '../core/configuration';
+import { z } from 'zod';
 
 export class AlgoliaSearchProvider<
   T extends SearchResult
 > extends SearchProvider<T> {
   protected config: AlgoliaConfig;
 
-  constructor(config: AlgoliaConfig) {
-    super();
+  constructor(config: AlgoliaConfig, schema: z.ZodType<T>) {
+    super(schema);
 
     this.config = config;
   }
 
   public async get(identifier: SearchIdentifier): Promise<T> {
-    const result: SearchResult = SearchResultSchema.parse({});
     const client = algoliasearch(this.config.appId, this.config.apiKey);
     const remote = await client.search<unknown>({
       requests: [
@@ -31,10 +30,21 @@ export class AlgoliaSearchProvider<
           page: identifier.page,
           hitsPerPage: identifier.pageSize,
           facets: ['*'],
-          facetFilters: identifier.facets.map((x) => `${encodeURIComponent(x.facet.key)}:${x.key}`),
+          facetFilters: identifier.facets.map(
+            (x) => `${encodeURIComponent(x.facet.key)}:${x.key}`
+          ),
         },
       ],
     });
+
+    const parsed = this.parse(remote, identifier);
+    const validated = this.validate(parsed);
+
+    return validated;
+  }
+
+  public override parse(remote: any, query: SearchIdentifier): T {
+    const result = this.base();
 
     const remoteProducts = remote.results[0] as any;
 
@@ -55,7 +65,7 @@ export class AlgoliaSearchProvider<
         facetValue.identifier.facet = facet.identifier;
 
         if (
-          identifier.facets.find(
+          query.facets.find(
             (x) =>
               x.facet.key == facetValue.identifier.facet.key &&
               x.key == facetValue.identifier.key
@@ -81,11 +91,9 @@ export class AlgoliaSearchProvider<
       });
     }
 
-    result.identifier = identifier;
+    result.identifier = query;
     result.pages = remoteProducts.nbPages;
 
-    const final = SearchResultSchema.parse(result) as T;
-
-    return final;
+    return result;
   }
 }

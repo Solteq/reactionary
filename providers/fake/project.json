@@ -1,7 +1,7 @@
 {
-  "name": "mock",
+  "name": "provider-fake",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "providers/mock/src",
+  "sourceRoot": "providers/fake/src",
   "projectType": "library",
   "release": {
     "version": {
@@ -18,10 +18,10 @@
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "options": {
-        "outputPath": "dist/providers/mock",
-        "main": "providers/mock/src/index.ts",
-        "tsConfig": "providers/mock/tsconfig.lib.json",
-        "assets": ["providers/mock/*.md"],
+        "outputPath": "dist/providers/fake",
+        "main": "providers/fake/src/index.ts",
+        "tsConfig": "providers/fake/tsconfig.lib.json",
+        "assets": ["providers/fake/*.md"],
         "format": ["esm"],
         "generatePackageJson": true
       }

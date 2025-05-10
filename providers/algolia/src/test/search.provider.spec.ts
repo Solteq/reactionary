@@ -1,3 +1,4 @@
+import { SearchResultSchema } from '@reactionary/core';
 import { AlgoliaSearchProvider } from '../providers/search.provider';
 
 describe('Algolia Search Provider', () => {
@@ -5,7 +6,7 @@ describe('Algolia Search Provider', () => {
     apiKey: process.env['ALGOLIA_API_KEY'] || '',
     appId: process.env['ALGOLIA_APP_ID'] || '',
     indexName: process.env['ALGOLIA_INDEX'] || '',
-  });
+  }, SearchResultSchema);
 
   it('should be able to get a result by term', async () => {
     const result = await provider.get({
@@ -37,8 +38,8 @@ describe('Algolia Search Provider', () => {
 
     expect(firstPage.identifier.page).toBe(0);
     expect(secondPage.identifier.page).toBe(1);
-    expect(firstPage.products[0].identifier.id).not.toEqual(
-      secondPage.products[0].identifier.id
+    expect(firstPage.products[0].identifier.key).not.toEqual(
+      secondPage.products[0].identifier.key
     );
   });
 

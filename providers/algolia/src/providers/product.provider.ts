@@ -3,10 +3,12 @@ import { algoliasearch } from 'algoliasearch';
 import { AlgoliaConfig } from '../core/configuration';
 import { z } from 'zod';
 
-export class AlgoliaProductProvider<Q extends Product> extends ProductProvider<Q> {
+export class AlgoliaProductProvider<
+  T extends Product
+> extends ProductProvider<T> {
   protected config: AlgoliaConfig;
 
-  constructor(config: AlgoliaConfig, schema: z.ZodType<Q>) {
+  constructor(config: AlgoliaConfig, schema: z.ZodType<T>) {
     super(schema);
 
     this.config = config;
@@ -19,7 +21,7 @@ export class AlgoliaProductProvider<Q extends Product> extends ProductProvider<Q
       requests: [
         {
           indexName: this.config.indexName,
-          filters: `objectID:${ query.id } OR slug:${ query.slug }`,
+          filters: `objectID:${query.id} OR slug:${query.slug}`,
         },
       ],
     });
@@ -31,11 +33,11 @@ export class AlgoliaProductProvider<Q extends Product> extends ProductProvider<Q
     return validated;
   }
 
-  public override parse(data: any): Q {
-    const base = super.parse({});
+  public override parse(data: any): T {
+    const base = this.base();
 
     base.identifier = {
-      key: data.objectID
+      key: data.objectID,
     };
     base.name = data.name;
     base.image = data.image;
@@ -45,6 +47,5 @@ export class AlgoliaProductProvider<Q extends Product> extends ProductProvider<Q
     base.attributes = [];
 
     return base;
-  } 
+  }
 }
-

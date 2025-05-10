@@ -1,11 +1,11 @@
 import { Product, ProductProvider, ProductQuery } from "@reactionary/core";
 import z from "zod";
-import { MockConfig } from "../core/configuration";
+import { FakeConfig } from "../core/configuration";
 
-export class MockProductProvider<Q extends Product> extends ProductProvider<Q> {
-    protected config: MockConfig;
+export class FakeProductProvider<Q extends Product> extends ProductProvider<Q> {
+    protected config: FakeConfig;
   
-    constructor(config: MockConfig, schema: z.ZodType<Q>) {
+    constructor(config: FakeConfig, schema: z.ZodType<Q>) {
       super(schema);
   
       this.config = config;

@@ -3,22 +3,23 @@ import {
   SearchProvider,
   SearchResult,
   SearchResultProductSchema,
-  SearchResultSchema,
 } from '@reactionary/core';
 import { CommercetoolsConfig } from '../core/configuration';
 import { CommercetoolsClient } from '../core/client';
+import z from 'zod';
 
-export class CommercetoolsSearchProvider<T extends SearchResult> extends SearchProvider<T> {
+export class CommercetoolsSearchProvider<
+  T extends SearchResult
+> extends SearchProvider<T> {
   protected config: CommercetoolsConfig;
 
-  constructor(config: CommercetoolsConfig) {
-    super();
+  constructor(config: CommercetoolsConfig, schema: z.ZodType<T>) {
+    super(schema);
 
     this.config = config;
   }
 
   public async get(identifier: SearchIdentifier): Promise<T> {
-    const result = SearchResultSchema.parse({});
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
     const remote = await client
@@ -34,7 +35,16 @@ export class CommercetoolsSearchProvider<T extends SearchResult> extends SearchP
       })
       .execute();
 
-    result.identifier = identifier;
+    const parsed = this.parse(remote, identifier);
+    const validated = this.validate(parsed);
+
+    return validated;
+  }
+
+  public override parse(remote: any, query: SearchIdentifier): T {
+    const result = super.base();
+
+    result.identifier = query;
 
     for (const p of remote.body.results) {
       const product = SearchResultProductSchema.parse({});
@@ -44,14 +54,13 @@ export class CommercetoolsSearchProvider<T extends SearchResult> extends SearchP
 
       if (p.masterVariant.images) {
         product.image = p.masterVariant.images[0].url;
+      }
+
+      result.products.push(product);
     }
 
-      result.products.push(product)
-    }
+    result.pages = Math.ceil((remote.body.total || 0) / query.pageSize);
 
-    result.pages = Math.ceil((remote.body.total || 0) / identifier.pageSize);
-
-    // FIXME: See if we can get rid of this with some additional contraints on Schema and through inferring type
-    return SearchResultSchema.parse(result) as T;
+    return result;
   }
 }

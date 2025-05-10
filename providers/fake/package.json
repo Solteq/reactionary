@@ -1,5 +1,5 @@
 {
-  "name": "@reactionary/provider-mock",
+  "name": "@reactionary/provider-fake",
   "version": "0.0.1",
   "dependencies": {}
 }

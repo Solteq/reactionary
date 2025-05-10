@@ -14,7 +14,7 @@ const client = buildClient([
       appId: 'BPS0QU5YHD',
       indexName: 'products',
     },
-    { search: true, products: true }
+    { search: true, product: true }
   ),
 ]);
 
@@ -75,12 +75,14 @@ function updateTerm(e: Event) {
     </header>
     <main>
       <aside>
-        <details v-for="facet in result?.facets" :key="facet.identifier.id">
+        <details v-for="facet in result?.facets" :key="facet.identifier.key">
           <summary>
             {{ facet.name }}
           </summary>
           <div>
-            <label v-for="value of facet.values" :key="facet.identifier.id">
+            <label 
+              v-for="value of facet.values"
+              :key="value.identifier.key">
               <span>{{ value.name }}</span>
               <span>{{ value.count }}</span>
               <input
@@ -95,7 +97,7 @@ function updateTerm(e: Event) {
       <section>
         <article
           v-for="product in result?.products"
-          :key="product.identifier.id"
+          :key="product.identifier.key"
         >
           <img :src="product.image.replace('w_200', 'w_200,h_200')" />
           <h3>{{ product.name }}</h3>

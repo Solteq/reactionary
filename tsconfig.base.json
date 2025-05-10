@@ -21,7 +21,7 @@
       "@reactionary/provider-commercetools": [
         "providers/commercetools/src/index.ts"
       ],
-      "@reactionary/provider-mock": ["providers/mock/src/index.ts"]
+      "@reactionary/provider-fake": ["providers/fake/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

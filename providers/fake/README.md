@@ -1,7 +1,7 @@
-# mock
+# Fake
 
 This library was generated with [Nx](https://nx.dev).
 
 ## Building
 
-Run `nx build mock` to build the library.
+Run `nx build provider-fake` to build the library.

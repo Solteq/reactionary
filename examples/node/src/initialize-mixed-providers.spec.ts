@@ -4,7 +4,7 @@ import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetoo
 
 describe('initialize mixed providers', () => {
   it('should be able to handle a mixture of providers', async () => {
-    /**const client = buildClient([
+    const client = buildClient([
       withAlgoliaCapabilities(
         {
           apiKey: process.env['ALGOLIA_API_KEY'] || '',
@@ -21,7 +21,7 @@ describe('initialize mixed providers', () => {
           clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
           projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || '',
         },
-        { products: true }
+        { product: true }
       ),
     ]);
 
@@ -29,8 +29,8 @@ describe('initialize mixed providers', () => {
 
     expect(search.products.length).toBeGreaterThan(0);
 
-    const product = await client.product.get({ id: search.products[0].identifier.id });
+    const product = await client.product.get({ id: search.products[0].identifier.key });
 
-    expect(product.identifier.id).toBe(search.products[0].identifier.id);*/
+    expect(product.identifier.key).toBe(search.products[0].identifier.key);
   });
 });

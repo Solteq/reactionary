@@ -1,3 +1,4 @@
+import { SearchResultSchema } from '@reactionary/core';
 import { CommercetoolsSearchProvider } from '../providers/search.provider';
 
 describe('Commercetools Search Provider', () => {
@@ -8,9 +9,9 @@ describe('Commercetools Search Provider', () => {
       clientId: process.env['COMMERCETOOLS_CLIENT_ID'] || '',
       clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
       projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || '',
-    });
+    }, SearchResultSchema);
 
-    const result = await provider.get({ term: 'glass', page: 0, pageSize: 20 });
+    const result = await provider.get({ term: 'glass', page: 0, pageSize: 20, facets: [] });
 
     expect(result.products.length).toBeGreaterThan(0);
   });

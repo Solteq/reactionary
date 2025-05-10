@@ -17,15 +17,12 @@ export class CommercetoolsProductProvider<Q extends Product> extends ProductProv
     super(schema);
 
     this.config = config;
-
-    console.log('REBUILD?!');
   }
 
   public async get(query: ProductQuery) {
     const cached = this.cache.get(query.slug || '');
-    console.log(cached);
 
-    const result = ProductSchema.parse({});
+    const result = this.base();
 
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
@@ -49,7 +46,7 @@ export class CommercetoolsProductProvider<Q extends Product> extends ProductProv
         .get({
           queryArgs: {
             where: 'slug(en-US=:slug)',
-            'var.slug': query.slug
+            'var.slug': query.slug,
           }
         })
         .execute();
@@ -57,22 +54,29 @@ export class CommercetoolsProductProvider<Q extends Product> extends ProductProv
       remote = result.body.results[0];
     }
 
-    result.identifier.key = remote.id;
-    result.name = remote.name['en-US'];
-    result.slug = remote.slug['en-US'];
+    const parsed = this.parse(remote);
+    const validated = this.validate(parsed);
 
-    if (remote.description) {
-      result.description = remote.description['en-US'];
+    this.cache.put(query.slug || '', validated);
+
+    return validated;
+  }
+
+  public override parse(data: any): Q {
+    const base = this.base();
+
+    base.identifier.key = data.id;
+    base.name = data.name['en-US'];
+    base.slug = data.slug['en-US'];
+
+    if (data.description) {
+      base.description = data.description['en-US'];
     }
 
-    if (remote.masterVariant.images) {
-      result.image = remote.masterVariant.images[0].url;
+    if (data.masterVariant.images) {
+      base.image = data.masterVariant.images[0].url;
     }
 
-    const response = this.schema.parse(result);
-
-    this.cache.put(query.slug || '', response);
-
-    return response;
+    return base;
   }
 }
