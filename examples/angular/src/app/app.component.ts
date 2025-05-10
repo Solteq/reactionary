@@ -9,5 +9,5 @@ import { SearchService } from './services/search.service';
   styleUrl: './app.component.scss',
 })
 export class AppComponent {
-  protected service = inject(SearchService);
+  protected service = inject(SearchService); 
 }

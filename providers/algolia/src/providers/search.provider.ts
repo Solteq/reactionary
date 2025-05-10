@@ -23,7 +23,6 @@ export class AlgoliaSearchProvider<
   public async get(identifier: SearchIdentifier): Promise<T> {
     const result: SearchResult = SearchResultSchema.parse({});
     const client = algoliasearch(this.config.appId, this.config.apiKey);
-
     const remote = await client.search<unknown>({
       requests: [
         {
@@ -85,6 +84,8 @@ export class AlgoliaSearchProvider<
     result.identifier = identifier;
     result.pages = remoteProducts.nbPages;
 
-    return SearchResultSchema.parse(result) as T;
+    const final = SearchResultSchema.parse(result) as T;
+
+    return final;
   }
 }

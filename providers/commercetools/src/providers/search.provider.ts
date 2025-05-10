@@ -39,7 +39,7 @@ export class CommercetoolsSearchProvider<T extends SearchResult> extends SearchP
     for (const p of remote.body.results) {
       const product = SearchResultProductSchema.parse({});
 
-      product.identifier.id = p.id;
+      product.identifier.key = p.id;
       product.name = p.name['en-US'];
 
       if (p.masterVariant.images) {

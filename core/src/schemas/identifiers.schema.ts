@@ -5,7 +5,6 @@ import { z } from 'zod';
  *
  * - Caching story (redis or similar - cross transactional with expiry and cache ids)
  * - Clean up bootstrapping in examples to be idiomatic with language
- * - TRPC example for Angular
  * - Serverside Next example
  */
 
@@ -14,7 +13,7 @@ export const FacetIdentifierSchema = z.interface({
 });
 
 export const FacetValueIdentifierSchema = z.interface({
-    facet: FacetIdentifierSchema.default(FacetIdentifierSchema.parse({})),
+    facet: FacetIdentifierSchema.default(() => FacetIdentifierSchema.parse({})),
     key: z.string().default('')
 });
 
@@ -26,7 +25,7 @@ export const SearchIdentifierSchema = z.interface({
     term: z.string().default(''),
     page: z.number().default(0),
     pageSize: z.number().default(20),
-    facets: z.array(FacetValueIdentifierSchema).default([])
+    facets: z.array(FacetValueIdentifierSchema).default(() => [])
 });
 
 export type ProductIdentifier = z.infer<typeof ProductIdentifierSchema>;

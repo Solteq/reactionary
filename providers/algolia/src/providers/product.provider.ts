@@ -45,6 +45,6 @@ export class AlgoliaProductProvider<Q extends Product> extends ProductProvider<Q
     base.attributes = [];
 
     return base;
-  }  
+  } 
 }
 

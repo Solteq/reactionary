@@ -11,5 +11,6 @@ export abstract class ProductProvider<T> {
   public parse(data: unknown): T {
     return data as T;
   }
+  
   public abstract get(query: ProductQuery): Promise<T>;
 }

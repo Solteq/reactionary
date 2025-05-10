@@ -13,13 +13,13 @@ export const ProductAttributeSchema = z.interface({
 });
 
 export const ProductSchema = z.interface({
-    identifier: ProductIdentifierSchema.default(ProductIdentifierSchema.parse({})),
-    name: z.string(),
-    slug: z.string(),
+    identifier: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})),
+    name: z.string().default(''),
+    slug: z.string().default(''),
     description: z.string().optional(),
     image: z.string().url().default('https://placehold.co/400'),
-    images: z.string().url().array().default([]),
-    attributes: z.array(ProductAttributeSchema).default([]),
+    images: z.string().url().array().default(() => []),
+    attributes: z.array(ProductAttributeSchema).default(() => []),
 });
 
 export type Product = z.infer<typeof ProductSchema>;

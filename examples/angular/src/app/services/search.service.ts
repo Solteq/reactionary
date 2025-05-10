@@ -1,21 +1,12 @@
-import { Injectable, linkedSignal, resource, signal } from '@angular/core';
-import { buildClient, FacetValueIdentifier, SearchResult } from '@reactionary/core';
-import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
+import { inject, Injectable, linkedSignal, resource, signal } from '@angular/core';
+import { FacetValueIdentifier, SearchResult } from '@reactionary/core';
+import { TRPC } from './trpc.client';
 
 @Injectable({
   providedIn: 'root',
 })
 export class SearchService {
-  protected client = buildClient([
-    withAlgoliaCapabilities(
-      {
-        apiKey: '49a820e012607cd2c5a72b8ffc8d0029',
-        appId: 'BPS0QU5YHD',
-        indexName: 'products',
-      },
-      { search: true, products: false }
-    ),
-  ]);
+  protected client = inject(TRPC);
 
   public pageSize = signal(20);
   public page = signal(0);
@@ -30,7 +21,7 @@ export class SearchService {
       facets: this.facets(),
     }),
     loader: async ({ request }) => {
-      return this.client.search.get(request);
+      return this.client.client.search.query(request);
     }
   });
 

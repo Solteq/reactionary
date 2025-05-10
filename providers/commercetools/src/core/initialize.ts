@@ -1,8 +1,8 @@
 import { Client, ProductSchema } from "@reactionary/core";
 import { CommercetoolsConfig } from "./configuration";
 import { CommercetoolsCapabilities } from "./capabilities";
-import { CommercetoolsProductProvider } from "../providers/product.provider";
 import { CommercetoolsSearchProvider } from "../providers/search.provider";
+import { CommercetoolsProductProvider } from '../providers/product.provider';
 
 export function withCommercetoolsCapabilities(configuration: CommercetoolsConfig, capabilities: Partial<CommercetoolsCapabilities>) {
     const client = {} as Client;

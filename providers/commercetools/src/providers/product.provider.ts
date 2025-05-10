@@ -2,24 +2,31 @@ import {
   ProductProvider,
   ProductSchema,
   ProductQuery,
+  Product,
+  InMemoryCache,
 } from '@reactionary/core';
 import { CommercetoolsConfig } from '../core/configuration';
 import { CommercetoolsClient } from '../core/client';
 import { z } from 'zod';
 
-export class CommercetoolsProductProvider<
-  T extends z.ZodTypeAny
-> extends ProductProvider<T> {
+export class CommercetoolsProductProvider<Q extends Product> extends ProductProvider<Q>  {
   protected config: CommercetoolsConfig;
+  protected cache = new InMemoryCache(1000, 60 * 1000);
 
-  constructor(config: CommercetoolsConfig, schema: T) {
+  constructor(config: CommercetoolsConfig, schema: z.ZodType<Q>) {
     super(schema);
 
     this.config = config;
+
+    console.log('REBUILD?!');
   }
 
   public async get(query: ProductQuery) {
+    const cached = this.cache.get(query.slug || '');
+    console.log(cached);
+
     const result = ProductSchema.parse({});
+
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
     let remote;
@@ -50,8 +57,9 @@ export class CommercetoolsProductProvider<
       remote = result.body.results[0];
     }
 
-    result.identifier.id = remote.id;
+    result.identifier.key = remote.id;
     result.name = remote.name['en-US'];
+    result.slug = remote.slug['en-US'];
 
     if (remote.description) {
       result.description = remote.description['en-US'];
@@ -61,6 +69,10 @@ export class CommercetoolsProductProvider<
       result.image = remote.masterVariant.images[0].url;
     }
 
-    return this.schema.parse(result);
+    const response = this.schema.parse(result);
+
+    this.cache.put(query.slug || '', response);
+
+    return response;
   }
 }
