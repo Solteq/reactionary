@@ -19,44 +19,53 @@ export class CommercetoolsProductProvider<Q extends Product> extends ProductProv
   }
 
   public async get(query: ProductQuery) {
-    const cached = await this.cache.get(query.slug || '');
+    const cacheKey = query.slug || '';
 
-    console.log(cached);
+    // TODO: Find a better method for type-safety from cache
+    let result = await this.cache.get(cacheKey) as Q;
+
+    const cacheHit = !!result;
     
-    const client = new CommercetoolsClient(this.config).createAnonymousClient();
+    if (!cacheHit) {
+      const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
-    let remote;
+      let remote;
+  
+      if (query.id) {
+        const result = await client
+          .withProjectKey({ projectKey: this.config.projectKey })
+          .productProjections()
+          .withId({
+            ID: query.id,
+          })
+          .get()
+          .execute();
+  
+          remote = result.body;
+      } else {
+        const result = await client
+          .withProjectKey({ projectKey: this.config.projectKey })
+          .productProjections()
+          .get({
+            queryArgs: {
+              where: 'slug(en-US=:slug)',
+              'var.slug': query.slug,
+            }
+          })
+          .execute();
+  
+        remote = result.body.results[0];
+      }
 
-    if (query.id) {
-      const result = await client
-        .withProjectKey({ projectKey: this.config.projectKey })
-        .productProjections()
-        .withId({
-          ID: query.id,
-        })
-        .get()
-        .execute();
-
-        remote = result.body;
-    } else {
-      const result = await client
-        .withProjectKey({ projectKey: this.config.projectKey })
-        .productProjections()
-        .get({
-          queryArgs: {
-            where: 'slug(en-US=:slug)',
-            'var.slug': query.slug,
-          }
-        })
-        .execute();
-
-      remote = result.body.results[0];
+      result = this.parse(remote);
     }
 
-    const parsed = this.parse(remote);
-    const validated = this.validate(parsed);
+    result.meta.cache.key = cacheKey;
+    result.meta.cache.hit = cacheHit;
 
-    this.cache.put(query.slug || '', validated, 60 * 5);
+    const validated = this.validate(result);
+
+    this.cache.put(cacheKey, validated, 60 * 5);
 
     return validated;
   }
