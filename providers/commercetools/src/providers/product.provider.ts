@@ -9,6 +9,8 @@ import { z } from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 
 export class CommercetoolsProductProvider<Q extends Product> extends ProductProvider<Q>  {
+  protected readonly CACHE_EXPIRY_IN_SECONDS = 60 * 5;
+
   protected config: CommercetoolsConfiguration;
   protected cache = new RedisCache();
 
@@ -65,7 +67,7 @@ export class CommercetoolsProductProvider<Q extends Product> extends ProductProv
 
     const validated = this.validate(result);
 
-    this.cache.put(cacheKey, validated, 60 * 5);
+    this.cache.put(cacheKey, validated, this.CACHE_EXPIRY_IN_SECONDS);
 
     return validated;
   }
