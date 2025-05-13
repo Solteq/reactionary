@@ -1,18 +1,17 @@
-import { inject, Injectable, resource, signal } from '@angular/core';
+import { inject, Injectable, resource } from '@angular/core';
 import { TRPC } from './trpc.client';
-import { ActivatedRoute } from '@angular/router';
+import { ActivationEnd, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { map } from 'rxjs';
+import { filter, map } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class ProductService {
-  public client = inject(TRPC);
-
-  protected route = inject(ActivatedRoute);
+  protected client = inject(TRPC);
+  protected router = inject(Router);
   protected slug = toSignal(
-    this.route.firstChild!.params.pipe(map((params) => params['slug'])),
+    this.router.events.pipe(filter(x => x instanceof ActivationEnd), map(x => x.snapshot.params['slug'])),
     { initialValue: '' }
   );
 

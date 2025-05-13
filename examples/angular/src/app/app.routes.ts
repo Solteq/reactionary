@@ -2,7 +2,7 @@ import { Route } from '@angular/router';
 
 export const appRoutes: Route[] = [
     {
-        path: '',
+        path: 'search',
         loadComponent: () => import('./search/search.component').then(x => x.SearchComponent)
     },
     {

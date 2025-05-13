@@ -6,6 +6,27 @@ import { buildClient } from '@reactionary/core';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 
+const client = buildClient([
+  withAlgoliaCapabilities(
+    {
+      apiKey: process.env['ALGOLIA_API_KEY'] || '',
+      appId: process.env['ALGOLIA_APP_ID'] || '',
+      indexName: process.env['ALGOLIA_INDEX'] || '',
+    },
+    { search: true }
+  ),
+  withCommercetoolsCapabilities(
+    {
+      apiUrl: process.env['COMMERCETOOLS_API_URL'] || '',
+      authUrl: process.env['COMMERCETOOLS_AUTH_URL'] || '',
+      clientId: process.env['COMMERCETOOLS_CLIENT_ID'] || '',
+      clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
+      projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || '',
+    },
+    { product: true }
+  ),
+]);
+
 const app = express();
 
 app.use(cors({
@@ -17,27 +38,6 @@ app.use(
   trpcExpress.createExpressMiddleware({
     router: appRouter,
     createContext: () => {
-      const client = buildClient([
-        withAlgoliaCapabilities(
-          {
-            apiKey: process.env['ALGOLIA_API_KEY'] || '',
-            appId: process.env['ALGOLIA_APP_ID'] || '',
-            indexName: process.env['ALGOLIA_INDEX'] || '',
-          },
-          { search: true }
-        ),
-        withCommercetoolsCapabilities(
-          {
-            apiUrl: process.env['COMMERCETOOLS_API_URL'] || '',
-            authUrl: process.env['COMMERCETOOLS_AUTH_URL'] || '',
-            clientId: process.env['COMMERCETOOLS_CLIENT_ID'] || '',
-            clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
-            projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || '',
-          },
-          { products: true }
-        ),
-      ]);
-
       return {
         client
       }

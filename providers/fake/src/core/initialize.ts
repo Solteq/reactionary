@@ -5,7 +5,7 @@ import { FakeConfiguration } from "../schema/configuration.schema";
 import { FakeCapabilities } from "../schema/capabilities.schema";
 
 export function withFakeCapabilities(configuration: FakeConfiguration, capabilities: FakeCapabilities) {
-    const client = {} as Client;
+    const client = {} as Partial<Client>;
 
     if (capabilities.product) {
         client.product = new FakeProductProvider(configuration, ProductSchema);

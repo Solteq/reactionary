@@ -12,9 +12,6 @@ export abstract class ProductProvider<T = Product> {
     return this.schema.parse({});
   }
 
-  public parse(data: unknown, query: ProductQuery): T {
-    return data as T;
-  }
-  
+  public abstract parse(data: unknown, query: ProductQuery): T;
   public abstract get(query: ProductQuery): Promise<T>;
 }

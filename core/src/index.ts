@@ -1,4 +1,5 @@
-export * from './cache/cache';
+export * from './cache/memory-cache';
+export * from './cache/redis-cache';
 
 export * from './client/client';
 

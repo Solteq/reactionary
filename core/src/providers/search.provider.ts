@@ -13,10 +13,7 @@ export abstract class SearchProvider<T = SearchResult> {
     return this.schema.parse({});
   }
 
-  public parse(data: unknown, query: SearchIdentifier): T {
-    return data as T;
-  }
-
+  public abstract parse(data: unknown, query: SearchIdentifier): T;
   public abstract get(identifier: SearchIdentifier): Promise<T>;
 }
 

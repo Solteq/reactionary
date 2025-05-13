@@ -17,5 +17,5 @@ export function buildClient<T extends Partial<Client>>(providers: Array<T>): Req
         }
     }
 
-    return client;
+    return client satisfies T;
 }
