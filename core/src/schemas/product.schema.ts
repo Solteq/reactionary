@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ProductIdentifierSchema } from './identifiers.schema';
+import { MetaSchema } from './meta.schema';
 
 export const ProductQuerySchema = z.interface({
     slug: z.string(),
@@ -20,6 +21,7 @@ export const ProductSchema = z.interface({
     image: z.string().url().default('https://placehold.co/400'),
     images: z.string().url().array().default(() => []),
     attributes: z.array(ProductAttributeSchema).default(() => []),
+    meta: MetaSchema.default(() => MetaSchema.parse({}))
 });
 
 export type Product = z.infer<typeof ProductSchema>;

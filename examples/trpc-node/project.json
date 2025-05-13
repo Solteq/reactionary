@@ -40,7 +40,9 @@
     "serve": {
       "executor": "@nx/js:node",
       "defaultConfiguration": "development",
-      "dependsOn": ["build"],
+      "dependsOn": [
+        "build"
+      ],
       "options": {
         "buildTarget": "trpc-node:build",
         "runBuildTargetDependencies": false
@@ -52,7 +54,8 @@
         "production": {
           "buildTarget": "trpc-node:build:production"
         }
-      }
+      },
+      "continuous": true
     }
   }
 }
