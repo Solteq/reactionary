@@ -8,5 +8,10 @@ export const appRoutes: Route[] = [
     {
         path: 'product/:slug',
         loadComponent: () => import('./product/product.component').then(x => x.ProductComponent)
+    },
+    {
+        path: '**',
+        pathMatch: 'prefix',
+        redirectTo: 'search'
     }
 ];
