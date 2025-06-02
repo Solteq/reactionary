@@ -9,7 +9,7 @@ import { RouterType } from '../../../../trpc-node/src/router';
     public client = createTRPCClient<RouterType>({
       links: [
         httpBatchLink({
-          url: '/trpc',
+          url: 'http://localhost:3000/trpc',
           fetch(url, options) {
             return fetch(url, {
               ...options,

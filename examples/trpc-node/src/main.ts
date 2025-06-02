@@ -5,6 +5,7 @@ import { appRouter } from './router';
 import { buildClient } from '@reactionary/core';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
+import { withFakeCapabilities } from '@reactionary/provider-fake';
 
 const client = buildClient([
   withAlgoliaCapabilities(
@@ -13,7 +14,7 @@ const client = buildClient([
       appId: process.env['ALGOLIA_APP_ID'] || '',
       indexName: process.env['ALGOLIA_INDEX'] || '',
     },
-    { search: true }
+    { search: false }
   ),
   withCommercetoolsCapabilities(
     {
@@ -23,25 +24,36 @@ const client = buildClient([
       clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
       projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || '',
     },
-    { product: true }
+    { product: false }
+  ),
+  withFakeCapabilities(
+    {
+      jitter: {
+        mean: 300,
+        deviation: 100,
+      },
+    },
+    { search: true, product: true }
   ),
 ]);
 
 const app = express();
 
-app.use(cors({
-  origin: 'http://localhost:4200',
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: 'http://localhost:4200',
+    credentials: true,
+  })
+);
 app.use(
   '/trpc',
   trpcExpress.createExpressMiddleware({
     router: appRouter,
     createContext: () => {
       return {
-        client
-      }
-    }
+        client,
+      };
+    },
   })
 );
 
