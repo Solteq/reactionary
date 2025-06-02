@@ -7,7 +7,7 @@ Reactionary is a framework-agnostic client library for standardized data access,
   - allow for cross transactional caching.
   - standardize observability.
   - control access, allowing for session features like rate limiting.
-- it favors serializable, parseable domain models
+- it favors serializable, parseable domain models because it:
   - allows for caching and state transfer.
   - allows for extensible, typesafe data at runtime.
 
