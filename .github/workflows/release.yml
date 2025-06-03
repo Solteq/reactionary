@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v2
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: 23
@@ -33,5 +33,5 @@ jobs:
       
       - uses: nrwl/nx-set-shas@v4
 
-      - run: npx nx release patch --skip-publish=true -- --no-agents
+      - run: pnpm exec nx release patch --skip-publish=true -- --no-agents
 
