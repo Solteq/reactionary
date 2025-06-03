@@ -29,7 +29,7 @@ export default function Index() {
           appId: 'BPS0QU5YHD',
           indexName: 'products',
         },
-        { search: true, products: true }
+        { search: true, product: true }
       ),
     ]);
 
@@ -99,14 +99,14 @@ export default function Index() {
         <aside>
           {
             search?.facets.map(facet =>
-              <details key={ facet.identifier.id }>
+              <details key={ facet.identifier.key }>
                 <summary>
                   { facet.name }
                 </summary>
                 <div>
                   {
                       facet.values.map(facetValue =>
-                        <label key={ facetValue.identifier.id }>
+                        <label key={ facetValue.identifier.key }>
                           <span>{ facetValue.name }</span>
                           <span>{ facetValue.count }</span>
                           <input type="checkbox" checked={ facetValue.active } onChange={(e) => toggleFacet(facetValue.identifier) } />
@@ -121,7 +121,7 @@ export default function Index() {
         <section>
           {
             search?.products.map(product =>
-              <article key={ product.identifier.id }>
+              <article key={ product.identifier.key }>
                 <img src={product.image.replace('w_200', 'w_200,h_200')} />
                 <h3>{ product.name }</h3>
               </article>
