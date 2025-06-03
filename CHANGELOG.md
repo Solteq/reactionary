@@ -1,3 +1,13 @@
+## 0.0.5 (2025-06-03)
+
+### 🩹 Fixes
+
+- **faker:** change main image to 800x800 ([db13033](https://github.com/Solteq/reactionary/commit/db13033))
+
+### ❤️ Thank You
+
+- Martin Rogne @martinrogne
+
 ## 0.0.2 (2025-06-03)
 
 ### 🚀 Features
