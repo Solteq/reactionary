@@ -1,3 +1,13 @@
+## 0.0.3 (2025-06-03)
+
+### 🩹 Fixes
+
+- address minor build issues in react and node ([b7723b1](https://github.com/Solteq/reactionary/commit/b7723b1))
+
+### ❤️ Thank You
+
+- Martin Rogne @martinrogne
+
 ## 0.0.2 (2025-06-03)
 
 ### 🚀 Features
