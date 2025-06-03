@@ -82,7 +82,8 @@ function updateTerm(e: Event) {
           <div>
             <label 
               v-for="value of facet.values"
-              :key="value.identifier.key">
+              :key="value.identifier.key"
+            >
               <span>{{ value.name }}</span>
               <span>{{ value.count }}</span>
               <input
