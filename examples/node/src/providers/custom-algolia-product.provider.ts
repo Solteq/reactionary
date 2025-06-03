@@ -1,8 +1,8 @@
-import { AlgoliaConfig, AlgoliaProductProvider } from '@reactionary/provider-algolia';
+import { AlgoliaConfiguration, AlgoliaProductProvider } from '@reactionary/provider-algolia';
 import { CustomProduct, CustomProductSchema } from '../schemas/custom-product.schema';
 
 export class CustomAlgoliaProductProvider extends AlgoliaProductProvider<CustomProduct> {    
-    constructor(config: AlgoliaConfig) {
+    constructor(config: AlgoliaConfiguration) {
         super(config, CustomProductSchema);
       }
     
