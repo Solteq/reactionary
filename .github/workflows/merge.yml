@@ -1,16 +1,15 @@
-name: ci
+name: merge
 
 on:
-  pull_request:
   merge_group:
 
 permissions:
   actions: read
-  contents: read
+  contents: write
   pull-requests: read
 
 jobs:
-  ci:
+  merge:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,3 +29,10 @@ jobs:
       - uses: nrwl/nx-set-shas@v4
 
       - run: npx nx affected -t lint build
+
+      - name: Version
+        run: |
+          git config --global user.email "martin.rogne@solteq.com"
+          git config --global user.name "Martin Rogne"
+          npx nx release patch --skip-publish=true
+          git push --follow-tags
