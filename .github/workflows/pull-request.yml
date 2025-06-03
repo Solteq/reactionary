@@ -1,20 +1,23 @@
-name: ci
+name: pull request
 
 on:
-  merge_group:
+  pull_request:
 
 permissions:
   actions: read
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
-  release:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          filter: tree:0
           fetch-depth: 0
+
+      - run: npx nx-cloud start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="build"
 
       - uses: actions/setup-node@v4
         with:
@@ -22,12 +25,7 @@ jobs:
           cache: 'npm'
 
       - run: npm ci --legacy-peer-deps
-
+      
       - uses: nrwl/nx-set-shas@v4
 
-      - name: Version
-        run: |
-          git config --global user.email "martin.rogne@solteq.com"
-          git config --global user.name "Martin Rogne"
-          npx nx release patch --skip-publish=true
-          git push --follow-tags
+      - run: npx nx affected -t lint build
