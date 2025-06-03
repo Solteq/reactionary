@@ -28,9 +28,9 @@ jobs:
           node-version: 23
           cache: 'pnpm'
       
-      - run: pnpm exec nx-cloud start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="build"
-
       - run: pnpm install
+
+      - run: pnpm exec nx-cloud start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="build"
       
       - uses: nrwl/nx-set-shas@v4
 
