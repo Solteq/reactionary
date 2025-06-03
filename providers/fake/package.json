@@ -1,5 +1,9 @@
 {
   "name": "@reactionary/provider-fake",
   "version": "0.0.1",
-  "dependencies": {}
+  "dependencies": {
+    "@reactionary/core": "0.0.1",
+    "zod": "4.0.0-beta.20250430T185432",
+    "@faker-js/faker": "^9.8.0"
+  }
 }
