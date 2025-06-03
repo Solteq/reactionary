@@ -13,8 +13,7 @@
         "main": "examples/node/src/index.ts",
         "tsConfig": "examples/node/tsconfig.lib.json",
         "assets": ["examples/node/*.md"],
-        "format": ["esm"],
-        "generatePackageJson": true
+        "format": ["esm"]
       }
     }
   }
