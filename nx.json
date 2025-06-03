@@ -34,9 +34,7 @@
       "dependsOn": ["^build"],
       "inputs": ["production", "^production"]
     },
-    "e2e-ci--**/*": {
-      "dependsOn": ["^build"]
-    }
+    "e2e-ci--**/*": { "dependsOn": ["^build"] }
   },
   "generators": {
     "@nx/angular:application": {
@@ -45,12 +43,7 @@
       "style": "scss",
       "unitTestRunner": "jest"
     },
-    "@nx/next": {
-      "application": {
-        "style": "scss",
-        "linter": "eslint"
-      }
-    },
+    "@nx/next": { "application": { "style": "scss", "linter": "eslint" } },
     "@nx/angular:component": {
       "style": "scss",
       "displayBlock": true,
@@ -60,30 +53,11 @@
       "viewEncapsulation": "ShadowDom"
     }
   },
-  "release": {
-    "version": {
-      "preVersionCommand": "npx nx run-many -t build"
-    }
-  },
+  "release": { "version": { "preVersionCommand": "npx nx run-many -t build" } },
   "plugins": [
-    {
-      "plugin": "@nx/eslint/plugin",
-      "options": {
-        "targetName": "lint"
-      }
-    },
-    {
-      "plugin": "@nx/jest/plugin",
-      "options": {
-        "targetName": "test"
-      }
-    },
-    {
-      "plugin": "@nx/playwright/plugin",
-      "options": {
-        "targetName": "e2e"
-      }
-    },
+    { "plugin": "@nx/eslint/plugin", "options": { "targetName": "lint" } },
+    { "plugin": "@nx/jest/plugin", "options": { "targetName": "test" } },
+    { "plugin": "@nx/playwright/plugin", "options": { "targetName": "e2e" } },
     {
       "plugin": "@nx/next/plugin",
       "options": {
@@ -109,5 +83,6 @@
         "watchDepsTargetName": "watch-deps"
       }
     }
-  ]
+  ],
+  "nxCloudId": "683eb2fef42fbc631b8c5f05"
 }
