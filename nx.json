@@ -61,8 +61,19 @@
     }
   },
   "release": {
+    "git": {
+      "commit": false,
+      "stageChanges": false,
+      "tag": true
+    },
     "version": {
       "preVersionCommand": "npx nx run-many -t build"
+    },
+    "changelog": {
+      "workspaceChangelog": {
+        "createRelease": "github",
+        "file": false
+      }
     }
   },
   "plugins": [
