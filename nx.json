@@ -61,7 +61,6 @@
     }
   },
   "release": {
-    "versionPlans": false,
     "git": {
       "commit": false,
       "stageChanges": false,
