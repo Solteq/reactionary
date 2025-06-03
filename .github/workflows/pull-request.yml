@@ -2,10 +2,11 @@ name: pull request
 
 on:
   pull_request:
+  merge_group:
 
 permissions:
   actions: read
-  contents: read
+  contents: write
   pull-requests: read
 
 jobs:
@@ -29,3 +30,12 @@ jobs:
       - uses: nrwl/nx-set-shas@v4
 
       - run: npx nx affected -t lint build
+
+      - name: release
+        if: ${{ github.event_name == 'merge_group' }}
+        run: |
+          git config --global user.email "martin.rogne@solteq.com"
+          git config --global user.name "Martin Rogne"
+          npx nx release patch --skip-publish=true
+          git push --follow-tags
+
