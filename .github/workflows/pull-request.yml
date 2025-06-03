@@ -36,6 +36,6 @@ jobs:
         run: |
           git config --global user.email "martin.rogne@solteq.com"
           git config --global user.name "Martin Rogne"
-          npx nx release patch --skip-publish=true --no-agents
+          npx nx release patch --skip-publish=true -- --no-agents
           git push --follow-tags
 
