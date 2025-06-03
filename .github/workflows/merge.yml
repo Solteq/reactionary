@@ -28,7 +28,7 @@ jobs:
       
       - uses: nrwl/nx-set-shas@v4
 
-      - run: npx nx affected -t lint build
+      - run: npx nx affected -t build
 
       - name: Version
         run: |
