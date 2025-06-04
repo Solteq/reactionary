@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { SearchService } from '../services/search.service';
 import { FacetValueIdentifier } from '@reactionary/core';
 import { RouterModule } from '@angular/router';
+import { TRPC } from '../services/trpc.client';
 
 @Component({
   selector: 'app-search',
@@ -12,6 +13,7 @@ import { RouterModule } from '@angular/router';
 })
 export class SearchComponent {
   protected service = inject(SearchService);
+  protected client = inject(TRPC);
 
   protected hasNext = computed(() => {
     return this.service.page() >= (this.service.search()?.pages || 0) - 1;
@@ -20,6 +22,22 @@ export class SearchComponent {
   protected hasPrevious = computed(() => {
     return !(this.service.page() > 0);
   });
+
+  // TODO: Encapsulate this in a directive, for demonstration purposes
+  protected onProductInteraction(key: string, position: number) {
+    const search = this.service.search();
+
+    if (search) {
+      this.client.client.analytics.mutate({
+        type: 'product-search-click',
+        position: position,
+        product: {
+          key: key,
+        },
+        search: search.identifier,
+      });
+    }
+  }
 
   protected previousPage() {
     this.service.page.update((old) => old - 1);
@@ -31,11 +49,13 @@ export class SearchComponent {
 
   protected toggleFacet(value: FacetValueIdentifier) {
     this.service.facets.update((old) => {
-      const existingIndex = old.findIndex(x => JSON.stringify(x) === JSON.stringify(value));
+      const existingIndex = old.findIndex(
+        (x) => JSON.stringify(x) === JSON.stringify(value)
+      );
 
       if (existingIndex > -1) {
         const updated = [...old];
-        updated.splice(existingIndex, 1)
+        updated.splice(existingIndex, 1);
 
         return updated;
       } else {

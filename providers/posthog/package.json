@@ -1,0 +1,12 @@
+{
+  "name": "@reactionary/provider-posthog",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "main": "./index.cjs",
+  "types": "./index.d.ts",
+  "dependencies": {
+    "@reactionary/core": "0.0.1",
+    "posthog-node": "^4.18.0",
+    "zod": "4.0.0-beta.20250430T185432"
+  }
+}

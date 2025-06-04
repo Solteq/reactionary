@@ -4,6 +4,7 @@ import { appRouter } from './router';
 import { buildClient } from '@reactionary/core';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
+import { faker } from '@faker-js/faker';
 
 const client = buildClient([
   withAlgoliaCapabilities(
@@ -39,8 +40,14 @@ app.use(
   trpcExpress.createExpressMiddleware({
     router: appRouter,
     createContext: () => {
+
       return {
-        client
+        client,
+        session: {
+          // TODO: This should obviously not be a random uuid, but that is part of the session story
+          id: faker.string.uuid(),
+          user: faker.string.uuid(),
+        }
       }
     }
   })

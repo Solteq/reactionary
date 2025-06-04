@@ -3,7 +3,8 @@ import { z } from 'zod';
 
 export const AlgoliaCapabilitiesSchema = CapabilitiesSchema.pick({
     product: true,
-    search: true
+    search: true,
+    analytics: true
 }).partial();
 
 export type AlgoliaCapabilities = z.infer<typeof AlgoliaCapabilitiesSchema>;

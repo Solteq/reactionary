@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-export const CacheInformationSchema = z.interface({
+export const CacheInformationSchema = z.looseInterface({
     hit: z.boolean().default(false),
     key: z.string().default('')
 })
 
-export const MetaSchema = z.interface({
+export const MetaSchema = z.looseInterface({
     cache: CacheInformationSchema.default(() => CacheInformationSchema.parse({}))
 });
 

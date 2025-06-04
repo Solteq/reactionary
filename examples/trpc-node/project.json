@@ -17,6 +17,7 @@
         "main": "examples/trpc-node/src/main.ts",
         "tsConfig": "examples/trpc-node/tsconfig.app.json",
         "assets": ["examples/trpc-node/src/assets"],
+        "generatePackageJson": true,
         "esbuildOptions": {
           "sourcemap": true,
           "outExtension": {

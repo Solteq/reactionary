@@ -6,7 +6,14 @@ import { buildClient } from '@reactionary/core';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
+import { withPosthogCapabilities } from '@reactionary/provider-posthog';
+import { faker } from '@faker-js/faker';
 
+/**
+ * TODO: This would likely be cleaner with:
+ * - implicit processing of parameters from the environment
+ * - as a builder-pattern
+ */
 const client = buildClient([
   withAlgoliaCapabilities(
     {
@@ -14,7 +21,7 @@ const client = buildClient([
       appId: process.env['ALGOLIA_APP_ID'] || '',
       indexName: process.env['ALGOLIA_INDEX'] || '',
     },
-    { search: false }
+    { search: true, analytics: true }
   ),
   withCommercetoolsCapabilities(
     {
@@ -33,7 +40,14 @@ const client = buildClient([
         deviation: 100,
       },
     },
-    { search: true, product: true }
+    { search: false, product: true }
+  ),
+  withPosthogCapabilities(
+    {
+      apiKey: process.env['POSTHOG_API_KEY'] || '',
+      host: process.env['POSTHOG_HOST'] || '',
+    },
+    { analytics: true }
   ),
 ]);
 
@@ -52,6 +66,11 @@ app.use(
     createContext: () => {
       return {
         client,
+        session: {
+          // TODO: This should obviously not be a random uuid, but that is part of the session story
+          id: faker.string.uuid(),
+          user: faker.string.uuid(),
+        },
       };
     },
   })
