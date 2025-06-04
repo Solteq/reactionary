@@ -30,8 +30,6 @@ jobs:
           cache: 'pnpm'
 
       - run: pnpm install
-      
-      - uses: nrwl/nx-set-shas@v4
 
       - run: pnpm exec nx release patch --skip-publish=true -- --no-agents
 
