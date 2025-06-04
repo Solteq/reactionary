@@ -34,8 +34,8 @@ export class FakeProductProvider<Q extends Product> extends ProductProvider<Q> {
         attributes: [],
         description: generator.commerce.productDescription(),
         image: generator.image.urlPicsumPhotos({
-          width: 800,
-          height: 800
+          width: 600,
+          height: 600
         }),
         images: [],
         meta: {
