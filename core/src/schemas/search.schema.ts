@@ -1,27 +1,27 @@
 import { z } from 'zod';
 import { FacetIdentifierSchema, FacetValueIdentifierSchema, ProductIdentifierSchema, SearchIdentifierSchema } from './identifiers.schema';
 
-export const SearchResultProductSchema = z.interface({
+export const SearchResultProductSchema = z.looseInterface({
     identifier: ProductIdentifierSchema.default(ProductIdentifierSchema.parse({})),
     name: z.string().default(''),
     image: z.string().url().default('https://placehold.co/400'),
     slug: z.string().default('')
 });
 
-export const SearchResultFacetValueSchema = z.interface({
+export const SearchResultFacetValueSchema = z.looseInterface({
     identifier: FacetValueIdentifierSchema.default(() => FacetValueIdentifierSchema.parse({})),
     name: z.string().default(''),
     count: z.number().default(0),
     active: z.boolean().default(false)
 });
 
-export const SearchResultFacetSchema = z.interface({
+export const SearchResultFacetSchema = z.looseInterface({
     identifier: FacetIdentifierSchema.default(() => FacetIdentifierSchema.parse({})),
     name: z.string().default(''),
     values: z.array(SearchResultFacetValueSchema).default(() => [])
 });
 
-export const SearchResultSchema = z.interface({
+export const SearchResultSchema = z.looseInterface({
     identifier: SearchIdentifierSchema.default(() => SearchIdentifierSchema.parse({})),
     products: z.array(SearchResultProductSchema).default(() => []),
     pages: z.number().default(0),

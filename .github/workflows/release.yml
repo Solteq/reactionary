@@ -33,5 +33,8 @@ jobs:
       
       - uses: nrwl/nx-set-shas@v4
 
-      - run: pnpm exec nx release patch --skip-publish=true -- --no-agents
+      - run: |
+          git config --global user.email "martin.rogne@solteq.com"
+          git config --global user.name "Martin Rogne"
+          pnpm exec nx release patch --skip-publish=true -- --no-agents
 

@@ -1,14 +1,13 @@
 {
-  "name": "provider-fake",
+  "name": "provider-posthog",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "providers/fake/src",
+  "sourceRoot": "providers/posthog/src",
   "projectType": "library",
   "release": {
     "version": {
+      "manifestRootsToUpdate": ["dist/{projectRoot}"],
       "currentVersionResolver": "git-tag",
-      "fallbackCurrentVersionResolver": "disk",
-      "preserveLocalDependencyProtocols": false,
-      "manifestRootsToUpdate": ["dist/{projectRoot}"]
+      "fallbackCurrentVersionResolver": "disk"
     }
   },
   "tags": [],
@@ -17,11 +16,12 @@
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "options": {
-        "outputPath": "dist/providers/fake",
-        "main": "providers/fake/src/index.ts",
-        "tsConfig": "providers/fake/tsconfig.lib.json",
-        "assets": ["providers/fake/*.md"],
-        "format": ["esm"]
+        "outputPath": "dist/providers/posthog",
+        "main": "providers/posthog/src/index.ts",
+        "tsConfig": "providers/posthog/tsconfig.lib.json",
+        "assets": ["providers/posthog/*.md"],
+        "format": ["cjs"],
+        "generatePackageJson": true
       }
     },
     "nx-release-publish": {

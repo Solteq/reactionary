@@ -1,16 +1,16 @@
 import {
   SearchIdentifier,
   SearchProvider,
-  SearchResult,
   SearchResultFacetSchema,
   SearchResultFacetValueSchema,
 } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
 import { z } from 'zod';
 import { AlgoliaConfiguration } from '../schema/configuration.schema';
+import { AlgoliaSearchResult } from '../schema/search.schema';
 
 export class AlgoliaSearchProvider<
-  T extends SearchResult
+  T extends AlgoliaSearchResult
 > extends SearchProvider<T> {
   protected config: AlgoliaConfiguration;
 
@@ -30,6 +30,8 @@ export class AlgoliaSearchProvider<
           page: identifier.page,
           hitsPerPage: identifier.pageSize,
           facets: ['*'],
+          analytics: true,
+          clickAnalytics: true,
           facetFilters: identifier.facets.map(
             (x) => `${encodeURIComponent(x.facet.key)}:${x.key}`
           ),
@@ -46,7 +48,7 @@ export class AlgoliaSearchProvider<
   public override parse(remote: any, query: SearchIdentifier): T {
     const result = this.base();
 
-    const remoteProducts = remote.results[0] as any;
+    const remoteProducts = remote.results[0];
 
     for (const id in remoteProducts.facets) {
       const f = remoteProducts.facets[id];
@@ -91,7 +93,11 @@ export class AlgoliaSearchProvider<
       });
     }
 
-    result.identifier = query;
+    result.identifier = {
+      ...query,
+      index: remoteProducts.index,
+      key: remoteProducts.queryID
+    };
     result.pages = remoteProducts.nbPages;
 
     return result;

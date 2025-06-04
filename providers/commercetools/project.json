@@ -21,8 +21,7 @@
         "main": "providers/commercetools/src/index.ts",
         "tsConfig": "providers/commercetools/tsconfig.lib.json",
         "assets": ["providers/commercetools/*.md"],
-        "format": ["esm"],
-        "generatePackageJson": true
+        "format": ["esm"]
       }
     },
     "nx-release-publish": {
