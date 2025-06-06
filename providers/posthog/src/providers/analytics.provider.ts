@@ -14,13 +14,13 @@ export class PosthogAnalyticsProvider implements AnalyticsProvider {
 
   publish(event: AnalyticsEvent, session: Session): void {
     this.client.capture({
-      distinctId: session.user,
+      distinctId: session.identity.id || session.id,
       event: event.type,
       properties: event,
     });
   }
 
   shutdown(): Promise<void> {
-    return this.client.shutdown(1000);
+    return this.client.shutdown(5000);
   }
 }

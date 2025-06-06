@@ -1,9 +1,9 @@
 import { z } from 'zod';
+import { IdentitySchema } from './identity.schema';
 
-// TODO: Flesh out and wire up as part of the session issue
 export const SessionSchema = z.looseObject({
     id: z.string(),
-    user: z.string()
+    identity: IdentitySchema.default(() => IdentitySchema.parse({}))
 });
 
 export type Session = z.infer<typeof SessionSchema>;

@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { SearchService } from './services/search.service';
+import { TRPC } from './services/trpc.client';
 
 @Component({
   imports: [RouterModule],
@@ -9,5 +10,5 @@ import { SearchService } from './services/search.service';
   styleUrl: './app.component.scss',
 })
 export class AppComponent {
-  protected service = inject(SearchService); 
+  protected service = inject(SearchService);
 }
