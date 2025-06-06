@@ -2,12 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { appRouter } from './router';
-import { buildClient } from '@reactionary/core';
+import { buildClient, Client } from '@reactionary/core';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
 import { withPosthogCapabilities } from '@reactionary/provider-posthog';
-import { faker } from '@faker-js/faker';
+import session from 'express-session';
+import { CreateExpressContextOptions } from '@trpc/server/adapters/express';
+import { Redis } from 'ioredis';
+import { RedisStore } from 'connect-redis';
 
 /**
  * TODO: This would likely be cleaner with:
@@ -51,6 +54,17 @@ const client = buildClient([
   ),
 ]);
 
+export function createContext(client: Client) {
+  return async ({ req, res, info }: CreateExpressContextOptions) => {
+    const session = (req as any).session || {};
+
+    return {
+      session,
+      client,
+    };
+  };
+}
+
 const app = express();
 
 app.use(
@@ -59,20 +73,28 @@ app.use(
     credentials: true,
   })
 );
+
+const redis = new Redis(process.env['SESSION_STORE_REDIS_CONNECTION']);
+
+const store = new RedisStore({
+  client: redis,
+});
+
+app.use(
+  session({
+    store: store,
+    secret: process.env['SESSION_STORE_SECRET'],
+    cookie: {},
+    resave: true,
+    saveUninitialized: true,
+  })
+);
+
 app.use(
   '/trpc',
   trpcExpress.createExpressMiddleware({
     router: appRouter,
-    createContext: () => {
-      return {
-        client,
-        session: {
-          // TODO: This should obviously not be a random uuid, but that is part of the session story
-          id: faker.string.uuid(),
-          user: faker.string.uuid(),
-        },
-      };
-    },
+    createContext: createContext(client),
   })
 );
 

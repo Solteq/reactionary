@@ -9,12 +9,21 @@ import {
   SearchResultSchema,
   Session,
 } from '@reactionary/core';
+import { faker } from '@faker-js/faker';
 
 const t = initTRPC.context<{ client: Client, session: Session }>().create();
 
 export const router = t.router;
 export const mergeRouters = t.mergeRouters;
-export const publicProcedure = t.procedure;
+export const publicProcedure = t.procedure.use(async (opts) => {
+  const { ctx } = opts;
+
+  if (!ctx.session.user) {
+    ctx.session.user = faker.string.uuid();
+  }
+
+  return opts.next(opts);
+});
 
 export const appRouter = router({
   search: publicProcedure
