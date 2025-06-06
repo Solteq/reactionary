@@ -1,10 +1,12 @@
 import { AnalyticsProvider } from "../providers/analytics.provider";
 import { ProductProvider } from "../providers/product.provider";
 import { SearchProvider } from "../providers/search.provider";
+import { IdentityProvider } from '../providers/identity.provider';
 
 export interface Client {
     product: ProductProvider,
     search: SearchProvider,
+    identity: IdentityProvider,
     cache: Cache,
     analytics: Array<AnalyticsProvider>
 }

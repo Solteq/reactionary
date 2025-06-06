@@ -10,6 +10,10 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('./product/product.component').then(x => x.ProductComponent)
     },
     {
+        path: 'identity',
+        loadComponent: () => import('./identity/identity.component').then(x => x.IdentityComponent)
+    },
+    {
         path: '**',
         pathMatch: 'prefix',
         redirectTo: 'search'

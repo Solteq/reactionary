@@ -34,7 +34,7 @@ const client = buildClient([
       clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
       projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || '',
     },
-    { product: false }
+    { product: false, identity: true }
   ),
   withFakeCapabilities(
     {
