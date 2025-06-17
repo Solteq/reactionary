@@ -1,6 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ProductService } from '../services/product.service';
+import { TRPC } from '../services/trpc.client';
 
 @Component({
   selector: 'app-product',
@@ -10,4 +11,16 @@ import { ProductService } from '../services/product.service';
 })
 export class ProductComponent {
   protected service = inject(ProductService);
+  protected trpc = inject(TRPC);
+
+  constructor() {
+    effect(async () => {
+      const product = this.service.productResource.value();
+      
+      console.log('product: ', product);
+
+      const inventory = await this.trpc.client.inventory.query({ sku: 'TLSS-01' });
+      console.log('inventory: ', inventory);
+    });
+  }
 }

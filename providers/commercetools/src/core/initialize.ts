@@ -1,10 +1,11 @@
-import { CartSchema, Client, IdentitySchema, ProductSchema, SearchResultSchema } from "@reactionary/core";
+import { CartSchema, Client, IdentitySchema, InventorySchema, ProductSchema, SearchResultSchema } from "@reactionary/core";
 import { CommercetoolsCapabilities } from "../schema/capabilities.schema";
 import { CommercetoolsSearchProvider } from "../providers/search.provider";
 import { CommercetoolsProductProvider } from '../providers/product.provider';
 import { CommercetoolsConfiguration } from "../schema/configuration.schema";
 import { CommercetoolsIdentityProvider } from "../providers/identity.provider";
 import { CommercetoolsCartProvider } from "../providers/cart.provider";
+import { CommercetoolsInventoryProvider } from "../providers/inventory.provider";
 
 export function withCommercetoolsCapabilities(configuration: CommercetoolsConfiguration, capabilities: CommercetoolsCapabilities) {
     const client: Partial<Client> = {};
@@ -23,6 +24,10 @@ export function withCommercetoolsCapabilities(configuration: CommercetoolsConfig
 
     if (capabilities.cart) {
         client.cart = new CommercetoolsCartProvider(configuration, CartSchema);
+    }
+
+    if (capabilities.inventory) {
+        client.inventory = new CommercetoolsInventoryProvider(configuration, InventorySchema);
     }
 
     return client;

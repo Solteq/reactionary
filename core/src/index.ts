@@ -7,15 +7,22 @@ export * from './analytics/analytics';
 export * from './providers/analytics.provider';
 export * from './providers/cart.provider';
 export * from './providers/identity.provider';
+export * from './providers/inventory.provider';
+export * from './providers/price.provider';
 export * from './providers/product.provider';
 export * from './providers/search.provider';
 
 export * from './schemas/analytics.schema';
-export * from './schemas/meta.schema';
 export * from './schemas/capabilities.schema';
 export * from './schemas/cart.schema';
 export * from './schemas/identifiers.schema';
 export * from './schemas/identity.schema';
+export * from './schemas/inventory.schema';
+export * from './schemas/meta.schema';
+export * from './schemas/price.schema';
 export * from './schemas/product.schema';
 export * from './schemas/search.schema';
 export * from './schemas/session.schema';
+
+export * from './schemas/queries/inventory.query';
+export * from './schemas/queries/price.query';
