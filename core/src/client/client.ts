@@ -3,6 +3,8 @@ import { ProductProvider } from "../providers/product.provider";
 import { SearchProvider } from "../providers/search.provider";
 import { IdentityProvider } from '../providers/identity.provider';
 import { CartProvider } from "../providers/cart.provider";
+import { PriceProvider } from "../providers/price.provider";
+import { InventoryProvider } from "../providers/inventory.provider";
 
 export interface Client {
     product: ProductProvider,
@@ -10,7 +12,9 @@ export interface Client {
     identity: IdentityProvider,
     cache: Cache,
     cart: CartProvider,
-    analytics: Array<AnalyticsProvider>
+    analytics: Array<AnalyticsProvider>,
+    price: PriceProvider,
+    inventory: InventoryProvider
 }
 
 export function buildClient<T extends Partial<Client>>(providers: Array<T>): Required<T> {

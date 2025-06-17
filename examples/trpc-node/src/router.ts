@@ -10,6 +10,7 @@ import {
   Client,
   IdentityLoginPayloadSchema,
   IdentitySchema,
+  InventorySchema,
   ProductQuerySchema,
   ProductSchema,
   SearchIdentifierSchema,
@@ -17,6 +18,7 @@ import {
   Session,
 } from '@reactionary/core';
 import superjson from 'superjson';
+import { InventoryQuerySchema } from 'core/src/schemas/queries/inventory.query';
 
 const t = initTRPC.context<{ client: Client; session: Session }>().create({
   transformer: superjson,
@@ -62,6 +64,12 @@ export const appRouter = router({
   logout: publicProcedure.output(IdentitySchema).mutation(async (opts) => {
     return opts.ctx.client.identity.logout(opts.ctx.session);
   }),
+  inventory: publicProcedure
+    .input(InventoryQuerySchema)
+    .output(InventorySchema)
+    .query(async (opts) => {
+      return opts.ctx.client.inventory.query(opts.input, opts.ctx.session);
+    }),
   cart: router({
     get: publicProcedure
       .input(CartGetPayloadSchema)
