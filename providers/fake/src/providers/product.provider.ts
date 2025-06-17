@@ -1,4 +1,4 @@
-import { Product, ProductProvider, ProductQuery } from "@reactionary/core";
+import { BaseMutation, Product, ProductProvider, ProductQuery, Session } from "@reactionary/core";
 import z from "zod";
 import { FakeConfiguration } from "../schema/configuration.schema";
 import { base, en, Faker } from '@faker-js/faker';
@@ -12,18 +12,22 @@ export class FakeProductProvider<Q extends Product> extends ProductProvider<Q> {
       this.config = config;
     }
   
-    public async get(query: ProductQuery) {
+    public async query(query: ProductQuery) {
         return this.parse({}, query);
+    }
+
+    public override mutate(mutation: BaseMutation, session: Session): Promise<Q> {
+      throw new Error("Method not implemented.");
     }
 
     public override parse(data: unknown, query: ProductQuery): Q {
       const generator = new Faker({
-        seed: query.slug?.length || query.id?.length,
+        seed: 42,
         locale: [en, base],
       });
 
-      const key = query.id || generator.commerce.isbn();
-      const slug = query.slug || generator.lorem.slug();
+      const key = query.id as string || generator.commerce.isbn();
+      const slug = query.slug as string || generator.lorem.slug();
 
       const product: Product = {
         identifier: {
@@ -43,7 +47,8 @@ export class FakeProductProvider<Q extends Product> extends ProductProvider<Q> {
             hit: false,
             key: key
           }
-        }
+        },
+        skus: []
       }
 
       return this.schema.parse(product);

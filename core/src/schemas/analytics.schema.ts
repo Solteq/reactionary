@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ProductIdentifierSchema, SearchIdentifierSchema } from './identifiers.schema';
+import { ProductIdentifierSchema, SearchIdentifierSchema } from './models/identifiers.model';
 
 export const ProductSearchEventSchema = z.looseInterface({
     type: z.literal('search'),

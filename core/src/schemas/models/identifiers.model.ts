@@ -9,6 +9,10 @@ export const FacetValueIdentifierSchema = z.looseInterface({
     key: z.string().default('')
 });
 
+export const SKUIdentifierSchema = z.looseInterface({
+    key: z.string().default('')
+});
+
 export const ProductIdentifierSchema = z.looseInterface({
     key: z.string().default(''),
 });

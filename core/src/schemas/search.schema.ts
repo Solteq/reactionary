@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FacetIdentifierSchema, FacetValueIdentifierSchema, ProductIdentifierSchema, SearchIdentifierSchema } from './identifiers.schema';
+import { FacetIdentifierSchema, FacetValueIdentifierSchema, ProductIdentifierSchema, SearchIdentifierSchema } from './models/identifiers.model';
 
 export const SearchResultProductSchema = z.looseInterface({
     identifier: ProductIdentifierSchema.default(ProductIdentifierSchema.parse({})),

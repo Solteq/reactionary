@@ -19,7 +19,6 @@ export class CommercetoolsPriceProvider<
       session.identity.token
     );
 
-    console.log('prepare to fetch...');
     const remote = await client
       .withProjectKey({ projectKey: this.config.projectKey })
       .standalonePrices()
@@ -30,7 +29,6 @@ export class CommercetoolsPriceProvider<
         }
       }).execute();
 
-    console.log('fetched and got: ', remote);
 
     const base = this.base();
 
@@ -39,8 +37,6 @@ export class CommercetoolsPriceProvider<
 
         base.value = price.value.centAmount;
     }
-
-    console.log('prepare to return: ', base);
 
     return base;
   }

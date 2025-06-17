@@ -43,7 +43,7 @@ export const appRouter = router({
     .input(ProductQuerySchema)
     .output(ProductSchema)
     .query(async (opts) => {
-      return opts.ctx.client.product.get(opts.input);
+      return opts.ctx.client.product.query(opts.input, opts.ctx.session);
     }),
   analytics: publicProcedure
     .input(AnalyticsEventSchema)

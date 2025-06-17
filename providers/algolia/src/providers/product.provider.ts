@@ -1,4 +1,4 @@
-import { Product, ProductProvider, ProductQuery } from '@reactionary/core';
+import { BaseMutation, Product, ProductProvider, ProductQuery, Session } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
 import { z } from 'zod';
 import { AlgoliaConfiguration } from '../schema/configuration.schema';
@@ -14,7 +14,7 @@ export class AlgoliaProductProvider<
     this.config = config;
   }
 
-  public async get(query: ProductQuery) {
+  public async query(query: ProductQuery, session: Session) {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
 
     const remote = await client.search({
@@ -32,6 +32,10 @@ export class AlgoliaProductProvider<
 
     return validated;
   }
+
+    public override mutate(mutation: BaseMutation, session: Session): Promise<T> {
+      throw new Error("Method not implemented.");
+    }
 
   public override parse(data: any): T {
     const base = this.base();
