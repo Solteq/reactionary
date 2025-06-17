@@ -1,0 +1,14 @@
+:host {
+  display: grid;
+  grid-template-columns: 600px;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+pre {
+  color: white;
+}
+
+input, button {
+  height: 3rem;
+}

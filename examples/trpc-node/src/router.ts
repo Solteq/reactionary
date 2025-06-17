@@ -2,6 +2,11 @@ import { initTRPC } from '@trpc/server';
 import {
   Analytics,
   AnalyticsEventSchema,
+  CartGetPayloadSchema,
+  CartItemAddPayloadSchema,
+  CartItemAdjustPayloadSchema,
+  CartItemRemovePayloadSchema,
+  CartSchema,
   Client,
   IdentityLoginPayloadSchema,
   IdentitySchema,
@@ -56,6 +61,32 @@ export const appRouter = router({
     }),
   logout: publicProcedure.output(IdentitySchema).mutation(async (opts) => {
     return opts.ctx.client.identity.logout(opts.ctx.session);
+  }),
+  cart: router({
+    get: publicProcedure
+      .input(CartGetPayloadSchema)
+      .output(CartSchema)
+      .query(async (opts) => {
+        return opts.ctx.client.cart.get(opts.input, opts.ctx.session);
+      }),
+    add: publicProcedure
+      .input(CartItemAddPayloadSchema)
+      .output(CartSchema)
+      .mutation(async (opts) => {
+        return opts.ctx.client.cart.add(opts.input, opts.ctx.session);
+      }),
+    adjust: publicProcedure
+      .input(CartItemAdjustPayloadSchema)
+      .output(CartSchema)
+      .mutation(async (opts) => {
+        return opts.ctx.client.cart.adjust(opts.input, opts.ctx.session);
+      }),
+    remove: publicProcedure
+      .input(CartItemRemovePayloadSchema)
+      .output(CartSchema)
+      .mutation(async (opts) => {
+        return opts.ctx.client.cart.remove(opts.input, opts.ctx.session);
+      })
   }),
 });
 
