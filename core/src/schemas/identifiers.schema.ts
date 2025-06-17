@@ -20,7 +20,17 @@ export const SearchIdentifierSchema = z.looseInterface({
     facets: z.array(FacetValueIdentifierSchema).default(() => [])
 });
 
+export const CartIdentifierSchema = z.looseInterface({
+    key: z.string().default('')
+});
+
+export const CartItemIdentifierSchema = z.looseInterface({
+    key: z.string().default('')
+});
+
 export type ProductIdentifier = z.infer<typeof ProductIdentifierSchema>;
 export type SearchIdentifier = z.infer<typeof SearchIdentifierSchema>;
 export type FacetIdentifier = z.infer<typeof FacetIdentifierSchema>;
 export type FacetValueIdentifier = z.infer<typeof FacetValueIdentifierSchema>;
+export type CartIdentifier = z.infer<typeof CartIdentifierSchema>;
+export type CartItemIdentifier = z.infer<typeof CartItemIdentifierSchema>;
