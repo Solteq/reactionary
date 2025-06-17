@@ -21,6 +21,9 @@ export class ProductComponent {
 
       const inventory = await this.trpc.client.inventory.query({ sku: 'TLSS-01' });
       console.log('inventory: ', inventory);
+
+      const price = await this.trpc.client.price.query({ sku: 'TLSS-01' });
+      console.log('price: ', price);
     });
   }
 }

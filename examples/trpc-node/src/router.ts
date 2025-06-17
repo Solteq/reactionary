@@ -11,6 +11,8 @@ import {
   IdentityLoginPayloadSchema,
   IdentitySchema,
   InventorySchema,
+  PriceQuerySchema,
+  PriceSchema,
   ProductQuerySchema,
   ProductSchema,
   SearchIdentifierSchema,
@@ -69,6 +71,12 @@ export const appRouter = router({
     .output(InventorySchema)
     .query(async (opts) => {
       return opts.ctx.client.inventory.query(opts.input, opts.ctx.session);
+    }),
+  price: publicProcedure
+    .input(PriceQuerySchema)
+    .output(PriceSchema)
+    .query(async (opts) => {
+      return opts.ctx.client.price.query(opts.input, opts.ctx.session);
     }),
   cart: router({
     get: publicProcedure
