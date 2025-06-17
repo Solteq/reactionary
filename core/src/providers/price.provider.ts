@@ -1,5 +1,7 @@
 import z from 'zod';
 import { Price } from '../schemas/price.schema';
+import { PriceQuery } from '../schemas/queries/price.query';
+import { Session } from '../schemas/session.schema';
 
 export abstract class PriceProvider<T = Price> {
   constructor(protected schema: z.ZodType<T>) {}
@@ -12,5 +14,5 @@ export abstract class PriceProvider<T = Price> {
     return this.schema.parse({});
   }
 
-  protected abstract get(): Promise<T>;
+  public abstract query(query: PriceQuery, session: Session): Promise<T>;
 }
