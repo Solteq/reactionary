@@ -1,17 +1,9 @@
-import { z } from 'zod';
-import { Product, ProductQuery } from '../schemas/product.schema';
+import { Product } from '../schemas/models/product.model';
+import { ProductQuery } from '../schemas/queries/product.query';
+import { Session } from '../schemas/session.schema';
+import { BaseProvider } from './base.provider';
 
-export abstract class ProductProvider<T = Product> {
-  constructor(protected schema: z.ZodType<T>) {}
-
-  protected validate(value: unknown): T {
-    return this.schema.parse(value);
-  }
-
-  protected base(): T {
-    return this.schema.parse({});
-  }
-
-  public abstract parse(data: unknown, query: ProductQuery): T;
-  public abstract get(query: ProductQuery): Promise<T>;
+export abstract class ProductProvider<T = Product> extends BaseProvider<T> {
+  public abstract override parse(data: unknown, query: ProductQuery): T;
+  public abstract override query(query: ProductQuery, session: Session): Promise<T>;
 }

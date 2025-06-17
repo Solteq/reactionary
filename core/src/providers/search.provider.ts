@@ -1,4 +1,4 @@
-import { SearchIdentifier } from '../schemas/identifiers.schema';
+import { SearchIdentifier } from '../schemas/models/identifiers.model';
 import { SearchResult } from '../schemas/search.schema';
 import { z } from 'zod';
 

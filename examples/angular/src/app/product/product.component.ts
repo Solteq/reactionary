@@ -16,14 +16,18 @@ export class ProductComponent {
   constructor() {
     effect(async () => {
       const product = this.service.productResource.value();
-      
+
       console.log('product: ', product);
 
-      const inventory = await this.trpc.client.inventory.query({ sku: 'TLSS-01' });
-      console.log('inventory: ', inventory);
+      if (product && product.skus.length > 0) {
+        const inventory = await this.trpc.client.inventory.query({
+          sku: product.skus[0].identifier.key,
+        });
+        console.log('inventory: ', inventory);
 
-      const price = await this.trpc.client.price.query({ sku: 'TLSS-01' });
-      console.log('price: ', price);
+        const price = await this.trpc.client.price.query({ sku: product.skus[0].identifier.key });
+        console.log('price: ', price);
+      }
     });
   }
 }

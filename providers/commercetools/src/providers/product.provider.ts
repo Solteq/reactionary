@@ -3,10 +3,13 @@ import {
   ProductQuery,
   Product,
   RedisCache,
+  Session,
+  BaseMutation,
 } from '@reactionary/core';
 import { CommercetoolsClient } from '../core/client';
 import { z } from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
+import { ProductProjection } from '@commercetools/platform-sdk';
 
 export class CommercetoolsProductProvider<Q extends Product> extends ProductProvider<Q>  {
   protected readonly CACHE_EXPIRY_IN_SECONDS = 60 * 5;
@@ -20,20 +23,29 @@ export class CommercetoolsProductProvider<Q extends Product> extends ProductProv
     this.config = config;
   }
 
-  public async get(query: ProductQuery) {
-    const cacheKey = query.slug || '';
+  public async query(query: ProductQuery, session: Session) {
+    let cacheKey = '';
+
+    if (query.type === 'BySlug') {
+      cacheKey = query.slug;
+    }
+
+    if (query.type == 'ById') {
+      cacheKey = query.id;
+    }
 
     // TODO: Find a better method for type-safety from cache
     let result = await this.cache.get(cacheKey) as Q;
 
     const cacheHit = !!result;
+    const skipCache = true;
     
-    if (!cacheHit) {
+    if (skipCache || !cacheHit) {
       const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
       let remote;
   
-      if (query.id) {
+      if (query.type === 'ById') {
         const result = await client
           .withProjectKey({ projectKey: this.config.projectKey })
           .productProjections()
@@ -72,7 +84,11 @@ export class CommercetoolsProductProvider<Q extends Product> extends ProductProv
     return validated;
   }
 
-  public override parse(data: any): Q {
+  public override mutate(mutation: BaseMutation, session: Session): Promise<Q> {
+    throw new Error("Method not implemented.");
+  }
+
+  public override parse(data: ProductProjection): Q {
     const base = this.base();
 
     base.identifier.key = data.id;
@@ -85,6 +101,15 @@ export class CommercetoolsProductProvider<Q extends Product> extends ProductProv
 
     if (data.masterVariant.images) {
       base.image = data.masterVariant.images[0].url;
+    }
+
+    const variants = [data.masterVariant, ...data.variants];
+    for (const variant of variants) {
+      base.skus.push({
+        identifier: {
+          key: variant.sku || ''
+        }
+      })
     }
 
     return base;

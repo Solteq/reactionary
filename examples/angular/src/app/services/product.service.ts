@@ -21,7 +21,10 @@ export class ProductService {
     }),
     loader: async ({ request }) => {
       if (request.slug) {
-        return this.client.client.product.query(request);
+        return this.client.client.product.query({
+          ...request,
+          type: 'BySlug'
+        });
       } else {
         return undefined;
       }

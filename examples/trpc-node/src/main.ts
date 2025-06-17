@@ -34,7 +34,7 @@ const client = buildClient([
       clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
       projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || '',
     },
-    { product: false, identity: true, cart: true, inventory: true, price: true }
+    { product: true, identity: true, cart: true, inventory: true, price: true }
   ),
   withFakeCapabilities(
     {
@@ -43,7 +43,7 @@ const client = buildClient([
         deviation: 100,
       },
     },
-    { search: false, product: true }
+    { search: false, product: false }
   ),
   withPosthogCapabilities(
     {
