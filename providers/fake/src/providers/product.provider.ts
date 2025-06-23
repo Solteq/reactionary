@@ -1,37 +1,43 @@
-import { BaseMutation, Product, ProductProvider, ProductQuery, Session } from "@reactionary/core";
-import z from "zod";
-import { FakeConfiguration } from "../schema/configuration.schema";
+import {
+  BaseMutation,
+  Product,
+  ProductMutation,
+  ProductProvider,
+  ProductQuery,
+  Session,
+} from '@reactionary/core';
+import z from 'zod';
+import { FakeConfiguration } from '../schema/configuration.schema';
 import { base, en, Faker } from '@faker-js/faker';
 
-export class FakeProductProvider<Q extends Product> extends ProductProvider<Q> {
-    protected config: FakeConfiguration;
-  
-    constructor(config: FakeConfiguration, schema: z.ZodType<Q>) {
-      super(schema);
-  
-      this.config = config;
-    }
-  
-    public async query(query: ProductQuery) {
-        return this.parse({}, query);
-    }
+export class FakeProductProvider<
+  T extends Product = Product,
+  Q extends ProductQuery = ProductQuery,
+  M extends ProductMutation = ProductMutation
+> extends ProductProvider<T, Q, M> {
+  protected config: FakeConfiguration;
 
-    public override mutate(mutation: BaseMutation, session: Session): Promise<Q> {
-      throw new Error("Method not implemented.");
-    }
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>) {
+    super(schema);
 
-    public override parse(data: unknown, query: ProductQuery): Q {
+    this.config = config;
+  }
+
+  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
+    const results = new Array<T>();
+
+    for (const query of queries) {
       const generator = new Faker({
         seed: 42,
         locale: [en, base],
       });
 
-      const key = query.id as string || generator.commerce.isbn();
-      const slug = query.slug as string || generator.lorem.slug();
+      const key = (query.id as string) || generator.commerce.isbn();
+      const slug = (query.slug as string) || generator.lorem.slug();
 
       const product: Product = {
         identifier: {
-          key: key
+          key: key,
         },
         name: generator.commerce.productName(),
         slug: slug,
@@ -39,18 +45,29 @@ export class FakeProductProvider<Q extends Product> extends ProductProvider<Q> {
         description: generator.commerce.productDescription(),
         image: generator.image.urlPicsumPhotos({
           width: 600,
-          height: 600
+          height: 600,
         }),
         images: [],
         meta: {
           cache: {
             hit: false,
-            key: key
-          }
+            key: key,
+          },
+          placeholder: false
         },
-        skus: []
-      }
+        skus: [],
+      };
 
-      return this.schema.parse(product);
+      results.push(product as T);
     }
+
+    return results;
+  }
+
+  protected override process(
+    mutation: BaseMutation[],
+    session: Session
+  ): Promise<T> {
+    throw new Error('Method not implemented.');
+  }
 }

@@ -1,18 +1,10 @@
-import z from 'zod';
-import { Price } from '../schemas/price.schema';
+import { Price } from '../schemas/models/price.model';
+import { PriceMutation } from '../schemas/mutations/price.mutation';
 import { PriceQuery } from '../schemas/queries/price.query';
-import { Session } from '../schemas/session.schema';
+import { BaseProvider } from './base.provider';
 
-export abstract class PriceProvider<T = Price> {
-  constructor(protected schema: z.ZodType<T>) {}
-
-  protected validate(value: unknown): T {
-    return this.schema.parse(value);
-  }
-
-  protected base(): T {
-    return this.schema.parse({});
-  }
-
-  public abstract query(query: PriceQuery, session: Session): Promise<T>;
-}
+export abstract class PriceProvider<
+  T extends Price = Price,
+  Q extends PriceQuery = PriceQuery,
+  M extends PriceMutation = PriceMutation
+> extends BaseProvider<T, Q, M> {}

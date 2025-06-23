@@ -6,8 +6,8 @@ export class CustomAlgoliaProductProvider extends AlgoliaProductProvider<CustomP
         super(config, CustomProductSchema);
       }
     
-    public override parse(data: any): CustomProduct {
-        const result = super.parse(data);
+    public parse(data: any): CustomProduct {
+        const result = super.newModel();
 
         result.gtin = data.ean8 ?? data.ean13 ?? data.partNumber ?? 'missingggg';
         result.name = result.name.toUpperCase();

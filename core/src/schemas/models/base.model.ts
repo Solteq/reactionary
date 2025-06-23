@@ -6,7 +6,8 @@ export const CacheInformationSchema = z.looseInterface({
 })
 
 export const MetaSchema = z.looseInterface({
-    cache: CacheInformationSchema.default(() => CacheInformationSchema.parse({}))
+    cache: CacheInformationSchema.default(() => CacheInformationSchema.parse({})),
+    placeholder: z.boolean().default(false).describe('Whether or not the entity exists in a remote system, or is a default placeholder.')
 });
 
 export const BaseModelSchema = z.looseInterface({

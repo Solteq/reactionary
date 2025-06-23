@@ -22,7 +22,7 @@ export class SearchService {
     }),
     loader: async ({ request }) => {
       return this.client.client.search.query(request);
-    }
+    },
   });
 
   public search = linkedSignal<
