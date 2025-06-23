@@ -2,12 +2,12 @@ import { z } from 'zod';
 import { BaseQuerySchema } from './base.query';
 
 export const ProductQueryBySlugSchema = BaseQuerySchema.extend({
-    type: z.literal('BySlug'),
+    query: z.literal('slug'),
     slug: z.string()
 });
 
 export const ProductQueryByIdSchema = BaseQuerySchema.extend({
-    type: z.literal('ById'),
+    query: z.literal('id'),
     id: z.string() 
 });
 

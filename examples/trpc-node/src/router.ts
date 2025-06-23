@@ -30,6 +30,12 @@ export const router = t.router;
 export const mergeRouters = t.mergeRouters;
 export const publicProcedure = t.procedure;
 
+
+/**
+ * TODO: Find a way to autogenerate all of this.
+ * This is just yak-shaving.
+ */
+
 export const appRouter = router({
   search: publicProcedure
     .input(SearchIdentifierSchema)
@@ -40,8 +46,8 @@ export const appRouter = router({
       return result;
     }),
   product: publicProcedure
-    .input(ProductQuerySchema)
-    .output(ProductSchema)
+    .input(ProductQuerySchema.array())
+    .output(ProductSchema.array())
     .query(async (opts) => {
       return opts.ctx.client.product.query(opts.input, opts.ctx.session);
     }),
@@ -73,8 +79,8 @@ export const appRouter = router({
       return opts.ctx.client.inventory.query(opts.input, opts.ctx.session);
     }),
   price: publicProcedure
-    .input(PriceQuerySchema)
-    .output(PriceSchema)
+    .input(PriceQuerySchema.array())
+    .output(PriceSchema.array())
     .query(async (opts) => {
       return opts.ctx.client.price.query(opts.input, opts.ctx.session);
     }),

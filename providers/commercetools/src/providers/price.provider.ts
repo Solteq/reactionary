@@ -1,43 +1,66 @@
-import { Price, InventoryQuery, PriceProvider, Session } from '@reactionary/core';
+import { BaseMutation, Price, PriceProvider, PriceQuery, Session } from '@reactionary/core';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';
+import { PriceMutation } from 'core/src/schemas/mutations/price.mutation';
 
 export class CommercetoolsPriceProvider<
-  Q extends Price
-> extends PriceProvider<Q> {
+  T extends Price,
+  Q extends PriceQuery,
+  M extends PriceMutation
+> extends PriceProvider<T, Q, M> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<Q>) {
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>) {
     super(schema);
 
     this.config = config;
   }
 
-  public override async query(query: InventoryQuery, session: Session): Promise<Q> {
+  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
     const client = new CommercetoolsClient(this.config).getClient(
-      session.identity.token
+      session.identity?.token
     );
+
+    const queryArgs = {
+      where: 'sku in :skus',
+      'var.skus': queries.map(x => x.sku.key),
+    };
 
     const remote = await client
       .withProjectKey({ projectKey: this.config.projectKey })
       .standalonePrices()
       .get({
-        queryArgs: {
-          where: 'sku=:sku',
-          'var.sku': query.sku,
+        queryArgs,
+      })
+      .execute();
+
+    const results = new Array<T>();
+    
+    for (const query of queries) {
+        const base = this.newModel();
+        const matched = remote.body.results.find(x => x.sku === query.sku.key);
+
+        if (matched) {
+          base.value = {
+            cents: matched.value.centAmount,
+            currency: 'USD',
+          };
         }
-      }).execute();
 
+        base.identifier = {
+          sku: {
+            key: query.sku.key
+          }
+        };
 
-    const base = this.base();
-
-    if (remote.body.results.length > 0) {
-        const price = remote.body.results[0];
-
-        base.value = price.value.centAmount;
+        results.push(base);
     }
 
-    return base;
+    return results;
+  }
+
+  protected override process(mutation: BaseMutation[], session: Session): Promise<T> {
+    throw new Error('Method not implemented.');
   }
 }

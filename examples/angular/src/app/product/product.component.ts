@@ -25,8 +25,16 @@ export class ProductComponent {
         });
         console.log('inventory: ', inventory);
 
-        const price = await this.trpc.client.price.query({ sku: product.skus[0].identifier.key });
-        console.log('price: ', price);
+        const prices = await this.trpc.client.price.query([
+          { sku: product.skus[0].identifier, query: 'sku' },
+        ]);
+        console.log('price: ', prices);
+
+        const pricesWithUnknownSku = await this.trpc.client.price.query([
+          { sku: product.skus[0].identifier, query: 'sku' },
+          { sku: { key: '123456' }, query: 'sku' },
+        ]);
+        console.log('pricesWithUnknownSku: ', pricesWithUnknownSku);
       }
     });
   }

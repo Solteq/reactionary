@@ -5,91 +5,66 @@ import {
   RedisCache,
   Session,
   BaseMutation,
+  ProductMutation,
 } from '@reactionary/core';
 import { CommercetoolsClient } from '../core/client';
 import { z } from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { ProductProjection } from '@commercetools/platform-sdk';
 
-export class CommercetoolsProductProvider<Q extends Product> extends ProductProvider<Q>  {
+export class CommercetoolsProductProvider<
+  T extends Product = Product,
+  Q extends ProductQuery = ProductQuery,
+  M extends ProductMutation = ProductMutation
+> extends ProductProvider<T, Q, M> {
   protected readonly CACHE_EXPIRY_IN_SECONDS = 60 * 5;
 
   protected config: CommercetoolsConfiguration;
   protected cache = new RedisCache();
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<Q>) {
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>) {
     super(schema);
 
     this.config = config;
   }
 
-  public async query(query: ProductQuery, session: Session) {
-    let cacheKey = '';
+  protected override async fetch(queries: ProductQuery[], session: Session): Promise<T[]> {
+    const ids = queries.filter((x) => x.query === 'id').map((x) => x.id);
+    const slugs = queries.filter((x) => x.query === 'slug').map((x) => x.slug);
 
-    if (query.type === 'BySlug') {
-      cacheKey = query.slug;
+    const client = new CommercetoolsClient(this.config).createAnonymousClient();
+    const remote = await client
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .productProjections()
+      .get({
+        queryArgs: {
+          where: 'id in :ids OR slug(en-US in :slug)',
+          'var.ids': ids,
+          'var.slugs': slugs
+        }
+      })
+      .execute();
+
+    const results = new Array<T>;
+
+    for (const r of remote.body.results) {
+      const result = this.parse(r);
+
+      results.push(result);
     }
 
-    if (query.type == 'ById') {
-      cacheKey = query.id;
-    }
-
-    // TODO: Find a better method for type-safety from cache
-    let result = await this.cache.get(cacheKey) as Q;
-
-    const cacheHit = !!result;
-    const skipCache = true;
-    
-    if (skipCache || !cacheHit) {
-      const client = new CommercetoolsClient(this.config).createAnonymousClient();
-
-      let remote;
-  
-      if (query.type === 'ById') {
-        const result = await client
-          .withProjectKey({ projectKey: this.config.projectKey })
-          .productProjections()
-          .withId({
-            ID: query.id,
-          })
-          .get()
-          .execute();
-  
-          remote = result.body;
-      } else {
-        const result = await client
-          .withProjectKey({ projectKey: this.config.projectKey })
-          .productProjections()
-          .get({
-            queryArgs: {
-              where: 'slug(en-US=:slug)',
-              'var.slug': query.slug,
-            }
-          })
-          .execute();
-  
-        remote = result.body.results[0];
-      }
-
-      result = this.parse(remote);
-    }
-
-    result.meta.cache.key = cacheKey;
-    result.meta.cache.hit = cacheHit;
-
-    const validated = this.validate(result);
-
-    this.cache.put(cacheKey, validated, this.CACHE_EXPIRY_IN_SECONDS);
-
-    return validated;
+    return results;
   }
 
-  public override mutate(mutation: BaseMutation, session: Session): Promise<Q> {
-    throw new Error("Method not implemented.");
+  protected override process(
+    mutation: BaseMutation[],
+    session: Session
+  ): Promise<T> {
+    throw new Error('Method not implemented.');
   }
 
-  public override parse(data: ProductProjection): Q {
-    const base = this.base();
+  protected parse(data: ProductProjection): T {
+    const base = this.newModel();
 
     base.identifier.key = data.id;
     base.name = data.name['en-US'];
@@ -107,9 +82,9 @@ export class CommercetoolsProductProvider<Q extends Product> extends ProductProv
     for (const variant of variants) {
       base.skus.push({
         identifier: {
-          key: variant.sku || ''
-        }
-      })
+          key: variant.sku || '',
+        },
+      });
     }
 
     return base;

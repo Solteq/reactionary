@@ -2,19 +2,74 @@ import { z } from 'zod';
 import { Session } from '../schemas/session.schema';
 import { BaseQuery } from '../schemas/queries/base.query';
 import { BaseMutation } from '../schemas/mutations/base.mutation';
+import { BaseModel } from '../schemas/models/base.model';
 
-export abstract class BaseProvider<T> {
+/**
+ * Base capability provider, responsible for mutations (changes) and queries (fetches)
+ * for a given business object domain.
+ */
+export abstract class BaseProvider<
+  T extends BaseModel,
+  Q extends BaseQuery,
+  M extends BaseMutation
+> {
   constructor(protected schema: z.ZodType<T>) {}
 
-  protected validate(value: unknown): T {
+  /**
+   * Validates that the final domain model constructed by the provider
+   * fulfills the schema as defined. This will throw an exception.
+   */
+  protected assert(value: T) {
     return this.schema.parse(value);
   }
 
-  protected base(): T {
+  /**
+   * Creates a new model entity based on the schema defaults.
+   */
+  protected newModel(): T {
     return this.schema.parse({});
   }
 
-  public abstract parse(data: unknown, query: BaseQuery): T;
-  public abstract query(query: BaseQuery, session: Session): Promise<T>;
-  public abstract mutate(mutation: BaseMutation, session: Session): Promise<T>;
+  /**
+   * Retrieves a set of entities matching the list of queries. The size of
+   * the resulting list WILL always match the size of the query list. The
+   * result list will never contain nulls or undefined. The order
+   * of the results will match the order of the queries.
+   */
+  public async query(queries: Q[], session: Session): Promise<T[]> {
+    const results = await this.fetch(queries, session);
+
+    for (const result of results) {
+      this.assert(result);
+    }
+
+    return results;
+  }
+
+  /**
+   * Executes the listed mutations in order and returns the final state
+   * resulting from that set of operations.
+   */
+  public async mutate(mutations: M[], session: Session): Promise<T> {
+    const result = await this.process(mutations, session);
+
+    this.assert(result);
+
+    return result;
+  }
+
+  /**
+   * The internal extension point for providers implementating query
+   * capabilities.
+   */
+  protected abstract fetch(queries: Q[], session: Session): Promise<T[]>;
+
+  /**
+   * The internal extension point for providers implementing mutation
+   * capabilities.
+   */
+  protected abstract process(
+    mutation: BaseMutation[],
+    session: Session
+  ): Promise<T>;
 }

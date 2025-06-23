@@ -16,7 +16,7 @@ export class CommercetoolsInventoryProvider<
 
   public override async query(query: InventoryQuery, session: Session): Promise<Q> {
     const client = new CommercetoolsClient(this.config).getClient(
-      session.identity.token
+      session.identity?.token
     );
 
     const remote = await client

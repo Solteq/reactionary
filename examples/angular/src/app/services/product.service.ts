@@ -21,10 +21,12 @@ export class ProductService {
     }),
     loader: async ({ request }) => {
       if (request.slug) {
-        return this.client.client.product.query({
-          ...request,
-          type: 'BySlug'
-        });
+        const results = await this.client.client.product.query([{
+          query: 'slug',
+          slug: request.slug,
+        }]);
+
+        return results[0];
       } else {
         return undefined;
       }

@@ -18,7 +18,7 @@ export * from './schemas/cart.schema';
 
 export * from './schemas/identity.schema';
 export * from './schemas/inventory.schema';
-export * from './schemas/price.schema';
+export * from './schemas/models/price.model';
 export * from './schemas/search.schema';
 export * from './schemas/session.schema';
 
@@ -27,6 +27,8 @@ export * from './schemas/models/identifiers.model';
 export * from './schemas/models/product.model';
 
 export * from './schemas/mutations/base.mutation';
+export * from './schemas/mutations/price.mutation';
+export * from './schemas/mutations/product.mutation';
 
 export * from './schemas/queries/inventory.query';
 export * from './schemas/queries/price.query';

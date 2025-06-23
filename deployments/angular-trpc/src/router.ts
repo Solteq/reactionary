@@ -25,8 +25,8 @@ export const appRouter = router({
       return result;
     }),
   product: publicProcedure
-    .input(ProductQuerySchema)
-    .output(ProductSchema)
+    .input(ProductQuerySchema.array())
+    .output(ProductSchema.array())
     .query(async (opts) => {
       return opts.ctx.client.product.query(opts.input, {});
     }),
