@@ -1,9 +1,10 @@
 import { AlgoliaConfiguration, AlgoliaProductProvider } from '@reactionary/provider-algolia';
 import { CustomProduct, CustomProductSchema } from '../schemas/custom-product.schema';
+import { ProductMutationSchema, ProductQuerySchema } from '@reactionary/core';
 
 export class CustomAlgoliaProductProvider extends AlgoliaProductProvider<CustomProduct> {    
     constructor(config: AlgoliaConfiguration) {
-        super(config, CustomProductSchema);
+        super(config, CustomProductSchema, ProductQuerySchema, ProductMutationSchema);
       }
     
     public parse(data: any): CustomProduct {
