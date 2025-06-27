@@ -22,8 +22,8 @@ export class CommercetoolsProductProvider<
   protected config: CommercetoolsConfiguration;
   protected cache = new RedisCache();
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>) {
-    super(schema);
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>) {
+    super(schema, querySchema, mutationSchema);
 
     this.config = config;
   }
@@ -33,17 +33,20 @@ export class CommercetoolsProductProvider<
     const slugs = queries.filter((x) => x.query === 'slug').map((x) => x.slug);
 
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
+
+    console.log('prepare to fetch...');
     const remote = await client
       .withProjectKey({ projectKey: this.config.projectKey })
       .productProjections()
       .get({
         queryArgs: {
-          where: 'id in :ids OR slug(en-US in :slug)',
-          'var.ids': ids,
+          where: 'slug(en-US in :slugs)',
           'var.slugs': slugs
         }
       })
       .execute();
+
+    console.log('remote: ', remote);
 
     const results = new Array<T>;
 

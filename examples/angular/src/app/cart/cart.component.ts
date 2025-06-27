@@ -22,15 +22,18 @@ export class CartComponent {
   protected cart = signal<Cart | undefined>(undefined);
 
   protected async add() {
-    const c = await this.trpc.client.cart.add.mutate({
-      cart: {
-        key: this.cart()?.identifier.key || '',
+    const c = await this.trpc.client.cartMutation.mutate([
+      {
+        mutation: 'add',
+        cart: {
+          key: this.cart()?.identifier.key || '',
+        },
+        product: {
+          key: 'ad153f54-6ae9-4800-8e5e-b40a07eb87b4',
+        },
+        quantity: 2,
       },
-      product: {
-        key: 'ad153f54-6ae9-4800-8e5e-b40a07eb87b4',
-      },
-      quantity: 2,
-    });
+    ]);
 
     this.cart.set(c);
   }
@@ -39,11 +42,14 @@ export class CartComponent {
     const existing = this.cart();
 
     if (existing) {
-      const c = await this.trpc.client.cart.adjust.mutate({
-        cart: existing.identifier,
-        item: existing.items[0].identifier,
-        quantity: existing.items[0].quantity + 1
-      });
+      const c = await this.trpc.client.cartMutation.mutate([
+        {
+          mutation: 'adjustQuantity',
+          cart: existing.identifier,
+          item: existing.items[0].identifier,
+          quantity: existing.items[0].quantity + 1,
+        },
+      ]);
 
       this.cart.set(c);
     }
@@ -53,10 +59,13 @@ export class CartComponent {
     const existing = this.cart();
 
     if (existing) {
-      const c = await this.trpc.client.cart.remove.mutate({
-        cart: existing.identifier,
-        item: existing.items[0].identifier
-      });
+      const c = await this.trpc.client.cartMutation.mutate([
+        {
+          mutation: 'remove',
+          cart: existing.identifier,
+          item: existing.items[0].identifier,
+        },
+      ]);
 
       this.cart.set(c);
     }

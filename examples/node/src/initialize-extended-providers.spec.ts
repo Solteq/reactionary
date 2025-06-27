@@ -27,12 +27,12 @@ describe('initialize extended providers', () => {
       }
     ]);
 
-    const product = await client.product.query({
+    const product = await client.product.query([{
       id: '4d28f98d-c446-446e-b59a-d9f718e5b98a',
-      type: 'ById'
-    }, session);
+      query: 'id'
+    }], session);
 
-    expect(product.gtin).toBe('missingggg');
-    expect(product.name).toBe('SUNNAI GLASS BOWL');
+    expect(product[0].gtin).toBe('missingggg');
+    expect(product[0].name).toBe('SUNNAI GLASS BOWL');
   });
 });

@@ -22,23 +22,28 @@ export class IdentityComponent {
   protected identity = signal<Identity | undefined>(undefined);
   
   protected async login(username: string, password: string) {
-    const res = await this.trpc.client.login.mutate({
-      username,
-      password
-    });
+    const res = await this.trpc.client.identityMutation.mutate([
+      {
+        mutation: 'login',
+        username,
+        password
+    }
+    ]);
 
     this.identity.set(res);
   }
 
   protected async logout() {
-    const res = await this.trpc.client.logout.mutate();
+    const res = await this.trpc.client.identityMutation.mutate([{
+      mutation: 'logout'
+    }])
 
     this.identity.set(res);
   }
 
   protected async refresh() {
-    const res = await this.trpc.client.identity.query();
+    const res = await this.trpc.client.identity.query([{ query: 'self' }])
 
-    this.identity.set(res);
+    this.identity.set(res[0]);
   }
 }

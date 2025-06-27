@@ -1,9 +1,12 @@
 import {
   SearchIdentifier,
+  SearchMutation,
   SearchProvider,
+  SearchQuery,
   SearchResult,
   SearchResultFacet,
   SearchResultProduct,
+  Session,
 } from '@reactionary/core';
 import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
@@ -11,14 +14,32 @@ import { Faker, en, base } from '@faker-js/faker';
 import { jitter } from '../utilities/jitter';
 
 export class FakeSearchProvider<
-  T extends SearchResult
-> extends SearchProvider<T> {
+  T extends SearchResult = SearchResult,
+  Q extends SearchQuery = SearchQuery,
+  M extends SearchMutation = SearchMutation
+> extends SearchProvider<T, Q, M> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>) {
-    super(schema);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>) {
+    super(schema, querySchema, mutationSchema);
 
     this.config = config;
+  }
+
+  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
+    const results = [];
+
+    for (const query of queries) {
+      const result = await this.get(query.search);
+
+      results.push(result);
+    }
+
+    return results;
+  }
+
+  protected override process(mutations: M[], session: Session): Promise<T> {
+    throw new Error('Method not implemented.');
   }
 
   public async get(identifier: SearchIdentifier): Promise<T> {
@@ -27,7 +48,7 @@ export class FakeSearchProvider<
     return this.parse({}, identifier);
   }
 
-  public override parse(data: unknown, query: SearchIdentifier): T {
+  public parse(data: unknown, query: SearchIdentifier): T {
     const querySpecificity =
       20 - query.term.length - query.page - query.facets.length;
     const totalProducts = 10 * querySpecificity;
@@ -107,6 +128,13 @@ export class FakeSearchProvider<
       },
       facets: facets,
       products: products,
+      meta: {
+        cache: {
+          hit: false,
+          key: ''
+        },
+        placeholder: false
+      }
     } satisfies SearchResult;
 
     return this.schema.parse(result);

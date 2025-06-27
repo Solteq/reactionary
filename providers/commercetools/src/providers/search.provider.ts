@@ -1,22 +1,43 @@
 import {
   SearchIdentifier,
+  SearchMutation,
   SearchProvider,
+  SearchQuery,
   SearchResult,
   SearchResultProductSchema,
+  Session,
 } from '@reactionary/core';
 import { CommercetoolsClient } from '../core/client';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 
 export class CommercetoolsSearchProvider<
-  T extends SearchResult
-> extends SearchProvider<T> {
+  T extends SearchResult = SearchResult,
+  Q extends SearchQuery = SearchQuery,
+  M extends SearchMutation = SearchMutation
+> extends SearchProvider<T, Q, M> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>) {
-    super(schema);
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>) {
+    super(schema, querySchema, mutationSchema);
 
     this.config = config;
+  }
+
+  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
+    const results = [];
+
+    for (const query of queries) {
+      const result = await this.get(query.search);
+
+      results.push(result);
+    }
+
+    return results;
+  }
+
+  protected override process(mutations: M[], session: Session): Promise<T> {
+    throw new Error('Method not implemented.');
   }
 
   public async get(identifier: SearchIdentifier): Promise<T> {
@@ -36,13 +57,12 @@ export class CommercetoolsSearchProvider<
       .execute();
 
     const parsed = this.parse(remote, identifier);
-    const validated = this.validate(parsed);
 
-    return validated;
+    return parsed;
   }
 
-  public override parse(remote: any, query: SearchIdentifier): T {
-    const result = super.base();
+  public parse(remote: any, query: SearchIdentifier): T {
+    const result = super.newModel();
 
     result.identifier = query;
 

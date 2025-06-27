@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { FacetIdentifierSchema, FacetValueIdentifierSchema, ProductIdentifierSchema, SearchIdentifierSchema } from './models/identifiers.model';
+import { ProductIdentifierSchema, FacetValueIdentifierSchema, FacetIdentifierSchema, SearchIdentifierSchema } from './identifiers.model';
+import { BaseModelSchema } from './base.model';
 
 export const SearchResultProductSchema = z.looseInterface({
     identifier: ProductIdentifierSchema.default(ProductIdentifierSchema.parse({})),
@@ -21,7 +22,7 @@ export const SearchResultFacetSchema = z.looseInterface({
     values: z.array(SearchResultFacetValueSchema).default(() => [])
 });
 
-export const SearchResultSchema = z.looseInterface({
+export const SearchResultSchema = BaseModelSchema.extend({
     identifier: SearchIdentifierSchema.default(() => SearchIdentifierSchema.parse({})),
     products: z.array(SearchResultProductSchema).default(() => []),
     pages: z.number().default(0),

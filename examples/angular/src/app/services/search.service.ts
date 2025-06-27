@@ -21,7 +21,14 @@ export class SearchService {
       facets: this.facets(),
     }),
     loader: async ({ request }) => {
-      return this.client.client.search.query(request);
+      const result = await this.client.client.search.query([{
+        query: 'term',
+        search: {
+          ...request
+        }
+      }]);
+
+      return result[0];
     },
   });
 

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const FacetIdentifierSchema = z.looseInterface({
-    key: z.string().default('')
+    key: z.string().default('').nonoptional()
 });
 
 export const FacetValueIdentifierSchema = z.looseInterface({
@@ -10,7 +10,7 @@ export const FacetValueIdentifierSchema = z.looseInterface({
 });
 
 export const SKUIdentifierSchema = z.looseInterface({
-    key: z.string().default('')
+    key: z.string().default('').nonoptional()
 });
 
 export const ProductIdentifierSchema = z.looseInterface({
@@ -21,7 +21,7 @@ export const SearchIdentifierSchema = z.looseInterface({
     term: z.string().default(''),
     page: z.number().default(0),
     pageSize: z.number().default(20),
-    facets: z.array(FacetValueIdentifierSchema).default(() => [])
+    facets: z.array(FacetValueIdentifierSchema.required()).default(() => [])
 });
 
 export const CartIdentifierSchema = z.looseInterface({

@@ -3,7 +3,7 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 
 // FIXME: move the router to a buildable library, to allow importing it
 // eslint-disable-next-line @nx/enforce-module-boundaries 
-import { RouterType } from '../../../../trpc-node/src/router';
+import type { RouterType } from '../../../../trpc-node/src/router-instance';
 import superjson from "superjson";
 
 @Injectable({

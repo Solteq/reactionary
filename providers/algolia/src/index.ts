@@ -1,6 +1,5 @@
 export * from './core/initialize';
 
-export * from './providers/analytics.provider';
 export * from './providers/product.provider';
 export * from './providers/search.provider';
 

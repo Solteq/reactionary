@@ -23,22 +23,6 @@ export class SearchComponent {
     return !(this.service.page() > 0);
   });
 
-  // TODO: Encapsulate this in a directive, for demonstration purposes
-  protected onProductInteraction(key: string, position: number) {
-    const search = this.service.search();
-
-    if (search) {
-      this.client.client.analytics.mutate({
-        type: 'product-search-click',
-        position: position,
-        product: {
-          key: key,
-        },
-        search: search.identifier,
-      });
-    }
-  }
-
   protected previousPage() {
     this.service.page.update((old) => old - 1);
   }
