@@ -21,8 +21,7 @@
         "main": "core/src/index.ts",
         "tsConfig": "core/tsconfig.lib.json",
         "assets": ["core/*.md"],
-        "format": ["esm"],
-        "generatePackageJson": true
+        "format": ["esm"]
       }
     },
     "nx-release-publish": {

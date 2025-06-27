@@ -5,7 +5,7 @@ import {
 } from '@reactionary/core';
 import superjson from 'superjson';
 import { z } from 'zod';
-import { BaseProvider } from 'core/src/providers/base.provider';
+import { BaseProvider } from '@reactionary/core';
 import {
   QueryProcedure,
   MutationProcedure,

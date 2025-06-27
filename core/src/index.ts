@@ -1,9 +1,10 @@
-export * from './cache/memory-cache';
+export * from './cache/caching-strategy';
 export * from './cache/redis-cache';
 
 export * from './client/client';
 
 export * from './providers/analytics.provider';
+export * from './providers/base.provider';
 export * from './providers/cart.provider';
 export * from './providers/identity.provider';
 export * from './providers/inventory.provider';

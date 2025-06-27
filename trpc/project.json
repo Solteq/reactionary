@@ -13,14 +13,13 @@
   "tags": [],
   "targets": {
     "build": {
-      "executor": "@nx/js:tsc",
+      "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "options": {
         "outputPath": "dist/trpc",
-        "tsConfig": "trpc/tsconfig.lib.json",
-        "packageJson": "trpc/package.json",
         "main": "trpc/src/index.ts",
-        "assets": ["trpc/*.md"]
+        "tsConfig": "trpc/tsconfig.lib.json",
+        "format": ["esm"]
       }
     },
     "nx-release-publish": {

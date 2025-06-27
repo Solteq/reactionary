@@ -2,7 +2,6 @@ import {
   ProductProvider,
   ProductQuery,
   Product,
-  RedisCache,
   Session,
   BaseMutation,
   ProductMutation,
@@ -17,10 +16,7 @@ export class CommercetoolsProductProvider<
   Q extends ProductQuery = ProductQuery,
   M extends ProductMutation = ProductMutation
 > extends ProductProvider<T, Q, M> {
-  protected readonly CACHE_EXPIRY_IN_SECONDS = 60 * 5;
-
   protected config: CommercetoolsConfiguration;
-  protected cache = new RedisCache();
 
   constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>) {
     super(schema, querySchema, mutationSchema);
@@ -34,7 +30,6 @@ export class CommercetoolsProductProvider<
 
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
-    console.log('prepare to fetch...');
     const remote = await client
       .withProjectKey({ projectKey: this.config.projectKey })
       .productProjections()
@@ -45,8 +40,6 @@ export class CommercetoolsProductProvider<
         }
       })
       .execute();
-
-    console.log('remote: ', remote);
 
     const results = new Array<T>;
 

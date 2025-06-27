@@ -1,7 +1,9 @@
 import {
+  BaseCachingStrategy,
   Inventory,
   InventoryProvider,
   InventoryQuery,
+  RedisCache,
   Session,
 } from '@reactionary/core';
 import z from 'zod';
@@ -15,6 +17,7 @@ export class CommercetoolsInventoryProvider<
   M extends InventoryMutation = InventoryMutation
 > extends InventoryProvider<T, Q, M> {
   protected config: CommercetoolsConfiguration;
+  protected cache = new RedisCache(new BaseCachingStrategy());
 
   constructor(
     config: CommercetoolsConfiguration,
@@ -31,7 +34,14 @@ export class CommercetoolsInventoryProvider<
     const results = [];
 
     for (const query of queries) {
-      const result = await this.get(query, session);
+      let result = await this.cache.get(query, session, this.schema);
+      console.log('from cache: ', result);
+
+      if (!result) {
+        result = await this.get(query, session);
+
+        this.cache.put(query, session, result);
+      }
 
       results.push(result);
     }
