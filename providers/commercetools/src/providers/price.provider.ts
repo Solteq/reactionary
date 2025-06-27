@@ -5,14 +5,14 @@ import { CommercetoolsClient } from '../core/client';
 import { PriceMutation } from 'core/src/schemas/mutations/price.mutation';
 
 export class CommercetoolsPriceProvider<
-  T extends Price,
-  Q extends PriceQuery,
-  M extends PriceMutation
+  T extends Price = Price,
+  Q extends PriceQuery = PriceQuery,
+  M extends PriceMutation = PriceMutation
 > extends PriceProvider<T, Q, M> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>) {
-    super(schema);
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>) {
+    super(schema, querySchema, mutationSchema);
 
     this.config = config;
   }

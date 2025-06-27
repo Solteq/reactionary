@@ -1,19 +1,12 @@
-import { SearchIdentifier } from '../schemas/models/identifiers.model';
-import { SearchResult } from '../schemas/search.schema';
-import { z } from 'zod';
+import { SearchResult } from '../schemas/models/search.model';
+import { SearchQuery } from '../schemas/queries/search.query';
+import { SearchMutation } from '../schemas/mutations/search.mutation';
+import { BaseProvider } from './base.provider';
 
-export abstract class SearchProvider<T = SearchResult> {
-  constructor(protected schema: z.ZodType<T>) {}
+export abstract class SearchProvider<
+  T extends SearchResult = SearchResult,
+  Q extends SearchQuery = SearchQuery,
+  M extends SearchMutation = SearchMutation
+> extends BaseProvider<T, Q, M> {}
 
-  protected validate(value: unknown): T {
-    return this.schema.parse(value);
-  }
-
-  protected base(): T {
-    return this.schema.parse({});
-  }
-
-  public abstract parse(data: unknown, query: SearchIdentifier): T;
-  public abstract get(identifier: SearchIdentifier): Promise<T>;
-}
 

@@ -20,9 +20,10 @@ export class ProductComponent {
       console.log('product: ', product);
 
       if (product && product.skus.length > 0) {
-        const inventory = await this.trpc.client.inventory.query({
+        const inventory = await this.trpc.client.inventory.query([{
+          query: 'sku',
           sku: product.skus[0].identifier.key,
-        });
+        }]);
         console.log('inventory: ', inventory);
 
         const prices = await this.trpc.client.price.query([

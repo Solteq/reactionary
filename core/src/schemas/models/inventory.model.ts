@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { BaseModelSchema } from './base.model';
 
-export const InventorySchema = z.looseInterface({
+export const InventorySchema = BaseModelSchema.extend({
     quantity: z.number().default(0)
 });
 

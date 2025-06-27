@@ -9,11 +9,11 @@ import { BaseModel } from '../schemas/models/base.model';
  * for a given business object domain.
  */
 export abstract class BaseProvider<
-  T extends BaseModel,
-  Q extends BaseQuery,
-  M extends BaseMutation
+  T extends BaseModel = BaseModel,
+  Q extends BaseQuery = BaseQuery,
+  M extends BaseMutation = BaseMutation
 > {
-  constructor(protected schema: z.ZodType<T>) {}
+  constructor(public readonly schema: z.ZodType<T>, public readonly querySchema: z.ZodType<Q, Q>, public readonly mutationSchema: z.ZodType<M, M>) {}
 
   /**
    * Validates that the final domain model constructed by the provider
@@ -69,7 +69,7 @@ export abstract class BaseProvider<
    * capabilities.
    */
   protected abstract process(
-    mutation: BaseMutation[],
+    mutations: M[],
     session: Session
   ): Promise<T>;
 }

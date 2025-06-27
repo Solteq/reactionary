@@ -1,20 +1,10 @@
-import z from "zod";
-import { Session } from "../schemas/session.schema";
-import { Cart, CartItemAddPayload, CartItemAdjustPayload, CartItemRemovePayload, CartGetPayload } from "../schemas/cart.schema";
+import { CartQuery } from "../schemas/queries/cart.query";
+import { CartMutation } from "../schemas/mutations/cart.mutation";
+import { BaseProvider } from "./base.provider";
+import { Cart } from "../schemas/models/cart.model";
 
-export abstract class CartProvider<T = Cart> {
-      constructor(protected schema: z.ZodType<T>) {}
-    
-      protected validate(value: unknown): T {
-        return this.schema.parse(value);
-      }
-    
-      protected base(): T {
-        return this.schema.parse({});
-      }
-    
-      public abstract get(payload: CartGetPayload, session: Session): Promise<T>;
-      public abstract add(payload: CartItemAddPayload, session: Session): Promise<T>;
-      public abstract adjust(payload: CartItemAdjustPayload, session: Session): Promise<T>;
-      public abstract remove(payload: CartItemRemovePayload, session: Session): Promise<T>;
-}
+export abstract class CartProvider<
+  T extends Cart = Cart,
+  Q extends CartQuery = CartQuery,
+  M extends CartMutation = CartMutation
+> extends BaseProvider<T, Q, M> {}

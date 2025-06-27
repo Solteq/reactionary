@@ -17,8 +17,8 @@ export class FakeProductProvider<
 > extends ProductProvider<T, Q, M> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>) {
-    super(schema);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>) {
+    super(schema, querySchema, mutationSchema);
 
     this.config = config;
   }

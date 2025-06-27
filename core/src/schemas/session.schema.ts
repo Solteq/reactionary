@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdentitySchema } from './identity.schema';
+import { IdentitySchema } from './models/identity.model';
 
 export const SessionSchema = z.looseObject({
     id: z.string(),

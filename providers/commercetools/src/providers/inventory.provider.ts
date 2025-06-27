@@ -1,20 +1,49 @@
-import { Inventory, InventoryProvider, InventoryQuery, Session } from '@reactionary/core';
+import {
+  Inventory,
+  InventoryProvider,
+  InventoryQuery,
+  Session,
+} from '@reactionary/core';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';
+import { InventoryMutation } from 'core/src/schemas/mutations/inventory.mutation';
 
 export class CommercetoolsInventoryProvider<
-  Q extends Inventory
-> extends InventoryProvider<Q> {
+  T extends Inventory = Inventory,
+  Q extends InventoryQuery = InventoryQuery,
+  M extends InventoryMutation = InventoryMutation
+> extends InventoryProvider<T, Q, M> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<Q>) {
-    super(schema);
+  constructor(
+    config: CommercetoolsConfiguration,
+    schema: z.ZodType<T>,
+    querySchema: z.ZodType<Q, Q>,
+    mutationSchema: z.ZodType<M, M>
+  ) {
+    super(schema, querySchema, mutationSchema);
 
     this.config = config;
   }
 
-  public override async query(query: InventoryQuery, session: Session): Promise<Q> {
+  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
+    const results = [];
+
+    for (const query of queries) {
+      const result = await this.get(query, session);
+
+      results.push(result);
+    }
+
+    return results;
+  }
+
+  protected override process(mutations: M[], session: Session): Promise<T> {
+    throw new Error('Method not implemented.');
+  }
+
+  protected async get(query: Q, session: Session): Promise<T> {
     const client = new CommercetoolsClient(this.config).getClient(
       session.identity?.token
     );
@@ -30,12 +59,12 @@ export class CommercetoolsInventoryProvider<
       })
       .execute();
 
-    const base = this.base();
+    const base = this.newModel();
 
     if (remote.body.results.length > 0) {
-        const inv = remote.body.results[0];
+      const inv = remote.body.results[0];
 
-        base.quantity = inv.availableQuantity;
+      base.quantity = inv.availableQuantity;
     }
 
     return base;

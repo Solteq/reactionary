@@ -1,19 +1,10 @@
-import z from "zod";
-import { Identity, IdentityLoginPayload } from "../schemas/identity.schema";
-import { Session } from "../schemas/session.schema";
+import { Identity } from "../schemas/models/identity.model";
+import { IdentityQuery } from "../schemas/queries/identity.query";
+import { IdentityMutation } from "../schemas/mutations/identity.mutation";
+import { BaseProvider } from "./base.provider";
 
-export abstract class IdentityProvider<T = Identity> {
-      constructor(protected schema: z.ZodType<T>) {}
-    
-      protected validate(value: unknown): T {
-        return this.schema.parse(value);
-      }
-    
-      protected base(): T {
-        return this.schema.parse({});
-      }
-    
-      public abstract get(session: Session): Promise<T>;
-      public abstract login(payload: IdentityLoginPayload, session: Session): Promise<T>;
-      public abstract logout(session: Session): Promise<T>;
-}
+export abstract class IdentityProvider<
+  T extends Identity = Identity,
+  Q extends IdentityQuery = IdentityQuery,
+  M extends IdentityMutation = IdentityMutation
+> extends BaseProvider<T, Q, M> {}

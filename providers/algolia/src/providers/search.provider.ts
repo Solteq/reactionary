@@ -1,26 +1,47 @@
 import {
   SearchIdentifier,
+  SearchMutation,
   SearchProvider,
+  SearchQuery,
+  SearchResult,
   SearchResultFacetSchema,
   SearchResultFacetValueSchema,
+  Session,
 } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
 import { z } from 'zod';
 import { AlgoliaConfiguration } from '../schema/configuration.schema';
-import { AlgoliaSearchResult } from '../schema/search.schema';
 
 export class AlgoliaSearchProvider<
-  T extends AlgoliaSearchResult
-> extends SearchProvider<T> {
+  T extends SearchResult = SearchResult,
+  Q extends SearchQuery = SearchQuery,
+  M extends SearchMutation = SearchMutation
+> extends SearchProvider<T, Q, M> {
   protected config: AlgoliaConfiguration;
 
-  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>) {
-    super(schema);
+  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>) {
+    super(schema, querySchema, mutationSchema);
 
     this.config = config;
   }
 
-  public async get(identifier: SearchIdentifier): Promise<T> {
+  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
+    const results = [];
+
+    for (const query of queries) {
+      const result = await this.get(query.search);
+
+      results.push(result);
+    }
+
+    return results;
+  }
+
+  protected override process(mutations: M[], session: Session): Promise<T> {
+    throw new Error('Method not implemented.');
+  }
+
+  protected async get(identifier: SearchIdentifier): Promise<T> {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
     const remote = await client.search<unknown>({
       requests: [
@@ -40,13 +61,12 @@ export class AlgoliaSearchProvider<
     });
 
     const parsed = this.parse(remote, identifier);
-    const validated = this.validate(parsed);
 
-    return validated;
+    return parsed;
   }
 
-  public override parse(remote: any, query: SearchIdentifier): T {
-    const result = this.base();
+  protected parse(remote: any, query: SearchIdentifier): T {
+    const result = this.newModel();
 
     const remoteProducts = remote.results[0];
 

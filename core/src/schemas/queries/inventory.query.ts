@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { BaseQuerySchema } from './base.query';
 
-export const InventoryQuerySchema = z.looseInterface({
+export const InventoryQuerySchema = BaseQuerySchema.extend({
+    query: z.literal('sku'),
     sku: z.string()
 });
 
