@@ -36,6 +36,7 @@ export class CommercetoolsProductProvider<
       .get({
         queryArgs: {
           where: 'slug(en-US in :slugs)',
+          where: 'slug(en-US in :slugs)',
           'var.slugs': slugs
         }
       })
