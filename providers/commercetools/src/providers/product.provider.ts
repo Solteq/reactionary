@@ -36,10 +36,13 @@ export class CommercetoolsProductProvider<
       .get({
         queryArgs: {
           where: 'slug(en-US in :slugs)',
+          where: 'slug(en-US in :slugs)',
           'var.slugs': slugs
         }
       })
       .execute();
+
+    console.log('remote: ', remote);
 
     const results = new Array<T>;
 
