@@ -6,10 +6,7 @@ import {
 import superjson from 'superjson';
 import { z } from 'zod';
 import { BaseProvider } from '@reactionary/core';
-import {
-  QueryProcedure,
-  MutationProcedure,
-} from '@trpc/server/dist/unstable-core-do-not-import';
+import { MutationProcedure, QueryProcedure } from '@trpc/server/dist/unstable-core-do-not-import.d-C6mFWtNG.cjs';
 
 const t = initTRPC.context<{ client: Client; session: Session }>().create({
   transformer: superjson,
