@@ -72,7 +72,7 @@
       "tag": true
     },
     "version": {
-      "preVersionCommand": "npx nx run-many -t build"
+      "preVersionCommand": "pnpm nx run-many -t build"
     },
     "changelog": {
       "workspaceChangelog": {
