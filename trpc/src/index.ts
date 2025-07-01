@@ -6,7 +6,7 @@ import {
 import superjson from 'superjson';
 import { z } from 'zod';
 import { BaseProvider } from '@reactionary/core';
-import { MutationProcedure, QueryProcedure } from '@trpc/server/dist/unstable-core-do-not-import.d-C6mFWtNG.cjs';
+import { TRPCQueryProcedure, TRPCMutationProcedure } from '@trpc/server';
 
 const t = initTRPC.context<{ client: Client; session: Session }>().create({
   transformer: superjson,
@@ -22,13 +22,13 @@ export function createTRPCRouter<T extends Client = Client>(client: T) {
   }[keyof T];
 
   type ReactionaryRouter = {
-    [Property in BaseProviderKeys<Client>]: QueryProcedure<{
+    [Property in BaseProviderKeys<Client>]: TRPCQueryProcedure<{
       input: Array<z.infer<T[Property]['querySchema']>>;
       output: Array<z.infer<Awaited<T[Property]['schema']>>>;
       meta: any;
     }>;
   } & {
-    [Property in BaseProviderKeys<Client> as `${Property}Mutation`]: MutationProcedure<{
+    [Property in BaseProviderKeys<Client> as `${Property}Mutation`]: TRPCMutationProcedure<{
       input: Array<z.infer<T[Property]['mutationSchema']>>;
       output: z.infer<Awaited<T[Property]['schema']>>;
       meta: any;
