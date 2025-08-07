@@ -1,4 +1,4 @@
-import { BaseCachingStrategy, BaseMutation, Price, PriceProvider, PriceQuery, RedisCache, Session } from '@reactionary/core';
+import { BaseMutation, Price, PriceProvider, PriceQuery, Session } from '@reactionary/core';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';

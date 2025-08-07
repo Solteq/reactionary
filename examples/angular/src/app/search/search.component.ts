@@ -1,5 +1,5 @@
 import { Component, computed, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { SearchService } from '../services/search.service';
 import { FacetValueIdentifier } from '@reactionary/core';
 import { RouterModule } from '@angular/router';
@@ -7,7 +7,7 @@ import { TRPC } from '../services/trpc.client';
 
 @Component({
   selector: 'app-search',
-  imports: [CommonModule, RouterModule],
+  imports: [RouterModule],
   templateUrl: './search.component.html',
   styleUrl: './search.component.scss',
 })
