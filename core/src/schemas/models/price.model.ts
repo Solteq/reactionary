@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { BaseModelSchema } from './base.model';
-import { PriceIdentifierSchema } from './identifiers.model';
-import { CurrencySchema } from './currency.model';
+import { BaseModelSchema } from './common/base.model';
+import { PriceIdentifierSchema } from './common/identifiers.model';
+import { CurrencySchema } from './common/currency.model';
 
 export const MonetaryAmountSchema = z.looseInterface({
     cents: z.number().default(0).describe('The monetary amount in cent-precision.'),

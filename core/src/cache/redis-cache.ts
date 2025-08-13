@@ -2,7 +2,7 @@ import { Redis } from '@upstash/redis';
 import { CachingStrategy } from './caching-strategy';
 import { BaseQuery } from '../schemas/queries/base.query';
 import { Session } from '../schemas/session.schema';
-import { BaseModel } from '../schemas/models/base.model';
+import { BaseModel } from '../schemas/models/common/base.model';
 import z from 'zod';
 
 export class RedisCache {

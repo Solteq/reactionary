@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseQuerySchema } from './base.query';
-import { SKUIdentifierSchema } from '../models/identifiers.model';
+import { SKUIdentifierSchema } from '../models/common/identifiers.model';
 
 export const PriceQueryBySkuSchema = BaseQuerySchema.extend({
     query: z.literal('sku'),

@@ -5,6 +5,7 @@ import {
   Session,
   BaseMutation,
   ProductMutation,
+  SKU,
 } from '@reactionary/core';
 import { CommercetoolsClient } from '../core/client';
 import { z } from 'zod';
@@ -18,13 +19,21 @@ export class CommercetoolsProductProvider<
 > extends ProductProvider<T, Q, M> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>) {
+  constructor(
+    config: CommercetoolsConfiguration,
+    schema: z.ZodType<T>,
+    querySchema: z.ZodType<Q, Q>,
+    mutationSchema: z.ZodType<M, M>
+  ) {
     super(schema, querySchema, mutationSchema);
 
     this.config = config;
   }
 
-  protected override async fetch(queries: ProductQuery[], session: Session): Promise<T[]> {
+  protected override async fetch(
+    queries: ProductQuery[],
+    session: Session
+  ): Promise<T[]> {
     const ids = queries.filter((x) => x.query === 'id').map((x) => x.id);
     const slugs = queries.filter((x) => x.query === 'slug').map((x) => x.slug);
 
@@ -35,15 +44,14 @@ export class CommercetoolsProductProvider<
       .productProjections()
       .get({
         queryArgs: {
-          where: 'slug(en-US in :slugs)',
-          'var.slugs': slugs
-        }
+          where: 'slug(en-GB in :slugs)',
+          'var.slugs': slugs,
+          localeProjection: 'en-GB'
+        },
       })
       .execute();
 
-    console.log('remote: ', remote);
-
-    const results = new Array<T>;
+    const results = new Array<T>();
 
     for (const r of remote.body.results) {
       const result = this.parse(r);
@@ -65,11 +73,11 @@ export class CommercetoolsProductProvider<
     const base = this.newModel();
 
     base.identifier.key = data.id;
-    base.name = data.name['en-US'];
-    base.slug = data.slug['en-US'];
+    base.name = data.name['en-GB'];
+    base.slug = data.slug['en-GB'];
 
     if (data.description) {
-      base.description = data.description['en-US'];
+      base.description = data.description['en-GB'];
     }
 
     if (data.masterVariant.images) {
@@ -78,11 +86,33 @@ export class CommercetoolsProductProvider<
 
     const variants = [data.masterVariant, ...data.variants];
     for (const variant of variants) {
-      base.skus.push({
+      const sku: SKU = {
         identifier: {
           key: variant.sku || '',
         },
-      });
+        attributes: [],
+        images: [],
+      };
+
+      base.skus.push(sku);
+
+      if (variant.attributes) {
+        for (const attribute of variant.attributes) {
+          sku.attributes.push({
+            identifier: {
+              key: attribute.name
+            },
+            name: attribute.name,
+            value: attribute.value['en-GB'] || ''
+          })
+        }
+      }
+
+      if (variant.images) {
+        for (const image of variant.images) {
+          sku.images.push(image.url);
+        }
+      }
     }
 
     return base;

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseQuerySchema } from './base.query';
-import { CartIdentifierSchema } from '../models/identifiers.model';
+import { CartIdentifierSchema } from '../models/common/identifiers.model';
 
 export const CartQueryByIdSchema = BaseQuerySchema.extend({
     query: z.literal('id'),

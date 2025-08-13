@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseQuerySchema } from './base.query';
-import { SearchIdentifierSchema } from '../models/identifiers.model';
+import { SearchIdentifierSchema } from '../models/common/identifiers.model';
 
 export const SearchQueryByTermSchema = BaseQuerySchema.extend({
     query: z.literal('term'),

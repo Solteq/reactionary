@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseMutationSchema } from './base.mutation';
-import { CartIdentifierSchema, CartItemIdentifierSchema, ProductIdentifierSchema } from '../models/identifiers.model';
+import { CartIdentifierSchema, CartItemIdentifierSchema, ProductIdentifierSchema } from '../models/common/identifiers.model';
 
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
     mutation: z.literal('add'),

@@ -36,6 +36,10 @@ export const PriceIdentifierSchema = z.looseInterface({
     sku: SKUIdentifierSchema.default(() => SKUIdentifierSchema.parse({})),
 });
 
+export const AttributeIdentifierSchema = z.looseInterface({
+    key: z.string().default('')
+});
+
 export type ProductIdentifier = z.infer<typeof ProductIdentifierSchema>;
 export type SearchIdentifier = z.infer<typeof SearchIdentifierSchema>;
 export type FacetIdentifier = z.infer<typeof FacetIdentifierSchema>;

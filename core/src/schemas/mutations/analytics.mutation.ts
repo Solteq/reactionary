@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseMutationSchema } from './base.mutation';
-import { ProductIdentifierSchema, SearchIdentifierSchema } from '../models/identifiers.model';
+import { ProductIdentifierSchema, SearchIdentifierSchema } from '../models/common/identifiers.model';
 
 export const AnalyticsMutationSearchEventSchema = BaseMutationSchema.extend({
     mutation: z.literal('search'),

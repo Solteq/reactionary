@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { Session } from '../schemas/session.schema';
 import { BaseQuery } from '../schemas/queries/base.query';
 import { BaseMutation } from '../schemas/mutations/base.mutation';
-import { BaseModel } from '../schemas/models/base.model';
+import { BaseModel } from '../schemas/models/common/base.model';
 
 /**
  * Base capability provider, responsible for mutations (changes) and queries (fetches)

@@ -3,6 +3,7 @@ import { TRPC } from './trpc.client';
 import { ActivationEnd, Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
+import { Product } from '@reactionary/core';
 
 @Injectable({
   providedIn: 'root',
@@ -16,14 +17,14 @@ export class ProductService {
   );
 
   public productResource = resource({
-    request: () => ({
+    params: () => ({
       slug: this.slug(),
     }),
-    loader: async ({ request }) => {
-      if (request.slug) {
+    loader: async ({ params }) => {
+      if (params.slug) {
         const results = await this.client.client.product.query([{
           query: 'slug',
-          slug: request.slug,
+          slug: params.slug,
         }]);
 
         return results[0];

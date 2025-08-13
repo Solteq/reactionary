@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseModelSchema } from './base.model';
+import { BaseModelSchema } from './common/base.model';
 
 export const InventorySchema = BaseModelSchema.extend({
     quantity: z.number().default(0)

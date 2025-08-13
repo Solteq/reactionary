@@ -14,17 +14,17 @@ export class SearchService {
   public facets = signal(new Array<FacetValueIdentifier>());
 
   protected searchResource = resource({
-    request: () => ({
+    params: () => ({
       pageSize: this.pageSize(),
       page: this.page(),
       term: this.term(),
       facets: this.facets(),
     }),
-    loader: async ({ request }) => {
+    loader: async ({ params }) => {
       const result = await this.client.client.search.query([{
         query: 'term',
         search: {
-          ...request
+          ...params
         }
       }]);
 

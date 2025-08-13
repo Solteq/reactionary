@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { CartIdentifierSchema, CartItemIdentifierSchema, ProductIdentifierSchema } from '../models/identifiers.model';
-import { BaseModelSchema } from './base.model';
+import { CartIdentifierSchema, CartItemIdentifierSchema, ProductIdentifierSchema } from './common/identifiers.model';
+import { BaseModelSchema } from './common/base.model';
 
 export const CartItemSchema = z.looseInterface({
     identifier: CartItemIdentifierSchema.default(() => CartItemIdentifierSchema.parse({})),

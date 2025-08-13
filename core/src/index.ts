@@ -15,10 +15,12 @@ export * from './providers/search.provider';
 export * from './schemas/capabilities.schema';
 export * from './schemas/session.schema';
 
-export * from './schemas/models/base.model';
+export * from './schemas/models/common/base.model';
+export * from './schemas/models/common/currency.model';
+export * from './schemas/models/common/identifiers.model';
+export * from './schemas/models/common/image.model';
+
 export * from './schemas/models/cart.model';
-export * from './schemas/models/currency.model';
-export * from './schemas/models/identifiers.model';
 export * from './schemas/models/identity.model';
 export * from './schemas/models/inventory.model';
 export * from './schemas/models/price.model';
