@@ -52,4 +52,12 @@ app.use(
   })
 );
 
-app.listen(3000);
+const server = app.listen(3000, () => {
+  console.log('Server started on http://localhost:3000');
+  // OTEL auto-initializes based on standard env vars
+  if (process.env['OTEL_LOG_LEVEL'] === 'debug') {
+    console.log('OTEL traces exporter:', process.env['OTEL_TRACES_EXPORTER'] || 'console');
+    console.log('OTEL metrics exporter:', process.env['OTEL_METRICS_EXPORTER'] || 'console');
+  }
+});
+

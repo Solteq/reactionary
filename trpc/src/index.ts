@@ -7,6 +7,7 @@ import superjson from 'superjson';
 import { z } from 'zod';
 import { BaseProvider } from '@reactionary/core';
 import { TRPCQueryProcedure, TRPCMutationProcedure } from '@trpc/server';
+import { createTRPCTracing } from '@reactionary/otel';
 
 const t = initTRPC.context<{ client: Client; session: Session }>().create({
   transformer: superjson,
@@ -14,9 +15,15 @@ const t = initTRPC.context<{ client: Client; session: Session }>().create({
 
 export const router = t.router;
 export const mergeRouters = t.mergeRouters;
-export const publicProcedure = t.procedure;
 
-export function createTRPCRouter<T extends Client = Client>(client: T) {
+const basePublicProcedure = t.procedure;
+export const publicProcedure = basePublicProcedure.use(createTRPCTracing());
+
+export function createTracedProcedure(options?: Parameters<typeof createTRPCTracing>[0]) {
+  return basePublicProcedure.use(createTRPCTracing(options));
+}
+
+export function createTRPCRouter<T extends Client = Client>(client: T, enableTracing = true) {
   type BaseProviderKeys<T> = {
     [K in keyof T]: T[K] extends BaseProvider ? K : never;
   }[keyof T];
@@ -36,6 +43,9 @@ export function createTRPCRouter<T extends Client = Client>(client: T) {
   };
 
   const routes: Record<string, any> = {};
+  const procedure = enableTracing 
+    ? basePublicProcedure.use(createTRPCTracing())
+    : basePublicProcedure;
 
   for (const key in client) {
     const provider = client[key];
@@ -44,14 +54,14 @@ export function createTRPCRouter<T extends Client = Client>(client: T) {
       const queryKey = key as keyof ReactionaryRouter;
       const mutationKey = key + 'Mutation' as keyof ReactionaryRouter;
 
-      routes[queryKey] = publicProcedure
+      routes[queryKey] = procedure
         .input(provider.querySchema.array())
         .output(provider.schema.array())
         .query(async (opts) => {
           return provider.query(opts.input, opts.ctx.session);
         });
 
-      routes[mutationKey] = publicProcedure
+      routes[mutationKey] = procedure
         .input(provider.mutationSchema.array())
         .output(provider.schema)
         .mutation(async (opts) => {

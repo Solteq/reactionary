@@ -1,0 +1,20 @@
+{
+  "name": "@reactionary/otel",
+  "version": "0.0.1",
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-node": "^0.203.0",
+    "@opentelemetry/sdk-trace-base": "^2.0.1",
+    "@opentelemetry/sdk-metrics": "^2.0.1",
+    "@opentelemetry/resources": "^2.0.1",
+    "@opentelemetry/semantic-conventions": "^1.36.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.203.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.203.0",
+    "@opentelemetry/instrumentation-http": "^0.203.0",
+    "@opentelemetry/instrumentation-express": "^0.52.0",
+    "@trpc/server": "^11.1.2"
+  }
+}
