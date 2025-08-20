@@ -3,6 +3,7 @@ import { Session } from '../schemas/session.schema';
 import { BaseQuery } from '../schemas/queries/base.query';
 import { BaseMutation } from '../schemas/mutations/base.mutation';
 import { BaseModel } from '../schemas/models/base.model';
+import { createProviderInstrumentation } from '@reactionary/otel';
 
 /**
  * Base capability provider, responsible for mutations (changes) and queries (fetches)
@@ -13,7 +14,11 @@ export abstract class BaseProvider<
   Q extends BaseQuery = BaseQuery,
   M extends BaseMutation = BaseMutation
 > {
-  constructor(public readonly schema: z.ZodType<T>, public readonly querySchema: z.ZodType<Q, Q>, public readonly mutationSchema: z.ZodType<M, M>) {}
+  private instrumentation: ReturnType<typeof createProviderInstrumentation>;
+  
+  constructor(public readonly schema: z.ZodType<T>, public readonly querySchema: z.ZodType<Q, Q>, public readonly mutationSchema: z.ZodType<M, M>) {
+    this.instrumentation = createProviderInstrumentation(this.constructor.name);
+  }
 
   /**
    * Validates that the final domain model constructed by the provider
@@ -37,13 +42,21 @@ export abstract class BaseProvider<
    * of the results will match the order of the queries.
    */
   public async query(queries: Q[], session: Session): Promise<T[]> {
-    const results = await this.fetch(queries, session);
+    return this.instrumentation.traceQuery(
+      'query',
+      async (span) => {
+        span.setAttribute('provider.query.count', queries.length);
+        const results = await this.fetch(queries, session);
 
-    for (const result of results) {
-      this.assert(result);
-    }
+        for (const result of results) {
+          this.assert(result);
+        }
 
-    return results;
+        span.setAttribute('provider.result.count', results.length);
+        return results;
+      },
+      { queryCount: queries.length }
+    );
   }
 
   /**
@@ -51,11 +64,18 @@ export abstract class BaseProvider<
    * resulting from that set of operations.
    */
   public async mutate(mutations: M[], session: Session): Promise<T> {
-    const result = await this.process(mutations, session);
+    return this.instrumentation.traceMutation(
+      'mutate',
+      async (span) => {
+        span.setAttribute('provider.mutation.count', mutations.length);
+        const result = await this.process(mutations, session);
 
-    this.assert(result);
+        this.assert(result);
 
-    return result;
+        return result;
+      },
+      { mutationCount: mutations.length }
+    );
   }
 
   /**
