@@ -43,7 +43,6 @@ Use standard OpenTelemetry environment variables. No code changes needed.
 # Service identification
 OTEL_SERVICE_NAME=my-service
 OTEL_SERVICE_VERSION=1.0.0
-DEPLOYMENT_ENVIRONMENT=production
 
 # Traces exporter (console | otlp | otlp/http | none)
 OTEL_TRACES_EXPORTER=otlp
