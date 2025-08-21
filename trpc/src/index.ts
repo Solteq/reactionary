@@ -16,14 +16,11 @@ const t = initTRPC.context<{ client: Client; session: Session }>().create({
 export const router = t.router;
 export const mergeRouters = t.mergeRouters;
 
+// Always apply tracing middleware - exporters controlled via OTEL env vars
 const basePublicProcedure = t.procedure;
 export const publicProcedure = basePublicProcedure.use(createTRPCTracing());
 
-export function createTracedProcedure(options?: Parameters<typeof createTRPCTracing>[0]) {
-  return basePublicProcedure.use(createTRPCTracing(options));
-}
-
-export function createTRPCRouter<T extends Client = Client>(client: T, enableTracing = true) {
+export function createTRPCRouter<T extends Client = Client>(client: T) {
   type BaseProviderKeys<T> = {
     [K in keyof T]: T[K] extends BaseProvider ? K : never;
   }[keyof T];
@@ -43,9 +40,8 @@ export function createTRPCRouter<T extends Client = Client>(client: T, enableTra
   };
 
   const routes: Record<string, any> = {};
-  const procedure = enableTracing 
-    ? basePublicProcedure.use(createTRPCTracing())
-    : basePublicProcedure;
+  // Always enable tracing - exporters are controlled via env vars
+  const procedure = basePublicProcedure.use(createTRPCTracing());
 
   for (const key in client) {
     const provider = client[key];
