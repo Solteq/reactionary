@@ -1,12 +1,9 @@
-// SDK functions - auto-initialization handled internally
-export { isOtelInitialized, shutdownOtel } from './sdk';
+// OpenTelemetry auto-initialization based on standard environment variables
+// See: https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/
 
-// Tracing utilities
-export * from './tracer';
-export * from './metrics';
-export * from './trpc-middleware';
-export * from './provider-instrumentation';
+// Framework integration exports (internal use only)
+export { createTRPCTracing } from './trpc-middleware';
+export { createProviderInstrumentation } from './provider-instrumentation';
 
-// Re-export common OTEL types
-export { trace, context, SpanKind, SpanStatusCode } from '@opentelemetry/api';
-export type { Span, Tracer, SpanOptions, Attributes } from '@opentelemetry/api';
+// Graceful shutdown for process termination
+export { shutdownOtel } from './sdk';
