@@ -1,9 +1,7 @@
 import {
-  BaseCachingStrategy,
   Inventory,
   InventoryProvider,
   InventoryQuery,
-  RedisCache,
   Session,
 } from '@reactionary/core';
 import z from 'zod';
@@ -17,32 +15,25 @@ export class CommercetoolsInventoryProvider<
   M extends InventoryMutation = InventoryMutation
 > extends InventoryProvider<T, Q, M> {
   protected config: CommercetoolsConfiguration;
-  protected cache = new RedisCache(new BaseCachingStrategy());
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     querySchema: z.ZodType<Q, Q>,
-    mutationSchema: z.ZodType<M, M>
+    mutationSchema: z.ZodType<M, M>,
+    cache: any
   ) {
-    super(schema, querySchema, mutationSchema);
+    super(schema, querySchema, mutationSchema, cache);
 
     this.config = config;
   }
 
   protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
+    // Base class now handles caching automatically
     const results = [];
 
     for (const query of queries) {
-      let result = await this.cache.get(query, session, this.schema);
-      console.log('from cache: ', result);
-
-      if (!result) {
-        result = await this.get(query, session);
-
-        this.cache.put(query, session, result);
-      }
-
+      const result = await this.get(query, session);
       results.push(result);
     }
 

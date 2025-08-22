@@ -1,4 +1,4 @@
-import { BaseCachingStrategy, BaseMutation, Price, PriceProvider, PriceQuery, RedisCache, Session } from '@reactionary/core';
+import { BaseMutation, Price, PriceProvider, PriceQuery, Session } from '@reactionary/core';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';
@@ -11,8 +11,8 @@ export class CommercetoolsPriceProvider<
 > extends PriceProvider<T, Q, M> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>) {
-    super(schema, querySchema, mutationSchema);
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>, cache: any) {
+    super(schema, querySchema, mutationSchema, cache);
 
     this.config = config;
   }

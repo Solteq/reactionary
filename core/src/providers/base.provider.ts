@@ -4,6 +4,7 @@ import { BaseQuery } from '../schemas/queries/base.query';
 import { BaseMutation } from '../schemas/mutations/base.mutation';
 import { BaseModel } from '../schemas/models/base.model';
 import { createProviderInstrumentation } from '@reactionary/otel';
+import { RedisCache } from '../cache/redis-cache';
 
 /**
  * Base capability provider, responsible for mutations (changes) and queries (fetches)
@@ -14,10 +15,17 @@ export abstract class BaseProvider<
   Q extends BaseQuery = BaseQuery,
   M extends BaseMutation = BaseMutation
 > {
-  private instrumentation: ReturnType<typeof createProviderInstrumentation>;
+  protected instrumentation: ReturnType<typeof createProviderInstrumentation>;
+  protected cache: RedisCache;
   
-  constructor(public readonly schema: z.ZodType<T>, public readonly querySchema: z.ZodType<Q, Q>, public readonly mutationSchema: z.ZodType<M, M>) {
+  constructor(
+    public readonly schema: z.ZodType<T>, 
+    public readonly querySchema: z.ZodType<Q, Q>, 
+    public readonly mutationSchema: z.ZodType<M, M>,
+    cache: RedisCache
+  ) {
     this.instrumentation = createProviderInstrumentation(this.constructor.name);
+    this.cache = cache;
   }
 
   /**
@@ -46,13 +54,55 @@ export abstract class BaseProvider<
       'query',
       async (span) => {
         span.setAttribute('provider.query.count', queries.length);
-        const results = await this.fetch(queries, session);
+        
+        let cacheHits = 0;
+        let cacheMisses = 0;
+        const results: T[] = [];
 
-        for (const result of results) {
-          this.assert(result);
+        // Process each query individually for cache efficiency
+        for (const query of queries) {
+          let result: T | null = null;
+          
+          // Try cache first - let strategy decide if it should be cached
+          try {
+            result = await this.cache.get(query, session, this.schema, this);
+            if (result) {
+              cacheHits++;
+              span.setAttribute('provider.cache.hit', true);
+            }
+          } catch (error) {
+            // Cache error shouldn't break the query - log and continue
+            console.warn(`Cache get error for ${this.constructor.name}:`, error);
+          }
+          
+          // If not in cache, fetch from source
+          if (!result) {
+            const singleResult = await this.fetch([query], session);
+            result = singleResult[0];
+            cacheMisses++;
+            
+            // Store in cache for next time - let strategy decide if it should be cached
+            if (result) {
+              try {
+                await this.cache.put(query, session, result, this);
+              } catch (error) {
+                // Cache put error shouldn't break the query - log and continue
+                console.warn(`Cache put error for ${this.constructor.name}:`, error);
+              }
+            }
+          }
+          
+          if (result) {
+            this.assert(result);
+            results.push(result);
+          }
         }
 
         span.setAttribute('provider.result.count', results.length);
+        span.setAttribute('provider.cache.hits', cacheHits);
+        span.setAttribute('provider.cache.misses', cacheMisses);
+        span.setAttribute('provider.cache.hit_ratio', cacheHits / (cacheHits + cacheMisses));
+        
         return results;
       },
       { queryCount: queries.length }
@@ -68,9 +118,22 @@ export abstract class BaseProvider<
       'mutate',
       async (span) => {
         span.setAttribute('provider.mutation.count', mutations.length);
+        
+        // Perform the mutation
         const result = await this.process(mutations, session);
-
         this.assert(result);
+
+        // Invalidate related cache entries
+        let invalidatedKeys = 0;
+        for (const mutation of mutations) {
+          try {
+            await this.cache.invalidate(mutation, session, this);
+            invalidatedKeys++;
+          } catch (error) {
+            console.warn(`Cache invalidation error for ${this.constructor.name}:`, error);
+          }
+        }
+        span.setAttribute('provider.cache.invalidated_keys', invalidatedKeys);
 
         return result;
       },
