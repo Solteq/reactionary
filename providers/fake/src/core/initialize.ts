@@ -1,4 +1,4 @@
-import { Client, IdentityMutationSchema, IdentityQuerySchema, IdentitySchema, ProductMutationSchema, ProductQuerySchema, ProductSchema, SearchMutationSchema, SearchQuerySchema, SearchResultSchema, RedisCache } from "@reactionary/core";
+import { Client, IdentityMutationSchema, IdentityQuerySchema, IdentitySchema, ProductMutationSchema, ProductQuerySchema, ProductSchema, SearchMutationSchema, SearchQuerySchema, SearchResultSchema, Cache } from "@reactionary/core";
 import { FakeProductProvider } from "../providers/product.provider";
 import { FakeSearchProvider } from "../providers/search.provider";
 import { FakeConfiguration } from "../schema/configuration.schema";
@@ -6,7 +6,7 @@ import { FakeCapabilities } from "../schema/capabilities.schema";
 import { FakeIdentityProvider } from "../providers/identity.provider";
 
 export function withFakeCapabilities(configuration: FakeConfiguration, capabilities: FakeCapabilities) {
-    return (cache: RedisCache) => {
+    return (cache: Cache) => {
         const client = {} as Partial<Client>;
 
         if (capabilities.product) {

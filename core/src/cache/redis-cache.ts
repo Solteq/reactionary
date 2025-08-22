@@ -1,56 +1,47 @@
 import { Redis } from '@upstash/redis';
-import { CachingStrategy } from './caching-strategy';
-import { BaseProvider } from '../providers/base.provider';
-import { BaseQuery } from '../schemas/queries/base.query';
-import { Session } from '../schemas/session.schema';
-import { BaseModel } from '../schemas/models/base.model';
-import { BaseMutation } from '../schemas/mutations/base.mutation';
+import { Cache } from './cache.interface';
 import z from 'zod';
 
-export class RedisCache {
-  protected strategy: CachingStrategy;
+export class RedisCache implements Cache {
   protected redis: Redis;
 
-  constructor(strategy: CachingStrategy) {
-    this.strategy = strategy;
+  constructor() {
     this.redis = Redis.fromEnv();
   }
 
-  public async get<T extends BaseModel>(query: BaseQuery, session: Session, schema: z.ZodType<T>, provider: BaseProvider): Promise<T | null> {
-    let result = null;
-    
-    const cacheInformation = this.strategy.get(query, session, provider);
-    
-    if (cacheInformation.canCache && cacheInformation.key) {
-      const unvalidated = await this.redis.get(cacheInformation.key);
-      const parsed = schema.safeParse(unvalidated);
-
-      if (parsed.success) {
-        result = parsed.data;
-      }
+  public async get<T>(key: string, schema: z.ZodType<T>): Promise<T | null> {
+    if (!key) {
+      return null;
     }
     
-    return result;
-  }
+    const unvalidated = await this.redis.get(key);
+    const parsed = schema.safeParse(unvalidated);
 
-  public async put(query: BaseQuery, session: Session, value: unknown, provider: BaseProvider): Promise<void> {
-    const cacheInformation = this.strategy.get(query, session, provider);
-
-    if (cacheInformation.canCache && cacheInformation.key) {
-      await this.redis.set(cacheInformation.key, value, { ex: cacheInformation.cacheDurationInSeconds });
+    if (parsed.success) {
+      return parsed.data;
     }
+    
+    return null;
   }
 
-  public async invalidate(mutation: BaseMutation, session: Session, provider: BaseProvider): Promise<void> {
-    const keysToInvalidate = this.strategy.getInvalidationKeys(mutation, session, provider);
+  public async put(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
+    if (!key) {
+      return;
+    }
+
+    const options = ttlSeconds ? { ex: ttlSeconds } : undefined;
+    await this.redis.set(key, value, options);
+  }
+
+  public async del(keys: string | string[]): Promise<void> {
+    const keyArray = Array.isArray(keys) ? keys : [keys];
     
-    for (const key of keysToInvalidate) {
+    for (const key of keyArray) {
       if (key.includes('*')) {
         // Handle wildcard patterns
-        const pattern = key;
-        const keys = await this.redis.keys(pattern);
-        if (keys.length > 0) {
-          await this.redis.del(...keys);
+        const matchingKeys = await this.redis.keys(key);
+        if (matchingKeys.length > 0) {
+          await this.redis.del(...matchingKeys);
         }
       } else {
         // Delete specific key
@@ -59,18 +50,15 @@ export class RedisCache {
     }
   }
 
+  public async keys(pattern: string): Promise<string[]> {
+    return await this.redis.keys(pattern);
+  }
+
   public async clear(pattern?: string): Promise<void> {
-    if (pattern) {
-      const keys = await this.redis.keys(pattern);
-      if (keys.length > 0) {
-        await this.redis.del(...keys);
-      }
-    } else {
-      // Clear all cache entries for this strategy's provider
-      const allKeys = await this.redis.keys('*');
-      if (allKeys.length > 0) {
-        await this.redis.del(...allKeys);
-      }
+    const searchPattern = pattern || '*';
+    const keys = await this.redis.keys(searchPattern);
+    if (keys.length > 0) {
+      await this.redis.del(...keys);
     }
   }
 

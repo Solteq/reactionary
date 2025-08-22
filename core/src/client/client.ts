@@ -5,14 +5,14 @@ import { IdentityProvider } from '../providers/identity.provider';
 import { CartProvider } from "../providers/cart.provider";
 import { PriceProvider } from "../providers/price.provider";
 import { InventoryProvider } from "../providers/inventory.provider";
+import { Cache } from "../cache/cache.interface";
 import { RedisCache } from "../cache/redis-cache";
-import { UnifiedCachingStrategy } from "../cache/caching-strategy";
 
 export interface Client {
     product: ProductProvider,
     search: SearchProvider,
     identity: IdentityProvider,
-    cache: RedisCache,
+    cache: Cache,
     cart: CartProvider,
     analytics: Array<AnalyticsProvider>,
     price: PriceProvider,
@@ -20,17 +20,17 @@ export interface Client {
 }
 
 export interface BuildClientOptions {
-    cache?: RedisCache;
+    cache?: Cache;
 }
 
 export function buildClient<T extends Partial<Client>>(
-    providerFactories: Array<(cache: RedisCache) => T>,
+    providerFactories: Array<(cache: Cache) => T>,
     options: BuildClientOptions = {}
 ): Required<T> {
     let client = { } as Required<T>;
 
     // Create shared cache instance
-    const sharedCache = options.cache || new RedisCache(new UnifiedCachingStrategy());
+    const sharedCache = options.cache || new RedisCache();
 
     const mergedAnalytics = [];
 
@@ -58,6 +58,6 @@ export function buildClient<T extends Partial<Client>>(
 }
 
 // Convenience function to create a shared cache instance
-export function createCache(strategy?: UnifiedCachingStrategy): RedisCache {
-    return new RedisCache(strategy || new UnifiedCachingStrategy());
+export function createCache(): Cache {
+    return new RedisCache();
 }
