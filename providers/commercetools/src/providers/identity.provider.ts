@@ -21,9 +21,10 @@ export class CommercetoolsIdentityProvider<
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     querySchema: z.ZodType<Q, Q>,
-    mutationSchema: z.ZodType<M, M>
+    mutationSchema: z.ZodType<M, M>,
+    cache: any
   ) {
-    super(schema, querySchema, mutationSchema);
+    super(schema, querySchema, mutationSchema, cache);
 
     this.config = config;
   }

@@ -20,8 +20,8 @@ export class FakeSearchProvider<
 > extends SearchProvider<T, Q, M> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>) {
-    super(schema, querySchema, mutationSchema);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>, cache: any) {
+    super(schema, querySchema, mutationSchema, cache);
 
     this.config = config;
   }

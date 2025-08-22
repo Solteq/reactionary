@@ -19,8 +19,8 @@ export class AlgoliaSearchProvider<
 > extends SearchProvider<T, Q, M> {
   protected config: AlgoliaConfiguration;
 
-  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>) {
-    super(schema, querySchema, mutationSchema);
+  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>, cache: any) {
+    super(schema, querySchema, mutationSchema, cache);
 
     this.config = config;
   }
