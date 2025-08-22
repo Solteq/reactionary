@@ -4,7 +4,8 @@ import { BaseQuery } from '../schemas/queries/base.query';
 import { BaseMutation } from '../schemas/mutations/base.mutation';
 import { BaseModel } from '../schemas/models/base.model';
 import { createProviderInstrumentation } from '@reactionary/otel';
-import { RedisCache } from '../cache/redis-cache';
+import { Cache } from '../cache/cache.interface';
+import { CacheEvaluation } from '../cache/cache-evaluation.interface';
 
 /**
  * Base capability provider, responsible for mutations (changes) and queries (fetches)
@@ -16,13 +17,13 @@ export abstract class BaseProvider<
   M extends BaseMutation = BaseMutation
 > {
   protected instrumentation: ReturnType<typeof createProviderInstrumentation>;
-  protected cache: RedisCache;
+  protected cache: Cache;
   
   constructor(
     public readonly schema: z.ZodType<T>, 
     public readonly querySchema: z.ZodType<Q, Q>, 
     public readonly mutationSchema: z.ZodType<M, M>,
-    cache: RedisCache
+    cache: Cache
   ) {
     this.instrumentation = createProviderInstrumentation(this.constructor.name);
     this.cache = cache;
@@ -63,16 +64,21 @@ export abstract class BaseProvider<
         for (const query of queries) {
           let result: T | null = null;
           
-          // Try cache first - let strategy decide if it should be cached
-          try {
-            result = await this.cache.get(query, session, this.schema, this);
-            if (result) {
-              cacheHits++;
-              span.setAttribute('provider.cache.hit', true);
+          // Get cache evaluation from provider
+          const cacheInfo = this.getCacheEvaluation(query, session);
+          
+          // Try cache first if caching is enabled
+          if (cacheInfo.canCache && cacheInfo.key) {
+            try {
+              result = await this.cache.get(cacheInfo.key, this.schema);
+              if (result) {
+                cacheHits++;
+                span.setAttribute('provider.cache.hit', true);
+              }
+            } catch (error) {
+              // Cache error shouldn't break the query - log and continue
+              console.warn(`Cache get error for ${this.constructor.name}:`, error);
             }
-          } catch (error) {
-            // Cache error shouldn't break the query - log and continue
-            console.warn(`Cache get error for ${this.constructor.name}:`, error);
           }
           
           // If not in cache, fetch from source
@@ -81,10 +87,10 @@ export abstract class BaseProvider<
             result = singleResult[0];
             cacheMisses++;
             
-            // Store in cache for next time - let strategy decide if it should be cached
-            if (result) {
+            // Store in cache if caching is enabled
+            if (result && cacheInfo.canCache && cacheInfo.key) {
               try {
-                await this.cache.put(query, session, result, this);
+                await this.cache.put(cacheInfo.key, result, cacheInfo.cacheDurationInSeconds);
               } catch (error) {
                 // Cache put error shouldn't break the query - log and continue
                 console.warn(`Cache put error for ${this.constructor.name}:`, error);
@@ -123,12 +129,15 @@ export abstract class BaseProvider<
         const result = await this.process(mutations, session);
         this.assert(result);
 
-        // Invalidate related cache entries
+        // Invalidate related cache entries using provider-specific logic
         let invalidatedKeys = 0;
         for (const mutation of mutations) {
           try {
-            await this.cache.invalidate(mutation, session, this);
-            invalidatedKeys++;
+            const keysToInvalidate = this.getInvalidationKeys(mutation, session);
+            if (keysToInvalidate.length > 0) {
+              await this.cache.del(keysToInvalidate);
+              invalidatedKeys += keysToInvalidate.length;
+            }
           } catch (error) {
             console.warn(`Cache invalidation error for ${this.constructor.name}:`, error);
           }
@@ -155,4 +164,16 @@ export abstract class BaseProvider<
     mutations: M[],
     session: Session
   ): Promise<T>;
+
+  /**
+   * Provider-specific cache evaluation logic.
+   * Returns information about how this query should be cached.
+   */
+  protected abstract getCacheEvaluation(query: Q, session: Session): CacheEvaluation;
+
+  /**
+   * Provider-specific cache invalidation logic.
+   * Returns the list of cache keys to invalidate based on mutations.
+   */
+  protected abstract getInvalidationKeys(mutation: M, session: Session): string[];
 }

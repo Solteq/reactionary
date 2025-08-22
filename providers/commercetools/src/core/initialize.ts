@@ -1,4 +1,4 @@
-import { CartMutationSchema, CartQuerySchema, CartSchema, Client, IdentityMutationSchema, IdentityQuerySchema, IdentitySchema, InventoryQuerySchema, InventorySchema, PriceMutationSchema, PriceQuerySchema, PriceSchema, ProductMutationSchema, ProductQuerySchema, ProductSchema, SearchMutationSchema, SearchQuerySchema, SearchResultSchema, RedisCache } from "@reactionary/core";
+import { CartMutationSchema, CartQuerySchema, CartSchema, Client, IdentityMutationSchema, IdentityQuerySchema, IdentitySchema, InventoryQuerySchema, InventorySchema, PriceMutationSchema, PriceQuerySchema, PriceSchema, ProductMutationSchema, ProductQuerySchema, ProductSchema, SearchMutationSchema, SearchQuerySchema, SearchResultSchema, Cache } from "@reactionary/core";
 import { CommercetoolsCapabilities } from "../schema/capabilities.schema";
 import { CommercetoolsSearchProvider } from "../providers/search.provider";
 import { CommercetoolsProductProvider } from '../providers/product.provider';
@@ -13,7 +13,7 @@ export function withCommercetoolsCapabilities(
     configuration: CommercetoolsConfiguration, 
     capabilities: CommercetoolsCapabilities
 ) {
-    return (cache: RedisCache) => {
+    return (cache: Cache) => {
         const client: Partial<Client> = {};
 
         if (capabilities.product) {
