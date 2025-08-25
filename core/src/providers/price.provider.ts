@@ -12,41 +12,16 @@ export abstract class PriceProvider<
   M extends PriceMutation = PriceMutation
 > extends BaseProvider<T, Q, M> {
   
-  protected override getCacheEvaluation(query: Q, session: Session): CacheEvaluation {
-    const key = this.generateCacheKey(query, session);
-    const ttl = this.getCacheTTL(query);
+  protected override getCacheEvaluation(query: Q, _session: Session): CacheEvaluation {
+    const providerName = this.constructor.name.toLowerCase();
+    // Hash complex SKU objects (price queries with currency, customer group, etc.)
+    const skuHash = crypto.createHash('md5').update(JSON.stringify(query.sku)).digest('hex').substring(0, 12);
+    const key = `${providerName}:price:${skuHash}`;
     
     return {
       key,
-      cacheDurationInSeconds: ttl,
-      canCache: true
+      cacheDurationInSeconds: 0,
+      canCache: false
     };
-  }
-  
-  protected override generateCacheKey(query: Q, _session: Session): string {
-    const providerName = this.constructor.name.toLowerCase();
-    return `${providerName}:price:${this.hashSku(query.sku)}`;
-  }
-  
-  protected override getInvalidationKeys(mutation: M, _session: Session): string[] {
-    const providerName = this.constructor.name.toLowerCase();
-    const keys: string[] = [];
-    
-    // Check if this mutation affects prices
-    if ('sku' in mutation) {
-      keys.push(`${providerName}:price:${this.hashSku(mutation['sku'])}`);
-    }
-    
-    return keys;
-  }
-  
-  protected override getCacheTTL(_query: Q): number {
-    // Prices change more often than products - 3 minutes
-    return 180;
-  }
-  
-  protected hashSku(sku: unknown): string {
-    // Hash complex SKU objects (price queries with currency, customer group, etc.)
-    return crypto.createHash('md5').update(JSON.stringify(sku)).digest('hex').substring(0, 12);
   }
 }

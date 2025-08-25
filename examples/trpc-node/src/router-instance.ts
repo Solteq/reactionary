@@ -1,4 +1,4 @@
-import { buildClient } from "@reactionary/core";
+import { buildClient, NoOpCache } from "@reactionary/core";
 import { withAlgoliaCapabilities } from "@reactionary/provider-algolia";
 import { withCommercetoolsCapabilities } from "@reactionary/provider-commercetools";
 import { withFakeCapabilities } from "@reactionary/provider-fake";
@@ -45,7 +45,9 @@ export const client = buildClient([
     },
     { analytics: true }
   ),
-]);
+], {
+  cache: new NoOpCache()
+});
 
 export const mergedRouter = createTRPCRouter(client);
 
