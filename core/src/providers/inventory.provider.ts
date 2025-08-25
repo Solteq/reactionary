@@ -1,7 +1,7 @@
 import { Inventory } from '../schemas/models/inventory.model';
 import { InventoryQuery } from '../schemas/queries/inventory.query';
 import { InventoryMutation } from '../schemas/mutations/inventory.mutation';
-import { BaseCachedProvider } from './base-cached.provider';
+import { BaseProvider } from './base.provider';
 import { CacheEvaluation } from '../cache/cache-evaluation.interface';
 import { Session } from '../schemas/session.schema';
 
@@ -9,17 +9,9 @@ export abstract class InventoryProvider<
   T extends Inventory = Inventory,
   Q extends InventoryQuery = InventoryQuery,
   M extends InventoryMutation = InventoryMutation
-> extends BaseCachedProvider<T, Q, M> {
+> extends BaseProvider<T, Q, M> {
   
   protected override getCacheEvaluation(query: Q, session: Session): CacheEvaluation {
-    if (!this.shouldCache(session)) {
-      return {
-        key: '',
-        cacheDurationInSeconds: 0,
-        canCache: false
-      };
-    }
-    
     const key = this.generateCacheKey(query, session);
     const ttl = this.getCacheTTL(query);
     
@@ -45,20 +37,6 @@ export abstract class InventoryProvider<
     }
     
     return keys;
-  }
-  
-  protected override shouldCache(session: Session): boolean {
-    // Global caching controls
-    if (process.env['NODE_ENV'] === 'test' || process.env['DISABLE_CACHE'] === 'true') {
-      return false;
-    }
-    
-    // Check if Redis configuration is available
-    if (!(process.env['UPSTASH_REDIS_REST_URL'] || process.env['REDIS_URL'])) {
-      return false;
-    }
-    
-    return true;
   }
   
   protected override getCacheTTL(_query: Q): number {

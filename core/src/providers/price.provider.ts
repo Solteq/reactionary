@@ -1,7 +1,7 @@
 import { Price } from '../schemas/models/price.model';
 import { PriceMutation } from '../schemas/mutations/price.mutation';
 import { PriceQuery } from '../schemas/queries/price.query';
-import { BaseCachedProvider } from './base-cached.provider';
+import { BaseProvider } from './base.provider';
 import { CacheEvaluation } from '../cache/cache-evaluation.interface';
 import { Session } from '../schemas/session.schema';
 import * as crypto from 'crypto';
@@ -10,17 +10,9 @@ export abstract class PriceProvider<
   T extends Price = Price,
   Q extends PriceQuery = PriceQuery,
   M extends PriceMutation = PriceMutation
-> extends BaseCachedProvider<T, Q, M> {
+> extends BaseProvider<T, Q, M> {
   
   protected override getCacheEvaluation(query: Q, session: Session): CacheEvaluation {
-    if (!this.shouldCache(session)) {
-      return {
-        key: '',
-        cacheDurationInSeconds: 0,
-        canCache: false
-      };
-    }
-    
     const key = this.generateCacheKey(query, session);
     const ttl = this.getCacheTTL(query);
     
@@ -46,16 +38,6 @@ export abstract class PriceProvider<
     }
     
     return keys;
-  }
-  
-  protected override shouldCache(_session: Session): boolean {
-    // Global caching controls
-    if (process.env['NODE_ENV'] === 'test' || process.env['DISABLE_CACHE'] === 'true') {
-      return false;
-    }
-    
-    // Check if Redis configuration is available
-    return !!(process.env['UPSTASH_REDIS_REST_URL'] || process.env['REDIS_URL']);
   }
   
   protected override getCacheTTL(_query: Q): number {

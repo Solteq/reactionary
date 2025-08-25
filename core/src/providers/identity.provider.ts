@@ -1,7 +1,7 @@
 import { Identity } from "../schemas/models/identity.model";
 import { IdentityQuery } from "../schemas/queries/identity.query";
 import { IdentityMutation } from "../schemas/mutations/identity.mutation";
-import { BaseCachedProvider } from "./base-cached.provider";
+import { BaseProvider } from "./base.provider";
 import { CacheEvaluation } from '../cache/cache-evaluation.interface';
 import { Session } from '../schemas/session.schema';
 
@@ -9,7 +9,7 @@ export abstract class IdentityProvider<
   T extends Identity = Identity,
   Q extends IdentityQuery = IdentityQuery,
   M extends IdentityMutation = IdentityMutation
-> extends BaseCachedProvider<T, Q, M> {
+> extends BaseProvider<T, Q, M> {
   
   protected override generateCacheKey(_query: Q, session: Session): string {
     const providerName = this.constructor.name.toLowerCase();
@@ -34,13 +34,18 @@ export abstract class IdentityProvider<
     return keys;
   }
   
-  protected override shouldCache(session: Session): boolean {
-    if (!super.shouldCache(session)) {
-      return false;
-    }
+  protected override getCacheEvaluation(query: Q, session: Session): CacheEvaluation {
+    const key = this.generateCacheKey(query, session);
+    const ttl = this.getCacheTTL(query);
     
     // Only cache profiles for authenticated users
-    return !!session.identity?.id;
+    const canCache = !!session.identity?.id;
+    
+    return {
+      key,
+      cacheDurationInSeconds: ttl,
+      canCache
+    };
   }
   
   protected override getCacheTTL(_query: Q): number {

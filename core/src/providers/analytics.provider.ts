@@ -1,7 +1,7 @@
 import { AnalyticsEvent } from '../schemas/models/analytics.model';
 import { AnalyticsMutation } from '../schemas/mutations/analytics.mutation';
 import { AnalyticsQuery } from '../schemas/queries/analytics.query';
-import { BaseCachedProvider } from './base-cached.provider';
+import { BaseProvider } from './base.provider';
 import { CacheEvaluation } from '../cache/cache-evaluation.interface';
 import { Session } from '../schemas/session.schema';
 import * as crypto from 'crypto';
@@ -10,7 +10,7 @@ export abstract class AnalyticsProvider<
   T extends AnalyticsEvent = AnalyticsEvent,
   Q extends AnalyticsQuery = AnalyticsQuery,
   M extends AnalyticsMutation = AnalyticsMutation
-> extends BaseCachedProvider<T, Q, M> {
+> extends BaseProvider<T, Q, M> {
   
   protected override generateCacheKey(query: Q, _session: Session): string {
     const providerName = this.constructor.name.toLowerCase();
@@ -24,14 +24,18 @@ export abstract class AnalyticsProvider<
     return [`${providerName}:analytics:*`];
   }
   
-  protected override shouldCache(session: Session): boolean {
-    if (!super.shouldCache(session)) {
-      return false;
-    }
+  protected override getCacheEvaluation(query: Q, session: Session): CacheEvaluation {
+    const key = this.generateCacheKey(query, session);
+    const ttl = this.getCacheTTL(query);
     
     // Cache analytics unless it's real-time data
-    const canCache = !('realtime' in this && (this as any).realtime === true);
-    return canCache;
+    const canCache = !('realtime' in query && (query as any).realtime === true);
+    
+    return {
+      key,
+      cacheDurationInSeconds: ttl,
+      canCache
+    };
   }
   
   protected override getCacheTTL(_query: Q): number {

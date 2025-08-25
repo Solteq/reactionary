@@ -1,6 +1,6 @@
 import { CartQuery } from "../schemas/queries/cart.query";
 import { CartMutation } from "../schemas/mutations/cart.mutation";
-import { BaseCachedProvider } from "./base-cached.provider";
+import { BaseProvider } from "./base.provider";
 import { Cart } from "../schemas/models/cart.model";
 import { CacheEvaluation } from '../cache/cache-evaluation.interface';
 import { Session } from '../schemas/session.schema';
@@ -9,7 +9,7 @@ export abstract class CartProvider<
   T extends Cart = Cart,
   Q extends CartQuery = CartQuery,
   M extends CartMutation = CartMutation
-> extends BaseCachedProvider<T, Q, M> {
+> extends BaseProvider<T, Q, M> {
   
   protected override generateCacheKey(query: Q, session: Session): string {
     const providerName = this.constructor.name.toLowerCase();
@@ -30,14 +30,18 @@ export abstract class CartProvider<
     return keys;
   }
   
-  protected override shouldCache(session: Session): boolean {
-    if (!super.shouldCache(session)) {
-      return false;
-    }
+  protected override getCacheEvaluation(query: Q, session: Session): CacheEvaluation {
+    const key = this.generateCacheKey(query, session);
+    const ttl = this.getCacheTTL(query);
     
     // Don't cache cart for authenticated users in development
     const canCache = process.env['NODE_ENV'] === 'production' || !session.identity?.id;
-    return canCache;
+    
+    return {
+      key,
+      cacheDurationInSeconds: ttl,
+      canCache
+    };
   }
   
   protected override getCacheTTL(_query: Q): number {
