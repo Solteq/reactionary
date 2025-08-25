@@ -6,6 +6,7 @@ import { BaseModel } from '../schemas/models/base.model';
 import { createProviderInstrumentation } from '@reactionary/otel';
 import { Cache } from '../cache/cache.interface';
 import { CacheEvaluation } from '../cache/cache-evaluation.interface';
+import * as crypto from 'crypto';
 
 /**
  * Base capability provider, responsible for mutations (changes) and queries (fetches)
@@ -168,12 +169,53 @@ export abstract class BaseProvider<
   /**
    * Provider-specific cache evaluation logic.
    * Returns information about how this query should be cached.
+   * Default implementation returns no caching.
    */
-  protected abstract getCacheEvaluation(query: Q, session: Session): CacheEvaluation;
+  protected getCacheEvaluation(query: Q, session: Session): CacheEvaluation {
+    // Default: generate a cache key but don't cache
+    const key = this.generateCacheKey(query, session);
+    
+    return {
+      key,
+      cacheDurationInSeconds: 0,
+      canCache: false
+    };
+  }
 
   /**
    * Provider-specific cache invalidation logic.
    * Returns the list of cache keys to invalidate based on mutations.
+   * Default implementation invalidates all cache entries for this provider.
    */
-  protected abstract getInvalidationKeys(mutation: M, session: Session): string[];
+  protected getInvalidationKeys(_mutation: M, _session: Session): string[] {
+    // Default: invalidate all cache entries for this provider
+    const providerName = this.constructor.name.toLowerCase();
+    return [`${providerName}:*`];
+  }
+
+  /**
+   * Generate a cache key for the given query and session.
+   * Override this to provide custom cache key generation.
+   */
+  protected generateCacheKey(query: Q, session: Session): string {
+    const providerName = this.constructor.name.toLowerCase();
+    const userId = session.identity?.id || 'anonymous';
+    return `${providerName}:${userId}:${this.hashQuery(query)}`;
+  }
+
+  /**
+   * Get the cache TTL for the given query.
+   * Override this to provide custom TTL logic.
+   */
+  protected getCacheTTL(_query: Q): number {
+    // Default: 5 minutes
+    return 300;
+  }
+
+  /**
+   * Hash a query object for use in cache keys.
+   */
+  protected hashQuery(query: Q): string {
+    return crypto.createHash('md5').update(JSON.stringify(query)).digest('hex').substring(0, 12);
+  }
 }

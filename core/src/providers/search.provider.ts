@@ -1,7 +1,7 @@
 import { SearchResult } from '../schemas/models/search.model';
 import { SearchQuery } from '../schemas/queries/search.query';
 import { SearchMutation } from '../schemas/mutations/search.mutation';
-import { BaseCachedProvider } from './base-cached.provider';
+import { BaseProvider } from './base.provider';
 import { CacheEvaluation } from '../cache/cache-evaluation.interface';
 import { Session } from '../schemas/session.schema';
 import * as crypto from 'crypto';
@@ -10,7 +10,7 @@ export abstract class SearchProvider<
   T extends SearchResult = SearchResult,
   Q extends SearchQuery = SearchQuery,
   M extends SearchMutation = SearchMutation
-> extends BaseCachedProvider<T, Q, M> {
+> extends BaseProvider<T, Q, M> {
   
   protected override generateCacheKey(query: Q, _session: Session): string {
     const providerName = this.constructor.name.toLowerCase();
@@ -21,6 +21,17 @@ export abstract class SearchProvider<
     const providerName = this.constructor.name.toLowerCase();
     // Search mutations typically invalidate all search results
     return [`${providerName}:search:*`];
+  }
+  
+  protected override getCacheEvaluation(query: Q, session: Session): CacheEvaluation {
+    const key = this.generateCacheKey(query, session);
+    const ttl = this.getCacheTTL(query);
+    
+    return {
+      key,
+      cacheDurationInSeconds: ttl,
+      canCache: true
+    };
   }
   
   protected override getCacheTTL(_query: Q): number {

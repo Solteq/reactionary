@@ -1,7 +1,7 @@
 import { Product } from '../schemas/models/product.model';
 import { ProductMutation } from '../schemas/mutations/product.mutation';
 import { ProductQuery, ProductQueryById, ProductQueryBySlug } from '../schemas/queries/product.query';
-import { BaseCachedProvider } from './base-cached.provider';
+import { BaseProvider } from './base.provider';
 import { Session } from '../schemas/session.schema';
 import { CacheEvaluation } from '../cache/cache-evaluation.interface';
 import * as crypto from 'crypto';
@@ -10,17 +10,9 @@ export abstract class ProductProvider<
   T extends Product = Product,
   Q extends ProductQuery = ProductQuery,
   M extends ProductMutation = ProductMutation
-> extends BaseCachedProvider<T, Q, M> {
+> extends BaseProvider<T, Q, M> {
   
   protected override getCacheEvaluation(query: Q, session: Session): CacheEvaluation {
-    if (!this.shouldCache(session)) {
-      return {
-        key: '',
-        cacheDurationInSeconds: 0,
-        canCache: false
-      };
-    }
-    
     const key = this.generateCacheKey(query, session);
     const ttl = this.getCacheTTL(query);
     
@@ -57,20 +49,6 @@ export abstract class ProductProvider<
     }
     
     return keys;
-  }
-  
-  protected override shouldCache(session: Session): boolean {
-    // Global caching controls
-    if (process.env['NODE_ENV'] === 'test' || process.env['DISABLE_CACHE'] === 'true') {
-      return false;
-    }
-    
-    // Check if Redis configuration is available
-    if (!(process.env['UPSTASH_REDIS_REST_URL'] || process.env['REDIS_URL'])) {
-      return false;
-    }
-    
-    return true;
   }
   
   protected override getCacheTTL(_query: Q): number {
