@@ -72,19 +72,50 @@ export class CommercetoolsProductProvider<
       base.description = data.description['en-US'];
     }
 
-    if (data.masterVariant.images) {
-      base.image = data.masterVariant.images[0].url;
-    }
-
     const variants = [data.masterVariant, ...data.variants];
-    for (const variant of variants) {
+    for (let i = 0; i < variants.length; i++) {
+      const variant = variants[i];
+      const firstImage = variant.images && variant.images.length > 0 ? variant.images[0] : null;
+      
       base.skus.push({
         identifier: {
           key: variant.sku || '',
         },
+        image: {
+          url: firstImage ? firstImage.url : 'https://placehold.co/400x400',
+          title: firstImage ? (firstImage.label || data.name['en-US']) : 'Placeholder image',
+          height: firstImage ? (firstImage.dimensions?.h || 400) : 400,
+          width: firstImage ? (firstImage.dimensions?.w || 400) : 400
+        },
+        images: variant.images ? variant.images.map(img => ({
+          url: img.url,
+          title: img.label || data.name['en-US'],
+          height: img.dimensions?.h || 400,
+          width: img.dimensions?.w || 400
+        })) : [],
+        selectionAttributes: variant.attributes ? variant.attributes
+          .filter(attr => this.isSelectionAttribute(attr.name))
+          .map(attr => ({
+            id: attr.name,
+            name: attr.name,
+            value: String(attr.value)
+          })) : [],
+        technicalSpecifications: variant.attributes ? variant.attributes
+          .filter(attr => !this.isSelectionAttribute(attr.name))
+          .map(attr => ({
+            id: attr.name,
+            name: attr.name,
+            value: String(attr.value)
+          })) : [],
+        isHero: i === 0 // Master variant (first one) is the hero
       });
     }
 
     return base;
+  }
+
+  protected isSelectionAttribute(name: string): boolean {
+    const selectionAttributeNames = ['color', 'size', 'style', 'material', 'finish', 'variant'];
+    return selectionAttributeNames.some(attr => name.toLowerCase().includes(attr));
   }
 }

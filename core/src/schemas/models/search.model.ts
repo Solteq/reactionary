@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { ProductIdentifierSchema, FacetValueIdentifierSchema, FacetIdentifierSchema, SearchIdentifierSchema } from './identifiers.model';
 import { BaseModelSchema } from './base.model';
+import { ImageSchema } from './product.model';
 
 export const SearchResultProductSchema = z.looseInterface({
     identifier: ProductIdentifierSchema.default(ProductIdentifierSchema.parse({})),
     name: z.string().default(''),
-    image: z.string().url().default('https://placehold.co/400'),
+    image: ImageSchema.default(() => ImageSchema.parse({})),
     slug: z.string().default('')
 });
 

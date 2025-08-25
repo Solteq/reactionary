@@ -19,7 +19,10 @@
     @for (product of service.search()?.products; track $index) {
         <a [routerLink]="['/', 'product', product.slug]">
             <article>
-                <img [src]="product.image.replace('w_200', 'w_200,h_200,')" [alt]="product.name" />
+                <img [src]="product.image.url.replace('w_200', 'w_200,h_200,')" 
+                     [alt]="product.image.title"
+                     [width]="200"
+                     [height]="200" />
                 <h3>{{ product.name }}</h3>
             </article>
         </a>

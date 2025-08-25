@@ -1,15 +1,33 @@
 import { z } from 'zod';
-import { ProductIdentifierSchema } from './identifiers.model';
+import { ProductIdentifierSchema, SKUIdentifierSchema } from './identifiers.model';
 import { BaseModelSchema } from './base.model';
 
-export const SKUSchema = z.looseInterface({
-    identifier: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})),
+export const ImageSchema = z.looseInterface({
+    url: z.string().url().default('https://placehold.co/400x400'),
+    title: z.string().default('Placeholder image'),
+    height: z.number().default(400),
+    width: z.number().default(400)
 });
 
-export const ProductAttributeSchema = z.looseInterface({
+export const SelectionAttributeSchema = z.looseInterface({
     id: z.string(),
     name: z.string(),
     value: z.string()
+});
+
+export const TechnicalSpecificationSchema = z.looseInterface({
+    id: z.string(),
+    name: z.string(),
+    value: z.string()
+});
+
+export const SKUSchema = z.looseInterface({
+    identifier: SKUIdentifierSchema.default(() => SKUIdentifierSchema.parse({})),
+    image: ImageSchema.default(() => ImageSchema.parse({})),
+    images: z.array(ImageSchema).default(() => []),
+    selectionAttributes: z.array(SelectionAttributeSchema).default(() => []),
+    technicalSpecifications: z.array(TechnicalSpecificationSchema).default(() => []),
+    isHero: z.boolean().default(false)
 });
 
 export const ProductSchema = BaseModelSchema.extend({
@@ -17,12 +35,11 @@ export const ProductSchema = BaseModelSchema.extend({
     name: z.string().default(''),
     slug: z.string().default(''),
     description: z.string().default(''),
-    image: z.string().url().default('https://placehold.co/400'),
-    images: z.string().url().array().default(() => []),
-    attributes: z.array(ProductAttributeSchema).default(() => []),
     skus: z.array(SKUSchema).default(() => [])
 });
 
+export type Image = z.infer<typeof ImageSchema>;
 export type SKU = z.infer<typeof SKUSchema>;
 export type Product = z.infer<typeof ProductSchema>;
-export type ProductAttribute = z.infer<typeof ProductAttributeSchema>;
+export type SelectionAttribute = z.infer<typeof SelectionAttributeSchema>;
+export type TechnicalSpecification = z.infer<typeof TechnicalSpecificationSchema>;

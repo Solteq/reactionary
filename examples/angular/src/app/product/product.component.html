@@ -1,14 +1,32 @@
 @if (service.productResource.value(); as product) {
     <section>
-        <img [src]="product.image" [alt]="product.name" />
+        @if (getDisplaySku(product); as displaySku) {
+            <img [src]="displaySku.image.url" 
+                 [alt]="displaySku.image.title" 
+                 [width]="displaySku.image.width"
+                 [height]="displaySku.image.height" />
+        }
     </section>
     <section>
         <h2>{{ product.name }}</h2>
         <h3>{{ product.description }}</h3>
-        <ol>
-            @for (attribute of product.attributes; track $index) {
-                ${{ attribute | json }}
-            }
-        </ol>
+        @if (getDisplaySku(product); as displaySku) {
+            <div class="selection-attributes">
+                <h4>Options</h4>
+                <ul>
+                    @for (attr of displaySku.selectionAttributes; track attr.id) {
+                        <li>{{ attr.name }}: {{ attr.value }}</li>
+                    }
+                </ul>
+            </div>
+            <div class="technical-specs">
+                <h4>Technical Specifications</h4>
+                <ul>
+                    @for (spec of displaySku.technicalSpecifications; track spec.id) {
+                        <li>{{ spec.name }}: {{ spec.value }}</li>
+                    }
+                </ul>
+            </div>
+        }
     </section>
 }

@@ -41,13 +41,7 @@ export class FakeProductProvider<
         },
         name: generator.commerce.productName(),
         slug: slug,
-        attributes: [],
         description: generator.commerce.productDescription(),
-        image: generator.image.urlPicsumPhotos({
-          width: 600,
-          height: 600,
-        }),
-        images: [],
         meta: {
           cache: {
             hit: false,
@@ -55,7 +49,51 @@ export class FakeProductProvider<
           },
           placeholder: false
         },
-        skus: [],
+        skus: [{
+          identifier: {
+            key: generator.commerce.isbn(),
+          },
+          image: {
+            url: generator.image.urlPicsumPhotos({
+              width: 600,
+              height: 600,
+            }),
+            title: generator.commerce.productName(),
+            height: 600,
+            width: 600
+          },
+          images: [],
+          selectionAttributes: [
+            {
+              id: 'color',
+              name: 'Color',
+              value: generator.color.human()
+            },
+            {
+              id: 'size',
+              name: 'Size',
+              value: generator.helpers.arrayElement(['S', 'M', 'L', 'XL'])
+            }
+          ],
+          technicalSpecifications: [
+            {
+              id: 'weight',
+              name: 'Weight',
+              value: `${generator.number.int({ min: 100, max: 1000 })}g`
+            },
+            {
+              id: 'material',
+              name: 'Material',
+              value: generator.commerce.productMaterial()
+            },
+            {
+              id: 'dimensions',
+              name: 'Dimensions',
+              value: `${generator.number.int({min: 10, max: 50})}x${generator.number.int({min: 10, max: 50})}x${generator.number.int({min: 10, max: 50})}cm`
+            }
+          ],
+          isHero: true
+        }],
       };
 
       results.push(product as T);

@@ -72,8 +72,14 @@ export class CommercetoolsSearchProvider<
       product.identifier.key = p.id;
       product.name = p.name['en-US'];
 
-      if (p.masterVariant.images) {
-        product.image = p.masterVariant.images[0].url;
+      if (p.masterVariant.images && p.masterVariant.images.length > 0) {
+        const firstImage = p.masterVariant.images[0];
+        product.image = {
+          url: firstImage.url,
+          title: firstImage.label || p.name['en-US'],
+          height: firstImage.dimensions?.h || 400,
+          width: firstImage.dimensions?.w || 400
+        };
       }
 
       result.products.push(product);

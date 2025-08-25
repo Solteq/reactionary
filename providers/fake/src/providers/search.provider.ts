@@ -73,12 +73,17 @@ export class FakeSearchProvider<
         identifier: {
           key: productGenerator.commerce.isbn(),
         },
-        image: productGenerator.image.urlPicsumPhotos({
+        image: {
+          url: productGenerator.image.urlPicsumPhotos({
+            height: 300,
+            width: 300,
+            grayscale: true,
+            blur: 8
+          }),
+          title: productGenerator.commerce.productName(),
           height: 300,
-          width: 300,
-          grayscale: true,
-          blur: 8
-        }),
+          width: 300
+        },
         name: productGenerator.commerce.productName(),
         slug: productGenerator.lorem.slug(),
       });

@@ -2,6 +2,7 @@ import { Component, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ProductService } from '../services/product.service';
 import { TRPC } from '../services/trpc.client';
+import { Product, SKU } from '@reactionary/core';
 
 @Component({
   selector: 'app-product',
@@ -12,6 +13,11 @@ import { TRPC } from '../services/trpc.client';
 export class ProductComponent {
   protected service = inject(ProductService);
   protected trpc = inject(TRPC);
+
+  protected getDisplaySku(product: Product): SKU | null {
+    if (product.skus.length === 0) return null;
+    return product.skus.find(sku => sku.isHero) || product.skus[0];
+  }
 
   constructor() {
     effect(async () => {

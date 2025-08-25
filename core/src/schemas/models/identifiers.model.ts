@@ -37,6 +37,7 @@ export const PriceIdentifierSchema = z.looseInterface({
 });
 
 export type ProductIdentifier = z.infer<typeof ProductIdentifierSchema>;
+export type SKUIdentifier = z.infer<typeof SKUIdentifierSchema>;
 export type SearchIdentifier = z.infer<typeof SearchIdentifierSchema>;
 export type FacetIdentifier = z.infer<typeof FacetIdentifierSchema>;
 export type FacetValueIdentifier = z.infer<typeof FacetValueIdentifierSchema>;
