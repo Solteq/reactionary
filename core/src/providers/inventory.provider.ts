@@ -11,36 +11,14 @@ export abstract class InventoryProvider<
   M extends InventoryMutation = InventoryMutation
 > extends BaseProvider<T, Q, M> {
   
-  protected override getCacheEvaluation(query: Q, session: Session): CacheEvaluation {
-    const key = this.generateCacheKey(query, session);
-    const ttl = this.getCacheTTL(query);
+  protected override getCacheEvaluation(query: Q, _session: Session): CacheEvaluation {
+    const providerName = this.constructor.name.toLowerCase();
+    const key = `${providerName}:inventory:${query.sku}`;
     
     return {
       key,
-      cacheDurationInSeconds: ttl,
-      canCache: true
+      cacheDurationInSeconds: 0,
+      canCache: false
     };
-  }
-  
-  protected override generateCacheKey(query: Q, _session: Session): string {
-    const providerName = this.constructor.name.toLowerCase();
-    return `${providerName}:inventory:${query.sku}`;
-  }
-  
-  protected override getInvalidationKeys(mutation: M, _session: Session): string[] {
-    const providerName = this.constructor.name.toLowerCase();
-    const keys: string[] = [];
-    
-    // Check if this mutation affects inventory
-    if ('sku' in mutation && typeof mutation['sku'] === 'string') {
-      keys.push(`${providerName}:inventory:${mutation['sku']}`);
-    }
-    
-    return keys;
-  }
-  
-  protected override getCacheTTL(_query: Q): number {
-    // Inventory changes frequently - 1 minute
-    return 60;
   }
 }
