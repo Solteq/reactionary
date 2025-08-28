@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const CapabilitiesSchema = z.looseInterface({
+export const CapabilitiesSchema = z.looseObject({
     product: z.boolean(),
     search: z.boolean(),
     analytics: z.boolean(),

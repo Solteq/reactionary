@@ -45,7 +45,7 @@
     "search-insights": "^2.17.3",
     "superjson": "^2.2.2",
     "vue": "^3.5.13",
-    "zod": "4.0.0-beta.20250430T185432",
+    "zod": "4.1.1",
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
@@ -119,7 +119,8 @@
     "verdaccio": "^6.0.5",
     "vite": "^6.0.0",
     "vitest": "^3.0.0",
-    "vue-tsc": "^2.2.8"
+    "vue-tsc": "^2.2.8",
+    "zod2md": "^0.2.4"
   },
   "nx": {
     "includedScripts": []

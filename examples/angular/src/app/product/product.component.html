@@ -1,6 +1,6 @@
-@if (service.productResource.value(); as product) {
+@if (product.value(); as product) {
     <section>
-        @if (getDisplaySku(product); as displaySku) {
+        @if (sku(); as displaySku) {
             <img [src]="displaySku.image.url" 
                  [alt]="displaySku.image.title" 
                  [width]="displaySku.image.width"
@@ -10,7 +10,7 @@
     <section>
         <h2>{{ product.name }}</h2>
         <h3>{{ product.description }}</h3>
-        @if (getDisplaySku(product); as displaySku) {
+        @if (sku(); as displaySku) {
             <div class="selection-attributes">
                 <h4>Options</h4>
                 <ul>

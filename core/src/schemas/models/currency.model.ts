@@ -182,6 +182,6 @@ export const CurrencySchema = z.enum([
   'ZAR',
   'ZMW',
   'ZWL',
-]);
+]).describe('ISO 4217 currency codes');
 
 export type Currency = z.infer<typeof CurrencySchema>;

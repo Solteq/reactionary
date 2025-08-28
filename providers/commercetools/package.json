@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "dependencies": {
     "@reactionary/core": "0.0.1",
-    "zod": "4.0.0-beta.20250430T185432",
+    "zod": "^4.1.1",
     "@commercetools/ts-client": "^3.2.2",
     "@commercetools/platform-sdk": "^8.8.0"
   }

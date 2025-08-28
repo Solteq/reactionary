@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const BaseQuerySchema = z.looseInterface({
+export const BaseQuerySchema = z.looseObject({
     query: z.ZodLiteral
 });
 

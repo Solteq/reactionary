@@ -1,13 +1,25 @@
 import {
+  BaseQuerySchema,
   Inventory,
   InventoryProvider,
   InventoryQuery,
+  InventoryQuerySchema,
   Session,
 } from '@reactionary/core';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';
 import { InventoryMutation } from 'core/src/schemas/mutations/inventory.mutation';
+
+export const ExtendedInventoryQueryByFooSchema = BaseQuerySchema.extend({
+  query: 'foo',
+  value: z.string()
+});
+
+export const PriceQuerySchema = z.union([InventoryQuerySchema]);
+
+export type ExtendedInventoryQueryByFooSchema = z.infer<typeof ExtendedInventoryQueryByFooSchema>;
+export type ExtendedPriceQuery = z.infer<typeof PriceQuerySchema>;
 
 export class CommercetoolsInventoryProvider<
   T extends Inventory = Inventory,

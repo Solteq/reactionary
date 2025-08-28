@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const BaseMutationSchema = z.looseInterface({
+export const BaseMutationSchema = z.looseObject({
     mutation: z.ZodLiteral
 });
 
