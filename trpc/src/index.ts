@@ -10,7 +10,6 @@ import { TRPCQueryProcedure, TRPCMutationProcedure } from '@trpc/server';
 import { createTRPCTracing } from '@reactionary/otel';
 
 const t = initTRPC.context<{ client: Client; session: Session }>().create({
-  transformer: superjson,
 });
 
 export const router = t.router;
@@ -20,24 +19,28 @@ export const mergeRouters = t.mergeRouters;
 const basePublicProcedure = t.procedure;
 export const publicProcedure = basePublicProcedure.use(createTRPCTracing());
 
-export function createTRPCRouter<T extends Client = Client>(client: T) {
-  type BaseProviderKeys<T> = {
-    [K in keyof T]: T[K] extends BaseProvider ? K : never;
-  }[keyof T];
+export function createTRPCRouter<T extends Partial<Client>>(client: T) {
+  type BaseProviderKeys<C> = {
+    [K in keyof C]: C[K] extends BaseProvider ? K : never;
+  }[keyof C];
 
-  type ReactionaryRouter = {
-    [Property in BaseProviderKeys<Client>]: TRPCQueryProcedure<{
-      input: Array<z.infer<T[Property]['querySchema']>>;
-      output: Array<z.infer<Awaited<T[Property]['schema']>>>;
+  type QueryRouter<C> = {
+    [K in BaseProviderKeys<C>]: C[K] extends BaseProvider ? TRPCQueryProcedure<{
+      input: Array<z.infer<C[K]['querySchema']>>;
+      output: Array<z.infer<Awaited<C[K]['schema']>>>;
       meta: any;
-    }>;
-  } & {
-    [Property in BaseProviderKeys<Client> as `${Property}Mutation`]: TRPCMutationProcedure<{
-      input: Array<z.infer<T[Property]['mutationSchema']>>;
-      output: z.infer<Awaited<T[Property]['schema']>>;
-      meta: any;
-    }>;
+    }> : never;
   };
+
+  type MutationRouter<C> = {
+    [K in BaseProviderKeys<C> as `${K & string}Mutation`]: C[K] extends BaseProvider ? TRPCMutationProcedure<{
+      input: Array<z.infer<C[K]['mutationSchema']>>;
+      output: z.infer<Awaited<C[K]['schema']>>;
+      meta: any;
+    }> : never;
+  };
+
+  type ReactionaryRouter = QueryRouter<T> & MutationRouter<T>;
 
   const routes: Record<string, any> = {};
   // Always enable tracing - exporters are controlled via env vars
@@ -47,8 +50,8 @@ export function createTRPCRouter<T extends Client = Client>(client: T) {
     const provider = client[key];
 
     if (provider instanceof BaseProvider) {
-      const queryKey = key as keyof ReactionaryRouter;
-      const mutationKey = key + 'Mutation' as keyof ReactionaryRouter;
+      const queryKey = key as string;
+      const mutationKey = `${key}Mutation`;
 
       routes[queryKey] = procedure
         .input(provider.querySchema.array())
