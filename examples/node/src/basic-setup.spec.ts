@@ -36,12 +36,12 @@ describe('basic setup', () => {
       },
     });
 
-    server.listen(3000);
+    server.listen(3001);
 
     const trpc = createTRPCClient<RouterType>({
       links: [
         httpBatchLink({
-          url: 'http://localhost:3000',
+          url: 'http://localhost:3001',
         }),
       ],
     });
