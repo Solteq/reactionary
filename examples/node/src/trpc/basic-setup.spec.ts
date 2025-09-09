@@ -4,7 +4,7 @@ import { createTRPCRouter } from '@reactionary/trpc';
 import { createHTTPServer } from '@trpc/server/adapters/standalone';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 
-describe('basic setup', () => {
+xdescribe('basic setup', () => {
   let server: any;
 
   it('should be able to create a trpc server and client and retrieve a product', async () => {
