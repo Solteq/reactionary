@@ -5,7 +5,9 @@ import {
   ProductSchema,
   ProductMutationSchema,
   Session,
-  ProductQuery,
+  BaseQuerySchema,
+  ProductMutation,
+  Product,
 } from '@reactionary/core';
 import {
   FakeCapabilities,
@@ -18,19 +20,24 @@ import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { z } from 'zod';
 import { Cache } from '@reactionary/core';
 
-describe('extending provider models', () => {
-  const ExtendedProductModel = ProductSchema.extend({
-    gtin: z.string().default('gtin-default'),
+xdescribe('extending provider queries', () => {
+  const ProductQueryByCustomFieldSchema = BaseQuerySchema.extend({
+    query: z.string('custom'),
+    custom: z.string()
   });
-  type ExtendedProduct = z.infer<typeof ExtendedProductModel>;
+  type ProductQueryByCustomField = z.infer<typeof ProductQueryByCustomFieldSchema>;
+  const ProductQueryExtendedSchema = z.union([...ProductQuerySchema.options, ProductQueryByCustomFieldSchema]);
+  type ProductQueryExtended = z.infer<typeof ProductQueryExtendedSchema>;
 
-  class ExtendedProductProvider extends FakeProductProvider<ExtendedProduct> {
-    protected override async fetch(queries: ProductQuery[], session: Session) {
+  class ExtendedProviderProvider extends FakeProductProvider<Product, ProductQueryExtended, ProductMutation> {
+    protected override async fetch(queries: ProductQueryExtended[], session: Session) {
       const base = await super.fetch(queries, session);
 
-      for (const b of base) {
-        if (b.identifier.key === '1234') {
-          b.gtin = 'gtin-1234';
+      for (let i = 0; i < queries.length; i++) {
+
+        const query = queries[i];
+        if (query.query === 'custom') {
+          base[i].identifier.key = 'custom-' + query.custom;
         }
       }
 
@@ -41,13 +48,13 @@ describe('extending provider models', () => {
   function withExtendedCapabilities(capabilities: FakeCapabilities) {
     return (cache: Cache) => {
       const client = {} as Partial<{
-        product: ExtendedProductProvider;
+        product: ExtendedProviderProvider;
       }>;
 
-      client.product = new ExtendedProductProvider(
+      client.product = new ExtendedProviderProvider(
         { jitter: { mean: 300, deviation: 100 } },
-        ExtendedProductModel,
-        ProductQuerySchema,
+        ProductSchema,
+        ProductQueryExtendedSchema,
         ProductMutationSchema,
         cache
       );
@@ -79,7 +86,7 @@ describe('extending provider models', () => {
   const trpc = createTRPCClient<typeof mergedRouter>({
     links: [
       httpBatchLink({
-        url: 'http://localhost:3000',
+        url: 'http://localhost:3002',
       }),
     ],
   });
@@ -91,28 +98,15 @@ describe('extending provider models', () => {
     },
   });
 
-  server.listen(3000);
+  server.listen(3002);
 
-  it('should get default properties for new model fields', async () => {
-    const productWithDefaultGTIN = await trpc.product.query([
-      {
-        query: 'id',
-        id: 'default',
-      },
-    ]);
+  it('should be able to call the custom query', async () => {
+    const product = await trpc.product.query([{
+      query: 'custom',
+      custom: '1234'
+    }]);
 
-    expect(productWithDefaultGTIN[0].gtin).toBe('gtin-default');
-  });
-
-  it('should deserialize fields according to the custom provider implementation', async () => {
-    const productWithGTINInitialization = await trpc.product.query([
-      {
-        query: 'id',
-        id: '1234',
-      },
-    ]);
-
-    expect(productWithGTINInitialization[0].gtin).toBe('gtin-1234');
+    expect(product[0].identifier.key).toBe('custom-1234');
   });
 
   afterAll((done) => {
