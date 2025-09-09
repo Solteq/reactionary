@@ -4,6 +4,7 @@ export * from './cache/redis-cache';
 export * from './cache/noop-cache';
 
 export * from './client/client';
+export * from './client/client-builder';
 
 export * from './providers/analytics.provider';
 export * from './providers/base.provider';

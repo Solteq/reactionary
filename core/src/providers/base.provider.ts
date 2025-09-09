@@ -100,7 +100,7 @@ export abstract class BaseProvider<
           }
           
           if (result) {
-            this.assert(result);
+            result = this.assert(result);
             results.push(result);
           }
         }
@@ -127,8 +127,8 @@ export abstract class BaseProvider<
         span.setAttribute('provider.mutation.count', mutations.length);
         
         // Perform the mutation
-        const result = await this.process(mutations, session);
-        this.assert(result);
+        let result = await this.process(mutations, session);
+        result = this.assert(result);
 
         return result;
       },
