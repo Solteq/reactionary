@@ -116,7 +116,7 @@ export function traced(options: TracedOptions = {}): any {
     descriptor?: PropertyDescriptor
   ): any {
     // Handle Stage 3 decorator (when called with context)
-    if (typeof propertyKey === 'object' && propertyKey !== null && 'kind' in propertyKey) {
+    if (typeof propertyKey === 'object' && propertyKey && 'kind' in propertyKey) {
       const context = propertyKey as any;
       const originalMethod = target;
       const methodName = String(context.name);
