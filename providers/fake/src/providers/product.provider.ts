@@ -8,6 +8,7 @@ import {
 import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
 import { base, en, Faker } from '@faker-js/faker';
+import { traced } from '@reactionary/otel';
 
 export class FakeProductProvider<
   T extends Product = Product
@@ -20,6 +21,7 @@ export class FakeProductProvider<
     this.config = config;
   }
 
+  @traced()
   public override async getById(
     payload: ProductQueryById,
     session: Session
