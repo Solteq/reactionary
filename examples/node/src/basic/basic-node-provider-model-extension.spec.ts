@@ -2,12 +2,11 @@ import {
   ClientBuilder,
   Cache,
   NoOpCache,
-  ProductMutationSchema,
-  ProductQuery,
-  ProductQuerySchema,
   ProductSchema,
   Session,
   SessionSchema,
+  ProductQueryById,
+  ProductQueryBySlug,
 } from '@reactionary/core';
 import {
   FakeProductProvider,
@@ -26,16 +25,14 @@ describe('basic node provider extension (models)', () => {
   type ExtendedProduct = z.infer<typeof ExtendedProductModel>;
 
   class ExtendedProductProvider extends FakeProductProvider<ExtendedProduct> {
-    protected override async fetch(queries: ProductQuery[], session: Session) {
-      const base = await super.fetch(queries, session);
+    protected override parseSingle(body: ProductQueryById | ProductQueryBySlug): ExtendedProduct {
+      const model = super.parseSingle(body);
 
-      for (const b of base) {
-        if (b.identifier.key === '1234') {
-          b.gtin = 'gtin-1234';
-        }
+      if (body.id) {
+        model.gtin = 'gtin-1234';
       }
 
-      return base;
+      return this.assert(model);
     }
   }
 
@@ -45,8 +42,6 @@ describe('basic node provider extension (models)', () => {
         product: new ExtendedProductProvider(
           { jitter: { mean: 0, deviation: 0 } },
           ExtendedProductModel,
-          ProductQuerySchema,
-          ProductMutationSchema,
           cache
         ),
       };
@@ -78,32 +73,26 @@ describe('basic node provider extension (models)', () => {
   });
 
   it('should be able to call the regular methods and get the default value', async () => {
-    const products = await client.product.query(
-      [
-        {
-          query: 'slug',
-          slug: '1234',
-        },
-      ],
+    const product = await client.product.getBySlug(
+      {
+        slug: '1234',
+      },
       session
     );
 
-    expect(products.length).toBe(1);
-    expect(products[0].gtin).toBe('gtin-default');
+    expect(product).toBeDefined();
+    expect(product.gtin).toBe('gtin-default');
   });
 
   it('should be able to get serialized value from the extended provider', async () => {
-    const products = await client.product.query(
-      [
-        {
-          query: 'id',
-          id: '1234',
-        },
-      ],
+    const product = await client.product.getById(
+      {
+        id: '1234',
+      },
       session
     );
 
-    expect(products.length).toBe(1);
-    expect(products[0].gtin).toBe('gtin-1234');
+    expect(product).toBeDefined();
+    expect(product.gtin).toBe('gtin-1234');
   });
 });

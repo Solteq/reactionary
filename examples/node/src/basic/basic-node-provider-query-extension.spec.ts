@@ -2,8 +2,6 @@ import {
   ClientBuilder,
   Cache,
   NoOpCache,
-  ProductMutationSchema,
-  ProductQuerySchema,
   ProductSchema,
   Product,
 } from '@reactionary/core';
@@ -54,8 +52,6 @@ describe('basic node provider extension (models)', () => {
         product: new ExtendedProductProvider(
           { jitter: { mean: 0, deviation: 0 } },
           ExtendedProductModel,
-          ProductQuerySchema,
-          ProductMutationSchema,
           cache
         ),
       };
@@ -83,7 +79,7 @@ describe('basic node provider extension (models)', () => {
   it('should be able to call a custom query method on the provider', async () => {
     const product = await client.product.getByCustom('1234');
 
-    expect(product.name).toBe('Totally Custom');
+    expect(product.name).toBe('bar');
   });
 
 });

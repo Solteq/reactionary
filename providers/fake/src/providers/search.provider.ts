@@ -1,8 +1,6 @@
 import {
-  SearchIdentifier,
-  SearchMutation,
   SearchProvider,
-  SearchQuery,
+  SearchQueryByTerm,
   SearchResult,
   SearchResultFacet,
   SearchResultProduct,
@@ -14,41 +12,24 @@ import { Faker, en, base } from '@faker-js/faker';
 import { jitter } from '../utilities/jitter';
 
 export class FakeSearchProvider<
-  T extends SearchResult = SearchResult,
-  Q extends SearchQuery = SearchQuery,
-  M extends SearchMutation = SearchMutation
-> extends SearchProvider<T, Q, M> {
+  T extends SearchResult = SearchResult
+> extends SearchProvider<T> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>, cache: any) {
-    super(schema, querySchema, mutationSchema, cache);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: any) {
+    super(schema, cache);
 
     this.config = config;
   }
 
-  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
-    const results = [];
-
-    for (const query of queries) {
-      const result = await this.get(query.search);
-
-      results.push(result);
-    }
-
-    return results;
-  }
-
-  protected override process(mutations: M[], session: Session): Promise<T> {
-    throw new Error('Method not implemented.');
-  }
-
-  public async get(identifier: SearchIdentifier): Promise<T> {
+  public override async queryByTerm(
+    payload: SearchQueryByTerm,
+    session: Session
+  ): Promise<SearchResult> {
     await jitter(this.config.jitter.mean, this.config.jitter.deviation);
 
-    return this.parse({}, identifier);
-  }
+    const query = payload.search;
 
-  public parse(data: unknown, query: SearchIdentifier): T {
     const querySpecificity =
       20 - query.term.length - query.page - query.facets.length;
     const totalProducts = 10 * querySpecificity;
@@ -77,7 +58,7 @@ export class FakeSearchProvider<
           height: 300,
           width: 300,
           grayscale: true,
-          blur: 8
+          blur: 8,
         }),
         name: productGenerator.commerce.productName(),
         slug: productGenerator.lorem.slug(),
@@ -131,10 +112,10 @@ export class FakeSearchProvider<
       meta: {
         cache: {
           hit: false,
-          key: ''
+          key: '',
         },
-        placeholder: false
-      }
+        placeholder: false,
+      },
     } satisfies SearchResult;
 
     return this.schema.parse(result);
