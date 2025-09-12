@@ -30,12 +30,11 @@ describe('basic node setup', () => {
   });
 
   it('should be able to call the enabled capabilities', async () => {
-    const products = await client.product.query([{
-        query: 'slug',
+    const product = await client.product.getBySlug({
         slug: '1234'
-    }], session);
+    }, session);
 
-    expect(products.length).toBe(1);
-    expect(products[0].slug).toBe('1234');
+    expect(product).toBeDefined();
+    expect(product.slug).toBe('1234');
   });
 });

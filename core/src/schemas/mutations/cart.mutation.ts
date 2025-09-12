@@ -3,28 +3,22 @@ import { BaseMutationSchema } from './base.mutation';
 import { CartIdentifierSchema, CartItemIdentifierSchema, ProductIdentifierSchema } from '../models/identifiers.model';
 
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
-    mutation: z.literal('add'),
     cart: CartIdentifierSchema.required(),
     product: ProductIdentifierSchema.required(),
     quantity: z.number()
 });
 
 export const CartMutationItemRemoveSchema = BaseMutationSchema.extend({
-    mutation: z.literal('remove'),
     cart: CartIdentifierSchema.required(),
     item: CartItemIdentifierSchema.required()
 });
 
 export const CartMutationItemQuantityChangeSchema = BaseMutationSchema.extend({
-    mutation: z.literal('adjustQuantity'),
     cart: CartIdentifierSchema.required(),
     item: CartItemIdentifierSchema.required(),
     quantity: z.number()
 });
 
-export const CartMutationSchema = z.union([CartMutationItemAddSchema, CartMutationItemRemoveSchema, CartMutationItemQuantityChangeSchema]);
-
-export type CartMutation = z.infer<typeof CartMutationSchema>;
 export type CartMutationItemAdd = z.infer<typeof CartMutationItemAddSchema>;
 export type CartMutationItemRemove = z.infer<typeof CartMutationItemRemoveSchema>;
 export type CartMutationItemQuantityChange = z.infer<typeof CartMutationItemQuantityChangeSchema>;
