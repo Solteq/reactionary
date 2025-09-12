@@ -5,6 +5,7 @@ import { BaseProvider } from './base.provider';
 import { Session } from '../schemas/session.schema';
 import { CacheEvaluation } from '../cache/cache-evaluation.interface';
 import * as crypto from 'crypto';
+import { ProductIdentifier } from '../schemas/models/identifiers.model';
 
 export abstract class ProductProvider<
   T extends Product = Product,
@@ -30,5 +31,14 @@ export abstract class ProductProvider<
       cacheDurationInSeconds: 300, // Products are moderately stable - 5 minutes
       canCache: true
     };
+  }
+
+  public async getById(id: ProductIdentifier): Promise<T> {
+    const model = super.newModel();
+
+    model.identifier = id;
+    model.meta.placeholder = true;
+
+    return model;
   }
 }
