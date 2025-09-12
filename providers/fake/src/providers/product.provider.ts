@@ -27,6 +27,11 @@ export class FakeProductProvider<
     const results = new Array<T>();
 
     for (const query of queries) {
+
+      if (query.query === 'id') {
+        console.log(query.id);
+      }
+
       const generator = new Faker({
         seed: 42,
         locale: [en, base],
