@@ -1,12 +1,16 @@
-import { BaseProvider, Client, Session } from '@reactionary/core';
+import { 
+  BaseProvider, 
+  Client, 
+  Session
+} from '@reactionary/core';
 
 /**
- * Extract all method names from a provider that follow the expected pattern
+ * Extract method names from a provider that match TRPC patterns
  */
 export type ProviderMethods<T> = T extends BaseProvider 
   ? {
       [K in keyof T]: T[K] extends (...args: any[]) => any 
-        ? K extends `get${string}` | `query${string}` | `add` | `remove` | `changeQuantity` | `login` | `logout` | `getSelf`
+        ? K extends `get${string}` | `query${string}` | 'add' | 'remove' | 'changeQuantity' | 'login' | 'logout' | 'getSelf'
           ? K 
           : never
         : never
@@ -32,6 +36,18 @@ export type ClientMethodMap<T extends Partial<Client>> = {
     : never;
 };
 
+
+/**
+ * Create transparent client that only includes methods matching TRPC patterns
+ */
+export type TransparentClient<T extends Partial<Client>> = {
+  [K in keyof T]: T[K] extends BaseProvider 
+    ? {
+        [M in ProviderMethods<T[K]>]: ProviderMethodSignature<T[K], M>
+      }
+    : never;
+};
+
 /**
  * Extract method information for TRPC procedure creation
  */
@@ -42,6 +58,7 @@ export interface MethodInfo {
   isMutation: boolean;
   method: (...args: any[]) => any;
 }
+
 
 /**
  * Utility to determine if a method is a query or mutation based on naming convention
@@ -63,33 +80,27 @@ export function isMutationMethod(methodName: string): boolean {
 }
 
 /**
- * Introspect a client instance to extract all provider methods
+ * Introspect a client instance to extract all provider methods matching naming patterns
  */
 export function introspectClient<T extends Partial<Client>>(client: T): MethodInfo[] {
   const methods: MethodInfo[] = [];
   
   for (const [providerName, provider] of Object.entries(client)) {
     if (provider instanceof BaseProvider) {
-      // Get all method names from the provider instance
-      const methodNames = Object.getOwnPropertyNames(Object.getPrototypeOf(provider))
-        .filter(name => {
-          const method = (provider as any)[name];
-          return typeof method === 'function' && 
-                 name !== 'constructor' &&
-                 !name.startsWith('_') && // Skip private methods
-                 (isQueryMethod(name) || isMutationMethod(name));
-        });
-      
-      for (const methodName of methodNames) {
-        const method = (provider as any)[methodName].bind(provider);
-        
-        methods.push({
-          name: methodName,
-          providerName,
-          isQuery: isQueryMethod(methodName),
-          isMutation: isMutationMethod(methodName),
-          method
-        });
+      // Get all methods that match our naming patterns
+      for (const key of Object.getOwnPropertyNames(Object.getPrototypeOf(provider))) {
+        const method = (provider as any)[key];
+        if (typeof method === 'function' && key !== 'constructor') {
+          if (isQueryMethod(key) || isMutationMethod(key)) {
+            methods.push({
+              name: key,
+              providerName,
+              isQuery: isQueryMethod(key),
+              isMutation: isMutationMethod(key),
+              method: method.bind(provider)
+            });
+          }
+        }
       }
     }
   }

@@ -1,4 +1,5 @@
-import { Client, Session } from '@reactionary/core';
+import { Client, Session, isTRPCQuery, isTRPCMutation, isTRPCMethod } from '@reactionary/core';
+import type { TransparentClient } from './types';
 import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
 import type { TRPCClientError } from '@trpc/client';
 
@@ -38,10 +39,10 @@ export interface TRPCClientOptions {
 export function createTRPCClient<TOriginalClient extends Partial<Client>>(
   trpcClient: any,
   options: TRPCClientOptions = {}
-): TOriginalClient {
+): TransparentClient<TOriginalClient> {
   const { defaultSession, autoSession = false } = options;
   
-  return new Proxy({} as TOriginalClient, {
+  return new Proxy({} as TransparentClient<TOriginalClient>, {
     get(target, providerName: string | symbol) {
       if (typeof providerName !== 'string') {
         return undefined;
@@ -54,14 +55,8 @@ export function createTRPCClient<TOriginalClient extends Partial<Client>>(
             return undefined;
           }
           
-          // Filter out TRPC-specific properties that aren't actual provider methods
-          if (methodName === 'schema' || methodName === '_def' || methodName.startsWith('_')) {
-            return undefined;
-          }
-          
-          // Don't check if provider/method exist in TRPC client - TRPC uses lazy proxies
-          
-          // Return a function that routes through TRPC
+          // Only expose methods that are marked with TRPC decorators
+          // This eliminates the need to filter TRPC-specific properties
           return async (payload: any, sessionArg?: Session) => {
             // Determine session to use
             let session = sessionArg;
@@ -79,13 +74,12 @@ export function createTRPCClient<TOriginalClient extends Partial<Client>>(
             const trpcProvider = trpcClient[providerName];
             const trpcMethod = trpcProvider[methodName];
             
-            // TRPC proxy client methods have .query() and .mutate() properties
-            // Use method naming convention to determine which to use
-            const isQuery = methodName.startsWith('get') || methodName.startsWith('query') || methodName === 'getSelf';
-            
-            if (isQuery && trpcMethod?.query) {
+            // Use decorator metadata to determine if this is a query or mutation
+            // Note: We can't directly check the original provider here since we only have
+            // the TRPC client, so we'll fall back to the router's procedure type detection
+            if (trpcMethod?.query) {
               return await trpcMethod.query(input);
-            } else if (!isQuery && trpcMethod?.mutate) {
+            } else if (trpcMethod?.mutate) {
               return await trpcMethod.mutate(input);
             } else {
               throw new Error(`Method ${String(providerName)}.${String(methodName)} not found on TRPC client`);
@@ -122,8 +116,8 @@ export interface SessionProvider {
 export function createTRPCClientWithSessionProvider<TOriginalClient extends Partial<Client>>(
   trpcClient: any,
   sessionProvider: SessionProvider
-): TOriginalClient {
-  return new Proxy({} as TOriginalClient, {
+): TransparentClient<TOriginalClient> {
+  return new Proxy({} as TransparentClient<TOriginalClient>, {
     get(target, providerName: string | symbol) {
       if (typeof providerName !== 'string') {
         return undefined;
@@ -132,11 +126,6 @@ export function createTRPCClientWithSessionProvider<TOriginalClient extends Part
       return new Proxy({}, {
         get(providerTarget, methodName: string | symbol) {
           if (typeof methodName !== 'string') {
-            return undefined;
-          }
-          
-          // Filter out TRPC-specific properties that aren't actual provider methods
-          if (methodName === 'schema' || methodName === '_def' || methodName.startsWith('_')) {
             return undefined;
           }
           
@@ -156,13 +145,10 @@ export function createTRPCClientWithSessionProvider<TOriginalClient extends Part
             const trpcProvider = trpcClient[providerName];
             const trpcMethod = trpcProvider[methodName];
             
-            // TRPC proxy client methods have .query() and .mutate() properties
-            // Use method naming convention to determine which to use
-            const isQuery = methodName.startsWith('get') || methodName.startsWith('query') || methodName === 'getSelf';
-            
-            if (isQuery && trpcMethod?.query) {
+            // Use TRPC client's procedure type detection
+            if (trpcMethod?.query) {
               return await trpcMethod.query(input);
-            } else if (!isQuery && trpcMethod?.mutate) {
+            } else if (trpcMethod?.mutate) {
               return await trpcMethod.mutate(input);
             } else {
               throw new Error(`Method ${String(providerName)}.${String(methodName)} not found on TRPC client`);

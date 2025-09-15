@@ -2,6 +2,7 @@ import { buildClient, NoOpCache, SessionSchema } from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
 import { createTRPCServerRouter, createTRPCContext, type TRPCRouterFromClient } from './server';
 import { createTRPCClient, type TRPCClientFromRouter } from './client';
+import type { TransparentClient } from './types';
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import { createHTTPHandler } from '@trpc/server/adapters/standalone';
 import * as http from 'http';
@@ -35,7 +36,7 @@ describe('TRPC Integration Test - Real HTTP Server', () => {
   let server: http.Server;
   let serverPort: number;
   let trpcProxyClient: ReturnType<typeof createTRPCProxyClient<AppRouter>>;
-  let transparentClient: typeof serverClient;
+  let transparentClient: TransparentClient<typeof serverClient>;
 
   beforeAll(async () => {
 
