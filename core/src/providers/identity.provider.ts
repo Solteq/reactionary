@@ -3,6 +3,7 @@ import { IdentityMutationLogin, IdentityMutationLogout } from "../schemas/mutati
 import { IdentityQuerySelf } from "../schemas/queries/identity.query";
 import { Session } from "../schemas/session.schema";
 import { BaseProvider } from "./base.provider";
+import { trpcQuery, trpcMutation } from '../decorators/trpc.decorators';
 
 export abstract class IdentityProvider<
   T extends Identity = Identity,

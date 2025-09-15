@@ -21,6 +21,7 @@ export {
   type ClientMethodMap,
   type MethodInfo,
   type TRPCMethodInput,
+  type TransparentClient,
   introspectClient,
   isQueryMethod,
   isMutationMethod

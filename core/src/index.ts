@@ -6,6 +6,8 @@ export * from './cache/noop-cache';
 export * from './client/client';
 export * from './client/client-builder';
 
+export * from './decorators/trpc.decorators';
+
 export * from './providers/analytics.provider';
 export * from './providers/base.provider';
 export * from './providers/cart.provider';
