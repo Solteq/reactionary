@@ -22,7 +22,6 @@ export class FakeProductProvider<
     this.config = config;
   }
 
-  @traced()
   public override async getById(
     payload: ProductQueryById,
     _session: Session
