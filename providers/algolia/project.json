@@ -21,7 +21,8 @@
         "main": "providers/algolia/src/index.ts",
         "tsConfig": "providers/algolia/tsconfig.lib.json",
         "assets": ["providers/algolia/*.md"],
-        "format": ["esm"]
+        "format": ["esm"],
+        "bundle": false
       }
     },
     "nx-release-publish": {
