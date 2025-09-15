@@ -1,11 +1,9 @@
 import {
-  SearchIdentifier,
-  SearchMutation,
   SearchProvider,
-  SearchQuery,
+  SearchQueryByTerm,
   SearchResult,
-  SearchResultFacetSchema,
-  SearchResultFacetValueSchema,
+  SearchResultFacet,
+  SearchResultProduct,
   Session,
 } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
@@ -13,113 +11,94 @@ import { z } from 'zod';
 import { AlgoliaConfiguration } from '../schema/configuration.schema';
 
 export class AlgoliaSearchProvider<
-  T extends SearchResult = SearchResult,
-  Q extends SearchQuery = SearchQuery,
-  M extends SearchMutation = SearchMutation
-> extends SearchProvider<T, Q, M> {
+  T extends SearchResult = SearchResult
+> extends SearchProvider<T> {
   protected config: AlgoliaConfiguration;
 
-  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>, cache: any) {
-    super(schema, querySchema, mutationSchema, cache);
+  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, cache: any) {
+    super(schema, cache);
 
     this.config = config;
   }
 
-  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
-    const results = [];
-
-    for (const query of queries) {
-      const result = await this.get(query.search);
-
-      results.push(result);
-    }
-
-    return results;
-  }
-
-  protected override process(mutations: M[], session: Session): Promise<T> {
-    throw new Error('Method not implemented.');
-  }
-
-  protected async get(identifier: SearchIdentifier): Promise<T> {
+  public override async queryByTerm(
+    payload: SearchQueryByTerm,
+    session: Session
+  ): Promise<SearchResult> {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
     const remote = await client.search<unknown>({
       requests: [
         {
           indexName: this.config.indexName,
-          query: identifier.term,
-          page: identifier.page,
-          hitsPerPage: identifier.pageSize,
+          query: payload.search.term,
+          page: payload.search.page,
+          hitsPerPage: payload.search.pageSize,
           facets: ['*'],
           analytics: true,
           clickAnalytics: true,
-          facetFilters: identifier.facets.map(
+          facetFilters: payload.search.facets.map(
             (x) => `${encodeURIComponent(x.facet.key)}:${x.key}`
           ),
         },
       ],
     });
 
-    const parsed = this.parse(remote, identifier);
-
-    return parsed;
+    return this.parseSearchResult(remote, payload);
   }
 
-  protected parse(remote: any, query: SearchIdentifier): T {
+  protected parseSearchResult(remote: any, payload: SearchQueryByTerm): T {
     const result = this.newModel();
-
     const remoteProducts = remote.results[0];
 
+    // Parse facets
     for (const id in remoteProducts.facets) {
       const f = remoteProducts.facets[id];
 
-      const facet = SearchResultFacetSchema.parse({});
-      facet.identifier.key = id;
-      facet.name = id;
+      const facet = {
+        identifier: { key: id },
+        name: id,
+        values: []
+      } as SearchResultFacet;
 
       for (const vid in f) {
         const fv = f[vid];
+        const isActive = payload.search.facets.find(
+          (x) => x.facet.key === id && x.key === vid
+        );
 
-        const facetValue = SearchResultFacetValueSchema.parse({});
-        facetValue.count = fv;
-        facetValue.name = vid;
-        facetValue.identifier.key = vid;
-        facetValue.identifier.facet = facet.identifier;
-
-        if (
-          query.facets.find(
-            (x) =>
-              x.facet.key == facetValue.identifier.facet.key &&
-              x.key == facetValue.identifier.key
-          )
-        ) {
-          facetValue.active = true;
-        }
-
-        facet.values.push(facetValue);
+        facet.values.push({
+          identifier: { key: vid, facet: { key: id } },
+          count: fv,
+          name: vid,
+          active: !!isActive
+        });
       }
 
       result.facets.push(facet);
     }
 
+    // Parse products
     for (const p of remoteProducts.hits) {
       result.products.push({
-        identifier: {
-          key: p.objectID,
-        },
+        identifier: { key: p.objectID },
         slug: p.slug,
         name: p.name,
-        image: p.image,
-      });
+        image: p.image
+      } as SearchResultProduct);
     }
 
+    // Set result metadata
     result.identifier = {
-      ...query,
+      ...payload.search,
       index: remoteProducts.index,
       key: remoteProducts.queryID
     };
     result.pages = remoteProducts.nbPages;
+    result.meta = {
+      cache: { hit: false, key: payload.search.term },
+      placeholder: false
+    };
 
-    return result;
+    return this.assert(result);
   }
 }
