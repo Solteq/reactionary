@@ -1,4 +1,4 @@
-import { CapabilitiesSchema, Price, PriceQuery } from "@reactionary/core";
+import { CapabilitiesSchema } from "@reactionary/core";
 import { z } from 'zod';
 
 export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({

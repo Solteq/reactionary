@@ -2,9 +2,5 @@
   "name": "@reactionary/examples-node",
   "version": "0.0.1",
   "private": true,
-  "dependencies": {
-    "@reactionary/provider-algolia": "0.0.1",
-    "@reactionary/core": "0.0.1",
-    "zod": "4.0.0-beta.20250430T185432"
-  }
+  "dependencies": {}
 }

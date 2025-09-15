@@ -15,11 +15,10 @@ describe('basic node provider extension (models)', () => {
   const ExtendedProductModel = ProductSchema.extend({
     gtin: z.string().default('gtin-default'),
   });
-  type ExtendedProduct = z.infer<typeof ExtendedProductModel>;
 
   class ExtendedProductProvider extends FakeProductProvider {
 
-    public async getByCustom(custom: string): Promise<Product> {
+    public async getByCustom(_custom: string): Promise<Product> {
       // Lets say we called somewhere...
       const data = {
         id: 'foo',
@@ -38,7 +37,7 @@ describe('basic node provider extension (models)', () => {
       const item = this.newModel();
     
       if (data) {
-        item.name = (data as any).name;
+        item.name = (data as { name: string }).name;
       }
       
 

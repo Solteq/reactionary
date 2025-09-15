@@ -1,4 +1,4 @@
-import { ProductSchema, SearchResultSchema, Cache, ProductProvider, SearchProvider, IdentityProvider } from "@reactionary/core";
+import { ProductSchema, SearchResultSchema, Cache as ReactinaryCache, ProductProvider, SearchProvider, IdentityProvider } from "@reactionary/core";
 import { FakeProductProvider } from "../providers/product.provider";
 import { FakeSearchProvider } from "../providers/search.provider";
 import { FakeConfiguration } from "../schema/configuration.schema";
@@ -11,15 +11,15 @@ type FakeClient<T extends FakeCapabilities> = Partial<{
 }>;
 
 export function withFakeCapabilities<T extends FakeCapabilities>(configuration: FakeConfiguration, capabilities: T) {
-    return (cache: Cache): FakeClient<T> => {
-        const client: FakeClient<T> = {};
+    return (cache: ReactinaryCache): FakeClient<T> => {
+        const client: any = {};
 
         if (capabilities.product) {
-            (client as any).product = new FakeProductProvider(configuration, ProductSchema, cache);
+            client.product = new FakeProductProvider(configuration, ProductSchema, cache);
         }
 
         if (capabilities.search) {
-            (client as any).search = new FakeSearchProvider(configuration, SearchResultSchema, cache);
+            client.search = new FakeSearchProvider(configuration, SearchResultSchema, cache);
         }
 
         return client;

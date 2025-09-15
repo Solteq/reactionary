@@ -4,6 +4,7 @@ import {
   SearchResult,
   SearchResultProduct,
   Session,
+  Cache,
 } from '@reactionary/core';
 import { CommercetoolsClient } from '../core/client';
 import z from 'zod';
@@ -14,29 +15,16 @@ export class CommercetoolsSearchProvider<
 > extends SearchProvider<T> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: any) {
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache) {
     super(schema, cache);
 
     this.config = config;
   }
 
-  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
-    const results = [];
-
-    for (const query of queries) {
-      const result = await this.get(query.search);
-
-      results.push(result);
-    }
-
-    return results;
-  }
-
-  protected override process(mutations: M[], session: Session): Promise<T> {
-    throw new Error('Method not implemented.');
-  }
-
-  public async get(identifier: SearchIdentifier): Promise<T> {
+  public override async queryByTerm(
+    payload: SearchQueryByTerm,
+    _session: Session
+  ): Promise<T> {
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
     const remote = await client
@@ -45,38 +33,39 @@ export class CommercetoolsSearchProvider<
       .search()
       .get({
         queryArgs: {
-          limit: identifier.pageSize,
-          offset: identifier.pageSize * identifier.page,
-          ['text.en-US']: identifier.term,
+          limit: payload.search.pageSize,
+          offset: payload.search.pageSize * payload.search.page,
+          ['text.en-US']: payload.search.term,
         },
       })
       .execute();
 
-    const parsed = this.parse(remote, identifier);
-
-    return parsed;
+    return this.parseSearchResult(remote, payload);
   }
 
-  public parse(remote: any, query: SearchIdentifier): T {
-    const result = super.newModel();
+  protected parseSearchResult(remote: unknown, payload: SearchQueryByTerm): T {
+    const result = this.newModel();
+    const remoteData = remote as { body: { results: Array<{ id: string; name: Record<string, string>; slug?: Record<string, string>; masterVariant: { images?: Array<{ url?: string }> } }>; total?: number } };
 
-    result.identifier = query;
+    result.identifier = payload.search;
 
-    for (const p of remote.body.results) {
-      const product = SearchResultProductSchema.parse({});
-
-      product.identifier.key = p.id;
-      product.name = p.name['en-US'];
-
-      if (p.masterVariant.images) {
-        product.image = p.masterVariant.images[0].url;
-      }
+    for (const p of remoteData.body.results) {
+      const product: SearchResultProduct = {
+        identifier: { key: p.id },
+        name: p.name['en-US'],
+        slug: p.slug?.['en-US'] || p.id,
+        image: p.masterVariant.images?.[0]?.url || 'https://placehold.co/400'
+      };
 
       result.products.push(product);
     }
 
-    result.pages = Math.ceil((remote.body.total || 0) / query.pageSize);
+    result.pages = Math.ceil((remoteData.body.total || 0) / payload.search.pageSize);
+    result.meta = {
+      cache: { hit: false, key: payload.search.term },
+      placeholder: false
+    };
 
-    return result;
+    return this.assert(result);
   }
 }

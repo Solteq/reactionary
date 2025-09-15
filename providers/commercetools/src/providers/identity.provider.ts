@@ -1,67 +1,34 @@
 import {
   Identity,
-  IdentityMutation,
   IdentityMutationLogin,
   IdentityProvider,
-  IdentityQuery,
+  IdentityQuerySelf,
   Session,
+  Cache,
 } from '@reactionary/core';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import z from 'zod';
 import { CommercetoolsClient } from '../core/client';
 
 export class CommercetoolsIdentityProvider<
-  T extends Identity = Identity,
-  Q extends IdentityQuery = IdentityQuery,
-  M extends IdentityMutation = IdentityMutation
-> extends IdentityProvider<T, Q, M> {
+  T extends Identity = Identity
+> extends IdentityProvider<T> {
   protected config: CommercetoolsConfiguration;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
-    querySchema: z.ZodType<Q, Q>,
-    mutationSchema: z.ZodType<M, M>,
-    cache: any
+    cache: Cache
   ) {
-    super(schema, querySchema, mutationSchema, cache);
+    super(schema, cache);
 
     this.config = config;
   }
 
-  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
-    const results = [];
-
-    for (const query of queries) {
-      const result = await this.get(session);
-
-      results.push(result);
-    }
-
-    return results;
-  }
-
-  protected override async process(
-    mutations: M[],
+  public override async getSelf(
+    payload: IdentityQuerySelf,
     session: Session
   ): Promise<T> {
-    let result = this.newModel();
-
-    for (const mutation of mutations) {
-      switch (mutation.mutation) {
-        case 'login':
-          result = await this.login(mutation, session);
-          break;
-        case 'logout':
-          result = await this.logout(session);
-          break;
-      }
-    }
-
-    return result;
-  }
-
-  protected async get(session: Session): Promise<T> {
     const client = new CommercetoolsClient(this.config);
     const base = this.newModel();
 
@@ -72,17 +39,25 @@ export class CommercetoolsIdentityProvider<
         const current = this.schema.safeParse(session.identity);
 
         if (current.success) {
+          current.data.meta = {
+            cache: { hit: false, key: session.identity.id || 'anonymous' },
+            placeholder: false
+          };
           return current.data;
         }
       }
     }
 
+    base.meta = {
+      cache: { hit: false, key: 'anonymous' },
+      placeholder: false
+    };
     session.identity = base;
 
-    return base;
+    return this.assert(base);
   }
 
-  protected async login(
+  public override async login(
     payload: IdentityMutationLogin,
     session: Session
   ): Promise<T> {
@@ -99,26 +74,34 @@ export class CommercetoolsIdentityProvider<
       base.type = 'Registered';
     }
 
-    // TODO: error handling
+    base.meta = {
+      cache: { hit: false, key: base.id || 'anonymous' },
+      placeholder: false
+    };
 
     session.identity = base;
 
-    return base;
+    return this.assert(base);
   }
 
-  protected async logout(session: Session): Promise<T> {
+  public override async logout(
+    payload: Record<string, never>,
+    session: Session
+  ): Promise<T> {
     const client = new CommercetoolsClient(this.config);
     const base = this.newModel();
 
     if (session.identity.token) {
-      const remote = await client.logout(session.identity.token);
-
-      // TODO: error handling
+      await client.logout(session.identity.token);
     }
 
+    base.meta = {
+      cache: { hit: false, key: 'anonymous' },
+      placeholder: false
+    };
     session.identity = base;
 
-    return base;
+    return this.assert(base);
   }
 
   protected extractCustomerIdFromScopes(scopes: string) {

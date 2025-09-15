@@ -5,6 +5,7 @@ import {
   SearchResultFacet,
   SearchResultProduct,
   Session,
+  Cache,
 } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
 import { z } from 'zod';
@@ -15,7 +16,7 @@ export class AlgoliaSearchProvider<
 > extends SearchProvider<T> {
   protected config: AlgoliaConfiguration;
 
-  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, cache: any) {
+  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, cache: Cache) {
     super(schema, cache);
 
     this.config = config;
@@ -23,7 +24,7 @@ export class AlgoliaSearchProvider<
 
   public override async queryByTerm(
     payload: SearchQueryByTerm,
-    session: Session
+    _session: Session
   ): Promise<SearchResult> {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
     const remote = await client.search<unknown>({
@@ -46,9 +47,10 @@ export class AlgoliaSearchProvider<
     return this.parseSearchResult(remote, payload);
   }
 
-  protected parseSearchResult(remote: any, payload: SearchQueryByTerm): T {
+  protected parseSearchResult(remote: unknown, payload: SearchQueryByTerm): T {
     const result = this.newModel();
-    const remoteProducts = remote.results[0];
+    const remoteData = remote as { results: Array<{ facets: Record<string, Record<string, number>>; hits: Array<{ objectID: string; slug?: string; name?: string; image?: string }>; index: string; queryID: string; nbPages: number }> };
+    const remoteProducts = remoteData.results[0];
 
     // Parse facets
     for (const id in remoteProducts.facets) {

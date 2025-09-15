@@ -37,7 +37,7 @@ export abstract class BaseProvider<
    * Handler for parsing a response from a remote provider and converting it
    * into the typed domain model.
    */
-  protected parseSingle(body: unknown): T {
+  protected parseSingle(_body: unknown): T {
     const model = this.newModel();
 
     return this.assert(model);

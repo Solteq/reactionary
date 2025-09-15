@@ -4,6 +4,7 @@ import {
   ProductQueryById,
   ProductQueryBySlug,
   Session,
+  Cache,
 } from '@reactionary/core';
 import { CommercetoolsClient } from '../core/client';
 import { z } from 'zod';
@@ -15,7 +16,7 @@ export class CommercetoolsProductProvider<
 > extends ProductProvider<T> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: any) {
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache) {
     super(schema, cache);
 
     this.config = config;
@@ -23,7 +24,7 @@ export class CommercetoolsProductProvider<
 
   public override async getById(
     payload: ProductQueryById,
-    session: Session
+    _session: Session
   ): Promise<T> {
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
@@ -39,7 +40,7 @@ export class CommercetoolsProductProvider<
 
   public override async getBySlug(
     payload: ProductQueryBySlug,
-    session: Session
+    _session: Session
   ): Promise<T> {
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 

@@ -4,6 +4,7 @@ import {
   ProductQueryById,
   ProductQueryBySlug,
   Session,
+  Cache as ReactinaryCache,
 } from '@reactionary/core';
 import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
@@ -15,7 +16,7 @@ export class FakeProductProvider<
 > extends ProductProvider<T> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: any) {
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactinaryCache) {
     super(schema, cache);
 
     this.config = config;
@@ -24,14 +25,14 @@ export class FakeProductProvider<
   @traced()
   public override async getById(
     payload: ProductQueryById,
-    session: Session
+    _session: Session
   ): Promise<T> {
     return this.parseSingle(payload);
   }
 
   public override async getBySlug(
     payload: ProductQueryBySlug,
-    session: Session
+    _session: Session
   ): Promise<T> {
     return this.parseSingle(payload);
   }

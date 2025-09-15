@@ -5,6 +5,7 @@ import {
   SearchResultFacet,
   SearchResultProduct,
   Session,
+  Cache as ReactinaryCache,
 } from '@reactionary/core';
 import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
@@ -16,7 +17,7 @@ export class FakeSearchProvider<
 > extends SearchProvider<T> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: any) {
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactinaryCache) {
     super(schema, cache);
 
     this.config = config;
@@ -24,7 +25,7 @@ export class FakeSearchProvider<
 
   public override async queryByTerm(
     payload: SearchQueryByTerm,
-    session: Session
+    _session: Session
   ): Promise<SearchResult> {
     await jitter(this.config.jitter.mean, this.config.jitter.deviation);
 

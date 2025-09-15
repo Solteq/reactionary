@@ -2,7 +2,6 @@ import { SearchResult } from '../schemas/models/search.model';
 import { SearchQueryByTerm } from '../schemas/queries/search.query';
 import { Session } from '../schemas/session.schema';
 import { BaseProvider } from './base.provider';
-import { trpcQuery } from '../decorators/trpc.decorators';
 
 export abstract class SearchProvider<
   T extends SearchResult = SearchResult

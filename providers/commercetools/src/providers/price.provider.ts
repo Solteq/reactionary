@@ -1,30 +1,30 @@
-import { BaseMutation, Price, PriceProvider, PriceQuery, Session } from '@reactionary/core';
+import { Price, PriceProvider, PriceQueryBySku, Session, Cache } from '@reactionary/core';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';
-import { PriceMutation } from 'core/src/schemas/mutations/price.mutation';
 
 export class CommercetoolsPriceProvider<
-  T extends Price = Price,
-  Q extends PriceQuery = PriceQuery,
-  M extends PriceMutation = PriceMutation
-> extends PriceProvider<T, Q, M> {
+  T extends Price = Price
+> extends PriceProvider<T> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>, cache: any) {
-    super(schema, querySchema, mutationSchema, cache);
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache) {
+    super(schema, cache);
 
     this.config = config;
   }
 
-  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
+  public override async getBySKU(
+    payload: PriceQueryBySku,
+    session: Session
+  ): Promise<T> {
     const client = new CommercetoolsClient(this.config).getClient(
       session.identity?.token
     );
 
     const queryArgs = {
-      where: 'sku in :skus',
-      'var.skus': queries.map(x => x.sku.key),
+      where: 'sku=:sku',
+      'var.sku': payload.sku.key,
     };
 
     const remote = await client
@@ -35,32 +35,27 @@ export class CommercetoolsPriceProvider<
       })
       .execute();
 
-    const results = new Array<T>();
+    const base = this.newModel();
     
-    for (const query of queries) {
-        const base = this.newModel();
-        const matched = remote.body.results.find(x => x.sku === query.sku.key);
-
-        if (matched) {
-          base.value = {
-            cents: matched.value.centAmount,
-            currency: 'USD',
-          };
-        }
-
-        base.identifier = {
-          sku: {
-            key: query.sku.key
-          }
-        };
-
-        results.push(base);
+    if (remote.body.results.length > 0) {
+      const matched = remote.body.results[0];
+      base.value = {
+        cents: matched.value.centAmount,
+        currency: 'USD',
+      };
     }
 
-    return results;
-  }
+    base.identifier = {
+      sku: {
+        key: payload.sku.key
+      }
+    };
 
-  protected override process(mutation: BaseMutation[], session: Session): Promise<T> {
-    throw new Error('Method not implemented.');
+    base.meta = {
+      cache: { hit: false, key: payload.sku.key },
+      placeholder: false
+    };
+
+    return this.assert(base);
   }
 }

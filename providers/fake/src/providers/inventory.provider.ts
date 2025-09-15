@@ -3,6 +3,7 @@ import {
   InventoryProvider,
   InventoryQuery,
   Session,
+  Cache,
 } from '@reactionary/core';
 import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
@@ -13,7 +14,7 @@ export class FakeInventoryProvider<
 > extends InventoryProvider<T> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: any) {
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache) {
     super(schema, cache);
 
     this.config = config;
@@ -21,7 +22,7 @@ export class FakeInventoryProvider<
 
   public override async getBySKU(
     payload: InventoryQuery,
-    session: Session
+    _session: Session
   ): Promise<T> {
     // Generate a simple hash from the SKU string for seeding
     let hash = 0;
