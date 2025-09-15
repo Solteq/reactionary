@@ -1,6 +1,8 @@
 {
   "name": "@reactionary/core",
   "version": "0.0.1",
+  "main": "./index.js",
+  "types": "./src/index.d.ts",
   "dependencies": {
     "zod": "4.0.0-beta.20250430T185432",
     "@upstash/redis": "^1.34.9",
