@@ -1,10 +1,9 @@
 import {
   ProductProvider,
-  ProductQuery,
   Product,
+  ProductQueryById,
+  ProductQueryBySlug,
   Session,
-  BaseMutation,
-  ProductMutation,
 } from '@reactionary/core';
 import { CommercetoolsClient } from '../core/client';
 import { z } from 'zod';
@@ -12,22 +11,36 @@ import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { ProductProjection } from '@commercetools/platform-sdk';
 
 export class CommercetoolsProductProvider<
-  T extends Product = Product,
-  Q extends ProductQuery = ProductQuery,
-  M extends ProductMutation = ProductMutation
-> extends ProductProvider<T, Q, M> {
+  T extends Product = Product
+> extends ProductProvider<T> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>, cache: any) {
-    super(schema, querySchema, mutationSchema, cache);
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: any) {
+    super(schema, cache);
 
     this.config = config;
   }
 
-  protected override async fetch(queries: ProductQuery[], session: Session): Promise<T[]> {
-    const ids = queries.filter((x) => x.query === 'id').map((x) => x.id);
-    const slugs = queries.filter((x) => x.query === 'slug').map((x) => x.slug);
+  public override async getById(
+    payload: ProductQueryById,
+    session: Session
+  ): Promise<T> {
+    const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
+    const remote = await client
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .productProjections()
+      .withId({ ID: payload.id })
+      .get()
+      .execute();
+
+    return this.parse(remote.body);
+  }
+
+  public override async getBySlug(
+    payload: ProductQueryBySlug,
+    session: Session
+  ): Promise<T> {
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
     const remote = await client
@@ -35,36 +48,23 @@ export class CommercetoolsProductProvider<
       .productProjections()
       .get({
         queryArgs: {
-          where: 'slug(en-US in :slugs)',
-          'var.slugs': slugs
+          where: 'slug(en-US = :slug)',
+          'var.slug': payload.slug
         }
       })
       .execute();
 
-    console.log('remote: ', remote);
-
-    const results = new Array<T>;
-
-    for (const r of remote.body.results) {
-      const result = this.parse(r);
-
-      results.push(result);
+    if (remote.body.results.length === 0) {
+      throw new Error(`Product with slug '${payload.slug}' not found`);
     }
 
-    return results;
-  }
-
-  protected override process(
-    mutation: BaseMutation[],
-    session: Session
-  ): Promise<T> {
-    throw new Error('Method not implemented.');
+    return this.parse(remote.body.results[0]);
   }
 
   protected parse(data: ProductProjection): T {
     const base = this.newModel();
 
-    base.identifier.key = data.id;
+    base.identifier = { key: data.id };
     base.name = data.name['en-US'];
     base.slug = data.slug['en-US'];
 
@@ -72,19 +72,28 @@ export class CommercetoolsProductProvider<
       base.description = data.description['en-US'];
     }
 
-    if (data.masterVariant.images) {
+    if (data.masterVariant.images && data.masterVariant.images.length > 0) {
       base.image = data.masterVariant.images[0].url;
     }
 
+    base.images = [];
+    base.attributes = [];
+    base.skus = [];
+
     const variants = [data.masterVariant, ...data.variants];
     for (const variant of variants) {
-      base.skus.push({
-        identifier: {
-          key: variant.sku || '',
-        },
-      });
+      if (variant.sku) {
+        base.skus.push({
+          identifier: { key: variant.sku },
+        });
+      }
     }
 
-    return base;
+    base.meta = {
+      cache: { hit: false, key: data.id },
+      placeholder: false
+    };
+
+    return this.assert(base);
   }
 }

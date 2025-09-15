@@ -1,25 +1,57 @@
-import { BaseMutation, Product, ProductMutation, ProductProvider, ProductQuery, Session } from '@reactionary/core';
+import { 
+  Product, 
+  ProductProvider, 
+  ProductQueryById, 
+  ProductQueryBySlug, 
+  Session 
+} from '@reactionary/core';
 import { z } from 'zod';
 import { AlgoliaConfiguration } from '../schema/configuration.schema';
 
 export class AlgoliaProductProvider<
-  T extends Product = Product,
-  Q extends ProductQuery = ProductQuery,
-  M extends ProductMutation = ProductMutation
-> extends ProductProvider<T, Q, M> {
+  T extends Product = Product
+> extends ProductProvider<T> {
   protected config: AlgoliaConfiguration;
 
-  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>, cache: any) {
-    super(schema, querySchema, mutationSchema, cache);
+  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, cache: any) {
+    super(schema, cache);
 
     this.config = config;
   }
 
-  protected override async fetch(queries: Q[], session: Session): Promise<T[]> {
-    return [];
+  public override async getById(
+    payload: ProductQueryById,
+    session: Session
+  ): Promise<T> {
+    // TODO: Implement Algolia product fetch by ID
+    const result = this.newModel();
+    result.identifier = { key: payload.id };
+    result.name = `Algolia Product ${payload.id}`;
+    result.slug = payload.id;
+    result.description = 'Product from Algolia';
+    result.meta = {
+      cache: { hit: false, key: payload.id },
+      placeholder: true
+    };
+    
+    return this.assert(result);
   }
 
-  protected override process(mutation: BaseMutation[], session: Session): Promise<T> {
-    throw new Error('Method not implemented.');
+  public override async getBySlug(
+    payload: ProductQueryBySlug,
+    session: Session
+  ): Promise<T> {
+    // TODO: Implement Algolia product fetch by slug
+    const result = this.newModel();
+    result.identifier = { key: payload.slug };
+    result.name = `Algolia Product ${payload.slug}`;
+    result.slug = payload.slug;
+    result.description = 'Product from Algolia';
+    result.meta = {
+      cache: { hit: false, key: payload.slug },
+      placeholder: true
+    };
+    
+    return this.assert(result);
   }
 }

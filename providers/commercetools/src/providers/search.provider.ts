@@ -1,10 +1,8 @@
 import {
-  SearchIdentifier,
-  SearchMutation,
   SearchProvider,
-  SearchQuery,
+  SearchQueryByTerm,
   SearchResult,
-  SearchResultProductSchema,
+  SearchResultProduct,
   Session,
 } from '@reactionary/core';
 import { CommercetoolsClient } from '../core/client';
@@ -12,14 +10,12 @@ import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 
 export class CommercetoolsSearchProvider<
-  T extends SearchResult = SearchResult,
-  Q extends SearchQuery = SearchQuery,
-  M extends SearchMutation = SearchMutation
-> extends SearchProvider<T, Q, M> {
+  T extends SearchResult = SearchResult
+> extends SearchProvider<T> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, querySchema: z.ZodType<Q, Q>, mutationSchema: z.ZodType<M, M>, cache: any) {
-    super(schema, querySchema, mutationSchema, cache);
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: any) {
+    super(schema, cache);
 
     this.config = config;
   }
