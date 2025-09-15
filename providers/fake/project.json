@@ -21,7 +21,8 @@
         "main": "providers/fake/src/index.ts",
         "tsConfig": "providers/fake/tsconfig.lib.json",
         "assets": ["providers/fake/*.md"],
-        "format": ["esm"]
+        "format": ["esm"],
+        "bundle": false
       }
     },
     "nx-release-publish": {

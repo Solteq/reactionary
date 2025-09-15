@@ -1,8 +1,6 @@
 {
   "name": "@reactionary/provider-fake",
   "version": "0.0.1",
-  "main": "./index.js",
-  "types": "./src/index.d.ts",
   "dependencies": {
     "@reactionary/core": "0.0.1",
     "@reactionary/otel": "0.0.1",
