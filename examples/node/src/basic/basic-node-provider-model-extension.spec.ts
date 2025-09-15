@@ -3,7 +3,6 @@ import {
   Cache,
   NoOpCache,
   ProductSchema,
-  Session,
   SessionSchema,
   ProductQueryById,
   ProductQueryBySlug,

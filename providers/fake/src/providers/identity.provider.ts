@@ -5,6 +5,7 @@ import {
   IdentityMutationLogin,
   IdentityMutationLogout,
   Session,
+  Cache,
 } from '@reactionary/core';
 import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
@@ -16,15 +17,15 @@ export class FakeIdentityProvider<
   protected config: FakeConfiguration;
   private currentIdentity: T | null = null;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: any) {
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache) {
     super(schema, cache);
 
     this.config = config;
   }
 
   public override async getSelf(
-    payload: IdentityQuerySelf,
-    session: Session
+    _payload: IdentityQuerySelf,
+    _session: Session
   ): Promise<T> {
     if (!this.currentIdentity) {
       const model = this.newModel();
@@ -49,7 +50,7 @@ export class FakeIdentityProvider<
 
   public override async login(
     payload: IdentityMutationLogin,
-    session: Session
+    _session: Session
   ): Promise<T> {
     const generator = new Faker({
       seed: 42,
@@ -77,8 +78,8 @@ export class FakeIdentityProvider<
   }
 
   public override async logout(
-    payload: IdentityMutationLogout,
-    session: Session
+    _payload: IdentityMutationLogout,
+    _session: Session
   ): Promise<T> {
     const model = this.newModel();
     Object.assign(model, {

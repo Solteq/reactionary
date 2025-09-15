@@ -3,7 +3,8 @@ import {
   ProductProvider, 
   ProductQueryById, 
   ProductQueryBySlug, 
-  Session 
+  Session,
+  Cache 
 } from '@reactionary/core';
 import { z } from 'zod';
 import { AlgoliaConfiguration } from '../schema/configuration.schema';
@@ -13,7 +14,7 @@ export class AlgoliaProductProvider<
 > extends ProductProvider<T> {
   protected config: AlgoliaConfiguration;
 
-  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, cache: any) {
+  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, cache: Cache) {
     super(schema, cache);
 
     this.config = config;
@@ -21,7 +22,7 @@ export class AlgoliaProductProvider<
 
   public override async getById(
     payload: ProductQueryById,
-    session: Session
+    _session: Session
   ): Promise<T> {
     // TODO: Implement Algolia product fetch by ID
     const result = this.newModel();
@@ -39,7 +40,7 @@ export class AlgoliaProductProvider<
 
   public override async getBySlug(
     payload: ProductQueryBySlug,
-    session: Session
+    _session: Session
   ): Promise<T> {
     // TODO: Implement Algolia product fetch by slug
     const result = this.newModel();

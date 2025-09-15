@@ -6,6 +6,7 @@ import {
   CartMutationItemRemove,
   CartMutationItemQuantityChange,
   Session,
+  Cache,
 } from '@reactionary/core';
 import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
@@ -16,7 +17,7 @@ export class FakeCartProvider<
   protected config: FakeConfiguration;
   private carts: Map<string, T> = new Map();
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: any) {
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache) {
     super(schema, cache);
 
     this.config = config;
@@ -24,7 +25,7 @@ export class FakeCartProvider<
 
   public override async getById(
     payload: CartQueryById,
-    session: Session
+    _session: Session
   ): Promise<T> {
     const cartId = payload.cart.key;
     
@@ -44,7 +45,11 @@ export class FakeCartProvider<
       this.carts.set(cartId, this.assert(model));
     }
     
-    return this.carts.get(cartId)!;
+    const cart = this.carts.get(cartId);
+    if (!cart) {
+      throw new Error(`Cart with id ${cartId} not found`);
+    }
+    return cart;
   }
 
   public override async add(

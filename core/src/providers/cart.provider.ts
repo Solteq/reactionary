@@ -3,7 +3,6 @@ import { Cart } from "../schemas/models/cart.model";
 import { CartQueryById } from "../schemas/queries/cart.query";
 import { Session } from "../schemas/session.schema";
 import { CartMutationItemAdd, CartMutationItemQuantityChange, CartMutationItemRemove } from "../schemas/mutations/cart.mutation";
-import { trpcQuery, trpcMutation } from '../decorators/trpc.decorators';
 
 export abstract class CartProvider<
   T extends Cart = Cart

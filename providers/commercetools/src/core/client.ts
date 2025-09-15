@@ -1,7 +1,6 @@
 import { ClientBuilder } from '@commercetools/ts-client';
 import { createApiBuilderFromCtpClient } from '@commercetools/platform-sdk';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
-import { Session } from '@reactionary/core';
 
 const ANONYMOUS_SCOPES = ['view_published_products', 'manage_shopping_lists', 'view_shipping_methods', 'manage_customers', 'view_product_selections', 'view_categories', 'view_project_settings', 'manage_order_edits', 'view_sessions', 'view_standalone_prices', 'manage_orders', 'view_tax_categories', 'view_cart_discounts', 'view_discount_codes', 'create_anonymous_token', 'manage_sessions', 'view_products', 'view_types'];
 const GUEST_SCOPES = [...ANONYMOUS_SCOPES];
