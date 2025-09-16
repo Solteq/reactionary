@@ -23,7 +23,7 @@ export class CommercetoolsSearchProvider<
 
   public override async queryByTerm(
     payload: SearchQueryByTerm,
-    _session: Session
+    session: Session
   ): Promise<T> {
     const client = new CommercetoolsClient(this.config).createAnonymousClient();
 
@@ -34,16 +34,16 @@ export class CommercetoolsSearchProvider<
       .get({
         queryArgs: {
           limit: payload.search.pageSize,
-          offset: payload.search.pageSize * payload.search.page,
-          ['text.en-US']: payload.search.term,
+          offset: (payload.search.page - 1) * payload.search.pageSize,
+          [`text.${session.languageContext.locale}`]: payload.search.term,
         },
       })
       .execute();
 
-    return this.parseSearchResult(remote, payload);
+    return this.parseSearchResult(remote, payload, session);
   }
 
-  protected parseSearchResult(remote: unknown, payload: SearchQueryByTerm): T {
+  protected parseSearchResult(remote: unknown, payload: SearchQueryByTerm, session: Session): T {
     const result = this.newModel();
     const remoteData = remote as { body: { results: Array<{ id: string; name: Record<string, string>; slug?: Record<string, string>; masterVariant: { images?: Array<{ url?: string }> } }>; total?: number } };
 
@@ -52,8 +52,8 @@ export class CommercetoolsSearchProvider<
     for (const p of remoteData.body.results) {
       const product: SearchResultProduct = {
         identifier: { key: p.id },
-        name: p.name['en-US'],
-        slug: p.slug?.['en-US'] || p.id,
+        name: p.name[session.languageContext.locale] || p.id,
+        slug: p.slug?.[session.languageContext.locale] || p.id,
         image: p.masterVariant.images?.[0]?.url || 'https://placehold.co/400'
       };
 
@@ -68,4 +68,6 @@ export class CommercetoolsSearchProvider<
 
     return this.assert(result);
   }
+
+
 }

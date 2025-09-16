@@ -7,6 +7,12 @@ export abstract class SearchProvider<
   T extends SearchResult = SearchResult
 > extends BaseProvider<T> {
   public abstract queryByTerm(payload: SearchQueryByTerm, session: Session): Promise<SearchResult>;
+
+
+  protected override getResourceName(): string {
+    return 'product-search';
+  }
+
 }
 
 

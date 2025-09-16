@@ -7,4 +7,8 @@ export abstract class InventoryProvider<
   T extends Inventory = Inventory
 > extends BaseProvider<T> {
   public abstract getBySKU(payload: InventoryQuery, session: Session): Promise<T>;
+
+  protected override getResourceName(): string {
+    return 'inventory';
+  }
 }

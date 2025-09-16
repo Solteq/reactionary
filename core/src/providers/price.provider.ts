@@ -7,4 +7,8 @@ export abstract class PriceProvider<
   T extends Price = Price
 > extends BaseProvider<T> {
   public abstract getBySKU(payload: PriceQueryBySku, session: Session): Promise<T>;
+
+  protected override getResourceName(): string {
+    return 'price';
+  }
 }

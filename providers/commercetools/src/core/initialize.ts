@@ -1,4 +1,4 @@
-import { CartSchema, Client, IdentitySchema, InventorySchema, PriceSchema, ProductSchema, SearchResultSchema, Cache } from "@reactionary/core";
+import { CartSchema, Client, IdentitySchema, InventorySchema, PriceSchema, ProductSchema, SearchResultSchema, Cache, CategorySchema } from "@reactionary/core";
 import { CommercetoolsCapabilities } from "../schema/capabilities.schema";
 import { CommercetoolsSearchProvider } from "../providers/search.provider";
 import { CommercetoolsProductProvider } from '../providers/product.provider';
@@ -7,9 +7,10 @@ import { CommercetoolsIdentityProvider } from "../providers/identity.provider";
 import { CommercetoolsCartProvider } from "../providers/cart.provider";
 import { CommercetoolsInventoryProvider } from "../providers/inventory.provider";
 import { CommercetoolsPriceProvider } from "../providers/price.provider";
+import { CommercetoolsCategoryProvider } from "../providers/category.provider";
 
 export function withCommercetoolsCapabilities(
-    configuration: CommercetoolsConfiguration, 
+    configuration: CommercetoolsConfiguration,
     capabilities: CommercetoolsCapabilities
 ) {
     return (cache: Cache) => {
@@ -37,6 +38,9 @@ export function withCommercetoolsCapabilities(
 
         if (capabilities.price) {
             client.price = new CommercetoolsPriceProvider(configuration, PriceSchema, cache);
+        }
+        if (capabilities.category) {
+          client.category = new CommercetoolsCategoryProvider(configuration, CategorySchema, cache);
         }
 
         return client;

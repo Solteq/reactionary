@@ -13,6 +13,8 @@ import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { z } from 'zod';
 import { CommercetoolsClient } from '../core/client';
 import { Cart as CTCart } from '@commercetools/platform-sdk';
+import { traced } from '@reactionary/otel';
+
 
 export class CommercetoolsCartProvider<
   T extends Cart = Cart
@@ -29,6 +31,7 @@ export class CommercetoolsCartProvider<
     this.config = config;
   }
 
+  @traced()
   public override async getById(
     payload: CartQueryById,
     session: Session
@@ -48,9 +51,10 @@ export class CommercetoolsCartProvider<
       .get()
       .execute();
 
-    return this.composeCart(remote.body);
+    return this.parseSingle(remote.body, session);
   }
 
+  @traced()
   public override async add(
     payload: CartMutationItemAdd,
     session: Session
@@ -64,8 +68,9 @@ export class CommercetoolsCartProvider<
       const remoteCart = await client
         .post({
           body: {
-            currency: 'USD',
-            country: 'US',
+            currency: session.languageContext.currencyCode || 'USD',
+            country: session.languageContext.countryCode || 'US',
+            locale: session.languageContext.locale,
           },
         })
         .execute();
@@ -93,9 +98,10 @@ export class CommercetoolsCartProvider<
       })
       .execute();
 
-    return this.composeCart(remoteAdd.body);
+    return this.parseSingle(remoteAdd.body, session);
   }
 
+  @traced()
   public override async remove(
     payload: CartMutationItemRemove,
     session: Session
@@ -122,9 +128,10 @@ export class CommercetoolsCartProvider<
       })
       .execute();
 
-    return this.composeCart(remote.body);
+    return this.parseSingle(remote.body, session);
   }
 
+  @traced()
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange,
     session: Session
@@ -152,9 +159,10 @@ export class CommercetoolsCartProvider<
       })
       .execute();
 
-    return this.composeCart(remote.body);
+    return this.parseSingle(remote.body, session  );
   }
 
+  @traced()
   protected getClient(session: Session) {
     const client = new CommercetoolsClient(this.config).getClient(
       session.identity.token
@@ -167,7 +175,8 @@ export class CommercetoolsCartProvider<
     return cartClient;
   }
 
-  protected composeCart(remote: CTCart): T {
+  @traced()
+  protected override parseSingle(remote: CTCart, session: Session): T {
     const result = this.newModel();
 
     result.identifier.key = remote.id;
@@ -183,10 +192,12 @@ export class CommercetoolsCartProvider<
     }
 
     result.meta = {
-      cache: { hit: false, key: remote.id },
+      cache: { hit: false, key: this.generateCacheKeySingle(result.identifier, session) },
       placeholder: false
     };
 
     return this.assert(result);
   }
+
+
 }
