@@ -26,38 +26,38 @@ function safeSerialize(value: unknown, maxDepth = 3, currentDepth = 0): string {
 
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
-  
+
   const type = typeof value;
-  
+
   if (type === 'string' || type === 'number' || type === 'boolean') {
     return String(value);
   }
-  
+
   if (type === 'function') {
     return `[Function: ${(value as { name?: string }).name || 'anonymous'}]`;
   }
-  
+
   if (value instanceof Date) {
     return value.toISOString();
   }
-  
+
   if (value instanceof Error) {
     return `[Error: ${value.message}]`;
   }
-  
+
   if (Array.isArray(value)) {
     if (value.length > 10) {
       return `[Array(${value.length})]`;
     }
     try {
-      return JSON.stringify(value.map(item => 
+      return JSON.stringify(value.map(item =>
         safeSerialize(item, maxDepth, currentDepth + 1)
       ));
     } catch {
       return '[Array - circular reference]';
     }
   }
-  
+
   if (type === 'object') {
     try {
       const keys = Object.keys(value as object);
@@ -67,8 +67,8 @@ function safeSerialize(value: unknown, maxDepth = 3, currentDepth = 0): string {
       const simplified: Record<string, unknown> = {};
       for (const key of keys.slice(0, 10)) {
         simplified[key] = safeSerialize(
-          (value as Record<string, unknown>)[key], 
-          maxDepth, 
+          (value as Record<string, unknown>)[key],
+          maxDepth,
           currentDepth + 1
         );
       }
@@ -77,7 +77,7 @@ function safeSerialize(value: unknown, maxDepth = 3, currentDepth = 0): string {
       return '[Object - circular reference]';
     }
   }
-  
+
   return String(value);
 }
 
@@ -85,7 +85,7 @@ function safeSerialize(value: unknown, maxDepth = 3, currentDepth = 0): string {
  * TypeScript decorator for tracing function execution
  * Automatically creates OpenTelemetry spans for decorated methods
  * Supports both Stage 2 (legacy) and Stage 3 decorator syntax
- * 
+ *
  * @example
  * ```typescript
  * class MyService {
@@ -93,7 +93,7 @@ function safeSerialize(value: unknown, maxDepth = 3, currentDepth = 0): string {
  *   async fetchData(id: string): Promise<Data> {
  *     // method implementation
  *   }
- * 
+ *
  *   @traced({ spanName: 'custom-operation', captureResult: false })
  *   processData(data: Data): void {
  *     // method implementation
@@ -103,8 +103,8 @@ function safeSerialize(value: unknown, maxDepth = 3, currentDepth = 0): string {
  */
 export function traced(options: TracedOptions = {}): any {
   const {
-    captureArgs = true,
-    captureResult = true,
+    captureArgs = false,
+    captureResult = false,
     spanName,
     spanKind = SpanKind.INTERNAL
   } = options;
@@ -120,7 +120,7 @@ export function traced(options: TracedOptions = {}): any {
       const context = propertyKey as any;
       const originalMethod = target;
       const methodName = String(context.name);
-      
+
       return createTracedMethod(originalMethod, methodName, {
         captureArgs,
         captureResult,
@@ -128,22 +128,22 @@ export function traced(options: TracedOptions = {}): any {
         spanKind
       });
     }
-    
+
     // Handle Stage 2 decorator
     if (descriptor && typeof descriptor.value === 'function') {
       const originalMethod = descriptor.value;
       const methodName = String(propertyKey);
-      
+
       descriptor.value = createTracedMethod(originalMethod, methodName, {
         captureArgs,
         captureResult,
         spanName,
         spanKind
       });
-      
+
       return descriptor;
     }
-    
+
     return target;
   };
 }
@@ -159,12 +159,12 @@ function createTracedMethod(
   }
 ): any {
   const { captureArgs, captureResult, spanName, spanKind } = options;
-  
+
   function tracedMethod(this: any, ...args: any[]): any {
     const tracer = getTracer();
     const className = this?.constructor?.name || 'Unknown';
     const effectiveSpanName = spanName || `${className}.${methodName}`;
-    
+
     // Start the span
     const span = tracer.startSpan(effectiveSpanName, {
       kind: spanKind,
@@ -195,7 +195,7 @@ function createTracedMethod(
           span.setAttribute('function.result', '[Serialization error]');
         }
       }
-      
+
       if (isError) {
         span.setStatus({
           code: SpanStatusCode.ERROR,
@@ -207,13 +207,13 @@ function createTracedMethod(
       } else {
         span.setStatus({ code: SpanStatusCode.OK });
       }
-      
+
       span.end();
     };
 
     try {
       const result = originalMethod.apply(this, args);
-      
+
       // Handle async functions
       if (result instanceof Promise) {
         return result
@@ -226,7 +226,7 @@ function createTracedMethod(
             throw error;
           });
       }
-      
+
       // Handle sync functions
       finalizeSpan(result);
       return result;
