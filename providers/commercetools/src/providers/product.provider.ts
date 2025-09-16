@@ -22,31 +22,31 @@ export class CommercetoolsProductProvider<
     this.config = config;
   }
 
+  public getClient(session: Session) {
+    return new CommercetoolsClient(this.config).getClient(session.identity?.token).withProjectKey({ projectKey: this.config.projectKey }).productProjections();
+  }
+
   public override async getById(
     payload: ProductQueryById,
-    _session: Session
+    session: Session
   ): Promise<T> {
-    const client = new CommercetoolsClient(this.config).createAnonymousClient();
+    const client = this.getClient(session);
 
     const remote = await client
-      .withProjectKey({ projectKey: this.config.projectKey })
-      .productProjections()
       .withId({ ID: payload.id })
       .get()
       .execute();
 
-    return this.parse(remote.body);
+    return this.parseSingle(remote.body, session);
   }
 
   public override async getBySlug(
     payload: ProductQueryBySlug,
-    _session: Session
+    session: Session
   ): Promise<T> {
-    const client = new CommercetoolsClient(this.config).createAnonymousClient();
+    const client = this.getClient(session);
 
     const remote = await client
-      .withProjectKey({ projectKey: this.config.projectKey })
-      .productProjections()
       .get({
         queryArgs: {
           where: 'slug(en-US = :slug)',
@@ -59,18 +59,19 @@ export class CommercetoolsProductProvider<
       throw new Error(`Product with slug '${payload.slug}' not found`);
     }
 
-    return this.parse(remote.body.results[0]);
+    return this.parseSingle(remote.body.results[0], session);
   }
 
-  protected parse(data: ProductProjection): T {
+  protected override parseSingle(dataIn: unknown, session: Session): T {
+    const data = dataIn as ProductProjection;
     const base = this.newModel();
 
     base.identifier = { key: data.id };
-    base.name = data.name['en-US'];
-    base.slug = data.slug['en-US'];
+    base.name = data.name[session.languageContext.locale];
+    base.slug = data.slug[session.languageContext.locale];
 
     if (data.description) {
-      base.description = data.description['en-US'];
+      base.description = data.description[session.languageContext.locale];
     }
 
     if (data.masterVariant.images && data.masterVariant.images.length > 0) {
@@ -91,10 +92,13 @@ export class CommercetoolsProductProvider<
     }
 
     base.meta = {
-      cache: { hit: false, key: data.id },
+      cache: { hit: false, key: this.generateCacheKeySingle(base.identifier, session) },
       placeholder: false
     };
 
     return this.assert(base);
   }
+
+
+
 }

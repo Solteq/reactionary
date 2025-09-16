@@ -31,7 +31,7 @@ export class FakePriceProvider<
       hash = ((hash << 5) - hash) + skuString.charCodeAt(i);
       hash = hash & hash; // Convert to 32bit integer
     }
-    
+
     const generator = new Faker({
       seed: hash || 42,
       locale: [en, base],
@@ -44,7 +44,7 @@ export class FakePriceProvider<
       },
       value: {
         cents: generator.number.int({ min: 100, max: 100000 }),
-        currency: 'USD',
+        currency: _session.languageContext.currencyCode,
       },
       meta: {
         cache: {

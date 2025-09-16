@@ -26,28 +26,42 @@ export class FakeInventoryProvider<
   ): Promise<T> {
     // Generate a simple hash from the SKU string for seeding
     let hash = 0;
-    const skuString = payload.sku;
+    const skuString = payload.sku.key;
     for (let i = 0; i < skuString.length; i++) {
       hash = ((hash << 5) - hash) + skuString.charCodeAt(i);
       hash = hash & hash; // Convert to 32bit integer
     }
-    
+
     const generator = new Faker({
       seed: hash || 42,
       locale: [en, base],
     });
 
     const model = this.newModel();
-    Object.assign(model, {
-      quantity: generator.number.int({ min: 0, max: 100 }),
-      meta: {
+
+    model.identifier = {
+      sku: { key: skuString},
+      channelId: {
+        key: 'online'
+      },
+    };
+    model.sku = skuString;
+
+    model.quantity = generator.number.int({ min: 0, max: 100 });
+    if (model.quantity > 0 ) {
+      model.status = 'inStock';
+    } else {
+      model.status = 'outOfStock';
+    }
+
+
+    model.meta = {
         cache: {
           hit: false,
-          key: payload.sku,
+          key: this.generateCacheKeySingle(model.identifier, _session)
         },
         placeholder: false,
-      },
-    });
+      };
 
     return this.assert(model);
   }

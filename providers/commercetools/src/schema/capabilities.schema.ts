@@ -7,7 +7,8 @@ export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
     identity: true,
     cart: true,
     inventory: true,
-    price: true
+    price: true,
+    category: true,
 }).partial();
 
 export type CommercetoolsCapabilities = z.infer<typeof CommercetoolsCapabilitiesSchema>;

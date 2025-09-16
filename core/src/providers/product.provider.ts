@@ -8,4 +8,8 @@ export abstract class ProductProvider<
 > extends BaseProvider<T> {
   public abstract getById(payload: ProductQueryById, session: Session): Promise<T>;
   public abstract getBySlug(payload: ProductQueryBySlug, session: Session): Promise<T>;
+
+  protected override getResourceName(): string {
+    return 'product';
+  }
 }

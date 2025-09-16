@@ -7,6 +7,6 @@ export { createProviderInstrumentation } from './provider-instrumentation';
 
 // Decorator for tracing functions
 export { traced, TracedOptions } from './trace-decorator';
-
+export { getTracer } from './tracer';
 // Graceful shutdown for process termination
 export { shutdownOtel } from './sdk';

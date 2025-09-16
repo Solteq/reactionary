@@ -10,4 +10,8 @@ export abstract class IdentityProvider<
   public abstract getSelf(payload: IdentityQuerySelf, session: Session): Promise<T>;
   public abstract login(payload: IdentityMutationLogin, session: Session): Promise<T>;
   public abstract logout(payload: IdentityMutationLogout, session: Session): Promise<T>;
+
+  protected override getResourceName(): string {
+    return 'identity';
+  }
 }

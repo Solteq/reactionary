@@ -7,7 +7,8 @@ export const CapabilitiesSchema = z.looseInterface({
     identity: z.boolean(),
     cart: z.boolean(),
     inventory: z.boolean(),
-    price: z.boolean()
+    price: z.boolean(),
+    category: z.boolean()
 });
 
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;

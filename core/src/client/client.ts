@@ -7,6 +7,7 @@ import { PriceProvider } from "../providers/price.provider";
 import { InventoryProvider } from "../providers/inventory.provider";
 import { Cache } from "../cache/cache.interface";
 import { RedisCache } from "../cache/redis-cache";
+import { CategoryProvider } from "../providers/category.provider";
 
 export interface Client {
     product: ProductProvider,
@@ -16,7 +17,8 @@ export interface Client {
     cart: CartProvider,
     analytics: Array<AnalyticsProvider>,
     price: PriceProvider,
-    inventory: InventoryProvider
+    inventory: InventoryProvider,
+    category: CategoryProvider
 }
 
 export interface BuildClientOptions {
@@ -47,7 +49,7 @@ export function buildClient<T extends Partial<Client>>(
     }
 
     client.analytics = mergedAnalytics;
-    
+
     // Add cache to complete the client
     const completeClient = {
         ...client,

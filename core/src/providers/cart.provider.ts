@@ -11,4 +11,10 @@ export abstract class CartProvider<
   public abstract add(payload: CartMutationItemAdd, session: Session): Promise<T>;
   public abstract remove(payload: CartMutationItemRemove, session: Session): Promise<T>;
   public abstract changeQuantity(payload: CartMutationItemQuantityChange, session: Session): Promise<T>;
+
+
+  protected override getResourceName(): string {
+    return 'cart';
+  }
 }
+

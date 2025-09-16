@@ -4,11 +4,12 @@ import {
   InventoryQuery,
   Session,
   Cache,
+  LanguageContext,
 } from '@reactionary/core';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';
-
+import { InventoryEntry as CTInventory } from '@commercetools/platform-sdk';
 export class CommercetoolsInventoryProvider<
   T extends Inventory = Inventory
 > extends InventoryProvider<T> {
@@ -37,24 +38,40 @@ export class CommercetoolsInventoryProvider<
       .inventory()
       .get({
         queryArgs: {
-          where: 'sku=:sku',
-          'var.sku': payload.sku,
+          where: `sku=${payload.sku}`,
         },
       })
       .execute();
 
-    const base = this.newModel();
-
-    if (remote.body.results.length > 0) {
-      const inv = remote.body.results[0];
-      base.quantity = inv.availableQuantity;
-    }
-
-    base.meta = {
-      cache: { hit: false, key: payload.sku },
-      placeholder: false
-    };
-
-    return this.assert(base);
+    return this.parseSingle(remote.body, session);
   }
+
+  protected override parseSingle(_body: unknown, session: Session): T {
+      const body = _body as CTInventory;
+      const model = this.newModel();
+
+      model.identifier = {
+        sku: { key: body.sku },
+        channelId: {
+          key: body.supplyChannel?.id || 'online'
+        },
+      };
+      model.sku = body.sku;
+      model.quantity = body.availableQuantity;
+
+      if (model.quantity > 0 ) {
+        model.status = 'inStock';
+      } else {
+        model.status = 'outOfStock';
+      }
+
+      model.meta = {
+        cache: { hit: false, key: this.generateCacheKeySingle(model.identifier, session) },
+        placeholder: false
+      };
+
+      return this.assert(model);
+  }
+
+
 }
