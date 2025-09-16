@@ -1,17 +1,24 @@
-import { ProductSchema } from '@reactionary/core';
+import 'dotenv/config';
+import { NoOpCache, ProductSchema, Session } from '@reactionary/core';
 import { CommercetoolsProductProvider } from '../providers/product.provider';
+import { createAnonymousTestSession, getCommercetoolsTestConfiguration } from './test-utils';
 
 describe('Commercetools Product Provider', () => {
-  it('should be able to get a product by id', async () => {
-    const provider = new CommercetoolsProductProvider({
-        apiUrl: process.env['COMMERCETOOLS_API_URL'] || '',
-        authUrl: process.env['COMMERCETOOLS_AUTH_URL'] || '',
-        clientId: process.env['COMMERCETOOLS_CLIENT_ID'] || '',
-        clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
-        projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || ''
-    }, ProductSchema);
 
-    const result = await provider.get({ id: '4d28f98d-c446-446e-b59a-d9f718e5b98a'});
+    let provider: CommercetoolsProductProvider;
+    let session: Session;
+
+    beforeAll( () => {
+      provider = new CommercetoolsProductProvider(getCommercetoolsTestConfiguration(), ProductSchema, new NoOpCache());
+    });
+
+    beforeEach( () => {
+      session = createAnonymousTestSession()
+    })
+
+
+  it('should be able to get a product by id', async () => {
+    const result = await provider.getById( { id:  '4d28f98d-c446-446e-b59a-d9f718e5b98a'}, session);
 
     expect(result.identifier.key).toBe('4d28f98d-c446-446e-b59a-d9f718e5b98a');
     expect(result.name).toBe('Sunnai Glass Bowl');

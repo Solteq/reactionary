@@ -1,18 +1,56 @@
-import { SearchResultSchema } from '@reactionary/core';
+import 'dotenv/config';
+import { NoOpCache, SearchResultSchema, Session } from '@reactionary/core';
 import { CommercetoolsSearchProvider } from '../providers/search.provider';
+import { getCommercetoolsTestConfiguration, createAnonymousTestSession } from './test-utils';
 
 describe('Commercetools Search Provider', () => {
-  it('should be able to get a result by term', async () => {
-    const provider = new CommercetoolsSearchProvider({
-      apiUrl: process.env['COMMERCETOOLS_API_URL'] || '',
-      authUrl: process.env['COMMERCETOOLS_AUTH_URL'] || '',
-      clientId: process.env['COMMERCETOOLS_CLIENT_ID'] || '',
-      clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
-      projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || '',
-    }, SearchResultSchema);
 
-    const result = await provider.get({ term: 'glass', page: 0, pageSize: 20, facets: [] });
+  let provider: CommercetoolsSearchProvider;
+  let session: Session;
+
+  beforeAll( () => {
+    provider = new CommercetoolsSearchProvider(getCommercetoolsTestConfiguration(), SearchResultSchema, new NoOpCache());
+  });
+
+  beforeEach( () => {
+    session = createAnonymousTestSession()
+  })
+
+  it('should be able to get a result by term', async () => {
+    const result = await provider.queryByTerm( {
+    search: {
+      term: 'bowl',
+      facets: [],
+      page: 1,
+      pageSize: 10,
+    }}, session);
 
     expect(result.products.length).toBeGreaterThan(0);
+  });
+
+
+    it('should be able to get a result by term, paged', async () => {
+    const result = await provider.queryByTerm( {
+    search: {
+      term: 'bowl',
+      facets: [],
+      page: 1,
+      pageSize: 1,
+    }}, session);
+
+    expect(result.products.length).toBeGreaterThan(0);
+    expect(result.pages).toBeGreaterThan(1);
+
+    const result2 = await provider.queryByTerm( {
+    search: {
+      term: 'bowl',
+      facets: [],
+      page: 2,
+      pageSize: 1,
+    }}, session);
+
+    expect(result2.products.length).toBeGreaterThan(0);
+    expect(result2.pages).toBeGreaterThan(2);
+    expect(result2.products[0].identifier.key).not.toBe(result.products[0].identifier.key);
   });
 });
