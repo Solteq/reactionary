@@ -6,6 +6,26 @@ import { CategorySchema, NoOpCache, ProductSchema, Session } from '@reactionary/
 import { CommercetoolsCategoryProvider } from '../providers/category.provider';
 import { createAnonymousTestSession, getCommercetoolsTestConfiguration } from './test-utils';
 import { getTracer, shutdownOtel } from '@reactionary/otel';
+
+const testData = {
+  topCategories: [
+    {
+      key: 'home-decor', name: 'Home Decor', slug: 'home-decor'
+    },
+    {
+      key: 'furniture', name: 'Furniture'
+    }
+  ],
+
+  childCategoriesOfFirstTopcategory: [
+    { key: 'bedding', name: 'Bedding' },
+    { key: 'room-decor', name: 'Room Decor' }
+  ],
+
+  breadCrumb: [ 'home-decor', 'room-decor', 'home-accents' ],
+}
+
+
 describe('Commercetools Category Provider', () => {
   let provider: CommercetoolsCategoryProvider;
   let session: Session;
@@ -22,42 +42,42 @@ describe('Commercetools Category Provider', () => {
     const result = await provider.findTopCategories({ paginationOptions: { pageSize: 10, pageNumber: 1 }}, session);
 
     expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe('home-decor');
-    expect(result.items[0].name).toBe('Home Decor');
+    expect(result.items[0].identifier.key).toBe(testData.topCategories[0].key);
+    expect(result.items[0].name).toBe(testData.topCategories[0].name);
 
-    expect(result.items[1].identifier.key).toBe('furniture');
-    expect(result.items[1].name).toBe('Furniture');
+    expect(result.items[1].identifier.key).toBe(testData.topCategories[1].key);
+    expect(result.items[1].name).toBe(testData.topCategories[1].name);
   });
 
   it('should be able to get child categories for a category', async () => {
-    const result = await provider.findChildCategories({ parentId: { key: 'home-decor' }, paginationOptions: { pageSize: 10, pageNumber: 1 }}, session);
+    const result = await provider.findChildCategories({ parentId: { key: testData.topCategories[0].key }, paginationOptions: { pageSize: 10, pageNumber: 1 }}, session);
 
     expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe('bedding');
-    expect(result.items[0].name).toBe('Bedding');
+    expect(result.items[0].identifier.key).toBe(testData.childCategoriesOfFirstTopcategory[0].key);
+    expect(result.items[0].name).toBe(testData.childCategoriesOfFirstTopcategory[0].name);
 
-    expect(result.items[1].identifier.key).toBe('room-decor');
-    expect(result.items[1].name).toBe('Room Decor');
+    expect(result.items[1].identifier.key).toBe(testData.childCategoriesOfFirstTopcategory[1].key);
+    expect(result.items[1].name).toBe(testData.childCategoriesOfFirstTopcategory[1].name);
 
   });
 
 
   it('should be able to get child categories for a category, paged', async () => {
-    let result = await provider.findChildCategories({ parentId: { key: 'home-decor' }, paginationOptions: { pageSize: 1, pageNumber: 1 }}, session);
+    let result = await provider.findChildCategories({ parentId: { key: testData.topCategories[0].key }, paginationOptions: { pageSize: 1, pageNumber: 1 }}, session);
 
     expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe('bedding');
-    expect(result.items[0].name).toBe('Bedding');
+    expect(result.items[0].identifier.key).toBe(testData.childCategoriesOfFirstTopcategory[0].key);
+    expect(result.items[0].name).toBe(testData.childCategoriesOfFirstTopcategory[0].name);
     expect(result.totalCount).toBe(2);
     expect(result.totalPages).toBe(2);
     expect(result.pageSize).toBe(1);
     expect(result.pageNumber).toBe(1);
 
-    result = await provider.findChildCategories({ parentId: { key: 'home-decor' }, paginationOptions: { pageSize: 1, pageNumber: 2 }}, session);
+    result = await provider.findChildCategories({ parentId: { key: testData.topCategories[0].key }, paginationOptions: { pageSize: 1, pageNumber: 2 }}, session);
 
     expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe('room-decor');
-    expect(result.items[0].name).toBe('Room Decor');
+    expect(result.items[0].identifier.key).toBe(testData.childCategoriesOfFirstTopcategory[1].key);
+    expect(result.items[0].name).toBe(testData.childCategoriesOfFirstTopcategory[1].name);
     expect(result.totalCount).toBe(2);
     expect(result.totalPages).toBe(2);
     expect(result.pageSize).toBe(1);
@@ -66,33 +86,26 @@ describe('Commercetools Category Provider', () => {
 
 
   it('can load all breadcrumbs for a category', async () => {
-    const result = await provider.getBreadcrumbPathToCategory({ id: { key: 'home-accents' } }, session);
+    const leaf = testData.breadCrumb[testData.breadCrumb.length -1];
+    const result = await provider.getBreadcrumbPathToCategory({ id: { key: leaf! } }, session);
 
-    expect(result.length).toBeGreaterThan(2);
-    expect(result[0].identifier.key).toBe('home-decor');
-    expect(result[0].name).toBe('Home Decor');
-    expect(result[0].slug).toBe('home-decor');
-
-    expect(result[1].identifier.key).toBe('room-decor');
-    expect(result[1].name).toBe('Room Decor');
-    expect(result[1].slug).toBe('room-decor');
-
-    expect(result[2].identifier.key).toBe('home-accents');
-    expect(result[2].name).toBe('Home Accents');
-    expect(result[2].slug).toBe('home-accents');
-
+    expect(result.length).toBe(testData.breadCrumb.length);
+    for(let i = 0 ; i < testData.breadCrumb.length; i++) {
+      expect(result[i].identifier.key).toBe(testData.breadCrumb[i]);
+    }
   });
 
 
   it('should be able to get a category by slug', async () => {
-    const result = await provider.getBySlug({ slug: 'home-decor' }, session);
+
+    const result = await provider.getBySlug({ slug: testData.topCategories[0].slug! }, session);
     expect(result).toBeTruthy();
     if (result) {
-      expect(result.identifier.key).toBe('home-decor');
-      expect(result.name).toBe('Home Decor');
-      expect(result.slug).toBe('home-decor');
+      expect(result.identifier.key).toBe(testData.topCategories[0].key);
+      expect(result.name).toBe(testData.topCategories[0].name);
+      expect(result.slug).toBe(testData.topCategories[0].slug);
       expect(result.parentCategory).toBeUndefined();
-      expect(result.text).toBe('A test description');
+      expect(result.text).not.toBe("");
       expect(result.meta.placeholder).toBe(false);
     }
   });

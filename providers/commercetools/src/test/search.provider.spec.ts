@@ -3,6 +3,10 @@ import { NoOpCache, SearchResultSchema, Session } from '@reactionary/core';
 import { CommercetoolsSearchProvider } from '../providers/search.provider';
 import { getCommercetoolsTestConfiguration, createAnonymousTestSession } from './test-utils';
 
+const testData = {
+  searchTerm: 'bowl'
+}
+
 describe('Commercetools Search Provider', () => {
 
   let provider: CommercetoolsSearchProvider;
@@ -19,7 +23,7 @@ describe('Commercetools Search Provider', () => {
   it('should be able to get a result by term', async () => {
     const result = await provider.queryByTerm( {
     search: {
-      term: 'bowl',
+      term: testData.searchTerm,
       facets: [],
       page: 1,
       pageSize: 10,
@@ -32,7 +36,7 @@ describe('Commercetools Search Provider', () => {
     it('should be able to get a result by term, paged', async () => {
     const result = await provider.queryByTerm( {
     search: {
-      term: 'bowl',
+      term: testData.searchTerm,
       facets: [],
       page: 1,
       pageSize: 1,
@@ -43,7 +47,7 @@ describe('Commercetools Search Provider', () => {
 
     const result2 = await provider.queryByTerm( {
     search: {
-      term: 'bowl',
+      term: testData.searchTerm,
       facets: [],
       page: 2,
       pageSize: 1,
