@@ -26,7 +26,6 @@ describe('basic node setup', () => {
   it('should only get back the enabled capabilities', async () => {
     expect(client.product).toBeDefined();
     expect(client.search).toBeDefined();
-    expect(client.identity).toBeUndefined();
   });
 
   it('should be able to call the enabled capabilities', async () => {

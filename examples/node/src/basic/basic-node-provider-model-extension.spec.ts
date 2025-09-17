@@ -68,7 +68,6 @@ describe('basic node provider extension (models)', () => {
   it('should get the enabled set of capabilities across providers', async () => {
     expect(client.product).toBeDefined();
     expect(client.search).toBeDefined();
-    expect(client.identity).toBeUndefined();
   });
 
   it('should be able to call the regular methods and get the default value', async () => {

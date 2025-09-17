@@ -1,7 +1,5 @@
-import { Client, Session, isTRPCQuery, isTRPCMutation, isTRPCMethod } from '@reactionary/core';
+import { Client, Session } from '@reactionary/core';
 import type { TransparentClient } from './types';
-import type { inferRouterInputs, inferRouterOutputs } from '@trpc/server';
-import type { TRPCClientError } from '@trpc/client';
 
 /**
  * Configuration options for TRPC client creation
