@@ -11,6 +11,8 @@ import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
 import { Faker, en, base } from '@faker-js/faker';
 import { jitter } from '../utilities/jitter';
+import { trace } from '@opentelemetry/api';
+import { traced } from '@reactionary/otel';
 
 export class FakeSearchProvider<
   T extends SearchResult = SearchResult
@@ -23,6 +25,7 @@ export class FakeSearchProvider<
     this.config = config;
   }
 
+  @traced()
   public override async queryByTerm(
     payload: SearchQueryByTerm,
     _session: Session

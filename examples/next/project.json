@@ -1,0 +1,9 @@
+{
+  "name": "next",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "examples/next",
+  "projectType": "application",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project next --web",
+  "targets": {}
+}
