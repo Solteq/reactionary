@@ -1,9 +1,7 @@
 import 'dotenv/config'
 
 
-import { CategorySchema, NoOpCache, ProductSchema, Session } from '@reactionary/core';
-
-import { getTracer, shutdownOtel } from '@reactionary/otel';
+import { CategorySchema, NoOpCache, Session } from '@reactionary/core';
 import { FakeCategoryProvider } from '../providers';
 import { createAnonymousTestSession, getFakerTestConfiguration } from './test-utils';
 describe('Faker Category Provider', () => {

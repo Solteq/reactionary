@@ -1,4 +1,4 @@
-import { SearchResultSchema } from '@reactionary/core';
+import { NoOpCache, SearchResultSchema } from '@reactionary/core';
 import { AlgoliaSearchProvider } from '../providers/search.provider';
 
 describe('Algolia Search Provider', () => {
@@ -6,7 +6,7 @@ describe('Algolia Search Provider', () => {
     apiKey: process.env['ALGOLIA_API_KEY'] || '',
     appId: process.env['ALGOLIA_APP_ID'] || '',
     indexName: process.env['ALGOLIA_INDEX'] || '',
-  }, SearchResultSchema);
+  }, SearchResultSchema, new NoOpCache());
 
   it('should be able to get a result by term', async () => {
     const result = await provider.get({
