@@ -2,11 +2,11 @@ import { z } from 'zod';
 import { ProductIdentifierSchema } from './identifiers.model';
 import { BaseModelSchema } from './base.model';
 
-export const SKUSchema = z.looseInterface({
+export const SKUSchema = z.looseObject({
     identifier: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})),
 });
 
-export const ProductAttributeSchema = z.looseInterface({
+export const ProductAttributeSchema = z.looseObject({
     id: z.string(),
     name: z.string(),
     value: z.string()

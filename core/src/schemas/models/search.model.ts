@@ -3,21 +3,21 @@ import { ProductIdentifierSchema, FacetValueIdentifierSchema, FacetIdentifierSch
 import { BaseModelSchema, createPaginatedResponseSchema } from './base.model';
 import { create } from 'domain';
 
-export const SearchResultProductSchema = z.looseInterface({
+export const SearchResultProductSchema = z.looseObject({
     identifier: ProductIdentifierSchema.default(ProductIdentifierSchema.parse({})),
     name: z.string().default(''),
     image: z.string().url().default('https://placehold.co/400'),
     slug: z.string().default('')
 });
 
-export const SearchResultFacetValueSchema = z.looseInterface({
+export const SearchResultFacetValueSchema = z.looseObject({
     identifier: FacetValueIdentifierSchema.default(() => FacetValueIdentifierSchema.parse({})),
     name: z.string().default(''),
     count: z.number().default(0),
     active: z.boolean().default(false)
 });
 
-export const SearchResultFacetSchema = z.looseInterface({
+export const SearchResultFacetSchema = z.looseObject({
     identifier: FacetIdentifierSchema.default(() => FacetIdentifierSchema.parse({})),
     name: z.string().default(''),
     values: z.array(SearchResultFacetValueSchema).default(() => [])

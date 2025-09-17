@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-export const FakeConfigurationSchema = z.looseInterface({
+export const FakeConfigurationSchema = z.looseObject({
   jitter: z
-    .looseInterface({
+    .looseObject({
       mean: z.number().min(0).max(10000),
       deviation: z.number().min(0).max(5000),
     })
@@ -10,7 +10,7 @@ export const FakeConfigurationSchema = z.looseInterface({
       mean: 0,
       deviation: 0,
     }),
-  seeds: z.looseInterface({
+  seeds: z.looseObject({
     product: z.number().min(0).max(10000).default(1),
     search: z.number().min(0).max(10000).default(1),
     category: z.number().min(0).max(10000).default(1),

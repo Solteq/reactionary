@@ -1,57 +1,57 @@
 import { z } from 'zod';
 
-export const FacetIdentifierSchema = z.looseInterface({
+export const FacetIdentifierSchema = z.looseObject({
     key: z.string().default('').nonoptional()
 });
 
-export const FacetValueIdentifierSchema = z.looseInterface({
+export const FacetValueIdentifierSchema = z.looseObject({
     facet: FacetIdentifierSchema.default(() => FacetIdentifierSchema.parse({})),
     key: z.string().default('')
 });
 
-export const SKUIdentifierSchema = z.looseInterface({
+export const SKUIdentifierSchema = z.looseObject({
     key: z.string().default('').nonoptional()
 });
 
-export const ProductIdentifierSchema = z.looseInterface({
+export const ProductIdentifierSchema = z.looseObject({
     key: z.string().default(''),
 });
 
-export const SearchIdentifierSchema = z.looseInterface({
+export const SearchIdentifierSchema = z.looseObject({
     term: z.string().default(''),
     page: z.number().default(0),
     pageSize: z.number().default(20),
     facets: z.array(FacetValueIdentifierSchema.required()).default(() => [])
 });
 
-export const CartIdentifierSchema = z.looseInterface({
+export const CartIdentifierSchema = z.looseObject({
     key: z.string().default('')
 });
 
-export const CartItemIdentifierSchema = z.looseInterface({
+export const CartItemIdentifierSchema = z.looseObject({
     key: z.string().default('')
 });
 
-export const PriceIdentifierSchema = z.looseInterface({
+export const PriceIdentifierSchema = z.looseObject({
     sku: SKUIdentifierSchema.default(() => SKUIdentifierSchema.parse({})),
 });
 
-export const CategoryIdentifierSchema = z.looseInterface({
+export const CategoryIdentifierSchema = z.looseObject({
   key: z.string().default('').nonoptional()
 });
 
 /**
  * The target store the user is interacting with. Can change over time, and is not necessarily the same as the default store.
  */
-export const WebStoreIdentifierSchema = z.looseInterface({
+export const WebStoreIdentifierSchema = z.looseObject({
     key: z.string().default('').nonoptional()
 });
 
-export const InventoryChannelIdentifierSchema= z.looseInterface({
+export const InventoryChannelIdentifierSchema= z.looseObject({
     key: z.string().default('online').nonoptional()
 });
 
-export const InventoryIdentifierSchema = z.looseInterface({
+export const InventoryIdentifierSchema = z.looseObject({
     sku: SKUIdentifierSchema.default(() => SKUIdentifierSchema.parse({})),
     channelId: InventoryChannelIdentifierSchema.default(() => InventoryChannelIdentifierSchema.parse({})),
 });

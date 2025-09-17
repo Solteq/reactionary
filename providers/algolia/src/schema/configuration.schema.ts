@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const AlgoliaConfigurationSchema = z.looseInterface({
+export const AlgoliaConfigurationSchema = z.looseObject({
     appId: z.string(),
     apiKey: z.string(),
     indexName: z.string()

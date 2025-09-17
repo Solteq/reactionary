@@ -3,7 +3,7 @@ import { BaseModelSchema } from './base.model';
 import { PriceIdentifierSchema } from './identifiers.model';
 import { CurrencySchema } from './currency.model';
 
-export const MonetaryAmountSchema = z.looseInterface({
+export const MonetaryAmountSchema = z.looseObject({
     value: z.number().default(0).describe('The monetary amount in decimal-precision.'),
     currency: CurrencySchema.default("XXX").describe('The currency associated with the amount, as a ISO 4217 standardized code.')
 });
