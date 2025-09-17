@@ -8,6 +8,7 @@ import {
   CartQueryById,
   Session,
   Cache,
+  Currency,
 } from '@reactionary/core';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { z } from 'zod';
@@ -181,12 +182,76 @@ export class CommercetoolsCartProvider<
 
     result.identifier.key = remote.id;
 
+
+    result.name = remote.custom?.fields['name'] || '';
+    result.description = remote.custom?.fields['description'] || '';
+
+    const grandTotal = remote.totalPrice.centAmount || 0;
+    const shippingTotal = remote.shippingInfo?.price.centAmount || 0;
+    const productTotal = grandTotal - shippingTotal;
+    const taxTotal = remote.taxedPrice?.totalTax?.centAmount || 0;
+    const discountTotal = remote.discountOnTotalPrice?.discountedAmount.centAmount || 0;
+    const surchargeTotal = 0;
+    const currency = remote.totalPrice.currencyCode as Currency;
+
+    result.price = {
+      totalTax: {
+        value: taxTotal / 100,
+        currency
+      },
+      totalDiscount: {
+        value: discountTotal/ 100,
+        currency
+      },
+      totalSurcharge: {
+        value: surchargeTotal / 100,
+        currency
+      },
+      totalShipping: {
+        value: shippingTotal / 100,
+        currency: remote.shippingInfo?.price.currencyCode as Currency,
+      },
+      totalProductPrice: {
+        value: productTotal  / 100,
+        currency
+      },
+      grandTotal: {
+        value: grandTotal / 100,
+        currency
+      }
+    }
+
     for (const remoteItem of remote.lineItems) {
       const item = CartItemSchema.parse({});
 
       item.identifier.key = remoteItem.id;
       item.product.key = remoteItem.productId;
       item.quantity = remoteItem.quantity;
+
+      const unitPrice = remoteItem.price.value.centAmount;
+      const totalPrice = remoteItem.totalPrice.centAmount || 0;
+      const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
+      const unitDiscount = totalDiscount / remoteItem.quantity;
+
+
+      item.price = {
+        unitPrice: {
+          value: unitPrice / 100,
+          currency
+        },
+        unitDiscount: {
+          value: (unitDiscount / 100),
+          currency
+        },
+        totalPrice: {
+          value: (totalPrice || 0) / 100,
+          currency
+        },
+        totalDiscount: {
+          value: totalDiscount / 100,
+          currency
+        },
+      }
 
       result.items.push(item);
     }
