@@ -5,6 +5,7 @@
   "types": "src/index.d.ts",
   "dependencies": {
     "@reactionary/core": "0.0.1",
+    "@reactionary/otel": "0.0.1",
     "zod": "4.0.0-beta.20250430T185432",
     "@commercetools/ts-client": "^3.2.2",
     "@commercetools/platform-sdk": "^8.8.0"
