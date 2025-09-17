@@ -1,5 +1,6 @@
-// OpenTelemetry auto-initialization based on standard environment variables
-// See: https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/
+// OpenTelemetry instrumentation library
+// This library provides instrumentation only - the host application
+// is responsible for initializing the OpenTelemetry SDK
 
 // Framework integration exports (internal use only)
 export { createTRPCTracing } from './trpc-middleware';
@@ -9,5 +10,13 @@ export { createProviderInstrumentation } from './provider-instrumentation';
 export { traced } from './trace-decorator';
 export type { TracedOptions } from './trace-decorator';
 
-// Graceful shutdown for process termination
-export { shutdownOtel } from './sdk';
+// Utility functions for manual instrumentation
+export { 
+  getTracer, 
+  startSpan, 
+  withSpan, 
+  setSpanAttributes, 
+  createChildSpan,
+  SpanKind,
+  SpanStatusCode
+} from './tracer';

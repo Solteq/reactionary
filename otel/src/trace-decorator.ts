@@ -139,81 +139,80 @@ function createTracedMethod(
   }
 ): any {
   const { captureArgs, captureResult, spanName, spanKind } = options;
-
-  function tracedMethod(this: any, ...args: any[]): any {
+  
+  async function tracedMethod(this: any, ...args: any[]): Promise<any> {
     const tracer = getTracer();
     const className = this?.constructor?.name || 'Unknown';
     const effectiveSpanName = spanName || `${className}.${methodName}`;
 
-    // Start the span
-    const span = tracer.startSpan(effectiveSpanName, {
+    // Use startActiveSpan to ensure proper context propagation
+    return tracer.startActiveSpan(effectiveSpanName, {
       kind: spanKind,
       attributes: {
         'function.name': methodName,
         'function.class': className,
       }
-    });
-
-    // Capture arguments if enabled
-    if (captureArgs && args.length > 0) {
-      args.forEach((arg, index) => {
-        try {
-          span.setAttribute(`function.args.${index}`, safeSerialize(arg));
-        } catch {
-          span.setAttribute(`function.args.${index}`, '[Serialization error]');
-        }
-      });
-      span.setAttribute('function.args.count', args.length);
-    }
-
-    // Helper function to finalize span with result
-    const finalizeSpan = (result: unknown, isError = false) => {
-      if (!isError && captureResult && result !== undefined) {
-        try {
-          span.setAttribute('function.result', safeSerialize(result));
-        } catch {
-          span.setAttribute('function.result', '[Serialization error]');
-        }
-      }
-
-      if (isError) {
-        span.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: result instanceof Error ? result.message : String(result)
+    }, async (span) => {
+      // Capture arguments if enabled
+      if (captureArgs && args.length > 0) {
+        args.forEach((arg, index) => {
+          try {
+            span.setAttribute(`function.args.${index}`, safeSerialize(arg));
+          } catch {
+            span.setAttribute(`function.args.${index}`, '[Serialization error]');
+          }
         });
-        if (result instanceof Error) {
-          span.recordException(result);
+        span.setAttribute('function.args.count', args.length);
+      }
+
+      // Helper function to set span attributes and status
+      const setSpanResult = (result: unknown, isError = false) => {
+        if (!isError && captureResult && result !== undefined) {
+          try {
+            span.setAttribute('function.result', safeSerialize(result));
+          } catch {
+            span.setAttribute('function.result', '[Serialization error]');
+          }
         }
-      } else {
-        span.setStatus({ code: SpanStatusCode.OK });
-      }
-
-      span.end();
-    };
-
-    try {
-      const result = originalMethod.apply(this, args);
-
-      // Handle async functions
-      if (result instanceof Promise) {
-        return result
-          .then((value) => {
-            finalizeSpan(value);
-            return value;
-          })
-          .catch((error) => {
-            finalizeSpan(error, true);
-            throw error;
+        
+        if (isError) {
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: result instanceof Error ? result.message : String(result)
           });
-      }
+          if (result instanceof Error) {
+            span.recordException(result);
+          }
+        } else {
+          span.setStatus({ code: SpanStatusCode.OK });
+        }
+        
+        span.end();
+      };
 
-      // Handle sync functions
-      finalizeSpan(result);
-      return result;
-    } catch (error) {
-      finalizeSpan(error, true);
-      throw error;
-    }
+      try {
+        const result = originalMethod.apply(this, args);
+        
+        // Handle async functions - await them to keep span open
+        if (result instanceof Promise) {
+          try {
+            const value = await result;
+            setSpanResult(value);
+            return value;
+          } catch (error) {
+            setSpanResult(error, true);
+            throw error;
+          }
+        }
+        
+        // Handle sync functions
+        setSpanResult(result);
+        return result;
+      } catch (error) {
+        setSpanResult(error, true);
+        throw error;
+      }
+    });
   }
 
   // Preserve the original function's name and properties

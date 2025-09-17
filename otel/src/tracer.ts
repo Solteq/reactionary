@@ -8,7 +8,6 @@ import {
   SpanOptions,
   Attributes,
 } from '@opentelemetry/api';
-import { isOtelInitialized } from './sdk';
 
 const TRACER_NAME = '@reactionary/otel';
 const TRACER_VERSION = '0.0.1';
@@ -17,8 +16,9 @@ let globalTracer: Tracer | null = null;
 
 export function getTracer(): Tracer {
   if (!globalTracer) {
-    // Ensure OTEL is initialized before creating tracer
-    isOtelInitialized();
+    // Simply get the tracer from the API
+    // If the SDK is not initialized by the host application,
+    // this will return a ProxyTracer that produces NonRecordingSpans
     globalTracer = trace.getTracer(TRACER_NAME, TRACER_VERSION);
   }
   return globalTracer;

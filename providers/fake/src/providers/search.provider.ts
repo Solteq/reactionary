@@ -121,6 +121,8 @@ export class FakeSearchProvider<
       },
     } satisfies SearchResult;
 
+    const foo = this.childFunction();
+
     return this.schema.parse(result);
   }
 

@@ -1,5 +1,4 @@
 import { metrics, Meter, Counter, Histogram, UpDownCounter } from '@opentelemetry/api';
-import { isOtelInitialized } from './sdk';
 
 const METER_NAME = '@reactionary/otel';
 const METER_VERSION = '0.0.1';
@@ -8,8 +7,9 @@ let globalMeter: Meter | null = null;
 
 export function getMeter(): Meter {
   if (!globalMeter) {
-    // Ensure OTEL is initialized before creating meter
-    isOtelInitialized();
+    // Simply get the meter from the API
+    // If the SDK is not initialized by the host application,
+    // this will return a NoopMeter
     globalMeter = metrics.getMeter(METER_NAME, METER_VERSION);
   }
   return globalMeter;
