@@ -10,7 +10,7 @@ import {
 } from '@reactionary/core';
 import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
-import { Faker, en, base } from '@faker-js/faker/.';
+import { Faker, en, base } from '@faker-js/faker';
 
 export class FakeCartProvider<
   T extends Cart = Cart

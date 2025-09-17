@@ -11,6 +11,11 @@ export default async function Index() {
             mean: 0,
             deviation: 0,
           },
+          seeds: {
+            product: 1,
+            search: 1,
+            category: 1,
+          },
         },
         { search: true, product: false, identity: false }
       )
@@ -20,9 +25,14 @@ export default async function Index() {
 
   const session = SessionSchema.parse({
     id: '1234567890',
+    languageContext: {
+      countryCode: 'US',
+      languageCode: 'en',
+      currencyCode: 'USD',
+    },
   });
 
-  const search = await client.search.queryByTerm({
+  const search = await client.search?.queryByTerm({
     search: {
       facets: [],
       page: 0,
@@ -32,7 +42,7 @@ export default async function Index() {
   }, session);
 
   return <div className={styles.page}>
-        {search.products.map((product, index) => (
+        {search?.products.map((product, index) => (
           <div key={index}>
             { product.name }
           </div>
