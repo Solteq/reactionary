@@ -6,7 +6,6 @@
   "types": "./src/index.d.ts",
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/sdk-node": "^0.203.0",
     "@trpc/server": "^11.1.2"
   }
 }

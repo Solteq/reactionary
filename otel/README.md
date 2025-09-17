@@ -1,16 +1,18 @@
 # @reactionary/otel
 
-Zero-configuration OpenTelemetry instrumentation for Reactionary framework. Automatically instruments tRPC routes and providers using standard OTEL environment variables.
+OpenTelemetry instrumentation for the Reactionary framework. Provides decorators and utilities for tracing function execution and performance monitoring.
+
+## Important: SDK Initialization Required
+
+This library provides **instrumentation only**. The host application is responsible for initializing the OpenTelemetry SDK. Without proper SDK initialization, traces will be created as `NonRecordingSpan` instances with zero trace/span IDs.
 
 ## Features
 
-- **Zero Configuration**: Auto-initializes on first use with standard OTEL env vars
-- **Automatic tRPC Route Tracing**: All tRPC procedures automatically traced
-- **Provider Instrumentation**: BaseProvider operations automatically instrumented
-- **Standard Compliance**: Uses official OpenTelemetry environment variables
-- **Multiple Exporters**: Console, OTLP/HTTP, or custom exporters
-- **Metrics Collection**: Request counts, durations, errors automatically tracked
-- **Lazy Initialization**: Only starts when actually used
+- **Tracing Decorators**: Automatic span creation for decorated methods
+- **Manual Instrumentation**: Utilities for custom tracing
+- **Framework Integration**: Built-in support for tRPC and providers
+- **Zero Dependencies**: Only requires OpenTelemetry API
+- **Graceful Degradation**: Works without SDK initialization (produces no-op spans)
 
 ## Installation
 
@@ -18,230 +20,208 @@ Zero-configuration OpenTelemetry instrumentation for Reactionary framework. Auto
 pnpm add @reactionary/otel
 ```
 
-That's it! No initialization code needed.
+**Important**: You must also install and configure the OpenTelemetry SDK in your host application.
 
-## How It Works
+## Usage
 
-The OTEL package automatically initializes itself on first use, reading configuration from standard OpenTelemetry environment variables. When your code first creates a span or metric, the SDK initializes with your environment configuration.
+### Basic Tracing with Decorators
 
 ```typescript
-// No imports or initialization needed!
-// Just use your tRPC router or providers normally
-import { createTRPCRouter } from '@reactionary/trpc';
+import { traced } from '@reactionary/otel';
 
-const router = createTRPCRouter(client);
-// ↑ Automatically instrumented when OTEL env vars are set
+class MyService {
+  @traced()
+  async fetchData(id: string): Promise<Data> {
+    // This method will be automatically traced
+    return await dataSource.get(id);
+  }
+
+  @traced({ 
+    spanName: 'custom-operation', 
+    captureResult: false 
+  })
+  processData(data: Data): void {
+    // Custom span name and no result capture
+  }
+}
 ```
 
-## Configuration
-
-Use standard OpenTelemetry environment variables. No code changes needed.
-
-### Standard Environment Variables
-
-```bash
-# Service identification
-OTEL_SERVICE_NAME=my-service
-OTEL_SERVICE_VERSION=1.0.0
-
-# Traces exporter (console | otlp | otlp/http | none)
-OTEL_TRACES_EXPORTER=otlp
-
-# Metrics exporter (console | otlp | otlp/http | none)
-OTEL_METRICS_EXPORTER=otlp
-
-# OTLP endpoint and headers
-OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io
-OTEL_EXPORTER_OTLP_HEADERS=x-honeycomb-team=your-api-key
-
-# Or use specific endpoints
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://api.honeycomb.io/v1/traces
-OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://api.honeycomb.io/v1/metrics
-
-# Debug logging
-OTEL_LOG_LEVEL=debug
-
-# Metrics export interval (milliseconds)
-OTEL_METRIC_EXPORT_INTERVAL=60000
-```
-
-See the [OpenTelemetry specification](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/) for all available options.
-
-## Exporters
-
-### Console (Development)
-```bash
-OTEL_TRACES_EXPORTER=console
-OTEL_METRICS_EXPORTER=console
-```
-
-### OTLP (Production)
-Works with any OTLP-compatible backend:
-
-```bash
-OTEL_TRACES_EXPORTER=otlp
-OTEL_METRICS_EXPORTER=otlp
-OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io
-OTEL_EXPORTER_OTLP_HEADERS=x-honeycomb-team=your-api-key
-```
-
-### Disable
-```bash
-OTEL_TRACES_EXPORTER=none
-OTEL_METRICS_EXPORTER=none
-```
-
-## Custom Instrumentation
-
-### Manual Spans
-
-Create custom spans for specific operations:
+### Manual Instrumentation
 
 ```typescript
 import { withSpan, getTracer } from '@reactionary/otel';
 
 // Using withSpan helper
-const result = await withSpan('custom-operation', async (span) => {
-  span.setAttribute('custom.attribute', 'value');
-  // Your operation here
-  return someAsyncOperation();
+const result = await withSpan('my-operation', async (span) => {
+  span.setAttribute('operation.id', operationId);
+  return await performOperation();
 });
 
 // Using tracer directly
 const tracer = getTracer();
 const span = tracer.startSpan('manual-span');
 try {
-  // Your operation
+  // Your code here
   span.setStatus({ code: SpanStatusCode.OK });
 } catch (error) {
-  span.recordException(error);
   span.setStatus({ code: SpanStatusCode.ERROR });
-  throw error;
+  span.recordException(error);
 } finally {
   span.end();
 }
 ```
 
-### Provider Instrumentation
+## Setting Up OpenTelemetry SDK
 
-Providers are automatically instrumented when extending BaseProvider:
+### Next.js Applications
+
+1. Create an `instrumentation.ts` file in your project root:
 
 ```typescript
-import { BaseProvider } from '@reactionary/core';
-
-class MyProvider extends BaseProvider {
-  // Automatically traced when OTEL is initialized
-  protected async fetch(queries, session) {
-    // Your implementation
-  }
-  
-  protected async process(mutations, session) {
-    // Your implementation
+// instrumentation.ts
+export async function register() {
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    const { NodeSDK } = await import('@opentelemetry/sdk-node');
+    const { getNodeAutoInstrumentations } = await import('@opentelemetry/auto-instrumentations-node');
+    
+    const sdk = new NodeSDK({
+      instrumentations: [getNodeAutoInstrumentations()],
+    });
+    
+    sdk.start();
   }
 }
 ```
 
-### Custom Metrics
+2. Enable instrumentation in `next.config.js`:
 
-Track custom business metrics:
+```javascript
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  experimental: {
+    instrumentationHook: true,
+  },
+};
+
+module.exports = nextConfig;
+```
+
+3. Configure environment variables:
+
+```bash
+# .env.local
+OTEL_SERVICE_NAME=my-nextjs-app
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+```
+
+### Node.js Applications
 
 ```typescript
-import { getMetrics } from '@reactionary/otel';
+// Initialize at the very beginning of your application
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 
-const metrics = getMetrics();
-
-// Increment counter
-metrics.requestCounter.add(1, {
-  'endpoint': '/api/users',
-  'method': 'GET'
+const sdk = new NodeSDK({
+  instrumentations: [getNodeAutoInstrumentations()],
 });
 
-// Record histogram
-metrics.requestDuration.record(150, {
-  'endpoint': '/api/users',
-  'status': 'success'
-});
+sdk.start();
+
+// Now import and use your application code
+import './app';
 ```
 
-## Examples
+### Environment Variables
 
-### Honeycomb
-
-```bash
-OTEL_SERVICE_NAME=my-service
-OTEL_TRACES_EXPORTER=otlp
-OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io
-OTEL_EXPORTER_OTLP_HEADERS=x-honeycomb-team=your-api-key
-```
-
-### Local Development
+The OpenTelemetry SDK can be configured using environment variables:
 
 ```bash
-OTEL_SERVICE_NAME=my-service-dev
+# Service identification
+OTEL_SERVICE_NAME=my-app
+OTEL_SERVICE_VERSION=1.0.0
+
+# OTLP Exporter (for Jaeger, etc.)
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+
+# Console exporter (for development)
 OTEL_TRACES_EXPORTER=console
-OTEL_METRICS_EXPORTER=none  # Disable metrics in dev
+
+# Sampling (optional)
+OTEL_TRACES_SAMPLER=always_on
+
+# Debug logging
+OTEL_LOG_LEVEL=debug
 ```
-
-### Docker Compose with Jaeger
-
-```yaml
-services:
-  app:
-    environment:
-      - OTEL_EXPORTER_TYPE=otlp
-      - OTEL_COLLECTOR_ENDPOINT=http://jaeger:4318
-      - OTEL_SERVICE_NAME=my-service
-      
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    ports:
-      - "16686:16686"  # Jaeger UI
-      - "4318:4318"    # OTLP HTTP
-```
-
-## Metrics Reference
-
-The following metrics are automatically collected:
-
-| Metric | Type | Description |
-|--------|------|-------------|
-| `reactionary.requests` | Counter | Total number of requests |
-| `reactionary.request.duration` | Histogram | Request duration in milliseconds |
-| `reactionary.requests.active` | UpDownCounter | Number of active requests |
-| `reactionary.errors` | Counter | Total number of errors |
-| `reactionary.provider.calls` | Counter | Total provider calls |
-| `reactionary.provider.duration` | Histogram | Provider call duration |
-| `reactionary.cache.hits` | Counter | Cache hit count |
-| `reactionary.cache.misses` | Counter | Cache miss count |
-
-## Best Practices
-
-1. **Use Standard Variables**: Stick to OpenTelemetry standard environment variables
-2. **Set Service Name**: Always set `OTEL_SERVICE_NAME` for service identification
-3. **Environment-based Config**: Use different configs for dev/staging/production
-4. **Add Context**: Use span attributes to add business context to traces
-5. **Handle Errors**: Ensure spans are properly closed even on errors
-6. **Sample Wisely**: Consider sampling strategies for high-volume services
-7. **Monitor Performance**: Watch for overhead in high-throughput scenarios
 
 ## Troubleshooting
 
-### Traces Not Appearing
+### ProxyTracer with NonRecordingSpan
 
-1. Check OTEL is initialized before other components
-2. Verify `OTEL_TRACE_ENABLED` is not set to `false`
-3. Check exporter configuration and endpoint connectivity
-4. Look for initialization errors in console
+If you see logs like:
+```
+tracer: ProxyTracer { _provider: ProxyTracerProvider {} }
+ending span: NonRecordingSpan { _spanContext: { traceId: '00000000000000000000000000000000' } }
+```
 
-### Performance Impact
+This means the OpenTelemetry SDK has not been initialized. Ensure you have:
+1. Created an `instrumentation.ts` file (Next.js)
+2. Initialized the SDK at application startup (Node.js)
+3. Set the required environment variables
 
-- Use sampling to reduce overhead
-- Disable metrics if not needed
-- Consider using batch exporters
-- Increase export intervals for metrics
+### Missing Traces
 
-### Memory Usage
+If the decorator is being applied but you don't see traces:
+1. Verify the OTEL exporter is configured correctly
+2. Check that your tracing backend is running
+3. Ensure sampling is enabled (`OTEL_TRACES_SAMPLER=always_on`)
 
-- Monitor span processor queue size
-- Adjust batch size and timeout
-- Consider using sampling for high-volume services
+## API Reference
+
+### Decorators
+
+#### `@traced(options?)`
+
+Decorates a method to automatically create spans for its execution.
+
+**Options:**
+- `captureArgs?: boolean` - Capture function arguments (default: true)
+- `captureResult?: boolean` - Capture return value (default: true)
+- `spanName?: string` - Custom span name (default: ClassName.methodName)
+- `spanKind?: SpanKind` - OpenTelemetry span kind (default: INTERNAL)
+
+### Utility Functions
+
+- `getTracer(): Tracer` - Get the library's tracer instance
+- `startSpan(name, options?, context?): Span` - Start a new span
+- `withSpan<T>(name, fn, options?): Promise<T>` - Execute function within a span
+- `setSpanAttributes(span, attributes): void` - Set multiple span attributes
+- `createChildSpan(parent, name, options?): Span` - Create child span
+
+### Constants
+
+- `SpanKind` - OpenTelemetry span kinds
+- `SpanStatusCode` - OpenTelemetry span status codes
+
+## Examples
+
+### Console Output (Development)
+```bash
+OTEL_SERVICE_NAME=my-service-dev
+OTEL_TRACES_EXPORTER=console
+```
+
+### Jaeger (Local)
+```bash
+OTEL_SERVICE_NAME=my-service
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+```
+
+### Honeycomb (Production)
+```bash
+OTEL_SERVICE_NAME=my-service
+OTEL_EXPORTER_OTLP_ENDPOINT=https://api.honeycomb.io
+OTEL_EXPORTER_OTLP_HEADERS=x-honeycomb-team=your-api-key
+```
