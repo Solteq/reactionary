@@ -22,7 +22,7 @@ export const ItemCostBreakdownSchema = z.looseObject({
 
 export type ItemCostBreakdown = z.infer<typeof ItemCostBreakdownSchema>;
 
-export const CartItemSchema = z.looseInterface({
+export const CartItemSchema = z.looseObject({
     identifier: CartItemIdentifierSchema.default(() => CartItemIdentifierSchema.parse({})),
     product: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})),
     quantity: z.number().default(0),

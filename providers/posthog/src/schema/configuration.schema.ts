@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const PosthogConfigurationSchema = z.looseInterface({
+export const PosthogConfigurationSchema = z.looseObject({
     apiKey: z.string(),
     host: z.string(),
 });

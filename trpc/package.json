@@ -9,6 +9,6 @@
     "@reactionary/core": "0.0.1",
     "@reactionary/otel": "0.0.1",
     "superjson": "^2.2.2",
-    "zod": "4.0.0-beta.20250430T185432"
+    "zod": "4.1.9"
   }
 }

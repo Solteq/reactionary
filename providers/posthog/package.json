@@ -6,6 +6,6 @@
   "types": "./index.d.ts",
   "dependencies": {
     "@reactionary/core": "0.0.1",
-    "zod": "4.0.0-beta.20250430T185432"
+    "zod": "4.1.9"
   }
 }

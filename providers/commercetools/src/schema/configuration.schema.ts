@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const CommercetoolsConfigurationSchema = z.looseInterface({
+export const CommercetoolsConfigurationSchema = z.looseObject({
     projectKey: z.string(),
     authUrl: z.string(),
     apiUrl: z.string(),

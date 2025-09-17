@@ -7,10 +7,6 @@ export const InventoryQueryBySKUSchema = BaseQuerySchema.extend({
     sku: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})),
 });
 
-export const InventoryQuerySchema = z.union([InventoryQueryBySKUSchema]);
-
-
-
 //export type InventoryQuery = z.infer<typeof InventoryQuerySchema>;
 export type InventoryQueryBySKU = z.infer<typeof InventoryQueryBySKUSchema>;
 
