@@ -5,7 +5,7 @@ import {
   SearchResultFacet,
   SearchResultProduct,
   Session,
-  Cache as ReactinaryCache,
+  Cache as ReactionaryCache,
 } from '@reactionary/core';
 import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
@@ -17,7 +17,7 @@ export class FakeSearchProvider<
 > extends SearchProvider<T> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactinaryCache) {
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactionaryCache) {
     super(schema, cache);
 
     this.config = config;
