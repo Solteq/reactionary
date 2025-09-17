@@ -84,8 +84,8 @@ function safeSerialize(value: unknown, maxDepth = 3, currentDepth = 0): string {
 /**
  * TypeScript decorator for tracing function execution
  * Automatically creates OpenTelemetry spans for decorated methods
- * Supports both Stage 2 (legacy) and Stage 3 decorator syntax
- *
+ * Uses Stage 2 (legacy) decorator syntax
+ * 
  * @example
  * ```typescript
  * class MyService {
@@ -101,7 +101,7 @@ function safeSerialize(value: unknown, maxDepth = 3, currentDepth = 0): string {
  * }
  * ```
  */
-export function traced(options: TracedOptions = {}): any {
+export function traced(options: TracedOptions = {}): MethodDecorator {
   const {
     captureArgs = false,
     captureResult = false,
@@ -109,42 +109,22 @@ export function traced(options: TracedOptions = {}): any {
     spanKind = SpanKind.INTERNAL
   } = options;
 
-  // Stage 2 (legacy) decorator
   return function (
     target: any,
-    propertyKey?: string | symbol,
-    descriptor?: PropertyDescriptor
-  ): any {
-    // Handle Stage 3 decorator (when called with context)
-    if (typeof propertyKey === 'object' && propertyKey && 'kind' in propertyKey) {
-      const context = propertyKey as any;
-      const originalMethod = target;
-      const methodName = String(context.name);
-
-      return createTracedMethod(originalMethod, methodName, {
-        captureArgs,
-        captureResult,
-        spanName,
-        spanKind
-      });
-    }
-
-    // Handle Stage 2 decorator
-    if (descriptor && typeof descriptor.value === 'function') {
-      const originalMethod = descriptor.value;
-      const methodName = String(propertyKey);
-
-      descriptor.value = createTracedMethod(originalMethod, methodName, {
-        captureArgs,
-        captureResult,
-        spanName,
-        spanKind
-      });
-
-      return descriptor;
-    }
-
-    return target;
+    propertyKey: string | symbol,
+    descriptor: PropertyDescriptor
+  ): PropertyDescriptor {
+    const originalMethod = descriptor.value;
+    const methodName = String(propertyKey);
+    
+    descriptor.value = createTracedMethod(originalMethod, methodName, {
+      captureArgs,
+      captureResult,
+      spanName,
+      spanKind
+    });
+    
+    return descriptor;
   };
 }
 

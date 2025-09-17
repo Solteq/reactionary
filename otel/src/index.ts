@@ -6,7 +6,8 @@ export { createTRPCTracing } from './trpc-middleware';
 export { createProviderInstrumentation } from './provider-instrumentation';
 
 // Decorator for tracing functions
-export { traced, TracedOptions } from './trace-decorator';
-export { getTracer } from './tracer';
+export { traced } from './trace-decorator';
+export type { TracedOptions } from './trace-decorator';
+
 // Graceful shutdown for process termination
 export { shutdownOtel } from './sdk';

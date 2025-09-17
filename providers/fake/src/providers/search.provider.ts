@@ -11,7 +11,6 @@ import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
 import { Faker, en, base } from '@faker-js/faker';
 import { jitter } from '../utilities/jitter';
-import { trace } from '@opentelemetry/api';
 import { traced } from '@reactionary/otel';
 
 export class FakeSearchProvider<
@@ -123,5 +122,11 @@ export class FakeSearchProvider<
     } satisfies SearchResult;
 
     return this.schema.parse(result);
+  }
+
+  @traced()
+  protected childFunction() {
+    const foo = 42;
+    return foo;
   }
 }
