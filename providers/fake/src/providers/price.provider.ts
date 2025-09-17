@@ -20,10 +20,22 @@ export class FakePriceProvider<
     this.config = config;
   }
 
+  public override async getBySKUs(payload: PriceQueryBySku[], session: Session): Promise<T[]> {
+
+    const promises = payload.map(p => this.getBySKU(p, session));
+    const result = await Promise.all(promises);
+    return result;
+  }
+
   public override async getBySKU(
     payload: PriceQueryBySku,
     _session: Session
   ): Promise<T> {
+
+    if (payload.sku.key === 'unknown-sku') {
+      return this.getEmptyPriceResult(payload.sku.key, _session.languageContext.currencyCode);
+    }
+
     // Generate a simple hash from the SKU key string for seeding
     let hash = 0;
     const skuString = payload.sku.key;
@@ -37,23 +49,51 @@ export class FakePriceProvider<
       locale: [en, base],
     });
 
+
     const model = this.newModel();
     Object.assign(model, {
       identifier: {
         sku: payload.sku,
       },
-      value: {
-        cents: generator.number.int({ min: 100, max: 100000 }),
+      unitPrice: {
+        value: generator.number.int({ min: 300, max: 100000 }) / 100,
         currency: _session.languageContext.currencyCode,
       },
       meta: {
         cache: {
           hit: false,
-          key: payload.sku,
+          key: payload.sku.key,
         },
         placeholder: false,
       },
     });
+
+    if (skuString.includes('with-tiers')) {
+      const unitPrice = model.unitPrice?.value || 0;
+      // Ensure tiered prices are less than the unit price
+      const tier1Price = unitPrice * 0.8;
+      const tier2Price = tier1Price * 0.8;
+      model.tieredPrices = [
+        {
+          minimumQuantity: generator.number.int({ min: 2, max: 5 }),
+          price: {
+            value: tier1Price,
+            currency: _session.languageContext.currencyCode,
+          }
+        },
+        {
+          minimumQuantity: generator.number.int({ min: 6, max: 10 }),
+          price: {
+            value: tier2Price,
+            currency: _session.languageContext.currencyCode,
+          }
+        }
+      ];
+    } else {
+      model.tieredPrices = [];
+    }
+
+
 
     return this.assert(model);
   }

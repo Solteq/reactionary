@@ -1,4 +1,4 @@
-import { Price, PriceProvider, PriceQueryBySku, Session, Cache, Currency } from '@reactionary/core';
+import { Price, PriceProvider, PriceQueryBySku, Session, Cache, Currency, TieredPriceSchema, MonetaryAmountSchema, TieredPrice } from '@reactionary/core';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';
@@ -14,59 +14,89 @@ export class CommercetoolsPriceProvider<
     this.config = config;
   }
 
+  public getClient(session: Session) {
+    return new CommercetoolsClient(this.config).getClient(session.identity?.token).withProjectKey({ projectKey: this.config.projectKey }).standalonePrices();
+  }
+
+
+  public override async getBySKUs(payload: PriceQueryBySku[], session: Session): Promise<T[]> {
+
+    const client = this.getClient(session);
+
+    //  AND (validFrom is not defined OR validFrom <= now()) AND (validUntil is not defined OR validUntil >= now())
+    const queryArgs = {
+      where: 'sku in (:skus)',
+      'var.skus': payload.map(p => p.sku.key),
+    };
+
+
+    const response = await client.get({
+      queryArgs,
+    }).execute();
+
+    const result = [];
+    for(const p of payload) {
+      const matched = response.body.results.filter(x => x.sku === p.sku.key && x.value.currencyCode === session.languageContext.currencyCode);
+      if (matched && matched.length > 0) {
+        result.push(this.parseSingle(matched[0], session));
+      } else {
+        result.push(this.getEmptyPriceResult(p.sku.key, session.languageContext.currencyCode ));
+      }
+    }
+
+    return result;
+  }
+
+
   public override async getBySKU(
     payload: PriceQueryBySku,
     session: Session
   ): Promise<T> {
-    const client = new CommercetoolsClient(this.config).getClient(
-      session.identity?.token
-    );
-
+    const client = this.getClient(session);
     //  AND (validFrom is not defined OR validFrom <= now()) AND (validUntil is not defined OR validUntil >= now())
     const queryArgs = {
-      where: 'sku=:sku AND currencyCode=:currency',
+      where: 'sku=:sku',
       'var.sku': payload.sku.key,
-      'var.currency': session.languageContext.currencyCode,
     };
 
     const remote = await client
-      .withProjectKey({ projectKey: this.config.projectKey })
-      .standalonePrices()
       .get({
         queryArgs,
       })
       .execute();
 
 
-      let resultValue: Partial<CTPrice> = {
-          sku: payload.sku.key,
-          value: {
-            centAmount: -1,
-            currencyCode: session.languageContext.currencyCode,
-            fractionDigits: 0,
-            type: 'centPrecision'
-          },
-          id: 'placeholder',
-          key: 'placeholder',
-        }
-
       const matched = remote.body.results.filter(x => x.value.currencyCode === session.languageContext.currencyCode);
       if (matched && matched.length > 0) {
-        resultValue = matched[0];
+        return this.parseSingle(matched[0], session);
       }
-      return this.parseSingle(resultValue, session);
-
+      return this.getEmptyPriceResult(payload.sku.key, session.languageContext.currencyCode );
   }
+
+
 
   protected override parseSingle(_body: unknown, session: Session): T {
     const body = _body as CTPrice;
 
     const base = this.newModel();
 
-    base.value = {
-      cents: body.value.centAmount,
+    base.unitPrice = {
+      value: (body.value.centAmount / 100),
       currency: body.value.currencyCode as Currency,
     };
+
+    if (body.tiers && body.tiers.length > 0) {
+      const p  = body.tiers.map(x => {
+        const tp: TieredPrice = TieredPriceSchema.parse({});
+        tp.minimumQuantity = x.minimumQuantity;
+        tp.price = {
+          value: (x.value.centAmount / 100),
+          currency: x.value.currencyCode as Currency,
+        };
+        return tp;
+      });
+      base.tieredPrices = p;
+    }
 
     base.identifier = {
       sku: {
