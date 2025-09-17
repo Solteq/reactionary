@@ -9,6 +9,8 @@ permissions:
   contents: read
   pull-requests: read
 
+concurrency: pull-request-${{ github.event.pull_request.number }}
+
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -24,14 +26,14 @@ jobs:
       - uses: pnpm/action-setup@v4
 
       - run: pnpm dlx nx-cloud start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="build"
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: 23
           cache: 'pnpm'
-      
+
       - run: pnpm install
-      
+
       - uses: nrwl/nx-set-shas@v4
 
       - run: pnpm exec nx affected -t lint build
