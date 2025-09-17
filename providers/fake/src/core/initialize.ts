@@ -1,11 +1,13 @@
-import { ProductSchema, SearchResultSchema, Cache as ReactinaryCache, ProductProvider, SearchProvider, IdentityProvider, CategorySchema, CategoryProvider } from "@reactionary/core";
+import { ProductSchema, SearchResultSchema, Cache as ReactinaryCache, ProductProvider, SearchProvider, IdentityProvider, CategorySchema, CategoryProvider, CartSchema, CartProvider } from "@reactionary/core";
 import { FakeProductProvider } from "../providers/product.provider";
 import { FakeSearchProvider } from "../providers/search.provider";
 import { FakeConfiguration } from "../schema/configuration.schema";
 import { FakeCapabilities } from "../schema/capabilities.schema";
 import { FakeCategoryProvider } from "../providers/category.provider";
+import { FakeCartProvider } from "../providers";
 
 type FakeClient<T extends FakeCapabilities> = Partial<{
+    cart: T['cart'] extends true ? CartProvider : never;
     product: T['product'] extends true ? ProductProvider : never;
     search: T['search'] extends true ? SearchProvider : never;
     identity: T['identity'] extends true ? IdentityProvider : never;
@@ -27,6 +29,12 @@ export function withFakeCapabilities<T extends FakeCapabilities>(configuration: 
         if (capabilities.category) {
           client.category = new FakeCategoryProvider(configuration, CategorySchema, cache);
         }
+
+
+        if (capabilities.cart) {
+          client.cart = new FakeCartProvider(configuration, CartSchema, cache);
+        }
+
 
         return client;
     };

@@ -21,8 +21,14 @@ const serverClient = buildClient(
     withFakeCapabilities(
       {
         jitter: { mean: 0, deviation: 0 },
+        seeds: {
+          product: 12345,
+          category: 12345,
+          cart: 12345,
+          search: 0
+        },
       },
-      { search: true, product: true, identity: false }
+      { search: true, product: true, identity: false, cart: true }
     ),
   ],
   { cache: new NoOpCache() }
@@ -97,14 +103,14 @@ describe('TRPC Integration Test - Real HTTP Server', () => {
   describe('Product Provider via HTTP', () => {
     it('should fetch product by slug through real HTTP calls', async () => {
       const slug = 'integration-test-product';
-      
+
       // Get result from transparent client (through HTTP/TRPC)
       const trpcResult = await transparentClient.product.getBySlug(
         { slug },
         session
       );
 
-      // Get result from server client (direct call)  
+      // Get result from server client (direct call)
       const directResult = await serverClient.product.getBySlug(
         { slug },
         session
@@ -116,14 +122,14 @@ describe('TRPC Integration Test - Real HTTP Server', () => {
       expect(trpcResult.name).toBeDefined();
       expect(trpcResult.description).toBeDefined();
       expect(trpcResult.image).toBeDefined();
-      
+
       // Both should have the same slug (faker uses seed for consistency)
       expect(trpcResult.slug).toBe(directResult.slug);
     });
 
     it('should fetch product by id through real HTTP calls', async () => {
       const productId = 'integration-test-id';
-      
+
       const trpcResult = await transparentClient.product.getById(
         { id: productId },
         session
@@ -138,7 +144,7 @@ describe('TRPC Integration Test - Real HTTP Server', () => {
       expect(trpcResult.identifier.key).toBe(productId);
       expect(trpcResult.name).toBeDefined();
       expect(trpcResult.description).toBeDefined();
-      
+
       // Should match direct call
       expect(trpcResult.identifier?.key).toBe(directResult.identifier?.key);
     });
@@ -147,7 +153,7 @@ describe('TRPC Integration Test - Real HTTP Server', () => {
   describe('Search Provider via HTTP', () => {
     it('should perform search through real HTTP calls', async () => {
       const searchTerm = 'integration test search';
-      
+
       const trpcResult = await transparentClient.search.queryByTerm(
         {
           search: {
@@ -176,7 +182,7 @@ describe('TRPC Integration Test - Real HTTP Server', () => {
       expect(trpcResult.products).toBeDefined();
       expect(Array.isArray(trpcResult.products)).toBe(true);
       expect(trpcResult.facets).toBeDefined();
-      
+
       // Should match direct call structure
       expect(trpcResult.products.length).toBe(directResult.products.length);
     });
@@ -196,7 +202,7 @@ describe('TRPC Integration Test - Real HTTP Server', () => {
   describe('API Equivalence', () => {
     it('should produce identical results for TRPC vs direct calls', async () => {
       const testId = 'equivalence-test';
-      
+
       // Make same call through both paths
       const [trpcResult, directResult] = await Promise.all([
         transparentClient.product.getById(
