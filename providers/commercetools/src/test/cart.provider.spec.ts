@@ -43,6 +43,17 @@ describe('Commercetools Cart Provider', () => {
       expect(cart.items[0].product.key).toBe('4d28f98d-c446-446e-b59a-d9f718e5b98a');
       expect(cart.items[0].quantity).toBe(1);
 
+      expect(cart.items[0].price.totalPrice.value).toBeGreaterThan(0);
+      expect(cart.items[0].price.totalPrice.currency).toBe(session.languageContext.currencyCode);
+
+      expect(cart.price.grandTotal.value).toBeGreaterThan(0);
+      expect(cart.price.grandTotal.currency).toBe(session.languageContext.currencyCode);
+
+      expect(cart.price.grandTotal.value).toBe(cart.items[0].price.totalPrice.value);
+
+
+      expect(cart.meta?.placeholder).toBeFalsy();
+
     });
 
 
@@ -66,6 +77,10 @@ describe('Commercetools Cart Provider', () => {
       expect(updatedCart.items.length).toBe(1);
       expect(updatedCart.items[0].product.key).toBe('4d28f98d-c446-446e-b59a-d9f718e5b98a');
       expect(updatedCart.items[0].quantity).toBe(3);
+
+      expect(updatedCart.items[0].price.totalPrice.value).toBe(cart.items[0].price.totalPrice.value * 3);
+      expect(updatedCart.items[0].price.unitPrice.value).toBe(cart.items[0].price.unitPrice.value);
+
 
     });
 
