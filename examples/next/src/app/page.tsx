@@ -18,21 +18,7 @@ export default async function Index() {
             category: 1,
           },
         },
-        { search: false, product: true, identity: false }
-      )
-    )
-    .withCapability(
-      withCommercetoolsCapabilities(
-        {
-          apiUrl: process.env['COMMERCETOOLS_API_URL'] || '',
-          authUrl: process.env['COMMERCETOOLS_AUTH_URL'] || '',
-          clientId: process.env['COMMERCETOOLS_CLIENT_ID'] || '',
-          clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
-          projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || '',
-        },
-        {
-          search: true,
-        }
+        { search: true, product: true, identity: false }
       )
     )
     .withCache(new NoOpCache())
