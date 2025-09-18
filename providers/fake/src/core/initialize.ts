@@ -29,7 +29,6 @@ export function withFakeCapabilities<T extends FakeCapabilities>(configuration: 
           client.category = new FakeCategoryProvider(configuration, CategorySchema, cache);
         }
 
-
         if (capabilities.cart) {
           client.cart = new FakeCartProvider(configuration, CartSchema, cache);
         }

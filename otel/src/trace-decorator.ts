@@ -140,7 +140,7 @@ function createTracedMethod(
 ): any {
   const { captureArgs, captureResult, spanName, spanKind } = options;
   
-  async function tracedMethod(this: any, ...args: any[]): Promise<any> {
+  function tracedMethod(this: any, ...args: any[]): any {
     const tracer = getTracer();
     const className = this?.constructor?.name || 'Unknown';
     const effectiveSpanName = spanName || `${className}.${methodName}`;
@@ -152,7 +152,7 @@ function createTracedMethod(
         'function.name': methodName,
         'function.class': className,
       }
-    }, async (span) => {
+    }, (span) => {
       // Capture arguments if enabled
       if (captureArgs && args.length > 0) {
         args.forEach((arg, index) => {
@@ -196,9 +196,10 @@ function createTracedMethod(
         // Handle async functions - await them to keep span open
         if (result instanceof Promise) {
           try {
-            const value = await result;
-            setSpanResult(value);
-            return value;
+            return result.then(value => {
+              setSpanResult(value);
+              return value;
+            });
           } catch (error) {
             setSpanResult(error, true);
             throw error;

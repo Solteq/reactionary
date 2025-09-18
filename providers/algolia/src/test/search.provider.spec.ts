@@ -1,20 +1,27 @@
 import { NoOpCache, SearchResultSchema } from '@reactionary/core';
 import { AlgoliaSearchProvider } from '../providers/search.provider';
+import { createAnonymousTestSession } from './test-utils';
 
 describe('Algolia Search Provider', () => {
-  const provider = new AlgoliaSearchProvider({
-    apiKey: process.env['ALGOLIA_API_KEY'] || '',
-    appId: process.env['ALGOLIA_APP_ID'] || '',
-    indexName: process.env['ALGOLIA_INDEX'] || '',
-  }, SearchResultSchema, new NoOpCache());
+  const provider = new AlgoliaSearchProvider(
+    {
+      apiKey: process.env['ALGOLIA_API_KEY'] || '',
+      appId: process.env['ALGOLIA_APP_ID'] || '',
+      indexName: process.env['ALGOLIA_INDEX'] || '',
+    },
+    SearchResultSchema,
+    new NoOpCache()
+  );
+
+  const session = createAnonymousTestSession();
 
   it('should be able to get a result by term', async () => {
-    const result = await provider.get({
+    const result = await provider.queryByTerm({ search: {
       term: 'glass',
       page: 0,
       pageSize: 20,
       facets: [],
-    });
+    }}, session);
 
     expect(result.products.length).toBeGreaterThan(0);
     expect(result.facets.length).toBe(2);
@@ -23,18 +30,19 @@ describe('Algolia Search Provider', () => {
   });
 
   it('should be able to paginate', async () => {
-    const firstPage = await provider.get({
+    const firstPage = await provider.queryByTerm({ search: {
       term: 'glass',
       page: 0,
       pageSize: 20,
       facets: [],
-    });
-    const secondPage = await provider.get({
+    }}, session);
+
+    const secondPage = await provider.queryByTerm({ search: {
       term: 'glass',
       page: 1,
       pageSize: 20,
       facets: [],
-    });
+    }}, session);
 
     expect(firstPage.identifier.page).toBe(0);
     expect(secondPage.identifier.page).toBe(1);
@@ -44,18 +52,18 @@ describe('Algolia Search Provider', () => {
   });
 
   it('should be able to change page size', async () => {
-    const smallPage = await provider.get({
+    const smallPage = await provider.queryByTerm({ search: {
       term: 'glass',
       page: 0,
       pageSize: 2,
       facets: [],
-    });
-    const largePage = await provider.get({
+    }}, session);
+    const largePage = await provider.queryByTerm({ search: {
       term: 'glass',
       page: 0,
       pageSize: 30,
       facets: [],
-    });
+    }}, session);
 
     expect(smallPage.products.length).toBe(2);
     expect(smallPage.identifier.pageSize).toBe(2);
@@ -64,18 +72,19 @@ describe('Algolia Search Provider', () => {
   });
 
   it('should be able to apply facets', async () => {
-    const initial = await provider.get({
+    const initial = await provider.queryByTerm({ search: {
       term: 'glass',
       page: 0,
       pageSize: 2,
       facets: [],
-    });
-    const filtered = await provider.get({
+    }}, session);
+
+    const filtered = await provider.queryByTerm({ search: {
       term: 'glass',
       page: 0,
       pageSize: 2,
       facets: [initial.facets[0].values[0].identifier],
-    });
+    }}, session);
 
     expect(initial.pages).toBeGreaterThan(filtered.pages);
   });

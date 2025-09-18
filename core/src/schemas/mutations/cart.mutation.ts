@@ -3,19 +3,19 @@ import { BaseMutationSchema } from './base.mutation';
 import { CartIdentifierSchema, CartItemIdentifierSchema, ProductIdentifierSchema } from '../models/identifiers.model';
 
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required(),
-    product: ProductIdentifierSchema.required(),
+    cart: CartIdentifierSchema.nonoptional(),
+    product: ProductIdentifierSchema.nonoptional(),
     quantity: z.number()
 });
 
 export const CartMutationItemRemoveSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required(),
-    item: CartItemIdentifierSchema.required()
+    cart: CartIdentifierSchema.nonoptional(),
+    item: CartItemIdentifierSchema.nonoptional()
 });
 
 export const CartMutationItemQuantityChangeSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required(),
-    item: CartItemIdentifierSchema.required(),
+    cart: CartIdentifierSchema.nonoptional(),
+    item: CartItemIdentifierSchema.nonoptional(),
     quantity: z.number()
 });
 

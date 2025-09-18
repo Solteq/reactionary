@@ -49,7 +49,12 @@ describe('basic node provider extension (models)', () => {
     return (cache: Cache) => {
       const client = {
         product: new ExtendedProductProvider(
-          { jitter: { mean: 0, deviation: 0 } },
+          { jitter: { mean: 0, deviation: 0 },
+                  seeds: {
+            category: 1,
+            product: 1,
+            search: 1
+          }},
           ExtendedProductModel,
           cache
         ),
@@ -67,6 +72,11 @@ describe('basic node provider extension (models)', () => {
             mean: 0,
             deviation: 0,
           },
+          seeds: {
+            category: 1,
+            product: 1,
+            search: 1
+          }
         },
         { search: true, product: false, identity: false }
       )

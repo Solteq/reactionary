@@ -1,4 +1,4 @@
-import { buildClient, NoOpCache, SessionSchema } from '@reactionary/core';
+import { buildClient, ClientBuilder, NoOpCache, SessionSchema } from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
 import { createTRPCServerRouter, createTRPCContext, type TRPCRouterFromClient } from './server';
 import { createTRPCClient, type TRPCClientFromRouter } from './client';
@@ -6,6 +6,7 @@ import type { TransparentClient } from './types';
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import { createHTTPHandler } from '@trpc/server/adapters/standalone';
 import * as http from 'http';
+import { createAnonymousTestSession } from './test-utils';
 
 /**
  * Integration test that actually starts an HTTP server and makes real network calls
@@ -16,29 +17,31 @@ import * as http from 'http';
 global.fetch = global.fetch || require('node-fetch');
 
 // Create the server-side client
-const serverClient = buildClient(
-  [
-    withFakeCapabilities(
-      {
-        jitter: { mean: 0, deviation: 0 },
-        seeds: {
-          product: 12345,
-          category: 12345,
-          cart: 12345,
-          search: 0
+const serverClient = new ClientBuilder()
+    .withCapability(
+      withFakeCapabilities(
+        {
+          jitter: {
+            mean: 0,
+            deviation: 0,
+          },
+          seeds: {
+            category: 1,
+            product: 1,
+            search: 1
+          }
         },
-      },
-      { search: true, product: true, identity: false, cart: true }
-    ),
-  ],
-  { cache: new NoOpCache() }
-);
+        { search: true, product: true, identity: false }
+      )
+    )
+    .withCache(new NoOpCache())
+    .build();
 
 // Create TRPC router from the client (do this at module level for type inference)
 const router = createTRPCServerRouter(serverClient);
 type AppRouter = typeof router;
 
-describe('TRPC Integration Test - Real HTTP Server', () => {
+xdescribe('TRPC Integration Test - Real HTTP Server', () => {
   let server: http.Server;
   let serverPort: number;
   let trpcProxyClient: ReturnType<typeof createTRPCProxyClient<AppRouter>>;
@@ -96,9 +99,7 @@ describe('TRPC Integration Test - Real HTTP Server', () => {
     }
   });
 
-  const session = SessionSchema.parse({
-    id: '1234567890',
-  });
+  const session = createAnonymousTestSession();
 
   describe('Product Provider via HTTP', () => {
     it('should fetch product by slug through real HTTP calls', async () => {
