@@ -3,7 +3,6 @@ import {
   Cache,
   NoOpCache,
   ProductSchema,
-  SessionSchema,
   ProductQueryById,
   ProductQueryBySlug,
 } from '@reactionary/core';
@@ -11,12 +10,11 @@ import {
   FakeProductProvider,
   withFakeCapabilities,
 } from '@reactionary/provider-fake';
+import { createAnonymousTestSession } from '../test-utils';
 import z from 'zod';
 
 describe('basic node provider extension (models)', () => {
-  const session = SessionSchema.parse({
-    id: '1234567890',
-  });
+  const session = createAnonymousTestSession();
 
   const ExtendedProductModel = ProductSchema.extend({
     gtin: z.string().default('gtin-default'),
@@ -39,7 +37,12 @@ describe('basic node provider extension (models)', () => {
     return (cache: Cache) => {
       const client = {
         product: new ExtendedProductProvider(
-          { jitter: { mean: 0, deviation: 0 } },
+          { jitter: { mean: 0, deviation: 0 },
+          seeds: {
+            category: 1,
+            product: 1,
+            search: 1
+          } },
           ExtendedProductModel,
           cache
         ),
@@ -57,6 +60,11 @@ describe('basic node provider extension (models)', () => {
             mean: 0,
             deviation: 0,
           },
+          seeds: {
+            category: 1,
+            product: 1,
+            search: 1
+          }
         },
         { search: true, product: false, identity: false }
       )

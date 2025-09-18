@@ -1,5 +1,6 @@
 import { buildClient, NoOpCache, SessionSchema } from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
+import { createAnonymousTestSession } from '../test-utils';
 
 describe('basic node setup', () => {
   const client = buildClient(
@@ -10,6 +11,11 @@ describe('basic node setup', () => {
             mean: 0,
             deviation: 0,
           },
+          seeds: {
+            category: 1,
+            product: 1,
+            search: 1
+          }
         },
         { search: true, product: true, identity: false }
       ),
@@ -19,9 +25,7 @@ describe('basic node setup', () => {
     }
   );
 
-  const session = SessionSchema.parse({
-    id: '1234567890'
-  });
+  const session = createAnonymousTestSession();
 
   it('should only get back the enabled capabilities', async () => {
     expect(client.product).toBeDefined();

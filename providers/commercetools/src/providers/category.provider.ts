@@ -1,4 +1,4 @@
-import { CategoryProvider, Cache, Category, Session, CategoryIdentifier,  PaginationOptions,  createPaginatedResponseSchema, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories } from "@reactionary/core";
+import { CategoryProvider, Cache, Category, Session, createPaginatedResponseSchema, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories } from "@reactionary/core";
 import z from "zod";
 import { CommercetoolsConfiguration } from "../schema/configuration.schema";
 import { CommercetoolsClient } from "../core/client";
@@ -35,7 +35,6 @@ export class CommercetoolsCategoryProvider<
       const response = await client.withKey({ key: payload.id.key }).get().execute();
       return this.parseSingle(response.body, session);
     } catch (error) {
-      console.error(`Error fetching category by ID ${payload.id.key}:`, error);
       const dummyCategory = this.newModel();
       dummyCategory.meta.placeholder = true;
       dummyCategory.identifier = { key: payload.id.key };

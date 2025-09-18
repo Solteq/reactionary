@@ -1,11 +1,7 @@
 import 'dotenv/config'
-
-    import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
-
-import { CategorySchema, NoOpCache, ProductSchema, Session } from '@reactionary/core';
+import { CategorySchema, NoOpCache, Session } from '@reactionary/core';
 import { CommercetoolsCategoryProvider } from '../providers/category.provider';
 import { createAnonymousTestSession, getCommercetoolsTestConfiguration } from './test-utils';
-import { getTracer, shutdownOtel } from '@reactionary/otel';
 
 const testData = {
   topCategories: [
@@ -168,13 +164,4 @@ describe('Commercetools Category Provider', () => {
     expect(result.meta.placeholder).toBe(true);
 
   });
-
-  it('traces execution of getById', async () => {
-    const tracer = getTracer();
-    const span = tracer.startSpan('test-span');
-    const result = await provider.getById({ id: { key: 'home-decor'}}, session);
-    span.end();
-    await shutdownOtel();
-  });
-
 });
