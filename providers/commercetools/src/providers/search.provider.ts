@@ -9,6 +9,7 @@ import {
 import { CommercetoolsClient } from '../core/client';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
+import { traced } from '@reactionary/otel';
 
 export class CommercetoolsSearchProvider<
   T extends SearchResult = SearchResult
@@ -21,6 +22,7 @@ export class CommercetoolsSearchProvider<
     this.config = config;
   }
 
+  @traced()
   public override async queryByTerm(
     payload: SearchQueryByTerm,
     session: Session

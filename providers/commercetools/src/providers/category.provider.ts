@@ -1,4 +1,5 @@
-import { CategoryProvider, Cache, Category, Session, createPaginatedResponseSchema, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories } from "@reactionary/core";
+import { CategoryProvider, Cache, Category, createPaginatedResponseSchema } from "@reactionary/core";
+import type { Session, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories } from "@reactionary/core";
 import z from "zod";
 import { CommercetoolsConfiguration } from "../schema/configuration.schema";
 import { CommercetoolsClient } from "../core/client";
