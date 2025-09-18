@@ -37,6 +37,7 @@ export default async function Index() {
     )
     .withCache(new NoOpCache())
     .build();
+    
 
   const session = SessionSchema.parse({
     id: '1234567890',

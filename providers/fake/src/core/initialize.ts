@@ -7,11 +7,11 @@ import { FakeCategoryProvider } from "../providers/category.provider";
 import { FakeCartProvider } from "../providers";
 
 type FakeClient<T extends FakeCapabilities> = 
-    (T['cart'] extends true ? { cart: CartProvider } : {}) &
-    (T['product'] extends true ? { product: ProductProvider } : {}) &
-    (T['search'] extends true ? { search: SearchProvider } : {}) &
-    (T['identity'] extends true ? { identity: IdentityProvider } : {}) &
-    (T['category'] extends true ? { category: CategoryProvider } : {});
+    (T['cart'] extends true ? { cart: CartProvider } : object) &
+    (T['product'] extends true ? { product: ProductProvider } : object) &
+    (T['search'] extends true ? { search: SearchProvider } : object) &
+    (T['identity'] extends true ? { identity: IdentityProvider } : object) &
+    (T['category'] extends true ? { category: CategoryProvider } : object);
 
 export function withFakeCapabilities<T extends FakeCapabilities>(configuration: FakeConfiguration, capabilities: T) {
     return (cache: ReactinaryCache): FakeClient<T> => {
