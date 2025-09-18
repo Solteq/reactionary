@@ -1,19 +1,21 @@
 import {
   Cart,
   CartItemSchema,
+  CartProvider,
+  Cache,
+  Currency,
+} from '@reactionary/core';
+import type {
   CartMutationItemAdd,
   CartMutationItemQuantityChange,
   CartMutationItemRemove,
-  CartProvider,
   CartQueryById,
   Session,
-  Cache,
-  Currency,
 } from '@reactionary/core';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { z } from 'zod';
 import { CommercetoolsClient } from '../core/client';
-import { Cart as CTCart } from '@commercetools/platform-sdk';
+import type { Cart as CTCart } from '@commercetools/platform-sdk';
 import { traced } from '@reactionary/otel';
 
 

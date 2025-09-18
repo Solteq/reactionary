@@ -1,6 +1,7 @@
 import styles from './page.module.scss';
 import { ClientBuilder, NoOpCache, SessionSchema } from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
+import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 
 export default async function Index() {
   const client = new ClientBuilder()
@@ -17,7 +18,21 @@ export default async function Index() {
             category: 1,
           },
         },
-        { search: true, product: false, identity: false }
+        { search: false, product: true, identity: false }
+      )
+    )
+    .withCapability(
+      withCommercetoolsCapabilities(
+        {
+          apiUrl: process.env['COMMERCETOOLS_API_URL'] || '',
+          authUrl: process.env['COMMERCETOOLS_AUTH_URL'] || '',
+          clientId: process.env['COMMERCETOOLS_CLIENT_ID'] || '',
+          clientSecret: process.env['COMMERCETOOLS_CLIENT_SECRET'] || '',
+          projectKey: process.env['COMMERCETOOLS_PROJECT_KEY'] || '',
+        },
+        {
+          search: true,
+        }
       )
     )
     .withCache(new NoOpCache())
@@ -32,20 +47,23 @@ export default async function Index() {
     },
   });
 
-  const search = await client.search.queryByTerm({
-    search: {
-      facets: [],
-      page: 0,
-      pageSize: 12,
-      term: 'glass',
+  const search = await client.search.queryByTerm(
+    {
+      search: {
+        facets: [],
+        page: 1,
+        pageSize: 12,
+        term: 'glass',
+      },
     },
-  }, session);
+    session
+  );
 
-  return <div className={styles.page}>
-        {search.products.map((product, index) => (
-          <div key={index}>
-            { product.name }
-          </div>
-        ))}
-  </div>;
+  return (
+    <div className={styles.page}>
+      {search.products.map((product, index) => (
+        <div key={index}>{product.name}</div>
+      ))}
+    </div>
+  );
 }
