@@ -1,11 +1,12 @@
-import {
-  SearchProvider,
-  SearchQueryByTerm,
+import { SearchProvider } from '@reactionary/core';
+import type {
   SearchResult,
   SearchResultProduct,
-  Session,
   Cache,
+  SearchQueryByTerm,
+  Session,
 } from '@reactionary/core';
+
 import { CommercetoolsClient } from '../core/client';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
@@ -16,7 +17,11 @@ export class CommercetoolsSearchProvider<
 > extends SearchProvider<T> {
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache) {
+  constructor(
+    config: CommercetoolsConfiguration,
+    schema: z.ZodType<T>,
+    cache: Cache
+  ) {
     super(schema, cache);
 
     this.config = config;
@@ -45,9 +50,23 @@ export class CommercetoolsSearchProvider<
     return this.parseSearchResult(remote, payload, session);
   }
 
-  protected parseSearchResult(remote: unknown, payload: SearchQueryByTerm, session: Session): T {
+  protected parseSearchResult(
+    remote: unknown,
+    payload: SearchQueryByTerm,
+    session: Session
+  ): T {
     const result = this.newModel();
-    const remoteData = remote as { body: { results: Array<{ id: string; name: Record<string, string>; slug?: Record<string, string>; masterVariant: { images?: Array<{ url?: string }> } }>; total?: number } };
+    const remoteData = remote as {
+      body: {
+        results: Array<{
+          id: string;
+          name: Record<string, string>;
+          slug?: Record<string, string>;
+          masterVariant: { images?: Array<{ url?: string }> };
+        }>;
+        total?: number;
+      };
+    };
 
     result.identifier = payload.search;
 
@@ -56,20 +75,20 @@ export class CommercetoolsSearchProvider<
         identifier: { key: p.id },
         name: p.name[session.languageContext.locale] || p.id,
         slug: p.slug?.[session.languageContext.locale] || p.id,
-        image: p.masterVariant.images?.[0]?.url || 'https://placehold.co/400'
+        image: p.masterVariant.images?.[0]?.url || 'https://placehold.co/400',
       };
 
       result.products.push(product);
     }
 
-    result.pages = Math.ceil((remoteData.body.total || 0) / payload.search.pageSize);
+    result.pages = Math.ceil(
+      (remoteData.body.total || 0) / payload.search.pageSize
+    );
     result.meta = {
       cache: { hit: false, key: payload.search.term },
-      placeholder: false
+      placeholder: false,
     };
 
     return this.assert(result);
   }
-
-
 }
