@@ -6,13 +6,12 @@ import { FakeCapabilities } from "../schema/capabilities.schema";
 import { FakeCategoryProvider } from "../providers/category.provider";
 import { FakeCartProvider } from "../providers";
 
-type FakeClient<T extends FakeCapabilities> = Partial<{
-    cart: T['cart'] extends true ? CartProvider : never;
-    product: T['product'] extends true ? ProductProvider : never;
-    search: T['search'] extends true ? SearchProvider : never;
-    identity: T['identity'] extends true ? IdentityProvider : never;
-    category: T['category'] extends true ? CategoryProvider : never;
-}>;
+type FakeClient<T extends FakeCapabilities> = 
+    (T['cart'] extends true ? { cart: CartProvider } : {}) &
+    (T['product'] extends true ? { product: ProductProvider } : {}) &
+    (T['search'] extends true ? { search: SearchProvider } : {}) &
+    (T['identity'] extends true ? { identity: IdentityProvider } : {}) &
+    (T['category'] extends true ? { category: CategoryProvider } : {});
 
 export function withFakeCapabilities<T extends FakeCapabilities>(configuration: FakeConfiguration, capabilities: T) {
     return (cache: ReactinaryCache): FakeClient<T> => {

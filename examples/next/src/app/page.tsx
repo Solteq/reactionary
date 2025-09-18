@@ -32,7 +32,7 @@ export default async function Index() {
     },
   });
 
-  const search = await client.search?.queryByTerm({
+  const search = await client.search.queryByTerm({
     search: {
       facets: [],
       page: 0,
@@ -42,7 +42,7 @@ export default async function Index() {
   }, session);
 
   return <div className={styles.page}>
-        {search?.products.map((product, index) => (
+        {search.products.map((product, index) => (
           <div key={index}>
             { product.name }
           </div>
