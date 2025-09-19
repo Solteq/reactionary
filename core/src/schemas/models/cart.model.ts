@@ -1,7 +1,9 @@
 import { z } from 'zod';
-import { CartIdentifierSchema, CartItemIdentifierSchema, ProductIdentifierSchema } from '../models/identifiers.model';
+import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, ProductIdentifierSchema, SKUIdentifierSchema } from '../models/identifiers.model';
 import { BaseModelSchema } from './base.model';
 import { MonetaryAmountSchema } from './price.model';
+import { AddressSchema } from './profile.model';
+import { ShippingMethodSchema } from './shipping-method.model';
 
 export const CostBreakDownSchema = z.looseObject({
     totalTax: MonetaryAmountSchema.default(() => MonetaryAmountSchema.parse({})).describe('The amount of tax paid on the cart. This may include VAT, GST, sales tax, etc.'),
@@ -11,7 +13,6 @@ export const CostBreakDownSchema = z.looseObject({
     totalProductPrice: MonetaryAmountSchema.default(() => MonetaryAmountSchema.parse({})).describe('The total price of products in the cart.'),
     grandTotal: MonetaryAmountSchema.default(() => MonetaryAmountSchema.parse({})).describe('The total price for the cart including all taxes, discounts, and shipping.'),
 });
-export type CostBreakDown = z.infer<typeof CostBreakDownSchema>;
 
 export const ItemCostBreakdownSchema = z.looseObject({
     unitPrice: MonetaryAmountSchema.default(() => MonetaryAmountSchema.parse({})).describe('The price per single unit of the item.'),
@@ -20,22 +21,34 @@ export const ItemCostBreakdownSchema = z.looseObject({
     totalDiscount: MonetaryAmountSchema.default(() => MonetaryAmountSchema.parse({})).describe('The total discount applied to all units of the item.'),
 });
 
-export type ItemCostBreakdown = z.infer<typeof ItemCostBreakdownSchema>;
 
 export const CartItemSchema = z.looseObject({
     identifier: CartItemIdentifierSchema.default(() => CartItemIdentifierSchema.parse({})),
     product: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})),
+    sku: SKUIdentifierSchema.default(() => SKUIdentifierSchema.parse({})),
     quantity: z.number().default(0),
     price: ItemCostBreakdownSchema.default(() => ItemCostBreakdownSchema.parse({})),
 });
 
 export const CartSchema = BaseModelSchema.extend({
     identifier: CartIdentifierSchema.default(() => CartIdentifierSchema.parse({})),
+
+    userId: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
+
     items: z.array(CartItemSchema).default(() => []),
     price: CostBreakDownSchema.default(() => CostBreakDownSchema.parse({})),
     name: z.string().default(''),
     description: z.string().default(''),
+
+
+    shippingAddress: AddressSchema.optional(),
+    billingAddress: AddressSchema.optional(),
+    shippingMethod: ShippingMethodSchema.optional(),
 });
 
+
+
+export type CostBreakDown = z.infer<typeof CostBreakDownSchema>;
+export type ItemCostBreakdown = z.infer<typeof ItemCostBreakdownSchema>;
 export type CartItem = z.infer<typeof CartItemSchema>;
 export type Cart = z.infer<typeof CartSchema>;

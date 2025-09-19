@@ -9,5 +9,6 @@ export const IdentityMutationLoginSchema = BaseMutationSchema.extend({
 export const IdentityMutationLogoutSchema = BaseMutationSchema.extend({
 });
 
+
 export type IdentityMutationLogin = z.infer<typeof IdentityMutationLoginSchema>;
 export type IdentityMutationLogout = z.infer<typeof IdentityMutationLogoutSchema>;

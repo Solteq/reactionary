@@ -1,15 +1,14 @@
 import {
   ProductProvider,
   Product,
-  ProductQueryById,
-  ProductQueryBySlug,
-  Session,
   Cache,
 } from '@reactionary/core';
 import { CommercetoolsClient } from '../core/client';
 import { z } from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { ProductProjection } from '@commercetools/platform-sdk';
+import { traced } from '@reactionary/otel';
+import type { ProductQueryById, ProductQueryBySlug, Session } from '@reactionary/core';
 
 export class CommercetoolsProductProvider<
   T extends Product = Product
@@ -22,28 +21,38 @@ export class CommercetoolsProductProvider<
     this.config = config;
   }
 
-  public getClient(session: Session) {
-    return new CommercetoolsClient(this.config).getClient(session.identity?.token).withProjectKey({ projectKey: this.config.projectKey }).productProjections();
+  protected getClient(session: Session) {
+    const token = session.identity.keyring.find(x => x.service === 'commercetools')?.token;
+    const client = new CommercetoolsClient(this.config).getClient(
+      token
+    );
+    return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
   }
 
+  @traced()
   public override async getById(
     payload: ProductQueryById,
     session: Session
   ): Promise<T> {
     const client = this.getClient(session);
 
-    const remote = await client
-      .withId({ ID: payload.id })
-      .get()
-      .execute();
+    try {
+      const remote = await client
+        .withId({ ID: payload.id })
+        .get()
+        .execute();
 
-    return this.parseSingle(remote.body, session);
+      return this.parseSingle(remote.body, session);
+    } catch(error) {
+      return this.createEmptyProduct(payload.id);
+    }
   }
 
+  @traced()
   public override async getBySlug(
     payload: ProductQueryBySlug,
     session: Session
-  ): Promise<T> {
+  ): Promise<T | null> {
     const client = this.getClient(session);
 
     const remote = await client
@@ -55,16 +64,16 @@ export class CommercetoolsProductProvider<
       })
       .execute();
 
-    if (remote.body.results.length === 0) {
-      throw new Error(`Product with slug '${payload.slug}' not found`);
+    if (remote.body.count === 0) {
+      return null;
     }
-
     return this.parseSingle(remote.body.results[0], session);
   }
 
   protected override parseSingle(dataIn: unknown, session: Session): T {
     const data = dataIn as ProductProjection;
     const base = this.newModel();
+
 
     base.identifier = { key: data.id };
     base.name = data.name[session.languageContext.locale];

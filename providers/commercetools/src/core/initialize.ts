@@ -1,11 +1,11 @@
-import { 
-    CartSchema, 
-    IdentitySchema, 
-    InventorySchema, 
-    PriceSchema, 
-    ProductSchema, 
-    SearchResultSchema, 
-    Cache, 
+import {
+    CartSchema,
+    IdentitySchema,
+    InventorySchema,
+    PriceSchema,
+    ProductSchema,
+    SearchResultSchema,
+    Cache,
     CategorySchema,
     ProductProvider,
     SearchProvider,
@@ -13,7 +13,8 @@ import {
     CartProvider,
     InventoryProvider,
     PriceProvider,
-    CategoryProvider
+    CategoryProvider,
+    CartPaymentInstructionSchema
 } from "@reactionary/core";
 import { CommercetoolsCapabilities } from "../schema/capabilities.schema";
 import { CommercetoolsSearchProvider } from "../providers/search.provider";
@@ -24,8 +25,9 @@ import { CommercetoolsCartProvider } from "../providers/cart.provider";
 import { CommercetoolsInventoryProvider } from "../providers/inventory.provider";
 import { CommercetoolsPriceProvider } from "../providers/price.provider";
 import { CommercetoolsCategoryProvider } from "../providers/category.provider";
+import { CommercetoolsCartPaymentProvider } from "../providers/cart-payment.provider";
 
-type CommercetoolsClient<T extends CommercetoolsCapabilities> = 
+type CommercetoolsClient<T extends CommercetoolsCapabilities> =
     (T['cart'] extends true ? { cart: CartProvider } : object) &
     (T['product'] extends true ? { product: ProductProvider } : object) &
     (T['search'] extends true ? { search: SearchProvider } : object) &
@@ -68,6 +70,11 @@ export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilitie
         if (capabilities.category) {
             client.category = new CommercetoolsCategoryProvider(configuration, CategorySchema, cache);
         }
+
+        if (capabilities.cartPayment) {
+          client.cartPayment = new CommercetoolsCartPaymentProvider(configuration, CartPaymentInstructionSchema, cache);
+        }
+
 
         return client;
     };

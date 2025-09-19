@@ -29,6 +29,9 @@ export class FakeProductProvider<
     return this.parseSingle(payload);
   }
 
+  // FIXME: Should we have a get-by-sku here? Since thats whats coming back on cart items...
+
+
   public override async getBySlug(
     payload: ProductQueryBySlug,
     _session: Session

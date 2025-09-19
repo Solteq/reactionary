@@ -15,9 +15,15 @@ export class CommercetoolsPriceProvider<
     this.config = config;
   }
 
-  public getClient(session: Session) {
-    return new CommercetoolsClient(this.config).getClient(session.identity?.token).withProjectKey({ projectKey: this.config.projectKey }).standalonePrices();
+
+  protected getClient(session: Session) {
+    const token = session.identity.keyring.find(x => x.service === 'commercetools')?.token;
+    const client = new CommercetoolsClient(this.config).getClient(
+      token
+    );
+    return client.withProjectKey({ projectKey: this.config.projectKey }).standalonePrices();
   }
+
 
 
   public override async getBySKUs(payload: PriceQueryBySku[], session: Session): Promise<T[]> {
@@ -41,7 +47,7 @@ export class CommercetoolsPriceProvider<
       if (matched && matched.length > 0) {
         result.push(this.parseSingle(matched[0], session));
       } else {
-        result.push(this.getEmptyPriceResult(p.sku.key, session.languageContext.currencyCode ));
+        result.push(this.createEmptyPriceResult(p.sku.key, session.languageContext.currencyCode ));
       }
     }
 
@@ -71,7 +77,7 @@ export class CommercetoolsPriceProvider<
       if (matched && matched.length > 0) {
         return this.parseSingle(matched[0], session);
       }
-      return this.getEmptyPriceResult(payload.sku.key, session.languageContext.currencyCode );
+      return this.createEmptyPriceResult(payload.sku.key, session.languageContext.currencyCode );
   }
 
 

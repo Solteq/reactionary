@@ -19,8 +19,11 @@ export class CommercetoolsCategoryProvider<
   }
 
   protected getClient(session: Session): ByProjectKeyCategoriesRequestBuilder {
-    const client = new CommercetoolsClient(this.config).getClient(session.identity.token).withProjectKey({ projectKey: this.config.projectKey }).categories();
-    return client;
+    const token = session.identity.keyring.find(x => x.service === 'commercetools')?.token;
+    const client = new CommercetoolsClient(this.config).getClient(
+      token
+    );
+    return client.withProjectKey({ projectKey: this.config.projectKey }).categories();
   }
 
   /**

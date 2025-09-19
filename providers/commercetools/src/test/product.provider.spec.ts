@@ -28,8 +28,35 @@ describe('Commercetools Product Provider', () => {
   it('should be able to get a product by id', async () => {
     const result = await provider.getById( { id: testData.product.id }, session);
 
+    expect(result).toBeTruthy();
     expect(result.identifier.key).toBe(testData.product.id);
+    expect(result.meta.placeholder).toBe(false);
     expect(result.name).toBe(testData.product.name);
     expect(result.image).toBe(testData.product.image);
+  });
+
+  it('should be able to get a product by slug', async () => {
+    const result = await provider.getBySlug( { slug: 'sunnai-glass-bowl' }, session);
+
+    expect(result).toBeTruthy();
+    if (result) {
+      expect(result.meta.placeholder).toBe(false);
+      expect(result.identifier.key).toBe(testData.product.id);
+      expect(result.name).toBe(testData.product.name);
+      expect(result.image).toBe(testData.product.image);
+    }
+  });
+
+  it('should return null for unknown slug', async () => {
+    const result = await provider.getBySlug( { slug: 'unknown-slug' }, session);
+
+    expect(result).toBeNull();
+  });
+
+  it('should return a placeholder product for unknown id', async () => {
+    const result = await provider.getById( { id: 'unknown-id' }, session);
+
+    expect(result).toBeTruthy();
+    expect(result.meta.placeholder).toBe(true);
   });
 });
