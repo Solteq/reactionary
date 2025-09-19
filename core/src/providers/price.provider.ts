@@ -40,7 +40,7 @@ export abstract class PriceProvider<
    * @param currency
    * @returns
    */
-  protected getEmptyPriceResult(sku: string, currency: Currency): T {
+  protected createEmptyPriceResult(sku: string, currency: Currency): T {
     const base = this.newModel();
     base.identifier = {
       sku: { key: sku }

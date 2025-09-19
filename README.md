@@ -37,3 +37,44 @@ The following is a short list of commonly used terms and phrases, to keep guessi
 - *Fake:* an implementation that provides a functional response, but with in a limited capacity. A fake provider may, for example, provide *Cart* functionality, but only store it in-memory and throw it away on a whim. As such it can be used for prototyping, but never for a production scenario.
 - *Product Analytics:* structured analytics that relate to how the the product is being used.
 - *Microsite:* an application of a limited scope. It may focus solely on this limited functionality, making it ideal for demonstration purposes.
+
+
+
+## TODO:
+
+
+
+### Core
+- [ ] Figure a way to get a correlation id from the caller
+- [ ] Maybe rework session so its not languageContext but requestContext, and this could have the correlation id in it?
+
+
+### Search
+- [ ] Add support for filters, not just facets
+
+### Marketing
+- [ ] Add marketing provider (input: (name, url, user, segments, productid, categoryid) => output { Array<Product | Category | Image | Text>}
+
+
+### Inventory
+- [ ] Invent and document some notational standard for cannel-key to purpose.
+- [ ] Be traced and cached
+
+### Profile
+- [ ] Be able to register new account
+- [ ] Create profile provider
+
+
+### Organization
+- [ ] Create organization provider
+- [ ] Create business user provider
+- [ ] Create role provider
+
+### Cart
+- [ ] Add B2B/organization identifier
+
+### Price
+- [ ] Add list price
+
+### Order
+- [ ] Add Order

@@ -40,7 +40,7 @@ export class CommercetoolsIdentityProvider<
 
         if (current.success) {
           current.data.meta = {
-            cache: { hit: false, key: session.identity.id || 'anonymous' },
+            cache: { hit: false, key: session.identity.id.userId || 'anonymous' },
             placeholder: false
           };
           return current.data;
@@ -66,16 +66,24 @@ export class CommercetoolsIdentityProvider<
     const base = this.newModel();
 
     if (remote && remote.access_token) {
+      base.id = { userId: this.extractCustomerIdFromScopes(remote.scope) };
+
+      base.keyring = base.keyring.filter(x => x.service !== 'commercetools');
+      base.keyring.push({
+        service: 'commercetools',
+        token: remote.access_token,
+        issued: new Date(),
+        expiry: new Date(new Date().getTime() + 3600 * 1000),
+      });
       base.issued = new Date();
       base.expiry = new Date();
       base.expiry.setSeconds(base.expiry.getSeconds() + remote.expires_in);
-      base.id = this.extractCustomerIdFromScopes(remote.scope);
       base.token = remote.access_token;
       base.type = 'Registered';
     }
 
     base.meta = {
-      cache: { hit: false, key: base.id || 'anonymous' },
+      cache: { hit: false, key: base.id.userId || 'anonymous' },
       placeholder: false
     };
 

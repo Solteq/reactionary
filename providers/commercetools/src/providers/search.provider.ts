@@ -28,15 +28,22 @@ export class CommercetoolsSearchProvider<
   }
 
   @traced()
+  protected getClient(session: Session) {
+    const token = session.identity.keyring.find(x => x.service === 'commercetools')?.token;
+    const client = new CommercetoolsClient(this.config).getClient(
+      token
+    );
+    return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
+  }
+
+
   public override async queryByTerm(
     payload: SearchQueryByTerm,
     session: Session
   ): Promise<T> {
-    const client = new CommercetoolsClient(this.config).createAnonymousClient();
+    const client = this.getClient(session);
 
     const remote = await client
-      .withProjectKey({ projectKey: this.config.projectKey })
-      .productProjections()
       .search()
       .get({
         queryArgs: {

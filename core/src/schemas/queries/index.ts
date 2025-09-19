@@ -1,5 +1,6 @@
 export * from './analytics.query';
 export * from './base.query';
+export * from './cart-payment.query';
 export * from './cart.query';
 export * from './category.query';
 export * from './identity.query';

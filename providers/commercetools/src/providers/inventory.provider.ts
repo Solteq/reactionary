@@ -25,6 +25,16 @@ export class CommercetoolsInventoryProvider<
     this.config = config;
   }
 
+  protected getClient(session: Session) {
+    const token = session.identity.keyring.find(x => x.service === 'commercetools')?.token;
+    const client = new CommercetoolsClient(this.config).getClient(
+      token
+    );
+    return client.withProjectKey({ projectKey: this.config.projectKey }).inventory();
+  }
+
+
+
   public override async getBySKU(
     payload: InventoryQuery,
     session: Session

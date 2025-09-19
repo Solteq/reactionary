@@ -1,29 +1,8 @@
 import { ClientBuilder } from '@commercetools/ts-client';
 import { createApiBuilderFromCtpClient } from '@commercetools/platform-sdk';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
+import { randomUUID } from 'crypto';
 
-const ANONYMOUS_SCOPES = [
-  'view_published_products',
-  'manage_shopping_lists',
-  'view_shipping_methods',
-  'manage_customers',
-  'view_product_selections',
-  'view_categories',
-  'view_project_settings',
-  'manage_order_edits',
-  'view_sessions',
-  'view_standalone_prices',
-  'manage_orders',
-  'view_tax_categories',
-  'view_cart_discounts',
-  'view_discount_codes',
-  'create_anonymous_token',
-  'manage_sessions',
-  'view_products',
-  'view_types',
-];
-const GUEST_SCOPES = [...ANONYMOUS_SCOPES];
-const REGISTERED_SCOPES = [...GUEST_SCOPES];
 
 export class CommercetoolsClient {
   protected config: CommercetoolsConfiguration;
@@ -41,14 +20,10 @@ export class CommercetoolsClient {
   }
 
   public async login(username: string, password: string) {
-    const scopes = REGISTERED_SCOPES.map(
-      (scope) => `${scope}:${this.config.projectKey}`
-    ).join(' ');
     const queryParams = new URLSearchParams({
       grant_type: 'password',
       username: username,
       password: password,
-      scope: scopes,
     });
     const url = `${this.config.authUrl}/oauth/${
       this.config.projectKey
@@ -65,12 +40,8 @@ export class CommercetoolsClient {
   }
 
   public async guest() {
-    const scopes = GUEST_SCOPES.map(
-      (scope) => `${scope}:${this.config.projectKey}`
-    ).join(' ');
     const queryParams = new URLSearchParams({
       grant_type: 'client_credentials',
-      scope: scopes,
     });
     const url = `${this.config.authUrl}/oauth/${
       this.config.projectKey
@@ -121,9 +92,7 @@ export class CommercetoolsClient {
   }
 
   public createAnonymousClient() {
-    const scopes = ANONYMOUS_SCOPES.map(
-      (scope) => `${scope}:${this.config.projectKey}`
-    ).join(' ');
+    const scopes = this.config.scopes;
     const builder = this.createBaseClientBuilder().withClientCredentialsFlow({
       host: this.config.authUrl,
       projectKey: this.config.projectKey,
@@ -131,7 +100,7 @@ export class CommercetoolsClient {
         clientId: this.config.clientId,
         clientSecret: this.config.clientSecret,
       },
-      scopes: [scopes],
+      scopes: [...scopes],
     });
 
     return createApiBuilderFromCtpClient(builder.build());
@@ -146,11 +115,33 @@ export class CommercetoolsClient {
     return createApiBuilderFromCtpClient(builder.build());
   }
 
+
+
+
+
+
+
   protected createBaseClientBuilder() {
     const builder = new ClientBuilder()
       .withProjectKey(this.config.projectKey)
       .withQueueMiddleware({
         concurrency: 20,
+      })
+      .withConcurrentModificationMiddleware({
+        concurrentModificationHandlerFn: (version: number, request: any) => {
+          // We basically ignore concurrency issues for now.
+          // And yes, ideally the frontend would handle this, but as the customer is not really in a position to DO anything about it,
+          // we might as well just deal with it here.....
+
+          console.log(`Concurrent modification error, retry with version ${version}`);
+          const body = request.body as Record<string, any>;
+          body['version'] = version;
+          return Promise.resolve(body);
+        },
+      })
+      .withCorrelationIdMiddleware({
+        // ideally this would be pushed in as part of the session context, so we can trace it end-to-end
+        generate: () => `REACTIONARY-${randomUUID()}`,
       })
       .withHttpMiddleware({
         retryConfig: {

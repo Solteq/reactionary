@@ -40,6 +40,15 @@ export const CategoryIdentifierSchema = z.looseObject({
   key: z.string().default('').nonoptional()
 });
 
+
+export const OrderIdentifierSchema = z.looseObject({
+    key: z.string().default('').nonoptional()
+});
+
+export const OrderItemIdentifierSchema = z.looseObject({
+    key: z.string().default('').nonoptional()
+});
+
 /**
  * The target store the user is interacting with. Can change over time, and is not necessarily the same as the default store.
  */
@@ -56,6 +65,27 @@ export const InventoryIdentifierSchema = z.looseObject({
     channelId: InventoryChannelIdentifierSchema.default(() => InventoryChannelIdentifierSchema.parse({})),
 });
 
+export const IdentityIdentifierSchema = z.looseObject({
+    userId: z.string().default('').nonoptional()
+});
+
+export const ShippingMethodIdentifier = z.looseObject({
+    key: z.string().default('').nonoptional()
+});
+
+export const PaymentMethodIdentifierSchema = z.looseObject({
+    method: z.string().default('').nonoptional(),
+    name: z.string().default('').nonoptional(),
+    paymentProcessor: z.string().default('').nonoptional()
+});
+
+export const AddressIdentifierSchema = z.looseObject({
+    nickName: z.string().default('').nonoptional()
+});
+
+export const PaymentInstructionIdentifierSchema = z.looseObject({
+    key: z.string().default('').nonoptional()
+});
 
 export type ProductIdentifier = z.infer<typeof ProductIdentifierSchema>;
 export type SearchIdentifier = z.infer<typeof SearchIdentifierSchema>;
@@ -68,6 +98,16 @@ export type CategoryIdentifier = z.infer<typeof CategoryIdentifierSchema>;
 export type WebStoreIdentifier = z.infer<typeof WebStoreIdentifierSchema>;
 export type InventoryIdentifier = z.infer<typeof InventoryIdentifierSchema>;
 export type InventoryChannelIdentifier = z.infer<typeof InventoryChannelIdentifierSchema>;
+export type IdentityIdentifier = z.infer<typeof IdentityIdentifierSchema>;
+export type ShippingMethodIdentifier = z.infer<typeof ShippingMethodIdentifier>;
+export type PaymentMethodIdentifier = z.infer<typeof PaymentMethodIdentifierSchema>;
+export type AddressIdentifier = z.infer<typeof AddressIdentifierSchema>;
+export type PaymentInstructionIdentifier = z.infer<typeof PaymentInstructionIdentifierSchema>;
+export type OrderIdentifier = z.infer<typeof OrderIdentifierSchema>;
+export type OrderItemIdentifier = z.infer<typeof OrderItemIdentifierSchema>;
 
-
-export type IdentifierType = ProductIdentifier | SearchIdentifier | FacetIdentifier | FacetValueIdentifier | CartIdentifier | CartItemIdentifier | PriceIdentifier | CategoryIdentifier | WebStoreIdentifier | InventoryIdentifier;
+export type IdentifierType = ProductIdentifier | SearchIdentifier | FacetIdentifier | FacetValueIdentifier
+                            | CartIdentifier | CartItemIdentifier | PriceIdentifier | CategoryIdentifier
+                            | WebStoreIdentifier | InventoryIdentifier | InventoryChannelIdentifier
+                            | IdentityIdentifier | ShippingMethodIdentifier | PaymentMethodIdentifier | AddressIdentifier | PaymentInstructionIdentifier
+                            | OrderIdentifier | OrderItemIdentifier;

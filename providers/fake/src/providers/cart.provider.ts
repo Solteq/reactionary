@@ -7,6 +7,15 @@ import {
   CartMutationItemQuantityChange,
   Session,
   Cache,
+  CartIdentifier,
+  CartMutationApplyCoupon,
+  CartMutationChangeCurrency,
+  CartMutationCheckout,
+  CartMutationDeleteCart,
+  CartMutationRemoveCoupon,
+  CartMutationSetBillingAddress,
+  CartMutationSetShippingInfo,
+  OrderIdentifier,
 } from '@reactionary/core';
 import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
@@ -76,7 +85,7 @@ export class FakeCartProvider<
     const cart = await this.getById({ cart: { key: cartId } }, session);
 
     const existingItemIndex = cart.items.findIndex(
-      item => item.product.key === payload.product.key
+      item => item.sku.key === payload.sku.key
     );
 
     if (existingItemIndex >= 0) {
@@ -86,7 +95,7 @@ export class FakeCartProvider<
 
       cart.items.push({
         identifier: { key: `item-${Date.now()}` },
-        product: payload.product,
+        sku: payload.sku,
         quantity: payload.quantity,
         price: {
           unitPrice: {
@@ -106,6 +115,9 @@ export class FakeCartProvider<
             currency: session.languageContext.currencyCode,
           },
         },
+        product: {
+          key: `product-for-${payload.sku.key}`,
+        }
       });
     }
 
@@ -138,13 +150,42 @@ export class FakeCartProvider<
     const item = cart.items.find(
       item => item.identifier.key === payload.item.key
     );
-
+    if (payload.quantity < 1) {
+      return cart;
+    }
     if (item) {
       item.quantity = payload.quantity;
     }
     this.recalculateCart(cart);
     return this.assert(cart);
   }
+
+
+  public override getActiveCartId(session: Session): Promise<CartIdentifier> {
+    throw new Error('Method not implemented.');
+  }
+  public override deleteCart(payload: CartMutationDeleteCart, session: Session): Promise<T> {
+    throw new Error('Method not implemented.');
+  }
+  public override setShippingInfo(payload: CartMutationSetShippingInfo, session: Session): Promise<T> {
+    throw new Error('Method not implemented.');
+  }
+  public override setBillingAddress(payload: CartMutationSetBillingAddress, session: Session): Promise<T> {
+    throw new Error('Method not implemented.');
+  }
+  public override applyCouponCode(payload: CartMutationApplyCoupon, session: Session): Promise<T> {
+    throw new Error('Method not implemented.');
+  }
+  public override removeCouponCode(payload: CartMutationRemoveCoupon, session: Session): Promise<T> {
+    throw new Error('Method not implemented.');
+  }
+  public override checkout(payload: CartMutationCheckout, session: Session): Promise<OrderIdentifier> {
+    throw new Error('Method not implemented.');
+  }
+  public override changeCurrency(payload: CartMutationChangeCurrency, session: Session): Promise<T> {
+    throw new Error('Method not implemented.');
+  }
+
 
 
 
@@ -163,4 +204,7 @@ export class FakeCartProvider<
       currency: cart.items[0]?.price.unitPrice.currency || 'USD',
     };
   }
+
+
+
 }

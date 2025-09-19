@@ -5,7 +5,8 @@ export const CommercetoolsConfigurationSchema = z.looseObject({
     authUrl: z.string(),
     apiUrl: z.string(),
     clientId: z.string(),
-    clientSecret: z.string()
+    clientSecret: z.string(),
+    scopes: z.array(z.string()).default(() => []),
 });
 
 export type CommercetoolsConfiguration = z.infer<typeof CommercetoolsConfigurationSchema>;

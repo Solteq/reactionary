@@ -33,7 +33,7 @@ export class FakePriceProvider<
   ): Promise<T> {
 
     if (payload.sku.key === 'unknown-sku') {
-      return this.getEmptyPriceResult(payload.sku.key, _session.languageContext.currencyCode);
+      return this.createEmptyPriceResult(payload.sku.key, _session.languageContext.currencyCode);
     }
 
     // Generate a simple hash from the SKU key string for seeding

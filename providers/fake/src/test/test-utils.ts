@@ -25,10 +25,15 @@ export function createAnonymousTestSession(): Session {
         cache: { hit: false, key: '' },
         placeholder: false,
       },
-      id: '',
+      id: { userId: 'anonymous' },
       token: undefined,
       issued: new Date(),
-      expiry: new Date(new Date().getTime() + 3600 * 1000), // 1 hour from now
+      expiry: new Date(new Date().getTime() + 3600 * 1000),
+      logonId: "",
+      createdAt: "",
+      updatedAt: "",
+      keyring: [],
+      currentService: undefined
     },
     languageContext: {
       locale: 'en-US',
