@@ -1,3 +1,12 @@
+import type {
+    Cache,
+    ProductProvider,
+    SearchProvider,
+    IdentityProvider,
+    CartProvider,
+    InventoryProvider,
+    PriceProvider,
+    CategoryProvider} from "@reactionary/core";
 import {
     CartSchema,
     IdentitySchema,
@@ -5,21 +14,13 @@ import {
     PriceSchema,
     ProductSchema,
     SearchResultSchema,
-    Cache,
     CategorySchema,
-    ProductProvider,
-    SearchProvider,
-    IdentityProvider,
-    CartProvider,
-    InventoryProvider,
-    PriceProvider,
-    CategoryProvider,
     CartPaymentInstructionSchema
 } from "@reactionary/core";
-import { CommercetoolsCapabilities } from "../schema/capabilities.schema";
+import type { CommercetoolsCapabilities } from "../schema/capabilities.schema";
 import { CommercetoolsSearchProvider } from "../providers/search.provider";
 import { CommercetoolsProductProvider } from '../providers/product.provider';
-import { CommercetoolsConfiguration } from "../schema/configuration.schema";
+import type { CommercetoolsConfiguration } from "../schema/configuration.schema";
 import { CommercetoolsIdentityProvider } from "../providers/identity.provider";
 import { CommercetoolsCartProvider } from "../providers/cart.provider";
 import { CommercetoolsInventoryProvider } from "../providers/inventory.provider";

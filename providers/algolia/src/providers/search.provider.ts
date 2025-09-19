@@ -1,15 +1,15 @@
 import {
+  type SearchQueryByTerm,
+  type SearchResult,
+  type SearchResultFacet,
+  type SearchResultProduct,
+  type RequestContext,
+  type Cache,
   SearchProvider,
-  SearchQueryByTerm,
-  SearchResult,
-  SearchResultFacet,
-  SearchResultProduct,
-  Session, RequestContext,
-  Cache,
 } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
-import { z } from 'zod';
-import { AlgoliaConfiguration } from '../schema/configuration.schema';
+import type { z } from 'zod';
+import type { AlgoliaConfiguration } from '../schema/configuration.schema';
 
 export class AlgoliaSearchProvider<
   T extends SearchResult = SearchResult

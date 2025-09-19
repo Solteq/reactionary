@@ -1,14 +1,13 @@
 import {
-  ProductProvider,
-  Product,
-  Cache,
+  ProductProvider
 } from '@reactionary/core';
 import { CommercetoolsClient } from '../core/client';
-import { z } from 'zod';
-import { CommercetoolsConfiguration } from '../schema/configuration.schema';
-import { ProductProjection } from '@commercetools/platform-sdk';
+import type { z } from 'zod';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
+import type { ProductProjection } from '@commercetools/platform-sdk';
 import { traced } from '@reactionary/otel';
-import type { ProductQueryById, ProductQueryBySlug, RequestContext, Session } from '@reactionary/core';
+import type { Product, ProductQueryById, ProductQueryBySlug, RequestContext } from '@reactionary/core';
+import { Cache } from '@reactionary/core';
 
 export class CommercetoolsProductProvider<
   T extends Product = Product

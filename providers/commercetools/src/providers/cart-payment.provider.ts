@@ -1,7 +1,8 @@
 
-import { CommercetoolsConfiguration } from "../schema/configuration.schema";
+import type { CommercetoolsConfiguration } from "../schema/configuration.schema";
 import { CommercetoolsClient } from "../core/client";
-import { Payment as CTPayment, PaymentStatus } from "@commercetools/platform-sdk";
+import type { Payment as CTPayment} from "@commercetools/platform-sdk";
+import { PaymentStatus } from "@commercetools/platform-sdk";
 import { traced } from "@reactionary/otel";
 import { CommercetoolsCartIdentifier, CommercetoolsCartIdentifierSchema, CommercetoolsCartPaymentInstructionIdentifierSchema } from "../schema/commercetools.schema";
 import { Cache, CartPaymentInstruction,  CartPaymentProvider, Currency, PaymentMethodIdentifierSchema,  } from "@reactionary/core";

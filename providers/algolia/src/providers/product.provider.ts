@@ -3,11 +3,11 @@ import {
   ProductProvider,
   ProductQueryById,
   ProductQueryBySlug,
-  Session, RequestContext,
+  RequestContext,
   Cache
 } from '@reactionary/core';
-import { z } from 'zod';
-import { AlgoliaConfiguration } from '../schema/configuration.schema';
+import type { z } from 'zod';
+import type { AlgoliaConfiguration } from '../schema/configuration.schema';
 
 export class AlgoliaProductProvider<
   T extends Product = Product

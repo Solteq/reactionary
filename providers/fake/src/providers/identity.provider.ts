@@ -1,14 +1,14 @@
 import {
-  Identity,
+  type Identity,
+  type IdentityQuerySelf,
+  type IdentityMutationLogin,
+  type IdentityMutationLogout,
+  type RequestContext,
+  type Cache,
   IdentityProvider,
-  IdentityQuerySelf,
-  IdentityMutationLogin,
-  IdentityMutationLogout,
-  Session, RequestContext,
-  Cache,
 } from '@reactionary/core';
-import z from 'zod';
-import { FakeConfiguration } from '../schema/configuration.schema';
+import type z from 'zod';
+import type { FakeConfiguration } from '../schema/configuration.schema';
 import { base, en, Faker } from '@faker-js/faker';
 
 export class FakeIdentityProvider<

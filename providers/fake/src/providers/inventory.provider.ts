@@ -1,12 +1,14 @@
-import {
+import type {
   Inventory,
-  InventoryProvider,
-  InventoryQuery,
   Session, RequestContext,
   Cache,
+  InventoryQueryBySKU
 } from '@reactionary/core';
-import z from 'zod';
-import { FakeConfiguration } from '../schema/configuration.schema';
+import {
+  InventoryProvider
+} from '@reactionary/core';
+import type z from 'zod';
+import type { FakeConfiguration } from '../schema/configuration.schema';
 import { base, en, Faker } from '@faker-js/faker';
 
 export class FakeInventoryProvider<
@@ -21,7 +23,7 @@ export class FakeInventoryProvider<
   }
 
   public override async getBySKU(
-    payload: InventoryQuery,
+    payload: InventoryQueryBySKU,
     _reqCtx: RequestContext
   ): Promise<T> {
     // Generate a simple hash from the SKU string for seeding
@@ -40,10 +42,8 @@ export class FakeInventoryProvider<
     const model = this.newModel();
 
     model.identifier = {
-      sku: { key: skuString},
-      channelId: {
-        key: 'online'
-      },
+      sku: payload.sku,
+      fulfillmentCenter: payload.fulfilmentCenter
     };
     model.sku = skuString;
 

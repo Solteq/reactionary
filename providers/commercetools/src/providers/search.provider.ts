@@ -8,8 +8,8 @@ import type {
 } from '@reactionary/core';
 
 import { CommercetoolsClient } from '../core/client';
-import z from 'zod';
-import { CommercetoolsConfiguration } from '../schema/configuration.schema';
+import type z from 'zod';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { traced } from '@reactionary/otel';
 
 export class CommercetoolsSearchProvider<

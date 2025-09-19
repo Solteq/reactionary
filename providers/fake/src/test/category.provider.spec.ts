@@ -1,21 +1,24 @@
-import 'dotenv/config'
-
-
-import { CategorySchema, NoOpCache, RequestContext, Session , createInitialRequestContext,} from '@reactionary/core';
+import 'dotenv/config';
+import { CategorySchema, MemoryCache, RequestContext , createInitialRequestContext,} from '@reactionary/core';
 import { FakeCategoryProvider } from '../providers';
-import {  getFakerTestConfiguration } from './test-utils';
+import { getFakerTestConfiguration } from './test-utils';
+
 describe('Faker Category Provider', () => {
   let provider: FakeCategoryProvider;
   let reqCtx: RequestContext;
+  const cache = new MemoryCache();
 
-
-
-  beforeAll( () => {
-    provider = new FakeCategoryProvider(getFakerTestConfiguration(), CategorySchema, new NoOpCache());
+  beforeAll(() => {
+    provider = new FakeCategoryProvider(
+      getFakerTestConfiguration(),
+      CategorySchema,
+      cache
+    );
   });
 
   beforeEach( () => {
-    reqCtx = createInitialRequestContext()
+    reqCtx = createInitialRequestContext();
+    cache.clear();
   })
 
   it('should be able to get top-categories', async () => {
@@ -38,9 +41,7 @@ describe('Faker Category Provider', () => {
 
     expect(result.items[1].identifier.key).toBe('grocery-1');
     expect(result.items[1].name).toBe('Grocery-1');
-
   });
-
 
   it('should be able to get child categories for a category, paged', async () => {
     let result = await provider.findChildCategories({ parentId: { key: 'grocery' }, paginationOptions: { pageSize: 1, pageNumber: 1 }}, reqCtx);
@@ -64,7 +65,6 @@ describe('Faker Category Provider', () => {
     expect(result.pageNumber).toBe(2);
   });
 
-
   it('can load all breadcrumbs for a category', async () => {
     const result = await provider.getBreadcrumbPathToCategory({ id: { key: 'grocery-0-0' } }, reqCtx);
 
@@ -80,9 +80,7 @@ describe('Faker Category Provider', () => {
     expect(result[2].identifier.key).toBe('grocery-0-0');
     expect(result[2].name).toBe('Grocery-0-0');
     expect(result[2].slug).toBe('grocery-0-0-slug');
-
   });
-
 
   it('should be able to get a category by slug', async () => {
     const result = await provider.getBySlug({ slug: 'grocery-slug' }, reqCtx);
@@ -92,7 +90,7 @@ describe('Faker Category Provider', () => {
       expect(result.name).toBe('Grocery');
       expect(result.slug).toBe('grocery-slug');
       expect(result.parentCategory).toBeUndefined();
-      expect(result.text).not.toBe("");
+      expect(result.text).not.toBe('');
       expect(result.meta.placeholder).toBe(false);
     }
   });
@@ -102,8 +100,6 @@ describe('Faker Category Provider', () => {
     expect(result).toBeNull();
   });
 
-
-
   it('should be able to get a category by id', async () => {
     const result = await provider.getById({ id: { key: 'grocery'}}, reqCtx);
 
@@ -112,21 +108,42 @@ describe('Faker Category Provider', () => {
     expect(result.slug).toBe('grocery-slug');
     expect(result.parentCategory).toBeUndefined();
 
-    expect(result.text).not.toBe("");
+    expect(result.text).not.toBe('');
     expect(result.meta.placeholder).toBe(false);
-
   });
-
-
-
-
 
   it('returns a placeholder if you search for a category that does not exist', async () => {
     const result = await provider.getById({ id: { key: 'non-existent-category'}}, reqCtx);
     expect(result.identifier.key).toBe('non-existent-category');
     expect(result.meta.placeholder).toBe(true);
-
   });
 
+  describe('caching', () => {
+    // TODO: These should probably be elsewhere, since they are really testing the caches and the decorator together.
+    // Perhaps as an integration test
 
+    it('should cache the results for byId', async () => {
+      const first = await provider.getById({ id: { key: 'grocery' } }, reqCtx);
+      expect(first.meta.cache.hit).toBe(false);
+
+      const second = await provider.getById(
+        { id: { key: 'grocery' } },
+        reqCtx
+      );
+      expect(second.meta.cache.hit).toBe(true);
+    });
+
+    it('can clear a cache entry by dependency id', async () => {
+      const first = await provider.getById({ id: { key: 'grocery' } }, reqCtx);
+
+      const dependencyIds = provider.generateDependencyIdsForModel(first);
+      await cache.invalidate(dependencyIds);
+
+      const second = await provider.getById(
+        { id: { key: 'grocery' } },
+        reqCtx
+      );
+      expect(second.meta.cache.hit).toBe(false);
+    });
+  });
 });

@@ -1,9 +1,7 @@
 import {
-  Cart,
   CartItemSchema,
   CartProvider,
-  Cache,
-  Currency,
+  Cache
 } from '@reactionary/core';
 import type {
   CartMutationItemAdd,
@@ -16,18 +14,21 @@ import type {
   CartMutationRemoveCoupon, CartMutationSetBillingAddress,
   CartMutationSetShippingInfo,
   CartMutationChangeCurrency, OrderIdentifier,
-  RequestContext
+  RequestContext,
+  Cart,
+  Currency
 } from '@reactionary/core';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { z } from 'zod';
 import { CommercetoolsClient } from '../core/client';
-import {
+import type {
   Cart as CTCart,
   MyCartUpdateAction,
 } from '@commercetools/platform-sdk';
 import { traced } from '@reactionary/otel';
+import type {
+  CommercetoolsCartIdentifier} from '../schema/commercetools.schema';
 import {
-  CommercetoolsCartIdentifier,
   CommercetoolsCartIdentifierSchema,
   CommercetoolsOrderIdentifierSchema,
 } from '../schema/commercetools.schema';

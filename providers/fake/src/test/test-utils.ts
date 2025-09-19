@@ -1,4 +1,3 @@
-import { RequestContext, Session } from '@reactionary/core';
 import { FakeConfiguration } from '../schema/configuration.schema';
 
 export function getFakerTestConfiguration(): FakeConfiguration {

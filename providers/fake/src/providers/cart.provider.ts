@@ -1,6 +1,5 @@
-import {
+import type {
   Cart,
-  CartProvider,
   CartQueryById,
   CartMutationItemAdd,
   CartMutationItemRemove,
@@ -15,10 +14,12 @@ import {
   CartMutationRemoveCoupon,
   CartMutationSetBillingAddress,
   CartMutationSetShippingInfo,
-  OrderIdentifier,
+  OrderIdentifier} from '@reactionary/core';
+import {
+  CartProvider
 } from '@reactionary/core';
-import z from 'zod';
-import { FakeConfiguration } from '../schema/configuration.schema';
+import type z from 'zod';
+import type { FakeConfiguration } from '../schema/configuration.schema';
 import { Faker, en, base } from '@faker-js/faker';
 
 export class FakeCartProvider<

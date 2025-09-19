@@ -1,6 +1,6 @@
-import { Product } from '../schemas/models/product.model';
+import type { Product } from '../schemas/models/product.model';
 import { BaseProvider } from './base.provider';
-import { RequestContext, Session } from '../schemas/session.schema';
+import { RequestContext } from '../schemas/session.schema';
 import { ProductQueryById, ProductQueryBySlug } from '../schemas/queries/product.query';
 
 export abstract class ProductProvider<

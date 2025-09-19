@@ -1,5 +1,5 @@
 import { CapabilitiesSchema } from "@reactionary/core";
-import { z } from 'zod';
+import type { z } from 'zod';
 
 export const FakeCapabilitiesSchema = CapabilitiesSchema.pick({
     product: true,

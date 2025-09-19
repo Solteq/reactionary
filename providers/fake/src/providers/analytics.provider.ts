@@ -1,10 +1,11 @@
-import {
-  AnalyticsProvider,
+import type {
   BaseModel,
-  Cache,
+  Cache} from '@reactionary/core';
+import {
+  AnalyticsProvider
 } from '@reactionary/core';
-import z from 'zod';
-import { FakeConfiguration } from '../schema/configuration.schema';
+import type z from 'zod';
+import type { FakeConfiguration } from '../schema/configuration.schema';
 
 export class FakeAnalyticsProvider<
   T extends BaseModel = BaseModel

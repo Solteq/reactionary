@@ -1,4 +1,5 @@
-import { metrics, Meter, Counter, Histogram, UpDownCounter } from '@opentelemetry/api';
+import type { Meter, Counter, Histogram, UpDownCounter } from '@opentelemetry/api';
+import { metrics } from '@opentelemetry/api';
 
 const METER_NAME = '@reactionary/otel';
 const METER_VERSION = '0.0.1';

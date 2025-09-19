@@ -1,13 +1,13 @@
 import {
-  Identity,
-  IdentityMutationLogin,
+  type Identity,
+  type IdentityMutationLogin,
+  type IdentityQuerySelf,
+  type Session, type RequestContext,
+  type Cache,
   IdentityProvider,
-  IdentityQuerySelf,
-  Session, RequestContext,
-  Cache,
 } from '@reactionary/core';
-import { CommercetoolsConfiguration } from '../schema/configuration.schema';
-import z from 'zod';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
+import type z from 'zod';
 import { CommercetoolsClient } from '../core/client';
 
 export class CommercetoolsIdentityProvider<

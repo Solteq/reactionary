@@ -1,9 +1,10 @@
+import type {
+  Cache,
+  Product} from '@reactionary/core';
 import {
   ClientBuilder,
-  Cache,
   NoOpCache,
-  ProductSchema,
-  Product,
+  ProductSchema
 } from '@reactionary/core';
 import {
   FakeProductProvider,

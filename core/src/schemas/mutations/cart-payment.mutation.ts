@@ -1,4 +1,4 @@
-import z from "zod";
+import type z from "zod";
 import { CartIdentifierSchema, PaymentInstructionIdentifierSchema } from "../models/identifiers.model";
 import { PaymentInstructionSchema } from "../models/payment.model";
 import { BaseMutationSchema } from "./base.mutation";

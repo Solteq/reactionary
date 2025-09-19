@@ -3,7 +3,7 @@ import type { Session, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForB
 import z from "zod";
 import { CommercetoolsConfiguration } from "../schema/configuration.schema";
 import { CommercetoolsClient } from "../core/client";
-import { ByProjectKeyCategoriesRequestBuilder, CategoryPagedQueryResponse, Category as CTCategory } from "@commercetools/platform-sdk";
+import type { ByProjectKeyCategoriesRequestBuilder, CategoryPagedQueryResponse, Category as CTCategory } from "@commercetools/platform-sdk";
 import { traced } from "@reactionary/otel";
 
 export class CommercetoolsCategoryProvider<

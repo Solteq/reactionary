@@ -1,12 +1,12 @@
 import {
-  Price,
+  type Price,
+  type PriceQueryBySku,
+  type RequestContext,
+  type Cache,
   PriceProvider,
-  PriceQueryBySku,
-  Session, RequestContext,
-  Cache,
 } from '@reactionary/core';
-import z from 'zod';
-import { FakeConfiguration } from '../schema/configuration.schema';
+import type z from 'zod';
+import type { FakeConfiguration } from '../schema/configuration.schema';
 import { base, en, Faker } from '@faker-js/faker';
 
 export class FakePriceProvider<

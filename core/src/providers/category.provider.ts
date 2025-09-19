@@ -1,10 +1,9 @@
 
 
 import { PaginationOptions } from "../schemas/models/base.model";
-import { Category } from "../schemas/models/category.model";
+import type { Category } from "../schemas/models/category.model";
 import { CategoryIdentifier } from "../schemas/models/identifiers.model";
-import { CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories } from "../schemas/queries/category.query";
-
+import type { CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories } from "../schemas/queries/category.query";
 import { RequestContext, Session } from "../schemas/session.schema";
 import { BaseProvider } from "./base.provider";
 

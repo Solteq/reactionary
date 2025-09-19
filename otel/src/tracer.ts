@@ -1,12 +1,13 @@
-import { 
-  trace, 
+import type { 
   Tracer, 
-  Span, 
-  SpanStatusCode,
-  context as otelContext,
+  Span,
   Context,
   SpanOptions,
-  Attributes,
+  Attributes} from '@opentelemetry/api';
+import { 
+  trace, 
+  SpanStatusCode,
+  context as otelContext
 } from '@opentelemetry/api';
 
 const TRACER_NAME = '@reactionary/otel';
