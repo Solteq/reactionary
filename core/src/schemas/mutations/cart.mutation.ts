@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BaseMutationSchema } from './base.mutation';
-import { CartIdentifierSchema, CartItemIdentifierSchema, PaymentMethodIdentifierSchema, ShippingMethodIdentifier, SKUIdentifierSchema } from '../models/identifiers.model';
+import { CartIdentifierSchema, CartItemIdentifierSchema, PaymentMethodIdentifierSchema, ShippingMethodIdentifierSchema, SKUIdentifierSchema } from '../models/identifiers.model';
 import { AddressSchema } from '../models/profile.model';
 import { CurrencySchema } from '../models/currency.model';
 import { MonetaryAmountSchema } from '../models/price.model';
@@ -28,7 +28,7 @@ export const CartMutationDeleteCartSchema = BaseMutationSchema.extend({
 
 export const CartMutationSetShippingInfoSchema = BaseMutationSchema.extend({
     cart: CartIdentifierSchema.required(),
-    shippingMethod: ShippingMethodIdentifier.optional(),
+    shippingMethod: ShippingMethodIdentifierSchema.optional(),
     shippingAddress: AddressSchema.optional(),
 });
 

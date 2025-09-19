@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import type { z } from 'zod';
 import { BaseQuerySchema } from './base.query';
 
 export const IdentityQuerySelfSchema = BaseQuerySchema.extend({

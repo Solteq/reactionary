@@ -1,5 +1,5 @@
 import { Price, PriceProvider, Cache, Currency, TieredPriceSchema, TieredPrice } from '@reactionary/core';
-import type { PriceQueryBySku, RequestContext, Session } from '@reactionary/core';
+import type { PriceQueryBySku, RequestContext } from '@reactionary/core';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';

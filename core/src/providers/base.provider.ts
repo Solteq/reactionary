@@ -1,22 +1,22 @@
-import { z } from 'zod';
-import { BaseModel, createPaginatedResponseSchema } from '../schemas/models/base.model';
-import { Cache } from '../cache/cache.interface';
-import { RequestContext, Session } from '../schemas/session.schema';
-import { IdentifierType } from '../schemas/models/identifiers.model';
+import type { z } from 'zod';
+import type {
+  BaseModel} from '../schemas/models/base.model';
+import {
+  createPaginatedResponseSchema,
+} from '../schemas/models/base.model';
+import type { Cache } from '../cache/cache.interface';
+import type { RequestContext, Session } from '../schemas/session.schema';
+import type { IdentifierType } from '../schemas/models/identifiers.model';
+import { hasher } from "node-object-hash";
 
 /**
  * Base capability provider, responsible for mutations (changes) and queries (fetches)
  * for a given business object domain.
  */
-export abstract class BaseProvider<
-  T extends BaseModel = BaseModel
-> {
+export abstract class BaseProvider<T extends BaseModel = BaseModel> {
   protected cache: Cache;
 
-  constructor(
-    public readonly schema: z.ZodType<T>,
-    cache: Cache
-  ) {
+  constructor(public readonly schema: z.ZodType<T>, cache: Cache) {
     this.cache = cache;
   }
 
@@ -49,8 +49,37 @@ export abstract class BaseProvider<
   protected parsePaginatedResult(_body: unknown, reqCtx: RequestContext): z.infer<ReturnType<typeof createPaginatedResponseSchema<typeof this.schema>>> {
     return createPaginatedResponseSchema(this.schema).parse({});
   }
+  
+  public generateDependencyIdsForModel(model: unknown): Array<string> {
+    // TODO: Messy because we can't guarantee that a model has an identifier (type-wise)
+   const identifier = (model as any)?.identifier;
 
-  protected generateCacheKeyPaginatedResult(resultSetName: string, res:  ReturnType<typeof this.parsePaginatedResult>, reqCtx: RequestContext): string {
+   if (!identifier) {
+    return [];
+   }
+
+   const h = hasher({ sort: true, coerce: false });
+   const hash = h.hash(identifier);
+
+   return [hash];
+  }
+
+  protected generateCacheKeyForQuery(scope: string, query: object): string {
+    const h = hasher({ sort: true, coerce: false });
+
+    const queryHash = h.hash(query);
+
+    // TODO: This really should include the internationalization parts as well (locale, currency, etc), or at least provide the option
+    // for specifying in the decorator whether they do (eg categories don't really seem to depend on currency...)
+
+    return `${scope}:${queryHash}`;
+  }
+
+  protected generateCacheKeyPaginatedResult(
+    resultSetName: string,
+    res: ReturnType<typeof this.parsePaginatedResult>,
+    reqCtx: RequestContext
+  ): string {
     const type = this.getResourceName();
     const langPart = reqCtx.languageContext.locale;
     const currencyPart = reqCtx.languageContext.currencyCode || 'default';
@@ -58,18 +87,25 @@ export abstract class BaseProvider<
     return `${type}-${resultSetName}-paginated|pageNumber:${res.pageNumber}|pageSize:${res.pageSize}|store:${storePart}|lang:${langPart}|currency:${currencyPart}`;
   }
 
-
-  protected generateCacheKeySingle(identifier: IdentifierType, reqCtx: RequestContext): string {
+  protected generateCacheKeySingle(
+    identifier: IdentifierType,
+    reqCtx: RequestContext
+  ): string {
     const type = this.getResourceName();
-    const idPart = Object.entries(identifier).map(([k, v]) => `${k}:${(v as any).key}`).join('#');
+
+    const idPart = Object.entries(identifier)
+      .map(([k, v]) => `${k}:${v}`)
+      .join('#');
+
     const langPart = reqCtx.languageContext.locale;
     const currencyPart = reqCtx.languageContext.currencyCode || 'default';
     const storePart = reqCtx.storeIdentifier?.key || 'default';
+
     return `${type}-${idPart}|store:${storePart}|lang:${langPart}|currency:${currencyPart}`;
   }
 
   /**
    * Returns the abstract resource name provided by the remote system.
    */
-  protected abstract getResourceName(): string ;
+  protected abstract getResourceName(): string;
 }

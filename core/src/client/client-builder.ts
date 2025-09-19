@@ -1,7 +1,7 @@
-import { Cache } from "../cache/cache.interface";
+import type { Cache } from "../cache/cache.interface";
 import { NoOpCache } from "../cache/noop-cache";
-import { Client } from "./client";
-import { AnalyticsProvider } from "../providers/analytics.provider";
+import type { Client } from "./client";
+import type { AnalyticsProvider } from "../providers/analytics.provider";
 
 type CapabilityFactory<T> = (cache: Cache) => T;
 

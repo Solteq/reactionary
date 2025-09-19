@@ -1,6 +1,6 @@
 export * from './cache/cache.interface';
-export * from './cache/cache-evaluation.interface';
 export * from './cache/redis-cache';
+export * from './cache/memory-cache';
 export * from './cache/noop-cache';
 
 export * from './client/client';

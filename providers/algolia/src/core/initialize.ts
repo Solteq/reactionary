@@ -1,8 +1,9 @@
-import { Client, ProductSchema, Cache } from "@reactionary/core";
+import type { Client, Cache } from "@reactionary/core";
+import { ProductSchema } from "@reactionary/core";
 import { AlgoliaProductProvider } from "../providers/product.provider";
 import { AlgoliaSearchProvider } from "../providers/search.provider";
-import { AlgoliaCapabilities } from "../schema/capabilities.schema";
-import { AlgoliaConfiguration } from "../schema/configuration.schema";
+import type { AlgoliaCapabilities } from "../schema/capabilities.schema";
+import type { AlgoliaConfiguration } from "../schema/configuration.schema";
 import { AlgoliaSearchResultSchema } from "../schema/search.schema";
 
 export function withAlgoliaCapabilities(configuration: AlgoliaConfiguration, capabilities: AlgoliaCapabilities) {

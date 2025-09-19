@@ -1,9 +1,6 @@
 import 'dotenv/config';
-
-
 import { NoOpCache, PriceSchema, RequestContext, createInitialRequestContext } from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils';
-
 import { FakePriceProvider } from '../providers/price.provider';
 
 const testData = {
@@ -11,12 +8,9 @@ const testData = {
   skuWithTiers: 'GMCT-01-with-tiers'
 }
 
-
 describe('Fake Price Provider', () => {
   let provider: FakePriceProvider;
   let reqCtx: RequestContext;
-
-
 
   beforeAll( () => {
     provider = new FakePriceProvider(getFakerTestConfiguration(), PriceSchema, new NoOpCache());

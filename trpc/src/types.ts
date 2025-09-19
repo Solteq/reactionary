@@ -1,8 +1,8 @@
 import {
-  BaseProvider,
   Client,
   RequestContext,
-  Session
+  Session,
+  BaseProvider
 } from '@reactionary/core';
 
 /**

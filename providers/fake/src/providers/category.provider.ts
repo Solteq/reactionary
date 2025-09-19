@@ -70,17 +70,16 @@ export class FakeCategoryProvider<
     });
   }
 
-
-
   public override async getById(payload: CategoryQueryById, reqCtx: RequestContext): Promise<T> {
     const category = this.allCategories.get(payload.id.key);
+    
     if(!category) {
       const dummyCategory = this.newModel();
       dummyCategory.meta.placeholder = true;
       dummyCategory.identifier = { key: payload.id.key };
       return dummyCategory;
     }
-    return  category;
+    return category;
   }
   public override getBySlug(payload: CategoryQueryBySlug, reqCtx: RequestContext): Promise<T | null> {
     for(const p of this.allCategories.values()) {

@@ -1,4 +1,10 @@
-import { z } from 'zod';
+import type { z } from 'zod';
+import type { BaseModel } from '../schemas/models';
+
+export interface CacheEntryOptions {
+  ttlSeconds: number;
+  dependencyIds: Array<string>;
+}
 
 /**
  * Generic cache interface that can be implemented by different cache backends
@@ -8,31 +14,21 @@ export interface Cache {
   /**
    * Retrieves a value from cache and validates it against the provided schema
    */
-  get<T>(key: string, schema: z.ZodType<T>): Promise<T | null>;
+  get<T extends BaseModel>(key: string, schema: z.ZodType<T>): Promise<T | null>;
 
   /**
    * Stores a value in cache with optional expiration time
    */
-  put(key: string, value: unknown, ttlSeconds?: number): Promise<void>;
+  put(key: string, value: unknown, options: CacheEntryOptions): Promise<void>;
 
   /**
-   * Removes one or more keys from cache
-   * Supports wildcard patterns (implementation dependent)
+   * Removes entries from the cache based on a set of dependency
+   * ids
    */
-  del(keys: string | string[]): Promise<void>;
+  invalidate(dependencyIds: Array<string>): Promise<void>;
 
   /**
-   * Finds all keys matching a pattern (implementation dependent)
+   * Removes all entries from cache, wiping it completely
    */
-  keys(pattern: string): Promise<string[]>;
-
-  /**
-   * Clears all cache entries or entries matching a pattern
-   */
-  clear(pattern?: string): Promise<void>;
-
-  /**
-   * Gets basic cache statistics (implementation dependent)
-   */
-  getStats(): Promise<{ hits: number; misses: number; size: number }>;
+  clear(): Promise<void>;
 }

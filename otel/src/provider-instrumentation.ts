@@ -1,4 +1,5 @@
-import { Span, SpanKind } from '@opentelemetry/api';
+import type { Span} from '@opentelemetry/api';
+import { SpanKind } from '@opentelemetry/api';
 import { withSpan, setSpanAttributes } from './tracer';
 import { getMetrics } from './metrics';
 

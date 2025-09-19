@@ -1,8 +1,9 @@
-import { ProductSchema, SearchResultSchema, Cache as ReactinaryCache, ProductProvider, SearchProvider, IdentityProvider, CategorySchema, CategoryProvider, CartSchema, CartProvider } from "@reactionary/core";
+import type { Cache as ReactinaryCache, ProductProvider, SearchProvider, IdentityProvider, CategoryProvider, CartProvider } from "@reactionary/core";
+import { ProductSchema, SearchResultSchema, CategorySchema, CartSchema } from "@reactionary/core";
 import { FakeProductProvider } from "../providers/product.provider";
 import { FakeSearchProvider } from "../providers/search.provider";
-import { FakeConfiguration } from "../schema/configuration.schema";
-import { FakeCapabilities } from "../schema/capabilities.schema";
+import type { FakeConfiguration } from "../schema/configuration.schema";
+import type { FakeCapabilities } from "../schema/capabilities.schema";
 import { FakeCategoryProvider } from "../providers/category.provider";
 import { FakeCartProvider } from "../providers";
 

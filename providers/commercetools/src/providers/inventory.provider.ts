@@ -1,15 +1,13 @@
-import {
+import type {
   Inventory,
-  InventoryProvider,
-  InventoryQuery,
-  Session, RequestContext,
+  RequestContext,
   Cache,
-  LanguageContext,
-} from '@reactionary/core';
-import z from 'zod';
-import { CommercetoolsConfiguration } from '../schema/configuration.schema';
+  InventoryQueryBySKU } from '@reactionary/core';
+import { InventoryProvider } from '@reactionary/core';
+import type z from 'zod';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';
-import { InventoryEntry as CTInventory } from '@commercetools/platform-sdk';
+import type { InventoryEntry as CTInventory } from '@commercetools/platform-sdk';
 export class CommercetoolsInventoryProvider<
   T extends Inventory = Inventory
 > extends InventoryProvider<T> {
@@ -36,7 +34,7 @@ export class CommercetoolsInventoryProvider<
 
 
   public override async getBySKU(
-    payload: InventoryQuery,
+    payload: InventoryQueryBySKU,
     reqCtx: RequestContext
   ): Promise<T> {
     const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
@@ -60,9 +58,9 @@ export class CommercetoolsInventoryProvider<
 
       model.identifier = {
         sku: { key: body.sku },
-        channelId: {
-          key: body.supplyChannel?.id || 'online'
-        },
+        fulfillmentCenter: {
+          key: body.supplyChannel?.id || ''
+        }
       };
       model.sku = body.sku;
       model.quantity = body.availableQuantity;

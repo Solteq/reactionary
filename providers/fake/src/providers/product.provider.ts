@@ -1,15 +1,15 @@
 import {
-  Product,
+  type Product,
+  type ProductQueryById,
+  type ProductQueryBySlug,
+  type RequestContext,
+  type Cache as ReactinaryCache,
   ProductProvider,
-  ProductQueryById,
-  ProductQueryBySlug,
-  Session, RequestContext,
-  Cache as ReactinaryCache,
+  Reactionary,
 } from '@reactionary/core';
-import z from 'zod';
-import { FakeConfiguration } from '../schema/configuration.schema';
+import type z from 'zod';
+import type { FakeConfiguration } from '../schema/configuration.schema';
 import { base, en, Faker } from '@faker-js/faker';
-import { traced } from '@reactionary/otel';
 
 export class FakeProductProvider<
   T extends Product = Product
@@ -22,6 +22,7 @@ export class FakeProductProvider<
     this.config = config;
   }
 
+  @Reactionary({})
   public override async getById(
     payload: ProductQueryById,
     _reqCtx: RequestContext
@@ -30,7 +31,6 @@ export class FakeProductProvider<
   }
 
   // FIXME: Should we have a get-by-sku here? Since thats whats coming back on cart items...
-
 
   public override async getBySlug(
     payload: ProductQueryBySlug,

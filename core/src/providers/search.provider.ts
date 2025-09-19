@@ -1,6 +1,6 @@
 import { SearchResult } from '../schemas/models/search.model';
 import { SearchQueryByTerm } from '../schemas/queries/search.query';
-import { RequestContext, Session } from '../schemas/session.schema';
+import { RequestContext } from '../schemas/session.schema';
 import { BaseProvider } from './base.provider';
 
 export abstract class SearchProvider<

@@ -1,5 +1,3 @@
-import { RequestContext } from "@reactionary/core";
-
 export function getCommercetoolsTestConfiguration() {
   return {
         apiUrl: process.env['CTP_API_URL'] || '',

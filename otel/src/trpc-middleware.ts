@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
-import { 
-  Span,
+import type { 
+  Span} from '@opentelemetry/api';
+import {
   SpanKind,
   SpanStatusCode,
 } from '@opentelemetry/api';
