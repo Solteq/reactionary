@@ -1,4 +1,4 @@
-import { Client, Session } from '@reactionary/core';
+import { Client, RequestContext, Session } from '@reactionary/core';
 import type { TransparentClient } from './types';
 
 /**
@@ -6,9 +6,9 @@ import type { TransparentClient } from './types';
  */
 export interface TRPCClientOptions {
   /** Default session to use if not provided in method calls */
-  defaultSession?: Session;
-  /** Whether to automatically provide session from defaultSession */
-  autoSession?: boolean;
+  defaultRequestContext?: RequestContext
+  /** Whether to automatically provide request context from defaultRequestContext\ */
+  autoRequestContext?: boolean;
 }
 
 /**
@@ -38,7 +38,7 @@ export function createTRPCClient<TOriginalClient extends Partial<Client>>(
   trpcClient: any,
   options: TRPCClientOptions = {}
 ): TransparentClient<TOriginalClient> {
-  const { defaultSession, autoSession = false } = options;
+  const { defaultRequestContext, autoRequestContext = false } = options;
 
   return new Proxy({} as TransparentClient<TOriginalClient>, {
     get(target, providerName: string | symbol) {
@@ -55,17 +55,17 @@ export function createTRPCClient<TOriginalClient extends Partial<Client>>(
 
           // Only expose methods that are marked with TRPC decorators
           // This eliminates the need to filter TRPC-specific properties
-          return async (payload: any, reqCtxArg?: Session) => {
-            // Determine session to use
-            let session = sessionArg;
-            if (!session && autoSession && defaultSession) {
-              session = defaultSession;
+          return async (payload: any, reqCtxArg?: RequestContext) => {
+            // Determine request context to use
+            let reqCtx = reqCtxArg;
+            if (!reqCtx && autoRequestContext && defaultRequestContext) {
+              reqCtx = defaultRequestContext;
             }
 
             // Prepare input for TRPC call
             const input = {
               payload,
-              session
+              reqCtx
             };
 
             // Access TRPC provider and method lazily
@@ -93,7 +93,7 @@ export function createTRPCClient<TOriginalClient extends Partial<Client>>(
  * Session provider interface for dependency injection
  */
 export interface SessionProvider {
-  getSession(): Promise<Session> | Session;
+  getRequestContext(): Promise<RequestContext> | RequestContext;
 }
 
 /**
@@ -127,16 +127,16 @@ export function createTRPCClientWithSessionProvider<TOriginalClient extends Part
             return undefined;
           }
 
-          return async (payload: any, reqCtxArg?: Session) => {
+          return async (payload: any, reqCtxArg?: RequestContext) => {
             // If no session provided, get from provider
-            let session = sessionArg;
-            if (!session) {
-              session = await sessionProvider.getSession();
+            let reqCtx = reqCtxArg;
+            if (!reqCtx) {
+              reqCtx = await sessionProvider.getRequestContext();
             }
 
             const input = {
               payload,
-              session
+              reqCtx
             };
 
             // Access TRPC provider and method lazily

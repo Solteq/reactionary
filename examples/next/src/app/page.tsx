@@ -1,5 +1,5 @@
 import styles from './page.module.scss';
-import { ClientBuilder, NoOpCache, SessionSchema } from '@reactionary/core';
+import { ClientBuilder, createInitialRequestContext, NoOpCache, SessionSchema } from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 
@@ -23,17 +23,9 @@ export default async function Index() {
     )
     .withCache(new NoOpCache())
     .build();
-    
 
-  const session = SessionSchema.parse({
-    id: '1234567890',
-    languageContext: {
-      countryCode: 'US',
-      languageCode: 'en',
-      currencyCode: 'USD',
-    },
-  });
-
+  const reqCtx = createInitialRequestContext();
+  reqCtx.correlationId = 'nextjs-request-' + (new Date().getTime());
   const search = await client.search.queryByTerm(
     {
       search: {
@@ -43,7 +35,7 @@ export default async function Index() {
         term: 'glass',
       },
     },
-    session
+    reqCtx
   );
 
   return (

@@ -2,7 +2,5 @@
   "name": "@reactionary/examples-node",
   "version": "0.0.1",
   "private": true,
-  "dependencies": {
-    "@reactionary/core": "0.0.1"
-  }
+  "dependencies": {}
 }
