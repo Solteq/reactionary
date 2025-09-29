@@ -10,7 +10,7 @@ import {
   FakeProductProvider,
   withFakeCapabilities,
 } from '@reactionary/provider-fake';
-import { createInitialRequestContext } from '../test-utils';
+import { createInitialRequestContext } from '@reactionary/core'
 import z from 'zod';
 
 describe('basic node provider extension (models)', () => {
@@ -83,7 +83,7 @@ describe('basic node provider extension (models)', () => {
       {
         slug: '1234',
       },
-      session
+      reqCtx
     );
 
     expect(product).toBeDefined();
