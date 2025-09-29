@@ -1,5 +1,5 @@
 import { initTRPC } from '@trpc/server';
-import { Client, Session } from '@reactionary/core';
+import { Client, RequestContext, Session } from '@reactionary/core';
 import superjson from 'superjson';
 import { z } from 'zod';
 import { createTRPCTracing } from '@reactionary/otel';
@@ -9,7 +9,7 @@ import {
 } from './types';
 
 // Initialize TRPC with context containing session (no transformer for testing)
-const t = initTRPC.context<{ session?: Session }>().create();
+const t = initTRPC.context<{ reqCtx?: RequestContext }>().create();
 
 export const router = t.router;
 export const mergeRouters = t.mergeRouters;
@@ -68,17 +68,17 @@ function createProcedureForMethod(methodInfo: MethodInfo) {
   // the original method signatures without requiring schema definitions
   const inputSchema = z.object({
     payload: z.any(), // The actual payload from the provider method
-    session: z.any().optional(), // Session is optional in input since it might come from context
+    reqCtx: z.any().optional(), // Session is optional in input since it might come from context
   });
 
   const procedureWithInput = baseProcedure.input(inputSchema);
 
   if (methodInfo.isQuery) {
     return procedureWithInput.query(async ({ input, ctx }) => {
-      const session = input.session || ctx.session;
+      const reqCtx = input.reqCtx || ctx.reqCtx;
 
       // Call the original provider method
-      if (session) {
+      if (reqCtx) {
         return await methodInfo.method(input.payload, reqCtx);
       } else {
         // Some methods might not require session
@@ -87,10 +87,10 @@ function createProcedureForMethod(methodInfo: MethodInfo) {
     });
   } else if (methodInfo.isMutation) {
     return procedureWithInput.mutation(async ({ input, ctx }) => {
-      const session = input.session || ctx.session;
+      const reqCtx = input.reqCtx || ctx.reqCtx;
 
       // Call the original provider method
-      if (session) {
+      if (reqCtx) {
         return await methodInfo.method(input.payload, reqCtx);
       } else {
         // Some methods might not require session
