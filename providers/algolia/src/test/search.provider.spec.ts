@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { createInitialRequestContext, NoOpCache, SearchResultSchema } from '@reactionary/core';
 import { AlgoliaSearchProvider } from '../providers/search.provider';
 
