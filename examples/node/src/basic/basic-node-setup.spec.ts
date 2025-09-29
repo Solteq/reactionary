@@ -1,6 +1,5 @@
-import { buildClient, NoOpCache, SessionSchema } from '@reactionary/core';
+import { buildClient, createInitialRequestContext, NoOpCache, SessionSchema } from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
-import { createAnonymousTestSession } from '../test-utils';
 
 describe('basic node setup', () => {
   const client = buildClient(
@@ -25,7 +24,7 @@ describe('basic node setup', () => {
     }
   );
 
-  const session = createAnonymousTestSession();
+  const reqCtx = createInitialRequestContext();
 
   it('should only get back the enabled capabilities', async () => {
     expect(client.product).toBeDefined();
@@ -38,6 +37,6 @@ describe('basic node setup', () => {
     }, reqCtx);
 
     expect(product).toBeDefined();
-    expect(product.slug).toBe('1234');
+    expect(product!.slug).toBe('1234');
   });
 });
