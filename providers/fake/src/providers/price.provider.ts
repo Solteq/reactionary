@@ -2,7 +2,7 @@ import {
   Price,
   PriceProvider,
   PriceQueryBySku,
-  Session,
+  Session, RequestContext,
   Cache,
 } from '@reactionary/core';
 import z from 'zod';
@@ -20,20 +20,20 @@ export class FakePriceProvider<
     this.config = config;
   }
 
-  public override async getBySKUs(payload: PriceQueryBySku[], session: Session): Promise<T[]> {
+  public override async getBySKUs(payload: PriceQueryBySku[], reqCtx: RequestContext): Promise<T[]> {
 
-    const promises = payload.map(p => this.getBySKU(p, session));
+    const promises = payload.map(p => this.getBySKU(p, reqCtx));
     const result = await Promise.all(promises);
     return result;
   }
 
   public override async getBySKU(
     payload: PriceQueryBySku,
-    _session: Session
+    _reqCtx: RequestContext
   ): Promise<T> {
 
     if (payload.sku.key === 'unknown-sku') {
-      return this.createEmptyPriceResult(payload.sku.key, _session.languageContext.currencyCode);
+      return this.createEmptyPriceResult(payload.sku.key, _reqCtx.languageContext.currencyCode);
     }
 
     // Generate a simple hash from the SKU key string for seeding
@@ -57,7 +57,7 @@ export class FakePriceProvider<
       },
       unitPrice: {
         value: generator.number.int({ min: 300, max: 100000 }) / 100,
-        currency: _session.languageContext.currencyCode,
+        currency: _reqCtx.languageContext.currencyCode,
       },
       meta: {
         cache: {
@@ -78,14 +78,14 @@ export class FakePriceProvider<
           minimumQuantity: generator.number.int({ min: 2, max: 5 }),
           price: {
             value: tier1Price,
-            currency: _session.languageContext.currencyCode,
+            currency: _reqCtx.languageContext.currencyCode,
           }
         },
         {
           minimumQuantity: generator.number.int({ min: 6, max: 10 }),
           price: {
             value: tier2Price,
-            currency: _session.languageContext.currencyCode,
+            currency: _reqCtx.languageContext.currencyCode,
           }
         }
       ];

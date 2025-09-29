@@ -1,7 +1,7 @@
 import { Currency } from '../schemas/models/currency.model';
 import { Price } from '../schemas/models/price.model';
 import { PriceQueryBySku } from '../schemas/queries/price.query';
-import { Session } from '../schemas/session.schema';
+import { RequestContext, Session } from '../schemas/session.schema';
 import { BaseProvider } from './base.provider';
 
 export abstract class PriceProvider<
@@ -19,7 +19,7 @@ export abstract class PriceProvider<
    * @param payload The SKU to query
    * @param session The session information
    */
-  public abstract getBySKU(payload: PriceQueryBySku, session: Session): Promise<T>;
+  public abstract getBySKU(payload: PriceQueryBySku, reqCtx: RequestContext): Promise<T>;
 
 
   /**
@@ -29,7 +29,7 @@ export abstract class PriceProvider<
    * @param payload The SKUs to query
    * @param session The session information
    */
-  public abstract getBySKUs(payload: PriceQueryBySku[], session: Session): Promise<T[]>;
+  public abstract getBySKUs(payload: PriceQueryBySku[], reqCtx: RequestContext): Promise<T[]>;
 
 
   /**

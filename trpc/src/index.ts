@@ -7,7 +7,7 @@ export {
   type TRPCRouterFromClient
 } from './server';
 
-// Re-export client utilities  
+// Re-export client utilities
 export {
   createTRPCClient,
   createTRPCClientWithSessionProvider,
@@ -32,7 +32,7 @@ import { initTRPC } from '@trpc/server';
 import { Client, Session } from '@reactionary/core';
 import { createTRPCTracing } from '@reactionary/otel';
 
-const t = initTRPC.context<{ client: Client; session: Session }>().create({});
+const t = initTRPC.context<{ client: Client; reqCtx: RequestContext }>().create({});
 
 // Always apply tracing middleware - exporters controlled via OTEL env vars
 const basePublicProcedure = t.procedure;

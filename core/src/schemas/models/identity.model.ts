@@ -21,12 +21,13 @@ export const IdentitySchema = BaseModelSchema.extend({
     createdAt: z.string().default(() => new Date().toISOString()),
     updatedAt: z.string().default(() => new Date().toISOString()),
     // Tokens for various services
-    keyring: z.array(ServiceTokenSchema).default(() => []),
+    //    keyring: z.array(ServiceTokenSchema).default(() => []),
 
     // Deprecated - use serviceTokens map instead
     currentService: z.string().optional(),
 
     token: z.string().optional(),
+    refresh_token: z.string().optional(),
     issued: z.coerce.date().default(new Date()),
     expiry: z.coerce.date().default(new Date())
 });

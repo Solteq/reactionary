@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import { CartSchema, CategorySchema, IdentitySchema, NoOpCache, ProductSchema, Session } from '@reactionary/core';
-import { createAnonymousTestSession, getCommercetoolsTestConfiguration } from './test-utils';
+import { CartSchema, IdentitySchema, NoOpCache, RequestContext, createInitialRequestContext } from '@reactionary/core';
+import { getCommercetoolsTestConfiguration } from './test-utils';
 import { CommercetoolsCartProvider } from '../providers/cart.provider';
 import { CommercetoolsIdentityProvider } from '../providers/identity.provider';
 
@@ -13,7 +13,7 @@ const testData = {
 describe('Commercetools Cart Provider', () => {
   let provider: CommercetoolsCartProvider;
   let identityProvider: CommercetoolsIdentityProvider;
-  let session: Session;
+  let reqCtx: RequestContext;
 
   beforeAll( () => {
     provider = new CommercetoolsCartProvider(getCommercetoolsTestConfiguration(), CartSchema, new NoOpCache());
@@ -21,14 +21,14 @@ describe('Commercetools Cart Provider', () => {
   });
 
   beforeEach( () => {
-    session = createAnonymousTestSession()
+    reqCtx = createInitialRequestContext()
   });
 
   describe('anonymous sessions', () => {
     it('should be able to get an empty cart', async () => {
       const cart = await provider.getById({
         cart: { key: '' },
-      }, session);
+      }, reqCtx);
 
       expect(cart.identifier.key).toBeFalsy();
       expect(cart.items.length).toBe(0);
@@ -43,7 +43,7 @@ describe('Commercetools Cart Provider', () => {
             key: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, session);
+      }, reqCtx);
 
       expect(cart.identifier.key).toBeDefined();
       expect(cart.items.length).toBe(1);
@@ -51,10 +51,10 @@ describe('Commercetools Cart Provider', () => {
       expect(cart.items[0].quantity).toBe(1);
 
       expect(cart.items[0].price.totalPrice.value).toBeGreaterThan(0);
-      expect(cart.items[0].price.totalPrice.currency).toBe(session.languageContext.currencyCode);
+      expect(cart.items[0].price.totalPrice.currency).toBe(reqCtx.languageContext.currencyCode);
 
       expect(cart.price.grandTotal.value).toBeGreaterThan(0);
-      expect(cart.price.grandTotal.currency).toBe(session.languageContext.currencyCode);
+      expect(cart.price.grandTotal.currency).toBe(reqCtx.languageContext.currencyCode);
 
       expect(cart.price.grandTotal.value).toBe(cart.items[0].price.totalPrice.value);
 
@@ -71,7 +71,7 @@ describe('Commercetools Cart Provider', () => {
             key: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, session);
+      }, reqCtx);
 
 
       const updatedCart = await provider.add({
@@ -80,7 +80,7 @@ describe('Commercetools Cart Provider', () => {
             key: testData.skuWithTiers,
           },
           quantity: 2
-      }, session);
+      }, reqCtx);
 
       expect(updatedCart.items.length).toBe(2);
       expect(updatedCart.items[0].sku.key).toBe(testData.skuWithoutTiers);
@@ -97,13 +97,13 @@ describe('Commercetools Cart Provider', () => {
             key: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, session);
+      }, reqCtx);
 
       const updatedCart = await provider.changeQuantity({
         cart: cart.identifier,
         item: cart.items[0].identifier,
         quantity: 3
-      }, session);
+      }, reqCtx);
 
 
       expect(updatedCart.items.length).toBe(1);
@@ -124,12 +124,12 @@ describe('Commercetools Cart Provider', () => {
             key: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, session);
+      }, reqCtx);
 
       const updatedCart = await provider.remove({
         cart: cart.identifier,
         item: cart.items[0].identifier,
-      }, session);
+      }, reqCtx);
 
       expect(updatedCart.items.length).toBe(0);
     });
@@ -142,21 +142,21 @@ describe('Commercetools Cart Provider', () => {
             key: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, session);
+      }, reqCtx);
 
       expect(cart.items.length).toBe(1);
       expect(cart.identifier.key).toBeTruthy();
 
       const deletedCart = await provider.deleteCart({
         cart: cart.identifier,
-      }, session);
+      }, reqCtx);
 
       expect(deletedCart.items.length).toBe(0);
       expect(deletedCart.identifier.key).toBe('');
 
       const originalCart = await provider.getById({
         cart: cart.identifier,
-      }, session);
+      }, reqCtx);
 
       expect(originalCart.items.length).toBe(0);
     });

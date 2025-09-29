@@ -5,7 +5,7 @@ import { Payment as CTPayment, PaymentStatus } from "@commercetools/platform-sdk
 import { traced } from "@reactionary/otel";
 import { CommercetoolsCartIdentifier, CommercetoolsCartIdentifierSchema, CommercetoolsCartPaymentInstructionIdentifierSchema } from "../schema/commercetools.schema";
 import { Cache, CartPaymentInstruction,  CartPaymentProvider, Currency, PaymentMethodIdentifierSchema,  } from "@reactionary/core";
-import type { CartPaymentQueryByCart, CartPaymentMutationAddPayment, CartPaymentMutationCancelPayment, Session } from "@reactionary/core";
+import type { CartPaymentQueryByCart, CartPaymentMutationAddPayment, CartPaymentMutationCancelPayment, Session, RequestContext } from "@reactionary/core";
 import z from "zod";
 
 export class CommercetoolsCartPaymentProvider<
@@ -19,11 +19,9 @@ export class CommercetoolsCartPaymentProvider<
     this.config = config;
   }
 
-  protected getClient(session: Session) {
-    const token = session.identity.keyring.find(x => x.service === 'commercetools')?.token;
-    const client = new CommercetoolsClient(this.config).getClient(
-      token
-    );
+  protected async getClient(reqCtx: RequestContext) {
+    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
+
     return {
       payments: client.withProjectKey({ projectKey: this.config.projectKey }).me().payments(),
       carts: client.withProjectKey({ projectKey: this.config.projectKey }).me().carts()
@@ -33,8 +31,8 @@ export class CommercetoolsCartPaymentProvider<
 
 
   @traced()
-  public override async getByCartIdentifier(payload: CartPaymentQueryByCart, session: Session): Promise<T[]> {
-    const client = this.getClient(session);
+  public override async getByCartIdentifier(payload: CartPaymentQueryByCart, reqCtx: RequestContext): Promise<T[]> {
+    const client = await this.getClient(reqCtx);
 
     const ctId = payload.cart as CommercetoolsCartIdentifier;
     const ctVersion = ctId.version || 0;
@@ -53,7 +51,7 @@ export class CommercetoolsCartPaymentProvider<
       }
 
       // Map over the payments and parse each one
-      const parsedPayments = payments.map(payment => this.parseSingle(payment, session));
+      const parsedPayments = payments.map(payment => this.parseSingle(payment, reqCtx));
 
       // Commercetools does not link carts to payments, but the other way around, so for this we have to synthesize the link.
       const returnPayments = parsedPayments.map(x => {
@@ -65,8 +63,8 @@ export class CommercetoolsCartPaymentProvider<
 
 
 
-  public override async initiatePaymentForCart(payload: CartPaymentMutationAddPayment, session: Session): Promise<T> {
-    const client = this.getClient(session);
+  public override async initiatePaymentForCart(payload: CartPaymentMutationAddPayment, reqCtx: RequestContext): Promise<T> {
+    const client = await this.getClient(reqCtx);
     const cartId = payload.cart as CommercetoolsCartIdentifier;
     const response = await client.payments.post({
       body: {
@@ -78,19 +76,20 @@ export class CommercetoolsCartPaymentProvider<
         paymentMethodInfo: {
           method: payload.paymentInstruction.paymentMethod.method,
           name: {
-            [session.languageContext.locale]: payload.paymentInstruction.paymentMethod.name
+            [reqCtx.languageContext.locale]: payload.paymentInstruction.paymentMethod.name
           },
           paymentInterface: payload.paymentInstruction.paymentMethod.paymentProcessor
         },
         custom:{
-        type: {
-          typeId: 'type',
-          key: 'reactionaryPaymentCustomFields',
+          type: {
+            typeId: 'type',
+            key: 'reactionaryPaymentCustomFields',
+          },
+          fields: {
+            cartId: cartId.key,
+            cartVersion: cartId.version + '',
+          }
         },
-        fields: {
-          cartId: cartId.key,
-          cartVersion: cartId.version + '',
-        }},
 
       },
     }).execute();
@@ -112,7 +111,7 @@ export class CommercetoolsCartPaymentProvider<
       }
     }).execute();
 
-    const payment = this.parseSingle(response.body, session);
+    const payment = this.parseSingle(response.body, reqCtx);
 
     // we return the newest cart version so caller can update their cart reference, if they want to.
     // hopefully this wont cause excessive confusion
@@ -125,8 +124,8 @@ export class CommercetoolsCartPaymentProvider<
 
 
   @traced()
-  public override async cancelPaymentInstruction(payload: CartPaymentMutationCancelPayment, session: Session): Promise<T> {
-    const client = this.getClient(session);
+  public override async cancelPaymentInstruction(payload: CartPaymentMutationCancelPayment, reqCtx: RequestContext): Promise<T> {
+    const client = await this.getClient(reqCtx);
 
     // get newest version
     const newestVersion = await client.payments.withId({ ID: payload.paymentInstruction.key }).get().execute();
@@ -153,7 +152,7 @@ export class CommercetoolsCartPaymentProvider<
       }
     }).execute();
 
-    const payment = this.parseSingle(response.body, session);
+    const payment = this.parseSingle(response.body, reqCtx);
     payment.cart = payload.cart;
     return payment;
   }
@@ -161,7 +160,7 @@ export class CommercetoolsCartPaymentProvider<
 
 
   @traced()
-  protected override parseSingle(_body: unknown, session: Session): T {
+  protected override parseSingle(_body: unknown, reqCtx: RequestContext): T {
     const body = _body as CTPayment;
 
     const base = this.newModel();

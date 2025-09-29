@@ -4,7 +4,7 @@ import type {
   SearchResultProduct,
   Cache,
   SearchQueryByTerm,
-  Session,
+  Session, RequestContext,
 } from '@reactionary/core';
 
 import { CommercetoolsClient } from '../core/client';
@@ -28,20 +28,17 @@ export class CommercetoolsSearchProvider<
   }
 
   @traced()
-  protected getClient(session: Session) {
-    const token = session.identity.keyring.find(x => x.service === 'commercetools')?.token;
-    const client = new CommercetoolsClient(this.config).getClient(
-      token
-    );
+  protected async getClient(reqCtx: RequestContext) {
+    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
   }
 
 
   public override async queryByTerm(
     payload: SearchQueryByTerm,
-    session: Session
+    reqCtx: RequestContext
   ): Promise<T> {
-    const client = this.getClient(session);
+    const client = await this.getClient(reqCtx);
 
     const remote = await client
       .search()
@@ -49,18 +46,18 @@ export class CommercetoolsSearchProvider<
         queryArgs: {
           limit: payload.search.pageSize,
           offset: (payload.search.page - 1) * payload.search.pageSize,
-          [`text.${session.languageContext.locale}`]: payload.search.term,
+          [`text.${reqCtx.languageContext.locale}`]: payload.search.term,
         },
       })
       .execute();
 
-    return this.parseSearchResult(remote, payload, session);
+    return this.parseSearchResult(remote, payload, reqCtx);
   }
 
   protected parseSearchResult(
     remote: unknown,
     payload: SearchQueryByTerm,
-    session: Session
+    reqCtx: RequestContext
   ): T {
     const result = this.newModel();
     const remoteData = remote as {
@@ -80,8 +77,8 @@ export class CommercetoolsSearchProvider<
     for (const p of remoteData.body.results) {
       const product: SearchResultProduct = {
         identifier: { key: p.id },
-        name: p.name[session.languageContext.locale] || p.id,
-        slug: p.slug?.[session.languageContext.locale] || p.id,
+        name: p.name[reqCtx.languageContext.locale] || p.id,
+        slug: p.slug?.[reqCtx.languageContext.locale] || p.id,
         image: p.masterVariant.images?.[0]?.url || 'https://placehold.co/400',
       };
 

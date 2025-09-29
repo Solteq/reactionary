@@ -5,7 +5,7 @@ import {
   CartMutationItemAdd,
   CartMutationItemRemove,
   CartMutationItemQuantityChange,
-  Session,
+  Session, RequestContext,
   Cache,
   CartIdentifier,
   CartMutationApplyCoupon,
@@ -40,7 +40,7 @@ export class FakeCartProvider<
 
   public override async getById(
     payload: CartQueryById,
-    _session: Session
+    _reqCtx: RequestContext
   ): Promise<T> {
     const cartId = payload.cart.key;
 
@@ -78,11 +78,11 @@ export class FakeCartProvider<
 
   public override async add(
     payload: CartMutationItemAdd,
-    session: Session
+    reqCtx: RequestContext
   ): Promise<T> {
 
     const cartId = payload.cart.key || `cart-${this.generator.string.uuid()}`;
-    const cart = await this.getById({ cart: { key: cartId } }, session);
+    const cart = await this.getById({ cart: { key: cartId } }, reqCtx);
 
     const existingItemIndex = cart.items.findIndex(
       item => item.sku.key === payload.sku.key
@@ -95,29 +95,31 @@ export class FakeCartProvider<
 
       cart.items.push({
         identifier: { key: `item-${Date.now()}` },
-        sku: payload.sku,
+        sku:  payload.sku,
         quantity: payload.quantity,
         price: {
           unitPrice: {
             value: price,
-            currency: session.languageContext.currencyCode,
+            currency: reqCtx.languageContext.currencyCode,
           },
           totalPrice: {
             value: 0, // Will be calculated below
-            currency: session.languageContext.currencyCode,
+            currency: reqCtx.languageContext.currencyCode,
           },
           totalDiscount: {
             value: 0,
-            currency: session.languageContext.currencyCode,
+            currency: reqCtx.languageContext.currencyCode,
           },
           unitDiscount: {
             value: 0,
-            currency: session.languageContext.currencyCode,
+            currency: reqCtx.languageContext.currencyCode,
           },
         },
         product: {
           key: `product-for-${payload.sku.key}`,
-        }
+        },
+
+
       });
     }
 
@@ -128,10 +130,10 @@ export class FakeCartProvider<
 
   public override async remove(
     payload: CartMutationItemRemove,
-    session: Session
+    reqCtx: RequestContext
   ): Promise<T> {
     const cartId = payload.cart.key || `cart-${this.generator.string.uuid()}`;
-    const cart = await this.getById({ cart: { key: cartId } }, session);
+    const cart = await this.getById({ cart: { key: cartId } }, reqCtx);
 
     cart.items = cart.items.filter(
       item => item.identifier.key !== payload.item.key
@@ -142,10 +144,10 @@ export class FakeCartProvider<
 
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange,
-    session: Session
+    reqCtx: RequestContext
   ): Promise<T> {
     const cartId = payload.cart.key || `cart-${this.generator.string.uuid()}`;
-    const cart = await this.getById({ cart: { key: cartId } }, session);
+    const cart = await this.getById({ cart: { key: cartId } }, reqCtx);
 
     const item = cart.items.find(
       item => item.identifier.key === payload.item.key
@@ -161,28 +163,28 @@ export class FakeCartProvider<
   }
 
 
-  public override getActiveCartId(session: Session): Promise<CartIdentifier> {
+  public override getActiveCartId(reqCtx: RequestContext): Promise<CartIdentifier> {
     throw new Error('Method not implemented.');
   }
-  public override deleteCart(payload: CartMutationDeleteCart, session: Session): Promise<T> {
+  public override deleteCart(payload: CartMutationDeleteCart, reqCtx: RequestContext): Promise<T> {
     throw new Error('Method not implemented.');
   }
-  public override setShippingInfo(payload: CartMutationSetShippingInfo, session: Session): Promise<T> {
+  public override setShippingInfo(payload: CartMutationSetShippingInfo, reqCtx: RequestContext): Promise<T> {
     throw new Error('Method not implemented.');
   }
-  public override setBillingAddress(payload: CartMutationSetBillingAddress, session: Session): Promise<T> {
+  public override setBillingAddress(payload: CartMutationSetBillingAddress, reqCtx: RequestContext): Promise<T> {
     throw new Error('Method not implemented.');
   }
-  public override applyCouponCode(payload: CartMutationApplyCoupon, session: Session): Promise<T> {
+  public override applyCouponCode(payload: CartMutationApplyCoupon, reqCtx: RequestContext): Promise<T> {
     throw new Error('Method not implemented.');
   }
-  public override removeCouponCode(payload: CartMutationRemoveCoupon, session: Session): Promise<T> {
+  public override removeCouponCode(payload: CartMutationRemoveCoupon, reqCtx: RequestContext): Promise<T> {
     throw new Error('Method not implemented.');
   }
-  public override checkout(payload: CartMutationCheckout, session: Session): Promise<OrderIdentifier> {
+  public override checkout(payload: CartMutationCheckout, reqCtx: RequestContext): Promise<OrderIdentifier> {
     throw new Error('Method not implemented.');
   }
-  public override changeCurrency(payload: CartMutationChangeCurrency, session: Session): Promise<T> {
+  public override changeCurrency(payload: CartMutationChangeCurrency, reqCtx: RequestContext): Promise<T> {
     throw new Error('Method not implemented.');
   }
 

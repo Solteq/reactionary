@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { NoOpCache, ProductSchema, Session } from '@reactionary/core';
+import { NoOpCache, ProductSchema, RequestContext, Session, createInitialRequestContext } from '@reactionary/core';
 import { CommercetoolsProductProvider } from '../providers/product.provider';
-import { createAnonymousTestSession, getCommercetoolsTestConfiguration } from './test-utils';
+import {  getCommercetoolsTestConfiguration } from './test-utils';
 
 const testData = {
   product : {
@@ -14,19 +14,19 @@ const testData = {
 describe('Commercetools Product Provider', () => {
 
     let provider: CommercetoolsProductProvider;
-    let session: Session;
+    let reqCtx: RequestContext;
 
     beforeAll( () => {
       provider = new CommercetoolsProductProvider(getCommercetoolsTestConfiguration(), ProductSchema, new NoOpCache());
     });
 
     beforeEach( () => {
-      session = createAnonymousTestSession()
+      reqCtx = createInitialRequestContext()
     })
 
 
   it('should be able to get a product by id', async () => {
-    const result = await provider.getById( { id: testData.product.id }, session);
+    const result = await provider.getById( { id: testData.product.id }, reqCtx);
 
     expect(result).toBeTruthy();
     expect(result.identifier.key).toBe(testData.product.id);
@@ -36,7 +36,7 @@ describe('Commercetools Product Provider', () => {
   });
 
   it('should be able to get a product by slug', async () => {
-    const result = await provider.getBySlug( { slug: 'sunnai-glass-bowl' }, session);
+    const result = await provider.getBySlug( { slug: 'sunnai-glass-bowl' }, reqCtx);
 
     expect(result).toBeTruthy();
     if (result) {
@@ -48,13 +48,13 @@ describe('Commercetools Product Provider', () => {
   });
 
   it('should return null for unknown slug', async () => {
-    const result = await provider.getBySlug( { slug: 'unknown-slug' }, session);
+    const result = await provider.getBySlug( { slug: 'unknown-slug' }, reqCtx);
 
     expect(result).toBeNull();
   });
 
   it('should return a placeholder product for unknown id', async () => {
-    const result = await provider.getById( { id: 'unknown-id' }, session);
+    const result = await provider.getById( { id: 'unknown-id' }, reqCtx);
 
     expect(result).toBeTruthy();
     expect(result.meta.placeholder).toBe(true);

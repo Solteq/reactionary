@@ -3,7 +3,7 @@ import {
   IdentityMutationLogin,
   IdentityProvider,
   IdentityQuerySelf,
-  Session,
+  Session, RequestContext,
   Cache,
 } from '@reactionary/core';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
@@ -27,20 +27,20 @@ export class CommercetoolsIdentityProvider<
 
   public override async getSelf(
     payload: IdentityQuerySelf,
-    session: Session
+    reqCtx: RequestContext
   ): Promise<T> {
     const client = new CommercetoolsClient(this.config);
     const base = this.newModel();
 
-    if (session.identity.token) {
-      const remote = await client.introspect(session.identity.token);
+    if (reqCtx.identity.token) {
+      const remote = await client.introspect(reqCtx.identity.token);
 
       if (remote.active) {
-        const current = this.schema.safeParse(session.identity);
+        const current = this.schema.safeParse(reqCtx.identity);
 
         if (current.success) {
           current.data.meta = {
-            cache: { hit: false, key: session.identity.id.userId || 'anonymous' },
+            cache: { hit: false, key: current.data.id.userId || 'anonymous' },
             placeholder: false
           };
           return current.data;
@@ -52,14 +52,14 @@ export class CommercetoolsIdentityProvider<
       cache: { hit: false, key: 'anonymous' },
       placeholder: false
     };
-    session.identity = base;
+    reqCtx.identity = base;
 
     return this.assert(base);
   }
 
   public override async login(
     payload: IdentityMutationLogin,
-    session: Session
+    reqCtx: RequestContext
   ): Promise<T> {
     const client = new CommercetoolsClient(this.config);
     const remote = await client.login(payload.username, payload.password);
@@ -67,18 +67,11 @@ export class CommercetoolsIdentityProvider<
 
     if (remote && remote.access_token) {
       base.id = { userId: this.extractCustomerIdFromScopes(remote.scope) };
-
-      base.keyring = base.keyring.filter(x => x.service !== 'commercetools');
-      base.keyring.push({
-        service: 'commercetools',
-        token: remote.access_token,
-        issued: new Date(),
-        expiry: new Date(new Date().getTime() + 3600 * 1000),
-      });
       base.issued = new Date();
       base.expiry = new Date();
       base.expiry.setSeconds(base.expiry.getSeconds() + remote.expires_in);
       base.token = remote.access_token;
+      base.refresh_token = remote.refresh_token;
       base.type = 'Registered';
     }
 
@@ -87,27 +80,27 @@ export class CommercetoolsIdentityProvider<
       placeholder: false
     };
 
-    session.identity = base;
+    reqCtx.identity = base;
 
     return this.assert(base);
   }
 
   public override async logout(
     payload: Record<string, never>,
-    session: Session
+    reqCtx: RequestContext
   ): Promise<T> {
     const client = new CommercetoolsClient(this.config);
     const base = this.newModel();
 
-    if (session.identity.token) {
-      await client.logout(session.identity.token);
+    if (reqCtx.identity.token) {
+      await client.logout(reqCtx.identity.token);
     }
 
     base.meta = {
       cache: { hit: false, key: 'anonymous' },
       placeholder: false
     };
-    session.identity = base;
+    reqCtx.identity = base;
 
     return this.assert(base);
   }

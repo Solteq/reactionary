@@ -1,13 +1,15 @@
 import { Price, PriceProvider, Cache, Currency, TieredPriceSchema, TieredPrice } from '@reactionary/core';
-import type { PriceQueryBySku, Session } from '@reactionary/core';
+import type { PriceQueryBySku, RequestContext, Session } from '@reactionary/core';
 import z from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';
-import { StandalonePrice as CTPrice } from '@commercetools/platform-sdk';
+import { Price as CTPrice, ProductVariant as CTProductVariant } from '@commercetools/platform-sdk';
 export class CommercetoolsPriceProvider<
   T extends Price = Price
 > extends PriceProvider<T> {
   protected config: CommercetoolsConfiguration;
+
+
 
   constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache) {
     super(schema, cache);
@@ -16,38 +18,47 @@ export class CommercetoolsPriceProvider<
   }
 
 
-  protected getClient(session: Session) {
-    const token = session.identity.keyring.find(x => x.service === 'commercetools')?.token;
-    const client = new CommercetoolsClient(this.config).getClient(
-      token
+  protected async getClient(reqCtx: RequestContext) {
+    const client = await new CommercetoolsClient(this.config).getClient(
+      reqCtx
     );
-    return client.withProjectKey({ projectKey: this.config.projectKey }).standalonePrices();
+    return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections()
   }
 
 
 
-  public override async getBySKUs(payload: PriceQueryBySku[], session: Session): Promise<T[]> {
+  public override async getBySKUs(payload: PriceQueryBySku[], reqCtx: RequestContext): Promise<T[]> {
 
-    const client = this.getClient(session);
+    const client = await this.getClient(reqCtx);
 
     //  AND (validFrom is not defined OR validFrom <= now()) AND (validUntil is not defined OR validUntil >= now())
-    const queryArgs = {
-      where: 'sku in (:skus)',
-      'var.skus': payload.map(p => p.sku.key),
-    };
 
+    const channels = await this.getChannels(reqCtx);
 
     const response = await client.get({
-      queryArgs,
+      queryArgs: {
+        staged: false,
+        priceCountry: 'US',
+        priceCustomerGroup: undefined,
+        priceChannel: channels.offerChannelGUID,
+        priceCurrency: reqCtx.languageContext.currencyCode,
+       // storeProjection: reqCtx.storeIdentifier?.key || undefined,
+        where: 'variants(sku in (:skus)) OR (masterVariant(sku in (:skus))) ',
+        'var.skus': payload.map(p => p.sku.key),
+        limit: payload.length,
+      },
     }).execute();
 
     const result = [];
+    const allReturnedVariants = [...response.body.results.map(x => x.variants).flat(), ...response.body.results.map(x => x.masterVariant).flat()];
+    // Now we need to match the skus requested with the prices returned.
     for(const p of payload) {
-      const matched = response.body.results.filter(x => x.sku === p.sku.key && x.value.currencyCode === session.languageContext.currencyCode);
-      if (matched && matched.length > 0) {
-        result.push(this.parseSingle(matched[0], session));
+      const foundSku = allReturnedVariants.find(v => v.sku === p.sku.key);
+
+      if (!foundSku) {
+        result.push(this.createEmptyPriceResult(p.sku.key, reqCtx.languageContext.currencyCode ));
       } else {
-        result.push(this.createEmptyPriceResult(p.sku.key, session.languageContext.currencyCode ));
+        result.push(this.parseSingle(foundSku, reqCtx));
       }
     }
 
@@ -57,43 +68,29 @@ export class CommercetoolsPriceProvider<
 
   public override async getBySKU(
     payload: PriceQueryBySku,
-    session: Session
+    reqCtx: RequestContext
   ): Promise<T> {
-    const client = this.getClient(session);
-    //  AND (validFrom is not defined OR validFrom <= now()) AND (validUntil is not defined OR validUntil >= now())
-    const queryArgs = {
-      where: 'sku=:sku',
-      'var.sku': payload.sku.key,
-    };
-
-    const remote = await client
-      .get({
-        queryArgs,
-      })
-      .execute();
-
-
-      const matched = remote.body.results.filter(x => x.value.currencyCode === session.languageContext.currencyCode);
-      if (matched && matched.length > 0) {
-        return this.parseSingle(matched[0], session);
-      }
-      return this.createEmptyPriceResult(payload.sku.key, session.languageContext.currencyCode );
+    return this.getBySKUs([payload], reqCtx).then(r => r[0]);
   }
 
 
 
-  protected override parseSingle(_body: unknown, session: Session): T {
-    const body = _body as CTPrice;
+  protected override parseSingle(_body: unknown, reqCtx: RequestContext): T {
+    const body = _body as CTProductVariant;
+    const price = body.price as CTPrice | undefined;
+
+    if (!price) {
+      return this.createEmptyPriceResult(body.sku!, reqCtx.languageContext.currencyCode);
+    }
 
     const base = this.newModel();
-
     base.unitPrice = {
-      value: (body.value.centAmount / 100),
-      currency: body.value.currencyCode as Currency,
+      value: (price.value.centAmount / 100),
+      currency: price.value.currencyCode as Currency,
     };
 
-    if (body.tiers && body.tiers.length > 0) {
-      const p  = body.tiers.map(x => {
+    if (price.tiers && price.tiers.length > 0) {
+      const p  = price.tiers.map(x => {
         const tp: TieredPrice = TieredPriceSchema.parse({});
         tp.minimumQuantity = x.minimumQuantity;
         tp.price = {
@@ -107,12 +104,12 @@ export class CommercetoolsPriceProvider<
 
     base.identifier = {
       sku: {
-        key: body.sku
+        key: body.sku!
       }
     };
 
     base.meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(base.identifier, session) },
+      cache: { hit: false, key: this.generateCacheKeySingle(base.identifier, reqCtx) },
       placeholder: false
     };
 
@@ -120,5 +117,34 @@ export class CommercetoolsPriceProvider<
 
   }
 
+  protected async getChannels(reqCtx: RequestContext) {
 
+    if (!(reqCtx.session['commercetools'] && reqCtx.session['commercetools'].offerChannelGUID && reqCtx.session['commercetools'].listChannelGUID)) {
+
+      /**
+       * Bah - have to be an admin to call these....
+       * So either we cache them in the session, or we make the user provide them in the config.
+       */
+
+   /*
+        const configClient = await new CommercetoolsClient(this.config).getClient(reqCtx);
+        const offerPriceChannelPromise = configClient.withProjectKey({ projectKey: this.config.projectKey }).channels().withKey({ key: 'Offer Price'}).get().execute();
+        const listPriceChannelPromise = configClient.withProjectKey({ projectKey: this.config.projectKey }).channels().withKey({ key: 'List Price'}).get().execute();
+
+        const [offerChannel, listChannel] = await Promise.all([offerPriceChannelPromise, listPriceChannelPromise]);
+    */
+
+        reqCtx.session['commercetools'] = {
+          ...reqCtx.session['commercetools'],
+          offerChannelGUID: undefined,
+          listChannelGUID: undefined
+        };
+    }
+
+
+    return {
+      offerChannelGUID: reqCtx.session['commercetools'].offerChannelGUID,
+      listChannelGUID: reqCtx.session['commercetools'].listChannelGUID
+    }
+  }
 }

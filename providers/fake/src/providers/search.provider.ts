@@ -5,7 +5,7 @@ import {
   SearchResultProduct,
   Cache as ReactionaryCache,
 } from '@reactionary/core';
-import type { SearchQueryByTerm, Session } from '@reactionary/core';
+import type { RequestContext, SearchQueryByTerm, Session } from '@reactionary/core';
 import z from 'zod';
 import { FakeConfiguration } from '../schema/configuration.schema';
 import { Faker, en, base } from '@faker-js/faker';
@@ -26,7 +26,7 @@ export class FakeSearchProvider<
   @traced()
   public override async queryByTerm(
     payload: SearchQueryByTerm,
-    _session: Session
+    _reqCtx: RequestContext
   ): Promise<SearchResult> {
     await jitter(this.config.jitter.mean, this.config.jitter.deviation);
 

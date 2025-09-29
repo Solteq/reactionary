@@ -1,5 +1,5 @@
 import { CategoryProvider, Cache, Category, createPaginatedResponseSchema } from "@reactionary/core";
-import type { Session, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories } from "@reactionary/core";
+import type { Session, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext } from "@reactionary/core";
 import z from "zod";
 import { CommercetoolsConfiguration } from "../schema/configuration.schema";
 import { CommercetoolsClient } from "../core/client";
@@ -18,11 +18,8 @@ export class CommercetoolsCategoryProvider<
     this.config = config;
   }
 
-  protected getClient(session: Session): ByProjectKeyCategoriesRequestBuilder {
-    const token = session.identity.keyring.find(x => x.service === 'commercetools')?.token;
-    const client = new CommercetoolsClient(this.config).getClient(
-      token
-    );
+  protected async getClient(reqCtx: RequestContext): Promise<ByProjectKeyCategoriesRequestBuilder> {
+    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
     return client.withProjectKey({ projectKey: this.config.projectKey }).categories();
   }
 
@@ -33,11 +30,11 @@ export class CommercetoolsCategoryProvider<
    * @returns
    */
   @traced()
-  public override async getById(payload: CategoryQueryById, session: Session): Promise<T> {
-    const client = this.getClient(session);
+  public override async getById(payload: CategoryQueryById, reqCtx: RequestContext): Promise<T> {
+    const client = await this.getClient(reqCtx);
     try {
       const response = await client.withKey({ key: payload.id.key }).get().execute();
-      return this.parseSingle(response.body, session);
+      return this.parseSingle(response.body, reqCtx);
     } catch (error) {
       const dummyCategory = this.newModel();
       dummyCategory.meta.placeholder = true;
@@ -53,14 +50,14 @@ export class CommercetoolsCategoryProvider<
    * @returns
    */
   @traced()
-  public override async getBySlug(payload: CategoryQueryBySlug, session: Session): Promise<T | null> {
-    const client = this.getClient(session);
+  public override async getBySlug(payload: CategoryQueryBySlug, reqCtx: RequestContext): Promise<T | null> {
+    const client = await this.getClient(reqCtx);
     try {
       const response = await client.get({
         queryArgs: {
-          where: `slug(${session.languageContext.locale}=:slug)`,
+          where: `slug(${reqCtx.languageContext.locale}=:slug)`,
           'var.slug': payload.slug,
-          storeProjection: session.storeIdentifier.key ,
+          storeProjection: reqCtx.storeIdentifier.key ,
           limit: 1,
           withTotal: false,
         }
@@ -68,7 +65,7 @@ export class CommercetoolsCategoryProvider<
       if (response.body.results.length === 0) {
         return null;
       }
-      return this.parseSingle(response.body.results[0], session);
+      return this.parseSingle(response.body.results[0], reqCtx);
     } catch (error) {
       console.error(`Error fetching category by slug:`, error);
       return null;
@@ -83,8 +80,8 @@ export class CommercetoolsCategoryProvider<
    * @returns
    */
   @traced()
-  public override async getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb, session: Session): Promise<T[]> {
-    const client = this.getClient(session);
+  public override async getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb, reqCtx: RequestContext): Promise<T[]> {
+    const client = await this.getClient(reqCtx);
     const path: T[] = [];
     try {
       const response = await client.withKey({ key: payload.id.key }).get({
@@ -93,10 +90,10 @@ export class CommercetoolsCategoryProvider<
         }
       }).execute();
 
-      const category = this.parseSingle(response.body, session);
+      const category = this.parseSingle(response.body, reqCtx);
       for(const anc of response.body.ancestors || []) {
         if (anc.obj) {
-          const parsedAnc = this.parseSingle(anc.obj, session);
+          const parsedAnc = this.parseSingle(anc.obj, reqCtx);
           path.push(parsedAnc);
         }
       };
@@ -120,12 +117,12 @@ export class CommercetoolsCategoryProvider<
    * @returns
    */
   @traced()
-  public override async findChildCategories(payload: CategoryQueryForChildCategories, session: Session) {
+  public override async findChildCategories(payload: CategoryQueryForChildCategories, reqCtx: RequestContext) {
 
     // ok, so for Commercetools we can't actually query by the parents key, so we have to first resolve the key to an ID, then query by that.
     // This is a bit of a pain, but we can cache the result of the first lookup for a short period to mitigate it.
 
-    const client = this.getClient(session);
+    const client = await this.getClient(reqCtx);
 
     try {
       const parentCategory = await client.withKey({ key: payload.parentId.key }).get().execute();
@@ -141,14 +138,14 @@ export class CommercetoolsCategoryProvider<
             limit: payload.paginationOptions.pageSize,
             offset: (payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize,
             sort: 'orderHint asc',
-            storeProjection: session.storeIdentifier.key ,
+            storeProjection: reqCtx.storeIdentifier.key ,
           },
         })
         .execute();
 
-      const result = this.parsePaginatedResult(response.body, session);
+      const result = this.parsePaginatedResult(response.body, reqCtx);
       result.meta = {
-        cache: { hit: false, key: this.generateCacheKeyPaginatedResult('children-of-' + payload.parentId.key, result, session) },
+        cache: { hit: false, key: this.generateCacheKeyPaginatedResult('children-of-' + payload.parentId.key, result, reqCtx) },
         placeholder: false
       };
       return result;
@@ -159,9 +156,9 @@ export class CommercetoolsCategoryProvider<
   }
 
   @traced()
-  public override async findTopCategories(payload: CategoryQueryForTopCategories, session: Session) {
+  public override async findTopCategories(payload: CategoryQueryForTopCategories, reqCtx: RequestContext) {
 
-    const client = this.getClient(session);
+    const client = await this.getClient(reqCtx);
     try {
       const response = await client.get({
           queryArgs: {
@@ -169,14 +166,14 @@ export class CommercetoolsCategoryProvider<
             limit: payload.paginationOptions.pageSize,
             offset: (payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize,
             sort: 'orderHint asc',
-            storeProjection: session.storeIdentifier.key ,
+            storeProjection: reqCtx.storeIdentifier.key ,
           },
         })
         .execute();
 
-      const result = this.parsePaginatedResult(response.body, session);
+      const result = this.parsePaginatedResult(response.body, reqCtx);
       result.meta = {
-        cache: { hit: false, key: this.generateCacheKeyPaginatedResult('top', result, session) },
+        cache: { hit: false, key: this.generateCacheKeyPaginatedResult('top', result, reqCtx) },
         placeholder: false
       };
       return result;
@@ -194,9 +191,9 @@ export class CommercetoolsCategoryProvider<
    * into the typed domain model.
    */
   @traced()
-  protected override parseSingle(_body: unknown, session: Session): T {
+  protected override parseSingle(_body: unknown, reqCtx: RequestContext): T {
     const body = _body as CTCategory;
-    const languageContext = session.languageContext;
+    const languageContext = reqCtx.languageContext;
 
     const model = this.newModel();
 
@@ -217,7 +214,7 @@ export class CommercetoolsCategoryProvider<
     });
 
     model.meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(model.identifier, session) },
+      cache: { hit: false, key: this.generateCacheKeySingle(model.identifier, reqCtx) },
       placeholder: false
     };
 
@@ -226,10 +223,10 @@ export class CommercetoolsCategoryProvider<
 
 
   @traced()
-  protected override parsePaginatedResult(_body: unknown, session: Session) {
+  protected override parsePaginatedResult(_body: unknown, reqCtx: RequestContext) {
     const body = _body as  CategoryPagedQueryResponse;
 
-    const items = body.results.map(x => this.parseSingle(x, session));
+    const items = body.results.map(x => this.parseSingle(x, reqCtx));
 
     const result = createPaginatedResponseSchema(this.schema).parse({
       meta: {

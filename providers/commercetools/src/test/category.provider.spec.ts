@@ -1,7 +1,7 @@
 import 'dotenv/config'
-import { CategorySchema, NoOpCache, Session } from '@reactionary/core';
+import { CategorySchema, NoOpCache, RequestContext, Session , createInitialRequestContext} from '@reactionary/core';
 import { CommercetoolsCategoryProvider } from '../providers/category.provider';
-import { createAnonymousTestSession, getCommercetoolsTestConfiguration } from './test-utils';
+import { getCommercetoolsTestConfiguration } from './test-utils';
 
 const testData = {
   topCategories: [
@@ -24,18 +24,18 @@ const testData = {
 
 describe('Commercetools Category Provider', () => {
   let provider: CommercetoolsCategoryProvider;
-  let session: Session;
+  let reqCtx: RequestContext;
 
   beforeAll( () => {
     provider = new CommercetoolsCategoryProvider(getCommercetoolsTestConfiguration(), CategorySchema, new NoOpCache());
   });
 
   beforeEach( () => {
-    session = createAnonymousTestSession()
+    reqCtx = createInitialRequestContext()
   })
 
   it('should be able to get top-categories', async () => {
-    const result = await provider.findTopCategories({ paginationOptions: { pageSize: 10, pageNumber: 1 }}, session);
+    const result = await provider.findTopCategories({ paginationOptions: { pageSize: 10, pageNumber: 1 }}, reqCtx);
 
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.items[0].identifier.key).toBe(testData.topCategories[0].key);
@@ -46,7 +46,7 @@ describe('Commercetools Category Provider', () => {
   });
 
   it('should be able to get child categories for a category', async () => {
-    const result = await provider.findChildCategories({ parentId: { key: testData.topCategories[0].key }, paginationOptions: { pageSize: 10, pageNumber: 1 }}, session);
+    const result = await provider.findChildCategories({ parentId: { key: testData.topCategories[0].key }, paginationOptions: { pageSize: 10, pageNumber: 1 }}, reqCtx);
 
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.items[0].identifier.key).toBe(testData.childCategoriesOfFirstTopcategory[0].key);
@@ -59,7 +59,7 @@ describe('Commercetools Category Provider', () => {
 
 
   it('should be able to get child categories for a category, paged', async () => {
-    let result = await provider.findChildCategories({ parentId: { key: testData.topCategories[0].key }, paginationOptions: { pageSize: 1, pageNumber: 1 }}, session);
+    let result = await provider.findChildCategories({ parentId: { key: testData.topCategories[0].key }, paginationOptions: { pageSize: 1, pageNumber: 1 }}, reqCtx);
 
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.items[0].identifier.key).toBe(testData.childCategoriesOfFirstTopcategory[0].key);
@@ -69,7 +69,7 @@ describe('Commercetools Category Provider', () => {
     expect(result.pageSize).toBe(1);
     expect(result.pageNumber).toBe(1);
 
-    result = await provider.findChildCategories({ parentId: { key: testData.topCategories[0].key }, paginationOptions: { pageSize: 1, pageNumber: 2 }}, session);
+    result = await provider.findChildCategories({ parentId: { key: testData.topCategories[0].key }, paginationOptions: { pageSize: 1, pageNumber: 2 }}, reqCtx);
 
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.items[0].identifier.key).toBe(testData.childCategoriesOfFirstTopcategory[1].key);
@@ -83,7 +83,7 @@ describe('Commercetools Category Provider', () => {
 
   it('can load all breadcrumbs for a category', async () => {
     const leaf = testData.breadCrumb[testData.breadCrumb.length -1];
-    const result = await provider.getBreadcrumbPathToCategory({ id: { key: leaf! } }, session);
+    const result = await provider.getBreadcrumbPathToCategory({ id: { key: leaf! } }, reqCtx);
 
     expect(result.length).toBe(testData.breadCrumb.length);
     for(let i = 0 ; i < testData.breadCrumb.length; i++) {
@@ -94,7 +94,7 @@ describe('Commercetools Category Provider', () => {
 
   it('should be able to get a category by slug', async () => {
 
-    const result = await provider.getBySlug({ slug: testData.topCategories[0].slug! }, session);
+    const result = await provider.getBySlug({ slug: testData.topCategories[0].slug! }, reqCtx);
     expect(result).toBeTruthy();
     if (result) {
       expect(result.identifier.key).toBe(testData.topCategories[0].key);
@@ -107,14 +107,14 @@ describe('Commercetools Category Provider', () => {
   });
 
   it('returns null if looking for slug that does not exist', async () => {
-    const result = await provider.getBySlug({ slug: 'non-existent-slug' }, session);
+    const result = await provider.getBySlug({ slug: 'non-existent-slug' }, reqCtx);
     expect(result).toBeNull();
   });
 
 
 
   it('should be able to get a category by id', async () => {
-    const result = await provider.getById({ id: { key: 'home-decor'}}, session);
+    const result = await provider.getById({ id: { key: 'home-decor'}}, reqCtx);
 
     expect(result.identifier.key).toBe('home-decor');
     expect(result.name).toBe('Home Decor');
@@ -128,8 +128,8 @@ describe('Commercetools Category Provider', () => {
 
  it('should be able to get a category by id in alternate language', async () => {
 
-    session.languageContext.locale = 'de-DE';
-    const result = await provider.getById({ id: { key: 'home-decor'}}, session);
+    reqCtx.languageContext.locale = 'de-DE';
+    const result = await provider.getById({ id: { key: 'home-decor'}}, reqCtx);
 
     expect(result.identifier.key).toBe('home-decor');
     expect(result.name).toBe('Dekoration');
@@ -144,8 +144,8 @@ describe('Commercetools Category Provider', () => {
 
   it('returns empty values if you choose a language that is not available', async () => {
 
-    session.languageContext.locale = 'fr-FR';
-    const result = await provider.getById({ id: { key: 'home-decor'}}, session);
+    reqCtx.languageContext.locale = 'fr-FR';
+    const result = await provider.getById({ id: { key: 'home-decor'}}, reqCtx);
 
     expect(result.identifier.key).toBe('home-decor');
     expect(result.name).toBe('No Name');
@@ -159,7 +159,7 @@ describe('Commercetools Category Provider', () => {
 
 
   it('returns a placeholder if you search for a category that does not exist', async () => {
-    const result = await provider.getById({ id: { key: 'non-existent-category'}}, session);
+    const result = await provider.getById({ id: { key: 'non-existent-category'}}, reqCtx);
     expect(result.identifier.key).toBe('non-existent-category');
     expect(result.meta.placeholder).toBe(true);
 

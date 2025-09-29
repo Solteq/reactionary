@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { NoOpCache, SearchResultSchema, Session } from '@reactionary/core';
+import { NoOpCache, RequestContext, SearchResultSchema, createInitialRequestContext } from '@reactionary/core';
 import { CommercetoolsSearchProvider } from '../providers/search.provider';
-import { getCommercetoolsTestConfiguration, createAnonymousTestSession } from './test-utils';
+import { getCommercetoolsTestConfiguration } from './test-utils';
 
 const testData = {
   searchTerm: 'bowl'
@@ -10,14 +10,14 @@ const testData = {
 describe('Commercetools Search Provider', () => {
 
   let provider: CommercetoolsSearchProvider;
-  let session: Session;
+  let reqCtx: RequestContext;
 
   beforeAll( () => {
     provider = new CommercetoolsSearchProvider(getCommercetoolsTestConfiguration(), SearchResultSchema, new NoOpCache());
   });
 
   beforeEach( () => {
-    session = createAnonymousTestSession()
+    reqCtx = createInitialRequestContext()
   })
 
   it('should be able to get a result by term', async () => {
@@ -27,7 +27,7 @@ describe('Commercetools Search Provider', () => {
       facets: [],
       page: 1,
       pageSize: 10,
-    }}, session);
+    }}, reqCtx);
 
     expect(result.products.length).toBeGreaterThan(0);
   });
@@ -40,7 +40,7 @@ describe('Commercetools Search Provider', () => {
       facets: [],
       page: 1,
       pageSize: 1,
-    }}, session);
+    }}, reqCtx);
 
     expect(result.products.length).toBeGreaterThan(0);
     expect(result.pages).toBeGreaterThan(1);
@@ -51,7 +51,7 @@ describe('Commercetools Search Provider', () => {
       facets: [],
       page: 2,
       pageSize: 1,
-    }}, session);
+    }}, reqCtx);
 
     expect(result2.products.length).toBeGreaterThan(0);
     expect(result2.pages).toBeGreaterThan(2);

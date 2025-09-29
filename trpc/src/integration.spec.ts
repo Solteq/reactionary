@@ -6,7 +6,7 @@ import type { TransparentClient } from './types';
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import { createHTTPHandler } from '@trpc/server/adapters/standalone';
 import * as http from 'http';
-import { createAnonymousTestSession } from './test-utils';
+import { createInitialRequestContext } from '@reactionary/core';
 
 /**
  * Integration test that actually starts an HTTP server and makes real network calls
@@ -99,7 +99,7 @@ xdescribe('TRPC Integration Test - Real HTTP Server', () => {
     }
   });
 
-  const session = createAnonymousTestSession();
+  const reqCtx = createInitialRequestContext();
 
   describe('Product Provider via HTTP', () => {
     it('should fetch product by slug through real HTTP calls', async () => {
@@ -108,13 +108,13 @@ xdescribe('TRPC Integration Test - Real HTTP Server', () => {
       // Get result from transparent client (through HTTP/TRPC)
       const trpcResult = await transparentClient.product.getBySlug(
         { slug },
-        session
+        reqCtx
       );
 
       // Get result from server client (direct call)
       const directResult = await serverClient.product.getBySlug(
         { slug },
-        session
+        reqCtx
       );
 
       // Results should have the same structure
@@ -133,12 +133,12 @@ xdescribe('TRPC Integration Test - Real HTTP Server', () => {
 
       const trpcResult = await transparentClient.product.getById(
         { id: productId },
-        session
+        reqCtx
       );
 
       const directResult = await serverClient.product.getById(
         { id: productId },
-        session
+        reqCtx
       );
 
       expect(trpcResult).toBeDefined();
@@ -164,7 +164,7 @@ xdescribe('TRPC Integration Test - Real HTTP Server', () => {
             facets: []
           }
         },
-        session
+        reqCtx
       );
 
       const directResult = await serverClient.search.queryByTerm(
@@ -176,7 +176,7 @@ xdescribe('TRPC Integration Test - Real HTTP Server', () => {
             facets: []
           }
         },
-        session
+        reqCtx
       );
 
       expect(trpcResult).toBeDefined();
@@ -194,7 +194,7 @@ xdescribe('TRPC Integration Test - Real HTTP Server', () => {
       // This should work normally first
       const result = await transparentClient.product.getById(
         { id: 'test-error-handling' },
-        session
+        reqCtx
       );
       expect(result).toBeDefined();
     });
@@ -208,9 +208,9 @@ xdescribe('TRPC Integration Test - Real HTTP Server', () => {
       const [trpcResult, directResult] = await Promise.all([
         transparentClient.product.getById(
           { id: testId },
-          session
+          reqCtx
         ),
-        serverClient.product.getById({ id: testId }, session)
+        serverClient.product.getById({ id: testId }, reqCtx)
       ]);
 
       // Results should be structurally equivalent

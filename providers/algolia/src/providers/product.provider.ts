@@ -1,10 +1,10 @@
-import { 
-  Product, 
-  ProductProvider, 
-  ProductQueryById, 
-  ProductQueryBySlug, 
-  Session,
-  Cache 
+import {
+  Product,
+  ProductProvider,
+  ProductQueryById,
+  ProductQueryBySlug,
+  Session, RequestContext,
+  Cache
 } from '@reactionary/core';
 import { z } from 'zod';
 import { AlgoliaConfiguration } from '../schema/configuration.schema';
@@ -22,7 +22,7 @@ export class AlgoliaProductProvider<
 
   public override async getById(
     payload: ProductQueryById,
-    _session: Session
+    _reqCtx: RequestContext
   ): Promise<T> {
     // TODO: Implement Algolia product fetch by ID
     const result = this.newModel();
@@ -34,13 +34,13 @@ export class AlgoliaProductProvider<
       cache: { hit: false, key: payload.id },
       placeholder: true
     };
-    
+
     return this.assert(result);
   }
 
   public override async getBySlug(
     payload: ProductQueryBySlug,
-    _session: Session
+    _reqCtx: RequestContext
   ): Promise<T> {
     // TODO: Implement Algolia product fetch by slug
     const result = this.newModel();
@@ -52,7 +52,7 @@ export class AlgoliaProductProvider<
       cache: { hit: false, key: payload.slug },
       placeholder: true
     };
-    
+
     return this.assert(result);
   }
 }
