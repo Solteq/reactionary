@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import { NoOpCache, PriceSchema, RequestContext, createInitialRequestContext } from '@reactionary/core';
+import type { RequestContext} from '@reactionary/core';
+import { NoOpCache, PriceSchema, createInitialRequestContext } from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils';
 import { FakePriceProvider } from '../providers/price.provider';
 

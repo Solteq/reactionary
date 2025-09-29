@@ -2,7 +2,8 @@ import { ClientBuilder } from '@commercetools/ts-client';
 import { createApiBuilderFromCtpClient } from '@commercetools/platform-sdk';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { randomUUID } from 'crypto';
-import { RequestContext, Session } from '@reactionary/core';
+import type { RequestContext} from '@reactionary/core';
+import { Session } from '@reactionary/core';
 
 export class CommercetoolsClient {
   protected config: CommercetoolsConfiguration;

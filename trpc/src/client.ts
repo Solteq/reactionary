@@ -1,4 +1,5 @@
-import { Client, RequestContext, Session } from '@reactionary/core';
+import type { Client, RequestContext} from '@reactionary/core';
+import { Session } from '@reactionary/core';
 import type { TransparentClient } from './types';
 
 /**

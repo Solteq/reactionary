@@ -1,7 +1,8 @@
-import { Category, CategoryProvider, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext, Session } from "@reactionary/core";
-import { FakeConfiguration } from "../schema/configuration.schema";
-import { Cache as ReactionaryCache } from "@reactionary/core";
-import z from "zod";
+import type { Category, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext} from "@reactionary/core";
+import { CategoryProvider, Session } from "@reactionary/core";
+import type { FakeConfiguration } from "../schema/configuration.schema";
+import type { Cache as ReactionaryCache } from "@reactionary/core";
+import type z from "zod";
 import { Faker, en, base } from '@faker-js/faker';
 export class FakeCategoryProvider<
   T extends Category = Category

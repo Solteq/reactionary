@@ -1,6 +1,6 @@
-import { Inventory } from '../schemas/models/inventory.model';
-import { InventoryQueryBySKU } from '../schemas/queries/inventory.query';
-import { RequestContext } from '../schemas/session.schema';
+import type { Inventory } from '../schemas/models/inventory.model';
+import type { InventoryQueryBySKU } from '../schemas/queries/inventory.query';
+import type { RequestContext } from '../schemas/session.schema';
 import { BaseProvider } from './base.provider';
 
 export abstract class InventoryProvider<

@@ -29,7 +29,8 @@ export {
 
 // Legacy exports for backward compatibility
 import { initTRPC } from '@trpc/server';
-import { Client, RequestContext, Session } from '@reactionary/core';
+import type { Client, RequestContext} from '@reactionary/core';
+import { Session } from '@reactionary/core';
 import { createTRPCTracing } from '@reactionary/otel';
 
 const t = initTRPC.context<{ client: Client; reqCtx: RequestContext }>().create({});
