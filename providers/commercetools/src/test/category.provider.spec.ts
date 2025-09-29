@@ -1,5 +1,6 @@
 import 'dotenv/config'
-import { CategorySchema, NoOpCache, RequestContext, Session , createInitialRequestContext} from '@reactionary/core';
+import type { RequestContext} from '@reactionary/core';
+import { CategorySchema, NoOpCache, Session , createInitialRequestContext} from '@reactionary/core';
 import { CommercetoolsCategoryProvider } from '../providers/category.provider';
 import { getCommercetoolsTestConfiguration } from './test-utils';
 

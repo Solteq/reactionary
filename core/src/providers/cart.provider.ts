@@ -1,9 +1,9 @@
 import { BaseProvider } from "./base.provider";
-import { Cart } from "../schemas/models/cart.model";
-import { CartQueryById } from "../schemas/queries/cart.query";
-import { RequestContext } from "../schemas/session.schema";
-import { CartMutationApplyCoupon, CartMutationChangeCurrency, CartMutationCheckout, CartMutationDeleteCart, CartMutationItemAdd, CartMutationItemQuantityChange, CartMutationItemRemove, CartMutationRemoveCoupon, CartMutationSetBillingAddress, CartMutationSetShippingInfo } from "../schemas/mutations/cart.mutation";
-import { CartIdentifier, OrderIdentifier } from "../schemas/models/identifiers.model";
+import type { Cart } from "../schemas/models/cart.model";
+import type { CartQueryById } from "../schemas/queries/cart.query";
+import type { RequestContext } from "../schemas/session.schema";
+import type { CartMutationApplyCoupon, CartMutationChangeCurrency, CartMutationCheckout, CartMutationDeleteCart, CartMutationItemAdd, CartMutationItemQuantityChange, CartMutationItemRemove, CartMutationRemoveCoupon, CartMutationSetBillingAddress, CartMutationSetShippingInfo } from "../schemas/mutations/cart.mutation";
+import type { CartIdentifier, OrderIdentifier } from "../schemas/models/identifiers.model";
 
 export abstract class CartProvider<
   T extends Cart = Cart

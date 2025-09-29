@@ -1,7 +1,8 @@
 import 'dotenv/config';
 
 
-import { NoOpCache, PriceSchema, RequestContext, Session, createInitialRequestContext,} from '@reactionary/core';
+import type { RequestContext} from '@reactionary/core';
+import { NoOpCache, PriceSchema, Session, createInitialRequestContext,} from '@reactionary/core';
 import {   getCommercetoolsTestConfiguration } from './test-utils';
 
 import { CommercetoolsPriceProvider } from '../providers/price.provider';

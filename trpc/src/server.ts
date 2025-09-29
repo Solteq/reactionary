@@ -1,11 +1,13 @@
 import { initTRPC } from '@trpc/server';
-import { Client, RequestContext, Session } from '@reactionary/core';
+import type { Client, RequestContext, Session } from '@reactionary/core';
 import superjson from 'superjson';
 import { z } from 'zod';
 import { createTRPCTracing } from '@reactionary/otel';
-import {
-  introspectClient,
+import type {
   MethodInfo
+} from './types';
+import {
+  introspectClient
 } from './types';
 
 // Initialize TRPC with context containing session (no transformer for testing)

@@ -1,10 +1,10 @@
 import z from "zod";
-import { ShippingMethodIdentifier } from "./identifiers.model";
+import { ShippingMethodIdentifierSchema } from "./identifiers.model";
 import { MonetaryAmountSchema } from "./price.model";
 import { ImageSchema } from "./base.model";
 
 export const ShippingMethodSchema = z.looseObject({
-    identifier: ShippingMethodIdentifier.default(() => ShippingMethodIdentifier.parse({})),
+    identifier: ShippingMethodIdentifierSchema.default(() => ShippingMethodIdentifierSchema.parse({})),
     name: z.string().default(''),
     description: z.string().default(''),
     logo: ImageSchema.optional(),

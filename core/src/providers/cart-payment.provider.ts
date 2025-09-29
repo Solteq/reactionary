@@ -1,7 +1,8 @@
-import { CartPaymentInstruction } from '../schemas/models/payment.model';
-import { CartPaymentMutationAddPayment, CartPaymentMutationCancelPayment } from '../schemas/mutations/cart-payment.mutation';
-import { CartPaymentQueryByCart } from '../schemas/queries/cart-payment.query';
-import { RequestContext, Session } from '../schemas/session.schema';
+import type { CartPaymentInstruction } from '../schemas/models/payment.model';
+import type { CartPaymentMutationAddPayment, CartPaymentMutationCancelPayment } from '../schemas/mutations/cart-payment.mutation';
+import type { CartPaymentQueryByCart } from '../schemas/queries/cart-payment.query';
+import type { RequestContext} from '../schemas/session.schema';
+import { Session } from '../schemas/session.schema';
 import { BaseProvider } from './base.provider';
 
 export abstract class CartPaymentProvider<

@@ -7,7 +7,7 @@ import type { CommercetoolsConfiguration } from '../schema/configuration.schema'
 import type { ProductProjection } from '@commercetools/platform-sdk';
 import { traced } from '@reactionary/otel';
 import type { Product, ProductQueryById, ProductQueryBySlug, RequestContext } from '@reactionary/core';
-import { Cache } from '@reactionary/core';
+import type { Cache } from '@reactionary/core';
 
 export class CommercetoolsProductProvider<
   T extends Product = Product

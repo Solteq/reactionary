@@ -1,7 +1,8 @@
-import { Identity } from "../schemas/models/identity.model";
-import { IdentityMutationLogin, IdentityMutationLogout } from "../schemas/mutations/identity.mutation";
-import { IdentityQuerySelf } from "../schemas/queries/identity.query";
-import { RequestContext, Session } from "../schemas/session.schema";
+import type { Identity } from "../schemas/models/identity.model";
+import type { IdentityMutationLogin, IdentityMutationLogout } from "../schemas/mutations/identity.mutation";
+import type { IdentityQuerySelf } from "../schemas/queries/identity.query";
+import type { RequestContext} from "../schemas/session.schema";
+import { Session } from "../schemas/session.schema";
 import { BaseProvider } from "./base.provider";
 
 export abstract class IdentityProvider<

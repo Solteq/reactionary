@@ -1,7 +1,7 @@
-import { Currency } from '../schemas/models/currency.model';
-import { Price } from '../schemas/models/price.model';
-import { PriceQueryBySku } from '../schemas/queries/price.query';
-import { RequestContext } from '../schemas/session.schema';
+import type { Currency } from '../schemas/models/currency.model';
+import type { Price } from '../schemas/models/price.model';
+import type { PriceQueryBySku } from '../schemas/queries/price.query';
+import type { RequestContext } from '../schemas/session.schema';
 import { BaseProvider } from './base.provider';
 
 export abstract class PriceProvider<

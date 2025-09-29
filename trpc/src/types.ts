@@ -1,7 +1,8 @@
-import {
+import type {
   Client,
   RequestContext,
-  Session,
+  Session} from '@reactionary/core';
+import {
   BaseProvider
 } from '@reactionary/core';
 

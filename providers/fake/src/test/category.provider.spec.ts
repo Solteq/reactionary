@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import { CategorySchema, MemoryCache, RequestContext , createInitialRequestContext,} from '@reactionary/core';
+import type { RequestContext } from '@reactionary/core';
+import { CategorySchema, MemoryCache , createInitialRequestContext,} from '@reactionary/core';
 import { FakeCategoryProvider } from '../providers';
 import { getFakerTestConfiguration } from './test-utils';
 

@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import { CartSchema, IdentitySchema, NoOpCache, RequestContext, createInitialRequestContext } from '@reactionary/core';
+import type { RequestContext} from '@reactionary/core';
+import { CartSchema, IdentitySchema, NoOpCache, createInitialRequestContext } from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils';
 import { FakeCartProvider } from '../providers/cart.provider';
 import { FakeIdentityProvider } from '../providers';

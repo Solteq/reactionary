@@ -1,10 +1,12 @@
-import {
+import type {
   Product,
-  ProductProvider,
   ProductQueryById,
   ProductQueryBySlug,
   RequestContext,
   Cache
+} from '@reactionary/core';
+import {
+  ProductProvider
 } from '@reactionary/core';
 import type { z } from 'zod';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema';
