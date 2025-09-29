@@ -4,7 +4,7 @@ import {
   SearchResult,
   SearchResultFacet,
   SearchResultProduct,
-  Session,
+  Session, RequestContext,
   Cache,
 } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
@@ -24,7 +24,7 @@ export class AlgoliaSearchProvider<
 
   public override async queryByTerm(
     payload: SearchQueryByTerm,
-    _session: Session
+    _reqCtx: RequestContext
   ): Promise<SearchResult> {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
     const remote = await client.search<unknown>({

@@ -2,7 +2,7 @@ import {
   Inventory,
   InventoryProvider,
   InventoryQuery,
-  Session,
+  Session, RequestContext,
   Cache,
   LanguageContext,
 } from '@reactionary/core';
@@ -25,10 +25,10 @@ export class CommercetoolsInventoryProvider<
     this.config = config;
   }
 
-  protected getClient(session: Session) {
-    const token = session.identity.keyring.find(x => x.service === 'commercetools')?.token;
-    const client = new CommercetoolsClient(this.config).getClient(
-      token
+  protected async getClient(reqCtx: RequestContext) {
+
+    const client = await new CommercetoolsClient(this.config).getClient(
+      reqCtx
     );
     return client.withProjectKey({ projectKey: this.config.projectKey }).inventory();
   }
@@ -37,11 +37,9 @@ export class CommercetoolsInventoryProvider<
 
   public override async getBySKU(
     payload: InventoryQuery,
-    session: Session
+    reqCtx: RequestContext
   ): Promise<T> {
-    const client = new CommercetoolsClient(this.config).getClient(
-      session.identity?.token
-    );
+    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
 
     const remote = await client
       .withProjectKey({ projectKey: this.config.projectKey })
@@ -53,10 +51,10 @@ export class CommercetoolsInventoryProvider<
       })
       .execute();
 
-    return this.parseSingle(remote.body, session);
+    return this.parseSingle(remote.body, reqCtx);
   }
 
-  protected override parseSingle(_body: unknown, session: Session): T {
+  protected override parseSingle(_body: unknown, reqCtx: RequestContext): T {
       const body = _body as CTInventory;
       const model = this.newModel();
 
@@ -76,7 +74,7 @@ export class CommercetoolsInventoryProvider<
       }
 
       model.meta = {
-        cache: { hit: false, key: this.generateCacheKeySingle(model.identifier, session) },
+        cache: { hit: false, key: this.generateCacheKeySingle(model.identifier, reqCtx) },
         placeholder: false
       };
 

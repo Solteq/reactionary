@@ -1,8 +1,8 @@
 import 'dotenv/config';
 
 
-import { NoOpCache, PriceSchema, Session } from '@reactionary/core';
-import { createAnonymousTestSession, getFakerTestConfiguration } from './test-utils';
+import { NoOpCache, PriceSchema, RequestContext, createInitialRequestContext } from '@reactionary/core';
+import { getFakerTestConfiguration } from './test-utils';
 
 import { FakePriceProvider } from '../providers/price.provider';
 
@@ -14,7 +14,7 @@ const testData = {
 
 describe('Fake Price Provider', () => {
   let provider: FakePriceProvider;
-  let session: Session;
+  let reqCtx: RequestContext;
 
 
 
@@ -23,11 +23,11 @@ describe('Fake Price Provider', () => {
   });
 
   beforeEach( () => {
-    session = createAnonymousTestSession()
+    reqCtx = createInitialRequestContext()
   })
 
   it('should be able to get prices for a product without tiers', async () => {
-    const result = await provider.getBySKU({ sku: { key: testData.skuWithoutTiers }}, session);
+    const result = await provider.getBySKU({ sku: { key: testData.skuWithoutTiers }}, reqCtx);
 
     expect(result).toBeTruthy();
     if (result) {
@@ -39,7 +39,7 @@ describe('Fake Price Provider', () => {
   });
 
   it('should be able to get prices for a product with tiers', async () => {
-    const result = await provider.getBySKU({ sku: { key: testData.skuWithTiers }}, session);
+    const result = await provider.getBySKU({ sku: { key: testData.skuWithTiers }}, reqCtx);
 
     expect(result).toBeTruthy();
     if (result) {
@@ -56,7 +56,7 @@ describe('Fake Price Provider', () => {
   });
 
   it('should return a placeholder price for an unknown SKU', async () => {
-    const result = await provider.getBySKU({ sku: { key: 'unknown-sku' }}, session);
+    const result = await provider.getBySKU({ sku: { key: 'unknown-sku' }}, reqCtx);
 
     expect(result).toBeTruthy();
     if (result) {
@@ -70,7 +70,7 @@ describe('Fake Price Provider', () => {
 
   it('can look up multiple prices at once', async () => {
     const skus = [testData.skuWithTiers, testData.skuWithoutTiers, 'unknown-sku'];
-    const results = await Promise.all(skus.map( sku => provider.getBySKU({ sku: { key: sku }}, session)));
+    const results = await Promise.all(skus.map( sku => provider.getBySKU({ sku: { key: sku }}, reqCtx)));
 
     expect(results).toHaveLength(skus.length);
     expect(results[0].identifier.sku.key).toBe(testData.skuWithTiers);

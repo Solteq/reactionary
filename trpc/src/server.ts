@@ -3,8 +3,8 @@ import { Client, Session } from '@reactionary/core';
 import superjson from 'superjson';
 import { z } from 'zod';
 import { createTRPCTracing } from '@reactionary/otel';
-import { 
-  introspectClient, 
+import {
+  introspectClient,
   MethodInfo
 } from './types';
 
@@ -21,19 +21,19 @@ const baseProcedure = t.procedure.use(createTRPCTracing());
  * Create a TRPC router from a built client instance
  * This function introspects the client and automatically creates TRPC procedures
  * for all provider methods while maintaining type safety
- * 
+ *
  * @example
  * ```typescript
  * const client = buildClient([
  *   withFakeCapabilities(config, { product: true, search: true })
  * ]);
- * 
+ *
  * const router = createTRPCServerRouter(client);
  * ```
  */
 export function createTRPCServerRouter<T extends Partial<Client>>(client: T) {
   const methods = introspectClient(client);
-  
+
   // Group methods by provider
   const providerMethods = methods.reduce((acc, method) => {
     if (!acc[method.providerName]) {
@@ -42,21 +42,21 @@ export function createTRPCServerRouter<T extends Partial<Client>>(client: T) {
     acc[method.providerName].push(method);
     return acc;
   }, {} as Record<string, MethodInfo[]>);
-  
+
   // Build router structure
   const routes: Record<string, any> = {};
-  
+
   for (const [providerName, providerMethodsList] of Object.entries(providerMethods)) {
     const providerRoutes: Record<string, any> = {};
-    
+
     for (const methodInfo of providerMethodsList) {
       const procedure = createProcedureForMethod(methodInfo);
       providerRoutes[methodInfo.name] = procedure;
     }
-    
+
     routes[providerName] = t.router(providerRoutes);
   }
-  
+
   return t.router(routes);
 }
 
@@ -70,16 +70,16 @@ function createProcedureForMethod(methodInfo: MethodInfo) {
     payload: z.any(), // The actual payload from the provider method
     session: z.any().optional(), // Session is optional in input since it might come from context
   });
-  
+
   const procedureWithInput = baseProcedure.input(inputSchema);
-  
+
   if (methodInfo.isQuery) {
     return procedureWithInput.query(async ({ input, ctx }) => {
       const session = input.session || ctx.session;
-      
+
       // Call the original provider method
       if (session) {
-        return await methodInfo.method(input.payload, session);
+        return await methodInfo.method(input.payload, reqCtx);
       } else {
         // Some methods might not require session
         return await methodInfo.method(input.payload);
@@ -88,10 +88,10 @@ function createProcedureForMethod(methodInfo: MethodInfo) {
   } else if (methodInfo.isMutation) {
     return procedureWithInput.mutation(async ({ input, ctx }) => {
       const session = input.session || ctx.session;
-      
+
       // Call the original provider method
       if (session) {
-        return await methodInfo.method(input.payload, session);
+        return await methodInfo.method(input.payload, reqCtx);
       } else {
         // Some methods might not require session
         return await methodInfo.method(input.payload);

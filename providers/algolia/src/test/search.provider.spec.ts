@@ -1,6 +1,5 @@
-import { NoOpCache, SearchResultSchema } from '@reactionary/core';
+import { createInitialRequestContext, NoOpCache, SearchResultSchema } from '@reactionary/core';
 import { AlgoliaSearchProvider } from '../providers/search.provider';
-import { createAnonymousTestSession } from './test-utils';
 
 describe('Algolia Search Provider', () => {
   const provider = new AlgoliaSearchProvider(
@@ -13,7 +12,7 @@ describe('Algolia Search Provider', () => {
     new NoOpCache()
   );
 
-  const session = createAnonymousTestSession();
+  const reqCtx = createInitialRequestContext();
 
   it('should be able to get a result by term', async () => {
     const result = await provider.queryByTerm({ search: {
@@ -21,7 +20,7 @@ describe('Algolia Search Provider', () => {
       page: 0,
       pageSize: 20,
       facets: [],
-    }}, session);
+    }}, reqCtx);
 
     expect(result.products.length).toBeGreaterThan(0);
     expect(result.facets.length).toBe(2);
@@ -35,14 +34,14 @@ describe('Algolia Search Provider', () => {
       page: 0,
       pageSize: 20,
       facets: [],
-    }}, session);
+    }}, reqCtx);
 
     const secondPage = await provider.queryByTerm({ search: {
       term: 'glass',
       page: 1,
       pageSize: 20,
       facets: [],
-    }}, session);
+    }}, reqCtx);
 
     expect(firstPage.identifier.page).toBe(0);
     expect(secondPage.identifier.page).toBe(1);
@@ -57,13 +56,13 @@ describe('Algolia Search Provider', () => {
       page: 0,
       pageSize: 2,
       facets: [],
-    }}, session);
+    }}, reqCtx);
     const largePage = await provider.queryByTerm({ search: {
       term: 'glass',
       page: 0,
       pageSize: 30,
       facets: [],
-    }}, session);
+    }}, reqCtx);
 
     expect(smallPage.products.length).toBe(2);
     expect(smallPage.identifier.pageSize).toBe(2);
@@ -77,14 +76,14 @@ describe('Algolia Search Provider', () => {
       page: 0,
       pageSize: 2,
       facets: [],
-    }}, session);
+    }}, reqCtx);
 
     const filtered = await provider.queryByTerm({ search: {
       term: 'glass',
       page: 0,
       pageSize: 2,
       facets: [initial.facets[0].values[0].identifier],
-    }}, session);
+    }}, reqCtx);
 
     expect(initial.pages).toBeGreaterThan(filtered.pages);
   });

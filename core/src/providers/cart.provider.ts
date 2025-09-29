@@ -1,10 +1,9 @@
 import { BaseProvider } from "./base.provider";
 import { Cart } from "../schemas/models/cart.model";
 import { CartQueryById } from "../schemas/queries/cart.query";
-import { Session } from "../schemas/session.schema";
-import { CartMutationAddPaymentMethod, CartMutationApplyCoupon, CartMutationChangeCurrency, CartMutationCheckout, CartMutationDeleteCart, CartMutationItemAdd, CartMutationItemQuantityChange, CartMutationItemRemove, CartMutationRemoveCoupon, CartMutationRemovePaymentMethod, CartMutationSetBillingAddress, CartMutationSetShippingInfo } from "../schemas/mutations/cart.mutation";
+import { RequestContext } from "../schemas/session.schema";
+import { CartMutationApplyCoupon, CartMutationChangeCurrency, CartMutationCheckout, CartMutationDeleteCart, CartMutationItemAdd, CartMutationItemQuantityChange, CartMutationItemRemove, CartMutationRemoveCoupon, CartMutationSetBillingAddress, CartMutationSetShippingInfo } from "../schemas/mutations/cart.mutation";
 import { CartIdentifier, OrderIdentifier } from "../schemas/models/identifiers.model";
-import { CartPaymentProvider } from "./cart-payment.provider";
 
 export abstract class CartProvider<
   T extends Cart = Cart
@@ -17,7 +16,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract getById(payload: CartQueryById, session: Session): Promise<T>;
+  public abstract getById(payload: CartQueryById, reqCtx: RequestContext): Promise<T>;
 
 
   /**
@@ -26,7 +25,7 @@ export abstract class CartProvider<
    * Usecase: Most common usecase during site load, or after login. You want to get the active cart for the user, so you can display it in the minicart.
    * @param session
    */
-  public abstract getActiveCartId(session: Session): Promise<CartIdentifier>;
+  public abstract getActiveCartId(reqCtx: RequestContext): Promise<CartIdentifier>;
 
 
   /**
@@ -38,7 +37,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract add(payload: CartMutationItemAdd, session: Session): Promise<T>;
+  public abstract add(payload: CartMutationItemAdd, reqCtx: RequestContext): Promise<T>;
 
   /**
    * Remove item from cart. If the cart is empty after removal, delete the cart. Returns the updated and recalculated cart.
@@ -47,7 +46,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract remove(payload: CartMutationItemRemove, session: Session): Promise<T>;
+  public abstract remove(payload: CartMutationItemRemove, reqCtx: RequestContext): Promise<T>;
 
   /**
    * Change quantity of item in cart. If the cart is empty after change, delete the cart. Returns the updated and recalculated cart.
@@ -58,7 +57,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract changeQuantity(payload: CartMutationItemQuantityChange, session: Session): Promise<T>;
+  public abstract changeQuantity(payload: CartMutationItemQuantityChange, reqCtx: RequestContext): Promise<T>;
 
 
   /**
@@ -68,7 +67,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract deleteCart(payload: CartMutationDeleteCart, session: Session): Promise<T>;
+  public abstract deleteCart(payload: CartMutationDeleteCart, reqCtx: RequestContext): Promise<T>;
 
   /**
    * Sets shipping method and address on the cart. Returns the updated and recalculated cart.
@@ -77,7 +76,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract setShippingInfo(payload: CartMutationSetShippingInfo, session: Session): Promise<T>;
+  public abstract setShippingInfo(payload: CartMutationSetShippingInfo, reqCtx: RequestContext): Promise<T>;
 
   /**
    * Sets billing address on the cart. Returns the updated and recalculated cart.
@@ -87,7 +86,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract setBillingAddress(payload: CartMutationSetBillingAddress, session: Session): Promise<T>;
+  public abstract setBillingAddress(payload: CartMutationSetBillingAddress, reqCtx: RequestContext): Promise<T>;
 
   /**
    * Applies a coupon code to the cart. Returns the updated and recalculated cart.
@@ -96,7 +95,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract applyCouponCode(payload: CartMutationApplyCoupon, session: Session): Promise<T>;
+  public abstract applyCouponCode(payload: CartMutationApplyCoupon, reqCtx: RequestContext): Promise<T>;
 
 
   /**
@@ -106,7 +105,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract removeCouponCode(payload: CartMutationRemoveCoupon, session: Session): Promise<T>;
+  public abstract removeCouponCode(payload: CartMutationRemoveCoupon, reqCtx: RequestContext): Promise<T>;
 
 
   /**
@@ -117,7 +116,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract checkout(payload: CartMutationCheckout, session: Session): Promise<OrderIdentifier>;
+  public abstract checkout(payload: CartMutationCheckout, reqCtx: RequestContext): Promise<OrderIdentifier>;
 
   /**
    * Changes the currency of the cart.
@@ -126,7 +125,7 @@ export abstract class CartProvider<
    * @param newCurrency
    * @param session
    */
-  public abstract changeCurrency(payload: CartMutationChangeCurrency, session: Session): Promise<T>;
+  public abstract changeCurrency(payload: CartMutationChangeCurrency, reqCtx: RequestContext): Promise<T>;
 
 
 

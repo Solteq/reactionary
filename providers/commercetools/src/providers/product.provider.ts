@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { ProductProjection } from '@commercetools/platform-sdk';
 import { traced } from '@reactionary/otel';
-import type { ProductQueryById, ProductQueryBySlug, Session } from '@reactionary/core';
+import type { ProductQueryById, ProductQueryBySlug, RequestContext, Session } from '@reactionary/core';
 
 export class CommercetoolsProductProvider<
   T extends Product = Product
@@ -21,20 +21,18 @@ export class CommercetoolsProductProvider<
     this.config = config;
   }
 
-  protected getClient(session: Session) {
-    const token = session.identity.keyring.find(x => x.service === 'commercetools')?.token;
-    const client = new CommercetoolsClient(this.config).getClient(
-      token
-    );
+  protected async getClient(reqCtx: RequestContext) {
+
+    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
   }
 
   @traced()
   public override async getById(
     payload: ProductQueryById,
-    session: Session
+    reqCtx: RequestContext
   ): Promise<T> {
-    const client = this.getClient(session);
+    const client = await this.getClient(reqCtx);
 
     try {
       const remote = await client
@@ -42,7 +40,7 @@ export class CommercetoolsProductProvider<
         .get()
         .execute();
 
-      return this.parseSingle(remote.body, session);
+      return this.parseSingle(remote.body, reqCtx);
     } catch(error) {
       return this.createEmptyProduct(payload.id);
     }
@@ -51,9 +49,9 @@ export class CommercetoolsProductProvider<
   @traced()
   public override async getBySlug(
     payload: ProductQueryBySlug,
-    session: Session
+    reqCtx: RequestContext
   ): Promise<T | null> {
-    const client = this.getClient(session);
+    const client = await this.getClient(reqCtx);
 
     const remote = await client
       .get({
@@ -67,20 +65,20 @@ export class CommercetoolsProductProvider<
     if (remote.body.count === 0) {
       return null;
     }
-    return this.parseSingle(remote.body.results[0], session);
+    return this.parseSingle(remote.body.results[0], reqCtx);
   }
 
-  protected override parseSingle(dataIn: unknown, session: Session): T {
+  protected override parseSingle(dataIn: unknown, reqCtx: RequestContext): T {
     const data = dataIn as ProductProjection;
     const base = this.newModel();
 
 
     base.identifier = { key: data.id };
-    base.name = data.name[session.languageContext.locale];
-    base.slug = data.slug[session.languageContext.locale];
+    base.name = data.name[reqCtx.languageContext.locale];
+    base.slug = data.slug[reqCtx.languageContext.locale];
 
     if (data.description) {
-      base.description = data.description[session.languageContext.locale];
+      base.description = data.description[reqCtx.languageContext.locale];
     }
 
     if (data.masterVariant.images && data.masterVariant.images.length > 0) {
@@ -101,7 +99,7 @@ export class CommercetoolsProductProvider<
     }
 
     base.meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(base.identifier, session) },
+      cache: { hit: false, key: this.generateCacheKeySingle(base.identifier, reqCtx) },
       placeholder: false
     };
 

@@ -1,7 +1,7 @@
 import { CartPaymentInstruction } from '../schemas/models/payment.model';
 import { CartPaymentMutationAddPayment, CartPaymentMutationCancelPayment } from '../schemas/mutations/cart-payment.mutation';
 import { CartPaymentQueryByCart } from '../schemas/queries/cart-payment.query';
-import { Session } from '../schemas/session.schema';
+import { RequestContext, Session } from '../schemas/session.schema';
 import { BaseProvider } from './base.provider';
 
 export abstract class CartPaymentProvider<
@@ -20,7 +20,7 @@ export abstract class CartPaymentProvider<
    * @param cartIdentifier
    * @param session
    */
-  public abstract getByCartIdentifier(payload: CartPaymentQueryByCart, session: Session): Promise<T[]>;
+  public abstract getByCartIdentifier(payload: CartPaymentQueryByCart, reqCtx: RequestContext): Promise<T[]>;
 
 
   /**
@@ -33,7 +33,7 @@ export abstract class CartPaymentProvider<
    * @param payload
    * @param session
    */
-  public abstract initiatePaymentForCart(payload: CartPaymentMutationAddPayment, session: Session): Promise<T>;
+  public abstract initiatePaymentForCart(payload: CartPaymentMutationAddPayment, reqCtx: RequestContext): Promise<T>;
 
 
 
@@ -48,7 +48,7 @@ export abstract class CartPaymentProvider<
    * @param session
    * @returns
    */
-  public abstract cancelPaymentInstruction(payload: CartPaymentMutationCancelPayment, session: Session): Promise<T>;
+  public abstract cancelPaymentInstruction(payload: CartPaymentMutationCancelPayment, reqCtx: RequestContext): Promise<T>;
 
   protected override getResourceName(): string {
     return 'cart-payment-instruction';

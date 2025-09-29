@@ -1,4 +1,4 @@
-import { Category, CategoryProvider, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, Session } from "@reactionary/core";
+import { Category, CategoryProvider, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext, Session } from "@reactionary/core";
 import { FakeConfiguration } from "../schema/configuration.schema";
 import { Cache as ReactionaryCache } from "@reactionary/core";
 import z from "zod";
@@ -72,7 +72,7 @@ export class FakeCategoryProvider<
 
 
 
-  public override async getById(payload: CategoryQueryById, session: Session): Promise<T> {
+  public override async getById(payload: CategoryQueryById, reqCtx: RequestContext): Promise<T> {
     const category = this.allCategories.get(payload.id.key);
     if(!category) {
       const dummyCategory = this.newModel();
@@ -82,7 +82,7 @@ export class FakeCategoryProvider<
     }
     return  category;
   }
-  public override getBySlug(payload: CategoryQueryBySlug, session: Session): Promise<T | null> {
+  public override getBySlug(payload: CategoryQueryBySlug, reqCtx: RequestContext): Promise<T | null> {
     for(const p of this.allCategories.values()) {
       if(p.slug === payload.slug) {
         return Promise.resolve(p as T);
@@ -91,7 +91,7 @@ export class FakeCategoryProvider<
     return Promise.resolve(null);
   }
 
-  public override getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb, session: Session): Promise<T[]> {
+  public override getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb, reqCtx: RequestContext): Promise<T[]> {
     const path = new Array<T>();
     let category = this.allCategories.get(payload.id.key);
     path.push(category as T);
@@ -104,7 +104,7 @@ export class FakeCategoryProvider<
     return Promise.resolve(path);
   }
 
-  public override async findChildCategories(payload: CategoryQueryForChildCategories, session: Session): Promise<ReturnType<typeof this.parsePaginatedResult>> {
+  public override async findChildCategories(payload: CategoryQueryForChildCategories, reqCtx: RequestContext): Promise<ReturnType<typeof this.parsePaginatedResult>> {
     const children = this.childCategories.get(payload.parentId.key);
     const page = children?.slice((payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize, payload.paginationOptions.pageNumber * payload.paginationOptions.pageSize);
 
@@ -126,7 +126,7 @@ export class FakeCategoryProvider<
 
     return Promise.resolve(res);
   }
-  public override findTopCategories(payload: CategoryQueryForTopCategories, session: Session): Promise<ReturnType<typeof this.parsePaginatedResult>> {
+  public override findTopCategories(payload: CategoryQueryForTopCategories, reqCtx: RequestContext): Promise<ReturnType<typeof this.parsePaginatedResult>> {
     const children = this.topCategories;
     const page = children?.slice((payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize, payload.paginationOptions.pageNumber * payload.paginationOptions.pageSize);
 

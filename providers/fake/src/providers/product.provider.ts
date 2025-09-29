@@ -3,7 +3,7 @@ import {
   ProductProvider,
   ProductQueryById,
   ProductQueryBySlug,
-  Session,
+  Session, RequestContext,
   Cache as ReactinaryCache,
 } from '@reactionary/core';
 import z from 'zod';
@@ -24,7 +24,7 @@ export class FakeProductProvider<
 
   public override async getById(
     payload: ProductQueryById,
-    _session: Session
+    _reqCtx: RequestContext
   ): Promise<T> {
     return this.parseSingle(payload);
   }
@@ -34,7 +34,7 @@ export class FakeProductProvider<
 
   public override async getBySlug(
     payload: ProductQueryBySlug,
-    _session: Session
+    _reqCtx: RequestContext
   ): Promise<T> {
     return this.parseSingle(payload);
   }

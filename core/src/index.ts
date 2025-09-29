@@ -16,3 +16,4 @@ export * from './schemas/session.schema';
 export * from './schemas/models/';
 export * from './schemas/mutations/';
 export * from './schemas/queries';
+export * from './initialization';

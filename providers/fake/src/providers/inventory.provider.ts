@@ -2,7 +2,7 @@ import {
   Inventory,
   InventoryProvider,
   InventoryQuery,
-  Session,
+  Session, RequestContext,
   Cache,
 } from '@reactionary/core';
 import z from 'zod';
@@ -22,7 +22,7 @@ export class FakeInventoryProvider<
 
   public override async getBySKU(
     payload: InventoryQuery,
-    _session: Session
+    _reqCtx: RequestContext
   ): Promise<T> {
     // Generate a simple hash from the SKU string for seeding
     let hash = 0;
@@ -58,7 +58,7 @@ export class FakeInventoryProvider<
     model.meta = {
         cache: {
           hit: false,
-          key: this.generateCacheKeySingle(model.identifier, _session)
+          key: this.generateCacheKeySingle(model.identifier, _reqCtx)
         },
         placeholder: false,
       };

@@ -1,21 +1,16 @@
 import 'dotenv/config';
 import {
-  Cart,
-  CartMutationAddPaymentMethodSchema,
-  CartPaymentInstructionSchema,
+  Cart, CartPaymentInstructionSchema,
   CartSchema,
   IdentitySchema,
-  NoOpCache,
-  Session,
+  NoOpCache, RequestContext, createInitialRequestContext
 } from '@reactionary/core';
 import {
-  createAnonymousTestSession,
   getCommercetoolsTestConfiguration,
 } from './test-utils';
 import { CommercetoolsCartProvider } from '../providers/cart.provider';
 import { CommercetoolsIdentityProvider } from '../providers/identity.provider';
 import { CommercetoolsCartPaymentProvider } from '../providers/cart-payment.provider';
-import { CartPaymentMutationAddPayment } from 'core/src/schemas/mutations/cart-payment.mutation';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',
@@ -26,7 +21,7 @@ describe('Commercetools Cart Payment Provider', () => {
   let provider: CommercetoolsCartPaymentProvider;
   let cartProvider: CommercetoolsCartProvider;
   let identityProvider: CommercetoolsIdentityProvider;
-  let session: Session;
+  let reqCtx: RequestContext;
 
   beforeAll(() => {
     provider = new CommercetoolsCartPaymentProvider(
@@ -47,7 +42,7 @@ describe('Commercetools Cart Payment Provider', () => {
   });
 
   beforeEach(() => {
-    session = createAnonymousTestSession();
+    reqCtx = createInitialRequestContext();
   });
 
   describe('anonymous sessions', () => {
@@ -62,14 +57,14 @@ describe('Commercetools Cart Payment Provider', () => {
           },
           quantity: 1,
         },
-        session
+        reqCtx
       );
     });
 
     it('a new cart will return 0 payment instructions', async () => {
       const payments = await provider.getByCartIdentifier(
         { cart: cart.identifier, status: undefined },
-        session
+        reqCtx
       );
       expect(payments.length).toBe(0);
     });
@@ -91,7 +86,7 @@ describe('Commercetools Cart Payment Provider', () => {
             protocolData: [{ key: 'test-key', value: 'test-value' }],
           },
         },
-        session
+        reqCtx
       );
 
       expect(payment.identifier.key).toBeDefined();
@@ -99,7 +94,7 @@ describe('Commercetools Cart Payment Provider', () => {
       // verify that we can fetch it again.
       const payments = await provider.getByCartIdentifier(
         { cart: cart.identifier, status: undefined },
-        session
+        reqCtx
       );
       expect(payments.length).toBe(1);
       expect(payments[0].identifier.key).toBe(payment.identifier.key);
@@ -123,7 +118,7 @@ describe('Commercetools Cart Payment Provider', () => {
             protocolData: [{ key: 'test-key', value: 'test-value' }],
           },
         },
-        session
+        reqCtx
       );
       expect(payment.identifier.key).toBeDefined();
 
@@ -132,7 +127,7 @@ describe('Commercetools Cart Payment Provider', () => {
           cart: cart.identifier,
           paymentInstruction: payment.identifier
         },
-        session
+        reqCtx
       );
       expect(cancelledPayment.status).toBe('canceled');
 
@@ -140,7 +135,7 @@ describe('Commercetools Cart Payment Provider', () => {
       // verify that it is gone
       const payments = await provider.getByCartIdentifier(
         { cart: cart.identifier, status: undefined },
-        session
+        reqCtx
       );
       expect(payments.length).toBe(0);
       expect(payments[0].identifier.key).toBe(payment.identifier.key);

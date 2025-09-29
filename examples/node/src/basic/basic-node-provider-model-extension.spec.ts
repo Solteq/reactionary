@@ -10,11 +10,11 @@ import {
   FakeProductProvider,
   withFakeCapabilities,
 } from '@reactionary/provider-fake';
-import { createAnonymousTestSession } from '../test-utils';
+import { createInitialRequestContext } from '../test-utils';
 import z from 'zod';
 
 describe('basic node provider extension (models)', () => {
-  const session = createAnonymousTestSession();
+  const reqCtx = createInitialRequestContext();
 
   const ExtendedProductModel = ProductSchema.extend({
     gtin: z.string().default('gtin-default'),
@@ -95,7 +95,7 @@ describe('basic node provider extension (models)', () => {
       {
         id: '1234',
       },
-      session
+      reqCtx
     );
 
     expect(product).toBeDefined();

@@ -1,8 +1,8 @@
-import { Session } from '@reactionary/core';
+import { RequestContext } from "./schemas/session.schema";
 
-export function createAnonymousTestSession(): Session {
+export function createInitialRequestContext(): RequestContext {
   return {
-    id: 'test-session-id',
+    id: '',
     identity: {
       type: 'Anonymous',
       meta: {
@@ -13,19 +13,31 @@ export function createAnonymousTestSession(): Session {
       token: undefined,
       issued: new Date(),
       expiry: new Date(new Date().getTime() + 3600 * 1000),
-      logonId: "",
-      createdAt: "",
-      updatedAt: "",
+      logonId: '',
+      createdAt: '',
+      updatedAt: '',
       keyring: [],
-      currentService: undefined
+      currentService: undefined,
     },
     languageContext: {
       locale: 'en-US',
       currencyCode: 'USD',
-      countryCode: 'US',
     },
     storeIdentifier: {
       key: 'the-good-store',
     },
+    taxJurisdiction: {
+      countryCode: 'US',
+      stateCode: '',
+      countyCode: '',
+      cityCode: '',
+    },
+    session: {},
+
+    correlationId: '',
+    isBot: false,
+    clientIp: '',
+    userAgent: '',
+    referrer: '',
   };
 }

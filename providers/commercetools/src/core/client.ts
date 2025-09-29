@@ -2,7 +2,7 @@ import { ClientBuilder } from '@commercetools/ts-client';
 import { createApiBuilderFromCtpClient } from '@commercetools/platform-sdk';
 import { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { randomUUID } from 'crypto';
-
+import { RequestContext, Session } from '@reactionary/core';
 
 export class CommercetoolsClient {
   protected config: CommercetoolsConfiguration;
@@ -11,12 +11,29 @@ export class CommercetoolsClient {
     this.config = config;
   }
 
-  public getClient(token?: string) {
-    if (token) {
-      return this.createClientWithToken(token);
+
+  // FIXME: Add token cache as bridge between Identity and WithRefreshToken flow
+  public async getClient(reqCtx:  RequestContext) {
+
+    let token = reqCtx.identity.token;
+
+    if (!token) {
+      const guestTokenResponse = await this.guest();
+      if (guestTokenResponse.access_token) {
+        reqCtx.identity.token = guestTokenResponse.access_token;
+        reqCtx.identity.logonId = '';
+        reqCtx.identity.expiry = new Date(new Date().getTime() + guestTokenResponse.expires_in * 1000);
+        reqCtx.identity.refresh_token = guestTokenResponse.refresh_token;
+        token = guestTokenResponse.access_token;
+      }
     }
 
-    return this.createAnonymousClient();
+
+    if (token) {
+      return this.createClientWithToken(token);
+    } else {
+      throw new Error('Could not obtain guest token');
+    }
   }
 
   public async login(username: string, password: string) {
@@ -91,6 +108,10 @@ export class CommercetoolsClient {
     return json;
   }
 
+  /**
+   * This should be a SPA level access client..... suitable for anonymous access, like for bots or crawlers.
+   * @returns
+   */
   public createAnonymousClient() {
     const scopes = this.config.scopes;
     const builder = this.createBaseClientBuilder().withClientCredentialsFlow({
@@ -105,6 +126,7 @@ export class CommercetoolsClient {
 
     return createApiBuilderFromCtpClient(builder.build());
   }
+
 
   protected createClientWithToken(token: string) {
     const builder = this.createBaseClientBuilder().withExistingTokenFlow(
@@ -164,3 +186,6 @@ export class CommercetoolsClient {
     return builder;
   }
 }
+
+
+

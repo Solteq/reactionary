@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { BaseModel, createPaginatedResponseSchema } from '../schemas/models/base.model';
 import { Cache } from '../cache/cache.interface';
-import { Session } from '../schemas/session.schema';
+import { RequestContext, Session } from '../schemas/session.schema';
 import { IdentifierType } from '../schemas/models/identifiers.model';
 
 /**
@@ -39,32 +39,32 @@ export abstract class BaseProvider<
    * Handler for parsing a response from a remote provider and converting it
    * into the typed domain model.
    */
-  protected parseSingle(_body: unknown, session: Session): T {
+  protected parseSingle(_body: unknown, reqCtx: RequestContext): T {
     const model = this.newModel();
 
     return this.assert(model);
   }
 
 
-  protected parsePaginatedResult(_body: unknown, session: Session): z.infer<ReturnType<typeof createPaginatedResponseSchema<typeof this.schema>>> {
+  protected parsePaginatedResult(_body: unknown, reqCtx: RequestContext): z.infer<ReturnType<typeof createPaginatedResponseSchema<typeof this.schema>>> {
     return createPaginatedResponseSchema(this.schema).parse({});
   }
 
-  protected generateCacheKeyPaginatedResult(resultSetName: string, res:  ReturnType<typeof this.parsePaginatedResult>, session: Session): string {
+  protected generateCacheKeyPaginatedResult(resultSetName: string, res:  ReturnType<typeof this.parsePaginatedResult>, reqCtx: RequestContext): string {
     const type = this.getResourceName();
-    const langPart = session.languageContext.locale;
-    const currencyPart = session.languageContext.currencyCode || 'default';
-    const storePart = session.storeIdentifier?.key || 'default';
+    const langPart = reqCtx.languageContext.locale;
+    const currencyPart = reqCtx.languageContext.currencyCode || 'default';
+    const storePart = reqCtx.storeIdentifier?.key || 'default';
     return `${type}-${resultSetName}-paginated|pageNumber:${res.pageNumber}|pageSize:${res.pageSize}|store:${storePart}|lang:${langPart}|currency:${currencyPart}`;
   }
 
 
-  protected generateCacheKeySingle(identifier: IdentifierType, session: Session): string {
+  protected generateCacheKeySingle(identifier: IdentifierType, reqCtx: RequestContext): string {
     const type = this.getResourceName();
     const idPart = Object.entries(identifier).map(([k, v]) => `${k}:${(v as any).key}`).join('#');
-    const langPart = session.languageContext.locale;
-    const currencyPart = session.languageContext.currencyCode || 'default';
-    const storePart = session.storeIdentifier?.key || 'default';
+    const langPart = reqCtx.languageContext.locale;
+    const currencyPart = reqCtx.languageContext.currencyCode || 'default';
+    const storePart = reqCtx.storeIdentifier?.key || 'default';
     return `${type}-${idPart}|store:${storePart}|lang:${langPart}|currency:${currencyPart}`;
   }
 

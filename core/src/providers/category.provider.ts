@@ -5,7 +5,7 @@ import { Category } from "../schemas/models/category.model";
 import { CategoryIdentifier } from "../schemas/models/identifiers.model";
 import { CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories } from "../schemas/queries/category.query";
 
-import { Session } from "../schemas/session.schema";
+import { RequestContext, Session } from "../schemas/session.schema";
 import { BaseProvider } from "./base.provider";
 
 
@@ -32,11 +32,11 @@ export abstract class CategoryProvider<
    * For now, the result will be en empty category, but we should probably throw an error instead.
    *
    * Use case: You have received a list of category ids from a recommendation engine, and you need to show a tile of this.
-   * Future optimization: getByIds(ids: CategoryIdentifier[], session: Session): Promise<T[]>
+   * Future optimization: getByIds(ids: CategoryIdentifier[], reqCtx: RequestContext): Promise<T[]>
    * @param id
    * @param session
    */
-  public abstract getById(payload: CategoryQueryById, session: Session): Promise<T>;
+  public abstract getById(payload: CategoryQueryById, reqCtx: RequestContext): Promise<T>;
 
   /**
    * Gets a single category by its seo slug
@@ -45,7 +45,7 @@ export abstract class CategoryProvider<
    * @param slug the slug
    * @param session
    */
-  public abstract getBySlug(payload: CategoryQueryBySlug, session: Session): Promise<T | null>;
+  public abstract getBySlug(payload: CategoryQueryBySlug, reqCtx: RequestContext): Promise<T | null>;
 
 
   /**
@@ -56,7 +56,7 @@ export abstract class CategoryProvider<
    * @param id
    * @param session
    */
-  public abstract getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb, session: Session): Promise<T[]>;
+  public abstract getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb, reqCtx: RequestContext): Promise<T[]>;
 
   // hmm, this is not really good enough.... We need a type we can pass in that will allow us to specify the precise return type, but otoh we also need
   // to be able to verify and assert the output type. FIXME
@@ -71,7 +71,7 @@ export abstract class CategoryProvider<
    * @param id The ID of the parent category.
    * @param session The session information.
    */
-  public abstract findChildCategories(payload: CategoryQueryForChildCategories, session: Session): Promise< ReturnType<typeof this.parsePaginatedResult>>;
+  public abstract findChildCategories(payload: CategoryQueryForChildCategories, reqCtx: RequestContext): Promise< ReturnType<typeof this.parsePaginatedResult>>;
 
   /**
    * Returns all top categories, i.e. categories without a parent.
@@ -80,7 +80,7 @@ export abstract class CategoryProvider<
    * @param paginationOptions
    * @param session
    */
-  public abstract findTopCategories( payload: CategoryQueryForTopCategories, session: Session): Promise<ReturnType<typeof this.parsePaginatedResult>>;
+  public abstract findTopCategories( payload: CategoryQueryForTopCategories, reqCtx: RequestContext): Promise<ReturnType<typeof this.parsePaginatedResult>>;
 
 
   protected override getResourceName(): string {
