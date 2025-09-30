@@ -212,6 +212,7 @@ export class CommercetoolsClient {
         // ideally this would be pushed in as part of the session context, so we can trace it end-to-end
         generate: () => `REACTIONARY-${randomUUID()}`,
       })
+
       .withHttpMiddleware({
         retryConfig: {
           backoff: true,

@@ -7,7 +7,10 @@ import type {
     InventoryProvider,
     PriceProvider,
     CategoryProvider,
-    StoreProvider} from "@reactionary/core";
+    StoreProvider,
+    CartPaymentProvider,
+    OrderProvider,
+    OrderPaymentProvider} from "@reactionary/core";
 import {
     CartSchema,
     IdentitySchema,
@@ -37,8 +40,10 @@ type CommercetoolsClient<T extends CommercetoolsCapabilities> =
     (T['category'] extends true ? { category: CategoryProvider } : object) &
     (T['inventory'] extends true ? { inventory: InventoryProvider } : object) &
     (T['price'] extends true ? { price: PriceProvider } : object) &
-    (T['store'] extends true ? { store: StoreProvider } : object);
-
+    (T['store'] extends true ? { store: StoreProvider } : object) &
+    (T['order'] extends true ? { order: OrderProvider } : object) &
+    (T['orderPayment'] extends true ? { orderPayment: OrderPaymentProvider } : object) &
+    (T['cartPayment'] extends true ? { cartPayment: CartPaymentProvider } : object);
 export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilities>(
     configuration: CommercetoolsConfiguration,
     capabilities: T

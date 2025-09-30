@@ -38,7 +38,7 @@ export class CommercetoolsPriceProvider<
     const response = await client.get({
       queryArgs: {
         staged: false,
-        priceCountry: 'US',
+        priceCountry: reqCtx.taxJurisdiction.countryCode,
         priceCustomerGroup: undefined,
         priceChannel: channels.offerChannelGUID,
         priceCurrency: reqCtx.languageContext.currencyCode,

@@ -3,7 +3,8 @@ import type {
   ProductQueryById,
   ProductQueryBySlug,
   RequestContext,
-  Cache
+  Cache,
+  ProductQueryBySKU
 } from '@reactionary/core';
 import {
   ProductProvider
@@ -57,4 +58,9 @@ export class AlgoliaProductProvider<
 
     return this.assert(result);
   }
+
+    public override getBySKU(payload: ProductQueryBySKU, reqCtx: RequestContext): Promise<T> {
+      throw new Error('Method not implemented.');
+    }
+
 }

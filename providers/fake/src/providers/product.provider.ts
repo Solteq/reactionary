@@ -6,6 +6,7 @@ import {
   type Cache as ReactinaryCache,
   ProductProvider,
   Reactionary,
+  type ProductQueryBySKU,
 } from '@reactionary/core';
 import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema';
@@ -30,8 +31,7 @@ export class FakeProductProvider<
     return this.parseSingle(payload);
   }
 
-  // FIXME: Should we have a get-by-sku here? Since thats whats coming back on cart items...
-
+  @Reactionary({})
   public override async getBySlug(
     payload: ProductQueryBySlug,
     _reqCtx: RequestContext
@@ -39,7 +39,13 @@ export class FakeProductProvider<
     return this.parseSingle(payload);
   }
 
-  protected override parseSingle(body: ProductQueryById | ProductQueryBySlug): T {
+  @Reactionary({})
+  public override async getBySKU(payload: ProductQueryBySKU, reqCtx: RequestContext): Promise<T> {
+    return this.parseSingle(payload);
+  }
+
+
+  protected override parseSingle(body: ProductQueryById | ProductQueryBySlug | ProductQueryBySKU): T {
     const generator = new Faker({
       seed: 42,
       locale: [en, base],

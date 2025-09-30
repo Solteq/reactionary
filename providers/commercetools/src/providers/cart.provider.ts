@@ -19,6 +19,7 @@ import type {
 ,
   Cache
 } from '@reactionary/core';
+
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import type { z } from 'zod';
 import { CommercetoolsClient } from '../core/client';
@@ -156,6 +157,7 @@ export class CommercetoolsCartProvider<
         version: carts.body.version || 0
       });
     } catch (e: any) {
+
       return CommercetoolsCartIdentifierSchema.parse({
         key: '',
       version: 0
@@ -415,7 +417,7 @@ export class CommercetoolsCartProvider<
     const ctId = cart as CommercetoolsCartIdentifier;
 
 
-
+       try {
         const response = await client.carts
           .withId({ ID: ctId.key })
           .post({
@@ -426,7 +428,14 @@ export class CommercetoolsCartProvider<
           })
           .execute();
 
+          if (response.error) {
+            console.error(response.error);
+          }
           return this.parseSingle(response.body, reqCtx);
+       } catch (e: any) {
+        console.error('Error applying actions to cart:', e);
+        throw e;
+       }
 
   }
 

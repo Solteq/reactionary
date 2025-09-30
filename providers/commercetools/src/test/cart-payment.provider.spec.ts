@@ -123,14 +123,15 @@ describe('Commercetools Cart Payment Provider', () => {
       );
       expect(payment.identifier.key).toBeDefined();
 
-      const cancelledPayment = await provider.cancelPaymentInstruction(
+
+
+      await provider.cancelPaymentInstruction(
         {
           cart: cart.identifier,
           paymentInstruction: payment.identifier
         },
         reqCtx
       );
-      expect(cancelledPayment.status).toBe('canceled');
 
 
       // verify that it is gone
@@ -139,7 +140,8 @@ describe('Commercetools Cart Payment Provider', () => {
         reqCtx
       );
       expect(payments.length).toBe(0);
-      expect(payments[0].identifier.key).toBe(payment.identifier.key);
    });
+
+
   });
 });

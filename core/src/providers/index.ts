@@ -10,3 +10,5 @@ export * from './product.provider';
 export * from './profile.provider';
 export * from './search.provider';
 export * from './store.provider';
+export * from './order.provider'
+export * from './order-payment.provider';

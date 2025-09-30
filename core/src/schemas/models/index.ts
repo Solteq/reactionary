@@ -13,3 +13,5 @@ export * from './profile.model';
 export * from './search.model';
 export * from './shipping-method.model';
 export * from './store.model';
+export * from './order.model';
+export * from './cost.model';
