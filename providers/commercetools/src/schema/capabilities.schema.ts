@@ -7,6 +7,8 @@ export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
     identity: true,
     cart: true,
     cartPayment: true,
+    order: true,
+    orderPayment: true,
     inventory: true,
     price: true,
     category: true,

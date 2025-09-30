@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { BaseModelSchema, ImageSchema } from './base.model';
-import { CartIdentifierSchema, InventoryIdentifierSchema, PaymentInstructionIdentifierSchema, PaymentMethodIdentifierSchema } from './identifiers.model';
+import { CartIdentifierSchema, OrderIdentifierSchema, PaymentInstructionIdentifierSchema, PaymentMethodIdentifierSchema } from './identifiers.model';
 import { MonetaryAmountSchema } from './price.model';
-import { describe } from 'node:test';
 
 export const PaymentStatusSchema = z.enum(['pending', 'authorized', 'canceled', 'capture', 'partial_capture', 'refunded', 'partial_refund']);
 
@@ -27,12 +26,13 @@ export const PaymentInstructionSchema = BaseModelSchema.extend({
     status: PaymentStatusSchema.default('pending'),
 });
 
+
 export const CartPaymentInstructionSchema = PaymentInstructionSchema.extend({
     cart: CartIdentifierSchema.default(() => CartIdentifierSchema.parse({}))
 });
 
 export const OrderPaymentInstructionSchema = PaymentInstructionSchema.extend({
-    order: z.string().default('') // OrderIdentifierSchema
+    order: OrderIdentifierSchema.default(() => OrderIdentifierSchema.parse({}))
 });
 
 export type CartPaymentInstruction = z.infer<typeof CartPaymentInstructionSchema>;

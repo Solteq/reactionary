@@ -10,3 +10,6 @@ export * from './product.query';
 export * from './profile.query';
 export * from './search.query';
 export * from './store.query';
+export * from './order.query';
+export * from './order-payment.query';
+

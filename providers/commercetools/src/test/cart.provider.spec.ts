@@ -1,9 +1,10 @@
 import 'dotenv/config';
 import type { RequestContext} from '@reactionary/core';
-import { CartSchema, IdentitySchema, NoOpCache, createInitialRequestContext } from '@reactionary/core';
+import { CartSchema, IdentitySchema, NoOpCache, ProductSchema, createInitialRequestContext } from '@reactionary/core';
 import { getCommercetoolsTestConfiguration } from './test-utils';
 import { CommercetoolsCartProvider } from '../providers/cart.provider';
 import { CommercetoolsIdentityProvider } from '../providers/identity.provider';
+import { CommercetoolsProductProvider } from '../providers/product.provider';
 
 
 const testData = {
@@ -13,12 +14,14 @@ const testData = {
 
 describe('Commercetools Cart Provider', () => {
   let provider: CommercetoolsCartProvider;
+  let productProvider: CommercetoolsProductProvider;
   let identityProvider: CommercetoolsIdentityProvider;
   let reqCtx: RequestContext;
 
   beforeAll( () => {
     provider = new CommercetoolsCartProvider(getCommercetoolsTestConfiguration(), CartSchema, new NoOpCache());
     identityProvider = new CommercetoolsIdentityProvider(getCommercetoolsTestConfiguration(), IdentitySchema, new NoOpCache());
+    productProvider = new CommercetoolsProductProvider(getCommercetoolsTestConfiguration(), ProductSchema, new NoOpCache());
   });
 
   beforeEach( () => {
@@ -162,6 +165,23 @@ describe('Commercetools Cart Provider', () => {
       expect(originalCart.items.length).toBe(0);
     });
 
+    it('can load the product information for cart items', async () => {
+
+      const cart = await provider.add({
+          cart: { key: '' },
+          sku: {
+            key: testData.skuWithoutTiers,
+          },
+          quantity: 1
+      }, reqCtx);
+      expect(cart.items[0].product).toBeUndefined();
+
+      const product = await productProvider.getBySKU( { sku: cart.items[0].sku }, reqCtx);
+      expect(product).toBeTruthy();
+      if (product) {
+        expect(product.skus.some(s => s.identifier.key === cart.items[0].sku.key)).toBe(true);
+      }
+    });
     /**
     it('should be able to create a cart for an anonymous user, then login and merge the cart', async () => {
     });

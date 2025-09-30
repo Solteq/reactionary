@@ -6,7 +6,7 @@ import type { z } from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import type { ProductProjection } from '@commercetools/platform-sdk';
 import { traced } from '@reactionary/otel';
-import type { Product, ProductQueryById, ProductQueryBySlug, RequestContext } from '@reactionary/core';
+import type { Product, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, RequestContext } from '@reactionary/core';
 import type { Cache } from '@reactionary/core';
 
 export class CommercetoolsProductProvider<
@@ -67,6 +67,29 @@ export class CommercetoolsProductProvider<
     return this.parseSingle(remote.body.results[0], reqCtx);
   }
 
+
+  @traced()
+  public override async getBySKU(
+    payload: ProductQueryBySKU,
+    reqCtx: RequestContext
+  ): Promise<T> {
+    const client = await this.getClient(reqCtx);
+
+    const remote = await client
+      .get({
+        queryArgs: {
+          staged: false,
+          limit: 1,
+          where: 'variants(sku in (:skus)) OR (masterVariant(sku in (:skus))) ',
+          'var.skus': [payload].map(p => p.sku.key),
+        }
+      })
+      .execute();
+
+    return this.parseSingle(remote.body.results[0], reqCtx);
+  }
+
+
   protected override parseSingle(dataIn: unknown, reqCtx: RequestContext): T {
     const data = dataIn as ProductProjection;
     const base = this.newModel();
@@ -94,7 +117,7 @@ export class CommercetoolsProductProvider<
         base.skus.push({
           identifier: { key: variant.sku },
         });
-      }
+      }§
     }
 
     base.meta = {

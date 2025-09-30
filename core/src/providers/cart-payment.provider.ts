@@ -44,12 +44,12 @@ export abstract class CartPaymentProvider<
    * Usecase: User has decided to cancel the payment, e.g. by going back in the checkout process, or by closing the browser window. You call this to clean up the payment instruction.
    *
    * Note: The payment provider MAY change the cart during the cancellation process, so be sure to reload the cart object after this call.
-   *
+   * Note2: For now we just delete the payment instruction in some providers.
    * @param payload
    * @param session
    * @returns
    */
-  public abstract cancelPaymentInstruction(payload: CartPaymentMutationCancelPayment, reqCtx: RequestContext): Promise<T>;
+  public abstract cancelPaymentInstruction(payload: CartPaymentMutationCancelPayment, reqCtx: RequestContext): Promise<void>;
 
   protected override getResourceName(): string {
     return 'cart-payment-instruction';

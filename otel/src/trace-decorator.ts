@@ -85,7 +85,7 @@ function safeSerialize(value: unknown, maxDepth = 3, currentDepth = 0): string {
  * TypeScript decorator for tracing function execution
  * Automatically creates OpenTelemetry spans for decorated methods
  * Uses Stage 2 (legacy) decorator syntax
- * 
+ *
  * @example
  * ```typescript
  * class MyService {
@@ -116,14 +116,14 @@ export function traced(options: TracedOptions = {}): MethodDecorator {
   ): PropertyDescriptor {
     const originalMethod = descriptor.value;
     const methodName = String(propertyKey);
-    
+
     descriptor.value = createTracedMethod(originalMethod, methodName, {
       captureArgs,
       captureResult,
       spanName,
       spanKind
     });
-    
+
     return descriptor;
   };
 }
@@ -139,7 +139,7 @@ function createTracedMethod(
   }
 ): any {
   const { captureArgs, captureResult, spanName, spanKind } = options;
-  
+
   function tracedMethod(this: any, ...args: any[]): any {
     const tracer = getTracer();
     const className = this?.constructor?.name || 'Unknown';
@@ -174,7 +174,7 @@ function createTracedMethod(
             span.setAttribute('function.result', '[Serialization error]');
           }
         }
-        
+
         if (isError) {
           span.setStatus({
             code: SpanStatusCode.ERROR,
@@ -186,13 +186,13 @@ function createTracedMethod(
         } else {
           span.setStatus({ code: SpanStatusCode.OK });
         }
-        
+
         span.end();
       };
 
       try {
         const result = originalMethod.apply(this, args);
-        
+
         // Handle async functions - await them to keep span open
         if (result instanceof Promise) {
           try {
@@ -205,7 +205,7 @@ function createTracedMethod(
             throw error;
           }
         }
-        
+
         // Handle sync functions
         setSpanResult(result);
         return result;

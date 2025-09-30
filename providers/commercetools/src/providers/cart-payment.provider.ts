@@ -82,17 +82,6 @@ export class CommercetoolsCartPaymentProvider<
           },
           paymentInterface: payload.paymentInstruction.paymentMethod.paymentProcessor
         },
-        custom:{
-          type: {
-            typeId: 'type',
-            key: 'reactionaryPaymentCustomFields',
-          },
-          fields: {
-            cartId: cartId.key,
-            cartVersion: cartId.version + '',
-          }
-        },
-
       },
     }).execute();
 
@@ -126,7 +115,7 @@ export class CommercetoolsCartPaymentProvider<
 
 
   @traced()
-  public override async cancelPaymentInstruction(payload: CartPaymentMutationCancelPayment, reqCtx: RequestContext): Promise<T> {
+  public override async cancelPaymentInstruction(payload: CartPaymentMutationCancelPayment, reqCtx: RequestContext): Promise<void> {
     const client = await this.getClient(reqCtx);
 
     // get newest version
@@ -139,24 +128,33 @@ export class CommercetoolsCartPaymentProvider<
     // This also allows us to keep a record of the payment instruction for auditing purposes.
     // The cart can be re-used, and a new payment instruction can be added to it later.
     // The frontend should ignore any payment instructions with status 'canceled' when displaying payment options to the user.
-    const response = await client.payments.withId({ ID: payload.paymentInstruction.key }).post({
+
+        // Now add the payment to the cart
+    const ctId = payload.cart as CommercetoolsCartIdentifier
+    const updatedCart = await client.carts.withId({ ID: ctId.key }).post({
       body: {
-        version: newestVersion.body.version,
+        version: ctId.version,
         actions: [
           {
-            action: 'changeAmountPlanned',
-            amount: {
-              centAmount: 0,
-              currencyCode: newestVersion.body.amountPlanned.currencyCode
+            'action': 'removePayment',
+            'payment': {
+              'typeId': 'payment',
+              'id': payload.paymentInstruction.key
             }
-          },
+          }
         ]
       }
     }).execute();
 
-    const payment = this.parseSingle(response.body, reqCtx);
-    payment.cart = payload.cart;
-    return payment;
+
+    const response = await client.payments.withId({ ID: payload.paymentInstruction.key }).delete({
+      queryArgs: {
+        version: newestVersion.body.version || 0
+      }
+    }).execute();
+
+
+    return;
   }
 
 
@@ -180,6 +178,10 @@ export class CommercetoolsCartPaymentProvider<
     base.paymentMethod = PaymentMethodIdentifierSchema.parse({
       key: body.paymentMethodInfo?.method
     });
+
+
+    const customData = body.custom?.fields || {};
+    base.protocolData = Object.keys(customData).map(x => ({ key: x, value: customData[x] })) || [];
 
     // FIXME: seems wrong
     base.status = body.paymentStatus?.interfaceCode as unknown as any;
