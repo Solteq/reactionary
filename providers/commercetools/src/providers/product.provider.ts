@@ -117,7 +117,7 @@ export class CommercetoolsProductProvider<
         base.skus.push({
           identifier: { key: variant.sku },
         });
-      }§
+      }
     }
 
     base.meta = {
