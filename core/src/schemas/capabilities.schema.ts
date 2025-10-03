@@ -9,7 +9,8 @@ export const CapabilitiesSchema = z.looseObject({
     cartPayment: z.boolean(),
     inventory: z.boolean(),
     price: z.boolean(),
-    category: z.boolean()
+    category: z.boolean(),
+    store: z.boolean()
 });
 
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;

@@ -2,12 +2,17 @@ import type {
   Inventory,
   RequestContext,
   Cache,
-  InventoryQueryBySKU } from '@reactionary/core';
+  InventoryQueryBySKU,
+} from '@reactionary/core';
 import { InventoryProvider } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { CommercetoolsClient } from '../core/client';
-import type { InventoryEntry as CTInventory } from '@commercetools/platform-sdk';
+import type {
+  InventoryEntry,
+  ProductVariant,
+  ProductVariantAvailability,
+} from '@commercetools/platform-sdk';
 export class CommercetoolsInventoryProvider<
   T extends Inventory = Inventory
 > extends InventoryProvider<T> {
@@ -24,14 +29,11 @@ export class CommercetoolsInventoryProvider<
   }
 
   protected async getClient(reqCtx: RequestContext) {
-
-    const client = await new CommercetoolsClient(this.config).getClient(
-      reqCtx
-    );
-    return client.withProjectKey({ projectKey: this.config.projectKey }).inventory();
+    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
+    return client
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .inventory();
   }
-
-
 
   public override async getBySKU(
     payload: InventoryQueryBySKU,
@@ -39,45 +41,66 @@ export class CommercetoolsInventoryProvider<
   ): Promise<T> {
     const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
 
+    // TODO: We can't query by supplyChannel.key, so we have to resolve it first.
+    // This is probably a good candidate for internal data caching at some point.
+    const channel = await client
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .channels()
+      .withKey({ key: payload.fulfilmentCenter.key })
+      .get()
+      .execute();
+
+    const channelId = channel.body.id;
+
     const remote = await client
       .withProjectKey({ projectKey: this.config.projectKey })
       .inventory()
       .get({
         queryArgs: {
-          where: `sku=${payload.sku}`,
+          where: 'sku=:sku AND supplyChannel(id=:channel)',
+          'var.sku': payload.sku.key,
+          'var.channel': channelId,
+          expand: 'supplyChannel'
         },
       })
       .execute();
 
-    return this.parseSingle(remote.body, reqCtx);
+    const result = remote.body.results[0];
+
+    const model = this.parseSingle(result, reqCtx);
+
+    return model;
   }
 
-  protected override parseSingle(_body: unknown, reqCtx: RequestContext): T {
-      const body = _body as CTInventory;
-      const model = this.newModel();
+  protected override parseSingle(
+    body: InventoryEntry,
+    reqCtx: RequestContext
+  ): T {
+    const model = this.newModel();
 
-      model.identifier = {
-        sku: { key: body.sku },
-        fulfillmentCenter: {
-          key: body.supplyChannel?.id || ''
-        }
-      };
-      model.sku = body.sku;
-      model.quantity = body.availableQuantity;
+    model.identifier = {
+      sku: { key: body.sku || '' },
+      fulfillmentCenter: {
+        key: body.supplyChannel?.obj?.key || '',
+      },
+    };
 
-      if (model.quantity > 0 ) {
-        model.status = 'inStock';
-      } else {
-        model.status = 'outOfStock';
-      }
+    model.quantity = body.availableQuantity || 0;
 
-      model.meta = {
-        cache: { hit: false, key: this.generateCacheKeySingle(model.identifier, reqCtx) },
-        placeholder: false
-      };
+    if (model.quantity > 0) {
+      model.status = 'inStock';
+    } else {
+      model.status = 'outOfStock';
+    }
 
-      return this.assert(model);
+    model.meta = {
+      cache: {
+        hit: false,
+        key: this.generateCacheKeySingle(model.identifier, reqCtx),
+      },
+      placeholder: false,
+    };
+
+    return this.assert(model);
   }
-
-
 }

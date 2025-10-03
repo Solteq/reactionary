@@ -12,3 +12,4 @@ export * from './product.model';
 export * from './profile.model';
 export * from './search.model';
 export * from './shipping-method.model';
+export * from './store.model';
