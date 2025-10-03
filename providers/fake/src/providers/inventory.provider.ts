@@ -1,6 +1,6 @@
 import type {
   Inventory,
-  Session, RequestContext,
+  RequestContext,
   Cache,
   InventoryQueryBySKU
 } from '@reactionary/core';
