@@ -1,7 +1,8 @@
 import z from "zod";
 import { AddressIdentifierSchema, IdentityIdentifierSchema } from "./identifiers.model";
+import { BaseModelSchema } from "./base.model";
 
-export const AddressSchema = z.looseObject({
+export const AddressSchema = BaseModelSchema.extend({
     identifier: AddressIdentifierSchema.default(() => AddressIdentifierSchema.parse({})),
     firstName: z.string().default(''),
     lastName: z.string().default(''),
@@ -13,7 +14,7 @@ export const AddressSchema = z.looseObject({
     countryCode: z.string().default('US'),
 });
 
-export const ProfileSchema = z.looseObject({
+export const ProfileSchema = BaseModelSchema.extend({
     identifier: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
     email: z.string().email().default(''),
     phone: z.string().default(''),
