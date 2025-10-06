@@ -1,9 +1,41 @@
-import { ClientBuilder } from '@commercetools/ts-client';
+import {
+  ClientBuilder,
+  type TokenCache,
+  type TokenCacheOptions,
+  type TokenStore,
+} from '@commercetools/ts-client';
 import { createApiBuilderFromCtpClient } from '@commercetools/platform-sdk';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { randomUUID } from 'crypto';
-import type { RequestContext} from '@reactionary/core';
-import { Session } from '@reactionary/core';
+import { IdentitySchema, type RequestContext } from '@reactionary/core';
+import * as crypto from 'crypto';
+
+export class RequestContextTokenCache implements TokenCache {
+  constructor(protected context: RequestContext) {}
+
+  public async get(
+    tokenCacheOptions?: TokenCacheOptions
+  ): Promise<TokenStore | undefined> {
+    const identity = this.context.identity;
+
+    return {
+      refreshToken: identity.refresh_token,
+      token: identity.token || '',
+      expirationTime: identity.expiry.getTime(),
+    };
+  }
+
+  public async set(
+    cache: TokenStore,
+    tokenCacheOptions?: TokenCacheOptions
+  ): Promise<void> {
+    const identity = this.context.identity;
+
+    identity.refresh_token = cache.refreshToken;
+    identity.token = cache.token;
+    identity.expiry = new Date(cache.expirationTime);
+  }
+}
 
 export class CommercetoolsClient {
   protected config: CommercetoolsConfiguration;
@@ -12,137 +44,132 @@ export class CommercetoolsClient {
     this.config = config;
   }
 
-
-  // FIXME: Add token cache as bridge between Identity and WithRefreshToken flow
-  public async getClient(reqCtx:  RequestContext) {
-
-    let token = reqCtx.identity.token;
-
-    if (!token) {
-      const guestTokenResponse = await this.guest();
-      if (guestTokenResponse.access_token) {
-        reqCtx.identity.token = guestTokenResponse.access_token;
-        reqCtx.identity.logonId = '';
-        reqCtx.identity.expiry = new Date(new Date().getTime() + guestTokenResponse.expires_in * 1000);
-        reqCtx.identity.refresh_token = guestTokenResponse.refresh_token;
-        token = guestTokenResponse.access_token;
-      }
-    }
-
-
-    if (token) {
-      return this.createClientWithToken(token);
-    } else {
-      throw new Error('Could not obtain guest token');
-    }
+  public async getClient(reqCtx: RequestContext) {
+    return this.createClient(reqCtx);
   }
 
-  public async login(username: string, password: string) {
-    const queryParams = new URLSearchParams({
-      grant_type: 'password',
-      username: username,
-      password: password,
-    });
-    const url = `${this.config.authUrl}/oauth/${
-      this.config.projectKey
-    }/customers/token?${queryParams.toString()}`;
-    const headers = {
-      Authorization:
-        'Basic ' + btoa(this.config.clientId + ':' + this.config.clientSecret),
-    };
+  public async register(
+    username: string,
+    password: string,
+    reqCtx: RequestContext
+  ) {
+    const cache = new RequestContextTokenCache(reqCtx);
+    const identity = reqCtx.identity;
 
-    const remote = await fetch(url, { method: 'POST', headers });
-    const json = await remote.json();
+    const registrationBuilder =
+      this.createBaseClientBuilder().withAnonymousSessionFlow({
+        host: this.config.authUrl,
+        projectKey: this.config.projectKey,
+        credentials: {
+          clientId: this.config.clientId,
+          clientSecret: this.config.clientSecret,
+        },
+        scopes: this.config.scopes,
+        tokenCache: cache,
+      });
 
-    return json;
+    const registrationClient = createApiBuilderFromCtpClient(
+      registrationBuilder.build()
+    );
+    const registration = await registrationClient
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .me()
+      .signup()
+      .post({
+        body: {
+          email: username,
+          password: password,
+        },
+      })
+      .execute();
+
+    const login = await this.login(username, password, reqCtx);
   }
 
-  public async guest() {
-    const queryParams = new URLSearchParams({
-      grant_type: 'client_credentials',
-    });
-    const url = `${this.config.authUrl}/oauth/${
-      this.config.projectKey
-    }/anonymous/token?${queryParams.toString()}`;
-    const headers = {
-      Authorization:
-        'Basic ' + btoa(this.config.clientId + ':' + this.config.clientSecret),
-    };
+  public async login(
+    username: string,
+    password: string,
+    reqCtx: RequestContext
+  ) {
+    const cache = new RequestContextTokenCache(reqCtx);
+    const identity = reqCtx.identity;
 
-    const remote = await fetch(url, { method: 'POST', headers });
-    const json = await remote.json();
-
-    return json;
-  }
-
-  public async logout(token: string) {
-    const queryParams = new URLSearchParams({
-      token: token,
-      token_type_hint: 'access_token',
-    });
-    const url = `${
-      this.config.authUrl
-    }/oauth/token/revoke?${queryParams.toString()}`;
-    const headers = {
-      Authorization:
-        'Basic ' + btoa(this.config.clientId + ':' + this.config.clientSecret),
-    };
-
-    const remote = await fetch(url, { method: 'POST', headers });
-
-    return remote;
-  }
-
-  public async introspect(token: string) {
-    const queryParams = new URLSearchParams({
-      token,
-    });
-    const url = `${this.config.authUrl}/oauth/introspect?` + queryParams;
-    const headers = {
-      Authorization:
-        'Basic ' + btoa(this.config.clientId + ':' + this.config.clientSecret),
-    };
-
-    const remote = await fetch(url, { method: 'POST', headers });
-    const json = await remote.json();
-
-    return json;
-  }
-
-  /**
-   * This should be a SPA level access client..... suitable for anonymous access, like for bots or crawlers.
-   * @returns
-   */
-  public createAnonymousClient() {
-    const scopes = this.config.scopes;
-    const builder = this.createBaseClientBuilder().withClientCredentialsFlow({
+    const loginBuilder = this.createBaseClientBuilder().withPasswordFlow({
       host: this.config.authUrl,
       projectKey: this.config.projectKey,
       credentials: {
         clientId: this.config.clientId,
         clientSecret: this.config.clientSecret,
+        user: { username, password },
       },
-      scopes: [...scopes],
+      tokenCache: cache,
+      scopes: this.config.scopes,
     });
 
-    return createApiBuilderFromCtpClient(builder.build());
+    const loginClient = createApiBuilderFromCtpClient(loginBuilder.build());
+
+    const login = await loginClient
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .me()
+      .get()
+      .execute();
+
+    identity.type = 'Registered';
+    identity.logonId = username;
+    identity.id = {
+      userId: login.body.id
+    };
   }
 
+  public async logout(reqCtx: RequestContext) {
+    const cache = new RequestContextTokenCache(reqCtx);
+    await cache.set({ token: '', refreshToken: '', expirationTime: 0 });
 
-  protected createClientWithToken(token: string) {
-    const builder = this.createBaseClientBuilder().withExistingTokenFlow(
-      `Bearer ${token}`,
-      { force: true }
-    );
+    reqCtx.identity = IdentitySchema.parse({});
+
+    // TODO: We could do token revocation here, if we wanted to. The above simply whacks the session.
+  }
+
+  protected createClient(reqCtx: RequestContext) {
+    const cache = new RequestContextTokenCache(reqCtx);
+    const identity = reqCtx.identity;
+
+    let builder = this.createBaseClientBuilder();
+
+    if (!identity.refresh_token) {
+      if (!identity.id.userId) {
+        identity.id = {
+          userId: crypto.randomUUID().toString(),
+        };
+      }
+
+      identity.type = 'Guest';
+
+      builder = builder.withAnonymousSessionFlow({
+        host: this.config.authUrl,
+        projectKey: this.config.projectKey,
+        credentials: {
+          clientId: this.config.clientId,
+          clientSecret: this.config.clientSecret,
+          anonymousId: identity.id.userId,
+        },
+        tokenCache: cache,
+      });
+    } else {
+      builder = builder.withRefreshTokenFlow({
+        credentials: {
+          clientId: this.config.clientId,
+          clientSecret: this.config.clientSecret,
+        },
+        host: this.config.authUrl,
+        projectKey: this.config.projectKey,
+        refreshToken: identity.refresh_token,
+        tokenCache: cache,
+      });
+    }
 
     return createApiBuilderFromCtpClient(builder.build());
   }
-
-
-
-
-
-
 
   protected createBaseClientBuilder() {
     const builder = new ClientBuilder()
@@ -156,7 +183,9 @@ export class CommercetoolsClient {
           // And yes, ideally the frontend would handle this, but as the customer is not really in a position to DO anything about it,
           // we might as well just deal with it here.....
 
-          console.log(`Concurrent modification error, retry with version ${version}`);
+          console.log(
+            `Concurrent modification error, retry with version ${version}`
+          );
           const body = request.body as Record<string, any>;
           body['version'] = version;
           return Promise.resolve(body);
@@ -187,6 +216,3 @@ export class CommercetoolsClient {
     return builder;
   }
 }
-
-
-

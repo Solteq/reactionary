@@ -7,5 +7,6 @@ export * from './identity.query';
 export * from './inventory.query';
 export * from './price.query';
 export * from './product.query';
+export * from './profile.query';
 export * from './search.query';
 export * from './store.query';

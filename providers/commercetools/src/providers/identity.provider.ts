@@ -2,9 +2,10 @@ import {
   type Identity,
   type IdentityMutationLogin,
   type IdentityQuerySelf,
-  type Session, type RequestContext,
+  type RequestContext,
   type Cache,
   IdentityProvider,
+  type IdentityMutationRegister,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import type z from 'zod';
@@ -29,87 +30,33 @@ export class CommercetoolsIdentityProvider<
     payload: IdentityQuerySelf,
     reqCtx: RequestContext
   ): Promise<T> {
-    const client = new CommercetoolsClient(this.config);
-    const base = this.newModel();
-
-    if (reqCtx.identity.token) {
-      const remote = await client.introspect(reqCtx.identity.token);
-
-      if (remote.active) {
-        const current = this.schema.safeParse(reqCtx.identity);
-
-        if (current.success) {
-          current.data.meta = {
-            cache: { hit: false, key: current.data.id.userId || 'anonymous' },
-            placeholder: false
-          };
-          return current.data;
-        }
-      }
-    }
-
-    base.meta = {
-      cache: { hit: false, key: 'anonymous' },
-      placeholder: false
-    };
-    reqCtx.identity = base;
-
-    return this.assert(base);
+    return this.assert(reqCtx.identity as T);
   }
 
   public override async login(
     payload: IdentityMutationLogin,
     reqCtx: RequestContext
   ): Promise<T> {
-    const client = new CommercetoolsClient(this.config);
-    const remote = await client.login(payload.username, payload.password);
-    const base = this.newModel();
+    await new CommercetoolsClient(this.config).login(payload.username, payload.password, reqCtx);
 
-    if (remote && remote.access_token) {
-      base.id = { userId: this.extractCustomerIdFromScopes(remote.scope) };
-      base.issued = new Date();
-      base.expiry = new Date();
-      base.expiry.setSeconds(base.expiry.getSeconds() + remote.expires_in);
-      base.token = remote.access_token;
-      base.refresh_token = remote.refresh_token;
-      base.type = 'Registered';
-    }
-
-    base.meta = {
-      cache: { hit: false, key: base.id.userId || 'anonymous' },
-      placeholder: false
-    };
-
-    reqCtx.identity = base;
-
-    return this.assert(base);
+    return this.getSelf({}, reqCtx);
   }
 
   public override async logout(
     payload: Record<string, never>,
     reqCtx: RequestContext
   ): Promise<T> {
-    const client = new CommercetoolsClient(this.config);
-    const base = this.newModel();
+    await new CommercetoolsClient(this.config).logout(reqCtx);
 
-    if (reqCtx.identity.token) {
-      await client.logout(reqCtx.identity.token);
-    }
-
-    base.meta = {
-      cache: { hit: false, key: 'anonymous' },
-      placeholder: false
-    };
-    reqCtx.identity = base;
-
-    return this.assert(base);
+    return this.getSelf({}, reqCtx);
   }
 
-  protected extractCustomerIdFromScopes(scopes: string) {
-    const scopeList = scopes.split(' ');
-    const customerScope = scopeList.find((x) => x.startsWith('customer_id'));
-    const id = customerScope?.split(':')[1];
+  public override async register(
+    payload: IdentityMutationRegister,
+    reqCtx: RequestContext
+  ): Promise<T> {
+    await new CommercetoolsClient(this.config).register(payload.username, payload.password, reqCtx);
 
-    return id || '';
+    return this.getSelf({}, reqCtx);
   }
 }

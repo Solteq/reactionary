@@ -7,5 +7,6 @@ export * from './identity.provider';
 export * from './inventory.provider';
 export * from './price.provider';
 export * from './product.provider';
+export * from './profile.provider';
 export * from './search.provider';
 export * from './store.provider';

@@ -6,4 +6,5 @@ export * from './identity.mutation';
 export * from './inventory.mutation';
 export * from './price.mutation';
 export * from './product.mutation';
+export * from './profile.mutation';
 export * from './search.mutation';

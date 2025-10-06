@@ -6,6 +6,7 @@ import {
   type RequestContext,
   type Cache,
   IdentityProvider,
+  type IdentityMutationRegister,
 } from '@reactionary/core';
 import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema';
@@ -98,5 +99,12 @@ export class FakeIdentityProvider<
 
     this.currentIdentity = this.assert(model);
     return this.currentIdentity;
+  }
+
+  public override register(
+    payload: IdentityMutationRegister,
+    reqCtx: RequestContext
+  ): Promise<T> {
+    throw new Error('Method not implemented.');
   }
 }
