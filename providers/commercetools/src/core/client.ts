@@ -7,7 +7,12 @@ import {
 import { createApiBuilderFromCtpClient } from '@commercetools/platform-sdk';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
 import { randomUUID } from 'crypto';
-import { IdentitySchema, type RequestContext } from '@reactionary/core';
+import {
+  AnonymousIdentitySchema,
+  GuestIdentitySchema,
+  RegisteredIdentitySchema,
+  type RequestContext,
+} from '@reactionary/core';
 import * as crypto from 'crypto';
 
 export class RequestContextTokenCache implements TokenCache {
@@ -53,9 +58,6 @@ export class CommercetoolsClient {
     password: string,
     reqCtx: RequestContext
   ) {
-    const cache = new RequestContextTokenCache(reqCtx);
-    const identity = reqCtx.identity;
-
     const registrationBuilder =
       this.createBaseClientBuilder().withAnonymousSessionFlow({
         host: this.config.authUrl,
@@ -65,12 +67,12 @@ export class CommercetoolsClient {
           clientSecret: this.config.clientSecret,
         },
         scopes: this.config.scopes,
-        tokenCache: cache,
       });
 
     const registrationClient = createApiBuilderFromCtpClient(
       registrationBuilder.build()
     );
+
     const registration = await registrationClient
       .withProjectKey({ projectKey: this.config.projectKey })
       .me()
@@ -84,6 +86,8 @@ export class CommercetoolsClient {
       .execute();
 
     const login = await this.login(username, password, reqCtx);
+
+    return login;
   }
 
   public async login(
@@ -92,7 +96,6 @@ export class CommercetoolsClient {
     reqCtx: RequestContext
   ) {
     const cache = new RequestContextTokenCache(reqCtx);
-    const identity = reqCtx.identity;
 
     const loginBuilder = this.createBaseClientBuilder().withPasswordFlow({
       host: this.config.authUrl,
@@ -111,40 +114,54 @@ export class CommercetoolsClient {
     const login = await loginClient
       .withProjectKey({ projectKey: this.config.projectKey })
       .me()
-      .get()
+      .login()
+      .post({
+        body: {
+          email: username,
+          password: password,
+        },
+      })
       .execute();
 
-    identity.type = 'Registered';
-    identity.logonId = username;
-    identity.id = {
-      userId: login.body.id
-    };
+    reqCtx.identity = RegisteredIdentitySchema.parse({
+      ...reqCtx.identity,
+      type: 'Registered',
+      logonId: username,
+      id: {
+        userId: login.body.customer.id,
+      },
+    });
+
+    return reqCtx.identity;
   }
 
   public async logout(reqCtx: RequestContext) {
     const cache = new RequestContextTokenCache(reqCtx);
     await cache.set({ token: '', refreshToken: '', expirationTime: 0 });
 
-    reqCtx.identity = IdentitySchema.parse({});
+    reqCtx.identity = AnonymousIdentitySchema.parse({});
 
     // TODO: We could do token revocation here, if we wanted to. The above simply whacks the session.
+
+    return reqCtx.identity;
   }
 
   protected createClient(reqCtx: RequestContext) {
     const cache = new RequestContextTokenCache(reqCtx);
-    const identity = reqCtx.identity;
 
+    if (reqCtx.identity.type === 'Anonymous') {
+      reqCtx.identity = GuestIdentitySchema.parse({
+        id: {
+          userId: crypto.randomUUID().toString(),
+        },
+        type: 'Guest',
+      });
+    }
+
+    const identity = reqCtx.identity;
     let builder = this.createBaseClientBuilder();
 
-    if (!identity.refresh_token) {
-      if (!identity.id.userId) {
-        identity.id = {
-          userId: crypto.randomUUID().toString(),
-        };
-      }
-
-      identity.type = 'Guest';
-
+    if (!identity.token || !identity.refresh_token) {
       builder = builder.withAnonymousSessionFlow({
         host: this.config.authUrl,
         projectKey: this.config.projectKey,
@@ -163,7 +180,7 @@ export class CommercetoolsClient {
         },
         host: this.config.authUrl,
         projectKey: this.config.projectKey,
-        refreshToken: identity.refresh_token,
+        refreshToken: identity.refresh_token || '',
         tokenCache: cache,
       });
     }
