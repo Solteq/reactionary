@@ -2,35 +2,33 @@ import { z } from 'zod';
 import { BaseModelSchema } from './base.model';
 import { IdentityIdentifierSchema } from './identifiers.model';
 
-export const IdentityTypeSchema = z.enum(["Anonymous", "Guest", "Registered"]);
-
-
-export const ServiceTokenSchema = z.object({
-    service: z.string().default(''),
-    token: z.string().default(''),
-    issued: z.coerce.date().default(new Date()),
-    expiry: z.coerce.date().default(new Date())
-});
-
-export const IdentitySchema = BaseModelSchema.extend({
-    id: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
-    type: IdentityTypeSchema.default("Anonymous"),
-
-    logonId: z.string().default(''),
-
-    createdAt: z.string().default(() => new Date().toISOString()),
-    updatedAt: z.string().default(() => new Date().toISOString()),
-    // Tokens for various services
-    //    keyring: z.array(ServiceTokenSchema).default(() => []),
-
-    // Deprecated - use serviceTokens map instead
-    currentService: z.string().optional(),
-
+export const AnonymousIdentitySchema = BaseModelSchema.extend({
+    type: z.literal('Anonymous').default('Anonymous'),
     token: z.string().optional(),
     refresh_token: z.string().optional(),
-    issued: z.coerce.date().default(new Date()),
     expiry: z.coerce.date().default(new Date())
 });
 
-export type IdentityType = z.infer<typeof IdentityTypeSchema>;
+export const GuestIdentitySchema = BaseModelSchema.extend({
+    id: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
+    type: z.literal('Guest').default('Guest'),
+    token: z.string().optional(),
+    refresh_token: z.string().optional(),
+    expiry: z.coerce.date().default(new Date())
+});
+
+export const RegisteredIdentitySchema = BaseModelSchema.extend({
+    id: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
+    type: z.literal('Registered').default('Registered'),
+    logonId: z.string().default(''),
+    token: z.string().optional(),
+    refresh_token: z.string().optional(),
+    expiry: z.coerce.date().default(new Date())
+});
+
+export const IdentitySchema = z.discriminatedUnion('type', [ AnonymousIdentitySchema, GuestIdentitySchema, RegisteredIdentitySchema]);
+
+export type AnonymousIdentity = z.infer<typeof AnonymousIdentitySchema>;
+export type GuestIdentity = z.infer<typeof GuestIdentitySchema>;
+export type RegisteredIdentity = z.infer<typeof RegisteredIdentitySchema>;
 export type Identity = z.infer<typeof IdentitySchema>;

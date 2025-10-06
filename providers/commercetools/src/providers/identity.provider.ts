@@ -37,26 +37,26 @@ export class CommercetoolsIdentityProvider<
     payload: IdentityMutationLogin,
     reqCtx: RequestContext
   ): Promise<T> {
-    await new CommercetoolsClient(this.config).login(payload.username, payload.password, reqCtx);
+    const identity = await new CommercetoolsClient(this.config).login(payload.username, payload.password, reqCtx);
 
-    return this.getSelf({}, reqCtx);
+    return identity as T;
   }
 
   public override async logout(
     payload: Record<string, never>,
     reqCtx: RequestContext
   ): Promise<T> {
-    await new CommercetoolsClient(this.config).logout(reqCtx);
+    const identity = await new CommercetoolsClient(this.config).logout(reqCtx);
 
-    return this.getSelf({}, reqCtx);
+    return identity as T;
   }
 
   public override async register(
     payload: IdentityMutationRegister,
     reqCtx: RequestContext
   ): Promise<T> {
-    await new CommercetoolsClient(this.config).register(payload.username, payload.password, reqCtx);
+    const identity = await new CommercetoolsClient(this.config).register(payload.username, payload.password, reqCtx);
 
-    return this.getSelf({}, reqCtx);
+    return identity as T;
   }
 }

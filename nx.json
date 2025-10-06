@@ -66,6 +66,7 @@
     }
   },
   "release": {
+    "projectsRelationship": "fixed",
     "git": {
       "commit": false,
       "stageChanges": false,
