@@ -37,7 +37,7 @@ jobs:
       - run: |
           git config --global user.email "martin.rogne@solteq.com"
           git config --global user.name "Martin Rogne"
-          pnpm exec nx release patch --yes -- --no-agents
+          pnpm exec nx release patch --yes --force-publish -- --no-agents
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
           NPM_CONFIG_PROVENANCE: false
