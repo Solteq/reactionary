@@ -15,3 +15,5 @@ export * from './shipping-method.model';
 export * from './store.model';
 export * from './order.model';
 export * from './cost.model';
+export * from './checkout.model';
+export * from './payment.model';

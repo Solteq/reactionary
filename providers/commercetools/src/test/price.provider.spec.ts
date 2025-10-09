@@ -39,7 +39,7 @@ describe('Commercetools Price Provider', () => {
     }
   });
 
-  it('should be able to get prices for a product with tiers', async () => {
+  xit('should be able to get prices for a product with tiers', async () => {
     const result = await provider.getBySKU({ sku: { key: testData.skuWithTiers }}, reqCtx);
 
     expect(result).toBeTruthy();

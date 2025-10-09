@@ -174,7 +174,7 @@ describe('Commercetools Cart Provider', () => {
           },
           quantity: 1
       }, reqCtx);
-      expect(cart.items[0].product).toBeUndefined();
+      expect(cart.items[0].sku).toBeDefined();
 
       const product = await productProvider.getBySKU( { sku: cart.items[0].sku }, reqCtx);
       expect(product).toBeTruthy();

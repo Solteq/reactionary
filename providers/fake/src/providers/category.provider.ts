@@ -1,5 +1,5 @@
 import type { Category, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext} from "@reactionary/core";
-import { CategoryProvider, Session } from "@reactionary/core";
+import { CategoryProvider, Reactionary, Session } from "@reactionary/core";
 import type { FakeConfiguration } from "../schema/configuration.schema";
 import type { Cache as ReactionaryCache } from "@reactionary/core";
 import type z from "zod";
@@ -71,9 +71,10 @@ export class FakeCategoryProvider<
     });
   }
 
+  @Reactionary({})
   public override async getById(payload: CategoryQueryById, reqCtx: RequestContext): Promise<T> {
     const category = this.allCategories.get(payload.id.key);
-    
+
     if(!category) {
       const dummyCategory = this.newModel();
       dummyCategory.meta.placeholder = true;
@@ -82,6 +83,8 @@ export class FakeCategoryProvider<
     }
     return category;
   }
+
+  @Reactionary({})
   public override getBySlug(payload: CategoryQueryBySlug, reqCtx: RequestContext): Promise<T | null> {
     for(const p of this.allCategories.values()) {
       if(p.slug === payload.slug) {
@@ -91,6 +94,7 @@ export class FakeCategoryProvider<
     return Promise.resolve(null);
   }
 
+  @Reactionary({})
   public override getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb, reqCtx: RequestContext): Promise<T[]> {
     const path = new Array<T>();
     let category = this.allCategories.get(payload.id.key);

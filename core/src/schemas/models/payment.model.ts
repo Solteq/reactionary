@@ -27,15 +27,8 @@ export const PaymentInstructionSchema = BaseModelSchema.extend({
 });
 
 
-export const CartPaymentInstructionSchema = PaymentInstructionSchema.extend({
-    cart: CartIdentifierSchema.default(() => CartIdentifierSchema.parse({}))
-});
 
-export const OrderPaymentInstructionSchema = PaymentInstructionSchema.extend({
-    order: OrderIdentifierSchema.default(() => OrderIdentifierSchema.parse({}))
-});
 
-export type CartPaymentInstruction = z.infer<typeof CartPaymentInstructionSchema>;
-export type OrderPaymentInstruction = z.infer<typeof OrderPaymentInstructionSchema>;
 export type PaymentInstruction = z.infer<typeof PaymentInstructionSchema>;
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
+export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;

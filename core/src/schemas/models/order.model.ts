@@ -5,7 +5,7 @@ import { AddressSchema } from './profile.model';
 import { ShippingMethodSchema } from './shipping-method.model';
 
 import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model';
-import { OrderPaymentInstructionSchema, PaymentInstructionSchema } from './payment.model';
+import { PaymentInstructionSchema } from './payment.model';
 
 export const OrderStatusSchema = z.enum(['AwaitingPayment', 'ReleasedToFulfillment', 'Shipped', 'Cancelled']).default('AwaitingPayment').describe('The current status of the order.');
 export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', 'Backordered', 'Preordered']).default('Allocated').describe('The inventory release status of the order.');
@@ -37,7 +37,7 @@ export const OrderSchema = BaseModelSchema.extend({
     orderStatus: OrderStatusSchema.default('AwaitingPayment'),
     inventoryStatus: OrderInventoryStatusSchema.default('Allocated'),
 
-    paymentInstructions: z.array(OrderPaymentInstructionSchema).default(() => []),
+    paymentInstructions: z.array(PaymentInstructionSchema).default(() => []),
     cartReference: CartIdentifierSchema.optional().describe('Reference to the cart from which this order was created.'),
 });
 

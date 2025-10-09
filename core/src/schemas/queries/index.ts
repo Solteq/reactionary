@@ -1,6 +1,5 @@
 export * from './analytics.query';
 export * from './base.query';
-export * from './cart-payment.query';
 export * from './cart.query';
 export * from './category.query';
 export * from './identity.query';
@@ -11,5 +10,4 @@ export * from './profile.query';
 export * from './search.query';
 export * from './store.query';
 export * from './order.query';
-export * from './order-payment.query';
-
+export * from './checkout.query';

@@ -28,9 +28,6 @@ export const CartSchema = BaseModelSchema.extend({
     description: z.string().default(''),
 
 
-    shippingAddress: AddressSchema.optional(),
-    billingAddress: AddressSchema.optional(),
-    shippingMethod: ShippingMethodSchema.optional(),
 });
 
 

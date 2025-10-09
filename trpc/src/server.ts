@@ -117,7 +117,7 @@ export type TRPCRouterFromClient<T extends Partial<Client>> = ReturnType<typeof 
 export function createTRPCContext(_opts: { req?: any; res?: any }) {
   // Default implementation - you should override this based on your auth system
   return {
-    session: undefined as Session | undefined,
+    reqCtx: undefined as RequestContext | undefined,
   };
 }
 

@@ -52,6 +52,15 @@ export const OrderItemIdentifierSchema = z.looseObject({
   key: z.string().default('').nonoptional(),
 });
 
+
+export const CheckoutIdentifierSchema = z.looseObject({
+    key: z.string().default('').nonoptional()
+});
+
+export const CheckoutItemIdentifierSchema = z.looseObject({
+    key: z.string().default('').nonoptional()
+});
+
 /**
  * The target store the user is interacting with. Can change over time, and is not necessarily the same as the default store.
  */
@@ -75,7 +84,7 @@ export const IdentityIdentifierSchema = z.looseObject({
 });
 
 export const ShippingMethodIdentifierSchema = z.looseObject({
-  key: z.string().default('').nonoptional(),
+    key: z.string().default('').nonoptional(),
 });
 
 export const PaymentMethodIdentifierSchema = z.looseObject({
@@ -90,6 +99,10 @@ export const AddressIdentifierSchema = z.looseObject({
 
 export const PaymentInstructionIdentifierSchema = z.looseObject({
   key: z.string().default('').nonoptional(),
+});
+
+export const PickupPointIdentifierSchema = z.looseObject({
+    key: z.string().default('').nonoptional()
 });
 
 export type ProductIdentifier = z.infer<typeof ProductIdentifierSchema>;
@@ -118,6 +131,10 @@ export type PaymentInstructionIdentifier = z.infer<
 >;
 export type OrderIdentifier = z.infer<typeof OrderIdentifierSchema>;
 export type OrderItemIdentifier = z.infer<typeof OrderItemIdentifierSchema>;
+
+export type CheckoutIdentifier = z.infer<typeof CheckoutIdentifierSchema>;
+export type CheckoutItemIdentifier = z.infer<typeof CheckoutItemIdentifierSchema>;
+export type PickupPointIdentifier = z.infer<typeof PickupPointIdentifierSchema>;
 export type StoreIdentifier = z.infer<typeof StoreIdentifierSchema>;
 
 export type IdentifierType =
@@ -138,4 +155,8 @@ export type IdentifierType =
   | AddressIdentifier
   | PaymentInstructionIdentifier
   | OrderIdentifier
-  | OrderItemIdentifier;
+  | OrderItemIdentifier
+  | CheckoutIdentifier
+  | CheckoutItemIdentifier
+  | StoreIdentifier
+  | PickupPointIdentifier;
