@@ -1,6 +1,5 @@
 export * from './analytics.mutation';
 export * from './base.mutation';
-export * from './cart-payment.mutation';
 export * from './cart.mutation';
 export * from './identity.mutation';
 export * from './inventory.mutation';
@@ -8,3 +7,4 @@ export * from './price.mutation';
 export * from './product.mutation';
 export * from './profile.mutation';
 export * from './search.mutation';
+export * from './checkout.mutation';

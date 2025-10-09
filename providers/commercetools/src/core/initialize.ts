@@ -8,9 +8,9 @@ import type {
     PriceProvider,
     CategoryProvider,
     StoreProvider,
-    CartPaymentProvider,
-    OrderProvider,
-    OrderPaymentProvider} from "@reactionary/core";
+    CheckoutProvider,
+    OrderProvider
+    } from "@reactionary/core";
 import {
     CartSchema,
     IdentitySchema,
@@ -19,7 +19,7 @@ import {
     ProductSchema,
     SearchResultSchema,
     CategorySchema,
-    CartPaymentInstructionSchema
+    CheckoutSchema
 } from "@reactionary/core";
 import type { CommercetoolsCapabilities } from "../schema/capabilities.schema";
 import { CommercetoolsSearchProvider } from "../providers/search.provider";
@@ -30,7 +30,7 @@ import { CommercetoolsCartProvider } from "../providers/cart.provider";
 import { CommercetoolsInventoryProvider } from "../providers/inventory.provider";
 import { CommercetoolsPriceProvider } from "../providers/price.provider";
 import { CommercetoolsCategoryProvider } from "../providers/category.provider";
-import { CommercetoolsCartPaymentProvider } from "../providers/cart-payment.provider";
+import { CommercetoolsCheckoutProvider } from "../providers";
 
 type CommercetoolsClient<T extends CommercetoolsCapabilities> =
     (T['cart'] extends true ? { cart: CartProvider } : object) &
@@ -42,8 +42,7 @@ type CommercetoolsClient<T extends CommercetoolsCapabilities> =
     (T['price'] extends true ? { price: PriceProvider } : object) &
     (T['store'] extends true ? { store: StoreProvider } : object) &
     (T['order'] extends true ? { order: OrderProvider } : object) &
-    (T['orderPayment'] extends true ? { orderPayment: OrderPaymentProvider } : object) &
-    (T['cartPayment'] extends true ? { cartPayment: CartPaymentProvider } : object);
+    (T['checkout'] extends true ? { checkout: CheckoutProvider } : object) ;
 export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilities>(
     configuration: CommercetoolsConfiguration,
     capabilities: T
@@ -79,8 +78,8 @@ export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilitie
             client.category = new CommercetoolsCategoryProvider(configuration, CategorySchema, cache);
         }
 
-        if (capabilities.cartPayment) {
-          client.cartPayment = new CommercetoolsCartPaymentProvider(configuration, CartPaymentInstructionSchema, cache);
+        if (capabilities.checkout) {
+          client.checkout = new CommercetoolsCheckoutProvider(configuration, CheckoutSchema, cache);
         }
 
 

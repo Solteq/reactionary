@@ -8,7 +8,7 @@ import type { InventoryProvider } from "../providers/inventory.provider";
 import type { Cache } from "../cache/cache.interface";
 import { RedisCache } from "../cache/redis-cache";
 import type { CategoryProvider } from "../providers/category.provider";
-import type { CartPaymentProvider } from "../providers";
+import type { CheckoutProvider } from "../providers";
 
 export interface Client {
     product: ProductProvider,
@@ -16,7 +16,7 @@ export interface Client {
     identity: IdentityProvider,
     cache: Cache,
     cart: CartProvider,
-    cartPayment: CartPaymentProvider,
+    checkout: CheckoutProvider,
     analytics: Array<AnalyticsProvider>,
     price: PriceProvider,
     inventory: InventoryProvider,

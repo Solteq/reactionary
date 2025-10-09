@@ -1,7 +1,6 @@
-import { ClientBuilder, NoOpCache } from '@reactionary/core';
+import { ClientBuilder, createInitialRequestContext, NoOpCache } from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
 import { createTRPCServerRouter, introspectClient } from './index';
-import { createAnonymousTestSession } from './test-utils';
 
 /**
  * Test suite for TRPC transparent client functionality
@@ -36,7 +35,7 @@ const router = createTRPCServerRouter(serverClient);
 
 xdescribe('TRPC Transparent Client Core Functionality', () => {
 
-  const session = createAnonymousTestSession();
+  const reqCtx = createInitialRequestContext();
 
   describe('Client Introspection', () => {
     it('should correctly introspect client methods', () => {
@@ -114,7 +113,7 @@ xdescribe('TRPC Transparent Client Core Functionality', () => {
     it('should have working product provider', async () => {
       const result = await serverClient.product.getBySlug(
         { slug: 'test-product' },
-        session
+        reqCtx
       );
 
       expect(result).toBeDefined();
@@ -133,7 +132,7 @@ xdescribe('TRPC Transparent Client Core Functionality', () => {
             facets: []
           }
         },
-        session
+        reqCtx
       );
 
       expect(result).toBeDefined();

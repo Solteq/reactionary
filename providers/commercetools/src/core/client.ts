@@ -14,6 +14,11 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import * as crypto from 'crypto';
+import createDebug from 'debug'
+const debug = createDebug('commercetools:debug')
+
+
+
 
 export class RequestContextTokenCache implements TokenCache {
   constructor(protected context: RequestContext) {}
@@ -41,6 +46,8 @@ export class RequestContextTokenCache implements TokenCache {
     identity.expiry = new Date(cache.expirationTime);
   }
 }
+
+
 
 export class CommercetoolsClient {
   protected config: CommercetoolsConfiguration;
@@ -159,7 +166,7 @@ export class CommercetoolsClient {
     }
 
     const identity = reqCtx.identity;
-    let builder = this.createBaseClientBuilder();
+    let builder = this.createBaseClientBuilder(reqCtx);
 
     if (!identity.token || !identity.refresh_token) {
       builder = builder.withAnonymousSessionFlow({
@@ -188,8 +195,14 @@ export class CommercetoolsClient {
     return createApiBuilderFromCtpClient(builder.build());
   }
 
-  protected createBaseClientBuilder() {
-    const builder = new ClientBuilder()
+
+
+
+
+
+
+  protected createBaseClientBuilder(reqCtx?: RequestContext) {
+    let builder = new ClientBuilder()
       .withProjectKey(this.config.projectKey)
       .withQueueMiddleware({
         concurrency: 20,
@@ -208,11 +221,6 @@ export class CommercetoolsClient {
           return Promise.resolve(body);
         },
       })
-      .withCorrelationIdMiddleware({
-        // ideally this would be pushed in as part of the session context, so we can trace it end-to-end
-        generate: () => `REACTIONARY-${randomUUID()}`,
-      })
-
       .withHttpMiddleware({
         retryConfig: {
           backoff: true,
@@ -229,8 +237,17 @@ export class CommercetoolsClient {
         httpClient: fetch,
       });
 
-    // CT's telemetry module is currently broken and consequently not included in the above (createTelemetryMiddleware)
+    const correlationId = reqCtx?.correlationId || 'REACTIONARY-' + (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : randomUUID());
+    builder = builder.withCorrelationIdMiddleware({
+      generate: () => correlationId,
+    });
 
+    // Note:
+
+    // CT's telemetry module is currently broken and consequently not included in the above (createTelemetryMiddleware)
+    if (debug.enabled) {
+      builder = builder.withLoggerMiddleware();
+    }
     return builder;
   }
 }
