@@ -98,6 +98,17 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
           }
 
           span.end();
+
+          // TODO: Figure out what to do here, for nulls
+          if (!result) {
+            return result;
+          }
+
+          // TODO: Assert individual elements
+          if (result instanceof Array) {
+            return result;
+          }
+          
           return this.assert(result as any);
         }
       );
