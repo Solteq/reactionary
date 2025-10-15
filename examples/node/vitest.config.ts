@@ -1,14 +1,18 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config';
+import tsconfigPaths from 'vite-tsconfig-paths';
+import { resolve } from 'path';
 
 export default defineConfig({
-  plugins: [],
+  plugins: [tsconfigPaths()],
   test: {
+    root: resolve(__dirname),
     globals: true,
     environment: 'node',
     include: ['src/**/*.spec.ts', 'src/**/*.test.ts'],
     coverage: {
-      reporter: ['text', 'lcov'],
+      reporter: [],
     },
+    reporters: ['default', 'verbose'],
   },
 });

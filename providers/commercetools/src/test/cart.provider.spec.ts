@@ -5,6 +5,7 @@ import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
 import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
 import { CommercetoolsProductProvider } from '../providers/product.provider.js';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 
 const testData = {

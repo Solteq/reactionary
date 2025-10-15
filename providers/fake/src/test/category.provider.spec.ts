@@ -3,6 +3,7 @@ import type { RequestContext } from '@reactionary/core';
 import { CategorySchema, MemoryCache , createInitialRequestContext,} from '@reactionary/core';
 import { FakeCategoryProvider } from '../providers/index.js';
 import { getFakerTestConfiguration } from './test-utils.js';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 describe('Faker Category Provider', () => {
   let provider: FakeCategoryProvider;

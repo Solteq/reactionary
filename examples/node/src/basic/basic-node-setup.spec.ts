@@ -1,5 +1,6 @@
 import { buildClient, createInitialRequestContext, NoOpCache } from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
+import { describe, expect, it } from 'vitest';
 
 describe('basic node setup', () => {
   const client = buildClient(

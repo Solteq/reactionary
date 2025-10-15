@@ -3,6 +3,7 @@ import type { RequestContext} from '@reactionary/core';
 import { NoOpCache, SearchResultSchema, createInitialRequestContext } from '@reactionary/core';
 import { CommercetoolsSearchProvider } from '../providers/search.provider.js';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 const testData = {
   searchTerm: 'bowl'

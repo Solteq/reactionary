@@ -13,6 +13,7 @@ import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
 import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
 import { CommercetoolsCheckoutProvider } from '../providers/checkout.provider.js';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',
@@ -172,7 +173,7 @@ describe('Commercetools Checkout Provider', () => {
 
       });
 
-      xit('can cancel an in-progress payment', async () => {
+      it.skip('can cancel an in-progress payment', async () => {
         const paymentMethods = await provider.getAvailablePaymentMethods(
           {
             checkout: checkout.identifier,
@@ -273,7 +274,7 @@ describe('Commercetools Checkout Provider', () => {
         ).toBe(true);
       });
 
-      xit('wont report it finalizable until everything is paid/authorized', async () => {
+      it.skip('wont report it finalizable until everything is paid/authorized', async () => {
         expect(checkout.readyForFinalization).toBe(false);
         const pm = (
           await provider.getAvailablePaymentMethods(
