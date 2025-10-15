@@ -6,12 +6,10 @@ import type {
 } from '@reactionary/core';
 import { InventoryProvider } from '@reactionary/core';
 import type z from 'zod';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
-import { CommercetoolsClient } from '../core/client';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
+import { CommercetoolsClient } from '../core/client.js';
 import type {
   InventoryEntry,
-  ProductVariant,
-  ProductVariantAvailability,
 } from '@commercetools/platform-sdk';
 export class CommercetoolsInventoryProvider<
   T extends Inventory = Inventory

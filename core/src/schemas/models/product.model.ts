@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { ProductIdentifierSchema, SKUIdentifierSchema } from './identifiers.model';
-import { BaseModelSchema, ImageSchema } from './base.model';
+import { ProductIdentifierSchema, SKUIdentifierSchema } from './identifiers.model.js';
+import { BaseModelSchema } from './base.model.js';
 
 export const SKUSchema = z.looseObject({
     identifier: SKUIdentifierSchema.default(() => SKUIdentifierSchema.parse({})),

@@ -4,13 +4,12 @@ import type {
   SearchResultProduct,
   Cache,
   SearchQueryByTerm,
-  Session, RequestContext,
+  RequestContext,
 } from '@reactionary/core';
 
-import { CommercetoolsClient } from '../core/client';
+import { CommercetoolsClient } from '../core/client.js';
 import type z from 'zod';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
-import { traced } from '@reactionary/otel';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 
 export class CommercetoolsSearchProvider<
   T extends SearchResult = SearchResult
@@ -27,7 +26,6 @@ export class CommercetoolsSearchProvider<
     this.config = config;
   }
 
-  @traced()
   protected async getClient(reqCtx: RequestContext) {
     const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();

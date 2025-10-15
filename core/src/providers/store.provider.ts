@@ -1,7 +1,7 @@
-import type { Store } from '../schemas/models/store.model';
-import type { StoreQueryByProximity } from '../schemas/queries';
-import type { RequestContext } from '../schemas/session.schema';
-import { BaseProvider } from './base.provider';
+import type { Store } from '../schemas/models/store.model.js';
+import type { StoreQueryByProximity } from '../schemas/queries/index.js';
+import type { RequestContext } from '../schemas/session.schema.js';
+import { BaseProvider } from './base.provider.js';
 
 export abstract class StoreProvider<
   T extends Store = Store

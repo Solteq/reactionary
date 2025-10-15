@@ -1,5 +1,5 @@
-import type { BaseModel } from '../schemas/models';
-import type { Cache, CacheEntryOptions } from './cache.interface';
+import type { BaseModel } from '../schemas/models/index.js';
+import type { Cache, CacheEntryOptions } from './cache.interface.js';
 import type z from 'zod';
 
 /**

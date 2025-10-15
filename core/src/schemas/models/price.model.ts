@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { BaseModelSchema } from './base.model';
-import { PriceIdentifierSchema } from './identifiers.model';
-import { CurrencySchema } from './currency.model';
+import { BaseModelSchema } from './base.model.js';
+import { PriceIdentifierSchema } from './identifiers.model.js';
+import { CurrencySchema } from './currency.model.js';
 
 export const MonetaryAmountSchema = z.looseObject({
     value: z.number().default(0).describe('The monetary amount in decimal-precision.'),

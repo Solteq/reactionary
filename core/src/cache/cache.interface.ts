@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { BaseModel } from '../schemas/models';
+import type { BaseModel } from '../schemas/models/index.js';
 
 export interface CacheEntryOptions {
   ttlSeconds: number;

@@ -5,8 +5,8 @@ import {
   StoreSchema,
   createInitialRequestContext,
 } from '@reactionary/core';
-import { getCommercetoolsTestConfiguration } from './test-utils';
-import { CommercetoolsStoreProvider } from '../providers/store.provider';
+import { getCommercetoolsTestConfiguration } from './test-utils.js';
+import { CommercetoolsStoreProvider } from '../providers/store.provider.js';
 
 describe('Commercetools Store Provider', () => {
   let provider: CommercetoolsStoreProvider;

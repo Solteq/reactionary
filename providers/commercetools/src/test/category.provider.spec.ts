@@ -1,8 +1,8 @@
 import 'dotenv/config'
 import type { RequestContext} from '@reactionary/core';
-import { CategorySchema, NoOpCache, Session , createInitialRequestContext} from '@reactionary/core';
-import { CommercetoolsCategoryProvider } from '../providers/category.provider';
-import { getCommercetoolsTestConfiguration } from './test-utils';
+import { CategorySchema, NoOpCache , createInitialRequestContext} from '@reactionary/core';
+import { CommercetoolsCategoryProvider } from '../providers/category.provider.js';
+import { getCommercetoolsTestConfiguration } from './test-utils.js';
 
 const testData = {
   topCategories: [

@@ -1,12 +1,12 @@
 import type { z } from 'zod';
 import type {
-  BaseModel} from '../schemas/models/base.model';
+  BaseModel} from '../schemas/models/base.model.js';
 import {
   createPaginatedResponseSchema,
-} from '../schemas/models/base.model';
-import type { Cache } from '../cache/cache.interface';
-import type { RequestContext, Session } from '../schemas/session.schema';
-import type { IdentifierType } from '../schemas/models/identifiers.model';
+} from '../schemas/models/base.model.js';
+import type { Cache } from '../cache/cache.interface.js';
+import type { RequestContext, Session } from '../schemas/session.schema.js';
+import type { IdentifierType } from '../schemas/models/identifiers.model.js';
 import { hasher } from "node-object-hash";
 
 /**

@@ -5,9 +5,9 @@ import type {
 } from '@reactionary/core';
 import { StoreProvider } from '@reactionary/core';
 import type z from 'zod';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
-import { CommercetoolsClient } from '../core/client';
-import type { Channel, InventoryEntry } from '@commercetools/platform-sdk';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
+import { CommercetoolsClient } from '../core/client.js';
+import type { Channel } from '@commercetools/platform-sdk';
 import type { Store } from '@reactionary/core';
 
 export class CommercetoolsStoreProvider<

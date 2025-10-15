@@ -9,10 +9,10 @@ import {
   ShippingInstructionSchema,
   createInitialRequestContext,
 } from '@reactionary/core';
-import { getCommercetoolsTestConfiguration } from './test-utils';
-import { CommercetoolsCartProvider } from '../providers/cart.provider';
-import { CommercetoolsIdentityProvider } from '../providers/identity.provider';
-import { CommercetoolsCheckoutProvider } from '../providers/checkout.provider';
+import { getCommercetoolsTestConfiguration } from './test-utils.js';
+import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
+import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
+import { CommercetoolsCheckoutProvider } from '../providers/checkout.provider.js';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',

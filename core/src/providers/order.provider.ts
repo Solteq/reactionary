@@ -1,7 +1,7 @@
-import { BaseProvider } from "./base.provider";
-import type { RequestContext } from "../schemas/session.schema";
-import type { Order } from "../schemas/models";
-import type { OrderQueryById } from "../schemas/queries";
+import { BaseProvider } from "./base.provider.js";
+import type { RequestContext } from "../schemas/session.schema.js";
+import type { Order } from "../schemas/models/index.js";
+import type { OrderQueryById } from "../schemas/queries/index.js";
 
 export abstract class OrderProvider<
   T extends Order = Order

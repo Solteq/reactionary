@@ -1,4 +1,4 @@
-import type { Cache, CacheEntryOptions } from './cache.interface';
+import type { Cache, CacheEntryOptions } from './cache.interface.js';
 import type z from 'zod';
 
 /**

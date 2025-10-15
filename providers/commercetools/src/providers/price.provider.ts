@@ -1,8 +1,8 @@
 import { PriceProvider, TieredPriceSchema } from '@reactionary/core';
 import type { PriceQueryBySku, RequestContext , Price, Cache, Currency, TieredPrice } from '@reactionary/core';
 import type z from 'zod';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
-import { CommercetoolsClient } from '../core/client';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
+import { CommercetoolsClient } from '../core/client.js';
 import type { Price as CTPrice, ProductVariant as CTProductVariant } from '@commercetools/platform-sdk';
 export class CommercetoolsPriceProvider<
   T extends Price = Price

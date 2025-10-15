@@ -1,8 +1,8 @@
-import type { Checkout, PaymentMethod, ShippingMethod } from "../schemas/models";
-import type { RequestContext } from "../schemas/session.schema";
-import { BaseProvider } from "./base.provider";
-import type { CheckoutMutationFinalizeCheckout, CheckoutMutationInitiateCheckout, CheckoutMutationSetShippingAddress,  CheckoutMutationAddPaymentInstruction, CheckoutMutationRemovePaymentInstruction, CheckoutMutationSetShippingInstruction } from "../schemas/mutations/checkout.mutation";
-import type { CheckoutQueryById, CheckoutQueryForAvailablePaymentMethods, CheckoutQueryForAvailableShippingMethods } from "../schemas/queries";
+import type { Checkout, PaymentMethod, ShippingMethod } from "../schemas/models/index.js";
+import type { RequestContext } from "../schemas/session.schema.js";
+import { BaseProvider } from "./base.provider.js";
+import type { CheckoutMutationFinalizeCheckout, CheckoutMutationInitiateCheckout, CheckoutMutationSetShippingAddress,  CheckoutMutationAddPaymentInstruction, CheckoutMutationRemovePaymentInstruction, CheckoutMutationSetShippingInstruction } from "../schemas/mutations/checkout.mutation.js";
+import type { CheckoutQueryById, CheckoutQueryForAvailablePaymentMethods, CheckoutQueryForAvailableShippingMethods } from "../schemas/queries/index.js";
 
 export abstract class CheckoutProvider<
   T extends Checkout = Checkout

@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { BaseMutationSchema } from './base.mutation';
-import { CartIdentifierSchema, CartItemIdentifierSchema, PaymentMethodIdentifierSchema, ShippingMethodIdentifierSchema, SKUIdentifierSchema } from '../models/identifiers.model';
-import { AddressSchema } from '../models/profile.model';
-import { CurrencySchema } from '../models/currency.model';
-import { MonetaryAmountSchema } from '../models/price.model';
+import { BaseMutationSchema } from './base.mutation.js';
+import { CartIdentifierSchema, CartItemIdentifierSchema, PaymentMethodIdentifierSchema, ShippingMethodIdentifierSchema, SKUIdentifierSchema } from '../models/identifiers.model.js';
+import { AddressSchema } from '../models/profile.model.js';
+import { CurrencySchema } from '../models/currency.model.js';
+import { MonetaryAmountSchema } from '../models/price.model.js';
 
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
     cart: CartIdentifierSchema.nonoptional(),

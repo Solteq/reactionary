@@ -1,8 +1,8 @@
-import type { Currency } from '../schemas/models/currency.model';
-import type { Price } from '../schemas/models/price.model';
-import type { PriceQueryBySku } from '../schemas/queries/price.query';
-import type { RequestContext } from '../schemas/session.schema';
-import { BaseProvider } from './base.provider';
+import type { Currency } from '../schemas/models/currency.model.js';
+import type { Price } from '../schemas/models/price.model.js';
+import type { PriceQueryBySku } from '../schemas/queries/price.query.js';
+import type { RequestContext } from '../schemas/session.schema.js';
+import { BaseProvider } from './base.provider.js';
 
 export abstract class PriceProvider<
   T extends Price = Price

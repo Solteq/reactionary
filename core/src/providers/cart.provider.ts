@@ -1,9 +1,9 @@
-import { BaseProvider } from "./base.provider";
-import type { Cart } from "../schemas/models/cart.model";
-import type { CartQueryById } from "../schemas/queries/cart.query";
-import type { RequestContext } from "../schemas/session.schema";
-import type { CartMutationApplyCoupon, CartMutationChangeCurrency, CartMutationCheckout, CartMutationDeleteCart, CartMutationItemAdd, CartMutationItemQuantityChange, CartMutationItemRemove, CartMutationRemoveCoupon, CartMutationSetBillingAddress, CartMutationSetShippingInfo } from "../schemas/mutations/cart.mutation";
-import type { CartIdentifier, OrderIdentifier } from "../schemas/models/identifiers.model";
+import { BaseProvider } from "./base.provider.js";
+import type { Cart } from "../schemas/models/cart.model.js";
+import type { CartQueryById } from "../schemas/queries/cart.query.js";
+import type { RequestContext } from "../schemas/session.schema.js";
+import type { CartMutationApplyCoupon, CartMutationChangeCurrency, CartMutationCheckout, CartMutationDeleteCart, CartMutationItemAdd, CartMutationItemQuantityChange, CartMutationItemRemove, CartMutationRemoveCoupon, CartMutationSetBillingAddress, CartMutationSetShippingInfo } from "../schemas/mutations/cart.mutation.js";
+import type { CartIdentifier, OrderIdentifier } from "../schemas/models/identifiers.model.js";
 
 export abstract class CartProvider<
   T extends Cart = Cart

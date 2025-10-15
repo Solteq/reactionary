@@ -18,17 +18,17 @@ import {
   StoreSchema,
   PriceSchema,
 } from '@reactionary/core';
-import { FakeProductProvider } from '../providers/product.provider';
-import { FakeSearchProvider } from '../providers/search.provider';
-import type { FakeConfiguration } from '../schema/configuration.schema';
-import type { FakeCapabilities } from '../schema/capabilities.schema';
-import { FakeCategoryProvider } from '../providers/category.provider';
+import { FakeProductProvider } from '../providers/product.provider.js';
+import { FakeSearchProvider } from '../providers/search.provider.js';
+import type { FakeConfiguration } from '../schema/configuration.schema.js';
+import type { FakeCapabilities } from '../schema/capabilities.schema.js';
+import { FakeCategoryProvider } from '../providers/category.provider.js';
 import {
   FakeCartProvider,
   FakeInventoryProvider,
   FakePriceProvider,
   FakeStoreProvider,
-} from '../providers';
+} from '../providers/index.js';
 
 type FakeClient<T extends FakeCapabilities> = (T['cart'] extends true
   ? { cart: CartProvider }

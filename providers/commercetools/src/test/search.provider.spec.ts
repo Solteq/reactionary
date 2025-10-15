@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import type { RequestContext} from '@reactionary/core';
 import { NoOpCache, SearchResultSchema, createInitialRequestContext } from '@reactionary/core';
-import { CommercetoolsSearchProvider } from '../providers/search.provider';
-import { getCommercetoolsTestConfiguration } from './test-utils';
+import { CommercetoolsSearchProvider } from '../providers/search.provider.js';
+import { getCommercetoolsTestConfiguration } from './test-utils.js';
 
 const testData = {
   searchTerm: 'bowl'

@@ -6,8 +6,8 @@ import type {
 } from '@reactionary/core';
 import { ProfileProvider } from '@reactionary/core';
 import type z from 'zod';
-import { CommercetoolsClient } from '../core/client';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
+import { CommercetoolsClient } from '../core/client.js';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { Cache } from '@reactionary/core';
 import type { Customer } from '@commercetools/platform-sdk';
 

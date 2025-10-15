@@ -1,10 +1,10 @@
-export default {
-  displayName: 'provider-commercetools',
+module.exports = {
+  displayName: 'provider-faker',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {
     '^.+\\.[tj]s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json' }],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
-  coverageDirectory: '../../coverage/providers/commercetools',
+  coverageDirectory: '../../coverage/providers/fake',
 };

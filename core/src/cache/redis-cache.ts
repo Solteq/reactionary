@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis';
-import type { Cache, CacheEntryOptions } from './cache.interface';
+import type { Cache, CacheEntryOptions } from './cache.interface.js';
 import type z from 'zod';
 
 export class RedisCache implements Cache {

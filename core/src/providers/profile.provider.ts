@@ -1,8 +1,8 @@
-import type { Profile } from '../schemas/models';
-import type { ProfileMutationUpdate } from '../schemas/mutations';
-import type { ProfileQuerySelf } from '../schemas/queries';
-import type { RequestContext } from '../schemas/session.schema';
-import { BaseProvider } from './base.provider';
+import type { Profile } from '../schemas/models/index.js';
+import type { ProfileMutationUpdate } from '../schemas/mutations/index.js';
+import type { ProfileQuerySelf } from '../schemas/queries/index.js';
+import type { RequestContext } from '../schemas/session.schema.js';
+import { BaseProvider } from './base.provider.js';
 
 export abstract class ProfileProvider<
   T extends Profile = Profile

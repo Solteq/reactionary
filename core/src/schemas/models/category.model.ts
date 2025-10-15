@@ -6,8 +6,8 @@
 
 
 import { z } from 'zod';
-import { BaseModelSchema, createPaginatedResponseSchema, ImageSchema } from './base.model';
-import { CategoryIdentifierSchema } from './identifiers.model';
+import { BaseModelSchema, createPaginatedResponseSchema, ImageSchema } from './base.model.js';
+import { CategoryIdentifierSchema } from './identifiers.model.js';
 export const CategorySchema = BaseModelSchema.extend({
     identifier:  CategoryIdentifierSchema.default(() => CategoryIdentifierSchema.parse({})),
     name: z.string().default(''),

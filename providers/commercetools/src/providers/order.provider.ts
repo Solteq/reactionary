@@ -1,17 +1,15 @@
 import type {
-  Inventory,
   RequestContext,
   Cache,
-  InventoryQueryBySKU,
   Order,
   OrderQueryById,
   Currency} from '@reactionary/core';
-import { InventoryProvider, OrderItemSchema, OrderProvider } from '@reactionary/core';
+import { OrderItemSchema, OrderProvider } from '@reactionary/core';
 import type z from 'zod';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
-import { CommercetoolsClient } from '../core/client';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
+import { CommercetoolsClient } from '../core/client.js';
 import type { Order as CTOrder } from '@commercetools/platform-sdk';
-import { CommercetoolsOrderIdentifierSchema } from '../schema/commercetools.schema';
+import { CommercetoolsOrderIdentifierSchema } from '../schema/commercetools.schema.js';
 export class CommercetoolsOrderProvider<
   T extends Order = Order
 > extends OrderProvider<T> {

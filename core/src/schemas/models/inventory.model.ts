@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { BaseModelSchema } from './base.model';
-import { InventoryIdentifierSchema } from './identifiers.model';
+import { BaseModelSchema } from './base.model.js';
+import { InventoryIdentifierSchema } from './identifiers.model.js';
 
 export const InventorySchema = BaseModelSchema.extend({
     identifier: InventoryIdentifierSchema.default(() => InventoryIdentifierSchema.parse({})),

@@ -1,9 +1,9 @@
 import 'dotenv/config';
 
-import type { RequestContext, Session } from '@reactionary/core';
+import type { RequestContext } from '@reactionary/core';
 import { createInitialRequestContext, MemoryCache, ProductSchema } from '@reactionary/core';
-import { getFakerTestConfiguration } from './test-utils';
-import { FakeProductProvider } from '../providers';
+import { getFakerTestConfiguration } from './test-utils.js';
+import { FakeProductProvider } from '../providers/index.js';
 
 describe('Fake Product Provider', () => {
   let provider: FakeProductProvider;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseMutationSchema } from './base.mutation';
+import { BaseMutationSchema } from './base.mutation.js';
 
 export const IdentityMutationLoginSchema = BaseMutationSchema.extend({
     username: z.string(),

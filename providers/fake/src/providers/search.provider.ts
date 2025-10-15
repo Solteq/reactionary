@@ -9,10 +9,9 @@ import type {
 } from '@reactionary/core';
 import type { RequestContext, SearchQueryByTerm } from '@reactionary/core';
 import type z from 'zod';
-import type { FakeConfiguration } from '../schema/configuration.schema';
+import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { Faker, en, base } from '@faker-js/faker';
-import { jitter } from '../utilities/jitter';
-import { traced } from '@reactionary/otel';
+import { jitter } from '../utilities/jitter.js';
 
 export class FakeSearchProvider<
   T extends SearchResult = SearchResult
@@ -25,7 +24,6 @@ export class FakeSearchProvider<
     this.config = config;
   }
 
-  @traced()
   public override async queryByTerm(
     payload: SearchQueryByTerm,
     _reqCtx: RequestContext
@@ -127,7 +125,6 @@ export class FakeSearchProvider<
     return this.schema.parse(result);
   }
 
-  @traced()
   protected childFunction() {
     const foo = 42;
     return foo;

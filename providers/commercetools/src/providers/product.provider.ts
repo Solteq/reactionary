@@ -1,11 +1,10 @@
 import {
   ProductProvider
 } from '@reactionary/core';
-import { CommercetoolsClient } from '../core/client';
+import { CommercetoolsClient } from '../core/client.js';
 import type { z } from 'zod';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { ProductProjection } from '@commercetools/platform-sdk';
-import { traced } from '@reactionary/otel';
 import type { Product, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, RequestContext } from '@reactionary/core';
 import type { Cache } from '@reactionary/core';
 
@@ -26,7 +25,6 @@ export class CommercetoolsProductProvider<
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
   }
 
-  @traced()
   public override async getById(
     payload: ProductQueryById,
     reqCtx: RequestContext
@@ -45,7 +43,6 @@ export class CommercetoolsProductProvider<
     }
   }
 
-  @traced()
   public override async getBySlug(
     payload: ProductQueryBySlug,
     reqCtx: RequestContext
@@ -67,8 +64,6 @@ export class CommercetoolsProductProvider<
     return this.parseSingle(remote.body.results[0], reqCtx);
   }
 
-
-  @traced()
   public override async getBySKU(
     payload: ProductQueryBySKU,
     reqCtx: RequestContext

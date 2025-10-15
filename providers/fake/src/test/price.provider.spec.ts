@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import type { RequestContext} from '@reactionary/core';
 import { NoOpCache, PriceSchema, createInitialRequestContext } from '@reactionary/core';
-import { getFakerTestConfiguration } from './test-utils';
-import { FakePriceProvider } from '../providers/price.provider';
+import { getFakerTestConfiguration } from './test-utils.js';
+import { FakePriceProvider } from '../providers/price.provider.js';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',

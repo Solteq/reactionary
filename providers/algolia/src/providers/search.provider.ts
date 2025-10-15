@@ -9,7 +9,7 @@ import {
 } from '@reactionary/core';
 import { algoliasearch } from 'algoliasearch';
 import type { z } from 'zod';
-import type { AlgoliaConfiguration } from '../schema/configuration.schema';
+import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 
 export class AlgoliaSearchProvider<
   T extends SearchResult = SearchResult

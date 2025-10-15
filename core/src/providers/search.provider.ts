@@ -1,7 +1,7 @@
-import type { SearchResult } from '../schemas/models/search.model';
-import type { SearchQueryByTerm } from '../schemas/queries/search.query';
-import type { RequestContext } from '../schemas/session.schema';
-import { BaseProvider } from './base.provider';
+import type { SearchResult } from '../schemas/models/search.model.js';
+import type { SearchQueryByTerm } from '../schemas/queries/search.query.js';
+import type { RequestContext } from '../schemas/session.schema.js';
+import { BaseProvider } from './base.provider.js';
 
 export abstract class SearchProvider<
   T extends SearchResult = SearchResult

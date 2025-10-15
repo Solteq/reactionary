@@ -1,7 +1,6 @@
 import styles from './page.module.scss';
-import { ClientBuilder, createInitialRequestContext, NoOpCache, SessionSchema } from '@reactionary/core';
+import { ClientBuilder, createInitialRequestContext, NoOpCache } from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
-import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 
 export default async function Index() {
   const client = new ClientBuilder()

@@ -1,6 +1,6 @@
 import  z from "zod";
-import { CartIdentifierSchema, AddressSchema, PaymentInstructionIdentifierSchema, PaymentInstructionSchema, ShippingInstructionSchema } from "../models";
-import { BaseMutationSchema } from "./base.mutation";
+import { CartIdentifierSchema, AddressSchema, PaymentInstructionIdentifierSchema, PaymentInstructionSchema, ShippingInstructionSchema } from "../models/index.js";
+import { BaseMutationSchema } from "./base.mutation.js";
 
 
 export const CheckoutMutationInitiateCheckoutSchema = BaseMutationSchema.extend({

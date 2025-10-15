@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { IdentitySchema } from './models/identity.model';
-import { WebStoreIdentifierSchema } from './models/identifiers.model';
-import { CurrencySchema } from './models/currency.model';
+import { IdentitySchema } from './models/identity.model.js';
+import { WebStoreIdentifierSchema } from './models/identifiers.model.js';
+import { CurrencySchema } from './models/currency.model.js';
 
 /**
  * The language and locale context for the current request.

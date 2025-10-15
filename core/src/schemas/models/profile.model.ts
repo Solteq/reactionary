@@ -1,6 +1,6 @@
 import z from "zod";
-import { AddressIdentifierSchema, IdentityIdentifierSchema } from "./identifiers.model";
-import { BaseModelSchema } from "./base.model";
+import { AddressIdentifierSchema, IdentityIdentifierSchema } from "./identifiers.model.js";
+import { BaseModelSchema } from "./base.model.js";
 
 export const AddressSchema = BaseModelSchema.extend({
     identifier: AddressIdentifierSchema.default(() => AddressIdentifierSchema.parse({})),

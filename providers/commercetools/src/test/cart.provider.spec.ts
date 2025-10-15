@@ -1,10 +1,10 @@
 import 'dotenv/config';
 import type { RequestContext} from '@reactionary/core';
 import { CartSchema, IdentitySchema, NoOpCache, ProductSchema, createInitialRequestContext } from '@reactionary/core';
-import { getCommercetoolsTestConfiguration } from './test-utils';
-import { CommercetoolsCartProvider } from '../providers/cart.provider';
-import { CommercetoolsIdentityProvider } from '../providers/identity.provider';
-import { CommercetoolsProductProvider } from '../providers/product.provider';
+import { getCommercetoolsTestConfiguration } from './test-utils.js';
+import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
+import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
+import { CommercetoolsProductProvider } from '../providers/product.provider.js';
 
 
 const testData = {

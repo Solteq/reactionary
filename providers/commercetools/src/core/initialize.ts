@@ -21,16 +21,16 @@ import {
     CategorySchema,
     CheckoutSchema
 } from "@reactionary/core";
-import type { CommercetoolsCapabilities } from "../schema/capabilities.schema";
-import { CommercetoolsSearchProvider } from "../providers/search.provider";
-import { CommercetoolsProductProvider } from '../providers/product.provider';
-import type { CommercetoolsConfiguration } from "../schema/configuration.schema";
-import { CommercetoolsIdentityProvider } from "../providers/identity.provider";
-import { CommercetoolsCartProvider } from "../providers/cart.provider";
-import { CommercetoolsInventoryProvider } from "../providers/inventory.provider";
-import { CommercetoolsPriceProvider } from "../providers/price.provider";
-import { CommercetoolsCategoryProvider } from "../providers/category.provider";
-import { CommercetoolsCheckoutProvider } from "../providers";
+import type { CommercetoolsCapabilities } from "../schema/capabilities.schema.js";
+import { CommercetoolsSearchProvider } from "../providers/search.provider.js";
+import { CommercetoolsProductProvider } from '../providers/product.provider.js';
+import type { CommercetoolsConfiguration } from "../schema/configuration.schema.js";
+import { CommercetoolsIdentityProvider } from "../providers/identity.provider.js";
+import { CommercetoolsCartProvider } from "../providers/cart.provider.js";
+import { CommercetoolsInventoryProvider } from "../providers/inventory.provider.js";
+import { CommercetoolsPriceProvider } from "../providers/price.provider.js";
+import { CommercetoolsCategoryProvider } from "../providers/category.provider.js";
+import { CommercetoolsCheckoutProvider } from "../providers/index.js";
 
 type CommercetoolsClient<T extends CommercetoolsCapabilities> =
     (T['cart'] extends true ? { cart: CartProvider } : object) &

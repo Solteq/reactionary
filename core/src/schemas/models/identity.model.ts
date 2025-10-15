@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { BaseModelSchema } from './base.model';
-import { IdentityIdentifierSchema } from './identifiers.model';
+import { BaseModelSchema } from './base.model.js';
+import { IdentityIdentifierSchema } from './identifiers.model.js';
 
 export const AnonymousIdentitySchema = BaseModelSchema.extend({
     type: z.literal('Anonymous').default('Anonymous'),

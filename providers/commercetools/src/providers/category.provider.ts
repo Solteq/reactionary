@@ -1,10 +1,9 @@
 import { CategoryProvider, createPaginatedResponseSchema } from "@reactionary/core";
-import type { Session, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext , Cache, Category} from "@reactionary/core";
+import type { CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext , Cache, Category} from "@reactionary/core";
 import type z from "zod";
-import type { CommercetoolsConfiguration } from "../schema/configuration.schema";
-import { CommercetoolsClient } from "../core/client";
+import type { CommercetoolsConfiguration } from "../schema/configuration.schema.js";
+import { CommercetoolsClient } from "../core/client.js";
 import type { ByProjectKeyCategoriesRequestBuilder, CategoryPagedQueryResponse, Category as CTCategory } from "@commercetools/platform-sdk";
-import { traced } from "@reactionary/otel";
 
 export class CommercetoolsCategoryProvider<
   T extends Category = Category,
@@ -29,7 +28,6 @@ export class CommercetoolsCategoryProvider<
    * @param session
    * @returns
    */
-  @traced()
   public override async getById(payload: CategoryQueryById, reqCtx: RequestContext): Promise<T> {
     const client = await this.getClient(reqCtx);
     try {
@@ -49,7 +47,6 @@ export class CommercetoolsCategoryProvider<
    * @param session
    * @returns
    */
-  @traced()
   public override async getBySlug(payload: CategoryQueryBySlug, reqCtx: RequestContext): Promise<T | null> {
     const client = await this.getClient(reqCtx);
     try {
@@ -79,7 +76,6 @@ export class CommercetoolsCategoryProvider<
    * @param session
    * @returns
    */
-  @traced()
   public override async getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb, reqCtx: RequestContext): Promise<T[]> {
     const client = await this.getClient(reqCtx);
     const path: T[] = [];
@@ -116,7 +112,6 @@ export class CommercetoolsCategoryProvider<
    * @param session
    * @returns
    */
-  @traced()
   public override async findChildCategories(payload: CategoryQueryForChildCategories, reqCtx: RequestContext) {
 
     // ok, so for Commercetools we can't actually query by the parents key, so we have to first resolve the key to an ID, then query by that.
@@ -155,7 +150,6 @@ export class CommercetoolsCategoryProvider<
     return createPaginatedResponseSchema(this.schema).parse({});
   }
 
-  @traced()
   public override async findTopCategories(payload: CategoryQueryForTopCategories, reqCtx: RequestContext) {
 
     const client = await this.getClient(reqCtx);
@@ -190,7 +184,6 @@ export class CommercetoolsCategoryProvider<
    * Handler for parsing a response from a remote provider and converting it
    * into the typed domain model.
    */
-  @traced()
   protected override parseSingle(_body: unknown, reqCtx: RequestContext): T {
     const body = _body as CTCategory;
     const languageContext = reqCtx.languageContext;
@@ -221,8 +214,6 @@ export class CommercetoolsCategoryProvider<
     return this.assert(model);
   }
 
-
-  @traced()
   protected override parsePaginatedResult(_body: unknown, reqCtx: RequestContext) {
     const body = _body as  CategoryPagedQueryResponse;
 

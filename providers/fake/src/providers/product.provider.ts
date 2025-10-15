@@ -9,7 +9,7 @@ import {
   type ProductQueryBySKU,
 } from '@reactionary/core';
 import type z from 'zod';
-import type { FakeConfiguration } from '../schema/configuration.schema';
+import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
 
 export class FakeProductProvider<

@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import type { RequestContext } from '@reactionary/core';
 import { CategorySchema, MemoryCache , createInitialRequestContext,} from '@reactionary/core';
-import { FakeCategoryProvider } from '../providers';
-import { getFakerTestConfiguration } from './test-utils';
+import { FakeCategoryProvider } from '../providers/index.js';
+import { getFakerTestConfiguration } from './test-utils.js';
 
 describe('Faker Category Provider', () => {
   let provider: FakeCategoryProvider;

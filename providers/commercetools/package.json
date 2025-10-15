@@ -5,10 +5,10 @@
   "types": "src/index.d.ts",
   "dependencies": {
     "@reactionary/core": "0.0.1",
-    "@reactionary/otel": "0.0.1",
     "debug": "^4.4.3",
     "zod": "4.1.9",
     "@commercetools/ts-client": "^4.2.1",
     "@commercetools/platform-sdk": "^8.8.0"
-  }
+  },
+  "type": "module"
 }

@@ -20,8 +20,8 @@
         "main": "providers/posthog/src/index.ts",
         "tsConfig": "providers/posthog/tsconfig.lib.json",
         "assets": ["providers/posthog/*.md"],
-        "format": ["cjs"],
-        "generatePackageJson": true
+        "format": ["esm"],
+        "bundle": false
       }
     },
     "nx-release-publish": {
