@@ -1,7 +1,7 @@
-export * from './core/initialize';
+export * from './core/initialize.js';
 
-export * from './providers/product.provider';
-export * from './providers/search.provider';
+export * from './providers/product.provider.js';
+export * from './providers/search.provider.js';
 
-export * from './schema/configuration.schema';
-export * from './schema/capabilities.schema';
+export * from './schema/configuration.schema.js';
+export * from './schema/capabilities.schema.js';

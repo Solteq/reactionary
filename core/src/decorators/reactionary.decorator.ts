@@ -1,5 +1,25 @@
-import type { BaseProvider } from '../providers';
-import { getTracer, SpanKind } from '@reactionary/otel';
+import type { BaseProvider } from '../providers/index.js';
+import type { 
+  Tracer, } from '@opentelemetry/api';
+import { 
+  trace, 
+  SpanKind
+} from '@opentelemetry/api';
+
+const TRACER_NAME = '@reactionary';
+const TRACER_VERSION = '0.0.1';
+
+let globalTracer: Tracer | null = null;
+
+export function getTracer(): Tracer {
+  if (!globalTracer) {
+    // Simply get the tracer from the API
+    // If the SDK is not initialized by the host application,
+    // this will return a ProxyTracer that produces NonRecordingSpans
+    globalTracer = trace.getTracer(TRACER_NAME, TRACER_VERSION);
+  }
+  return globalTracer;
+}
 
 /**
  * The options associated with annotating a provider function and marking

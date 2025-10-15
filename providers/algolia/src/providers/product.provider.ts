@@ -10,7 +10,7 @@ import {
   ProductProvider
 } from '@reactionary/core';
 import type { z } from 'zod';
-import type { AlgoliaConfiguration } from '../schema/configuration.schema';
+import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 
 export class AlgoliaProductProvider<
   T extends Product = Product

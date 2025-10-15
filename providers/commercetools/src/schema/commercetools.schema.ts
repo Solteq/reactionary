@@ -1,4 +1,4 @@
-import { CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema, PaymentInstructionIdentifierSchema } from "@reactionary/core";
+import { CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema } from "@reactionary/core";
 import z from "zod";
 
 export const CommercetoolsCartIdentifierSchema = CartIdentifierSchema.extend({

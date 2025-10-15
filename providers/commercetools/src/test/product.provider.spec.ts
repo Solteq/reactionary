@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import type { RequestContext} from '@reactionary/core';
-import { NoOpCache, ProductSchema, Session, createInitialRequestContext } from '@reactionary/core';
-import { CommercetoolsProductProvider } from '../providers/product.provider';
-import {  getCommercetoolsTestConfiguration } from './test-utils';
+import { NoOpCache, ProductSchema, createInitialRequestContext } from '@reactionary/core';
+import { CommercetoolsProductProvider } from '../providers/product.provider.js';
+import {  getCommercetoolsTestConfiguration } from './test-utils.js';
 
 const testData = {
   product : {

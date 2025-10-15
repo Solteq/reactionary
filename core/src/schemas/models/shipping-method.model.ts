@@ -1,8 +1,8 @@
 import z from "zod";
-import { ShippingMethodIdentifierSchema } from "./identifiers.model";
-import { MonetaryAmountSchema } from "./price.model";
-import { BaseModelSchema, ImageSchema } from "./base.model";
-import { AddressSchema } from "./profile.model";
+import { ShippingMethodIdentifierSchema } from "./identifiers.model.js";
+import { MonetaryAmountSchema } from "./price.model.js";
+import { BaseModelSchema, ImageSchema } from "./base.model.js";
+import { AddressSchema } from "./profile.model.js";
 
 
 

@@ -20,20 +20,19 @@ import type {
   Cache
 } from '@reactionary/core';
 
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { z } from 'zod';
-import { CommercetoolsClient } from '../core/client';
+import { CommercetoolsClient } from '../core/client.js';
 import type {
   Cart as CTCart,
   MyCartUpdateAction,
 } from '@commercetools/platform-sdk';
-import { traced } from '@reactionary/otel';
 import type {
-  CommercetoolsCartIdentifier} from '../schema/commercetools.schema';
+  CommercetoolsCartIdentifier} from '../schema/commercetools.schema.js';
 import {
   CommercetoolsCartIdentifierSchema,
   CommercetoolsOrderIdentifierSchema,
-} from '../schema/commercetools.schema';
+} from '../schema/commercetools.schema.js';
 
 export class CommercetoolsCartProvider<
   T extends Cart = Cart
@@ -49,7 +48,6 @@ export class CommercetoolsCartProvider<
     this.config = config;
   }
 
-  @traced()
   public override async getById(
     payload: CartQueryById,
     reqCtx: RequestContext
@@ -67,7 +65,6 @@ export class CommercetoolsCartProvider<
     }
   }
 
-  @traced()
   public override async add(
     payload: CartMutationItemAdd,
     reqCtx: RequestContext
@@ -95,7 +92,6 @@ export class CommercetoolsCartProvider<
     );
   }
 
-  @traced()
   public override async remove(
     payload: CartMutationItemRemove,
     reqCtx: RequestContext
@@ -115,7 +111,6 @@ export class CommercetoolsCartProvider<
     );
   }
 
-  @traced()
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange,
     reqCtx: RequestContext
@@ -142,7 +137,6 @@ export class CommercetoolsCartProvider<
     );
   }
 
-  @traced()
   public override async getActiveCartId(
     reqCtx: RequestContext
   ): Promise<CartIdentifier> {
@@ -165,7 +159,6 @@ export class CommercetoolsCartProvider<
     }
   }
 
-  @traced()
   public override async deleteCart(
     payload: CartMutationDeleteCart,
     reqCtx: RequestContext
@@ -189,7 +182,6 @@ export class CommercetoolsCartProvider<
     return this.getById({ cart: activeCartId }, reqCtx);
   }
 
-  @traced()
   public override async setShippingInfo(
     payload: CartMutationSetShippingInfo,
     reqCtx: RequestContext
@@ -226,7 +218,6 @@ export class CommercetoolsCartProvider<
     return this.applyActions(payload.cart, actions, reqCtx);
   }
 
-  @traced()
   public override setBillingAddress(
     payload: CartMutationSetBillingAddress,
     reqCtx: RequestContext
@@ -261,7 +252,6 @@ export class CommercetoolsCartProvider<
     );
   }
 
-  @traced()
   public override applyCouponCode(
     payload: CartMutationApplyCoupon,
     reqCtx: RequestContext
@@ -281,7 +271,6 @@ export class CommercetoolsCartProvider<
     );
   }
 
-  @traced()
   public override removeCouponCode(
     payload: CartMutationRemoveCoupon,
     reqCtx: RequestContext
@@ -304,7 +293,6 @@ export class CommercetoolsCartProvider<
     );
   }
 
-  @traced()
   public override async checkout(
     payload: CartMutationCheckout,
     reqCtx: RequestContext
@@ -328,7 +316,6 @@ export class CommercetoolsCartProvider<
     });
   }
 
-  @traced()
   public override async changeCurrency(
     payload: CartMutationChangeCurrency,
     reqCtx: RequestContext
@@ -448,7 +435,6 @@ export class CommercetoolsCartProvider<
    * @param anonymousCall
    * @returns
    */
-  @traced()
   protected async getClient(reqCtx: RequestContext) {
     const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
 

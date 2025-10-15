@@ -1,9 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "../../dist/out-tsc",
     "module": "commonjs",
-    "moduleResolution": "node10",
+    "moduleResolution": "node",
+    "verbatimModuleSyntax": false,
+    "outDir": "../../dist/out-tsc",
     "types": ["jest", "node"]
   },
   "include": [

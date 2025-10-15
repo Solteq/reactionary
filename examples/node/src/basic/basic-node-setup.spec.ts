@@ -1,4 +1,4 @@
-import { buildClient, createInitialRequestContext, NoOpCache, SessionSchema } from '@reactionary/core';
+import { buildClient, createInitialRequestContext, NoOpCache } from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
 
 describe('basic node setup', () => {

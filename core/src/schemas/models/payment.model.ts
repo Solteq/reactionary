@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { BaseModelSchema, ImageSchema } from './base.model';
-import { CartIdentifierSchema, OrderIdentifierSchema, PaymentInstructionIdentifierSchema, PaymentMethodIdentifierSchema } from './identifiers.model';
-import { MonetaryAmountSchema } from './price.model';
+import { BaseModelSchema, ImageSchema } from './base.model.js';
+import { PaymentInstructionIdentifierSchema, PaymentMethodIdentifierSchema } from './identifiers.model.js';
+import { MonetaryAmountSchema } from './price.model.js';
 
 export const PaymentStatusSchema = z.enum(['pending', 'authorized', 'canceled', 'capture', 'partial_capture', 'refunded', 'partial_refund']);
 

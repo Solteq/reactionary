@@ -1,6 +1,6 @@
 import type { Category, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext} from "@reactionary/core";
-import { CategoryProvider, Reactionary, Session } from "@reactionary/core";
-import type { FakeConfiguration } from "../schema/configuration.schema";
+import { CategoryProvider, Reactionary } from "@reactionary/core";
+import type { FakeConfiguration } from "../schema/configuration.schema.js";
 import type { Cache as ReactionaryCache } from "@reactionary/core";
 import type z from "zod";
 import { Faker, en, base } from '@faker-js/faker';

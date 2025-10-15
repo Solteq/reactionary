@@ -1,11 +1,10 @@
 import { z } from 'zod';
-import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, PaymentInstructionIdentifierSchema, ProductIdentifierSchema, SKUIdentifierSchema } from '../models/identifiers.model';
-import { BaseModelSchema } from './base.model';
-import { AddressSchema } from './profile.model';
-import { ShippingMethodSchema } from './shipping-method.model';
-
-import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model';
-import { PaymentInstructionSchema } from './payment.model';
+import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, SKUIdentifierSchema } from '../models/identifiers.model.js';
+import { BaseModelSchema } from './base.model.js';
+import { AddressSchema } from './profile.model.js';
+import { ShippingMethodSchema } from './shipping-method.model.js';
+import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
+import { PaymentInstructionSchema } from './payment.model.js';
 
 export const OrderStatusSchema = z.enum(['AwaitingPayment', 'ReleasedToFulfillment', 'Shipped', 'Cancelled']).default('AwaitingPayment').describe('The current status of the order.');
 export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', 'Backordered', 'Preordered']).default('Allocated').describe('The inventory release status of the order.');

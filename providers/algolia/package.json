@@ -7,5 +7,6 @@
     "@reactionary/core": "0.0.1",
     "algoliasearch": "^5.23.4",
     "zod": "4.1.9"
-  }
+  },
+  "type": "module"
 }

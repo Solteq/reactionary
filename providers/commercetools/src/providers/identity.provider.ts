@@ -7,9 +7,9 @@ import {
   IdentityProvider,
   type IdentityMutationRegister,
 } from '@reactionary/core';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type z from 'zod';
-import { CommercetoolsClient } from '../core/client';
+import { CommercetoolsClient } from '../core/client.js';
 
 export class CommercetoolsIdentityProvider<
   T extends Identity = Identity

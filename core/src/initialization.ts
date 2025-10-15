@@ -1,4 +1,4 @@
-import type { RequestContext } from "./schemas/session.schema";
+import type { RequestContext } from "./schemas/session.schema.js";
 
 export function createInitialRequestContext(): RequestContext {
   return {

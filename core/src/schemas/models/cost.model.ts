@@ -1,5 +1,5 @@
 import z from "zod";
-import { MonetaryAmountSchema } from "./price.model";
+import { MonetaryAmountSchema } from "./price.model.js";
 
 export const CostBreakDownSchema = z.looseObject({
     totalTax: MonetaryAmountSchema.default(() => MonetaryAmountSchema.parse({})).describe('The amount of tax paid on the cart. This may include VAT, GST, sales tax, etc.'),

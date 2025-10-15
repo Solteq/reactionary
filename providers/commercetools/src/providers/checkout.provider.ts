@@ -19,12 +19,12 @@ import type {
   ShippingInstruction,
   PaymentInstruction
 } from "@reactionary/core";
-import { AddressSchema, CheckoutItemSchema, CheckoutProvider, FulfillmentCenterIdentifierSchema, PaymentInstructionIdentifierSchema, PaymentInstructionSchema, PaymentMethodIdentifierSchema, PaymentMethodSchema, Reactionary, ShippingInstructionSchema, ShippingMethodSchema } from "@reactionary/core";
+import { AddressSchema, CheckoutItemSchema, CheckoutProvider, PaymentInstructionIdentifierSchema, PaymentInstructionSchema, PaymentMethodIdentifierSchema, ShippingInstructionSchema, ShippingMethodSchema } from "@reactionary/core";
 import type z from "zod";
-import { CommercetoolsClient } from "../core/client";
-import type { CommercetoolsConfiguration } from "../schema/configuration.schema";
-import type { MyCartUpdateAction, Shipping } from "@commercetools/platform-sdk";
-import { CommercetoolsCartIdentifierSchema, CommercetoolsCheckoutIdentifierSchema, CommercetoolsOrderIdentifierSchema, type CommercetoolsCheckoutIdentifier } from "../schema/commercetools.schema";
+import { CommercetoolsClient } from "../core/client.js";
+import type { CommercetoolsConfiguration } from "../schema/configuration.schema.js";
+import type { MyCartUpdateAction } from "@commercetools/platform-sdk";
+import { CommercetoolsCartIdentifierSchema, CommercetoolsCheckoutIdentifierSchema, CommercetoolsOrderIdentifierSchema, type CommercetoolsCheckoutIdentifier } from "../schema/commercetools.schema.js";
 import type  { Address as CTAddress, Payment as CTPayment, Cart as CTCart, ShippingMethod as CTShippingMethod } from "@commercetools/platform-sdk";
 
 

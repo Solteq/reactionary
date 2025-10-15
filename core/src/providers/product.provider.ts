@@ -1,7 +1,7 @@
-import type { Product } from '../schemas/models/product.model';
-import { BaseProvider } from './base.provider';
-import type { RequestContext } from '../schemas/session.schema';
-import type { ProductQueryById, ProductQueryBySKU, ProductQueryBySlug } from '../schemas/queries/product.query';
+import type { Product } from '../schemas/models/product.model.js';
+import { BaseProvider } from './base.provider.js';
+import type { RequestContext } from '../schemas/session.schema.js';
+import type { ProductQueryById, ProductQueryBySKU, ProductQueryBySlug } from '../schemas/queries/product.query.js';
 
 export abstract class ProductProvider<
   T extends Product = Product

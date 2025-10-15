@@ -6,9 +6,9 @@ import {
   ProfileSchema,
   createInitialRequestContext,
 } from '@reactionary/core';
-import { getCommercetoolsTestConfiguration } from './test-utils';
-import { CommercetoolsProfileProvider } from '../providers/profile.provider';
-import { CommercetoolsIdentityProvider } from '../providers/identity.provider';
+import { getCommercetoolsTestConfiguration } from './test-utils.js';
+import { CommercetoolsProfileProvider } from '../providers/profile.provider.js';
+import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
 
 describe('Commercetools Profile Provider', () => {
   let provider: CommercetoolsProfileProvider;

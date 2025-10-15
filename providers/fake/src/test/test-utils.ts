@@ -1,4 +1,4 @@
-import type { FakeConfiguration } from '../schema/configuration.schema';
+import type { FakeConfiguration } from '../schema/configuration.schema.js';
 
 export function getFakerTestConfiguration(): FakeConfiguration {
   return {

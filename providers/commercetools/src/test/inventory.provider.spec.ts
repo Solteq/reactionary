@@ -5,8 +5,8 @@ import {
   NoOpCache,
   createInitialRequestContext,
 } from '@reactionary/core';
-import { getCommercetoolsTestConfiguration } from './test-utils';
-import { CommercetoolsInventoryProvider } from '../providers/inventory.provider';
+import { getCommercetoolsTestConfiguration } from './test-utils.js';
+import { CommercetoolsInventoryProvider } from '../providers/inventory.provider.js';
 
 describe('Commercetools Inventory Provider', () => {
   let provider: CommercetoolsInventoryProvider;

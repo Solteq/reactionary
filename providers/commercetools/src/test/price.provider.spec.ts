@@ -2,10 +2,10 @@ import 'dotenv/config';
 
 
 import type { RequestContext} from '@reactionary/core';
-import { NoOpCache, PriceSchema, Session, createInitialRequestContext,} from '@reactionary/core';
-import {   getCommercetoolsTestConfiguration } from './test-utils';
+import { NoOpCache, PriceSchema, createInitialRequestContext,} from '@reactionary/core';
+import {   getCommercetoolsTestConfiguration } from './test-utils.js';
 
-import { CommercetoolsPriceProvider } from '../providers/price.provider';
+import { CommercetoolsPriceProvider } from '../providers/price.provider.js';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',

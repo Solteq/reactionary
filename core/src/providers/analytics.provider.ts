@@ -1,5 +1,5 @@
-import type { AnalyticsEvent } from '../schemas/models/analytics.model';
-import { BaseProvider } from './base.provider';
+import type { AnalyticsEvent } from '../schemas/models/analytics.model.js';
+import { BaseProvider } from './base.provider.js';
 
 export abstract class AnalyticsProvider<
   T extends AnalyticsEvent = AnalyticsEvent

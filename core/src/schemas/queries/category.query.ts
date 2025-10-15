@@ -1,7 +1,7 @@
 import z from "zod";
-import { CategoryIdentifierSchema } from "../models/identifiers.model";
-import { BaseQuerySchema } from "./base.query";
-import { PaginationOptionsSchema } from "../models/base.model";
+import { CategoryIdentifierSchema } from "../models/identifiers.model.js";
+import { BaseQuerySchema } from "./base.query.js";
+import { PaginationOptionsSchema } from "../models/base.model.js";
 
 export const CategoryQueryById = BaseQuerySchema.extend({
     id: CategoryIdentifierSchema.default(() => CategoryIdentifierSchema.parse({})),

@@ -1,11 +1,11 @@
 {
   "name": "@reactionary/provider-posthog",
   "version": "0.0.1",
-  "type": "commonjs",
-  "main": "./index.cjs",
-  "types": "./index.d.ts",
+  "main": "index.js",
+  "types": "src/index.d.ts",
   "dependencies": {
     "@reactionary/core": "0.0.1",
     "zod": "4.1.9"
-  }
+  },
+  "type": "module"
 }

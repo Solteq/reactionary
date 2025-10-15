@@ -1,12 +1,12 @@
-export * from './core/client';
-export * from './core/initialize';
+export * from './core/client.js';
+export * from './core/initialize.js';
 
-export * from './providers/cart.provider';
-export * from './providers/identity.provider';
-export * from './providers/inventory.provider';
-export * from './providers/price.provider';
-export * from './providers/product.provider';
-export * from './providers/search.provider';
+export * from './providers/cart.provider.js';
+export * from './providers/identity.provider.js';
+export * from './providers/inventory.provider.js';
+export * from './providers/price.provider.js';
+export * from './providers/product.provider.js';
+export * from './providers/search.provider.js';
 
-export * from './schema/capabilities.schema';
-export * from './schema/configuration.schema';
+export * from './schema/capabilities.schema.js';
+export * from './schema/configuration.schema.js';

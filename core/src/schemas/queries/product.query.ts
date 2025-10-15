@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { BaseQuerySchema } from './base.query';
-import { SKUIdentifierSchema } from '../models';
+import { BaseQuerySchema } from './base.query.js';
+import { SKUIdentifierSchema } from '../models/index.js';
 
 export const ProductQueryBySlugSchema = BaseQuerySchema.extend({
     slug: z.string()

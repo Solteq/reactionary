@@ -1,13 +1,12 @@
 import type {
-  Inventory,
   Cache,
   RequestContext,
   StoreQueryByProximity,
   Store,
 } from '@reactionary/core';
-import { InventoryProvider, StoreProvider } from '@reactionary/core';
+import { StoreProvider } from '@reactionary/core';
 import type z from 'zod';
-import type { FakeConfiguration } from '../schema/configuration.schema';
+import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
 
 export class FakeStoreProvider<

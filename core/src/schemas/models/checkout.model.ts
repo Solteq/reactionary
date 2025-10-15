@@ -1,14 +1,12 @@
 
 
 import { z } from 'zod';
-import { BaseModelSchema, ImageSchema } from './base.model';
-import { CartIdentifierSchema, CheckoutIdentifierSchema, CheckoutItemIdentifierSchema, FulfillmentCenterIdentifierSchema, OrderIdentifierSchema, ProductIdentifierSchema, SKUIdentifierSchema } from './identifiers.model';
-import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model';
-import { AddressSchema } from './profile.model';
-import { ShippingInstructionSchema, ShippingMethodSchema } from './shipping-method.model';
-import { PaymentInstructionSchema } from './payment.model';
-
-
+import { BaseModelSchema } from './base.model.js';
+import { CartIdentifierSchema, CheckoutIdentifierSchema, CheckoutItemIdentifierSchema, OrderIdentifierSchema, SKUIdentifierSchema } from './identifiers.model.js';
+import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
+import { AddressSchema } from './profile.model.js';
+import { ShippingInstructionSchema } from './shipping-method.model.js';
+import { PaymentInstructionSchema } from './payment.model.js';
 
 export const CheckoutItemSchema = z.looseObject({
     identifier: CheckoutItemIdentifierSchema.default(() => CheckoutItemIdentifierSchema.parse({})),

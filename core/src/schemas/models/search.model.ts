@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { ProductIdentifierSchema, FacetValueIdentifierSchema, FacetIdentifierSchema, SearchIdentifierSchema } from './identifiers.model';
-import { BaseModelSchema, createPaginatedResponseSchema } from './base.model';
-import { create } from 'domain';
+import { ProductIdentifierSchema, FacetValueIdentifierSchema, FacetIdentifierSchema, SearchIdentifierSchema } from './identifiers.model.js';
+import { BaseModelSchema } from './base.model.js';
 
 export const SearchResultProductSchema = z.looseObject({
     identifier: ProductIdentifierSchema.default(ProductIdentifierSchema.parse({})),

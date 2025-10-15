@@ -2,5 +2,6 @@
   "name": "@reactionary/examples-node",
   "version": "0.0.1",
   "private": true,
-  "dependencies": {}
+  "dependencies": {},
+  "type": "module"
 }

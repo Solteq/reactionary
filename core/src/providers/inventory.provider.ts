@@ -1,7 +1,7 @@
-import type { Inventory } from '../schemas/models/inventory.model';
-import type { InventoryQueryBySKU } from '../schemas/queries/inventory.query';
-import type { RequestContext } from '../schemas/session.schema';
-import { BaseProvider } from './base.provider';
+import type { Inventory } from '../schemas/models/inventory.model.js';
+import type { InventoryQueryBySKU } from '../schemas/queries/inventory.query.js';
+import type { RequestContext } from '../schemas/session.schema.js';
+import { BaseProvider } from './base.provider.js';
 
 export abstract class InventoryProvider<
   T extends Inventory = Inventory

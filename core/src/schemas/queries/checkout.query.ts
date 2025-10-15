@@ -1,6 +1,6 @@
 import type { z } from 'zod';
-import { BaseQuerySchema } from './base.query';
-import { CartIdentifierSchema, CheckoutIdentifierSchema } from '../models/identifiers.model';
+import { BaseQuerySchema } from './base.query.js';
+import { CheckoutIdentifierSchema } from '../models/identifiers.model.js';
 
 export const CheckoutQueryByIdSchema = BaseQuerySchema.extend({
     identifier: CheckoutIdentifierSchema.required()

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BaseQuerySchema } from './base.query';
+import { BaseQuerySchema } from './base.query.js';
 
 export const StoreQueryByProximitySchema = BaseQuerySchema.extend({
     longitude: z.number().default(0),

@@ -6,9 +6,9 @@ import {
   NoOpCache,
   createInitialRequestContext,
 } from '@reactionary/core';
-import { getCommercetoolsTestConfiguration } from './test-utils';
-import { CommercetoolsIdentityProvider } from '../providers/identity.provider';
-import { CommercetoolsCartProvider } from '../providers/cart.provider';
+import { getCommercetoolsTestConfiguration } from './test-utils.js';
+import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
+import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
 
 describe('Commercetools Identity Provider', () => {
   let provider: CommercetoolsIdentityProvider;

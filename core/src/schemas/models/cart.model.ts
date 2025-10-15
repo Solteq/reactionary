@@ -1,13 +1,7 @@
 import { z } from 'zod';
-import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, ProductIdentifierSchema, SKUIdentifierSchema } from '../models/identifiers.model';
-import { BaseModelSchema } from './base.model';
-import { MonetaryAmountSchema } from './price.model';
-import { AddressSchema } from './profile.model';
-import { ShippingMethodSchema } from './shipping-method.model';
-import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model';
-
-
-
+import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, ProductIdentifierSchema, SKUIdentifierSchema } from '../models/identifiers.model.js';
+import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
+import { BaseModelSchema } from './base.model.js';
 
 export const CartItemSchema = z.looseObject({
     identifier: CartItemIdentifierSchema.default(() => CartItemIdentifierSchema.parse({})),

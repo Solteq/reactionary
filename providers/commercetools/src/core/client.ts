@@ -5,7 +5,7 @@ import {
   type TokenStore,
 } from '@commercetools/ts-client';
 import { createApiBuilderFromCtpClient } from '@commercetools/platform-sdk';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import { randomUUID } from 'crypto';
 import {
   AnonymousIdentitySchema,
