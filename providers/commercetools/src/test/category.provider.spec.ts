@@ -3,6 +3,7 @@ import type { RequestContext} from '@reactionary/core';
 import { CategorySchema, NoOpCache , createInitialRequestContext} from '@reactionary/core';
 import { CommercetoolsCategoryProvider } from '../providers/category.provider.js';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 const testData = {
   topCategories: [

@@ -4,6 +4,7 @@ import type { RequestContext } from '@reactionary/core';
 import { createInitialRequestContext, MemoryCache, ProductSchema } from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils.js';
 import { FakeProductProvider } from '../providers/index.js';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 describe('Fake Product Provider', () => {
   let provider: FakeProductProvider;

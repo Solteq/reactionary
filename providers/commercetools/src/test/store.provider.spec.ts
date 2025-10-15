@@ -7,6 +7,7 @@ import {
 } from '@reactionary/core';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import { CommercetoolsStoreProvider } from '../providers/store.provider.js';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 describe('Commercetools Store Provider', () => {
   let provider: CommercetoolsStoreProvider;

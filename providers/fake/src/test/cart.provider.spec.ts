@@ -4,7 +4,7 @@ import { CartSchema, IdentitySchema, NoOpCache, createInitialRequestContext } fr
 import { getFakerTestConfiguration } from './test-utils.js';
 import { FakeCartProvider } from '../providers/cart.provider.js';
 import { FakeIdentityProvider } from '../providers/index.js';
-
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',

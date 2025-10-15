@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { createInitialRequestContext, NoOpCache, SearchResultSchema } from '@reactionary/core';
 import { AlgoliaSearchProvider } from '../providers/search.provider.js';
+import { describe, expect, it } from 'vitest';
 
 describe('Algolia Search Provider', () => {
   const provider = new AlgoliaSearchProvider(

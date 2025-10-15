@@ -9,6 +9,7 @@ import {
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import { CommercetoolsProfileProvider } from '../providers/profile.provider.js';
 import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 describe('Commercetools Profile Provider', () => {
   let provider: CommercetoolsProfileProvider;

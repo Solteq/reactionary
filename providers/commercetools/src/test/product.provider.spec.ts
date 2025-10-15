@@ -3,6 +3,7 @@ import type { RequestContext} from '@reactionary/core';
 import { NoOpCache, ProductSchema, createInitialRequestContext } from '@reactionary/core';
 import { CommercetoolsProductProvider } from '../providers/product.provider.js';
 import {  getCommercetoolsTestConfiguration } from './test-utils.js';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 const testData = {
   product : {
@@ -12,7 +13,6 @@ const testData = {
     sku: 'SGB-01',
 
   },
-
 }
 
 describe('Commercetools Product Provider', () => {

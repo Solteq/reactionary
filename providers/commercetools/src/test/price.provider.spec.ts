@@ -1,11 +1,10 @@
 import 'dotenv/config';
 
-
 import type { RequestContext} from '@reactionary/core';
 import { NoOpCache, PriceSchema, createInitialRequestContext,} from '@reactionary/core';
 import {   getCommercetoolsTestConfiguration } from './test-utils.js';
-
 import { CommercetoolsPriceProvider } from '../providers/price.provider.js';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',
@@ -39,7 +38,7 @@ describe('Commercetools Price Provider', () => {
     }
   });
 
-  xit('should be able to get prices for a product with tiers', async () => {
+  it.skip('should be able to get prices for a product with tiers', async () => {
     const result = await provider.getBySKU({ sku: { key: testData.skuWithTiers }}, reqCtx);
 
     expect(result).toBeTruthy();

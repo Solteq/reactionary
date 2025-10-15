@@ -3,6 +3,7 @@ import type { RequestContext} from '@reactionary/core';
 import { NoOpCache, PriceSchema, createInitialRequestContext } from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils.js';
 import { FakePriceProvider } from '../providers/price.provider.js';
+import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',
