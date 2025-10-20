@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import { MonetaryAmountSchema } from "./price.model.js";
 
 export const CostBreakDownSchema = z.looseObject({

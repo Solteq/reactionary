@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import { ShippingMethodIdentifierSchema } from "./identifiers.model.js";
 import { MonetaryAmountSchema } from "./price.model.js";
 import { BaseModelSchema, ImageSchema } from "./base.model.js";

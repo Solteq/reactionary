@@ -1,4 +1,4 @@
-import  z from "zod";
+import { z } from "zod";
 import { CartIdentifierSchema, AddressSchema, PaymentInstructionIdentifierSchema, PaymentInstructionSchema, ShippingInstructionSchema } from "../models/index.js";
 import { BaseMutationSchema } from "./base.mutation.js";
 

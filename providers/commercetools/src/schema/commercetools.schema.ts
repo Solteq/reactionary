@@ -1,5 +1,5 @@
 import { CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema } from "@reactionary/core";
-import z from "zod";
+import { z } from "zod";
 
 export const CommercetoolsCartIdentifierSchema = CartIdentifierSchema.extend({
     version: z.number().default(0)

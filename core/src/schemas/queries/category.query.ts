@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import { CategoryIdentifierSchema } from "../models/identifiers.model.js";
 import { BaseQuerySchema } from "./base.query.js";
 import { PaginationOptionsSchema } from "../models/base.model.js";
