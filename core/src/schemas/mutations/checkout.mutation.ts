@@ -21,30 +21,26 @@ export const CheckoutMutationFinalizeCheckoutSchema = BaseMutationSchema.extend(
 });
 
 
-export const CheckoutMutationAddPaymentInstruction = BaseMutationSchema.extend({
+export const CheckoutMutationAddPaymentInstructionSchema = BaseMutationSchema.extend({
     paymentInstruction: PaymentInstructionSchema.omit({ meta: true, status: true, identifier: true }).required(),
     checkout: CartIdentifierSchema.required()
 });
 
-export const CheckoutMutationRemovePaymentInstruction = BaseMutationSchema.extend({
+export const CheckoutMutationRemovePaymentInstructionSchema = BaseMutationSchema.extend({
     paymentInstruction: PaymentInstructionIdentifierSchema.required(),
     checkout: CartIdentifierSchema.required()
 });
 
 
 
-export const CheckoutMutationSetShippingInstruction = BaseMutationSchema.extend({
+export const CheckoutMutationSetShippingInstructionSchema = BaseMutationSchema.extend({
     shippingInstruction: ShippingInstructionSchema.omit({ meta: true, status: true, identifier: true }).required(),
     checkout: CartIdentifierSchema.required()
 });
 
-
-
-
-
 export type CheckoutMutationInitiateCheckout = z.infer<typeof CheckoutMutationInitiateCheckoutSchema>;
 export type CheckoutMutationSetShippingAddress = z.infer<typeof CheckoutMutationSetShippingAddressSchema>;
 export type CheckoutMutationFinalizeCheckout = z.infer<typeof CheckoutMutationFinalizeCheckoutSchema>;
-export type CheckoutMutationAddPaymentInstruction = z.infer<typeof CheckoutMutationAddPaymentInstruction>;
-export type CheckoutMutationRemovePaymentInstruction = z.infer<typeof CheckoutMutationRemovePaymentInstruction>;
-export type CheckoutMutationSetShippingInstruction = z.infer<typeof CheckoutMutationSetShippingInstruction>;
+export type CheckoutMutationAddPaymentInstruction = z.infer<typeof CheckoutMutationAddPaymentInstructionSchema>;
+export type CheckoutMutationRemovePaymentInstruction = z.infer<typeof CheckoutMutationRemovePaymentInstructionSchema>;
+export type CheckoutMutationSetShippingInstruction = z.infer<typeof CheckoutMutationSetShippingInstructionSchema>;
