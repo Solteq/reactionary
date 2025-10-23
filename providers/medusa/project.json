@@ -1,0 +1,34 @@
+{
+  "name": "provider-medusa",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "providers/medusa/src",
+  "projectType": "library",
+  "release": {
+    "version": {
+      "currentVersionResolver": "git-tag",
+      "fallbackCurrentVersionResolver": "disk",
+      "preserveLocalDependencyProtocols": false,
+      "manifestRootsToUpdate": ["dist/{projectRoot}"]
+    }
+  },
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/providers/medusa",
+        "main": "providers/medusa/src/index.ts",
+        "tsConfig": "providers/medusa/tsconfig.lib.json",
+        "assets": ["providers/medusa/*.md"],
+        "format": ["esm"],
+        "bundle": false
+      }
+    },
+    "nx-release-publish": {
+      "options": {
+        "packageRoot": "dist/{projectRoot}"
+      }
+    }
+  }
+}

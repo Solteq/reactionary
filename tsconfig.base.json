@@ -17,6 +17,8 @@
     "paths": {
       "@reactionary/core": ["core/src/index.ts"],
       "@reactionary/examples-node": ["examples/node/src/index.ts"],
+      "@reactionary/provider-medusa": ["providers/medusa/src/index.ts"],
+      "@reactionary/otel": ["otel/src/index.ts"],
       "@reactionary/provider-algolia": ["providers/algolia/src/index.ts"],
       "@reactionary/provider-commercetools": [
         "providers/commercetools/src/index.ts"
