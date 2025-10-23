@@ -1,0 +1,20 @@
+{
+  "name": "@reactionary/provider-medusa",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "dependencies": {
+    "zod": "4.1.9",
+    "@reactionary/core": "0.0.1",
+    "@medusajs/js-sdk": "^2.0.0",
+    "debug": "^4.3.4"
+  },
+  "devDependencies": {
+    "vitest": "*",
+    "@vitest/ui": "*",
+    "@vitest/coverage-v8": "*",
+    "vite-tsconfig-paths": "*"
+  }
+}

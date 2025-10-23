@@ -1,0 +1,9 @@
+import { CapabilitiesSchema } from "@reactionary/core";
+import type { z } from 'zod';
+
+export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
+    product: true,
+    cart: true,
+}).partial();
+
+export type MedusaCapabilities = z.infer<typeof MedusaCapabilitiesSchema>;
