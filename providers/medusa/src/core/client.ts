@@ -1,4 +1,4 @@
-import  * as Medusa  from '@medusajs/js-sdk';
+import  Medusa  from '@medusajs/js-sdk';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
   AnonymousIdentitySchema,
@@ -41,18 +41,18 @@ export class RequestContextTokenStore {
 
 export class MedusaClient {
   protected config: MedusaConfiguration;
-  protected client: Medusa;
+  protected client: Medusa.default;
 
   constructor(config: MedusaConfiguration) {
     this.config = config;
-    this.client = new Medusa({
+    this.client = new Medusa.default({
       baseUrl: this.config.apiUrl,
       publishableKey: this.config.publishable_key,
       debug: debug.enabled
     });
   }
 
-  public async getClient(reqCtx: RequestContext): Promise<Medusa> {
+  public async getClient(reqCtx: RequestContext): Promise<Medusa.default> {
     return this.createAuthenticatedClient(reqCtx);
   }
 
@@ -65,7 +65,7 @@ export class MedusaClient {
   ) {
     try {
       // Create customer account
-      await this.client.store.customers.register(
+      await this.client.auth.register(
         "customer",
         "emailpass",
         {
@@ -94,17 +94,18 @@ export class MedusaClient {
       const tokenStore = new RequestContextTokenStore(reqCtx);
 
       // Authenticate with Medusa
-      const authResult = await this.client.auth.login({
+      const authResult = await this.client.auth.login("customer", "emailpass", {
         email,
         password,
       });
 
-      if (authResult.token) {
-        await tokenStore.setToken(authResult.token);
+      const token = await this.client.client.getToken();
+      if (token) {
+        await tokenStore.setToken(token);
       }
 
       // Get customer details
-      const customerResponse = await this.client.auth.getSession();
+      const customerResponse = await this.client.store.customer.retrieve();
 
       if (customerResponse.customer) {
         reqCtx.identity = RegisteredIdentitySchema.parse({
@@ -114,7 +115,7 @@ export class MedusaClient {
           id: {
             userId: customerResponse.customer.id,
           },
-          token: authResult.token,
+          token: token,
         });
       }
 
@@ -132,6 +133,7 @@ export class MedusaClient {
       // Clear the session on Medusa side
       if (reqCtx.identity.token) {
         await this.client.auth.logout();
+        await this.client.client.clearToken();
       }
 
       // Clear local token storage
@@ -151,32 +153,8 @@ export class MedusaClient {
     }
   }
 
-  public async refreshToken(reqCtx: RequestContext): Promise<boolean> {
-    try {
-      const tokenStore = new RequestContextTokenStore(reqCtx);
 
-      // Try to refresh the session
-      const sessionResponse = await this.client.auth.getSession();
-
-      if (sessionResponse.customer) {
-        // Session is still valid
-        return true;
-      }
-
-      // Session expired, clear tokens
-      await tokenStore.clearToken();
-      reqCtx.identity = AnonymousIdentitySchema.parse({});
-      return false;
-    } catch (error) {
-      debug('Token refresh failed:', error);
-      const tokenStore = new RequestContextTokenStore(reqCtx);
-      await tokenStore.clearToken();
-      reqCtx.identity = AnonymousIdentitySchema.parse({});
-      return false;
-    }
-  }
-
-  protected async createAuthenticatedClient(reqCtx: RequestContext): Promise<Medusa> {
+  protected async createAuthenticatedClient(reqCtx: RequestContext): Promise<Medusa.default> {
     const tokenStore = new RequestContextTokenStore(reqCtx);
 
     // Ensure we have some form of identity
@@ -192,116 +170,24 @@ export class MedusaClient {
     const identity = reqCtx.identity;
 
     // Create a client instance
-    const authenticatedClient = new Medusa({
+    const authenticatedClient = new Medusa.default({
       baseUrl: this.config.apiUrl,
       publishableKey: this.config.publishable_key,
-      debug: this.config.debug || debug.enabled,
+      debug: debug.enabled,
     });
 
     // If we have a token, set it for authenticated requests
     if (identity.token) {
       // Set the authorization header for authenticated requests
-      authenticatedClient.client.setClientHeaders({
-        'Authorization': `Bearer ${identity.token}`,
-      });
-
-      // Verify the token is still valid
-      try {
-        await authenticatedClient.auth.getSession();
-      } catch (error) {
-        debug('Token validation failed, clearing token:', error);
+      await authenticatedClient.client.setToken(identity.token);
+      const token = await authenticatedClient.client.getToken()
+      if (!token) {
+        debug('Token validation failed, clearing token');
         await tokenStore.clearToken();
-        // Remove authorization header for guest requests
-        authenticatedClient.client.setClientHeaders({});
       }
     }
 
     return authenticatedClient;
   }
 
-  public async getCustomer(reqCtx: RequestContext) {
-    const client = await this.getClient(reqCtx);
-
-    if (reqCtx.identity.type === 'Registered' && reqCtx.identity.token) {
-      try {
-        const response = await client.auth.getSession();
-        return response.customer;
-      } catch (error) {
-        debug('Failed to get customer:', error);
-        return null;
-      }
-    }
-
-    return null;
-  }
-
-  public async updateCustomer(
-    updates: {
-      first_name?: string;
-      last_name?: string;
-      phone?: string;
-      metadata?: Record<string, unknown>;
-    },
-    reqCtx: RequestContext
-  ) {
-    const client = await this.getClient(reqCtx);
-
-    if (reqCtx.identity.type === 'Registered' && reqCtx.identity.id.userId) {
-      try {
-        const response = await client.store.customer.update(updates);
-        return response.customer;
-      } catch (error) {
-        debug('Failed to update customer:', error);
-        throw new Error(`Failed to update customer: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }
-
-    throw new Error('Customer must be logged in to update profile');
-  }
-
-  public async changePassword(
-    currentPassword: string,
-    newPassword: string,
-    reqCtx: RequestContext
-  ) {
-    const client = await this.getClient(reqCtx);
-
-    if (reqCtx.identity.type === 'Registered') {
-      try {
-        // First verify current password by attempting to login
-        if (!reqCtx.identity.logonId) {
-          throw new Error('No login ID available');
-        }
-
-        await this.client.auth.login({
-          email: reqCtx.identity.logonId,
-          password: currentPassword,
-        });
-
-        // Update password
-        await client.store.customer.update({
-          password: newPassword,
-        });
-
-        return true;
-      } catch (error) {
-        debug('Failed to change password:', error);
-        throw new Error(`Failed to change password: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }
-
-    throw new Error('Customer must be logged in to change password');
-  }
-
-  public async requestPasswordReset(email: string) {
-    try {
-      await this.client.auth.resetPassword({
-        email,
-      });
-      return true;
-    } catch (error) {
-      debug('Failed to request password reset:', error);
-      throw new Error(`Failed to request password reset: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
 }

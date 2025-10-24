@@ -211,8 +211,8 @@ export class MedusaCartProvider<
           this.setSessionData(reqCtx, sessionData);
         }
       }
-      // then delete it
-      await client.store.cart.deleteCart(medusaId.key);
+      // then delete it. But there is not really a deleteCart method, so we just orphan it.
+//      await client.store.cart.deleteCart(medusaId.key);
 
 
       return this.createEmptyCart();
@@ -335,12 +335,11 @@ export class MedusaCartProvider<
       const cartResponse = await client.store.cart.retrieve(medusaId.key);
 
       if (cartResponse.cart?.promotions) {
-        const updatedPromotions = cartResponse.cart.promotions.filter(
-          (promotion: MedusaTypes.StoreCartPromotion) => promotion.code !== payload.couponCode
-        );
+        const manualDiscounts = cartResponse.cart.promotions.filter(x => !x.is_automatic && x.code);
 
+        const remainingCodes = (manualDiscounts.filter(x => x.code !== payload.couponCode).map((promotion: MedusaTypes.StoreCartPromotion) => ( promotion.code )) || []) as string[];
         const response = await client.store.cart.update(medusaId.key, {
-          promo_codes: updatedPromotions.map((promotion: MedusaTypes.StoreCartPromotion) => ( promotion.code )),
+          promo_codes: (remainingCodes || []),
         });
 
         if (response.cart) {
