@@ -1,14 +1,15 @@
-import { describe, it, expect, beforeEach, vi, beforeAll } from 'vitest';
+
+import { describe, it, expect, beforeEach, vi, beforeAll, fail } from 'vitest';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import { MedusaCartIdentifierSchema } from '../schema/medusa.schema.js';
-import { CartSchema, NoOpCache, createInitialRequestContext, type RequestContext } from '@reactionary/core';
+import { CartSchema, NoOpCache, createInitialRequestContext, type Cart, type RequestContext } from '@reactionary/core';
 import { getMedusaTestConfiguration } from './test-utils.js';
 
 
 const testData = {
-  skuWithoutTiers: 'variant_01K85RHQQ654MWWMRR7JNP7NZB',
-  skuWithTiers: 'variant_01K85RHQQ6BDBG415YNG5CQTPA'
+  skuWithoutTiers: 'variant_01K86M4X3S2PJDYXAWM9WG2RA9',
+  skuWithTiers: 'variant_01K86M50HBJ27AQZC5YH3TRB68'
 }
 
 
@@ -65,6 +66,8 @@ describe('Medusa Cart Provider', () => {
 
     });
 
+
+
     it('can add multiple different items to a cart', async () => {
 
       const cart = await provider.add({
@@ -115,8 +118,33 @@ describe('Medusa Cart Provider', () => {
       expect(updatedCart.items[0].price.totalPrice.value).toBe(cart.items[0].price.totalPrice.value * 3);
       expect(updatedCart.items[0].price.unitPrice.value).toBe(cart.items[0].price.unitPrice.value);
 
+    });
+
+    it('cannot set quantity below 1', async () => {
+
+      const cart = await provider.add({
+          cart: { key: '' },
+          sku: {
+            key: testData.skuWithoutTiers,
+          },
+          quantity: 1
+      }, reqCtx);
+      let updatedCart: Cart;
+      try {
+        updatedCart = await provider.changeQuantity({
+          cart: cart.identifier,
+          item: cart.items[0].identifier,
+          quantity: 0
+        }, reqCtx);
+
+      } catch (error) {
+        expect(error).toBeDefined();
+        return;
+      }
+      throw new Error('Should have thrown an error');
 
     });
+
 
     it('should be able to remove an item from a cart', async () => {
 

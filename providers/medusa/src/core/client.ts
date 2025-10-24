@@ -1,4 +1,4 @@
-import  Medusa  from '@medusajs/js-sdk';
+import  {  Admin,  Auth,  Client,  type Config,  Store }  from '@medusajs/js-sdk';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
   AnonymousIdentitySchema,
@@ -39,20 +39,37 @@ export class RequestContextTokenStore {
   }
 }
 
+class Medusa {
+  public client: Client
+
+  public admin: Admin
+  public store: Store
+  public auth: Auth
+
+  constructor(config: Config) {
+    this.client = new Client(config)
+
+    this.admin = new Admin(this.client)
+    this.store = new Store(this.client)
+    this.auth = new Auth(this.client, config)
+  }
+}
+
+
 export class MedusaClient {
   protected config: MedusaConfiguration;
-  protected client: Medusa.default;
+  protected client: Medusa;
 
   constructor(config: MedusaConfiguration) {
     this.config = config;
-    this.client = new Medusa.default({
+    this.client = new Medusa({
       baseUrl: this.config.apiUrl,
       publishableKey: this.config.publishable_key,
       debug: debug.enabled
     });
   }
 
-  public async getClient(reqCtx: RequestContext): Promise<Medusa.default> {
+  public async getClient(reqCtx: RequestContext): Promise<Medusa> {
     return this.createAuthenticatedClient(reqCtx);
   }
 
@@ -154,7 +171,7 @@ export class MedusaClient {
   }
 
 
-  protected async createAuthenticatedClient(reqCtx: RequestContext): Promise<Medusa.default> {
+  protected async createAuthenticatedClient(reqCtx: RequestContext): Promise<Medusa> {
     const tokenStore = new RequestContextTokenStore(reqCtx);
 
     // Ensure we have some form of identity
@@ -170,7 +187,7 @@ export class MedusaClient {
     const identity = reqCtx.identity;
 
     // Create a client instance
-    const authenticatedClient = new Medusa.default({
+    const authenticatedClient = new Medusa({
       baseUrl: this.config.apiUrl,
       publishableKey: this.config.publishable_key,
       debug: debug.enabled,

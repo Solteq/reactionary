@@ -92,6 +92,8 @@ export class MedusaCartProvider<
       const response = await client.store.cart.createLineItem(medusaId.key, {
         variant_id: payload.sku.key,
         quantity: payload.quantity,
+      }, {
+        fields: '+items.*'
       });
 
       if (response.cart) {
@@ -115,7 +117,10 @@ export class MedusaCartProvider<
 
       const response = await client.store.cart.deleteLineItem(
         medusaId.key,
-        payload.item.key
+        payload.item.key,
+        {
+          fields: '+items.*'
+        }
       );
 
       if (response.parent) {
@@ -133,9 +138,10 @@ export class MedusaCartProvider<
     payload: CartMutationItemQuantityChange,
     reqCtx: RequestContext
   ): Promise<T> {
-    if (payload.quantity === 0) {
+    if (payload.quantity < 1) {
+      throw new Error('Changing quantity to 0 is not allowed. Use the remove call instead.');
       // Changing quantity to 0 is not allowed. Use the remove call instead.
-      return this.getById({ cart: payload.cart }, reqCtx);
+      // return this.getById({ cart: payload.cart }, reqCtx);
     }
 
     try {
@@ -147,7 +153,11 @@ export class MedusaCartProvider<
         payload.item.key,
         {
           quantity: payload.quantity,
+        },
+        {
+          fields: '+items.*'
         }
+
       );
 
       if (response.cart) {
@@ -175,7 +185,7 @@ export class MedusaCartProvider<
           await client.store.cart.retrieve(activeCartId);
           return MedusaCartIdentifierSchema.parse({
             key: activeCartId,
-            region_id: this.currencyToRegion(reqCtx.languageContext.currencyCode, this.config) ||  this.config.defaultRegion,
+    //        region_id: this.currencyToRegion(reqCtx.languageContext.currencyCode, this.config) ||  this.config.defaultRegion,
           });
         } catch {
           // Cart doesn't exist, create new one
@@ -185,13 +195,13 @@ export class MedusaCartProvider<
       // For guest users or if no active cart exists, return empty identifier
       return MedusaCartIdentifierSchema.parse({
         key: '',
-        region_id: this.currencyToRegion(reqCtx.languageContext.currencyCode, this.config) ||  this.config.defaultRegion,
+  //      region_id: this.currencyToRegion(reqCtx.languageContext.currencyCode, this.config) ||  this.config.defaultRegion,
       });
     } catch (error) {
       debug('Failed to get active cart ID:', error);
       return MedusaCartIdentifierSchema.parse({
         key: '',
-        region_id: this.currencyToRegion(reqCtx.languageContext.currencyCode, this.config) ||  this.config.defaultRegion,
+//        region_id: this.currencyToRegion(reqCtx.languageContext.currencyCode, this.config) ||  this.config.defaultRegion,
       });
     }
   }
@@ -214,6 +224,16 @@ export class MedusaCartProvider<
       // then delete it. But there is not really a deleteCart method, so we just orphan it.
 //      await client.store.cart.deleteCart(medusaId.key);
 
+      // lets delete all items
+      const cartResponse = await client.store.cart.retrieve(medusaId.key);
+      if (cartResponse.cart) {
+        for (const item of cartResponse.cart.items || []) {
+          await client.store.cart.deleteLineItem(
+            medusaId.key,
+            item.id,
+          );
+        }
+      }
 
       return this.createEmptyCart();
     } catch (error) {
@@ -243,7 +263,10 @@ export class MedusaCartProvider<
             country_code: payload.shippingAddress.countryCode?.toLowerCase() ||
                          reqCtx.taxJurisdiction.countryCode?.toLowerCase() || 'us',
           },
-        });
+        },         {
+          fields: '+items.*'
+        }
+);
       }
 
       // Set shipping method
@@ -287,7 +310,10 @@ export class MedusaCartProvider<
                        reqCtx.taxJurisdiction.countryCode?.toLowerCase() || 'us',
         },
         email: payload.notificationEmailAddress,
-      });
+      },         {
+          fields: '+items.*'
+        }
+);
 
       if (response.cart) {
         return this.parseSingle(response.cart, reqCtx);
@@ -310,6 +336,8 @@ export class MedusaCartProvider<
 
       const response = await client.store.cart.update(medusaId.key, {
         promo_codes: [ payload.couponCode ],
+      }, {
+        fields: '+items.*'
       });
 
       if (response.cart) {
@@ -391,8 +419,12 @@ export class MedusaCartProvider<
       // Get current cart
       const currentCartResponse = await client.store.cart.retrieve(payload.cart.key);
       client.store.cart.update(payload.cart.key, {
-        region_id:  region,
-      })
+        // region_id:  region,
+      },
+      {
+        fields: '+items.*'
+      }
+  );
       if (!currentCartResponse.cart) {
         throw new Error('Cart not found');
       }
@@ -422,16 +454,19 @@ export class MedusaCartProvider<
   ): Promise<CartIdentifier> {
     try {
       const client = await this.getClient(reqCtx);
+      const region = this.currencyToRegion(currency || reqCtx.languageContext.currencyCode || 'EUR', this.config);
 
       const response = await client.store.cart.create({
-        region_id: this.currencyToRegion(reqCtx.languageContext.currencyCode || this.config.defaultRegion, this.config),
+        // region_id: region,
         currency_code: currency || reqCtx.languageContext.currencyCode || 'EUR',
-      })
+
+      },
+    )
 
       if (response.cart) {
         const cartIdentifier = MedusaCartIdentifierSchema.parse({
           key: response.cart.id,
-          region_id: response.cart.region_id,
+          // region_id: response.cart.region_id,
         });
 
         // Store cart ID in session
@@ -475,11 +510,11 @@ export class MedusaCartProvider<
 
     result.price = {
       totalTax: {
-        value: taxTotal / 100,
+        value: taxTotal,
         currency,
       },
       totalDiscount: {
-        value: discountTotal / 100,
+        value: discountTotal,
         currency,
       },
       totalSurcharge: {
@@ -487,15 +522,15 @@ export class MedusaCartProvider<
         currency,
       },
       totalShipping: {
-        value: shippingTotal / 100,
+        value: shippingTotal,
         currency,
       },
       totalProductPrice: {
-        value: subtotal / 100,
+        value: subtotal ,
         currency,
       },
       grandTotal: {
-        value: grandTotal / 100,
+        value: grandTotal,
         currency,
       },
     };
@@ -505,29 +540,29 @@ export class MedusaCartProvider<
       const item = CartItemSchema.parse({});
 
       item.identifier.key = remoteItem.id;
-      item.product.key = remoteItem.variant?.product_id || '';
+      item.product.key = remoteItem.product_id || '';
       item.sku.key = remoteItem.variant_id || '';
-      item.quantity = remoteItem.quantity;
+      item.quantity = remoteItem.quantity || 1;
 
       const unitPrice = remoteItem.unit_price || 0;
-      const totalPrice = remoteItem.total || 0;
+      const totalPrice = unitPrice * item.quantity || 0;
       const discountTotal = remoteItem.discount_total || 0;
 
       item.price = {
         unitPrice: {
-          value: unitPrice / 100,
+          value: unitPrice ,
           currency,
         },
         unitDiscount: {
-          value: discountTotal / remoteItem.quantity / 100,
+          value: discountTotal / remoteItem.quantity ,
           currency,
         },
         totalPrice: {
-          value: totalPrice / 100,
+          value: totalPrice ,
           currency,
         },
         totalDiscount: {
-          value: discountTotal / 100,
+          value: discountTotal ,
           currency,
         },
       };
