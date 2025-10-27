@@ -34,6 +34,7 @@ import {
   MedusaCartIdentifierSchema,
   MedusaOrderIdentifierSchema,
   MedusaSessionSchema,
+  MedusaSKUIdentifierSchema,
 } from '../schema/medusa.schema.js';
 import type MedusaTypes = require('@medusajs/types');
 import type StoreCartPromotion = require('@medusajs/types');
@@ -557,7 +558,10 @@ export class MedusaCartProvider<
 
       item.identifier.key = remoteItem.id;
       item.product.key = remoteItem.product_id || '';
-      item.sku.key = remoteItem.variant_id || '';
+      item.sku = MedusaSKUIdentifierSchema.parse({
+        key: remoteItem.variant_id || '',
+        productIdentifier: { key: remoteItem.product_id || '' },
+      });
       item.quantity = remoteItem.quantity || 1;
 
       const unitPrice = remoteItem.unit_price || 0;

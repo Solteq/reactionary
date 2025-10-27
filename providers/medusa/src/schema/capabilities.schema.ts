@@ -4,6 +4,7 @@ import type { z } from 'zod';
 export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     search: true,
     cart: true,
+    product: true,
 }).partial();
 
 export type MedusaCapabilities = z.infer<typeof MedusaCapabilitiesSchema>;
