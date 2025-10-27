@@ -1,3 +1,4 @@
+
 import  {  Admin,  Auth,  Client,  type Config,  Store }  from '@medusajs/js-sdk';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
@@ -7,8 +8,7 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import createDebug from 'debug';
-
-const debug = createDebug('medusa:debug');
+const debug = createDebug('reactionary:medusa');
 
 export interface MedusaAuthToken {
   token: string;
@@ -62,10 +62,11 @@ export class MedusaClient {
 
   constructor(config: MedusaConfiguration) {
     this.config = config;
+    console.log('MedusaClient config:', this.config, 'Debug enabled:', debug.enabled);
     this.client = new Medusa({
       baseUrl: this.config.apiUrl,
       publishableKey: this.config.publishable_key,
-      debug: debug.enabled
+      debug: true
     });
   }
 
