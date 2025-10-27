@@ -8,7 +8,7 @@ export abstract class ProductProvider<
 > extends BaseProvider<T> {
   public abstract getById(payload: ProductQueryById, reqCtx: RequestContext): Promise<T>;
   public abstract getBySlug(payload: ProductQueryBySlug, reqCtx: RequestContext): Promise<T | null>;
-  public abstract getBySKU(payload: ProductQueryBySKU | ProductQueryBySKU[], reqCtx: RequestContext): Promise<T>;
+  public abstract getBySKU(payload: ProductQueryBySKU, reqCtx: RequestContext): Promise<T>;
 
   protected createEmptyProduct(id: string): T {
     const product = this.newModel();
