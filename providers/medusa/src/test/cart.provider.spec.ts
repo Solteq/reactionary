@@ -1,5 +1,5 @@
 
-import { describe, it, expect, beforeEach, vi, beforeAll, fail } from 'vitest';
+import { describe, it, expect, beforeEach,  beforeAll } from 'vitest';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import { MedusaCartIdentifierSchema } from '../schema/medusa.schema.js';
@@ -14,7 +14,6 @@ const testData = {
 
 
 describe('Medusa Cart Provider', () => {
-  let config: MedusaConfiguration;
 
   let provider: MedusaCartProvider;
   let reqCtx: RequestContext;

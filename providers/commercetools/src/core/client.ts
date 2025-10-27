@@ -15,7 +15,7 @@ import {
 } from '@reactionary/core';
 import * as crypto from 'crypto';
 import createDebug from 'debug'
-const debug = createDebug('commercetools:debug')
+const debug = createDebug('reactionary:commercetools')
 
 
 

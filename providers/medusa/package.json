@@ -9,7 +9,9 @@
     "zod": "4.1.9",
     "@reactionary/core": "0.0.1",
     "@medusajs/js-sdk": "^2.0.0",
-    "debug": "^4.3.4"
+    "debug": "^4.3.4",
+    "@medusajs/types": "^2.11.0",
+    "dotenv": "^17.2.2"
   },
   "devDependencies": {
     "vitest": "*",

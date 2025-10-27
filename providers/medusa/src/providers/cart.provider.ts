@@ -38,7 +38,7 @@ import {
 import type MedusaTypes = require('@medusajs/types');
 import type StoreCartPromotion = require('@medusajs/types');
 
-const debug = createDebug('medusa:cart');
+const debug = createDebug('reactionary:medusa:cart');
 
 export class MedusaCartProvider<
   T extends Cart = Cart
@@ -62,7 +62,15 @@ export class MedusaCartProvider<
       const client = await this.getClient(reqCtx);
       const medusaId = payload.cart as MedusaCartIdentifier;
 
+      if (debug.enabled) {
+        debug('Fetching cart by ID:', medusaId.key);
+      }
+
       const cartResponse = await client.store.cart.retrieve(medusaId.key);
+
+      if (debug.enabled) {
+        debug('Received cart response:', cartResponse);
+      }
 
       if (cartResponse.cart) {
         return this.parseSingle(cartResponse.cart, reqCtx);
@@ -89,12 +97,20 @@ export class MedusaCartProvider<
 
       const medusaId = cartIdentifier as MedusaCartIdentifier;
 
+      if (debug.enabled) {
+        debug('Adding item to cart ID:', medusaId.key, 'SKU:', payload.sku.key, 'Quantity:', payload.quantity);
+      }
+
       const response = await client.store.cart.createLineItem(medusaId.key, {
         variant_id: payload.sku.key,
         quantity: payload.quantity,
       }, {
         fields: '+items.*'
       });
+
+      if (debug.enabled) {
+        debug('Received add item response:', response);
+      }
 
       if (response.cart) {
         return this.parseSingle(response.cart, reqCtx);

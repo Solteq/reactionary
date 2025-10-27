@@ -19,8 +19,8 @@ export const ProductIdentifierSchema = z.looseObject({
 
 export const SearchIdentifierSchema = z.looseObject({
   term: z.string().default(''),
-  page: z.number().default(0),
-  pageSize: z.number().default(20),
+  page: z.number().min(1).default(1),
+  pageSize: z.number().min(1).max(50).default(20),
   facets: z.array(FacetValueIdentifierSchema.required()).default(() => []),
 });
 
