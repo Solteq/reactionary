@@ -18,7 +18,7 @@ describe('Commercetools Price Provider', () => {
 
 
 
-  beforeAll( () => {
+  beforeEach( () => {
     provider = new CommercetoolsPriceProvider(getCommercetoolsTestConfiguration(), PriceSchema, new NoOpCache());
   });
 
@@ -27,7 +27,13 @@ describe('Commercetools Price Provider', () => {
   })
 
   it('should be able to get prices for a product without tiers', async () => {
+
+    const provider = new CommercetoolsPriceProvider(getCommercetoolsTestConfiguration(), PriceSchema, new NoOpCache());
+    const reqCtx = createInitialRequestContext()
+
     const result = await provider.getBySKU({ variant: { sku: testData.skuWithoutTiers }}, reqCtx);
+
+
 
     expect(result).toBeTruthy();
     if (result) {
@@ -56,6 +62,10 @@ describe('Commercetools Price Provider', () => {
   });
 
   it('should return a placeholder price for an unknown SKU', async () => {
+    const provider = new CommercetoolsPriceProvider(getCommercetoolsTestConfiguration(), PriceSchema, new NoOpCache());
+    const reqCtx = createInitialRequestContext()
+
+
     const result = await provider.getBySKU({ variant: { sku: 'unknown-sku' }}, reqCtx);
 
     expect(result).toBeTruthy();
@@ -69,6 +79,10 @@ describe('Commercetools Price Provider', () => {
   });
 
   it('can look up multiple prices at once', async () => {
+    const provider = new CommercetoolsPriceProvider(getCommercetoolsTestConfiguration(), PriceSchema, new NoOpCache());
+    const reqCtx = createInitialRequestContext()
+
+
     const skus = [testData.skuWithTiers, testData.skuWithoutTiers, 'unknown-sku'];
     const results = await Promise.all(skus.map( sku => provider.getBySKU({ variant: { sku: sku }}, reqCtx)));
 

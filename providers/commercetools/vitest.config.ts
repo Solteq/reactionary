@@ -9,7 +9,7 @@ export default defineConfig({
     root: resolve(__dirname),
     globals: true,
     environment: 'node',
-    include: ['src/**/*.spec.ts', 'src/**/*.test.ts'],
+    include: ['src/**/*.spec.{ts,js}', 'src/**/*.test.ts'],
     coverage: {
       reporter: [],
     },
