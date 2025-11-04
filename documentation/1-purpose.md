@@ -10,11 +10,11 @@ Reactionary creates a vendor agnostic domain model, and set of providers towards
 To coin a term, we talk about a UX developer needing access to certain capabiltiies.
 
 These can be things like
-- 1. Cart
-- 1. Proile
-- 1. Product Data
-- 1. Product Search
-- 1. Order History
+1. Cart
+1. Proile
+1. Product Data
+1. Product Search
+1. Order History
 
 Reactionary is intended to live on the server side of your frontend. It uses the publically available clients for known and services, and is not trying to optimize for backend bundle size. Instead, we try to optimize for developer speed.
 
@@ -44,6 +44,7 @@ Where this is noted, a reference implementation will be made available.
 
 Runtime is targeting modern ESM/ES6 systems.
 
+We strive to avoid unbounded requests. This means, we don't generally allow for nested lists of things of indeterminate size. Instead a paged getter will be available to fetch a page of sub-items.
 
 
 
