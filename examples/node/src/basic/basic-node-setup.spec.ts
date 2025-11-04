@@ -3,7 +3,7 @@ import { buildClient, createInitialRequestContext, NoOpCache, type Client, type 
 import { withFakeCapabilities } from '@reactionary/provider-fake';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-describe.skip('basic node setup', () => {
+describe('basic node setup', () => {
   let client: Partial<Client>
   let reqCtx: RequestContext;
 
