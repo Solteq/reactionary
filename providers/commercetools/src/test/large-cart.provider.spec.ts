@@ -1,10 +1,10 @@
 import 'dotenv/config';
 
-import { describe, it, expect, beforeEach,  beforeAll } from 'vitest';
+import { CartSchema, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, createInitialRequestContext, type ProductSearchQueryByTerm, type RequestContext } from '@reactionary/core';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { CommercetoolsSearchProvider } from '../index.js';
 import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
-import { CartSchema, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, ProductSearchResultSchema, createInitialRequestContext, type Cart, type ProductSearchQueryByTerm, type RequestContext } from '@reactionary/core';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
-import {  CommercetoolsSearchProvider } from '../index.js';
 
 
 const testData = {

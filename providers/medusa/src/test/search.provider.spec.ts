@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { createInitialRequestContext, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, ProductSearchResultSchema } from '@reactionary/core';
+import { createInitialRequestContext, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema } from '@reactionary/core';
 import { describe, expect, it } from 'vitest';
 import { MedusaSearchProvider } from '../providers/product-search.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';

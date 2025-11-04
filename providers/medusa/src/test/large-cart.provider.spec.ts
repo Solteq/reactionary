@@ -1,18 +1,16 @@
 
-import { describe, it, expect, beforeEach,  beforeAll } from 'vitest';
+import { CartSchema, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, createInitialRequestContext, type ProductSearchQueryByTerm, type RequestContext } from '@reactionary/core';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
-import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import { MedusaCartIdentifierSchema } from '../schema/medusa.schema.js';
-import { CartSchema, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, ProductSearchResultSchema, createInitialRequestContext, type Cart, type ProductSearchQueryByTerm, type RequestContext } from '@reactionary/core';
-import { getMedusaTestConfiguration } from './test-utils.js';
 import { MedusaSearchProvider } from '../providers/product-search.provider.js';
+import { getMedusaTestConfiguration } from './test-utils.js';
 
-
+/**
 const testData = {
   skuWithoutTiers: '8719514435254',
   skuWithTiers: '8719514435377'
 }
-
+*/
 
 describe('Medusa Cart Provider - Large Scenarios', () => {
 

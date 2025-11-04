@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import type { RequestContext} from '@reactionary/core';
-import { NoOpCache, ProductSchema, ProductVariantIdentifierSchema, createInitialRequestContext } from '@reactionary/core';
+import { NoOpCache, ProductSchema, createInitialRequestContext } from '@reactionary/core';
 import { MedusaProductProvider } from '../providers/product.provider.js';
 import {  getMedusaTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeAll, beforeEach } from 'vitest';

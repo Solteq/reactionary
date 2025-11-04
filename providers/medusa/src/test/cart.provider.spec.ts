@@ -1,9 +1,7 @@
 
-import { describe, it, expect, beforeEach,  beforeAll } from 'vitest';
-import { MedusaCartProvider } from '../providers/cart.provider.js';
-import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import { MedusaCartIdentifierSchema } from '../schema/medusa.schema.js';
 import { CartSchema, NoOpCache, createInitialRequestContext, type Cart, type RequestContext } from '@reactionary/core';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { MedusaCartProvider } from '../providers/cart.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 
 
@@ -135,7 +133,7 @@ describe('Medusa Cart Provider', () => {
           item: cart.items[0].identifier,
           quantity: 0
         }, reqCtx);
-
+        expect(updatedCart).toBeDefined();
       } catch (error) {
         expect(error).toBeDefined();
         return;

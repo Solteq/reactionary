@@ -1,9 +1,9 @@
+import type { RequestContext } from '@reactionary/core';
+import { NoOpCache, ProductSearchResultItemSchema, createInitialRequestContext } from '@reactionary/core';
 import 'dotenv/config';
-import type { RequestContext} from '@reactionary/core';
-import { NoOpCache, ProductSearchResultItemSchema, ProductSearchResultSchema, createInitialRequestContext } from '@reactionary/core';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { CommercetoolsSearchProvider } from '../providers/product-search.provider.js';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
-import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
 const testData = {
   searchTerm: 'bowl'

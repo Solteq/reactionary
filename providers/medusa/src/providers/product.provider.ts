@@ -1,3 +1,4 @@
+import type { Cache, Image, Product, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariant, ProductVariantIdentifier, RequestContext } from '@reactionary/core';
 import {
   ImageSchema,
   ProductAttributeSchema,
@@ -6,15 +7,12 @@ import {
   ProductVariantIdentifierSchema,
   ProductVariantSchema
 } from '@reactionary/core';
-import type { z } from 'zod';
-import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import type { Product, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, RequestContext, ProductVariantIdentifier, Store, ProductVariant } from '@reactionary/core';
-import type { Cache , Image } from '@reactionary/core';
 import createDebug from 'debug';
+import type { z } from 'zod';
 import { MedusaAdminClient, MedusaClient } from '../core/client.js';
+import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 import type { StoreProduct, StoreProductImage, StoreProductVariant } from '@medusajs/types';
-import Medusa from '@medusajs/js-sdk';
 
 const debug = createDebug('reactionary:medusa:product');
 
@@ -39,7 +37,7 @@ export class MedusaProductProvider<
       response = await client.store.product.retrieve(payload.id);
     } catch(error) {
       if (debug.enabled) {
-        debug(`Product with ID: ${payload.id} not found, returning empty product.`);
+        debug(`Product with ID: ${payload.id} not found, returning empty product. Error %O `, error);
       }
       return this.createEmptyProduct(payload.id);
     }
@@ -70,7 +68,7 @@ export class MedusaProductProvider<
 
 
   public override async getBySKU(payload: ProductQueryBySKU, reqCtx: RequestContext): Promise<T> {
-    const client = await new MedusaClient(this.config).getClient(reqCtx);
+
     if (debug.enabled) {
       debug(`Fetching product by SKU: ${Array.isArray(payload) ? payload.join(', ') : payload}`);
     }
