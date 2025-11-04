@@ -1,12 +1,12 @@
 import { z } from 'zod';
-import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, ProductIdentifierSchema, SKUIdentifierSchema } from '../models/identifiers.model.js';
+import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, ProductIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
 import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
 import { BaseModelSchema } from './base.model.js';
 
 export const CartItemSchema = z.looseObject({
     identifier: CartItemIdentifierSchema.default(() => CartItemIdentifierSchema.parse({})),
     product: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})),
-    sku: SKUIdentifierSchema.default(() => SKUIdentifierSchema.parse({})),
+    variant: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})),
     quantity: z.number().default(0),
     price: ItemCostBreakdownSchema.default(() => ItemCostBreakdownSchema.parse({})),
 });

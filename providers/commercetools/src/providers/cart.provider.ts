@@ -82,7 +82,7 @@ export class CommercetoolsCartProvider<
         {
           action: 'addLineItem',
           quantity: payload.quantity,
-          sku: payload.sku.key,
+          sku: payload.sku.sku,
         },
         {
           action: 'recalculate',
@@ -499,7 +499,7 @@ export class CommercetoolsCartProvider<
 
       item.identifier.key = remoteItem.id;
       item.product.key = remoteItem.productId;
-      item.sku.key = remoteItem.variant.sku || '';
+      item.variant.sku = remoteItem.variant.sku || '';
       item.quantity = remoteItem.quantity;
 
       const unitPrice = remoteItem.price.value.centAmount;

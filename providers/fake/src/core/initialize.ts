@@ -1,7 +1,7 @@
 import type {
   Cache as ReactinaryCache,
   ProductProvider,
-  SearchProvider,
+  ProductSearchProvider,
   IdentityProvider,
   CategoryProvider,
   CartProvider,
@@ -11,15 +11,16 @@ import type {
 } from '@reactionary/core';
 import {
   ProductSchema,
-  SearchResultSchema,
+  ProductSearchResultSchema,
   CategorySchema,
   CartSchema,
   InventorySchema,
   StoreSchema,
   PriceSchema,
+  ProductSearchResultItemSchema,
 } from '@reactionary/core';
 import { FakeProductProvider } from '../providers/product.provider.js';
-import { FakeSearchProvider } from '../providers/search.provider.js';
+import { FakeSearchProvider } from '../providers/product-search.provider.js';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import type { FakeCapabilities } from '../schema/capabilities.schema.js';
 import { FakeCategoryProvider } from '../providers/category.provider.js';
@@ -34,7 +35,7 @@ type FakeClient<T extends FakeCapabilities> = (T['cart'] extends true
   ? { cart: CartProvider }
   : object) &
   (T['product'] extends true ? { product: ProductProvider } : object) &
-  (T['search'] extends true ? { search: SearchProvider } : object) &
+  (T['productSearch'] extends true ? { productSearch: ProductSearchProvider } : object) &
   (T['identity'] extends true ? { identity: IdentityProvider } : object) &
   (T['category'] extends true ? { category: CategoryProvider } : object) &
   (T['inventory'] extends true ? { inventory: InventoryProvider } : object) &
@@ -56,10 +57,10 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
       );
     }
 
-    if (capabilities.search) {
+    if (capabilities.productSearch) {
       client.search = new FakeSearchProvider(
         configuration,
-        SearchResultSchema,
+        ProductSearchResultItemSchema,
         cache
       );
     }

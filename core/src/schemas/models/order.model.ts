@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, SKUIdentifierSchema } from '../models/identifiers.model.js';
+import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
 import { BaseModelSchema } from './base.model.js';
 import { AddressSchema } from './profile.model.js';
 import { ShippingMethodSchema } from './shipping-method.model.js';
@@ -12,7 +12,7 @@ export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', '
 
 export const OrderItemSchema = z.looseObject({
     identifier: CartItemIdentifierSchema.default(() => CartItemIdentifierSchema.parse({})),
-    sku: SKUIdentifierSchema.default(() => SKUIdentifierSchema.parse({})),
+    sku: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})),
     quantity: z.number().default(0),
     price: ItemCostBreakdownSchema.default(() => ItemCostBreakdownSchema.parse({})),
 

@@ -45,14 +45,14 @@ describe('Commercetools Cart Provider', () => {
       const cart = await provider.add({
           cart: { key: '' },
           sku: {
-            key: testData.skuWithoutTiers,
+            sku: testData.skuWithoutTiers,
           },
           quantity: 1
       }, reqCtx);
 
       expect(cart.identifier.key).toBeDefined();
       expect(cart.items.length).toBe(1);
-      expect(cart.items[0].sku.key).toBe(testData.skuWithoutTiers);
+      expect(cart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
       expect(cart.items[0].quantity).toBe(1);
 
       expect(cart.items[0].price.totalPrice.value).toBeGreaterThan(0);
@@ -73,7 +73,7 @@ describe('Commercetools Cart Provider', () => {
       const cart = await provider.add({
           cart: { key: '' },
           sku: {
-            key: testData.skuWithoutTiers,
+            sku: testData.skuWithoutTiers,
           },
           quantity: 1
       }, reqCtx);
@@ -82,15 +82,15 @@ describe('Commercetools Cart Provider', () => {
       const updatedCart = await provider.add({
           cart: cart.identifier,
           sku: {
-            key: testData.skuWithTiers,
+            sku: testData.skuWithTiers,
           },
           quantity: 2
       }, reqCtx);
 
       expect(updatedCart.items.length).toBe(2);
-      expect(updatedCart.items[0].sku.key).toBe(testData.skuWithoutTiers);
+      expect(updatedCart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
       expect(updatedCart.items[0].quantity).toBe(1);
-      expect(updatedCart.items[1].sku.key).toBe(testData.skuWithTiers);
+      expect(updatedCart.items[1].variant.sku).toBe(testData.skuWithTiers);
       expect(updatedCart.items[1].quantity).toBe(2);
     });
 
@@ -99,7 +99,7 @@ describe('Commercetools Cart Provider', () => {
       const cart = await provider.add({
           cart: { key: '' },
           sku: {
-            key: testData.skuWithoutTiers,
+            sku: testData.skuWithoutTiers,
           },
           quantity: 1
       }, reqCtx);
@@ -112,7 +112,7 @@ describe('Commercetools Cart Provider', () => {
 
 
       expect(updatedCart.items.length).toBe(1);
-      expect(updatedCart.items[0].sku.key).toBe(testData.skuWithoutTiers);
+      expect(updatedCart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
       expect(updatedCart.items[0].quantity).toBe(3);
 
       expect(updatedCart.items[0].price.totalPrice.value).toBe(cart.items[0].price.totalPrice.value * 3);
@@ -126,7 +126,7 @@ describe('Commercetools Cart Provider', () => {
       const cart = await provider.add({
           cart: { key: '' },
           sku: {
-            key: testData.skuWithoutTiers,
+            sku: testData.skuWithoutTiers,
           },
           quantity: 1
       }, reqCtx);
@@ -144,7 +144,7 @@ describe('Commercetools Cart Provider', () => {
       const cart = await provider.add({
           cart: { key: '' },
           sku: {
-            key: testData.skuWithoutTiers,
+            sku: testData.skuWithoutTiers,
           },
           quantity: 1
       }, reqCtx);
@@ -171,16 +171,16 @@ describe('Commercetools Cart Provider', () => {
       const cart = await provider.add({
           cart: { key: '' },
           sku: {
-            key: testData.skuWithoutTiers,
+            sku: testData.skuWithoutTiers,
           },
           quantity: 1
       }, reqCtx);
-      expect(cart.items[0].sku).toBeDefined();
+      expect(cart.items[0].variant).toBeDefined();
 
-      const product = await productProvider.getBySKU( { sku: cart.items[0].sku }, reqCtx);
+      const product = await productProvider.getBySKU( { variant: cart.items[0].variant }, reqCtx);
       expect(product).toBeTruthy();
       if (product) {
-        expect(product.skus.some(s => s.identifier.key === cart.items[0].sku.key)).toBe(true);
+        expect(product.mainVariant.identifier.sku).toEqual(cart.items[0].variant.sku);
       }
     });
     /**

@@ -99,11 +99,15 @@ export class MedusaCartProvider<
       const medusaId = cartIdentifier as MedusaCartIdentifier;
 
       if (debug.enabled) {
-        debug('Adding item to cart ID:', medusaId.key, 'SKU:', payload.sku.key, 'Quantity:', payload.quantity);
+        debug('Adding item to cart ID:', medusaId.key, 'SKU:', payload.sku.sku, 'Quantity:', payload.quantity);
       }
 
+      // TODO: Convert from global SKU identifier, to something medusa understands.....
+
+      // the SKU identifier is supposed to be a globally understood identifier,
+
       const response = await client.store.cart.createLineItem(medusaId.key, {
-        variant_id: payload.sku.key,
+        variant_id: payload.sku.sku,
         quantity: payload.quantity,
       }, {
         fields: '+items.*'
@@ -558,7 +562,7 @@ export class MedusaCartProvider<
 
       item.identifier.key = remoteItem.id;
       item.product.key = remoteItem.product_id || '';
-      item.sku = MedusaSKUIdentifierSchema.parse({
+      item.variant = MedusaSKUIdentifierSchema.parse({
         key: remoteItem.variant_id || '',
         productIdentifier: { key: remoteItem.product_id || '' },
       });

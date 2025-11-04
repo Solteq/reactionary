@@ -32,13 +32,13 @@ export class FakePriceProvider<
     _reqCtx: RequestContext
   ): Promise<T> {
 
-    if (payload.sku.key === 'unknown-sku') {
-      return this.createEmptyPriceResult(payload.sku.key, _reqCtx.languageContext.currencyCode);
+    if (payload.variant.sku === 'unknown-sku') {
+      return this.createEmptyPriceResult(payload.variant.sku, _reqCtx.languageContext.currencyCode);
     }
 
     // Generate a simple hash from the SKU key string for seeding
     let hash = 0;
-    const skuString = payload.sku.key;
+    const skuString = payload.variant.sku;
     for (let i = 0; i < skuString.length; i++) {
       hash = ((hash << 5) - hash) + skuString.charCodeAt(i);
       hash = hash & hash; // Convert to 32bit integer
@@ -53,7 +53,7 @@ export class FakePriceProvider<
     const model = this.newModel();
     Object.assign(model, {
       identifier: {
-        sku: payload.sku,
+        variant: payload.variant,
       },
       unitPrice: {
         value: generator.number.int({ min: 300, max: 100000 }) / 100,
@@ -62,7 +62,7 @@ export class FakePriceProvider<
       meta: {
         cache: {
           hit: false,
-          key: payload.sku.key,
+          key: payload.variant.sku,
         },
         placeholder: false,
       },

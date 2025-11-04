@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import { BaseModelSchema } from './base.model.js';
-import { CartIdentifierSchema, CheckoutIdentifierSchema, CheckoutItemIdentifierSchema, OrderIdentifierSchema, SKUIdentifierSchema } from './identifiers.model.js';
+import { CartIdentifierSchema, CheckoutIdentifierSchema, CheckoutItemIdentifierSchema, OrderIdentifierSchema, ProductVariantIdentifierSchema } from './identifiers.model.js';
 import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
 import { AddressSchema } from './profile.model.js';
 import { ShippingInstructionSchema } from './shipping-method.model.js';
@@ -10,7 +10,7 @@ import { PaymentInstructionSchema } from './payment.model.js';
 
 export const CheckoutItemSchema = z.looseObject({
     identifier: CheckoutItemIdentifierSchema.default(() => CheckoutItemIdentifierSchema.parse({})),
-    sku: SKUIdentifierSchema.default(() => SKUIdentifierSchema.parse({})),
+    sku: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})),
     quantity: z.number().default(0),
     price: ItemCostBreakdownSchema.default(() => ItemCostBreakdownSchema.parse({})),
 });

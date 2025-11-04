@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { BaseMutationSchema } from './base.mutation.js';
-import { CartIdentifierSchema, CartItemIdentifierSchema, PaymentMethodIdentifierSchema, ShippingMethodIdentifierSchema, SKUIdentifierSchema } from '../models/identifiers.model.js';
+import { CartIdentifierSchema, CartItemIdentifierSchema, PaymentMethodIdentifierSchema, ShippingMethodIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
 import { AddressSchema } from '../models/profile.model.js';
 import { CurrencySchema } from '../models/currency.model.js';
 import { MonetaryAmountSchema } from '../models/price.model.js';
 
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
     cart: CartIdentifierSchema.nonoptional(),
-    sku: SKUIdentifierSchema.nonoptional(),
+    sku: ProductVariantIdentifierSchema.nonoptional(),
     quantity: z.number()
 });
 

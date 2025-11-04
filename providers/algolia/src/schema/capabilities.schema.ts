@@ -3,7 +3,7 @@ import type { z } from 'zod';
 
 export const AlgoliaCapabilitiesSchema = CapabilitiesSchema.pick({
     product: true,
-    search: true,
+    productSearch: true,
     analytics: true
 }).partial();
 

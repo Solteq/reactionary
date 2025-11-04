@@ -38,7 +38,10 @@ describe('Medusa Product Provider', () => {
     expect(result.identifier.key).toBe(testData.product.id);
     expect(result.meta.placeholder).toBe(false);
     expect(result.name).toBe(testData.product.name);
-    expect(result.image).toBe(testData.product.image);
+
+    expect(result.mainVariant).toBeDefined();
+    expect(result.mainVariant?.sku).toBe(testData.product.sku);
+    expect(result.mainVariant.images[0]).toBe(testData.product.image);
   });
 
   it('should be able to get a product by slug', async () => {
@@ -49,13 +52,15 @@ describe('Medusa Product Provider', () => {
       expect(result.meta.placeholder).toBe(false);
       expect(result.identifier.key).toBe(testData.product.id);
       expect(result.name).toBe(testData.product.name);
-      expect(result.image).toBe(testData.product.image);
+      expect(result.mainVariant).toBeDefined();
+      expect(result.mainVariant?.sku).toBe(testData.product.sku);
+      expect(result.mainVariant.images[0]).toBe(testData.product.image);
     }
   });
 
   it('should be able to get a product by sku', async () => {
     const result = await provider.getBySKU({
-      sku: MedusaSKUIdentifierSchema.parse({ key: testData.product.sku, productIdentifier: { key: testData.product.id } })
+      variant: MedusaSKUIdentifierSchema.parse({ key: testData.product.sku, productIdentifier: { key: testData.product.id } })
     },
     reqCtx);
 
@@ -64,7 +69,9 @@ describe('Medusa Product Provider', () => {
       expect(result.meta.placeholder).toBe(false);
       expect(result.identifier.key).toBe(testData.product.id);
       expect(result.name).toBe(testData.product.name);
-      expect(result.image).toBe(testData.product.image);
+      expect(result.mainVariant).toBeDefined();
+      expect(result.mainVariant?.sku).toBe(testData.product.sku);
+      expect(result.mainVariant.images[0]).toBe(testData.product.image);
     }
   });
 

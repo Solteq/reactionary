@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import { createInitialRequestContext, NoOpCache, SearchResultSchema } from '@reactionary/core';
-import { AlgoliaSearchProvider } from '../providers/search.provider.js';
+import { createInitialRequestContext, NoOpCache, ProductSearchResultItemSchema, ProductSearchResultSchema } from '@reactionary/core';
+import { AlgoliaSearchProvider } from '../providers/product-search.provider.js';
 import { describe, expect, it } from 'vitest';
 
 describe('Algolia Search Provider', () => {
@@ -10,7 +10,7 @@ describe('Algolia Search Provider', () => {
       appId: process.env['ALGOLIA_APP_ID'] || '',
       indexName: process.env['ALGOLIA_INDEX'] || '',
     },
-    SearchResultSchema,
+    ProductSearchResultItemSchema,
     new NoOpCache()
   );
 
@@ -22,6 +22,7 @@ describe('Algolia Search Provider', () => {
       page: 0,
       pageSize: 20,
       facets: [],
+      filters: []
     }}, reqCtx);
 
     expect(result.products.length).toBeGreaterThan(0);

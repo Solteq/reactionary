@@ -6,12 +6,12 @@ import type {
 import {
   CartSchema,
   ProductSchema,
-  SearchResultSchema
+  ProductSearchResultItemSchema
 } from "@reactionary/core";
 import { MedusaCartProvider } from "../providers/cart.provider.js";
 import type { MedusaCapabilities } from "../schema/capabilities.schema.js";
 import type { MedusaConfiguration } from "../schema/configuration.schema.js";
-import { MedusaSearchProvider } from "../providers/search.provider.js";
+import { MedusaSearchProvider } from "../providers/product-search.provider.js";
 import { MedusaProductProvider } from "../providers/product.provider.js";
 
 type MedusaClient<T extends MedusaCapabilities> =
@@ -24,8 +24,8 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
     return (cache: Cache): MedusaClient<T> => {
         const client: any = {};
 
-        if (capabilities.search) {
-            client.search = new MedusaSearchProvider(configuration, SearchResultSchema, cache);
+        if (capabilities.productSearch) {
+            client.search = new MedusaSearchProvider(configuration, ProductSearchResultItemSchema, cache);
         }
 
         if (capabilities.product) {

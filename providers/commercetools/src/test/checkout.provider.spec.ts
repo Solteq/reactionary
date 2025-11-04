@@ -56,7 +56,7 @@ describe('Commercetools Checkout Provider', () => {
         {
           cart: { key: '', version: 0 },
           sku: {
-            key: testData.skuWithoutTiers,
+            sku: testData.skuWithoutTiers,
           },
           quantity: 1,
         },
@@ -91,7 +91,7 @@ describe('Commercetools Checkout Provider', () => {
       expect(checkout.originalCartReference.key).toBe(cart.identifier.key);
       expect(checkout.billingAddress?.firstName).toBe('John');
       expect(checkout.items.length).toBe(1);
-      expect(checkout.items[0].sku.key).toBe(testData.skuWithoutTiers);
+      expect(checkout.items[0].sku.sku).toBe(testData.skuWithoutTiers);
     });
 
     describe('checkout actions', () => {

@@ -2,7 +2,7 @@ import { CapabilitiesSchema } from "@reactionary/core";
 import type { z } from 'zod';
 
 export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
-    search: true,
+    productSearch: true,
     cart: true,
     product: true,
 }).partial();

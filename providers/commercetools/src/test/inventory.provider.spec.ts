@@ -27,15 +27,15 @@ describe('Commercetools Inventory Provider', () => {
 
   it('should be able to fetch inventory for a given SKU and Fulfillment Center', async () => {
     const inventory = await provider.getBySKU({
-        sku: {
-            key: 'GMCT-01'
+        variant: {
+            sku: 'GMCT-01'
         },
         fulfilmentCenter: {
             key: 'solteqPhysicalStore'
         }
     }, reqCtx);
 
-    expect(inventory.identifier.sku.key).toBe('GMCT-01');
+    expect(inventory.identifier.variant.sku).toBe('GMCT-01');
     expect(inventory.identifier.fulfillmentCenter.key).toBe('solteqPhysicalStore');
     expect(inventory.quantity).toBe(42);
   });

@@ -21,7 +21,7 @@ export type BaseModel = z.infer<typeof BaseModelSchema>;
 
 export const PaginationOptionsSchema = z.looseObject({
     pageNumber: z.number().default(1).describe('Current page number, starting from 1'),
-    pageSize: z.number().default(20).describe('Number of items per page'),
+    pageSize: z.number().min(1).max(50).default(20).describe('Number of items per page'),
 });
 
 export type PaginationOptions = z.infer<typeof PaginationOptionsSchema>;
@@ -36,7 +36,7 @@ export function createPaginatedResponseSchema<ItemType extends z.ZodTypeAny>(
   return z.object({
     meta: MetaSchema.default(() => MetaSchema.parse({})),
     pageNumber: z.number().min(1).describe('Current page number, starting from 1'),
-    pageSize: z.number().min(1).max(50).describe('Number of items per page'),
+    pageSize: z.number().min(1).describe('Number of items per page'),
     totalCount: z.number().min(0).describe('Total number of items available'),
     totalPages: z.number().min(0).describe('Total number of pages available'),
     items: z.array(itemSchema),

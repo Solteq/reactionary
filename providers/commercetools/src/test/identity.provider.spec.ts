@@ -47,7 +47,7 @@ describe('Commercetools Identity Provider', () => {
         cart,
         quantity: 1,
         sku: {
-          key: 'SGB-01',
+          sku: 'SGB-01',
         },
       },
       reqCtx

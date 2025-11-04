@@ -4,7 +4,8 @@ import type {
   ProductQueryBySlug,
   RequestContext,
   Cache,
-  ProductQueryBySKU
+  ProductQueryBySKU,
+  ProductQueryVariants
 } from '@reactionary/core';
 import {
   ProductProvider
