@@ -1,16 +1,16 @@
 import { z } from 'zod';
 import { BaseMutationSchema } from './base.mutation.js';
-import { ProductIdentifierSchema, SearchIdentifierSchema } from '../models/identifiers.model.js';
+import { ProductIdentifierSchema, ProductSearchIdentifierSchema } from '../models/identifiers.model.js';
 
 export const AnalyticsMutationSearchEventSchema = BaseMutationSchema.extend({
     mutation: z.literal('search'),
-    search: SearchIdentifierSchema.required(),
+    search: ProductSearchIdentifierSchema.required(),
     products: z.array(ProductIdentifierSchema),
 });
 
 export const AnalyticsMutationSearchProductClickEventSchema = BaseMutationSchema.extend({
     mutation: z.literal('product-search-click'),
-    search: SearchIdentifierSchema.required(),
+    search: ProductSearchIdentifierSchema.required(),
     product: ProductIdentifierSchema.required(),
     position: z.number().min(0)
 });

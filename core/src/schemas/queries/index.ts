@@ -7,7 +7,7 @@ export * from './inventory.query.js';
 export * from './price.query.js';
 export * from './product.query.js';
 export * from './profile.query.js';
-export * from './search.query.js';
+export * from './product-search.query.js';
 export * from './store.query.js';
 export * from './order.query.js';
 export * from './checkout.query.js';

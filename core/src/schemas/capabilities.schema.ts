@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const CapabilitiesSchema = z.looseObject({
     product: z.boolean(),
-    search: z.boolean(),
+    productSearch: z.boolean(),
     analytics: z.boolean(),
     identity: z.boolean(),
     cart: z.boolean(),

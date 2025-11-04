@@ -3,7 +3,7 @@ import type { z } from 'zod';
 
 export const FakeCapabilitiesSchema = CapabilitiesSchema.pick({
     product: true,
-    search: true,
+    productSearch: true,
     identity: true,
     category: true,
     cart: true,

@@ -43,7 +43,7 @@ export abstract class PriceProvider<
   protected createEmptyPriceResult(sku: string, currency: Currency): T {
     const base = this.newModel();
     base.identifier = {
-      sku: { key: sku }
+      variant: { sku: sku }
     };
     base.unitPrice = {
       value: -1,

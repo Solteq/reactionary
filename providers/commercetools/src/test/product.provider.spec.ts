@@ -36,7 +36,7 @@ describe('Commercetools Product Provider', () => {
     expect(result.identifier.key).toBe(testData.product.id);
     expect(result.meta.placeholder).toBe(false);
     expect(result.name).toBe(testData.product.name);
-    expect(result.image).toBe(testData.product.image);
+    expect(result.mainVariant.images[0].sourceUrl).toBe(testData.product.image);
   });
 
   it('should be able to get a product by slug', async () => {
@@ -47,19 +47,19 @@ describe('Commercetools Product Provider', () => {
       expect(result.meta.placeholder).toBe(false);
       expect(result.identifier.key).toBe(testData.product.id);
       expect(result.name).toBe(testData.product.name);
-      expect(result.image).toBe(testData.product.image);
+      expect(result.mainVariant.images[0].sourceUrl).toBe(testData.product.image);
     }
   });
 
   it('should be able to get a product by sku', async () => {
-    const result = await provider.getBySKU( { sku: { key: testData.product.sku } }, reqCtx);
+    const result = await provider.getBySKU( { variant: { sku: testData.product.sku } }, reqCtx);
 
     expect(result).toBeTruthy();
     if (result) {
       expect(result.meta.placeholder).toBe(false);
       expect(result.identifier.key).toBe(testData.product.id);
       expect(result.name).toBe(testData.product.name);
-      expect(result.image).toBe(testData.product.image);
+      expect(result.mainVariant.images[0].sourceUrl).toBe(testData.product.image);
     }
   });
 

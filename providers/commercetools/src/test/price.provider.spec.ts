@@ -27,11 +27,11 @@ describe('Commercetools Price Provider', () => {
   })
 
   it('should be able to get prices for a product without tiers', async () => {
-    const result = await provider.getBySKU({ sku: { key: testData.skuWithoutTiers }}, reqCtx);
+    const result = await provider.getBySKU({ variant: { sku: testData.skuWithoutTiers }}, reqCtx);
 
     expect(result).toBeTruthy();
     if (result) {
-      expect(result.identifier.sku.key).toBe(testData.skuWithoutTiers);
+      expect(result.identifier.variant.sku).toBe(testData.skuWithoutTiers);
       expect(result.unitPrice.value).toBeGreaterThan(0);
       expect(result.unitPrice.currency).toBe('USD');
       expect(result.tieredPrices.length).toBe(0);
@@ -39,11 +39,11 @@ describe('Commercetools Price Provider', () => {
   });
 
   it.skip('should be able to get prices for a product with tiers', async () => {
-    const result = await provider.getBySKU({ sku: { key: testData.skuWithTiers }}, reqCtx);
+    const result = await provider.getBySKU({ variant: { sku: testData.skuWithTiers }}, reqCtx);
 
     expect(result).toBeTruthy();
     if (result) {
-      expect(result.identifier.sku.key).toBe(testData.skuWithTiers);
+      expect(result.identifier.variant.sku).toBe(testData.skuWithTiers);
       expect(result.unitPrice.value).toBeGreaterThan(0);
       expect(result.unitPrice.currency).toBe('USD');
       expect(result.tieredPrices.length).toBeGreaterThan(0);
@@ -56,11 +56,11 @@ describe('Commercetools Price Provider', () => {
   });
 
   it('should return a placeholder price for an unknown SKU', async () => {
-    const result = await provider.getBySKU({ sku: { key: 'unknown-sku' }}, reqCtx);
+    const result = await provider.getBySKU({ variant: { sku: 'unknown-sku' }}, reqCtx);
 
     expect(result).toBeTruthy();
     if (result) {
-      expect(result.identifier.sku.key).toBe('unknown-sku');
+      expect(result.identifier.variant.sku).toBe('unknown-sku');
       expect(result.unitPrice.value).toBe(-1);
       expect(result.unitPrice.currency).toBe('USD');
       expect(result.tieredPrices.length).toBe(0);
@@ -70,11 +70,11 @@ describe('Commercetools Price Provider', () => {
 
   it('can look up multiple prices at once', async () => {
     const skus = [testData.skuWithTiers, testData.skuWithoutTiers, 'unknown-sku'];
-    const results = await Promise.all(skus.map( sku => provider.getBySKU({ sku: { key: sku }}, reqCtx)));
+    const results = await Promise.all(skus.map( sku => provider.getBySKU({ variant: { sku: sku }}, reqCtx)));
 
     expect(results).toHaveLength(skus.length);
-    expect(results[0].identifier.sku.key).toBe(testData.skuWithTiers);
-    expect(results[1].identifier.sku.key).toBe(testData.skuWithoutTiers);
-    expect(results[2].identifier.sku.key).toBe('unknown-sku');
+    expect(results[0].identifier.variant.sku).toBe(testData.skuWithTiers);
+    expect(results[1].identifier.variant.sku).toBe(testData.skuWithoutTiers);
+    expect(results[2].identifier.variant.sku).toBe('unknown-sku');
   });
 });

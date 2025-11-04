@@ -56,7 +56,7 @@ export class CommercetoolsInventoryProvider<
       .get({
         queryArgs: {
           where: 'sku=:sku AND supplyChannel(id=:channel)',
-          'var.sku': payload.sku.key,
+          'var.sku': payload.variant.sku,
           'var.channel': channelId,
           expand: 'supplyChannel'
         },
@@ -77,7 +77,7 @@ export class CommercetoolsInventoryProvider<
     const model = this.newModel();
 
     model.identifier = {
-      sku: { key: body.sku || '' },
+      variant: { sku: body.sku || '' },
       fulfillmentCenter: {
         key: body.supplyChannel?.obj?.key || '',
       },

@@ -2,9 +2,11 @@ import type {
   Inventory,
   RequestContext,
   Cache,
-  InventoryQueryBySKU
+  InventoryQueryBySKU,
+  InventoryIdentifier
 } from '@reactionary/core';
 import {
+  InventoryIdentifierSchema,
   InventoryProvider
 } from '@reactionary/core';
 import type z from 'zod';
@@ -28,7 +30,7 @@ export class FakeInventoryProvider<
   ): Promise<T> {
     // Generate a simple hash from the SKU string for seeding
     let hash = 0;
-    const skuString = payload.sku.key;
+    const skuString = payload.variant.sku;
     for (let i = 0; i < skuString.length; i++) {
       hash = ((hash << 5) - hash) + skuString.charCodeAt(i);
       hash = hash & hash; // Convert to 32bit integer
@@ -41,10 +43,10 @@ export class FakeInventoryProvider<
 
     const model = this.newModel();
 
-    model.identifier = {
-      sku: payload.sku,
+    model.identifier = InventoryIdentifierSchema.parse({
+      variant: payload.variant,
       fulfillmentCenter: payload.fulfilmentCenter
-    };
+    } satisfies InventoryIdentifier);
     model.sku = skuString;
 
     model.quantity = generator.number.int({ min: 0, max: 100 });

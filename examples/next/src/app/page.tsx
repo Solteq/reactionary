@@ -17,7 +17,7 @@ export default async function Index() {
             category: 1,
           },
         },
-        { search: true, product: true, identity: false }
+        { productSearch: true, product: true, identity: false }
       )
     )
     .withCache(new NoOpCache())
@@ -25,13 +25,16 @@ export default async function Index() {
 
   const reqCtx = createInitialRequestContext();
   reqCtx.correlationId = 'nextjs-request-' + (new Date().getTime());
-  const search = await client.search.queryByTerm(
+  const search = await client.productSearch.queryByTerm(
     {
       search: {
         facets: [],
-        page: 1,
-        pageSize: 12,
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 12,
+        },
         term: 'glass',
+        filters: []
       },
     },
     reqCtx
@@ -39,7 +42,7 @@ export default async function Index() {
 
   return (
     <div className={styles.page}>
-      {search.products.map((product, index) => (
+      {search.items.map((product, index) => (
         <div key={index}>{product.name}</div>
       ))}
     </div>

@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import type { RequestContext} from '@reactionary/core';
-import { NoOpCache, SearchResultSchema, createInitialRequestContext } from '@reactionary/core';
-import { CommercetoolsSearchProvider } from '../providers/search.provider.js';
+import { NoOpCache, ProductSearchResultItemSchema, ProductSearchResultSchema, createInitialRequestContext } from '@reactionary/core';
+import { CommercetoolsSearchProvider } from '../providers/product-search.provider.js';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
 
@@ -15,7 +15,7 @@ describe('Commercetools Search Provider', () => {
   let reqCtx: RequestContext;
 
   beforeAll( () => {
-    provider = new CommercetoolsSearchProvider(getCommercetoolsTestConfiguration(), SearchResultSchema, new NoOpCache());
+    provider = new CommercetoolsSearchProvider(getCommercetoolsTestConfiguration(), ProductSearchResultItemSchema, new NoOpCache());
   });
 
   beforeEach( () => {
@@ -27,11 +27,14 @@ describe('Commercetools Search Provider', () => {
     search: {
       term: testData.searchTerm,
       facets: [],
-      page: 1,
-      pageSize: 10,
+      paginationOptions: {
+        pageNumber: 1,
+        pageSize: 10,
+      },
+      filters: []
     }}, reqCtx);
 
-    expect(result.products.length).toBeGreaterThan(0);
+    expect(result.items.length).toBeGreaterThan(0);
   });
 
 
@@ -40,23 +43,29 @@ describe('Commercetools Search Provider', () => {
     search: {
       term: testData.searchTerm,
       facets: [],
-      page: 1,
-      pageSize: 1,
+      paginationOptions: {
+        pageNumber: 1,
+        pageSize: 1,
+      },
+      filters: []
     }}, reqCtx);
 
-    expect(result.products.length).toBeGreaterThan(0);
-    expect(result.pages).toBeGreaterThan(1);
+    expect(result.items.length).toBeGreaterThan(0);
+    expect(result.totalPages).toBeGreaterThan(1);
 
     const result2 = await provider.queryByTerm( {
     search: {
       term: testData.searchTerm,
       facets: [],
-      page: 2,
-      pageSize: 1,
+      paginationOptions: {
+        pageNumber: 2,
+        pageSize: 1,
+      },
+      filters: []
     }}, reqCtx);
 
-    expect(result2.products.length).toBeGreaterThan(0);
-    expect(result2.pages).toBeGreaterThan(2);
-    expect(result2.products[0].identifier.key).not.toBe(result.products[0].identifier.key);
+    expect(result2.items.length).toBeGreaterThan(0);
+    expect(result2.totalPages).toBeGreaterThan(2);
+    expect(result2.items[0].identifier.key).not.toBe(result.items[0].identifier.key);
   });
 });

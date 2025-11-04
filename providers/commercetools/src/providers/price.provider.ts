@@ -44,7 +44,7 @@ export class CommercetoolsPriceProvider<
         priceCurrency: reqCtx.languageContext.currencyCode,
        // storeProjection: reqCtx.storeIdentifier?.key || undefined,
         where: 'variants(sku in (:skus)) OR (masterVariant(sku in (:skus))) ',
-        'var.skus': payload.map(p => p.sku.key),
+        'var.skus': payload.map(p => p.variant.sku),
         limit: payload.length,
       },
     }).execute();
@@ -53,10 +53,10 @@ export class CommercetoolsPriceProvider<
     const allReturnedVariants = [...response.body.results.map(x => x.variants).flat(), ...response.body.results.map(x => x.masterVariant).flat()];
     // Now we need to match the skus requested with the prices returned.
     for(const p of payload) {
-      const foundSku = allReturnedVariants.find(v => v.sku === p.sku.key);
+      const foundSku = allReturnedVariants.find(v => v.sku === p.variant.sku);
 
       if (!foundSku) {
-        result.push(this.createEmptyPriceResult(p.sku.key, reqCtx.languageContext.currencyCode ));
+        result.push(this.createEmptyPriceResult(p.variant.sku, reqCtx.languageContext.currencyCode ));
       } else {
         result.push(this.parseSingle(foundSku, reqCtx));
       }
@@ -103,8 +103,8 @@ export class CommercetoolsPriceProvider<
     }
 
     base.identifier = {
-      sku: {
-        key: body.sku!
+      variant: {
+        sku: body.sku!
       }
     };
 

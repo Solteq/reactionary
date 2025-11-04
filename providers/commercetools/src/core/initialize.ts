@@ -1,7 +1,7 @@
 import type {
     Cache,
     ProductProvider,
-    SearchProvider,
+    ProductSearchProvider,
     IdentityProvider,
     CartProvider,
     InventoryProvider,
@@ -17,12 +17,13 @@ import {
     InventorySchema,
     PriceSchema,
     ProductSchema,
-    SearchResultSchema,
+    ProductSearchResultSchema,
     CategorySchema,
-    CheckoutSchema
+    CheckoutSchema,
+    ProductSearchResultItemSchema
 } from "@reactionary/core";
 import type { CommercetoolsCapabilities } from "../schema/capabilities.schema.js";
-import { CommercetoolsSearchProvider } from "../providers/search.provider.js";
+import { CommercetoolsSearchProvider } from "../providers/product-search.provider.js";
 import { CommercetoolsProductProvider } from '../providers/product.provider.js';
 import type { CommercetoolsConfiguration } from "../schema/configuration.schema.js";
 import { CommercetoolsIdentityProvider } from "../providers/identity.provider.js";
@@ -35,7 +36,7 @@ import { CommercetoolsCheckoutProvider } from "../providers/index.js";
 type CommercetoolsClient<T extends CommercetoolsCapabilities> =
     (T['cart'] extends true ? { cart: CartProvider } : object) &
     (T['product'] extends true ? { product: ProductProvider } : object) &
-    (T['search'] extends true ? { search: SearchProvider } : object) &
+    (T['productSearch'] extends true ? { productSearch: ProductSearchProvider } : object) &
     (T['identity'] extends true ? { identity: IdentityProvider } : object) &
     (T['category'] extends true ? { category: CategoryProvider } : object) &
     (T['inventory'] extends true ? { inventory: InventoryProvider } : object) &
@@ -54,8 +55,8 @@ export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilitie
             client.product = new CommercetoolsProductProvider(configuration, ProductSchema, cache);
         }
 
-        if (capabilities.search) {
-            client.search = new CommercetoolsSearchProvider(configuration, SearchResultSchema, cache);
+        if (capabilities.productSearch) {
+            client.search = new CommercetoolsSearchProvider(configuration, ProductSearchResultItemSchema, cache);
         }
 
         if (capabilities.identity) {

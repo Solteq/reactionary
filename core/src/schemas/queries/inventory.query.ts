@@ -1,9 +1,9 @@
 import type { z } from 'zod';
 import { BaseQuerySchema } from './base.query.js';
-import { FulfillmentCenterIdentifierSchema, ProductIdentifierSchema } from '../models/identifiers.model.js';
+import { FulfillmentCenterIdentifierSchema, ProductIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
 
 export const InventoryQueryBySKUSchema = BaseQuerySchema.extend({
-    sku: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})).nonoptional(),
+    variant: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})).describe('The unique identifier for the product variant (SKU).'),
     fulfilmentCenter: FulfillmentCenterIdentifierSchema.default(() => FulfillmentCenterIdentifierSchema.parse({})).nonoptional()
 });
 

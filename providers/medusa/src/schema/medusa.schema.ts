@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CartIdentifierSchema, OrderIdentifierSchema, ProductIdentifierSchema, SKUIdentifierSchema } from '@reactionary/core';
+import { CartIdentifierSchema, OrderIdentifierSchema, ProductIdentifierSchema, ProductVariantIdentifierSchema } from '@reactionary/core';
 
 export const MedusaCartIdentifierSchema = CartIdentifierSchema.extend({
   region_id: z.string().optional(),
@@ -13,7 +13,7 @@ export const MedusaSessionSchema = z.looseObject({
 });
 
 
-export const MedusaSKUIdentifierSchema = SKUIdentifierSchema.extend({
+export const MedusaSKUIdentifierSchema = ProductVariantIdentifierSchema.extend({
   productIdentifier: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})),
 });
 

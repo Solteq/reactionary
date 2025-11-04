@@ -1,18 +1,20 @@
 import {
+  ImageSchema,
   ProductAttributeSchema,
   ProductIdentifierSchema,
-  ProductProvider
+  ProductProvider,
+  ProductVariantIdentifierSchema,
+  ProductVariantSchema
 } from '@reactionary/core';
 import type { z } from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import type { Product, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, RequestContext, SKUIdentifier } from '@reactionary/core';
-import type { Cache } from '@reactionary/core';
+import type { Product, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, RequestContext, ProductVariantIdentifier, Store, ProductVariant } from '@reactionary/core';
+import type { Cache , Image } from '@reactionary/core';
 import createDebug from 'debug';
 import { MedusaClient } from '../core/client.js';
 import { MedusaSKUIdentifierSchema, type MedusaSKUIdentifier } from '../schema/medusa.schema.js';
-import type { StoreProduct } from '@medusajs/types';
+import type { StoreProduct, StoreProductImage, StoreProductVariant } from '@medusajs/types';
 import Medusa from '@medusajs/js-sdk';
-import { th } from 'zod/v4/locales';
 
 const debug = createDebug('reactionary:medusa:product');
 
@@ -73,9 +75,9 @@ export class MedusaProductProvider<
       debug(`Fetching product by SKU: ${Array.isArray(payload) ? payload.join(', ') : payload}`);
     }
 
-    const arrayForm: SKUIdentifier[] = Array.isArray(payload)
+    const arrayForm: ProductVariantIdentifier[] = Array.isArray(payload)
       ? payload.map((p) => p.sku )
-      : [payload.sku] ;
+      : [payload.variant] ;
 
     const productIds = arrayForm.map((identifier) => {
       return (identifier as MedusaSKUIdentifier).productIdentifier.key
@@ -92,7 +94,7 @@ export class MedusaProductProvider<
     });
 
     if (debug.enabled) {
-      debug(`Found ${response.count} products for SKUs: ${arrayForm.map(sku => sku.key).join(', ')}`);
+      debug(`Found ${response.count} products for SKUs: ${arrayForm.map(sku => sku.sku).join(', ')}`);
     }
 
     // For simplicity, return the first matched product
@@ -104,30 +106,23 @@ export class MedusaProductProvider<
   protected override parseSingle(_body: StoreProduct, reqCtx: RequestContext): T {
     const model = this.newModel();
 
+
+
+
     model.identifier = ProductIdentifierSchema.parse({ key: _body.id });
     model.name = _body.title;
     model.slug = _body.handle;
-    model.description = _body.subtitle || '';
+    model.description = _body.description || '' || _body.subtitle || '';
+    model.sharedAttributes = [];
 
-    if (_body.images && _body.images.length > 0) {
-      model.images = _body.images.map((img) => img.url);
-      model.image = model.images[0];
-    }
-
-    model.attributes = [];
     this.parseAttributes(_body, model);
 
-    model.skus = [];
-
-    for (const variant of _body.variants || []) {
-      const skuId = MedusaSKUIdentifierSchema.parse({
-        sku: variant.sku,
-        productIdentifier: { key: _body.id }
-      });
-      model.skus.push({
-        identifier: skuId,
-      });
+    if (!_body.variants) {
+      debug('Product has no variants', _body);
+      throw new Error('Product has no variants ' + _body.id);
     }
+    const mainVariant = this.parseVariant(_body.variants[0], _body, reqCtx);
+    model.mainVariant = mainVariant;
 
     if (debug.enabled) {
       debug(`Parsed product: ${model.name} (ID: ${model.identifier.key})`, model);
@@ -142,10 +137,30 @@ export class MedusaProductProvider<
     return this.assert(model);
   }
 
+  protected parseVariant(variant: StoreProductVariant, product: StoreProduct, reqCtx: RequestContext) {
+    const result = ProductVariantSchema.parse({
+      identifier: ProductVariantIdentifierSchema.parse({
+        sku: variant.sku || '',
+      } satisfies Partial<ProductVariantIdentifier>),
+      name: variant.title || product.title,
+      upc: variant.upc || undefined,
+      ean: variant.ean || undefined,
+
+      images: (product.images || []).map((img: StoreProductImage) => ImageSchema.parse({
+        sourceUrl: img.url,
+        altText: variant.title || product.title,
+      } satisfies Partial<Image>)),
+
+    } satisfies Partial<ProductVariant>);
+
+    return result;
+  }
+
+
 
   protected parseAttributes(_body: StoreProduct, model: T): void {
     if (_body.origin_country) {
-      model.attributes.push(ProductAttributeSchema.parse({
+      model.sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'origin_country',
         name: 'Origin Country',
         value: _body.origin_country,
@@ -153,7 +168,7 @@ export class MedusaProductProvider<
     }
 
     if (_body.height) {
-      model.attributes.push(ProductAttributeSchema.parse({
+      model.sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'height',
         name: 'Height',
         value: _body.height,
@@ -161,7 +176,7 @@ export class MedusaProductProvider<
     }
 
     if (_body.weight) {
-      model.attributes.push(ProductAttributeSchema.parse({
+      model.sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'weight',
         name: 'Weight',
         value: _body.weight,
@@ -169,7 +184,7 @@ export class MedusaProductProvider<
     }
 
     if (_body.length) {
-      model.attributes.push(ProductAttributeSchema.parse({
+      model.sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'length',
         name: 'Length',
         value: _body.length,
@@ -177,7 +192,7 @@ export class MedusaProductProvider<
     }
 
     if (_body.width) {
-      model.attributes.push(ProductAttributeSchema.parse({
+      model.sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'width',
         name: 'Width',
         value: _body.width,
@@ -185,7 +200,7 @@ export class MedusaProductProvider<
     }
 
     if (_body.material) {
-      model.attributes.push(ProductAttributeSchema.parse({
+      model.sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'material',
         name: 'Material',
         value: _body.material,
