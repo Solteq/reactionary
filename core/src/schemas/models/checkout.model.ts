@@ -10,7 +10,7 @@ import { PaymentInstructionSchema } from './payment.model.js';
 
 export const CheckoutItemSchema = z.looseObject({
     identifier: CheckoutItemIdentifierSchema.default(() => CheckoutItemIdentifierSchema.parse({})),
-    sku: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})),
+    variant: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})),
     quantity: z.number().default(0),
     price: ItemCostBreakdownSchema.default(() => ItemCostBreakdownSchema.parse({})),
 });

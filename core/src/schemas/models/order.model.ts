@@ -12,7 +12,7 @@ export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', '
 
 export const OrderItemSchema = z.looseObject({
     identifier: CartItemIdentifierSchema.default(() => CartItemIdentifierSchema.parse({})),
-    sku: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})),
+    variant: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})),
     quantity: z.number().default(0),
     price: ItemCostBreakdownSchema.default(() => ItemCostBreakdownSchema.parse({})),
 

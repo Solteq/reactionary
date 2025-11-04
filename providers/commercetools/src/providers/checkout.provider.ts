@@ -614,7 +614,7 @@ export class CommercetoolsCheckoutProvider<
       const item = CheckoutItemSchema.parse({});
 
       item.identifier.key = remoteItem.id;
-      item.sku.key = remoteItem.variant.sku || '';
+      item.variant.sku = remoteItem.variant.sku || '';
       item.quantity = remoteItem.quantity;
 
       const unitPrice = remoteItem.price.value.centAmount;

@@ -118,7 +118,7 @@ export class CommercetoolsOrderProvider<
       const item = OrderItemSchema.parse({});
 
       item.identifier.key = remoteItem.id;
-      item.sku.sku = remoteItem.variant.sku || '';
+      item.variant.sku = remoteItem.variant.sku || '';
       item.quantity = remoteItem.quantity;
 
       const unitPrice = remoteItem.price.value.centAmount;
