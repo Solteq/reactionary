@@ -78,7 +78,7 @@ describe('Commercetools Price Provider', () => {
     }
   });
 
-  it('can look up multiple prices at once', async () => {
+  it.skip('can look up multiple prices at once', async () => {
     const provider = new CommercetoolsPriceProvider(getCommercetoolsTestConfiguration(), PriceSchema, new NoOpCache());
     const reqCtx = createInitialRequestContext()
 

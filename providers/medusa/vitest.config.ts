@@ -11,8 +11,10 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.{test,spec}.{js,ts}', 'src/**/*.test.{ts,js}'],
     coverage: {
-      reporter: [],
+      provider: 'v8',
+      reporter: ['html'],
+      reportsDirectory: '../../coverage/providers/medusa',
     },
-    reporters: ['default', 'verbose'],
+    reporters: ['default', 'verbose', 'github-actions'],
   },
 });

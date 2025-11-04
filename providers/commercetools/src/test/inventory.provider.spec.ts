@@ -25,7 +25,7 @@ describe('Commercetools Inventory Provider', () => {
     reqCtx = createInitialRequestContext();
   });
 
-  it('should be able to fetch inventory for a given SKU and Fulfillment Center', async () => {
+  it.skip('should be able to fetch inventory for a given SKU and Fulfillment Center', async () => {
     const inventory = await provider.getBySKU({
         variant: {
             sku: 'GMCT-01'

@@ -11,8 +11,10 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.spec.{ts,js}', 'src/**/*.test.ts'],
     coverage: {
-      reporter: [],
+      provider: 'v8',
+      reporter: ['html'],
+      reportsDirectory: '../../coverage/providers/commercetools',
     },
-    reporters: ['default', 'verbose'],
+    reporters: ['default', 'verbose', 'github-actions'],
   },
 });
