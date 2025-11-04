@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 
 describe('basic node provider extension (models)', () => {
   const ExtendedProductModel = ProductSchema.extend({
-    gtin2: z.string().default('gtin-default'),
+    gtin: z.string().default('gtin-default'),
   });
 
   class ExtendedProductProvider extends FakeProductProvider {

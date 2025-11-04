@@ -41,7 +41,7 @@ describe('Fake Cart Provider', () => {
       const cart = await provider.add({
           cart: { key: '' },
           variant: {
-            key: testData.skuWithoutTiers,
+            sku: testData.skuWithoutTiers,
           },
           quantity: 1
       }, reqCtx);
@@ -83,7 +83,7 @@ describe('Fake Cart Provider', () => {
 
       expect(updatedCart.identifier.key).toBe(cart.identifier.key);
       expect(updatedCart.items.length).toBe(1);
-      expect(updatedCart.items[0].variant.key).toBe(testData.skuWithoutTiers);
+      expect(updatedCart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
       expect(updatedCart.items[0].quantity).toBe(3);
       expect(updatedCart.items[0].price.totalPrice.value).toBe(cart.items[0].price.totalPrice.value * 3);
       expect(updatedCart.items[0].price.unitPrice.value).toBe(cart.items[0].price.unitPrice.value);
