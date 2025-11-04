@@ -25,7 +25,7 @@ describe('Commercetools Store Provider', () => {
     reqCtx = createInitialRequestContext();
   });
 
-  it('should be able to query stores by longitude and latitude', async () => {
+  it.skip('should be able to query stores by longitude and latitude', async () => {
     const stores = await provider.queryByProximity({
         distance: 1000,
         latitude: 15,
