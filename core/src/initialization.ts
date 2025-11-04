@@ -9,7 +9,7 @@ export function createInitialRequestContext(): RequestContext {
         cache: { hit: false, key: '' },
         placeholder: false,
       },
-      id: { userId: 'anonymous' },
+      id: { userId: 'anonymous-' + crypto.randomUUID().toString() },
       token: undefined,
       issued: new Date(),
       expiry: new Date(new Date().getTime() + 3600 * 1000),

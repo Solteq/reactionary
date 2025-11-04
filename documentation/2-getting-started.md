@@ -95,6 +95,7 @@ and, then ofc, you need to provide all those values, in, say, a `.env` file (tha
 ### Establishing state
 Before we can start calling vendors, we need to set up the context in which the requests will take place. This is information that is describing who the customer is,  what session data he has, some information about the current request, and so forth. All calls processed during the processing of one request from the frontend, share the same request data, so usually this can be established in some middleware function of your api-server.
 
+
 ```ts
 // we have to create a request context with all the information the underlying layer might need. 
 // We are responsible for the session object, and persisting it between requests.
@@ -108,10 +109,20 @@ requestContext.languageContext = LanguageContextSchema.parse({
 });
 
 // re-establish session info from last call
-const reactionarySession = mySession.get("reactionary");
-const reactionaryIdentity = reactionarySession.identity || IdentitySchema.parse({});
-requestContext.identity = reactionaryIdentity;
-requestContext.session = reactionarySession;
+
+const mySession = getSessionDataFromServer();
+
+if (!mySession.reactionarySessionData) {
+  mySession.reactionarySessionData = {};
+}
+if (!mySession.reactionaryIdentity) {
+  mySession.reactionaryIdentity =  IdentitySchema.parse({});
+}
+
+requestContext.identity =  mySession.reactionaryIdentity;
+requestContext.session =  mySession.reactionarySessionData;
+
+
 
 // set request specific info
 requestContext.correlationId = 'my-frontend-' + GUID.newGuid();
@@ -122,10 +133,19 @@ requestContext.isBot = userAgent.match('/bot/gi');
 request.reactionaryRequestContext = requestContext;
 ```
 
+Then in your page/component/context 
+
+```ts
+const me = await client.identity.get(request.reactionaryRequestContext);
+if (me.type === 'REGISTERED_CUSTOMER') {
+  // do something only for registered customers...
+}
+```
+
 ### Making calls to get data
 Let us assume the page we are rendering wants to include some minicart information. Given the client we created above, you can now call
 
-```
+```ts
 let cartId = await client.cart.getActiveCartId();
 if (!cartId) {
   cartId = '';
