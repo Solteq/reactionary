@@ -1,6 +1,33 @@
-# provider-commercetools
+# Commmercetools provider for Reactionary
 
-This library was generated with [Nx](https://nx.dev).
+## Supports
+
+
+| Feature | Support | Notes |
+| -----------   | ----------- | --------- |
+| product       | Full      |          |
+| productSearch | Full     |  |
+| identity | Full     | |
+| cart | Full     |  |
+| checkout | Full     |  |
+| order | Full     |  |
+| inventory | Full     |  |
+| price | Full   |  |
+| category | Full     |  |
+| store | Full    |  |
+
+
+## Notes
+
+
+
+
+
+
+
+
+
+
 
 ## Building
 
@@ -11,7 +38,7 @@ Run `nx build provider-commercetools` to build the library.
 Run `nx test provider-commercetools` to execute the unit tests via [Jest](https://jestjs.io).
 
 
-# ASSUMPTIONS for backend config
+## Assumptions for backend config
 
 - You will have 2 different channels for prices, one called `Offer Price` and one called `List Price`
 - ProductVariants will all have unique SKU values.

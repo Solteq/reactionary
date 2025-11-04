@@ -5,6 +5,7 @@ import { MedusaConfigurationSchema, type MedusaConfiguration } from '../schema/c
 export function getMedusaTestConfiguration(): MedusaConfiguration {
   return MedusaConfigurationSchema.parse({
         publishable_key: process.env['MEDUSA_PUBLISHABLE_KEY'] || '',
+        adminApiKey: process.env['MEDUSA_ADMIN_KEY'] || '',
         apiUrl: process.env['MEDUSA_API_URL'] || '',
     });
 }

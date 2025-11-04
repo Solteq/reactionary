@@ -3,14 +3,14 @@ import { describe, it, expect, beforeEach,  beforeAll } from 'vitest';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import { MedusaCartIdentifierSchema } from '../schema/medusa.schema.js';
-import { CartSchema, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, ProductSearchResultSchema, createInitialRequestContext, type Cart, type RequestContext } from '@reactionary/core';
+import { CartSchema, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, ProductSearchResultSchema, createInitialRequestContext, type Cart, type ProductSearchQueryByTerm, type RequestContext } from '@reactionary/core';
 import { getMedusaTestConfiguration } from './test-utils.js';
 import { MedusaSearchProvider } from '../providers/product-search.provider.js';
 
 
 const testData = {
-  skuWithoutTiers: 'variant_01K86M4X3S2PJDYXAWM9WG2RA9',
-  skuWithTiers: 'variant_01K86M50HBJ27AQZC5YH3TRB68'
+  skuWithoutTiers: '8719514435254',
+  skuWithTiers: '8719514435377'
 }
 
 
@@ -39,18 +39,22 @@ describe('Medusa Cart Provider - Large Scenarios', () => {
 
       const searchResult = await searchProvider.queryByTerm( ProductSearchQueryByTermSchema.parse({ search: {
         term: 'phil',
-        page: 1,
-        pageSize: 50,
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 50,
+        },
+        filters: [],
         facets: [],
-      } }), reqCtx);
+      }
+      } satisfies ProductSearchQueryByTerm ), reqCtx);
       expect(searchResult.items.length).toBeGreaterThanOrEqual(50);
 
 
       for(const product of searchResult.items) {
         cart = await provider.add({
             cart:  cart.identifier,
-            sku: {
-              sku: product.identifier.key as string,
+            variant: {
+              sku: product.variants[0].variant.sku,
             },
             quantity: 1
         }, reqCtx);

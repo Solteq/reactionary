@@ -6,7 +6,6 @@ import {
   type FacetValueIdentifier,
   FacetValueIdentifierSchema,
   ImageSchema,
-  ProductSearchIdentifierSchema,
   ProductSearchProvider,
   type ProductSearchQueryByTerm,
   type ProductSearchResult,
@@ -33,7 +32,6 @@ interface AlgoliaNativeRecord {
   objectID: string;
   slug?:string;
   name?: string;
-  image?: string;
   variants: Array<AlgoliaNativeVariant>;
 }
 
@@ -66,7 +64,7 @@ export class AlgoliaSearchProvider<
           facetFilters: payload.search.facets.map(
             (x) => `${encodeURIComponent(x.facet.key)}:${x.key}`
           ),
-          filters: payload.search.filters
+          filters: (payload.search.filters || [])
             .map((x) => `${encodeURIComponent(x)}`)
             .join(' AND '),
         },
@@ -110,25 +108,22 @@ export class AlgoliaSearchProvider<
     product.identifier = { key: body.objectID};
     product.name = body.name || body.objectID;
     product.slug = body.slug || body.objectID;
-    product.variants = [ ...body.variants ].map(variant => this.parseVariant(variant, body, reqCtx));
+    product.variants = [ ... (body.variants || []) ].map(variant => this.parseVariant(variant, body, reqCtx));
 
     return this.assert(product);
   }
 
   protected override parseVariant(variant: AlgoliaNativeVariant, product: AlgoliaNativeRecord, reqCtx: RequestContext): ProductSearchResultItemVariant {
 
-    const img = ImageSchema.parse({
-        sourceUrl: product.image,
-        altText: product.name || '',
-      });
+
 
       const result = ProductSearchResultItemVariantSchema.parse({
       variant: {
-        sku: (variant as any).variantID
+        sku: variant.variantID
       },
       image: ImageSchema.parse({
-        sourceUrl: (variant as any).image,
-        altText: (product as any).name || '',
+        sourceUrl: variant.image,
+        altText: product.name || '',
       })
     } satisfies Partial<ProductSearchResultItemVariant>);
 
@@ -160,10 +155,9 @@ export class AlgoliaSearchProvider<
       totalCount: body.nbHits,
       totalPages: body.nbPages,
       items: items,
-      facets: facets
     });
 
-
+    (result as ProductSearchResult).facets = facets;
     return result;
   }
 

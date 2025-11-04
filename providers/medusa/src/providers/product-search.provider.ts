@@ -88,10 +88,9 @@ export class MedusaSearchProvider<
       totalCount: remote.count,
       totalPages: Math.ceil((remote.count / remote.limit) || 0) + 1,
       items: products,
-      facets: []
     });
 
-
+    (result as ProductSearchResult).facets = [];
     return result;
   }
 

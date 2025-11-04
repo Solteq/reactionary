@@ -11,8 +11,8 @@ import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type { Product, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, RequestContext, ProductVariantIdentifier, Store, ProductVariant } from '@reactionary/core';
 import type { Cache , Image } from '@reactionary/core';
 import createDebug from 'debug';
-import { MedusaClient } from '../core/client.js';
-import { MedusaSKUIdentifierSchema, type MedusaSKUIdentifier } from '../schema/medusa.schema.js';
+import { MedusaAdminClient, MedusaClient } from '../core/client.js';
+
 import type { StoreProduct, StoreProductImage, StoreProductVariant } from '@medusajs/types';
 import Medusa from '@medusajs/js-sdk';
 
@@ -74,31 +74,33 @@ export class MedusaProductProvider<
     if (debug.enabled) {
       debug(`Fetching product by SKU: ${Array.isArray(payload) ? payload.join(', ') : payload}`);
     }
+    const sku = payload.variant.sku;
 
-    const arrayForm: ProductVariantIdentifier[] = Array.isArray(payload)
-      ? payload.map((p) => p.sku )
-      : [payload.variant] ;
+    // FIXME: Medusa does not support searching by SKU directly, so we have to use the admin client to search for products with variants matching the SKU
+    const adminClient = await new MedusaAdminClient(this.config).getClient(reqCtx);
 
-    const productIds = arrayForm.map((identifier) => {
-      return (identifier as MedusaSKUIdentifier).productIdentifier.key
+    const productsResponse = await adminClient.admin.product.list({
+      limit: 1,
+      offset: 0,
+      variants: {
+        $or: [{ ean: sku }, { upc: sku }, { barcode: sku }],
+      },
     });
 
-    const response = await client.store.product.list({
-      '$or': productIds.map(x => {
-        return {
-          id: x
-        }
-      }),
-      limit: productIds.length,
-      offset: 0
-    });
-
-    if (debug.enabled) {
-      debug(`Found ${response.count} products for SKUs: ${arrayForm.map(sku => sku.sku).join(', ')}`);
+    const product = productsResponse.products[0];
+    if (!product) {
+      throw new Error(`Product with SKU ${sku} not found`);
     }
 
+    const variant = product.variants?.find((v) => v.sku === sku);
+    if (!variant) {
+      throw new Error(`Variant with SKU ${sku} not found`);
+    }
+    product.variants = [];
+    product.variants.push(variant);
+
     // For simplicity, return the first matched product
-    return this.parseSingle(response.products[0], reqCtx);
+    return this.parseSingle(product, reqCtx);
   }
 
 

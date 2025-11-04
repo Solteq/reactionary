@@ -16,9 +16,12 @@ describe('Medusa Search Provider', () => {
   it('should be able to get a result by term', async () => {
     const result = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
       term: 'glass',
-      page: 1,
-      pageSize: 20,
+      paginationOptions: {
+        pageNumber: 1,
+        pageSize: 20,
+      },
       facets: [],
+      filters: [],
     }}), reqCtx);
 
     expect(result.items.length).toBeGreaterThan(0);
@@ -28,16 +31,22 @@ describe('Medusa Search Provider', () => {
   it('should be able to paginate', async () => {
     const firstPage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
       term: 'glass',
-      page: 1,
-      pageSize: 2,
+      paginationOptions: {
+        pageNumber: 1,
+        pageSize: 2,
+      },
       facets: [],
+      filters: []
     }}), reqCtx);
 
     const secondPage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
       term: 'glass',
-      page: 2,
-      pageSize: 2,
+      paginationOptions: {
+        pageNumber: 2,
+        pageSize: 2
+      },
       facets: [],
+      filters: []
     }}), reqCtx);
 
     expect(firstPage.pageNumber).toBe(1);
@@ -50,15 +59,21 @@ describe('Medusa Search Provider', () => {
   it('should be able to change page size', async () => {
     const smallPage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
       term: 'glass',
-      page: 1,
-      pageSize: 2,
+      paginationOptions: {
+        pageNumber: 1,
+        pageSize: 2,
+      },
       facets: [],
+      filters: [],
     }}), reqCtx);
     const largePage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
       term: 'glass',
-      page: 1,
-      pageSize: 30,
+      paginationOptions: {
+        pageNumber: 1,
+        pageSize: 30,
+      },
       facets: [],
+      filters: [],
     }}), reqCtx);
 
     expect(smallPage.items.length).toBe(2);

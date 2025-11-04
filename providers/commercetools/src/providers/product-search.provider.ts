@@ -118,8 +118,9 @@ export class CommercetoolsSearchProvider<
       totalCount: body.total,
       totalPages: Math.ceil(((body.total || 0) / body.limit) || 0) + 1,
       items: products,
-      facets: facets
     });
+
+    (result as ProductSearchResult).facets = facets;
     return result;
   }
 

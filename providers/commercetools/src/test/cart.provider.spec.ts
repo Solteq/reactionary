@@ -44,7 +44,7 @@ describe('Commercetools Cart Provider', () => {
     it('should be able to add an item to a cart', async () => {
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
@@ -72,7 +72,7 @@ describe('Commercetools Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
@@ -81,7 +81,7 @@ describe('Commercetools Cart Provider', () => {
 
       const updatedCart = await provider.add({
           cart: cart.identifier,
-          sku: {
+          variant: {
             sku: testData.skuWithTiers,
           },
           quantity: 2
@@ -98,7 +98,7 @@ describe('Commercetools Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
@@ -125,7 +125,7 @@ describe('Commercetools Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
@@ -143,7 +143,7 @@ describe('Commercetools Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
@@ -170,7 +170,7 @@ describe('Commercetools Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1

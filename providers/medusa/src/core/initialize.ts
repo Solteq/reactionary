@@ -25,7 +25,7 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
         const client: any = {};
 
         if (capabilities.productSearch) {
-            client.search = new MedusaSearchProvider(configuration, ProductSearchResultItemSchema, cache);
+            client.productSearch = new MedusaSearchProvider(configuration, ProductSearchResultItemSchema, cache);
         }
 
         if (capabilities.product) {

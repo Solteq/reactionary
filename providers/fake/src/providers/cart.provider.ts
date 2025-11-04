@@ -86,7 +86,7 @@ export class FakeCartProvider<
     const cart = await this.getById({ cart: { key: cartId } }, reqCtx);
 
     const existingItemIndex = cart.items.findIndex(
-      item => item.variant.sku === payload.sku.sku
+      item => item.variant.sku === payload.variant.sku
     );
 
     if (existingItemIndex >= 0) {
@@ -96,7 +96,7 @@ export class FakeCartProvider<
 
       cart.items.push({
         identifier: { key: `item-${Date.now()}` },
-        variant:  payload.sku,
+        variant:  payload.variant,
         quantity: payload.quantity,
         price: {
           unitPrice: {
@@ -117,7 +117,7 @@ export class FakeCartProvider<
           },
         },
         product: {
-          key: `product-for-${payload.sku.sku}`,
+          key: `product-for-${payload.variant.sku}`,
         },
 
 

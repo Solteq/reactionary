@@ -40,7 +40,7 @@ describe('Fake Cart Provider', () => {
     it('should be able to add an item to a cart', async () => {
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             key: testData.skuWithoutTiers,
           },
           quantity: 1
@@ -48,7 +48,7 @@ describe('Fake Cart Provider', () => {
 
       expect(cart.identifier.key).toBeDefined();
       expect(cart.items.length).toBe(1);
-      expect(cart.items[0].variant.key).toBe(testData.skuWithoutTiers);
+      expect(cart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
       expect(cart.items[0].quantity).toBe(1);
 
       expect(cart.items[0].price.totalPrice.value).toBeGreaterThan(0);
@@ -69,8 +69,8 @@ describe('Fake Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
-            key: testData.skuWithoutTiers,
+          variant: {
+            sku: testData.skuWithoutTiers,
           },
           quantity: 1
       }, reqCtx);
@@ -95,8 +95,8 @@ describe('Fake Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
-            key: testData.skuWithoutTiers,
+          variant: {
+            sku: testData.skuWithoutTiers,
           },
           quantity: 1
       }, reqCtx);

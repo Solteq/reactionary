@@ -68,7 +68,7 @@ describe('basic node provider extension (models)', () => {
             search: 1
           }
         },
-        { search: true, product: false, identity: false }
+        { productSearch: true, product: false, identity: false }
       )
     )
     .withCapability(withExtendedCapabilities())
@@ -77,7 +77,7 @@ describe('basic node provider extension (models)', () => {
 
   it('should get the enabled set of capabilities across providers', async () => {
     expect(client.product).toBeDefined();
-    expect(client.search).toBeDefined();
+    expect(client.productSearch).toBeDefined();
   });
 
   it('should be able to call the regular methods and get the default value', async () => {
