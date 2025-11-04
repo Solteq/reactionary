@@ -36,7 +36,6 @@ import {
   MedusaCartIdentifierSchema,
   MedusaOrderIdentifierSchema,
   MedusaSessionSchema,
-  MedusaSKUIdentifierSchema,
 } from '../schema/medusa.schema.js';
 import type MedusaTypes = require('@medusajs/types');
 import type StoreCartPromotion = require('@medusajs/types');
