@@ -2,28 +2,26 @@
 import type {
   Cache,
   Checkout,
-  RequestContext,
-  PaymentMethod,
-  ShippingMethod,
-  CheckoutMutationInitiateCheckout,
-  CheckoutMutationSetShippingAddress,
-  CheckoutMutationFinalizeCheckout,
+  CheckoutIdentifier,
   CheckoutMutationAddPaymentInstruction,
+  CheckoutMutationFinalizeCheckout,
+  CheckoutMutationInitiateCheckout,
   CheckoutMutationRemovePaymentInstruction,
+  CheckoutMutationSetShippingAddress,
   CheckoutMutationSetShippingInstruction,
   CheckoutQueryById,
   CheckoutQueryForAvailablePaymentMethods,
   CheckoutQueryForAvailableShippingMethods,
-  CheckoutIdentifier,
   Currency,
-  ShippingInstruction,
-  PaymentInstruction
+  PaymentMethod,
+  RequestContext,
+  ShippingMethod
 } from "@reactionary/core";
-import { AddressSchema, CheckoutItemSchema, CheckoutProvider, PaymentInstructionIdentifierSchema, PaymentInstructionSchema, PaymentMethodIdentifierSchema, PaymentMethodSchema, ShippingInstructionSchema, ShippingMethodIdentifierSchema, ShippingMethodSchema } from "@reactionary/core";
+import { CheckoutProvider, PaymentMethodIdentifierSchema, PaymentMethodSchema, ShippingMethodIdentifierSchema, ShippingMethodSchema } from "@reactionary/core";
+import createDebug from "debug";
 import type z from "zod";
 import { MedusaClient } from "../core/client.js";
 import type { MedusaConfiguration } from "../schema/configuration.schema.js";
-import createDebug from "debug";
 const debug = createDebug('reactionary:medusa:checkout');
 
 export class CheckoutNotReadyForFinalizationError extends Error {
