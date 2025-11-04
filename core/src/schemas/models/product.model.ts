@@ -24,7 +24,6 @@ export const ProductVariantSchema = z.looseObject({
     identifier: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})).describe('The unique identifier for the variant. Often its SKU'),
     name: z.string().default(''),
     images: z.array(ImageSchema).default(() => []).describe('A list of images associated with the product variant'),
-    sku: z.string().default('').describe('The stock keeping unit identifier for the product variant'),
     ean: z.string().default('').describe('The European Article Number identifier for the product variant'),
     gtin: z.string().default('').describe('The Global Trade Item Number identifier for the product variant'),
     upc: z.string().default('').describe('The Universal Product Code identifier for the product variant'),

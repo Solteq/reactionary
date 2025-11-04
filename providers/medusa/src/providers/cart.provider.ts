@@ -15,16 +15,18 @@ import type {
   CartQueryById,
   Currency,
   OrderIdentifier,
+  ProductVariantIdentifier,
   RequestContext
 } from '@reactionary/core';
 import {
   CartItemSchema,
-  CartProvider
+  CartProvider,
+  ProductVariantIdentifierSchema
 } from '@reactionary/core';
 
 import createDebug from 'debug';
 import type { z } from 'zod';
-import { MedusaClient } from '../core/client.js';
+import { MedusaAdminClient, MedusaClient } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type {
   MedusaCartIdentifier,
@@ -99,15 +101,19 @@ export class MedusaCartProvider<
       const medusaId = cartIdentifier as MedusaCartIdentifier;
 
       if (debug.enabled) {
-        debug('Adding item to cart ID:', medusaId.key, 'SKU:', payload.sku.sku, 'Quantity:', payload.quantity);
+        debug('Adding item to cart ID:', medusaId.key, 'SKU:', payload.variant.sku, 'Quantity:', payload.quantity);
       }
 
       // TODO: Convert from global SKU identifier, to something medusa understands.....
 
       // the SKU identifier is supposed to be a globally understood identifier,
 
+      // but medusa only accepts variant IDs , so we have to resolve it somehow...
+      const variantId = await this.resolveVariantId(payload.variant.sku, reqCtx);
+
+
       const response = await client.store.cart.createLineItem(medusaId.key, {
-        variant_id: payload.sku.sku,
+        variant_id: variantId,
         quantity: payload.quantity,
       }, {
         fields: '+items.*'
@@ -126,6 +132,31 @@ export class MedusaCartProvider<
       debug('Failed to add item to cart:', error);
       throw new Error(`Failed to add item to cart: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  protected async resolveVariantId( sku: string, reqCtx: RequestContext): Promise<string> {
+      // FIXME: Medusa does not support searching by SKU directly, so we have to use the admin client to search for products with variants matching the SKU
+      const adminClient = await new MedusaAdminClient(this.config).getClient(reqCtx);
+
+      const productsResponse = await adminClient.admin.product.list({
+        limit: 1,
+        offset: 0,
+        variants: {
+          $or: [{ ean: sku }, { upc: sku }, { barcode: sku }],
+        },
+      });
+
+      const product = productsResponse.products[0];
+      if (!product) {
+        throw new Error(`Product with SKU ${sku} not found`);
+      }
+
+      const variant = product.variants?.find((v) => v.sku === sku);
+      if (!variant) {
+        throw new Error(`Variant with SKU ${sku} not found`);
+      }
+
+      return variant.id;
   }
 
   public override async remove(
@@ -562,10 +593,9 @@ export class MedusaCartProvider<
 
       item.identifier.key = remoteItem.id;
       item.product.key = remoteItem.product_id || '';
-      item.variant = MedusaSKUIdentifierSchema.parse({
-        key: remoteItem.variant_id || '',
-        productIdentifier: { key: remoteItem.product_id || '' },
-      });
+      item.variant = ProductVariantIdentifierSchema.parse({
+        sku: remoteItem.variant_sku || '',
+      } satisfies ProductVariantIdentifier);
       item.quantity = remoteItem.quantity || 1;
 
       const unitPrice = remoteItem.unit_price || 0;

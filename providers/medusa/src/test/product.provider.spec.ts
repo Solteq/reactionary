@@ -1,10 +1,9 @@
 import 'dotenv/config';
 import type { RequestContext} from '@reactionary/core';
-import { NoOpCache, ProductSchema, createInitialRequestContext } from '@reactionary/core';
+import { NoOpCache, ProductSchema, ProductVariantIdentifierSchema, createInitialRequestContext } from '@reactionary/core';
 import { MedusaProductProvider } from '../providers/product.provider.js';
 import {  getMedusaTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
-import { MedusaSKUIdentifierSchema } from '../schema/medusa.schema.js';
 
 const testData = {
   product : {
@@ -12,7 +11,7 @@ const testData = {
     name: 'Kosipo Ceiling/Wall Spotlight 2x',
     slug: 'kosipo-ceilingwall-spotlight-2x-100002710',
     image: 'https://images.icecat.biz/img/gallery/100002710_9607447364.jpg',
-    sku: 'variant_01K86M4WTPEC57RK7TNS7609G2',
+    sku: '8719514435230',
 
   },
 }
@@ -40,8 +39,8 @@ describe('Medusa Product Provider', () => {
     expect(result.name).toBe(testData.product.name);
 
     expect(result.mainVariant).toBeDefined();
-    expect(result.mainVariant?.sku).toBe(testData.product.sku);
-    expect(result.mainVariant.images[0]).toBe(testData.product.image);
+    expect(result.mainVariant.identifier.sku).toBe(testData.product.sku);
+    expect(result.mainVariant.images[0].sourceUrl).toBe(testData.product.image);
   });
 
   it('should be able to get a product by slug', async () => {
@@ -53,14 +52,14 @@ describe('Medusa Product Provider', () => {
       expect(result.identifier.key).toBe(testData.product.id);
       expect(result.name).toBe(testData.product.name);
       expect(result.mainVariant).toBeDefined();
-      expect(result.mainVariant?.sku).toBe(testData.product.sku);
-      expect(result.mainVariant.images[0]).toBe(testData.product.image);
+      expect(result.mainVariant.identifier.sku).toBe(testData.product.sku);
+      expect(result.mainVariant.images[0].sourceUrl).toBe(testData.product.image);
     }
   });
 
   it('should be able to get a product by sku', async () => {
     const result = await provider.getBySKU({
-      variant: MedusaSKUIdentifierSchema.parse({ key: testData.product.sku, productIdentifier: { key: testData.product.id } })
+      variant: { sku: testData.product.sku }
     },
     reqCtx);
 
@@ -70,8 +69,8 @@ describe('Medusa Product Provider', () => {
       expect(result.identifier.key).toBe(testData.product.id);
       expect(result.name).toBe(testData.product.name);
       expect(result.mainVariant).toBeDefined();
-      expect(result.mainVariant?.sku).toBe(testData.product.sku);
-      expect(result.mainVariant.images[0]).toBe(testData.product.image);
+      expect(result.mainVariant.identifier.sku).toBe(testData.product.sku);
+      expect(result.mainVariant.images[0].sourceUrl).toBe(testData.product.image);
     }
   });
 

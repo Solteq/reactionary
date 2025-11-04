@@ -1,7 +1,23 @@
-# Fake
+# Fake provider for Reactionary
 
-This library was generated with [Nx](https://nx.dev).
+## Supports
 
-## Building
 
-Run `nx build provider-fake` to build the library.
+
+| Feature | Support | Notes |
+| -----------   | ----------- | --------- |
+| product       | Full      |          |
+| productSearch | Full     |  |
+| identity | Full     | |
+| cart | Full     |  |
+| checkout | Planned     |  |
+| order | Planned     |  |
+| inventory | Full     |  |
+| price | Full   |  |
+| category | Full     |  |
+| store | Full    |  |
+
+
+## Notes
+
+Not as many different product names as we would have liked. Maybe we need to create our own faker test data.

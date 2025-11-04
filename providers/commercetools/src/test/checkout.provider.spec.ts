@@ -55,7 +55,7 @@ describe('Commercetools Checkout Provider', () => {
       cart = await cartProvider.add(
         {
           cart: { key: '', version: 0 },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1,

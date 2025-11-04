@@ -23,8 +23,6 @@ import { AddressSchema, CheckoutItemSchema, CheckoutProvider, PaymentInstruction
 import type z from "zod";
 import { MedusaClient } from "../core/client.js";
 import type { MedusaConfiguration } from "../schema/configuration.schema.js";
-import type { MyCartUpdateAction } from "@commercetools/platform-sdk";
-import type  { Address as CTAddress, Payment as CTPayment, Cart as CTCart, ShippingMethod as CTShippingMethod } from "@commercetools/platform-sdk";
 import createDebug from "debug";
 const debug = createDebug('reactionary:medusa:checkout');
 

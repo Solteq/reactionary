@@ -8,8 +8,8 @@ import { getMedusaTestConfiguration } from './test-utils.js';
 
 
 const testData = {
-  skuWithoutTiers: 'variant_01K86M4X3S2PJDYXAWM9WG2RA9',
-  skuWithTiers: 'variant_01K86M50HBJ27AQZC5YH3TRB68'
+  skuWithoutTiers: '8719514435254',
+  skuWithTiers: '8719514435377'
 }
 
 
@@ -41,7 +41,7 @@ describe('Medusa Cart Provider', () => {
     it('should be able to add an item to a cart', async () => {
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
@@ -71,7 +71,7 @@ describe('Medusa Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
@@ -80,7 +80,7 @@ describe('Medusa Cart Provider', () => {
 
       const updatedCart = await provider.add({
           cart: cart.identifier,
-          sku: {
+          variant: {
             sku: testData.skuWithTiers,
           },
           quantity: 2
@@ -97,7 +97,7 @@ describe('Medusa Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
@@ -123,7 +123,7 @@ describe('Medusa Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
@@ -149,7 +149,7 @@ describe('Medusa Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
@@ -167,7 +167,7 @@ describe('Medusa Cart Provider', () => {
 
       const cart = await provider.add({
           cart: { key: '' },
-          sku: {
+          variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1

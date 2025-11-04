@@ -55,6 +55,25 @@ class Medusa {
   }
 }
 
+export class MedusaAdminClient {
+  protected config: MedusaConfiguration;
+  protected client: Medusa;
+
+  constructor(config: MedusaConfiguration) {
+    this.config = config;
+    console.log('MedusaAdminClient config:', this.config, 'Debug enabled:', debug.enabled);
+    this.client = new Medusa({
+      baseUrl: this.config.apiUrl,
+      apiKey: this.config.adminApiKey,
+      debug: true
+    });
+  }
+
+  public async getClient(reqCtx: RequestContext): Promise<Medusa> {
+    return this.client;
+  }
+}
+
 
 export class MedusaClient {
   protected config: MedusaConfiguration;
@@ -73,6 +92,8 @@ export class MedusaClient {
   public async getClient(reqCtx: RequestContext): Promise<Medusa> {
     return this.createAuthenticatedClient(reqCtx);
   }
+
+
 
   public async register(
     email: string,

@@ -58,7 +58,7 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
     }
 
     if (capabilities.productSearch) {
-      client.search = new FakeSearchProvider(
+      client.productSearch = new FakeSearchProvider(
         configuration,
         ProductSearchResultItemSchema,
         cache

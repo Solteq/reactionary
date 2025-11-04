@@ -46,7 +46,7 @@ describe('Commercetools Identity Provider', () => {
       {
         cart,
         quantity: 1,
-        sku: {
+        variant: {
           sku: 'SGB-01',
         },
       },

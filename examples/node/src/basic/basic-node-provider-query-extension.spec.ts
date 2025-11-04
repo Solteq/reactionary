@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 
 describe('basic node provider extension (models)', () => {
   const ExtendedProductModel = ProductSchema.extend({
-    gtin: z.string().default('gtin-default'),
+    gtin2: z.string().default('gtin-default'),
   });
 
   class ExtendedProductProvider extends FakeProductProvider {
@@ -37,11 +37,11 @@ describe('basic node provider extension (models)', () => {
       // super.parseItem(data);
       // Which would start by doing
       const item = this.newModel();
-    
+
       if (data) {
         item.name = (data as { name: string }).name;
       }
-      
+
 
       return this.assert(item);
     }
@@ -80,7 +80,7 @@ describe('basic node provider extension (models)', () => {
             search: 1
           }
         },
-        { search: true, product: false, identity: false }
+        { productSearch: true, product: false, identity: false }
       )
     )
     .withCapability(withExtendedCapabilities())

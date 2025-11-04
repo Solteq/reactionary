@@ -13,12 +13,7 @@ export const MedusaSessionSchema = z.looseObject({
 });
 
 
-export const MedusaSKUIdentifierSchema = ProductVariantIdentifierSchema.extend({
-  productIdentifier: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})),
-});
-
 export type MedusaCartIdentifier = z.infer<typeof MedusaCartIdentifierSchema>;
 export type MedusaOrderIdentifier = z.infer<typeof MedusaOrderIdentifierSchema>;
-export type MedusaSKUIdentifier = z.infer<typeof MedusaSKUIdentifierSchema>;
 
 export type MedusaSession = z.infer<typeof MedusaSessionSchema>;

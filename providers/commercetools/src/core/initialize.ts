@@ -56,7 +56,7 @@ export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilitie
         }
 
         if (capabilities.productSearch) {
-            client.search = new CommercetoolsSearchProvider(configuration, ProductSearchResultItemSchema, cache);
+            client.productSearch = new CommercetoolsSearchProvider(configuration, ProductSearchResultItemSchema, cache);
         }
 
         if (capabilities.identity) {

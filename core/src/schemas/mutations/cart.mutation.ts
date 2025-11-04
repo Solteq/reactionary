@@ -7,7 +7,7 @@ import { MonetaryAmountSchema } from '../models/price.model.js';
 
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
     cart: CartIdentifierSchema.nonoptional(),
-    sku: ProductVariantIdentifierSchema.nonoptional(),
+    variant: ProductVariantIdentifierSchema.nonoptional(),
     quantity: z.number()
 });
 

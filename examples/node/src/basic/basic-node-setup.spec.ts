@@ -17,7 +17,7 @@ describe('basic node setup', () => {
             search: 1
           }
         },
-        { search: true, product: true, identity: false }
+        { productSearch: true, product: true, identity: false }
       ),
     ],
     {
@@ -29,7 +29,7 @@ describe('basic node setup', () => {
 
   it('should only get back the enabled capabilities', async () => {
     expect(client.product).toBeDefined();
-    expect(client.search).toBeDefined();
+    expect(client.productSearch).toBeDefined();
   });
 
   it('should be able to call the enabled capabilities', async () => {

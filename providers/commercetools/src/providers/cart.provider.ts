@@ -82,7 +82,7 @@ export class CommercetoolsCartProvider<
         {
           action: 'addLineItem',
           quantity: payload.quantity,
-          sku: payload.sku.sku,
+          sku: payload.variant.sku,
         },
         {
           action: 'recalculate',
