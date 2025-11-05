@@ -65,27 +65,27 @@ UX Pages and components supported:
 - Account - Log in (email, password)
 
 #### Tasks:
-- [ ] Cart - Remove checkout related functions
-- [ ] Checkout - Receive full cart in input
-- [ ] Inventory - Model to use ProductVariantIdentifier instead of SKU
-- [ ] Price - Add Usage/Pricelist modifier for Queries to allow for List/Offer price.
-- [ ] Commercetools - Guest sesion race condition
-- [ ] Commercetools - Seperate temporary admin client from `Me` based client.
-- [ ] Medusa - Identity capability
-- [ ] Medusa - Price capability
-- [ ] Medusa - Inventory capability
-- [ ] Medusa - Store capability
-- [ ] Search Index Model Add information about number of variants on the main model (or directly if it can be added to cart or not)
-- [ ] Algolia - Product capability
-- [ ] CLI for importing icecat to all vendors
-- [ ] Unified Data Set for Products
-- [ ] Unified Data Set for Inventory
-- [ ] Unified Data Set for Prices
-- [ ] Unified test set for all vendors
-- [ ] Medusa - test of Client
-- [ ] Reactionary Decorator on all public Query and Mutation methods
-- [ ] Input validation via Zod.parse for all public Query and Mutation methods
-- [ ] Change Zod schema from looseObjects to .passthrough
+- [ ] Cart - Remove checkout related functions - AKJ
+- [ ] Checkout - Receive full cart in input - MR
+- [ ] Inventory - Model to use ProductVariantIdentifier instead of SKU - AKJ
+- [ ] Price - Add Usage/Pricelist modifier for Queries to allow for List/Offer price. - ??
+- [ ] Commercetools - Guest sesion race condition - MR
+- [ ] Commercetools - Seperate temporary admin client from `Me` based client. - MR
+- [ ] Medusa - Identity capability - AKJ
+- [ ] Medusa - Price capability - AKJ
+- [ ] Medusa - Inventory capability - AKJ
+- [ ] Medusa - Store capability - AKJ
+- [ ] Search Index Model Add information about number of variants on the main model (or directly if it can be added to cart or not) - AKJ
+- [ ] CLI for importing icecat to all vendors - AKJ
+- [ ] Unified Data Set for Products - AKJ
+- [ ] Unified Data Set for Inventory - AKJ
+- [ ] Unified Data Set for Prices - AKJ
+- [ ] Unified test set for all vendors - AKJ
+- [ ] Medusa - test of Client - AKJ
+- [ ] Reactionary Decorator on all public Query and Mutation methods - MR
+- [ ] Input validation via Zod.parse for all public Query and Mutation methods - MR
+- [ ] Change Zod schema from looseObjects to .passthrough - MR
+- [ ] Minor fixes from Angular Frontend - MR
 
 
 
