@@ -43,38 +43,151 @@ The following is a short list of commonly used terms and phrases, to keep guessi
 ## TODO:
 
 
+### Roadmap to V0.1
+Usecase: As a shopper i search for products, add to cart and check out.
+Vendors: Commercetools, Algolia, Medusa
 
-### Core
-- [ ] Figure a way to get a correlation id from the caller
-- [ ] Maybe rework session so its not languageContext but requestContext, and this could have the correlation id in it?
+UX Pages and components supported:
+- PDP
+  - Product info
+  - Attribute table
+  - Variant selection
+  - Inventory display
+  - Price display (simple pricing)
+- PLP - Keyword Search + Facet
+- Minicart
+- Cart Page
+- Checkout - Address 
+- Checkout - Shipping
+- Checkout - Payment
+- Checkout - Confirmation
+- Account - Sign up (email, password)
+- Account - Log in (email, password)
+
+#### Tasks:
+- [ ] Cart - Remove checkout related functions
+- [ ] Checkout - Receive full cart in input
+- [ ] Inventory - Model to use ProductVariantIdentifier instead of SKU
+- [ ] Price - Add Usage/Pricelist modifier for Queries to allow for List/Offer price.
+- [ ] Commercetools - Guest sesion race condition
+- [ ] Commercetools - Seperate temporary admin client from `Me` based client.
+- [ ] Medusa - Identity capability
+- [ ] Medusa - Price capability
+- [ ] Medusa - Inventory capability
+- [ ] Medusa - Store capability
+- [ ] Search Index Model Add information about number of variants on the main model (or directly if it can be added to cart or not)
+- [ ] Algolia - Product capability
+- [ ] CLI for importing icecat to all vendors
+- [ ] Unified Data Set for Products
+- [ ] Unified Data Set for Inventory
+- [ ] Unified Data Set for Prices
+- [ ] Unified test set for all vendors
+- [ ] Medusa - test of Client
+- [ ] Reactionary Decorator on all public Query and Mutation methods
+- [ ] Input validation via Zod.parse for all public Query and Mutation methods
+- [ ] Change Zod schema from looseObjects to .passthrough
 
 
-### Search
-- [ ] Add support for filters, not just facets
 
-### Marketing
-- [ ] Add marketing provider (input: (name, url, user, segments, productid, categoryid) => output { Array<Product | Category | Image | Text>}
+### Roadmap to V0.2
+Usecase: as a shopper i use the site navigation to find products, add to cart and checkout
+Vendors: Commercetools, Algolia, Medusa
+
+- Menu navigation
+- CLP - Category Navigation  
+
+### Roadmap to V0.3
+Usecase: As a registered user, i access my-account
+Vendors: Commercetools, Algolia, Medusa
+
+- Profile - Address book
+- Orderhistory - List and Details
+- Consents - marketing, newsletters etc
 
 
-### Inventory
-- [ ] Invent and document some notational standard for cannel-key to purpose.
-- [ ] Be traced and cached
+### Roadmap to V0.4
+Usecase: As a seller i want to seed my recommendation and analytics with customer actions  (Analytics)
+Vendors:  Algolia, Google Analytics
 
-### Profile
-- [ ] Be able to register new account
-- [ ] Create profile provider
+- PLP
+  - Attribution Tracking
+  - Facet Tracking
+- PDP
+  - Attribution Tracking
+- Checkout
+  - Conversion Tracking
 
 
-### Organization
-- [ ] Create organization provider
-- [ ] Create business user provider
-- [ ] Create role provider
+### Roadmap to V0.5
+Usecase: As a merchandiser i want to upsell
+Vendors: Algolia,  Commercetools
 
-### Cart
-- [ ] Add B2B/organization identifier
+- PDP
+  - Recommendations (Products, Categories)
+  - Associations (Spareparts, Accessories)
+  - Ratings and Reviews
+- Checkout
+  - Recommendations (Products)
 
-### Price
-- [ ] Add list price
 
-### Order
-- [ ] Add Order
+### Roadmap to V0.6
+Usecase: As a shopper i want to create shoppinglist/wishlist
+Vendors:  Commercetools, Medusa
+
+- Account - Shopping List, Listing and Details
+- PDP
+  - Add to Shopping List
+- PLP
+  - Add to Shopping List
+
+
+### Roadmap to V0.7
+Usecase: As a B2B user i want to shop using my own prices
+Vendors:  Commercetools
+
+- PDP / PLP
+  - External Pricing
+  - Organizational/Entitlement Context
+  - Multi currency/Multi lingual
+
+
+### Roadmap to V0.8
+Usecase: As a B2B user i want to see my organization data
+Vendors:  Commercetools
+
+- Account - My Organization(s) 
+- Account - Self management of users and roles
+
+
+### Roadmap to V0.9
+Usecase: As a B2B user i want have multiple carts and requisition lists
+Vendors:  Commercetools
+
+- Account - My Open Carts
+
+### Roadmap to V1.0
+Usecase: As a B2B user i want to see other peoples carts and orders
+Vendors:  Commercetools
+
+- Account - Organizational Order History
+
+
+
+
+
+
+
+
+
+### Roadmap V0.x
+- Additional vendors
+  - AthosCommerce (Klevu)
+  - ShopifyPlus
+  - HCL Commerce
+  - Adobe Commerce
+  - Lipscore
+- PDP
+  - Price display (tiered pricing, variant differential pricing)
+
+
+
