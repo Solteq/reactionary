@@ -18,6 +18,17 @@ These can be things like
 
 Reactionary is intended to live on the server side of your frontend. It uses the publically available clients for known and services, and is not trying to optimize for backend bundle size. Instead, we try to optimize for developer speed.
 
+It is the intention, that Reactionary will serve as the lowest layer of communication between the UX developer and the associated vendors.
+This means, you are not really expected to use reactionary directly from your components or widgets or pages. 
+
+*Rather, Reactionary belongs behind your state-management system of choice.*
+
+For Angular, this might be a dependency injected service, that uses reactionary instead of HttpClient, or take place in a `resource`. For React, you might have a set of lib-functions to manage site state, and from there call Reactionary when needed. That lib would also host your site business logic. And for NextJS, it might be something triggered by React Query, or a Context.
+
+For this reason, we say that Reactionary is oppinionated on what your  domain model will look like, and how it should interact, but it is unopinionated as to how to you manage your state and business logic.
+
+In this document, we show various examples, using a mix of UI frameworks, or pseudo-ui frameworks, so here we might show Reactionary a bit closer to the widgets and components that it really belongs. This is only for brewity.
+
 
 ## Audience
 This document is for UX developers who need to know abit about how reactionary works, and how the expected usage pattern should be. 
