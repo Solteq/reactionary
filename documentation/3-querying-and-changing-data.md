@@ -49,7 +49,7 @@ Pagination options are always set as a nested object on the Query, called `pagin
 ## Design Decisions
 We want all aspects of Reactionary to be custommizable and extendable. It is for this reason, we are using the object-payloads for parameters, as this allows you to specialize and extend the query for your own purpose, without violating any of the underlying mechanisms.
 
-Ie, if your site operated on mulitple catalogs, and you needed to load some catalog specific information in the `getBySlug` call, you can add the extra query parameters by extending the `CategoryQueryBySlugSchema`, and likewise for mutations, if you need to send more data to `add-to-cart`, you can extend the `CartMutationtemAddSchema`.
+Ie, if your site operated on mulitple catalogs, and you needed to load some catalog specific information in the `getBySlug` call, you can add the extra query parameters by extending the `CategoryQueryBySlugSchema`, and likewise for mutations, if you need to send more data to `add-to-cart`, you can extend the `CartMutationItemAddSchema`.
 
 
 All data and parameters is validated by `Zod` on the recieving end. This means, we adhere to the schema definitions very strictly, and you will get runtime errors if you provide bad or faulty data. This is intentional, as it requires you to fix the data, or fix your logic when certain invariants are not met. While this might seem annoying at first, it helps make things alot more maintainable over time, and has the added benefit of incentivising data-integrity checks at more levels.
