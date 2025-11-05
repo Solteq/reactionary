@@ -146,15 +146,33 @@ if (me.type === 'REGISTERED_CUSTOMER') {
 Let us assume the page we are rendering wants to include some minicart information. Given the client we created above, you can now call
 
 ```ts
-let cartId = await client.cart.getActiveCartId();
+// first, check if we have a cart id registered on the session
+let cartId = mySession.activeCartId;
+
+// if not, lets see if the system might have it for us
+if (!cartId) {
+  cartId = await client.cart.getActiveCartId();
+}
+
+// no? then lets just zero it out, and start over.
 if (!cartId) {
   cartId = '';
 }
 const cart = await client.cart.getById(cartId);
+
+// store it for future reference
+mySession.activeCartId = cart.identifier.key;
+
+
 const totalSum = cart.price.grandTotal.value;
 ```
 
 
 
+
+## Design decisions
+We want Reactionary to be as unintrusive to the frontend frameworks best practice for state management. So we do not try to offer too many convenience methods that might slow down the site unnecessarily.
+
+This is why we don't offer a `cart.getActiveCart()`, because in some situations identifying the active cart id, might require an extra call for each operation.
 
 
