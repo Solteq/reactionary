@@ -17,7 +17,6 @@ import {
     InventorySchema,
     PriceSchema,
     ProductSchema,
-    ProductSearchResultSchema,
     CategorySchema,
     CheckoutSchema,
     ProductSearchResultItemSchema
@@ -44,6 +43,7 @@ type CommercetoolsClient<T extends CommercetoolsCapabilities> =
     (T['store'] extends true ? { store: StoreProvider } : object) &
     (T['order'] extends true ? { order: OrderProvider } : object) &
     (T['checkout'] extends true ? { checkout: CheckoutProvider } : object) ;
+    
 export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilities>(
     configuration: CommercetoolsConfiguration,
     capabilities: T

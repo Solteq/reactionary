@@ -1,18 +1,15 @@
-import type { Client, Cache } from "@reactionary/core";
-import { ProductSchema, ProductSearchResultItemSchema } from "@reactionary/core";
-import { AlgoliaProductProvider } from "../providers/product.provider.js";
+import type { Cache, ProductSearchProvider } from "@reactionary/core";
+import { ProductSearchResultItemSchema } from "@reactionary/core";
 import { AlgoliaSearchProvider } from "../providers/product-search.provider.js";
 import type { AlgoliaCapabilities } from "../schema/capabilities.schema.js";
 import type { AlgoliaConfiguration } from "../schema/configuration.schema.js";
-import { AlgoliaSearchResultSchema } from "../schema/search.schema.js";
 
-export function withAlgoliaCapabilities(configuration: AlgoliaConfiguration, capabilities: AlgoliaCapabilities) {
-    return (cache: Cache) => {
-        const client: Partial<Client> = {};
+type AlgoliaClient<T extends AlgoliaCapabilities> =
+    (T['productSearch'] extends true ? { productSearch: ProductSearchProvider } : object);
 
-        if (capabilities.product) {
-            client.product = new AlgoliaProductProvider(configuration, ProductSchema, cache);
-        }
+export function withAlgoliaCapabilities<T extends AlgoliaCapabilities>(configuration: AlgoliaConfiguration, capabilities: T) {
+    return (cache: Cache): AlgoliaClient<T> => {
+        const client: any = {};
 
         if (capabilities.productSearch) {
             client.productSearch = new AlgoliaSearchProvider(configuration, ProductSearchResultItemSchema, cache);
