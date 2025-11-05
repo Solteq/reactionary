@@ -47,7 +47,6 @@ Runtime is targeting modern ESM/ES6 systems.
 We strive to avoid unbounded requests. This means, we don't generally allow for nested lists of things of indeterminate size. Instead a paged getter will be available to fetch a page of sub-items.
 
 
-
 ## FAQ
 
 ### What do you mean by capability?
