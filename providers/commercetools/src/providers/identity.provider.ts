@@ -6,10 +6,13 @@ import {
   type Cache,
   IdentityProvider,
   type IdentityMutationRegister,
+  AnonymousIdentitySchema,
+  GuestIdentitySchema,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type z from 'zod';
 import { CommercetoolsClient } from '../core/client.js';
+import { CommercetoolsSessionSchema } from '../schema/session.schema.js';
 
 export class CommercetoolsIdentityProvider<
   T extends Identity = Identity
@@ -30,14 +33,21 @@ export class CommercetoolsIdentityProvider<
     payload: IdentityQuerySelf,
     reqCtx: RequestContext
   ): Promise<T> {
-    return this.assert(reqCtx.identity as T);
+    const client = await new CommercetoolsClient(this.config);
+    const identity = await client.introspect(reqCtx);
+
+    return identity as T;
   }
 
   public override async login(
     payload: IdentityMutationLogin,
     reqCtx: RequestContext
   ): Promise<T> {
-    const identity = await new CommercetoolsClient(this.config).login(payload.username, payload.password, reqCtx);
+    const identity = await new CommercetoolsClient(this.config).login(
+      payload.username,
+      payload.password,
+      reqCtx
+    );
 
     return identity as T;
   }
@@ -55,7 +65,11 @@ export class CommercetoolsIdentityProvider<
     payload: IdentityMutationRegister,
     reqCtx: RequestContext
   ): Promise<T> {
-    const identity = await new CommercetoolsClient(this.config).register(payload.username, payload.password, reqCtx);
+    const identity = await new CommercetoolsClient(this.config).register(
+      payload.username,
+      payload.password,
+      reqCtx
+    );
 
     return identity as T;
   }

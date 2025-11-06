@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { IdentitySchema } from './models/identity.model.js';
 import { WebStoreIdentifierSchema } from './models/identifiers.model.js';
 import { CurrencySchema } from './models/currency.model.js';
 
@@ -21,7 +20,6 @@ export const TaxJurisdictionSchema = z.object( {
 });
 
 export const RequestContextSchema = z.looseObject( {
-    identity: IdentitySchema.default(() => IdentitySchema.parse({})).describe('Read/Write. The identity of the current user. Caller is responsible for persisting any changes to the identity'),
     session: SessionSchema.default(() => SessionSchema.parse({})).describe('Read/Write session storage. Caller is responsible for persisting any changes. Providers will prefix own values'),
 
     languageContext: LanguageContextSchema.default(() => LanguageContextSchema.parse({})).describe('ReadOnly. The language and locale context for the current request.'),

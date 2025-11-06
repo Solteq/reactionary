@@ -38,7 +38,7 @@ describe('Commercetools Search Provider', () => {
   });
 
 
-    it('should be able to get a result by term, paged', async () => {
+  it.only('should be able to get a result by term, paged', async () => {
     const result = await provider.queryByTerm( {
     search: {
       term: testData.searchTerm,

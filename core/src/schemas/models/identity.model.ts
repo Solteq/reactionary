@@ -4,26 +4,16 @@ import { IdentityIdentifierSchema } from './identifiers.model.js';
 
 export const AnonymousIdentitySchema = BaseModelSchema.extend({
     type: z.literal('Anonymous').default('Anonymous'),
-    token: z.string().optional(),
-    refresh_token: z.string().optional(),
-    expiry: z.coerce.date().default(new Date())
 });
 
 export const GuestIdentitySchema = BaseModelSchema.extend({
     id: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
     type: z.literal('Guest').default('Guest'),
-    token: z.string().optional(),
-    refresh_token: z.string().optional(),
-    expiry: z.coerce.date().default(new Date())
 });
 
 export const RegisteredIdentitySchema = BaseModelSchema.extend({
     id: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
     type: z.literal('Registered').default('Registered'),
-    logonId: z.string().default(''),
-    token: z.string().optional(),
-    refresh_token: z.string().optional(),
-    expiry: z.coerce.date().default(new Date())
 });
 
 export const IdentitySchema = z.discriminatedUnion('type', [ AnonymousIdentitySchema, GuestIdentitySchema, RegisteredIdentitySchema]);
