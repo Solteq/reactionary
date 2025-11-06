@@ -4,6 +4,7 @@ import { AlgoliaSearchProvider } from '../providers/product-search.provider.js';
 import { describe, expect, it } from 'vitest';
 
 describe('Algolia Search Provider', () => {
+  const reqCtx = createInitialRequestContext();
   const provider = new AlgoliaSearchProvider(
     {
       apiKey: process.env['ALGOLIA_API_KEY'] || '',
@@ -11,10 +12,9 @@ describe('Algolia Search Provider', () => {
       indexName: process.env['ALGOLIA_INDEX'] || '',
     },
     ProductSearchResultItemSchema,
-    new NoOpCache()
+    new NoOpCache(),
+    reqCtx
   );
-
-  const reqCtx = createInitialRequestContext();
 
   it('should be able to get a result by term', async () => {
     const result = await provider.queryByTerm({ search: {
@@ -25,7 +25,7 @@ describe('Algolia Search Provider', () => {
       },
       facets: [],
       filters: []
-    }}, reqCtx);
+    }});
 
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.facets.length).toBe(2);
@@ -40,8 +40,9 @@ describe('Algolia Search Provider', () => {
         pageNumber: 1,
         pageSize: 20,
       },
+      filters: [],
       facets: [],
-    }}, reqCtx);
+    }});
 
     const secondPage = await provider.queryByTerm({ search: {
       term: 'glass',
@@ -51,7 +52,7 @@ describe('Algolia Search Provider', () => {
       },
       facets: [],
       filters: [],
-    }}, reqCtx);
+    }});
     expect(firstPage.pageNumber).toBe(1);
     expect(secondPage.pageNumber).toBe(2);
     expect(firstPage.items[0].identifier.key).not.toEqual(
@@ -68,7 +69,7 @@ describe('Algolia Search Provider', () => {
       },
       facets: [],
       filters: []
-    }}, reqCtx);
+    }});
     const largePage = await provider.queryByTerm({ search: {
       term: 'glass',
 
@@ -78,7 +79,7 @@ describe('Algolia Search Provider', () => {
       },
       facets: [],
       filters: [],
-    }}, reqCtx);
+    }});
 
     expect(smallPage.items.length).toBe(2);
     expect(smallPage.pageSize).toBe(2);
@@ -95,7 +96,7 @@ describe('Algolia Search Provider', () => {
       },
       facets: [],
       filters: [],
-    }}, reqCtx);
+    }});
 
     const filtered = await provider.queryByTerm({ search: {
       term: 'glass',
@@ -105,7 +106,7 @@ describe('Algolia Search Provider', () => {
       },
       facets: [initial.facets[0].values[0].identifier],
       filters: [],
-    }}, reqCtx);
+    }});
 
     expect(initial.totalPages).toBeGreaterThan(filtered.totalPages);
   });

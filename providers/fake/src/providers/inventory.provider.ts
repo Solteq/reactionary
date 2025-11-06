@@ -18,15 +18,14 @@ export class FakeInventoryProvider<
 > extends InventoryProvider<T> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache) {
-    super(schema, cache);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+    super(schema, cache, context);
 
     this.config = config;
   }
 
   public override async getBySKU(
-    payload: InventoryQueryBySKU,
-    _reqCtx: RequestContext
+    payload: InventoryQueryBySKU
   ): Promise<T> {
     // Generate a simple hash from the SKU string for seeding
     let hash = 0;
@@ -60,7 +59,7 @@ export class FakeInventoryProvider<
     model.meta = {
         cache: {
           hit: false,
-          key: this.generateCacheKeySingle(model.identifier, _reqCtx)
+          key: this.generateCacheKeySingle(model.identifier)
         },
         placeholder: false,
       };

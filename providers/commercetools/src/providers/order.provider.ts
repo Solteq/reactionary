@@ -18,24 +18,25 @@ export class CommercetoolsOrderProvider<
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
-    cache: Cache
+    cache: Cache,
+    context: RequestContext
   ) {
-    super(schema, cache);
+    super(schema, cache, context);
 
     this.config = config;
   }
 
-  protected async getClient(reqCtx: RequestContext) {
+  protected async getClient() {
 
     const client = await new CommercetoolsClient(this.config).getClient(
-      reqCtx
+      this.context
     );
     return client.withProjectKey({ projectKey: this.config.projectKey }).me().orders();
   }
 
 
-  public override async getById(payload: OrderQueryById, reqCtx: RequestContext): Promise<T> {
-    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
+  public override async getById(payload: OrderQueryById): Promise<T> {
+    const client = await new CommercetoolsClient(this.config).getClient(this.context);
 
     try {
       const remote = await client
@@ -45,14 +46,14 @@ export class CommercetoolsOrderProvider<
         .get()
         .execute();
 
-      return this.parseSingle(remote.body, reqCtx);
+      return this.parseSingle(remote.body);
     } catch (e) {
       return this.createEmptyOrder();
     }
   }
 
 
-  protected override parseSingle(_body: unknown, reqCtx: RequestContext): T {
+  protected override parseSingle(_body: unknown): T {
       const remote = _body as CTOrder;
       const result = this.newModel();
 
@@ -151,7 +152,7 @@ export class CommercetoolsOrderProvider<
     result.meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeySingle(result.identifier, reqCtx),
+        key: this.generateCacheKeySingle(result.identifier),
       },
       placeholder: false,
     };

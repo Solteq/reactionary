@@ -26,15 +26,14 @@ export class FakeSearchProvider<
 > extends ProductSearchProvider<T> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactionaryCache) {
-    super(schema, cache);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactionaryCache, context: RequestContext) {
+    super(schema, cache, context);
 
     this.config = config;
   }
 
   public override async queryByTerm(
-    payload: ProductSearchQueryByTerm,
-    _reqCtx: RequestContext
+    payload: ProductSearchQueryByTerm
   ): Promise<ProductSearchResult> {
     await jitter(this.config.jitter.mean, this.config.jitter.deviation);
 
@@ -160,13 +159,13 @@ export class FakeSearchProvider<
     return result;
   }
 
-  protected override parseFacetValue(facetValueIdentifier: FacetValueIdentifier, label: string, count: number, reqCtx: RequestContext): ProductSearchResultFacetValue {
+  protected override parseFacetValue(facetValueIdentifier: FacetValueIdentifier, label: string, count: number): ProductSearchResultFacetValue {
     throw new Error('Method not implemented.');
   }
-  protected override parseFacet(facetIdentifier: FacetIdentifier, facetValue: unknown, reqCtx: RequestContext): ProductSearchResultFacet {
+  protected override parseFacet(facetIdentifier: FacetIdentifier, facetValue: unknown): ProductSearchResultFacet {
     throw new Error('Method not implemented.');
   }
-  protected override parseVariant(variant: unknown, product: unknown, reqCtx: RequestContext): ProductSearchResultItemVariant {
+  protected override parseVariant(variant: unknown, product: unknown): ProductSearchResultItemVariant {
     throw new Error('Method not implemented.');
   }
 

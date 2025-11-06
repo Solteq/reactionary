@@ -12,23 +12,19 @@ const testData = {
 
 
 describe('Medusa Cart Provider', () => {
-
   let provider: MedusaCartProvider;
   let reqCtx: RequestContext;
 
-  beforeAll( () => {
-    provider = new MedusaCartProvider(getMedusaTestConfiguration(), CartSchema, new NoOpCache());
-  });
-
   beforeEach( () => {
-    reqCtx = createInitialRequestContext()
+    reqCtx = createInitialRequestContext();
+    provider = new MedusaCartProvider(getMedusaTestConfiguration(), CartSchema, new NoOpCache(), reqCtx);
   });
 
   describe('anonymous sessions', () => {
     it('should be able to get an empty cart', async () => {
       const cart = await provider.getById({
         cart: { key: '' },
-      }, reqCtx);
+      });
 
       expect(cart.identifier.key).toBeFalsy();
       expect(cart.items.length).toBe(0);
@@ -43,7 +39,7 @@ describe('Medusa Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
       expect(cart.identifier.key).toBeDefined();
       expect(cart.items.length).toBe(1);
@@ -73,7 +69,7 @@ describe('Medusa Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
 
       const updatedCart = await provider.add({
@@ -82,7 +78,7 @@ describe('Medusa Cart Provider', () => {
             sku: testData.skuWithTiers,
           },
           quantity: 2
-      }, reqCtx);
+      });
 
       expect(updatedCart.items.length).toBe(2);
       expect(updatedCart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
@@ -99,13 +95,13 @@ describe('Medusa Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
       const updatedCart = await provider.changeQuantity({
         cart: cart.identifier,
         item: cart.items[0].identifier,
         quantity: 3
-      }, reqCtx);
+      });
 
 
       expect(updatedCart.items.length).toBe(1);
@@ -125,14 +121,14 @@ describe('Medusa Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
       let updatedCart: Cart;
       try {
         updatedCart = await provider.changeQuantity({
           cart: cart.identifier,
           item: cart.items[0].identifier,
           quantity: 0
-        }, reqCtx);
+        });
         expect(updatedCart).toBeDefined();
       } catch (error) {
         expect(error).toBeDefined();
@@ -151,12 +147,12 @@ describe('Medusa Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
       const updatedCart = await provider.remove({
         cart: cart.identifier,
         item: cart.items[0].identifier,
-      }, reqCtx);
+      });
 
       expect(updatedCart.items.length).toBe(0);
     });
@@ -169,21 +165,21 @@ describe('Medusa Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
       expect(cart.items.length).toBe(1);
       expect(cart.identifier.key).toBeTruthy();
 
       const deletedCart = await provider.deleteCart({
         cart: cart.identifier,
-      }, reqCtx);
+      });
 
       expect(deletedCart.items.length).toBe(0);
       expect(deletedCart.identifier.key).toBe('');
 
       const originalCart = await provider.getById({
         cart: cart.identifier,
-      }, reqCtx);
+      });
 
       expect(originalCart.items.length).toBe(0);
     });

@@ -42,38 +42,35 @@ export class CommercetoolsCartProvider<
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
-    cache: Cache
+    cache: Cache,
+    context: RequestContext
   ) {
-    super(schema, cache);
+    super(schema, cache, context);
     this.config = config;
   }
 
   public override async getById(
-    payload: CartQueryById,
-    reqCtx: RequestContext
+    payload: CartQueryById
   ): Promise<T> {
     try {
-      const client = await this.getClient(reqCtx);
+      const client = await this.getClient();
 
       const ctId = payload.cart as CommercetoolsCartIdentifier;
 
       const remote = await client.carts.withId({ ID: ctId.key }).get().execute();
 
-      return this.parseSingle(remote.body, reqCtx);
+      return this.parseSingle(remote.body);
     } catch (e) {
       return this.createEmptyCart();
     }
   }
 
   public override async add(
-    payload: CartMutationItemAdd,
-    reqCtx: RequestContext
+    payload: CartMutationItemAdd
   ): Promise<T> {
-    const client = await this.getClient(reqCtx);
-
     let cartIdentifier = payload.cart;
     if (!cartIdentifier.key) {
-      cartIdentifier = await this.createCart(reqCtx);
+      cartIdentifier = await this.createCart();
     }
 
     return this.applyActions(
@@ -87,14 +84,12 @@ export class CommercetoolsCartProvider<
         {
           action: 'recalculate',
         },
-      ],
-      reqCtx
+      ]
     );
   }
 
   public override async remove(
     payload: CartMutationItemRemove,
-    reqCtx: RequestContext
   ): Promise<T> {
     return this.applyActions(
       payload.cart,
@@ -106,19 +101,17 @@ export class CommercetoolsCartProvider<
         {
           action: 'recalculate',
         },
-      ],
-      reqCtx
+      ]
     );
   }
 
   public override async changeQuantity(
-    payload: CartMutationItemQuantityChange,
-    reqCtx: RequestContext
+    payload: CartMutationItemQuantityChange
   ): Promise<T> {
     if (payload.quantity === 0) {
       // Changing quantity to 0 is not allowed. Use the remove call instead. This is done to avoid accidental removal of item.
       // Calls with quantity 0 will just be ignored.
-      return this.getById({ cart: payload.cart }, reqCtx);
+      return this.getById({ cart: payload.cart });
     }
 
     return this.applyActions(
@@ -132,15 +125,12 @@ export class CommercetoolsCartProvider<
         {
           action: 'recalculate',
         },
-      ],
-      reqCtx
+      ]
     );
   }
 
-  public override async getActiveCartId(
-    reqCtx: RequestContext
-  ): Promise<CartIdentifier> {
-    const client = await this.getClient(reqCtx);
+  public override async getActiveCartId(): Promise<CartIdentifier> {
+    const client = await this.getClient();
     try {
       const carts = await client.activeCart
         .get()
@@ -160,10 +150,9 @@ export class CommercetoolsCartProvider<
   }
 
   public override async deleteCart(
-    payload: CartMutationDeleteCart,
-    reqCtx: RequestContext
+    payload: CartMutationDeleteCart
   ): Promise<T> {
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
     if (payload.cart.key) {
       const ctId = payload.cart as CommercetoolsCartIdentifier;
 
@@ -178,15 +167,14 @@ export class CommercetoolsCartProvider<
         .execute();
     }
 
-    const activeCartId = await this.getActiveCartId(reqCtx);
-    return this.getById({ cart: activeCartId }, reqCtx);
+    const activeCartId = await this.getActiveCartId();
+    return this.getById({ cart: activeCartId });
   }
 
   public override async setShippingInfo(
-    payload: CartMutationSetShippingInfo,
-    reqCtx: RequestContext
+    payload: CartMutationSetShippingInfo
   ): Promise<T> {
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
     const ctId = payload.cart as CommercetoolsCartIdentifier;
 
     const actions: MyCartUpdateAction[] = new Array<MyCartUpdateAction>();
@@ -204,7 +192,7 @@ export class CommercetoolsCartProvider<
       actions.push({
         action: 'setShippingAddress',
         address: {
-          country: payload.shippingAddress.countryCode || reqCtx.taxJurisdiction.countryCode || 'US',
+          country: payload.shippingAddress.countryCode || this.context.taxJurisdiction.countryCode || 'US',
           firstName: payload.shippingAddress.firstName,
           lastName: payload.shippingAddress.lastName,
           city: payload.shippingAddress.city,
@@ -215,12 +203,11 @@ export class CommercetoolsCartProvider<
       });
     }
 
-    return this.applyActions(payload.cart, actions, reqCtx);
+    return this.applyActions(payload.cart, actions);
   }
 
   public override setBillingAddress(
-    payload: CartMutationSetBillingAddress,
-    reqCtx: RequestContext
+    payload: CartMutationSetBillingAddress
   ): Promise<T> {
     return this.applyActions(
       payload.cart,
@@ -230,7 +217,7 @@ export class CommercetoolsCartProvider<
           address: {
             email: payload.notificationEmailAddress,
             mobile: payload.notificationPhoneNumber,
-            country: payload.billingAddress.countryCode || reqCtx.taxJurisdiction.countryCode || 'US',
+            country: payload.billingAddress.countryCode || this.context.taxJurisdiction.countryCode || 'US',
             firstName: payload.billingAddress.firstName,
             lastName: payload.billingAddress.lastName,
             city: payload.billingAddress.city,
@@ -245,16 +232,14 @@ export class CommercetoolsCartProvider<
         },
         {
           action: 'setCountry',
-          country: payload.billingAddress.countryCode || reqCtx.taxJurisdiction.countryCode || 'US',
+          country: payload.billingAddress.countryCode || this.context.taxJurisdiction.countryCode || 'US',
         },
-      ],
-      reqCtx
+      ]
     );
   }
 
   public override applyCouponCode(
-    payload: CartMutationApplyCoupon,
-    reqCtx: RequestContext
+    payload: CartMutationApplyCoupon
   ): Promise<T> {
     return this.applyActions(
       payload.cart,
@@ -266,14 +251,12 @@ export class CommercetoolsCartProvider<
         {
           action: 'recalculate',
         },
-      ],
-      reqCtx
+      ]
     );
   }
 
   public override removeCouponCode(
-    payload: CartMutationRemoveCoupon,
-    reqCtx: RequestContext
+    payload: CartMutationRemoveCoupon
   ): Promise<T> {
     return this.applyActions(
       payload.cart,
@@ -288,18 +271,16 @@ export class CommercetoolsCartProvider<
         {
           action: 'recalculate',
         },
-      ],
-      reqCtx
+      ]
     );
   }
 
   public override async checkout(
-    payload: CartMutationCheckout,
-    reqCtx: RequestContext
+    payload: CartMutationCheckout
   ): Promise<OrderIdentifier> {
     // In Commercetools, checkout is done by creating an order from the cart.
 
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
     const ctId = payload.cart as CommercetoolsCartIdentifier;
 
     const orderResponse = await client.orders
@@ -317,15 +298,14 @@ export class CommercetoolsCartProvider<
   }
 
   public override async changeCurrency(
-    payload: CartMutationChangeCurrency,
-    reqCtx: RequestContext
+    payload: CartMutationChangeCurrency
   ): Promise<T> {
     // ok, to do this we have to actually build a new cart, copy over all the items, and then delete the old cart.
     // because Commercetools does not support changing currency of an existing cart.
 
     // This is obviously not ideal, but it is what it is.
 
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
     const currentCart = await client.carts
       .withId({ ID: payload.cart.key })
       .get()
@@ -334,7 +314,7 @@ export class CommercetoolsCartProvider<
       .post({
         body: {
           currency: payload.newCurrency,
-          locale: reqCtx.languageContext.locale,
+          locale: this.context.languageContext.locale,
         },
       })
       .execute();
@@ -359,8 +339,7 @@ export class CommercetoolsCartProvider<
         {
           action: 'recalculate',
         },
-      ],
-      reqCtx
+      ]
     );
 
     // now delete the old cart.
@@ -377,14 +356,14 @@ export class CommercetoolsCartProvider<
     return response;
   }
 
-  protected async createCart(reqCtx: RequestContext): Promise<CartIdentifier> {
-    const client = await this.getClient(reqCtx);
+  protected async createCart(): Promise<CartIdentifier> {
+    const client = await this.getClient();
     const response = await client.carts
       .post({
         body: {
-          currency: reqCtx.languageContext.currencyCode || 'USD',
-          country: reqCtx.taxJurisdiction.countryCode || 'US',
-          locale: reqCtx.languageContext.locale,
+          currency: this.context.languageContext.currencyCode || 'USD',
+          country: this.context.taxJurisdiction.countryCode || 'US',
+          locale: this.context.languageContext.locale,
         },
       })
       .execute();
@@ -397,10 +376,9 @@ export class CommercetoolsCartProvider<
 
   protected async applyActions(
     cart: CartIdentifier,
-    actions: MyCartUpdateAction[],
-    reqCtx: RequestContext
+    actions: MyCartUpdateAction[]
   ): Promise<T> {
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
     const ctId = cart as CommercetoolsCartIdentifier;
 
 
@@ -418,7 +396,7 @@ export class CommercetoolsCartProvider<
           if (response.error) {
             console.error(response.error);
           }
-          return this.parseSingle(response.body, reqCtx);
+          return this.parseSingle(response.body);
        } catch (e: any) {
         console.error('Error applying actions to cart:', e);
         throw e;
@@ -430,13 +408,9 @@ export class CommercetoolsCartProvider<
    * Creates a new Commercetools client, optionally upgrading it from Anonymous mode to Guest mode.
    * For now, any Query or Mutation will require an upgrade to Guest mode.
    * In the future, maybe we can delay this upgrade until we actually need it.
-   *
-   * @param reqCtx
-   * @param anonymousCall
-   * @returns
    */
-  protected async getClient(reqCtx: RequestContext) {
-    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
+  protected async getClient() {
+    const client = await new CommercetoolsClient(this.config).getClient(this.context);
 
     const clientWithProject = client.withProjectKey({ projectKey: this.config.projectKey });
     return {
@@ -447,7 +421,7 @@ export class CommercetoolsCartProvider<
     }
   }
 
-  protected override parseSingle(remote: CTCart, reqCtx: RequestContext): T {
+  protected override parseSingle(remote: CTCart): T {
     const result = this.newModel();
 
     result.identifier = CommercetoolsCartIdentifierSchema.parse({
@@ -532,7 +506,7 @@ export class CommercetoolsCartProvider<
     result.meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeySingle(result.identifier, reqCtx),
+        key: this.generateCacheKeySingle(result.identifier),
       },
       placeholder: false,
     };

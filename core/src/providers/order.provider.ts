@@ -14,7 +14,7 @@ export abstract class OrderProvider<
    * @param payload
    * @param session
    */
-  public abstract getById(payload: OrderQueryById, reqCtx: RequestContext): Promise<T>;
+  public abstract getById(payload: OrderQueryById): Promise<T>;
 
   protected createEmptyOrder(): T {
     const order = this.newModel();

@@ -13,16 +13,15 @@ describe('Commercetools Store Provider', () => {
   let provider: CommercetoolsStoreProvider;
   let reqCtx: RequestContext;
 
-  beforeAll(() => {
+  beforeEach(() => {
+    reqCtx = createInitialRequestContext();
+
     provider = new CommercetoolsStoreProvider(
       getCommercetoolsTestConfiguration(),
       StoreSchema,
-      new NoOpCache()
+      new NoOpCache(),
+      reqCtx
     );
-  });
-
-  beforeEach(() => {
-    reqCtx = createInitialRequestContext();
   });
 
   it.skip('should be able to query stores by longitude and latitude', async () => {
@@ -31,7 +30,7 @@ describe('Commercetools Store Provider', () => {
         latitude: 15,
         longitude: 15,
         limit: 10
-    }, reqCtx);
+    });
 
     expect(stores.length).toBe(2);
   });

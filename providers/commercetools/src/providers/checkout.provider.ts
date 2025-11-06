@@ -65,15 +65,16 @@ export class CommercetoolsCheckoutProvider<
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
-    cache: Cache
+    cache: Cache,
+    context: RequestContext
   ) {
-    super(schema, cache);
+    super(schema, cache, context);
 
     this.config = config;
   }
 
-  protected async getClient(reqCtx: RequestContext) {
-    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
+  protected async getClient() {
+    const client = await new CommercetoolsClient(this.config).getClient(this.context);
 
     return {
       payments: client
@@ -95,12 +96,11 @@ export class CommercetoolsCheckoutProvider<
   }
 
   public async initiateCheckoutForCart(
-    payload: CheckoutMutationInitiateCheckout,
-    reqCtx: RequestContext
+    payload: CheckoutMutationInitiateCheckout
   ): Promise<T> {
     // so......we could copy the cart......
 
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
 
     const cart = await client.carts
       .withId({ ID: (payload.cart as any).key })
@@ -171,14 +171,13 @@ export class CommercetoolsCheckoutProvider<
       })
       .execute();
 
-    return this.parseSingle(checkoutResponse.body, reqCtx);
+    return this.parseSingle(checkoutResponse.body);
   }
 
   public async getById(
-    payload: CheckoutQueryById,
-    reqCtx: RequestContext
+    payload: CheckoutQueryById
   ): Promise<T | null> {
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
     const checkoutResponse = await client.carts
       .withId({ ID: payload.identifier.key })
       .get({
@@ -188,7 +187,7 @@ export class CommercetoolsCheckoutProvider<
       })
       .execute();
 
-    const checkout = this.parseSingle(checkoutResponse.body, reqCtx);
+    const checkout = this.parseSingle(checkoutResponse.body);
 
     if (checkoutResponse.body.cartState === 'Ordered') {
       const order = await client.orders.get({
@@ -206,10 +205,9 @@ export class CommercetoolsCheckoutProvider<
   }
 
   public async setShippingAddress(
-    payload: CheckoutMutationSetShippingAddress,
-    reqCtx: RequestContext
+    payload: CheckoutMutationSetShippingAddress
   ): Promise<T> {
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
 
     const version = (payload.checkout as CommercetoolsCheckoutIdentifier)
       .version;
@@ -236,14 +234,13 @@ export class CommercetoolsCheckoutProvider<
       })
       .execute();
 
-    return this.parseSingle(checkoutResponse.body, reqCtx);
+    return this.parseSingle(checkoutResponse.body);
   }
 
   public async getAvailableShippingMethods(
-    payload: CheckoutQueryForAvailableShippingMethods,
-    reqCtx: RequestContext
+    payload: CheckoutQueryForAvailableShippingMethods
   ): Promise<ShippingMethod[]> {
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
     const shippingMethodsResponse = await client.shippingMethods
       .matchingCart()
       .get({
@@ -263,16 +260,16 @@ export class CommercetoolsCheckoutProvider<
         },
         name: sm.name,
         description:
-          sm.localizedDescription?.[reqCtx.languageContext.locale] || '',
+          sm.localizedDescription?.[this.context.languageContext.locale] || '',
         price: sm.zoneRates[0].shippingRates[0].price
           ? {
               value:
                 (sm.zoneRates[0].shippingRates[0].price.centAmount || 0) / 100,
               currency:
                 sm.zoneRates[0].shippingRates[0].price.currencyCode ||
-                reqCtx.languageContext.currencyCode,
+                this.context.languageContext.currencyCode,
             }
-          : { value: 0, currency: reqCtx.languageContext.currencyCode },
+          : { value: 0, currency: this.context.languageContext.currencyCode },
       });
       result.push(shippingMethod);
     }
@@ -280,14 +277,12 @@ export class CommercetoolsCheckoutProvider<
   }
 
   public async getAvailablePaymentMethods(
-    payload: CheckoutQueryForAvailablePaymentMethods,
-    reqCtx: RequestContext
+    payload: CheckoutQueryForAvailablePaymentMethods
   ): Promise<PaymentMethod[]> {
     // Commercetools does not have a concept of payment methods, as these are handled by the payment providers.
     // So for now, we will return an empty array.
     const staticMethods = this.getStaticPaymentMethods(
-      payload.checkout,
-      reqCtx
+      payload.checkout
     );
 
     const dynamicMethods: PaymentMethod[] = [];
@@ -297,10 +292,9 @@ export class CommercetoolsCheckoutProvider<
   }
 
   public async addPaymentInstruction(
-    payload: CheckoutMutationAddPaymentInstruction,
-    reqCtx: RequestContext
+    payload: CheckoutMutationAddPaymentInstruction
   ): Promise<T> {
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
 
     const response = await client.payments
       .post({
@@ -314,7 +308,7 @@ export class CommercetoolsCheckoutProvider<
           paymentMethodInfo: {
             method: payload.paymentInstruction.paymentMethod.method,
             name: {
-              [reqCtx.languageContext.locale]:
+              [this.context.languageContext.locale]:
                 payload.paymentInstruction.paymentMethod.name,
             },
             paymentInterface:
@@ -347,16 +341,14 @@ export class CommercetoolsCheckoutProvider<
 
     return this.applyActions(
       payload.checkout as CommercetoolsCheckoutIdentifier,
-      actions,
-      reqCtx
+      actions
     );
   }
 
   public async removePaymentInstruction(
     payload: CheckoutMutationRemovePaymentInstruction,
-    reqCtx: RequestContext
   ): Promise<T> {
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
 
     // FIXME: Need to get full-endpoint rights, if we want to cancel the authorization on the payment. The MyPayment endpoint does not support
     // changing a payment intent after it has transactions.
@@ -414,16 +406,14 @@ export class CommercetoolsCheckoutProvider<
 
     const checkout = await this.getById(
       { identifier: payload.checkout },
-      reqCtx
     );
     return checkout!;
   }
 
   public async setShippingInstruction(
-    payload: CheckoutMutationSetShippingInstruction,
-    reqCtx: RequestContext
+    payload: CheckoutMutationSetShippingInstruction
   ): Promise<T> {
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
     const ctId = payload.checkout as CommercetoolsCheckoutIdentifier;
 
     const actions: MyCartUpdateAction[] = [];
@@ -452,24 +442,21 @@ export class CommercetoolsCheckoutProvider<
 
     return this.applyActions(
       payload.checkout as CommercetoolsCheckoutIdentifier,
-      actions,
-      reqCtx
+      actions
     );
   }
 
   public async finalizeCheckout(
-    payload: CheckoutMutationFinalizeCheckout,
-    reqCtx: RequestContext
+    payload: CheckoutMutationFinalizeCheckout
   ): Promise<T> {
     const checkout = await this.getById(
-      { identifier: payload.checkout },
-      reqCtx
+      { identifier: payload.checkout }
     );
     if (!checkout || !checkout.readyForFinalization) {
       throw new CheckoutNotReadyForFinalizationError(payload.checkout);
     }
 
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
     const ctId = payload.checkout as CommercetoolsCheckoutIdentifier;
 
     // create the order from the cart
@@ -483,17 +470,15 @@ export class CommercetoolsCheckoutProvider<
       .execute();
 
     return this.getById(
-      { identifier: payload.checkout },
-      reqCtx
+      { identifier: payload.checkout }
     ) as unknown as T;
   }
 
   protected async applyActions(
     checkout: CheckoutIdentifier,
-    actions: MyCartUpdateAction[],
-    reqCtx: RequestContext
+    actions: MyCartUpdateAction[]
   ): Promise<T> {
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
     const ctId = checkout as CommercetoolsCheckoutIdentifier;
 
     try {
@@ -513,7 +498,7 @@ export class CommercetoolsCheckoutProvider<
       if (response.error) {
         console.error(response.error);
       }
-      return this.parseSingle(response.body, reqCtx);
+      return this.parseSingle(response.body);
     } catch (e: any) {
       console.error('Error applying actions to cart:', e);
       throw e;
@@ -524,12 +509,10 @@ export class CommercetoolsCheckoutProvider<
    * Extension point, to allow filtering the options, or adding new ones, like invoicing for b2b.
    *
    * Usecase: Override this, if you need to change the payment options based on the request context.
-   * @param reqCtx
    * @returns
    */
   protected getStaticPaymentMethods(
-    _checkout: CheckoutIdentifier,
-    reqCtx: RequestContext
+    _checkout: CheckoutIdentifier
   ): PaymentMethod[] {
     return this.config.paymentMethods || [];
   }
@@ -538,7 +521,7 @@ export class CommercetoolsCheckoutProvider<
     return 'checkout';
   }
 
-  protected override parseSingle(remote: CTCart, reqCtx: RequestContext): T {
+  protected override parseSingle(remote: CTCart): T {
     const result = this.newModel();
 
     result.identifier = CommercetoolsCheckoutIdentifierSchema.parse({
@@ -556,20 +539,19 @@ export class CommercetoolsCheckoutProvider<
 
     if (remote.shippingAddress) {
       result.shippingAddress = this.parseAddress(
-        remote.shippingAddress,
-        reqCtx
+        remote.shippingAddress
       );
     }
 
     if (remote.billingAddress) {
-      result.billingAddress = this.parseAddress(remote.billingAddress, reqCtx);
+      result.billingAddress = this.parseAddress(remote.billingAddress);
     }
     result.shippingInstruction = this.parseShippingInstruction(remote);
 
     for (const p of remote.paymentInfo?.payments || []) {
       if (p.obj) {
         result.paymentInstructions.push(
-          this.parsePaymentInstruction(p.obj, reqCtx)
+          this.parsePaymentInstruction(p.obj)
         );
       }
     }
@@ -648,7 +630,7 @@ export class CommercetoolsCheckoutProvider<
     result.meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeySingle(result.identifier, reqCtx),
+        key: this.generateCacheKeySingle(result.identifier),
       },
       placeholder: false,
     };
@@ -680,8 +662,7 @@ export class CommercetoolsCheckoutProvider<
   }
 
   protected parsePaymentInstruction(
-    remote: CTPayment,
-    reqCtx: RequestContext
+    remote: CTPayment
   ): PaymentInstruction {
     const newModel = PaymentInstructionSchema.parse({});
     newModel.identifier = PaymentInstructionIdentifierSchema.parse({
@@ -696,7 +677,7 @@ export class CommercetoolsCheckoutProvider<
     const paymentProcessor =
       remote.paymentMethodInfo?.paymentInterface || method;
     const paymentName =
-      remote.paymentMethodInfo.name![reqCtx.languageContext.locale];
+      remote.paymentMethodInfo.name![this.context.languageContext.locale];
     newModel.paymentMethod = PaymentMethodIdentifierSchema.parse({
       method,
       paymentProcessor,
@@ -728,7 +709,7 @@ export class CommercetoolsCheckoutProvider<
     return PaymentInstructionSchema.parse(newModel);
   }
 
-  protected parseAddress(remote: CTAddress, reqCtx: RequestContext) {
+  protected parseAddress(remote: CTAddress) {
     return AddressSchema.parse({
       countryCode: remote.country || '',
       firstName: remote.firstName || '',

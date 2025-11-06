@@ -35,8 +35,8 @@ export class CheckoutNotReadyForFinalizationError extends Error {
 export class MedusaCheckoutProvider<
   T extends Checkout = Checkout
 > extends CheckoutProvider<T> {
-  public override async initiateCheckoutForCart(payload: CheckoutMutationInitiateCheckout, reqCtx: RequestContext): Promise<T> {
-    const client = await new MedusaClient(this.config).getClient(reqCtx);
+  public override async initiateCheckoutForCart(payload: CheckoutMutationInitiateCheckout): Promise<T> {
+    const client = await new MedusaClient(this.config).getClient(this.context);
     // we should eventually copy the cart.... but for now we just continue with the existing one.
     if (debug.enabled) {
       debug(`Initiating checkout for cart with key: ${payload.cart.key}`);
@@ -48,15 +48,15 @@ export class MedusaCheckoutProvider<
       email: undefined,
     });
 
-    return this.parseSingle(response.cart, reqCtx);
+    return this.parseSingle(response.cart);
   }
-  public override async getById(payload: CheckoutQueryById, reqCtx: RequestContext): Promise<T | null> {
-    const client = await new MedusaClient(this.config).getClient(reqCtx);
+  public override async getById(payload: CheckoutQueryById): Promise<T | null> {
+    const client = await new MedusaClient(this.config).getClient(this.context);
     const response = await client.store.cart.retrieve(payload.identifier.key);
-    return this.parseSingle(response.cart, reqCtx);
+    return this.parseSingle(response.cart);
   }
-  public override async setShippingAddress(payload: CheckoutMutationSetShippingAddress, reqCtx: RequestContext): Promise<T> {
-    const client = await new MedusaClient(this.config).getClient(reqCtx);
+  public override async setShippingAddress(payload: CheckoutMutationSetShippingAddress): Promise<T> {
+    const client = await new MedusaClient(this.config).getClient(this.context);
 
     const  addressLine = `${payload.shippingAddress.streetAddress[0]} ${payload.shippingAddress.streetNumber || ''}`.trim();
     const response = await client.store.cart.update(payload.checkout.key, {
@@ -70,11 +70,11 @@ export class MedusaCheckoutProvider<
         last_name: payload.shippingAddress.lastName,
       }
     });
-    return this.parseSingle(response.cart, reqCtx);
+    return this.parseSingle(response.cart);
   }
 
-  public override async getAvailableShippingMethods(payload: CheckoutQueryForAvailableShippingMethods, reqCtx: RequestContext): Promise<ShippingMethod[]> {
-    const client = await new MedusaClient(this.config).getClient(reqCtx);
+  public override async getAvailableShippingMethods(payload: CheckoutQueryForAvailableShippingMethods): Promise<ShippingMethod[]> {
+    const client = await new MedusaClient(this.config).getClient(this.context);
 
     if (debug.enabled) {
       debug(`Fetching available shipping methods for checkout with key: ${payload.checkout.key}`);
@@ -104,8 +104,8 @@ export class MedusaCheckoutProvider<
     return shippingMethods;
   }
 
-  public override async getAvailablePaymentMethods(payload: CheckoutQueryForAvailablePaymentMethods, reqCtx: RequestContext): Promise<PaymentMethod[]> {
-    const client = await new MedusaClient(this.config).getClient(reqCtx);
+  public override async getAvailablePaymentMethods(payload: CheckoutQueryForAvailablePaymentMethods): Promise<PaymentMethod[]> {
+    const client = await new MedusaClient(this.config).getClient(this.context);
 
     if (debug.enabled) {
       debug(`Fetching available payment methods for checkout with key: ${payload.checkout.key}`);
@@ -129,8 +129,8 @@ export class MedusaCheckoutProvider<
     return paymentMethods;
   }
 
-  public override async addPaymentInstruction(payload: CheckoutMutationAddPaymentInstruction, reqCtx: RequestContext): Promise<T> {
-    const client = await new MedusaClient(this.config).getClient(reqCtx);
+  public override async addPaymentInstruction(payload: CheckoutMutationAddPaymentInstruction): Promise<T> {
+    const client = await new MedusaClient(this.config).getClient(this.context);
 
     if (debug.enabled) {
       debug(`Adding payment instruction ${payload.paymentInstruction.paymentMethod.name} to checkout with key: ${payload.checkout.key}`);
@@ -138,13 +138,13 @@ export class MedusaCheckoutProvider<
 
     throw new Error("Method not implemented.");
   }
-  public override removePaymentInstruction(payload: CheckoutMutationRemovePaymentInstruction, reqCtx: RequestContext): Promise<T> {
+  public override removePaymentInstruction(payload: CheckoutMutationRemovePaymentInstruction): Promise<T> {
     throw new Error("Method not implemented.");
   }
-  public override setShippingInstruction(payload: CheckoutMutationSetShippingInstruction, reqCtx: RequestContext): Promise<T> {
+  public override setShippingInstruction(payload: CheckoutMutationSetShippingInstruction): Promise<T> {
     throw new Error("Method not implemented.");
   }
-  public override finalizeCheckout(payload: CheckoutMutationFinalizeCheckout, reqCtx: RequestContext): Promise<T> {
+  public override finalizeCheckout(payload: CheckoutMutationFinalizeCheckout): Promise<T> {
     throw new Error("Method not implemented.");
   }
   protected override getResourceName(): string {
@@ -152,8 +152,8 @@ export class MedusaCheckoutProvider<
   }
   protected config: MedusaConfiguration;
 
-  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache) {
-    super(schema, cache);
+  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+    super(schema, cache, context);
     this.config = config;
   }
 

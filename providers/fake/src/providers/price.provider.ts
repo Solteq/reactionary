@@ -14,26 +14,25 @@ export class FakePriceProvider<
 > extends PriceProvider<T> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache) {
-    super(schema, cache);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+    super(schema, cache, context);
 
     this.config = config;
   }
 
-  public override async getBySKUs(payload: PriceQueryBySku[], reqCtx: RequestContext): Promise<T[]> {
+  public override async getBySKUs(payload: PriceQueryBySku[]): Promise<T[]> {
 
-    const promises = payload.map(p => this.getBySKU(p, reqCtx));
+    const promises = payload.map(p => this.getBySKU(p));
     const result = await Promise.all(promises);
     return result;
   }
 
   public override async getBySKU(
-    payload: PriceQueryBySku,
-    _reqCtx: RequestContext
+    payload: PriceQueryBySku
   ): Promise<T> {
 
     if (payload.variant.sku === 'unknown-sku') {
-      return this.createEmptyPriceResult(payload.variant.sku, _reqCtx.languageContext.currencyCode);
+      return this.createEmptyPriceResult(payload.variant.sku);
     }
 
     // Generate a simple hash from the SKU key string for seeding
@@ -57,7 +56,7 @@ export class FakePriceProvider<
       },
       unitPrice: {
         value: generator.number.int({ min: 300, max: 100000 }) / 100,
-        currency: _reqCtx.languageContext.currencyCode,
+        currency: this.context.languageContext.currencyCode,
       },
       meta: {
         cache: {
@@ -78,14 +77,14 @@ export class FakePriceProvider<
           minimumQuantity: generator.number.int({ min: 2, max: 5 }),
           price: {
             value: tier1Price,
-            currency: _reqCtx.languageContext.currencyCode,
+            currency: this.context.languageContext.currencyCode,
           }
         },
         {
           minimumQuantity: generator.number.int({ min: 6, max: 10 }),
           price: {
             value: tier2Price,
-            currency: _reqCtx.languageContext.currencyCode,
+            currency: this.context.languageContext.currencyCode,
           }
         }
       ];

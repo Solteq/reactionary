@@ -10,19 +10,16 @@ describe('Fake Product Provider', () => {
   let provider: FakeProductProvider;
   let reqCtx: RequestContext;
 
-  beforeAll(async () => {
-    provider = new FakeProductProvider(getFakerTestConfiguration(), ProductSchema, new MemoryCache());
-  });
-
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
+    provider = new FakeProductProvider(getFakerTestConfiguration(), ProductSchema, new MemoryCache(), reqCtx);
   })
 
   it('should cache repeat product lookups by id', async () => {
-    const first = await provider.getById({ id: '1234' }, reqCtx);
+    const first = await provider.getById({ id: '1234' });
     expect(first.meta.cache.hit).toBe(false);
 
-    const second = await provider.getById({ id: '1234' }, reqCtx);
+    const second = await provider.getById({ id: '1234' });
     expect(second.meta.cache.hit).toBe(true);
   });
 });

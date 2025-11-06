@@ -1,5 +1,9 @@
 import styles from './page.module.scss';
-import { ClientBuilder, createInitialRequestContext, NoOpCache } from '@reactionary/core';
+import {
+  ClientBuilder,
+  createInitialRequestContext,
+  NoOpCache,
+} from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
 
 export default async function Index() {
@@ -24,21 +28,18 @@ export default async function Index() {
     .build();
 
   const reqCtx = createInitialRequestContext();
-  reqCtx.correlationId = 'nextjs-request-' + (new Date().getTime());
-  const search = await client.productSearch.queryByTerm(
-    {
-      search: {
-        facets: [],
-        paginationOptions: {
-          pageNumber: 1,
-          pageSize: 12,
-        },
-        term: 'glass',
-        filters: []
+  reqCtx.correlationId = 'nextjs-request-' + new Date().getTime();
+  const search = await client.productSearch.queryByTerm({
+    search: {
+      facets: [],
+      paginationOptions: {
+        pageNumber: 1,
+        pageSize: 12,
       },
+      term: 'glass',
+      filters: [],
     },
-    reqCtx
-  );
+  });
 
   return (
     <div className={styles.page}>

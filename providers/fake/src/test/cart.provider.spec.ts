@@ -16,20 +16,17 @@ describe('Fake Cart Provider', () => {
   let identityProvider: FakeIdentityProvider;
   let reqCtx: RequestContext;
 
-  beforeAll( () => {
-    provider = new FakeCartProvider(getFakerTestConfiguration(), CartSchema, new NoOpCache());
-    identityProvider = new FakeIdentityProvider(getFakerTestConfiguration(), IdentitySchema, new NoOpCache());
-  });
-
   beforeEach( () => {
-    reqCtx = createInitialRequestContext()
+    reqCtx = createInitialRequestContext();
+    provider = new FakeCartProvider(getFakerTestConfiguration(), CartSchema, new NoOpCache(), reqCtx);
+    identityProvider = new FakeIdentityProvider(getFakerTestConfiguration(), IdentitySchema, new NoOpCache(), reqCtx);
   });
 
   describe('anonymous sessions', () => {
     it('should be able to get an empty cart', async () => {
       const cart = await provider.getById({
         cart: { key: '' },
-      }, reqCtx);
+      });
 
       expect(cart.identifier.key).toBeFalsy();
       expect(cart.items.length).toBe(0);
@@ -44,7 +41,7 @@ describe('Fake Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
       expect(cart.identifier.key).toBeDefined();
       expect(cart.items.length).toBe(1);
@@ -73,13 +70,13 @@ describe('Fake Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
       const updatedCart = await provider.changeQuantity({
         cart: cart.identifier,
         item: cart.items[0].identifier,
         quantity: 3
-      }, reqCtx);
+      });
 
       expect(updatedCart.identifier.key).toBe(cart.identifier.key);
       expect(updatedCart.items.length).toBe(1);
@@ -99,12 +96,12 @@ describe('Fake Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
       const updatedCart = await provider.remove({
         cart: cart.identifier,
         item: cart.items[0].identifier,
-      }, reqCtx);
+      });
       expect(updatedCart.identifier.key).toBe(cart.identifier.key);
       expect(updatedCart.items.length).toBe(0);
     });

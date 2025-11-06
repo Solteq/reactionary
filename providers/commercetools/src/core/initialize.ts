@@ -9,7 +9,8 @@ import type {
     CategoryProvider,
     StoreProvider,
     CheckoutProvider,
-    OrderProvider
+    OrderProvider,
+    RequestContext
     } from "@reactionary/core";
 import {
     CartSchema,
@@ -48,39 +49,39 @@ export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilitie
     configuration: CommercetoolsConfiguration,
     capabilities: T
 ) {
-    return (cache: Cache): CommercetoolsClient<T> => {
+    return (cache: Cache, context: RequestContext): CommercetoolsClient<T> => {
         const client: any = {};
 
         if (capabilities.product) {
-            client.product = new CommercetoolsProductProvider(configuration, ProductSchema, cache);
+            client.product = new CommercetoolsProductProvider(configuration, ProductSchema, cache, context);
         }
 
         if (capabilities.productSearch) {
-            client.productSearch = new CommercetoolsSearchProvider(configuration, ProductSearchResultItemSchema, cache);
+            client.productSearch = new CommercetoolsSearchProvider(configuration, ProductSearchResultItemSchema, cache, context);
         }
 
         if (capabilities.identity) {
-            client.identity = new CommercetoolsIdentityProvider(configuration, IdentitySchema, cache);
+            client.identity = new CommercetoolsIdentityProvider(configuration, IdentitySchema, cache, context);
         }
 
         if (capabilities.cart) {
-            client.cart = new CommercetoolsCartProvider(configuration, CartSchema, cache);
+            client.cart = new CommercetoolsCartProvider(configuration, CartSchema, cache, context);
         }
 
         if (capabilities.inventory) {
-            client.inventory = new CommercetoolsInventoryProvider(configuration, InventorySchema, cache);
+            client.inventory = new CommercetoolsInventoryProvider(configuration, InventorySchema, cache, context);
         }
 
         if (capabilities.price) {
-            client.price = new CommercetoolsPriceProvider(configuration, PriceSchema, cache);
+            client.price = new CommercetoolsPriceProvider(configuration, PriceSchema, cache, context);
         }
 
         if (capabilities.category) {
-            client.category = new CommercetoolsCategoryProvider(configuration, CategorySchema, cache);
+            client.category = new CommercetoolsCategoryProvider(configuration, CategorySchema, cache, context);
         }
 
         if (capabilities.checkout) {
-          client.checkout = new CommercetoolsCheckoutProvider(configuration, CheckoutSchema, cache);
+          client.checkout = new CommercetoolsCheckoutProvider(configuration, CheckoutSchema, cache, context);
         }
 
 

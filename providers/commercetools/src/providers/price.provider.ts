@@ -11,38 +11,36 @@ export class CommercetoolsPriceProvider<
 
 
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache) {
-    super(schema, cache);
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+    super(schema, cache, context);
 
     this.config = config;
   }
 
 
-  protected async getClient(reqCtx: RequestContext) {
+  protected async getClient() {
     const client = await new CommercetoolsClient(this.config).getClient(
-      reqCtx
+      this.context
     );
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections()
   }
 
 
 
-  public override async getBySKUs(payload: PriceQueryBySku[], reqCtx: RequestContext): Promise<T[]> {
-
-    const client = await this.getClient(reqCtx);
+  public override async getBySKUs(payload: PriceQueryBySku[]): Promise<T[]> {
+    const client = await this.getClient();
 
     //  AND (validFrom is not defined OR validFrom <= now()) AND (validUntil is not defined OR validUntil >= now())
 
-    const channels = await this.getChannels(reqCtx);
+    const channels = await this.getChannels();
 
     const response = await client.get({
       queryArgs: {
         staged: false,
-        priceCountry: reqCtx.taxJurisdiction.countryCode,
+        priceCountry: this.context.taxJurisdiction.countryCode,
         priceCustomerGroup: undefined,
         priceChannel: channels.offerChannelGUID,
-        priceCurrency: reqCtx.languageContext.currencyCode,
-       // storeProjection: reqCtx.storeIdentifier?.key || undefined,
+        priceCurrency: this.context.languageContext.currencyCode,
         where: 'variants(sku in (:skus)) OR (masterVariant(sku in (:skus))) ',
         'var.skus': payload.map(p => p.variant.sku),
         limit: payload.length,
@@ -56,9 +54,9 @@ export class CommercetoolsPriceProvider<
       const foundSku = allReturnedVariants.find(v => v.sku === p.variant.sku);
 
       if (!foundSku) {
-        result.push(this.createEmptyPriceResult(p.variant.sku, reqCtx.languageContext.currencyCode ));
+        result.push(this.createEmptyPriceResult(p.variant.sku));
       } else {
-        result.push(this.parseSingle(foundSku, reqCtx));
+        result.push(this.parseSingle(foundSku));
       }
     }
 
@@ -67,20 +65,19 @@ export class CommercetoolsPriceProvider<
 
 
   public override async getBySKU(
-    payload: PriceQueryBySku,
-    reqCtx: RequestContext
+    payload: PriceQueryBySku
   ): Promise<T> {
-    return this.getBySKUs([payload], reqCtx).then(r => r[0]);
+    return this.getBySKUs([payload]).then(r => r[0]);
   }
 
 
 
-  protected override parseSingle(_body: unknown, reqCtx: RequestContext): T {
+  protected override parseSingle(_body: unknown): T {
     const body = _body as CTProductVariant;
     const price = body.price as CTPrice | undefined;
 
     if (!price) {
-      return this.createEmptyPriceResult(body.sku!, reqCtx.languageContext.currencyCode);
+      return this.createEmptyPriceResult(body.sku!);
     }
 
     const base = this.newModel();
@@ -109,7 +106,7 @@ export class CommercetoolsPriceProvider<
     };
 
     base.meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(base.identifier, reqCtx) },
+      cache: { hit: false, key: this.generateCacheKeySingle(base.identifier) },
       placeholder: false
     };
 
@@ -117,9 +114,8 @@ export class CommercetoolsPriceProvider<
 
   }
 
-  protected async getChannels(reqCtx: RequestContext) {
-
-    if (!(reqCtx.session['commercetools'] && reqCtx.session['commercetools'].offerChannelGUID && reqCtx.session['commercetools'].listChannelGUID)) {
+  protected async getChannels() {
+    if (!(this.context.session['commercetools'] && this.context.session['commercetools'].offerChannelGUID && this.context.session['commercetools'].listChannelGUID)) {
 
       /**
        * Bah - have to be an admin to call these....
@@ -134,8 +130,8 @@ export class CommercetoolsPriceProvider<
         const [offerChannel, listChannel] = await Promise.all([offerPriceChannelPromise, listPriceChannelPromise]);
     */
 
-        reqCtx.session['commercetools'] = {
-          ...reqCtx.session['commercetools'],
+        this.context.session['commercetools'] = {
+          ...this.context.session['commercetools'],
           offerChannelGUID: undefined,
           listChannelGUID: undefined
         };
@@ -143,8 +139,8 @@ export class CommercetoolsPriceProvider<
 
 
     return {
-      offerChannelGUID: reqCtx.session['commercetools'].offerChannelGUID,
-      listChannelGUID: reqCtx.session['commercetools'].listChannelGUID
+      offerChannelGUID: this.context.session['commercetools'].offerChannelGUID,
+      listChannelGUID: this.context.session['commercetools'].listChannelGUID
     }
   }
 }

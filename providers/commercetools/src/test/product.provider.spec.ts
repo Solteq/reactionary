@@ -16,21 +16,17 @@ const testData = {
 }
 
 describe('Commercetools Product Provider', () => {
-
     let provider: CommercetoolsProductProvider;
     let reqCtx: RequestContext;
 
-    beforeAll( () => {
-      provider = new CommercetoolsProductProvider(getCommercetoolsTestConfiguration(), ProductSchema, new NoOpCache());
-    });
-
     beforeEach( () => {
-      reqCtx = createInitialRequestContext()
+      reqCtx = createInitialRequestContext();
+      provider = new CommercetoolsProductProvider(getCommercetoolsTestConfiguration(), ProductSchema, new NoOpCache(), reqCtx);
     })
 
 
   it('should be able to get a product by id', async () => {
-    const result = await provider.getById( { id: testData.product.id }, reqCtx);
+    const result = await provider.getById( { id: testData.product.id });
 
     expect(result).toBeTruthy();
     expect(result.identifier.key).toBe(testData.product.id);
@@ -40,7 +36,7 @@ describe('Commercetools Product Provider', () => {
   });
 
   it('should be able to get a product by slug', async () => {
-    const result = await provider.getBySlug( { slug: 'sunnai-glass-bowl' }, reqCtx);
+    const result = await provider.getBySlug( { slug: 'sunnai-glass-bowl' });
 
     expect(result).toBeTruthy();
     if (result) {
@@ -52,7 +48,7 @@ describe('Commercetools Product Provider', () => {
   });
 
   it('should be able to get a product by sku', async () => {
-    const result = await provider.getBySKU( { variant: { sku: testData.product.sku } }, reqCtx);
+    const result = await provider.getBySKU( { variant: { sku: testData.product.sku } });
 
     expect(result).toBeTruthy();
     if (result) {
@@ -64,7 +60,7 @@ describe('Commercetools Product Provider', () => {
   });
 
   it('should return null for unknown slug', async () => {
-    const result = await provider.getBySlug( { slug: 'unknown-slug' }, reqCtx);
+    const result = await provider.getBySlug( { slug: 'unknown-slug' });
 
     expect(result).toBeNull();
   });
@@ -72,7 +68,7 @@ describe('Commercetools Product Provider', () => {
 
 
   it('should return a placeholder product for unknown id', async () => {
-    const result = await provider.getById( { id: 'unknown-id' }, reqCtx);
+    const result = await provider.getById( { id: 'unknown-id' });
 
     expect(result).toBeTruthy();
     expect(result.meta.placeholder).toBe(true);

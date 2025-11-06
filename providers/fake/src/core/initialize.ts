@@ -8,10 +8,10 @@ import type {
   InventoryProvider,
   StoreProvider,
   PriceProvider,
+  RequestContext,
 } from '@reactionary/core';
 import {
   ProductSchema,
-  ProductSearchResultSchema,
   CategorySchema,
   CartSchema,
   InventorySchema,
@@ -46,14 +46,15 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
   configuration: FakeConfiguration,
   capabilities: T
 ) {
-  return (cache: ReactinaryCache): FakeClient<T> => {
+  return (cache: ReactinaryCache, context: RequestContext): FakeClient<T> => {
     const client: any = {};
 
     if (capabilities.product) {
       client.product = new FakeProductProvider(
         configuration,
         ProductSchema,
-        cache
+        cache,
+        context
       );
     }
 
@@ -61,7 +62,8 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
       client.productSearch = new FakeSearchProvider(
         configuration,
         ProductSearchResultItemSchema,
-        cache
+        cache,
+        context
       );
     }
 
@@ -69,28 +71,30 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
       client.category = new FakeCategoryProvider(
         configuration,
         CategorySchema,
-        cache
+        cache,
+        context
       );
     }
 
     if (capabilities.cart) {
-      client.cart = new FakeCartProvider(configuration, CartSchema, cache);
+      client.cart = new FakeCartProvider(configuration, CartSchema, cache, context);
     }
 
     if (capabilities.inventory) {
       client.inventory = new FakeInventoryProvider(
         configuration,
         InventorySchema,
-        cache
+        cache,
+        context
       );
     }
 
     if (capabilities.store) {
-      client.store = new FakeStoreProvider(configuration, StoreSchema, cache);
+      client.store = new FakeStoreProvider(configuration, StoreSchema, cache, context);
     }
 
     if (capabilities.price) {
-      client.price = new FakePriceProvider(configuration, PriceSchema, cache);
+      client.price = new FakePriceProvider(configuration, PriceSchema, cache, context);
     }
 
     return client;

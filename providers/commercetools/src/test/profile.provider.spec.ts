@@ -16,33 +16,32 @@ describe('Commercetools Profile Provider', () => {
   let identityProvider: CommercetoolsIdentityProvider;
   let reqCtx: RequestContext;
 
-  beforeAll(() => {
+  beforeEach(async () => {
+    reqCtx = createInitialRequestContext();
     provider = new CommercetoolsProfileProvider(
       getCommercetoolsTestConfiguration(),
       ProfileSchema,
-      new NoOpCache()
+      new NoOpCache(),
+      reqCtx
     );
 
     identityProvider = new CommercetoolsIdentityProvider(
       getCommercetoolsTestConfiguration(),
       IdentitySchema,
-      new NoOpCache()
+      new NoOpCache(),
+      reqCtx
     );
-  });
-
-  beforeEach(async () => {
-    reqCtx = createInitialRequestContext();
 
     const time = new Date().getTime();
 
     await identityProvider.register({
         username: `martin.rogne+test-${ time }@solteq.com`,
         password: 'love2test'
-    }, reqCtx);
+    });
   });
 
   it('should be able to fetch the profile for the current user', async () => {
-    const profile = await provider.getSelf({}, reqCtx);
+    const profile = await provider.getSelf({});
 
     expect(profile).toBeDefined();
     expect(profile.email).toContain('martin.rogne');

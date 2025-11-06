@@ -33,17 +33,15 @@ export class MedusaSearchProvider<
 > extends ProductSearchProvider<T> {
   protected config: MedusaConfiguration;
 
-  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache) {
-    super(schema, cache);
+  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+    super(schema, cache, context);
     this.config = config;
   }
 
   public override async queryByTerm(
-    payload: ProductSearchQueryByTerm,
-    reqCtx: RequestContext
+    payload: ProductSearchQueryByTerm
   ): Promise<ProductSearchResult> {
-
-    const client = await new MedusaClient(this.config).getClient(reqCtx);
+    const client = await new MedusaClient(this.config).getClient(this.context);
 
     const response = await client.store.product.list({
       q: payload.search.term,
@@ -51,7 +49,7 @@ export class MedusaSearchProvider<
       offset: (payload.search.paginationOptions.pageNumber - 1) * payload.search.paginationOptions.pageSize,
     });
 
-    const result = this.parsePaginatedResult(response, reqCtx) as ProductSearchResult;
+    const result = this.parsePaginatedResult(response) as ProductSearchResult;
     if (debug.enabled) {
       debug(`Search for term "${payload.search.term}" returned ${response.products.length} products (page ${payload.search.paginationOptions.pageNumber} of ${result.totalPages})`);
     }
@@ -70,12 +68,12 @@ export class MedusaSearchProvider<
     return result;
   }
 
-  protected override parsePaginatedResult(remote: StoreProductListResponse, reqCtx: RequestContext) {
+  protected override parsePaginatedResult(remote: StoreProductListResponse) {
 
     // Parse facets
     // no facets available from Medusa at the moment
 
-    const products: ProductSearchResultItem[] = remote.products.map((p) => this.parseSingle(p, reqCtx));
+    const products: ProductSearchResultItem[] = remote.products.map((p) => this.parseSingle(p));
 
 
     const result = createPaginatedResponseSchema(this.schema).parse({
@@ -95,7 +93,7 @@ export class MedusaSearchProvider<
   }
 
 
-  protected override parseSingle(_body: StoreProduct, reqCtx: RequestContext): T {
+  protected override parseSingle(_body: StoreProduct): T {
     const result = this.newModel();
 
     const heroVariant = _body.variants?.[0];
@@ -104,14 +102,14 @@ export class MedusaSearchProvider<
     result.name = heroVariant?.title || _body.title;
     result.variants = [];
     if (heroVariant) {
-      result.variants.push(this.parseVariant(heroVariant, _body, reqCtx));
+      result.variants.push(this.parseVariant(heroVariant, _body));
     }
 
     return this.assert(result);
   }
 
 
-  protected parseVariant(variant: StoreProductVariant, product: StoreProduct, reqCtx: RequestContext): ProductSearchResultItemVariant {
+  protected parseVariant(variant: StoreProductVariant, product: StoreProduct): ProductSearchResultItemVariant {
 
     const img = ImageSchema.parse({
       sourceUrl: product.images?.[0].url ?? '',
@@ -137,10 +135,10 @@ export class MedusaSearchProvider<
      } satisfies Partial<ProductSearchResultItemVariant>);
   }
 
-  protected override parseFacetValue(facetValueIdentifier: FacetValueIdentifier, label: string, count: number, reqCtx: RequestContext): ProductSearchResultFacetValue {
+  protected override parseFacetValue(facetValueIdentifier: FacetValueIdentifier, label: string, count: number): ProductSearchResultFacetValue {
     throw new Error('Method not implemented.');
   }
-  protected override parseFacet(facetIdentifier: FacetIdentifier, facetValue: unknown, reqCtx: RequestContext): ProductSearchResultFacet {
+  protected override parseFacet(facetIdentifier: FacetIdentifier, facetValue: unknown): ProductSearchResultFacet {
     throw new Error('Method not implemented.');
   }
 

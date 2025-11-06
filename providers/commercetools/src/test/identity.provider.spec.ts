@@ -16,32 +16,32 @@ describe('Commercetools Identity Provider', () => {
   let cartProvider: CommercetoolsCartProvider;
   let reqCtx: RequestContext;
 
-  beforeAll(() => {
+  beforeEach(async () => {
+    reqCtx = createInitialRequestContext();
+
     provider = new CommercetoolsIdentityProvider(
       getCommercetoolsTestConfiguration(),
       IdentitySchema,
-      new NoOpCache()
+      new NoOpCache(),
+      reqCtx
     );
 
     cartProvider = new CommercetoolsCartProvider(
       getCommercetoolsTestConfiguration(),
       CartSchema,
-      new NoOpCache()
+      new NoOpCache(),
+      reqCtx
     );
   });
 
-  beforeEach(async () => {
-    reqCtx = createInitialRequestContext();
-  });
-
   it('should default to an anonymous identity if no operations have been performed', async () => {
-    const identity = await provider.getSelf({}, reqCtx);
+    const identity = await provider.getSelf({});
 
     expect(identity.type).toBe('Anonymous');
   });
 
   it('should automatically upgrade to guest the moment an operation is performed', async () => {
-    const cart = await cartProvider.getActiveCartId(reqCtx);
+    const cart = await cartProvider.getActiveCartId();
     const updatedCart = await cartProvider.add(
       {
         cart,
@@ -49,11 +49,10 @@ describe('Commercetools Identity Provider', () => {
         variant: {
           sku: 'SGB-01',
         },
-      },
-      reqCtx
+      }
     );
 
-    const identity = await provider.getSelf({}, reqCtx);
+    const identity = await provider.getSelf({});
 
     expect(identity.type).toBe('Guest');
   });
@@ -64,13 +63,12 @@ describe('Commercetools Identity Provider', () => {
       {
         username: `test-user+${time}@example.com`,
         password: 'love2test',
-      },
-      reqCtx
+      }
     );
 
     expect(identity.type).toBe('Registered');
 
-    const refreshedIdentity = await provider.getSelf({}, reqCtx);
+    const refreshedIdentity = await provider.getSelf({});
     expect(refreshedIdentity.type).toBe('Registered');
   });
 
@@ -80,16 +78,15 @@ describe('Commercetools Identity Provider', () => {
       {
         username: `test-user+${time}@example.com`,
         password: 'love2test',
-      },
-      reqCtx
+      }
     );
 
     expect(identity.type).toBe('Registered');
 
-    const loggedOutIdentity = await provider.logout({}, reqCtx);
+    const loggedOutIdentity = await provider.logout({});
     expect(loggedOutIdentity.type).toBe('Anonymous');
 
-    const refreshedIdentity = await provider.getSelf({}, reqCtx);
+    const refreshedIdentity = await provider.getSelf({});
     expect(refreshedIdentity.type).toBe('Anonymous');
   });
 });

@@ -1,6 +1,7 @@
 import type {
   BaseModel,
-  Cache} from '@reactionary/core';
+  Cache,
+  RequestContext} from '@reactionary/core';
 import {
   AnalyticsProvider
 } from '@reactionary/core';
@@ -12,8 +13,8 @@ export class FakeAnalyticsProvider<
 > extends AnalyticsProvider<T> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache) {
-    super(schema, cache);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+    super(schema, cache, context);
 
     this.config = config;
   }

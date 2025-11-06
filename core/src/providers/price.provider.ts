@@ -1,14 +1,10 @@
-import type { Currency } from '../schemas/models/currency.model.js';
 import type { Price } from '../schemas/models/price.model.js';
 import type { PriceQueryBySku } from '../schemas/queries/price.query.js';
-import type { RequestContext } from '../schemas/session.schema.js';
 import { BaseProvider } from './base.provider.js';
 
 export abstract class PriceProvider<
   T extends Price = Price
 > extends BaseProvider<T> {
-
-
   /**
    * Get a price by SKU.
    *
@@ -19,7 +15,7 @@ export abstract class PriceProvider<
    * @param payload The SKU to query
    * @param session The session information
    */
-  public abstract getBySKU(payload: PriceQueryBySku, reqCtx: RequestContext): Promise<T>;
+  public abstract getBySKU(payload: PriceQueryBySku): Promise<T>;
 
 
   /**
@@ -29,7 +25,7 @@ export abstract class PriceProvider<
    * @param payload The SKUs to query
    * @param session The session information
    */
-  public abstract getBySKUs(payload: PriceQueryBySku[], reqCtx: RequestContext): Promise<T[]>;
+  public abstract getBySKUs(payload: PriceQueryBySku[]): Promise<T[]>;
 
 
   /**
@@ -40,17 +36,17 @@ export abstract class PriceProvider<
    * @param currency
    * @returns
    */
-  protected createEmptyPriceResult(sku: string, currency: Currency): T {
+  protected createEmptyPriceResult(sku: string): T {
     const base = this.newModel();
     base.identifier = {
       variant: { sku: sku }
     };
     base.unitPrice = {
       value: -1,
-      currency: currency,
+      currency: this.context.languageContext.currencyCode,
     };
     base.meta = {
-      cache: { hit: false, key: `price-${sku}-${currency}` },
+      cache: { hit: false, key: `price-${sku}-${this.context.languageContext.currencyCode}` },
       placeholder: true
     };
     return this.assert(base);

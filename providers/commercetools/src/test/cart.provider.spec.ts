@@ -19,21 +19,18 @@ describe('Commercetools Cart Provider', () => {
   let identityProvider: CommercetoolsIdentityProvider;
   let reqCtx: RequestContext;
 
-  beforeAll( () => {
-    provider = new CommercetoolsCartProvider(getCommercetoolsTestConfiguration(), CartSchema, new NoOpCache());
-    identityProvider = new CommercetoolsIdentityProvider(getCommercetoolsTestConfiguration(), IdentitySchema, new NoOpCache());
-    productProvider = new CommercetoolsProductProvider(getCommercetoolsTestConfiguration(), ProductSchema, new NoOpCache());
-  });
-
   beforeEach( () => {
-    reqCtx = createInitialRequestContext()
+    reqCtx = createInitialRequestContext();
+    provider = new CommercetoolsCartProvider(getCommercetoolsTestConfiguration(), CartSchema, new NoOpCache(), reqCtx);
+    identityProvider = new CommercetoolsIdentityProvider(getCommercetoolsTestConfiguration(), IdentitySchema, new NoOpCache(), reqCtx);
+    productProvider = new CommercetoolsProductProvider(getCommercetoolsTestConfiguration(), ProductSchema, new NoOpCache(), reqCtx);
   });
 
   describe('anonymous sessions', () => {
     it('should be able to get an empty cart', async () => {
       const cart = await provider.getById({
         cart: { key: '' },
-      }, reqCtx);
+      });
 
       expect(cart.identifier.key).toBeFalsy();
       expect(cart.items.length).toBe(0);
@@ -48,7 +45,7 @@ describe('Commercetools Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
       expect(cart.identifier.key).toBeDefined();
       expect(cart.items.length).toBe(1);
@@ -76,7 +73,7 @@ describe('Commercetools Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
 
       const updatedCart = await provider.add({
@@ -85,7 +82,7 @@ describe('Commercetools Cart Provider', () => {
             sku: testData.skuWithTiers,
           },
           quantity: 2
-      }, reqCtx);
+      });
 
       expect(updatedCart.items.length).toBe(2);
       expect(updatedCart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
@@ -102,13 +99,13 @@ describe('Commercetools Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
       const updatedCart = await provider.changeQuantity({
         cart: cart.identifier,
         item: cart.items[0].identifier,
         quantity: 3
-      }, reqCtx);
+      });
 
 
       expect(updatedCart.items.length).toBe(1);
@@ -129,12 +126,12 @@ describe('Commercetools Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
       const updatedCart = await provider.remove({
         cart: cart.identifier,
         item: cart.items[0].identifier,
-      }, reqCtx);
+      });
 
       expect(updatedCart.items.length).toBe(0);
     });
@@ -147,21 +144,21 @@ describe('Commercetools Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
 
       expect(cart.items.length).toBe(1);
       expect(cart.identifier.key).toBeTruthy();
 
       const deletedCart = await provider.deleteCart({
         cart: cart.identifier,
-      }, reqCtx);
+      });
 
       expect(deletedCart.items.length).toBe(0);
       expect(deletedCart.identifier.key).toBe('');
 
       const originalCart = await provider.getById({
         cart: cart.identifier,
-      }, reqCtx);
+      });
 
       expect(originalCart.items.length).toBe(0);
     });
@@ -174,10 +171,10 @@ describe('Commercetools Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      }, reqCtx);
+      });
       expect(cart.items[0].variant).toBeDefined();
 
-      const product = await productProvider.getBySKU( { variant: cart.items[0].variant }, reqCtx);
+      const product = await productProvider.getBySKU( { variant: cart.items[0].variant });
       expect(product).toBeTruthy();
       if (product) {
         expect(product.mainVariant.identifier.sku).toEqual(cart.items[0].variant.sku);

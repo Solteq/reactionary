@@ -13,16 +13,15 @@ describe('Commercetools Inventory Provider', () => {
   let provider: CommercetoolsInventoryProvider;
   let reqCtx: RequestContext;
 
-  beforeAll(() => {
+  beforeEach(() => {
+    reqCtx = createInitialRequestContext();
+
     provider = new CommercetoolsInventoryProvider(
       getCommercetoolsTestConfiguration(),
       InventorySchema,
-      new NoOpCache()
+      new NoOpCache(),
+      reqCtx
     );
-  });
-
-  beforeEach(() => {
-    reqCtx = createInitialRequestContext();
   });
 
   it.skip('should be able to fetch inventory for a given SKU and Fulfillment Center', async () => {
@@ -33,7 +32,7 @@ describe('Commercetools Inventory Provider', () => {
         fulfilmentCenter: {
             key: 'solteqPhysicalStore'
         }
-    }, reqCtx);
+    });
 
     expect(inventory.identifier.variant.sku).toBe('GMCT-01');
     expect(inventory.identifier.fulfillmentCenter.key).toBe('solteqPhysicalStore');

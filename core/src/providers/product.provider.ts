@@ -1,7 +1,7 @@
-import type { Product, ProductVariant } from '../schemas/models/product.model.js';
+import type { Product } from '../schemas/models/product.model.js';
 import { BaseProvider } from './base.provider.js';
 import type { RequestContext } from '../schemas/session.schema.js';
-import type { ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductQueryVariants } from '../schemas/queries/product.query.js';
+import type { ProductQueryById, ProductQueryBySKU, ProductQueryBySlug } from '../schemas/queries/product.query.js';
 
 export abstract class ProductProvider<
   T extends Product = Product
@@ -18,7 +18,7 @@ export abstract class ProductProvider<
    * Marketing will TYPICALLY recommend products, and in some cases maybe HeroVariants of a product.
    * In that case, you would need to resolve the product to its hero variant first, and then get the SKU from there.
    */
-  public abstract getById(payload: ProductQueryById, reqCtx: RequestContext): Promise<T>;
+  public abstract getById(payload: ProductQueryById): Promise<T>;
 
 
   /**
@@ -28,7 +28,7 @@ export abstract class ProductProvider<
    *
    * Usecase: You are rendering a product detail page, and you need to fetch the product by its slug.
    */
-  public abstract getBySlug(payload: ProductQueryBySlug, reqCtx: RequestContext): Promise<T | null>;
+  public abstract getBySlug(payload: ProductQueryBySlug): Promise<T | null>;
 
 
   /**
@@ -40,7 +40,7 @@ export abstract class ProductProvider<
    * and you need to fetch the product details for that SKU. You will get the a Product back, with the variant matching the SKU set as heroSku.
    * It might also be used on a quick-order page, or product recommendations from external system.
    */
-  public abstract getBySKU(payload: ProductQueryBySKU, reqCtx: RequestContext): Promise<T>;
+  public abstract getBySKU(payload: ProductQueryBySKU): Promise<T>;
 
   /**
    * Returns a set of Products for each variant. Is a paged response, to ensure we do not build in overfetching from the start.

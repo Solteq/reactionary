@@ -10,21 +10,20 @@ describe('Faker Category Provider', () => {
   let reqCtx: RequestContext;
   const cache = new MemoryCache();
 
-  beforeAll(() => {
-    provider = new FakeCategoryProvider(
-      getFakerTestConfiguration(),
-      CategorySchema,
-      cache
-    );
-  });
-
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
     cache.clear();
+
+    provider = new FakeCategoryProvider(
+      getFakerTestConfiguration(),
+      CategorySchema,
+      cache,
+      reqCtx
+    );
   })
 
   it('should be able to get top-categories', async () => {
-    const result = await provider.findTopCategories({ paginationOptions: { pageSize: 10, pageNumber: 1 }}, reqCtx);
+    const result = await provider.findTopCategories({ paginationOptions: { pageSize: 10, pageNumber: 1 }});
 
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.items[0].identifier.key).toBe('grocery');
@@ -35,7 +34,7 @@ describe('Faker Category Provider', () => {
   });
 
   it('should be able to get child categories for a category', async () => {
-    const result = await provider.findChildCategories({ parentId: { key: 'grocery' }, paginationOptions: { pageSize: 10, pageNumber: 1 }}, reqCtx);
+    const result = await provider.findChildCategories({ parentId: { key: 'grocery' }, paginationOptions: { pageSize: 10, pageNumber: 1 }});
 
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.items[0].identifier.key).toBe('grocery-0');
@@ -46,7 +45,7 @@ describe('Faker Category Provider', () => {
   });
 
   it('should be able to get child categories for a category, paged', async () => {
-    let result = await provider.findChildCategories({ parentId: { key: 'grocery' }, paginationOptions: { pageSize: 1, pageNumber: 1 }}, reqCtx);
+    let result = await provider.findChildCategories({ parentId: { key: 'grocery' }, paginationOptions: { pageSize: 1, pageNumber: 1 }});
 
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.items[0].identifier.key).toBe('grocery-0');
@@ -56,7 +55,7 @@ describe('Faker Category Provider', () => {
     expect(result.pageSize).toBe(1);
     expect(result.pageNumber).toBe(1);
 
-    result = await provider.findChildCategories({ parentId: { key: 'grocery' }, paginationOptions: { pageSize: 1, pageNumber: 2 }}, reqCtx);
+    result = await provider.findChildCategories({ parentId: { key: 'grocery' }, paginationOptions: { pageSize: 1, pageNumber: 2 }});
 
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.items[0].identifier.key).toBe('grocery-1');
@@ -68,7 +67,7 @@ describe('Faker Category Provider', () => {
   });
 
   it('can load all breadcrumbs for a category', async () => {
-    const result = await provider.getBreadcrumbPathToCategory({ id: { key: 'grocery-0-0' } }, reqCtx);
+    const result = await provider.getBreadcrumbPathToCategory({ id: { key: 'grocery-0-0' } });
 
     expect(result.length).toBeGreaterThan(2);
     expect(result[0].identifier.key).toBe('grocery');
@@ -85,7 +84,7 @@ describe('Faker Category Provider', () => {
   });
 
   it('should be able to get a category by slug', async () => {
-    const result = await provider.getBySlug({ slug: 'grocery-slug' }, reqCtx);
+    const result = await provider.getBySlug({ slug: 'grocery-slug' });
     expect(result).toBeTruthy();
     if (result) {
       expect(result.identifier.key).toBe('grocery');
@@ -98,12 +97,12 @@ describe('Faker Category Provider', () => {
   });
 
   it('returns null if looking for slug that does not exist', async () => {
-    const result = await provider.getBySlug({ slug: 'non-existent-slug' }, reqCtx);
+    const result = await provider.getBySlug({ slug: 'non-existent-slug' });
     expect(result).toBeNull();
   });
 
   it('should be able to get a category by id', async () => {
-    const result = await provider.getById({ id: { key: 'grocery'}}, reqCtx);
+    const result = await provider.getById({ id: { key: 'grocery'}});
 
     expect(result.identifier.key).toBe('grocery');
     expect(result.name).toBe('Grocery');
@@ -115,7 +114,7 @@ describe('Faker Category Provider', () => {
   });
 
   it('returns a placeholder if you search for a category that does not exist', async () => {
-    const result = await provider.getById({ id: { key: 'non-existent-category'}}, reqCtx);
+    const result = await provider.getById({ id: { key: 'non-existent-category'}});
     expect(result.identifier.key).toBe('non-existent-category');
     expect(result.meta.placeholder).toBe(true);
   });
@@ -125,25 +124,23 @@ describe('Faker Category Provider', () => {
     // Perhaps as an integration test
 
     it('should cache the results for byId', async () => {
-      const first = await provider.getById({ id: { key: 'grocery' } }, reqCtx);
+      const first = await provider.getById({ id: { key: 'grocery' } });
       expect(first.meta.cache.hit).toBe(false);
 
       const second = await provider.getById(
-        { id: { key: 'grocery' } },
-        reqCtx
+        { id: { key: 'grocery' } }
       );
       expect(second.meta.cache.hit).toBe(true);
     });
 
     it('can clear a cache entry by dependency id', async () => {
-      const first = await provider.getById({ id: { key: 'grocery' } }, reqCtx);
+      const first = await provider.getById({ id: { key: 'grocery' } });
 
       const dependencyIds = provider.generateDependencyIdsForModel(first);
       await cache.invalidate(dependencyIds);
 
       const second = await provider.getById(
-        { id: { key: 'grocery' } },
-        reqCtx
+        { id: { key: 'grocery' } }
       );
       expect(second.meta.cache.hit).toBe(false);
     });

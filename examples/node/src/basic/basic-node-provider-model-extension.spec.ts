@@ -1,7 +1,8 @@
 import type {
   Cache,
   ProductQueryById,
-  ProductQueryBySlug} from '@reactionary/core';
+  ProductQueryBySlug,
+  RequestContext} from '@reactionary/core';
 import {
   ClientBuilder,
   NoOpCache,
@@ -36,7 +37,7 @@ describe('basic node provider extension (models)', () => {
   }
 
   function withExtendedCapabilities() {
-    return (cache: Cache) => {
+    return (cache: Cache, context: RequestContext) => {
       const client = {
         product: new ExtendedProductProvider(
           { jitter: { mean: 0, deviation: 0 },
@@ -46,7 +47,8 @@ describe('basic node provider extension (models)', () => {
             search: 1
           } },
           ExtendedProductModel,
-          cache
+          cache,
+          context
         ),
       };
 
@@ -84,8 +86,7 @@ describe('basic node provider extension (models)', () => {
     const product = await client.product.getBySlug(
       {
         slug: '1234',
-      },
-      reqCtx
+      }
     );
 
     expect(product).toBeDefined();
@@ -96,8 +97,7 @@ describe('basic node provider extension (models)', () => {
     const product = await client.product.getById(
       {
         id: '1234',
-      },
-      reqCtx
+      }
     );
 
     expect(product).toBeDefined();
