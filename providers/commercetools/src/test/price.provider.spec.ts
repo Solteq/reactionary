@@ -4,7 +4,7 @@ import type { RequestContext} from '@reactionary/core';
 import { NoOpCache, PriceSchema, createInitialRequestContext,} from '@reactionary/core';
 import {   getCommercetoolsTestConfiguration } from './test-utils.js';
 import { CommercetoolsPriceProvider } from '../providers/price.provider.js';
-import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',
@@ -78,7 +78,7 @@ describe('Commercetools Price Provider', () => {
     }
   });
 
-  it.skip('can look up multiple prices at once', async () => {
+  it('can look up multiple prices at once', async () => {
     const provider = new CommercetoolsPriceProvider(getCommercetoolsTestConfiguration(), PriceSchema, new NoOpCache());
     const reqCtx = createInitialRequestContext()
 
