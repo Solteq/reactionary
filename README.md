@@ -95,6 +95,7 @@ Vendors: Commercetools, Algolia, Medusa
 
 - Menu navigation
 - CLP - Category Navigation  
+- Revise and review Schema usage patterns to reduce number of irrelevant default values.
 
 ### Roadmap to V0.3
 Usecase: As a registered user, i access my-account
