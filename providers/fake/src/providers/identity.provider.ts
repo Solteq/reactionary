@@ -18,15 +18,14 @@ export class FakeIdentityProvider<
   protected config: FakeConfiguration;
   private currentIdentity: T | null = null;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache) {
-    super(schema, cache);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+    super(schema, cache, context);
 
     this.config = config;
   }
 
   public override async getSelf(
-    _payload: IdentityQuerySelf,
-    _reqCtx: RequestContext
+    _payload: IdentityQuerySelf
   ): Promise<T> {
     if (!this.currentIdentity) {
       const model = this.newModel();
@@ -50,8 +49,7 @@ export class FakeIdentityProvider<
   }
 
   public override async login(
-    payload: IdentityMutationLogin,
-    _reqCtx: RequestContext
+    payload: IdentityMutationLogin
   ): Promise<T> {
     const generator = new Faker({
       seed: 42,
@@ -79,8 +77,7 @@ export class FakeIdentityProvider<
   }
 
   public override async logout(
-    _payload: IdentityMutationLogout,
-    _reqCtx: RequestContext
+    _payload: IdentityMutationLogout
   ): Promise<T> {
     const model = this.newModel();
     Object.assign(model, {
@@ -102,8 +99,7 @@ export class FakeIdentityProvider<
   }
 
   public override register(
-    payload: IdentityMutationRegister,
-    reqCtx: RequestContext
+    payload: IdentityMutationRegister
   ): Promise<T> {
     throw new Error('Method not implemented.');
   }

@@ -26,26 +26,27 @@ describe('Commercetools Checkout Provider', () => {
   let identityProvider: CommercetoolsIdentityProvider;
   let reqCtx: RequestContext;
 
-  beforeAll(() => {
+  beforeEach(() => {
+    reqCtx = createInitialRequestContext();
+
     provider = new CommercetoolsCheckoutProvider(
       getCommercetoolsTestConfiguration(),
       CheckoutSchema,
-      new NoOpCache()
+      new NoOpCache(),
+      reqCtx
     );
     cartProvider = new CommercetoolsCartProvider(
       getCommercetoolsTestConfiguration(),
       CartSchema,
-      new NoOpCache()
+      new NoOpCache(),
+      reqCtx
     );
     identityProvider = new CommercetoolsIdentityProvider(
       getCommercetoolsTestConfiguration(),
       IdentitySchema,
-      new NoOpCache()
+      new NoOpCache(),
+      reqCtx
     );
-  });
-
-  beforeEach(() => {
-    reqCtx = createInitialRequestContext();
   });
 
   describe('anonymous sessions', () => {
@@ -60,7 +61,6 @@ describe('Commercetools Checkout Provider', () => {
           },
           quantity: 1,
         },
-        reqCtx
       );
     });
 
@@ -83,8 +83,7 @@ describe('Commercetools Checkout Provider', () => {
           },
           notificationEmail: 'sample@example.com',
           notificationPhone: '+4512345678',
-        },
-        reqCtx
+        }
       );
 
       expect(checkout.identifier.key).toBeDefined();
@@ -112,8 +111,7 @@ describe('Commercetools Checkout Provider', () => {
             },
             notificationEmail: 'sample@example.com',
             notificationPhone: '+4512345678',
-          },
-          reqCtx
+          }
         );
       });
 
@@ -121,8 +119,7 @@ describe('Commercetools Checkout Provider', () => {
         const paymentMethods = await provider.getAvailablePaymentMethods(
           {
             checkout: checkout.identifier,
-          },
-          reqCtx
+          }
         );
         expect(paymentMethods.length).toBeGreaterThan(0);
         expect(
@@ -134,8 +131,7 @@ describe('Commercetools Checkout Provider', () => {
         const shippingMethods = await provider.getAvailableShippingMethods(
           {
             checkout: checkout.identifier,
-          },
-          reqCtx
+          }
         );
         expect(shippingMethods.length).toBeGreaterThan(0);
         expect(
@@ -147,8 +143,7 @@ describe('Commercetools Checkout Provider', () => {
         const paymentMethods = await provider.getAvailablePaymentMethods(
           {
             checkout: checkout.identifier,
-          },
-          reqCtx
+          }
         );
         const pm = paymentMethods.find((x) => x.identifier.method === 'stripe');
         expect(pm).toBeDefined();
@@ -161,8 +156,7 @@ describe('Commercetools Checkout Provider', () => {
               amount: checkout.price.grandTotal,
               protocolData: [{ key: 'test-key', value: 'test-value' }],
             }),
-          },
-          reqCtx
+          }
         );
 
         expect(checkoutWithPi.paymentInstructions.length).toBe(1);
@@ -177,8 +171,7 @@ describe('Commercetools Checkout Provider', () => {
         const paymentMethods = await provider.getAvailablePaymentMethods(
           {
             checkout: checkout.identifier,
-          },
-          reqCtx
+          }
         );
         const pm = paymentMethods.find((x) => x.identifier.method === 'stripe');
         expect(pm).toBeDefined();
@@ -191,8 +184,7 @@ describe('Commercetools Checkout Provider', () => {
               amount: checkout.price.grandTotal,
               protocolData: [{ key: 'test-key', value: 'test-value' }],
             }),
-          },
-          reqCtx
+          }
         );
 
         expect(checkoutWithPi.paymentInstructions.length).toBe(1);
@@ -202,8 +194,7 @@ describe('Commercetools Checkout Provider', () => {
             checkout: checkout.identifier,
             paymentInstruction:
               checkoutWithPi.paymentInstructions[0].identifier,
-          },
-          reqCtx
+          }
         );
 
         expect(checkoutAfterCancel.paymentInstructions.length).toBe(0);
@@ -223,8 +214,7 @@ describe('Commercetools Checkout Provider', () => {
               city: 'Othertown',
               region: '',
             },
-          },
-          reqCtx
+          }
         );
 
         expect(checkoutWithShipping.shippingAddress).toBeDefined();
@@ -235,8 +225,7 @@ describe('Commercetools Checkout Provider', () => {
         const shippingMethods = await provider.getAvailableShippingMethods(
           {
             checkout: checkout.identifier,
-          },
-          reqCtx
+          }
         );
         const sm = shippingMethods.find((x) => x.identifier.key === 'us-delivery');
         expect(sm).toBeDefined();
@@ -253,8 +242,7 @@ describe('Commercetools Checkout Provider', () => {
           {
             checkout: checkout.identifier,
             shippingInstruction,
-          },
-          reqCtx
+          }
         );
 
         expect(checkout.price.totalShipping.value).toBe(0);
@@ -280,8 +268,7 @@ describe('Commercetools Checkout Provider', () => {
           await provider.getAvailablePaymentMethods(
             {
               checkout: checkout.identifier,
-            },
-            reqCtx
+            }
           )
         ).find((x) => x.identifier.method === 'stripe');
         expect(pm).toBeDefined();
@@ -294,14 +281,12 @@ describe('Commercetools Checkout Provider', () => {
               amount: checkout.price.grandTotal,
               protocolData: [{ key: 'test-key', value: 'test-value' }],
             }),
-          },
-          reqCtx
+          }
         );
 
         // do something to simulate payment authorization ?
         const checkoutReady = await provider.getById(
           { identifier: checkoutWithPi.identifier },
-          reqCtx
         );
         if (!checkoutReady) {
           fail('checkout not found');

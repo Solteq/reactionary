@@ -31,24 +31,24 @@ export class CommercetoolsSearchProvider<
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
-    cache: Cache
+    cache: Cache,
+    context: RequestContext
   ) {
-    super(schema, cache);
+    super(schema, cache, context);
 
     this.config = config;
   }
 
-  protected async getClient(reqCtx: RequestContext) {
-    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
+  protected async getClient() {
+    const client = await new CommercetoolsClient(this.config).getClient(this.context);
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
   }
 
 
   public override async queryByTerm(
-    payload: ProductSearchQueryByTerm,
-    reqCtx: RequestContext
+    payload: ProductSearchQueryByTerm
   ): Promise<ProductSearchResult> {
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
 
     const response = await client
       .search()
@@ -56,13 +56,13 @@ export class CommercetoolsSearchProvider<
         queryArgs: {
           limit: payload.search.paginationOptions.pageSize,
           offset: (payload.search.paginationOptions.pageNumber - 1) * payload.search.paginationOptions.pageSize,
-          [`text.${reqCtx.languageContext.locale}`]: payload.search.term,
+          [`text.${this.context.languageContext.locale}`]: payload.search.term,
         },
       })
       .execute();
     const responseBody = response.body;
 
-    const result = this.parsePaginatedResult(responseBody, reqCtx) as ProductSearchResult;
+    const result = this.parsePaginatedResult(responseBody) as ProductSearchResult;
 
     if (debug.enabled) {
       debug(`Search for term "${payload.search.term}" returned ${responseBody.results.length} products (page ${payload.search.paginationOptions.pageNumber} of ${result.totalPages})`);
@@ -82,21 +82,21 @@ export class CommercetoolsSearchProvider<
     return result;
   }
 
-  protected override parseSingle(body: ProductProjection, reqCtx: RequestContext) {
+  protected override parseSingle(body: ProductProjection) {
 
     const product = this.newModel();
 
     product.identifier = { key: body.id};
-    product.name = body.name[reqCtx.languageContext.locale] || body.id;
-    product.slug = body.slug?.[reqCtx.languageContext.locale] || body.id;
-    product.variants = [ body.masterVariant,  ...body.variants ].map(variant => this.parseVariant(variant, body, reqCtx));
+    product.name = body.name[this.context.languageContext.locale] || body.id;
+    product.slug = body.slug?.[this.context.languageContext.locale] || body.id;
+    product.variants = [ body.masterVariant,  ...body.variants ].map(variant => this.parseVariant(variant, body));
 
     return product;
   }
 
-  protected override parsePaginatedResult(body: ProductProjectionPagedSearchResponse, reqCtx: RequestContext) {
+  protected override parsePaginatedResult(body: ProductProjectionPagedSearchResponse) {
 
-    const products: ProductSearchResultItem[] = body.results.map((p) => this.parseSingle(p, reqCtx));
+    const products: ProductSearchResultItem[] = body.results.map((p) => this.parseSingle(p));
     const facets: ProductSearchResultFacet[] = [];
 
     for (const id in body.facets) {
@@ -104,7 +104,7 @@ export class CommercetoolsSearchProvider<
       const facetId = FacetIdentifierSchema.parse({
         key: id
       })
-      const facet = this.parseFacet(facetId, f, reqCtx);
+      const facet = this.parseFacet(facetId, f);
       facets.push(facet);
     }
 
@@ -125,8 +125,7 @@ export class CommercetoolsSearchProvider<
   }
 
 
-  protected parseFacet(facetIdentifier: FacetIdentifier,  facetValue: FacetResult, reqCtx: RequestContext) : ProductSearchResultFacet {
-
+  protected parseFacet(facetIdentifier: FacetIdentifier,  facetValue: FacetResult) : ProductSearchResultFacet {
     const result: ProductSearchResultFacet = ProductSearchResultFacetSchema.parse({
       identifier: facetIdentifier,
       name: facetIdentifier.key,
@@ -139,13 +138,13 @@ export class CommercetoolsSearchProvider<
           key: ft.term
         } satisfies Partial<FacetValueIdentifier>);
 
-        result.values.push(this.parseFacetValue(facetValueIdentifier, ft.term, ft.count, reqCtx));
+        result.values.push(this.parseFacetValue(facetValueIdentifier, ft.term, ft.count));
       }
     }
     return result;
   }
 
-  protected parseFacetValue(facetValueIdentifier: FacetValueIdentifier,  label: string, count: number, reqCtx: RequestContext) : ProductSearchResultFacetValue {
+  protected parseFacetValue(facetValueIdentifier: FacetValueIdentifier,  label: string, count: number) : ProductSearchResultFacetValue {
     return ProductSearchResultFacetValueSchema.parse({
       identifier: facetValueIdentifier,
       name: label,
@@ -156,7 +155,7 @@ export class CommercetoolsSearchProvider<
 
 
 
-  protected parseVariant(variant: CTProductVariant, product: ProductProjection, reqCtx: RequestContext): ProductSearchResultItemVariant {
+  protected parseVariant(variant: CTProductVariant, product: ProductProjection): ProductSearchResultItemVariant {
 
     const sourceImage = variant.images?.[0];
 
@@ -164,7 +163,7 @@ export class CommercetoolsSearchProvider<
       sourceUrl: sourceImage?.url || '',
       height: sourceImage?.dimensions.h || undefined,
       width: sourceImage?.dimensions.w || undefined,
-      altText: sourceImage?.label || product.name[reqCtx.languageContext.locale]  || undefined,
+      altText: sourceImage?.label || product.name[this.context.languageContext.locale]  || undefined,
     });
 
     const mappedOptions = variant.attributes?.filter(x => x.name === 'Color').map((opt) =>  ProductVariantOptionSchema.parse({
@@ -185,8 +184,4 @@ export class CommercetoolsSearchProvider<
       option: mappedOption,
      } satisfies Partial<ProductSearchResultItemVariant>);
   }
-
-
-
-
 }

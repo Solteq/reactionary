@@ -21,14 +21,14 @@ export class MedusaProductProvider<
 > extends ProductProvider<T> {
   protected config: MedusaConfiguration;
 
-  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache) {
-    super(schema, cache);
+  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+  super(schema, cache, context);
    this.config = config;
   }
 
 
-  public override async getById(payload: ProductQueryById, reqCtx: RequestContext): Promise<T> {
-    const client = await new MedusaClient(this.config).getClient(reqCtx);
+  public override async getById(payload: ProductQueryById): Promise<T> {
+    const client = await new MedusaClient(this.config).getClient(this.context);
     if (debug.enabled) {
       debug(`Fetching product by ID: ${payload.id}`);
     }
@@ -41,11 +41,11 @@ export class MedusaProductProvider<
       }
       return this.createEmptyProduct(payload.id);
     }
-    return this.parseSingle(response.product, reqCtx);
+    return this.parseSingle(response.product);
   }
 
-  public override async getBySlug(payload: ProductQueryBySlug, reqCtx: RequestContext): Promise<T | null> {
-    const client = await new MedusaClient(this.config).getClient(reqCtx);
+  public override async getBySlug(payload: ProductQueryBySlug): Promise<T | null> {
+    const client = await new MedusaClient(this.config).getClient(this.context);
     if (debug.enabled) {
       debug(`Fetching product by slug: ${payload.slug}`);
     }
@@ -63,11 +63,11 @@ export class MedusaProductProvider<
     if (response.count === 0) {
       return null;
     }
-    return this.parseSingle(response.products[0], reqCtx);
+    return this.parseSingle(response.products[0]);
   }
 
 
-  public override async getBySKU(payload: ProductQueryBySKU, reqCtx: RequestContext): Promise<T> {
+  public override async getBySKU(payload: ProductQueryBySKU): Promise<T> {
 
     if (debug.enabled) {
       debug(`Fetching product by SKU: ${Array.isArray(payload) ? payload.join(', ') : payload}`);
@@ -75,7 +75,7 @@ export class MedusaProductProvider<
     const sku = payload.variant.sku;
 
     // FIXME: Medusa does not support searching by SKU directly, so we have to use the admin client to search for products with variants matching the SKU
-    const adminClient = await new MedusaAdminClient(this.config).getClient(reqCtx);
+    const adminClient = await new MedusaAdminClient(this.config).getClient(this.context);
 
     const productsResponse = await adminClient.admin.product.list({
       limit: 1,
@@ -98,16 +98,11 @@ export class MedusaProductProvider<
     product.variants.push(variant);
 
     // For simplicity, return the first matched product
-    return this.parseSingle(product, reqCtx);
+    return this.parseSingle(product);
   }
 
-
-
-  protected override parseSingle(_body: StoreProduct, reqCtx: RequestContext): T {
+  protected override parseSingle(_body: StoreProduct): T {
     const model = this.newModel();
-
-
-
 
     model.identifier = ProductIdentifierSchema.parse({ key: _body.id });
     model.name = _body.title;
@@ -121,7 +116,7 @@ export class MedusaProductProvider<
       debug('Product has no variants', _body);
       throw new Error('Product has no variants ' + _body.id);
     }
-    const mainVariant = this.parseVariant(_body.variants[0], _body, reqCtx);
+    const mainVariant = this.parseVariant(_body.variants[0], _body);
     model.mainVariant = mainVariant;
 
     if (debug.enabled) {
@@ -130,14 +125,14 @@ export class MedusaProductProvider<
 
 
     model.meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(model.identifier, reqCtx) },
+      cache: { hit: false, key: this.generateCacheKeySingle(model.identifier) },
       placeholder: false
     };
 
     return this.assert(model);
   }
 
-  protected parseVariant(variant: StoreProductVariant, product: StoreProduct, reqCtx: RequestContext) {
+  protected parseVariant(variant: StoreProductVariant, product: StoreProduct) {
     const result = ProductVariantSchema.parse({
       identifier: ProductVariantIdentifierSchema.parse({
         sku: variant.sku || '',

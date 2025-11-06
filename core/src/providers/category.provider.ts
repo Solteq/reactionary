@@ -31,7 +31,7 @@ export abstract class CategoryProvider<
    * @param id
    * @param session
    */
-  public abstract getById(payload: CategoryQueryById, reqCtx: RequestContext): Promise<T>;
+  public abstract getById(payload: CategoryQueryById): Promise<T>;
 
   /**
    * Gets a single category by its seo slug
@@ -40,7 +40,7 @@ export abstract class CategoryProvider<
    * @param slug the slug
    * @param session
    */
-  public abstract getBySlug(payload: CategoryQueryBySlug, reqCtx: RequestContext): Promise<T | null>;
+  public abstract getBySlug(payload: CategoryQueryBySlug): Promise<T | null>;
 
 
   /**
@@ -51,7 +51,7 @@ export abstract class CategoryProvider<
    * @param id
    * @param session
    */
-  public abstract getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb, reqCtx: RequestContext): Promise<T[]>;
+  public abstract getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb): Promise<T[]>;
 
   // hmm, this is not really good enough.... We need a type we can pass in that will allow us to specify the precise return type, but otoh we also need
   // to be able to verify and assert the output type. FIXME
@@ -66,7 +66,7 @@ export abstract class CategoryProvider<
    * @param id The ID of the parent category.
    * @param session The session information.
    */
-  public abstract findChildCategories(payload: CategoryQueryForChildCategories, reqCtx: RequestContext): Promise< ReturnType<typeof this.parsePaginatedResult>>;
+  public abstract findChildCategories(payload: CategoryQueryForChildCategories): Promise< ReturnType<typeof this.parsePaginatedResult>>;
 
   /**
    * Returns all top categories, i.e. categories without a parent.
@@ -75,7 +75,7 @@ export abstract class CategoryProvider<
    * @param paginationOptions
    * @param session
    */
-  public abstract findTopCategories( payload: CategoryQueryForTopCategories, reqCtx: RequestContext): Promise<ReturnType<typeof this.parsePaginatedResult>>;
+  public abstract findTopCategories( payload: CategoryQueryForTopCategories): Promise<ReturnType<typeof this.parsePaginatedResult>>;
 
 
   protected override getResourceName(): string {

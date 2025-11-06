@@ -17,30 +17,28 @@ export class FakeProductProvider<
 > extends ProductProvider<T> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactinaryCache) {
-    super(schema, cache);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactinaryCache, context: RequestContext) {
+    super(schema, cache, context);
 
     this.config = config;
   }
 
   @Reactionary({})
   public override async getById(
-    payload: ProductQueryById,
-    _reqCtx: RequestContext
+    payload: ProductQueryById
   ): Promise<T> {
     return this.parseSingle(payload);
   }
 
   @Reactionary({})
   public override async getBySlug(
-    payload: ProductQueryBySlug,
-    _reqCtx: RequestContext
+    payload: ProductQueryBySlug
   ): Promise<T> {
     return this.parseSingle(payload);
   }
 
   @Reactionary({})
-  public override async getBySKU(payload: ProductQueryBySKU, reqCtx: RequestContext): Promise<T> {
+  public override async getBySKU(payload: ProductQueryBySKU): Promise<T> {
     return this.parseSingle(payload);
   }
 

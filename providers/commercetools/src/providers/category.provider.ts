@@ -11,14 +11,14 @@ export class CommercetoolsCategoryProvider<
 
   protected config: CommercetoolsConfiguration;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache) {
-    super(schema, cache);
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+    super(schema, cache, context);
 
     this.config = config;
   }
 
-  protected async getClient(reqCtx: RequestContext): Promise<ByProjectKeyCategoriesRequestBuilder> {
-    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
+  protected async getClient(): Promise<ByProjectKeyCategoriesRequestBuilder> {
+    const client = await new CommercetoolsClient(this.config).getClient(this.context);
     return client.withProjectKey({ projectKey: this.config.projectKey }).categories();
   }
 
@@ -28,11 +28,11 @@ export class CommercetoolsCategoryProvider<
    * @param session
    * @returns
    */
-  public override async getById(payload: CategoryQueryById, reqCtx: RequestContext): Promise<T> {
-    const client = await this.getClient(reqCtx);
+  public override async getById(payload: CategoryQueryById): Promise<T> {
+    const client = await this.getClient();
     try {
       const response = await client.withKey({ key: payload.id.key }).get().execute();
-      return this.parseSingle(response.body, reqCtx);
+      return this.parseSingle(response.body);
     } catch (error) {
       const dummyCategory = this.newModel();
       dummyCategory.meta.placeholder = true;
@@ -47,14 +47,14 @@ export class CommercetoolsCategoryProvider<
    * @param session
    * @returns
    */
-  public override async getBySlug(payload: CategoryQueryBySlug, reqCtx: RequestContext): Promise<T | null> {
-    const client = await this.getClient(reqCtx);
+  public override async getBySlug(payload: CategoryQueryBySlug): Promise<T | null> {
+    const client = await this.getClient();
     try {
       const response = await client.get({
         queryArgs: {
-          where: `slug(${reqCtx.languageContext.locale}=:slug)`,
+          where: `slug(${this.context.languageContext.locale}=:slug)`,
           'var.slug': payload.slug,
-          storeProjection: reqCtx.storeIdentifier.key ,
+          storeProjection: this.context.storeIdentifier.key ,
           limit: 1,
           withTotal: false,
         }
@@ -62,7 +62,7 @@ export class CommercetoolsCategoryProvider<
       if (response.body.results.length === 0) {
         return null;
       }
-      return this.parseSingle(response.body.results[0], reqCtx);
+      return this.parseSingle(response.body.results[0]);
     } catch (error) {
       console.error(`Error fetching category by slug:`, error);
       return null;
@@ -76,8 +76,8 @@ export class CommercetoolsCategoryProvider<
    * @param session
    * @returns
    */
-  public override async getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb, reqCtx: RequestContext): Promise<T[]> {
-    const client = await this.getClient(reqCtx);
+  public override async getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb): Promise<T[]> {
+    const client = await this.getClient();
     const path: T[] = [];
     try {
       const response = await client.withKey({ key: payload.id.key }).get({
@@ -86,10 +86,10 @@ export class CommercetoolsCategoryProvider<
         }
       }).execute();
 
-      const category = this.parseSingle(response.body, reqCtx);
+      const category = this.parseSingle(response.body);
       for(const anc of response.body.ancestors || []) {
         if (anc.obj) {
-          const parsedAnc = this.parseSingle(anc.obj, reqCtx);
+          const parsedAnc = this.parseSingle(anc.obj);
           path.push(parsedAnc);
         }
       };
@@ -112,12 +112,12 @@ export class CommercetoolsCategoryProvider<
    * @param session
    * @returns
    */
-  public override async findChildCategories(payload: CategoryQueryForChildCategories, reqCtx: RequestContext) {
+  public override async findChildCategories(payload: CategoryQueryForChildCategories) {
 
     // ok, so for Commercetools we can't actually query by the parents key, so we have to first resolve the key to an ID, then query by that.
     // This is a bit of a pain, but we can cache the result of the first lookup for a short period to mitigate it.
 
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
 
     try {
       const parentCategory = await client.withKey({ key: payload.parentId.key }).get().execute();
@@ -133,14 +133,14 @@ export class CommercetoolsCategoryProvider<
             limit: payload.paginationOptions.pageSize,
             offset: (payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize,
             sort: 'orderHint asc',
-            storeProjection: reqCtx.storeIdentifier.key ,
+            storeProjection: this.context.storeIdentifier.key,
           },
         })
         .execute();
 
-      const result = this.parsePaginatedResult(response.body, reqCtx);
+      const result = this.parsePaginatedResult(response.body);
       result.meta = {
-        cache: { hit: false, key: this.generateCacheKeyPaginatedResult('children-of-' + payload.parentId.key, result, reqCtx) },
+        cache: { hit: false, key: this.generateCacheKeyPaginatedResult('children-of-' + payload.parentId.key, result) },
         placeholder: false
       };
       return result;
@@ -150,9 +150,9 @@ export class CommercetoolsCategoryProvider<
     return createPaginatedResponseSchema(this.schema).parse({});
   }
 
-  public override async findTopCategories(payload: CategoryQueryForTopCategories, reqCtx: RequestContext) {
+  public override async findTopCategories(payload: CategoryQueryForTopCategories) {
 
-    const client = await this.getClient(reqCtx);
+    const client = await this.getClient();
     try {
       const response = await client.get({
           queryArgs: {
@@ -160,14 +160,14 @@ export class CommercetoolsCategoryProvider<
             limit: payload.paginationOptions.pageSize,
             offset: (payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize,
             sort: 'orderHint asc',
-            storeProjection: reqCtx.storeIdentifier.key ,
+            storeProjection: this.context.storeIdentifier.key ,
           },
         })
         .execute();
 
-      const result = this.parsePaginatedResult(response.body, reqCtx);
+      const result = this.parsePaginatedResult(response.body);
       result.meta = {
-        cache: { hit: false, key: this.generateCacheKeyPaginatedResult('top', result, reqCtx) },
+        cache: { hit: false, key: this.generateCacheKeyPaginatedResult('top', result) },
         placeholder: false
       };
       return result;
@@ -184,9 +184,9 @@ export class CommercetoolsCategoryProvider<
    * Handler for parsing a response from a remote provider and converting it
    * into the typed domain model.
    */
-  protected override parseSingle(_body: unknown, reqCtx: RequestContext): T {
+  protected override parseSingle(_body: unknown): T {
     const body = _body as CTCategory;
-    const languageContext = reqCtx.languageContext;
+    const languageContext = this.context.languageContext;
 
     const model = this.newModel();
 
@@ -207,17 +207,17 @@ export class CommercetoolsCategoryProvider<
     });
 
     model.meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(model.identifier, reqCtx) },
+      cache: { hit: false, key: this.generateCacheKeySingle(model.identifier) },
       placeholder: false
     };
 
     return this.assert(model);
   }
 
-  protected override parsePaginatedResult(_body: unknown, reqCtx: RequestContext) {
+  protected override parsePaginatedResult(_body: unknown) {
     const body = _body as  CategoryPagedQueryResponse;
 
-    const items = body.results.map(x => this.parseSingle(x, reqCtx));
+    const items = body.results.map(x => this.parseSingle(x));
 
     const result = createPaginatedResponseSchema(this.schema).parse({
       meta: {

@@ -18,7 +18,7 @@ export abstract class CheckoutProvider<
    * @param billingAddress the billing/shipping address to start with. This affects available shipping methods, and may be required by some payment providers.
    * @param reqCtx
    */
-  public abstract initiateCheckoutForCart(payload: CheckoutMutationInitiateCheckout, reqCtx: RequestContext): Promise<T>;
+  public abstract initiateCheckoutForCart(payload: CheckoutMutationInitiateCheckout): Promise<T>;
 
 
   /**
@@ -28,9 +28,7 @@ export abstract class CheckoutProvider<
    * @param payload
    * @param reqCtx
    */
-  public abstract getById(payload:  CheckoutQueryById, reqCtx: RequestContext): Promise<T | null>;
-
-
+  public abstract getById(payload:  CheckoutQueryById): Promise<T | null>;
 
   /**
    * Updates the shipping address for the checkout and recalculates the shipping methods and totals.
@@ -40,7 +38,7 @@ export abstract class CheckoutProvider<
    * NOTE: Unsure this is really needed.
    * @param shippingAddress The updated shipping address. Note: This may also be the billing address, if your store does not differentiate.
    */
-  public abstract setShippingAddress(payload: CheckoutMutationSetShippingAddress, reqCtx: RequestContext): Promise<T>;
+  public abstract setShippingAddress(payload: CheckoutMutationSetShippingAddress): Promise<T>;
 
   /**
    * Returns all available shipping methods for the given checkout. This will typically depend on the shipping address, and possibly also the items in the checkout.
@@ -50,7 +48,7 @@ export abstract class CheckoutProvider<
    * @param checkoutId The checkout you want to get shipping methods for.
    * @param reqCtx
    */
-  public abstract getAvailableShippingMethods(payload: CheckoutQueryForAvailableShippingMethods, reqCtx: RequestContext): Promise<ShippingMethod[]>;
+  public abstract getAvailableShippingMethods(payload: CheckoutQueryForAvailableShippingMethods): Promise<ShippingMethod[]>;
 
   /**
    * Returns all available payment methods for the given checkout. This will typically depend mostly on the billing address and jurisdiction.
@@ -60,7 +58,7 @@ export abstract class CheckoutProvider<
    * @param checkoutId The checkout you want to get payment methods for.
    * @param reqCtx
    */
-  public abstract getAvailablePaymentMethods(payload: CheckoutQueryForAvailablePaymentMethods, reqCtx: RequestContext): Promise<PaymentMethod[]>;
+  public abstract getAvailablePaymentMethods(payload: CheckoutQueryForAvailablePaymentMethods): Promise<PaymentMethod[]>;
 
 
   /**
@@ -68,7 +66,7 @@ export abstract class CheckoutProvider<
    *
    * Usecase: User has chosen a payment method, and you need to start the payment process.
    */
-  public abstract addPaymentInstruction(payload: CheckoutMutationAddPaymentInstruction, reqCtx: RequestContext): Promise<T>;
+  public abstract addPaymentInstruction(payload: CheckoutMutationAddPaymentInstruction): Promise<T>;
 
   /**
    * Removes a payment instruction from the checkout. This will typically void the payment intent in the payment provider, and remove the payment instruction from the checkout.
@@ -76,7 +74,7 @@ export abstract class CheckoutProvider<
    * Usecase: User has decided to change payment method, or has cancelled the payment process.
    * @param paymentInstructionId
    */
-  public abstract removePaymentInstruction(payload: CheckoutMutationRemovePaymentInstruction, reqCtx: RequestContext): Promise<T>;
+  public abstract removePaymentInstruction(payload: CheckoutMutationRemovePaymentInstruction): Promise<T>;
 
 
 
@@ -90,7 +88,7 @@ export abstract class CheckoutProvider<
    * @param shippingMethodId
    * @param pickupPoint
    */
-  public abstract setShippingInstruction(payload: CheckoutMutationSetShippingInstruction, reqCtx: RequestContext): Promise<T>;
+  public abstract setShippingInstruction(payload: CheckoutMutationSetShippingInstruction): Promise<T>;
 
   /**
    * Finalizes the checkout process. This typically involves creating an order from the checkout and processing payment.
@@ -100,7 +98,7 @@ export abstract class CheckoutProvider<
    * @param payload
    * @param reqCtx
    */
-  public abstract finalizeCheckout(payload: CheckoutMutationFinalizeCheckout, reqCtx: RequestContext): Promise<T>;
+  public abstract finalizeCheckout(payload: CheckoutMutationFinalizeCheckout): Promise<T>;
 }
 
 

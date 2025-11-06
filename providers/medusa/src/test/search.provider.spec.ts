@@ -5,13 +5,13 @@ import { MedusaSearchProvider } from '../providers/product-search.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 
 describe('Medusa Search Provider', () => {
+  const reqCtx = createInitialRequestContext();
   const provider = new MedusaSearchProvider(
     getMedusaTestConfiguration(),
     ProductSearchResultItemSchema,
-    new NoOpCache()
+    new NoOpCache(),
+    reqCtx
   );
-
-  const reqCtx = createInitialRequestContext();
 
   it('should be able to get a result by term', async () => {
     const result = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
@@ -22,7 +22,7 @@ describe('Medusa Search Provider', () => {
       },
       facets: [],
       filters: [],
-    }}), reqCtx);
+    }}));
 
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.facets.length).toBe(0);
@@ -37,7 +37,7 @@ describe('Medusa Search Provider', () => {
       },
       facets: [],
       filters: []
-    }}), reqCtx);
+    }}));
 
     const secondPage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
       term: 'glass',
@@ -47,7 +47,7 @@ describe('Medusa Search Provider', () => {
       },
       facets: [],
       filters: []
-    }}), reqCtx);
+    }}));
 
     expect(firstPage.pageNumber).toBe(1);
     expect(secondPage.pageNumber).toBe(2);
@@ -65,7 +65,8 @@ describe('Medusa Search Provider', () => {
       },
       facets: [],
       filters: [],
-    }}), reqCtx);
+    }}));
+
     const largePage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
       term: 'glass',
       paginationOptions: {
@@ -74,7 +75,7 @@ describe('Medusa Search Provider', () => {
       },
       facets: [],
       filters: [],
-    }}), reqCtx);
+    }}));
 
     expect(smallPage.items.length).toBe(2);
     expect(smallPage.pageSize).toBe(2);

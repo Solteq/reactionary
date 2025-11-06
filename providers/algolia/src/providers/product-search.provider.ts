@@ -41,14 +41,13 @@ export class AlgoliaSearchProvider<
 > extends ProductSearchProvider<T> {
   protected config: AlgoliaConfiguration;
 
-  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, cache: Cache) {
-    super(schema, cache);
+  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+    super(schema, cache, context);
     this.config = config;
   }
 
   public override async queryByTerm(
-    payload: ProductSearchQueryByTerm,
-    reqCtx: RequestContext
+    payload: ProductSearchQueryByTerm
   ): Promise<ProductSearchResult> {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
     const remote = await client.search<AlgoliaNativeRecord>({
@@ -78,7 +77,7 @@ export class AlgoliaSearchProvider<
       key: input.queryID
     });
 
-    const result = this.parsePaginatedResult(input, reqCtx) as AlgoliaSearchResult;
+    const result = this.parsePaginatedResult(input) as AlgoliaSearchResult;
     result.identifier = identifier; // all paginated results should have a .query
 
     // mark facets active
@@ -102,21 +101,18 @@ export class AlgoliaSearchProvider<
   }
 
 
-  protected override parseSingle(body: AlgoliaNativeRecord, reqCtx: RequestContext): T {
+  protected override parseSingle(body: AlgoliaNativeRecord): T {
     const product = this.newModel();
 
     product.identifier = { key: body.objectID};
     product.name = body.name || body.objectID;
     product.slug = body.slug || body.objectID;
-    product.variants = [ ... (body.variants || []) ].map(variant => this.parseVariant(variant, body, reqCtx));
+    product.variants = [ ... (body.variants || []) ].map(variant => this.parseVariant(variant, body));
 
     return this.assert(product);
   }
 
-  protected override parseVariant(variant: AlgoliaNativeVariant, product: AlgoliaNativeRecord, reqCtx: RequestContext): ProductSearchResultItemVariant {
-
-
-
+  protected override parseVariant(variant: AlgoliaNativeVariant, product: AlgoliaNativeRecord): ProductSearchResultItemVariant {
       const result = ProductSearchResultItemVariantSchema.parse({
       variant: {
         sku: variant.variantID
@@ -130,17 +126,16 @@ export class AlgoliaSearchProvider<
     return result;
   }
 
+  protected override parsePaginatedResult(body: SearchResponse<AlgoliaNativeRecord>) {
 
-  protected override parsePaginatedResult(body: SearchResponse<AlgoliaNativeRecord>, reqCtx: RequestContext) {
-
-    const items = body.hits.map((hit) => this.parseSingle(hit, reqCtx));
+    const items = body.hits.map((hit) => this.parseSingle(hit));
     const facets: ProductSearchResultFacet[] = [];
     for (const id in body.facets) {
       const f = body.facets[id];
       const facetId = FacetIdentifierSchema.parse({
         key: id
       })
-      const facet = this.parseFacet(facetId, f, reqCtx);
+      const facet = this.parseFacet(facetId, f);
       facets.push(facet);
     }
 
@@ -161,7 +156,7 @@ export class AlgoliaSearchProvider<
     return result;
   }
 
-  protected parseFacet(facetIdentifier: FacetIdentifier,  facetValues: Record<string, number>, reqCtx: RequestContext) : ProductSearchResultFacet {
+  protected parseFacet(facetIdentifier: FacetIdentifier,  facetValues: Record<string, number>) : ProductSearchResultFacet {
     const result: ProductSearchResultFacet = ProductSearchResultFacetSchema.parse({
       identifier: facetIdentifier,
       name: facetIdentifier.key,
@@ -176,12 +171,12 @@ export class AlgoliaSearchProvider<
         key: vid
       } satisfies Partial<FacetValueIdentifier>);
 
-      result.values.push(this.parseFacetValue(facetValueIdentifier, vid, fv, reqCtx));
+      result.values.push(this.parseFacetValue(facetValueIdentifier, vid, fv));
     }
     return result;
   }
 
-  protected parseFacetValue(facetValueIdentifier: FacetValueIdentifier,  label: string, count: number, reqCtx: RequestContext) : ProductSearchResultFacetValue {
+  protected parseFacetValue(facetValueIdentifier: FacetValueIdentifier,  label: string, count: number) : ProductSearchResultFacetValue {
     return ProductSearchResultFacetValueSchema.parse({
       identifier: facetValueIdentifier,
       name: label,

@@ -6,13 +6,10 @@ import {
   type Cache,
   IdentityProvider,
   type IdentityMutationRegister,
-  AnonymousIdentitySchema,
-  GuestIdentitySchema,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type z from 'zod';
 import { CommercetoolsClient } from '../core/client.js';
-import { CommercetoolsSessionSchema } from '../schema/session.schema.js';
 
 export class CommercetoolsIdentityProvider<
   T extends Identity = Identity
@@ -22,53 +19,50 @@ export class CommercetoolsIdentityProvider<
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
-    cache: Cache
+    cache: Cache,
+    context: RequestContext
   ) {
-    super(schema, cache);
+    super(schema, cache, context);
 
     this.config = config;
   }
 
   public override async getSelf(
-    payload: IdentityQuerySelf,
-    reqCtx: RequestContext
+    payload: IdentityQuerySelf
   ): Promise<T> {
     const client = await new CommercetoolsClient(this.config);
-    const identity = await client.introspect(reqCtx);
+    const identity = await client.introspect(this.context);
 
     return identity as T;
   }
 
   public override async login(
-    payload: IdentityMutationLogin,
-    reqCtx: RequestContext
+    payload: IdentityMutationLogin
   ): Promise<T> {
     const identity = await new CommercetoolsClient(this.config).login(
       payload.username,
       payload.password,
-      reqCtx
+      this.context
     );
 
     return identity as T;
   }
 
   public override async logout(
-    payload: Record<string, never>,
-    reqCtx: RequestContext
+    payload: Record<string, never>
   ): Promise<T> {
-    const identity = await new CommercetoolsClient(this.config).logout(reqCtx);
+    const identity = await new CommercetoolsClient(this.config).logout(this.context);
 
     return identity as T;
   }
 
   public override async register(
-    payload: IdentityMutationRegister,
-    reqCtx: RequestContext
+    payload: IdentityMutationRegister
   ): Promise<T> {
     const identity = await new CommercetoolsClient(this.config).register(
       payload.username,
       payload.password,
-      reqCtx
+      this.context
     );
 
     return identity as T;

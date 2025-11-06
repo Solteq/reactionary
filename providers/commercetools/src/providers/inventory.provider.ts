@@ -19,25 +19,25 @@ export class CommercetoolsInventoryProvider<
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
-    cache: Cache
+    cache: Cache,
+    context: RequestContext
   ) {
-    super(schema, cache);
+    super(schema, cache, context);
 
     this.config = config;
   }
 
-  protected async getClient(reqCtx: RequestContext) {
-    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
+  protected async getClient() {
+    const client = await new CommercetoolsClient(this.config).getClient(this.context);
     return client
       .withProjectKey({ projectKey: this.config.projectKey })
       .inventory();
   }
 
   public override async getBySKU(
-    payload: InventoryQueryBySKU,
-    reqCtx: RequestContext
+    payload: InventoryQueryBySKU
   ): Promise<T> {
-    const client = await new CommercetoolsClient(this.config).getClient(reqCtx);
+    const client = await new CommercetoolsClient(this.config).getClient(this.context);
 
     // TODO: We can't query by supplyChannel.key, so we have to resolve it first.
     // This is probably a good candidate for internal data caching at some point.
@@ -65,14 +65,13 @@ export class CommercetoolsInventoryProvider<
 
     const result = remote.body.results[0];
 
-    const model = this.parseSingle(result, reqCtx);
+    const model = this.parseSingle(result);
 
     return model;
   }
 
   protected override parseSingle(
-    body: InventoryEntry,
-    reqCtx: RequestContext
+    body: InventoryEntry
   ): T {
     const model = this.newModel();
 
@@ -94,7 +93,7 @@ export class CommercetoolsInventoryProvider<
     model.meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeySingle(model.identifier, reqCtx),
+        key: this.generateCacheKeySingle(model.identifier),
       },
       placeholder: false,
     };

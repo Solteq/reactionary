@@ -14,16 +14,13 @@ describe('Fake Price Provider', () => {
   let provider: FakePriceProvider;
   let reqCtx: RequestContext;
 
-  beforeAll( () => {
-    provider = new FakePriceProvider(getFakerTestConfiguration(), PriceSchema, new NoOpCache());
-  });
-
   beforeEach( () => {
-    reqCtx = createInitialRequestContext()
+    reqCtx = createInitialRequestContext();
+    provider = new FakePriceProvider(getFakerTestConfiguration(), PriceSchema, new NoOpCache(), reqCtx);
   })
 
   it('should be able to get prices for a product without tiers', async () => {
-    const result = await provider.getBySKU({ variant: { sku: testData.skuWithoutTiers }}, reqCtx);
+    const result = await provider.getBySKU({ variant: { sku: testData.skuWithoutTiers }});
 
     expect(result).toBeTruthy();
     if (result) {
@@ -35,7 +32,7 @@ describe('Fake Price Provider', () => {
   });
 
   it('should be able to get prices for a product with tiers', async () => {
-    const result = await provider.getBySKU({ variant: { sku: testData.skuWithTiers }}, reqCtx);
+    const result = await provider.getBySKU({ variant: { sku: testData.skuWithTiers }});
 
     expect(result).toBeTruthy();
     if (result) {
@@ -52,7 +49,7 @@ describe('Fake Price Provider', () => {
   });
 
   it('should return a placeholder price for an unknown SKU', async () => {
-    const result = await provider.getBySKU({ variant: { sku: 'unknown-sku' }}, reqCtx);
+    const result = await provider.getBySKU({ variant: { sku: 'unknown-sku' }});
 
     expect(result).toBeTruthy();
     if (result) {
@@ -66,7 +63,7 @@ describe('Fake Price Provider', () => {
 
   it('can look up multiple prices at once', async () => {
     const skus = [testData.skuWithTiers, testData.skuWithoutTiers, 'unknown-sku'];
-    const results = await Promise.all(skus.map( sku => provider.getBySKU({ variant: { sku: sku }}, reqCtx)));
+    const results = await Promise.all(skus.map( sku => provider.getBySKU({ variant: { sku: sku }})));
 
     expect(results).toHaveLength(skus.length);
     expect(results[0].identifier.variant.sku).toBe(testData.skuWithTiers);

@@ -14,15 +14,14 @@ export class FakeStoreProvider<
 > extends StoreProvider<T> {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache) {
-    super(schema, cache);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+    super(schema, cache, context);
 
     this.config = config;
   }
 
   public override async queryByProximity(
-    payload: StoreQueryByProximity,
-    reqCtx: RequestContext
+    payload: StoreQueryByProximity
   ): Promise<T[]> {
     const generator = new Faker({
       seed: 42,

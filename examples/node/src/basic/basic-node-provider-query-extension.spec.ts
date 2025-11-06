@@ -1,6 +1,7 @@
 import type {
   Cache,
-  Product} from '@reactionary/core';
+  Product,
+  RequestContext} from '@reactionary/core';
 import {
   ClientBuilder,
   NoOpCache,
@@ -48,7 +49,7 @@ describe('basic node provider extension (models)', () => {
   }
 
   function withExtendedCapabilities() {
-    return (cache: Cache) => {
+    return (cache: Cache, context: RequestContext) => {
       const client = {
         product: new ExtendedProductProvider(
           { jitter: { mean: 0, deviation: 0 },
@@ -58,7 +59,8 @@ describe('basic node provider extension (models)', () => {
             search: 1
           }},
           ExtendedProductModel,
-          cache
+          cache,
+          context
         ),
       };
 

@@ -2,6 +2,7 @@ import type {
   Cache,
   CartProvider,
   ProductProvider,
+  RequestContext,
 } from "@reactionary/core";
 import {
   CartSchema,
@@ -21,19 +22,19 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
     configuration: MedusaConfiguration,
     capabilities: T
 ) {
-    return (cache: Cache): MedusaClient<T> => {
+    return (cache: Cache, context: RequestContext): MedusaClient<T> => {
         const client: any = {};
 
         if (capabilities.productSearch) {
-            client.productSearch = new MedusaSearchProvider(configuration, ProductSearchResultItemSchema, cache);
+            client.productSearch = new MedusaSearchProvider(configuration, ProductSearchResultItemSchema, cache, context);
         }
 
         if (capabilities.product) {
-            client.product = new MedusaProductProvider(configuration, ProductSchema, cache);
+            client.product = new MedusaProductProvider(configuration, ProductSchema, cache, context);
         }
 
         if (capabilities.cart) {
-            client.cart = new MedusaCartProvider(configuration, CartSchema, cache);
+            client.cart = new MedusaCartProvider(configuration, CartSchema, cache, context);
         }
 
         return client;

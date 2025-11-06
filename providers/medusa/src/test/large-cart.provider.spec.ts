@@ -13,18 +13,14 @@ const testData = {
 */
 
 describe('Medusa Cart Provider - Large Scenarios', () => {
-
   let provider: MedusaCartProvider;
   let searchProvider: MedusaSearchProvider;
   let reqCtx: RequestContext;
 
-  beforeAll( () => {
-    provider = new MedusaCartProvider(getMedusaTestConfiguration(), CartSchema, new NoOpCache());
-    searchProvider = new MedusaSearchProvider(getMedusaTestConfiguration(), ProductSearchResultItemSchema, new NoOpCache());
-  });
-
   beforeEach( () => {
-    reqCtx = createInitialRequestContext()
+    reqCtx = createInitialRequestContext();
+        provider = new MedusaCartProvider(getMedusaTestConfiguration(), CartSchema, new NoOpCache(), reqCtx);
+    searchProvider = new MedusaSearchProvider(getMedusaTestConfiguration(), ProductSearchResultItemSchema, new NoOpCache(), reqCtx);
   });
 
   describe('large carts', () => {
@@ -33,7 +29,7 @@ describe('Medusa Cart Provider - Large Scenarios', () => {
     it('should be able to add an 50 items to a cart in less than 30 seconds', async () => {
       let cart = await provider.getById({
         cart: { key: '' },
-      }, reqCtx);
+      });
 
       const searchResult = await searchProvider.queryByTerm( ProductSearchQueryByTermSchema.parse({ search: {
         term: 'phil',
@@ -44,7 +40,7 @@ describe('Medusa Cart Provider - Large Scenarios', () => {
         filters: [],
         facets: [],
       }
-      } satisfies ProductSearchQueryByTerm ), reqCtx);
+      } satisfies ProductSearchQueryByTerm));
       expect(searchResult.items.length).toBeGreaterThanOrEqual(50);
 
 
@@ -55,7 +51,7 @@ describe('Medusa Cart Provider - Large Scenarios', () => {
               sku: product.variants[0].variant.sku,
             },
             quantity: 1
-        }, reqCtx);
+        });
       }
 
       if (cart) {

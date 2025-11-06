@@ -38,8 +38,8 @@ export class FakeCategoryProvider<
   }
 
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactionaryCache) {
-    super(schema, cache);
+  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactionaryCache, context: RequestContext) {
+    super(schema, cache, context);
     this.config = config;
     this.categoryGenerator = new Faker({
       seed: this.config.seeds.category,
@@ -72,7 +72,7 @@ export class FakeCategoryProvider<
   }
 
   @Reactionary({})
-  public override async getById(payload: CategoryQueryById, reqCtx: RequestContext): Promise<T> {
+  public override async getById(payload: CategoryQueryById): Promise<T> {
     const category = this.allCategories.get(payload.id.key);
 
     if(!category) {
@@ -85,7 +85,7 @@ export class FakeCategoryProvider<
   }
 
   @Reactionary({})
-  public override getBySlug(payload: CategoryQueryBySlug, reqCtx: RequestContext): Promise<T | null> {
+  public override getBySlug(payload: CategoryQueryBySlug): Promise<T | null> {
     for(const p of this.allCategories.values()) {
       if(p.slug === payload.slug) {
         return Promise.resolve(p as T);
@@ -95,7 +95,7 @@ export class FakeCategoryProvider<
   }
 
   @Reactionary({})
-  public override getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb, reqCtx: RequestContext): Promise<T[]> {
+  public override getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb): Promise<T[]> {
     const path = new Array<T>();
     let category = this.allCategories.get(payload.id.key);
     path.push(category as T);
@@ -108,7 +108,7 @@ export class FakeCategoryProvider<
     return Promise.resolve(path);
   }
 
-  public override async findChildCategories(payload: CategoryQueryForChildCategories, reqCtx: RequestContext): Promise<ReturnType<typeof this.parsePaginatedResult>> {
+  public override async findChildCategories(payload: CategoryQueryForChildCategories): Promise<ReturnType<typeof this.parsePaginatedResult>> {
     const children = this.childCategories.get(payload.parentId.key);
     const page = children?.slice((payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize, payload.paginationOptions.pageNumber * payload.paginationOptions.pageSize);
 
@@ -130,7 +130,7 @@ export class FakeCategoryProvider<
 
     return Promise.resolve(res);
   }
-  public override findTopCategories(payload: CategoryQueryForTopCategories, reqCtx: RequestContext): Promise<ReturnType<typeof this.parsePaginatedResult>> {
+  public override findTopCategories(payload: CategoryQueryForTopCategories): Promise<ReturnType<typeof this.parsePaginatedResult>> {
     const children = this.topCategories;
     const page = children?.slice((payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize, payload.paginationOptions.pageNumber * payload.paginationOptions.pageSize);
 

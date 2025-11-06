@@ -18,13 +18,11 @@ describe('Commercetools Cart Provider - Large Scenarios', () => {
   let searchProvider: CommercetoolsSearchProvider;
   let reqCtx: RequestContext;
 
-  beforeAll( () => {
-    provider = new CommercetoolsCartProvider(getCommercetoolsTestConfiguration(), CartSchema, new NoOpCache());
-    searchProvider = new CommercetoolsSearchProvider(getCommercetoolsTestConfiguration(), ProductSearchResultItemSchema, new NoOpCache());
-  });
-
   beforeEach( () => {
-    reqCtx = createInitialRequestContext()
+    reqCtx = createInitialRequestContext();
+
+    provider = new CommercetoolsCartProvider(getCommercetoolsTestConfiguration(), CartSchema, new NoOpCache(), reqCtx);
+    searchProvider = new CommercetoolsSearchProvider(getCommercetoolsTestConfiguration(), ProductSearchResultItemSchema, new NoOpCache(), reqCtx);
   });
 
   describe('large carts', () => {
@@ -33,7 +31,7 @@ describe('Commercetools Cart Provider - Large Scenarios', () => {
     it('should be able to add an 50 items to a cart in less than 30 seconds', async () => {
       let cart = await provider.getById({
         cart: { key: '' },
-      }, reqCtx);
+      });
 
       const searchResult = await searchProvider.queryByTerm( ProductSearchQueryByTermSchema.parse({ search: {
         term: 'bowl',
@@ -44,7 +42,7 @@ describe('Commercetools Cart Provider - Large Scenarios', () => {
         filters: [],
         facets: [],
       }
-      } satisfies ProductSearchQueryByTerm ), reqCtx);
+      } satisfies ProductSearchQueryByTerm ));
       expect(searchResult.items.length).toBeGreaterThanOrEqual(8);
 
 
@@ -55,7 +53,7 @@ describe('Commercetools Cart Provider - Large Scenarios', () => {
               sku: product.variants[0].variant.sku,
             },
             quantity: 1
-        }, reqCtx);
+        });
       }
 
       if (cart) {
