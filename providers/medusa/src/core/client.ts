@@ -19,23 +19,20 @@ export class RequestContextTokenStore {
   constructor(protected context: RequestContext) {}
 
   public async getToken(): Promise<string | undefined> {
-    const identity = this.context.identity;
-    return identity.token;
+    const session = this.context.session['MEDUSA_PROVIDER'] || {};
+    return session.token;
   }
 
   public async setToken(token: string, expiresAt?: Date): Promise<void> {
-    const identity = this.context.identity;
-    identity.token = token;
+    const session = this.context.session['MEDUSA_PROVIDER'] || {};
+    session.token = token;
     if (expiresAt) {
-      identity.expiry = expiresAt;
+      session.expiry = expiresAt;
     }
   }
 
   public async clearToken(): Promise<void> {
-    const identity = this.context.identity;
-    identity.token = undefined;
-    identity.refresh_token = undefined;
-    identity.expiry = new Date(0);
+    this.context.session['MEDUSA_PROVIDER'] = {};
   }
 }
 
@@ -147,18 +144,11 @@ export class MedusaClient {
       const customerResponse = await this.client.store.customer.retrieve();
 
       if (customerResponse.customer) {
-        reqCtx.identity = RegisteredIdentitySchema.parse({
-          ...reqCtx.identity,
-          type: 'Registered',
-          logonId: email,
-          id: {
-            userId: customerResponse.customer.id,
-          },
-          token: token,
-        });
+         return RegisteredIdentitySchema.parse({
+       });
       }
 
-      return reqCtx.identity;
+      return AnonymousIdentitySchema.parse({});
     } catch (error) {
       debug('Login failed:', error);
       throw new Error(`Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -168,9 +158,10 @@ export class MedusaClient {
   public async logout(reqCtx: RequestContext) {
     try {
       const tokenStore = new RequestContextTokenStore(reqCtx);
+      const token = await tokenStore.getToken();
 
       // Clear the session on Medusa side
-      if (reqCtx.identity.token) {
+      if (token) {
         await this.client.auth.logout();
         await this.client.client.clearToken();
       }
@@ -178,35 +169,21 @@ export class MedusaClient {
       // Clear local token storage
       await tokenStore.clearToken();
 
-      // Reset to anonymous identity
-      reqCtx.identity = AnonymousIdentitySchema.parse({});
-
-      return reqCtx.identity;
+      return AnonymousIdentitySchema.parse({});
     } catch (error) {
       debug('Logout failed:', error);
       // Even if logout fails on server side, clear local session
       const tokenStore = new RequestContextTokenStore(reqCtx);
       await tokenStore.clearToken();
-      reqCtx.identity = AnonymousIdentitySchema.parse({});
-      return reqCtx.identity;
+
+      return AnonymousIdentitySchema.parse({})
     }
   }
 
 
   protected async createAuthenticatedClient(reqCtx: RequestContext): Promise<Medusa> {
     const tokenStore = new RequestContextTokenStore(reqCtx);
-
-    // Ensure we have some form of identity
-    if (reqCtx.identity.type === 'Anonymous') {
-      reqCtx.identity = GuestIdentitySchema.parse({
-        id: {
-          userId: globalThis.crypto.randomUUID().toString(),
-        },
-        type: 'Guest',
-      });
-    }
-
-    const identity = reqCtx.identity;
+    const initialToken = await tokenStore.getToken();
 
     // Create a client instance
     const authenticatedClient = new Medusa({
@@ -216,9 +193,9 @@ export class MedusaClient {
     });
 
     // If we have a token, set it for authenticated requests
-    if (identity.token) {
+    if (initialToken) {
       // Set the authorization header for authenticated requests
-      await authenticatedClient.client.setToken(identity.token);
+      await authenticatedClient.client.setToken(initialToken);
       const token = await authenticatedClient.client.getToken()
       if (!token) {
         debug('Token validation failed, clearing token');
