@@ -69,6 +69,9 @@ describe('Commercetools Identity Provider', () => {
     );
 
     expect(identity.type).toBe('Registered');
+
+    const refreshedIdentity = await provider.getSelf({}, reqCtx);
+    expect(refreshedIdentity.type).toBe('Registered');
   });
 
   it('should be able to log out from a Registered identity', async () => {
@@ -85,5 +88,8 @@ describe('Commercetools Identity Provider', () => {
 
     const loggedOutIdentity = await provider.logout({}, reqCtx);
     expect(loggedOutIdentity.type).toBe('Anonymous');
+
+    const refreshedIdentity = await provider.getSelf({}, reqCtx);
+    expect(refreshedIdentity.type).toBe('Anonymous');
   });
 });

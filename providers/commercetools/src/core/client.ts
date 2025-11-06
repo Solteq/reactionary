@@ -11,14 +11,15 @@ import {
   AnonymousIdentitySchema,
   GuestIdentitySchema,
   RegisteredIdentitySchema,
+  type AnonymousIdentity,
+  type GuestIdentity,
+  type RegisteredIdentity,
   type RequestContext,
 } from '@reactionary/core';
 import * as crypto from 'crypto';
-import createDebug from 'debug'
-const debug = createDebug('reactionary:commercetools')
-
-
-
+import createDebug from 'debug';
+import { CommercetoolsSessionSchema } from '../schema/session.schema.js';
+const debug = createDebug('reactionary:commercetools');
 
 export class RequestContextTokenCache implements TokenCache {
   constructor(protected context: RequestContext) {}
@@ -26,12 +27,22 @@ export class RequestContextTokenCache implements TokenCache {
   public async get(
     tokenCacheOptions?: TokenCacheOptions
   ): Promise<TokenStore | undefined> {
-    const identity = this.context.identity;
+    const session = CommercetoolsSessionSchema.parse(
+      this.context.session['PROVIDER_COMMERCETOOLS'] || {}
+    );
+
+    if (!session) {
+      return {
+        refreshToken: undefined,
+        token: '',
+        expirationTime: new Date().getTime(),
+      };
+    }
 
     return {
-      refreshToken: identity.refresh_token,
-      token: identity.token || '',
-      expirationTime: identity.expiry.getTime(),
+      refreshToken: session.refreshToken,
+      token: session.token,
+      expirationTime: session.expirationTime,
     };
   }
 
@@ -39,15 +50,17 @@ export class RequestContextTokenCache implements TokenCache {
     cache: TokenStore,
     tokenCacheOptions?: TokenCacheOptions
   ): Promise<void> {
-    const identity = this.context.identity;
+    const session = CommercetoolsSessionSchema.parse(
+      this.context.session['PROVIDER_COMMERCETOOLS'] || {}
+    );
 
-    identity.refresh_token = cache.refreshToken;
-    identity.token = cache.token;
-    identity.expiry = new Date(cache.expirationTime);
+    this.context.session['PROVIDER_COMMERCETOOLS'] = session;
+
+    session.refreshToken = cache.refreshToken;
+    session.token = cache.token;
+    session.expirationTime = cache.expirationTime;
   }
 }
-
-
 
 export class CommercetoolsClient {
   protected config: CommercetoolsConfiguration;
@@ -130,76 +143,119 @@ export class CommercetoolsClient {
       })
       .execute();
 
-    reqCtx.identity = RegisteredIdentitySchema.parse({
-      ...reqCtx.identity,
+    return RegisteredIdentitySchema.parse({
       type: 'Registered',
-      logonId: username,
       id: {
         userId: login.body.customer.id,
       },
     });
-
-    return reqCtx.identity;
   }
 
   public async logout(reqCtx: RequestContext) {
     const cache = new RequestContextTokenCache(reqCtx);
     await cache.set({ token: '', refreshToken: '', expirationTime: 0 });
 
-    reqCtx.identity = AnonymousIdentitySchema.parse({});
-
     // TODO: We could do token revocation here, if we wanted to. The above simply whacks the session.
 
-    return reqCtx.identity;
+    return AnonymousIdentitySchema.parse({});
   }
 
-  protected createClient(reqCtx: RequestContext) {
+  public async introspect(
+    reqCtx: RequestContext
+  ): Promise<AnonymousIdentity | GuestIdentity | RegisteredIdentity> {
+    const session = CommercetoolsSessionSchema.parse(
+      reqCtx.session['PROVIDER_COMMERCETOOLS'] || {}
+    );
+
+    if (!session.token) {
+      return AnonymousIdentitySchema.parse({});
+    }
+
+    const authHeader =
+      'Basic ' +
+      Buffer.from(
+        `${this.config.clientId}:${this.config.clientSecret}`
+      ).toString('base64');
+    const introspectionUrl = `${this.config.authUrl}/oauth/introspect`;
+
+    const response = await fetch(introspectionUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        token: session.token,
+      }),
+    });
+
+    const body = await response.json();
+    const scopes = body.scope;
+
+    if (scopes.indexOf('anonymous_id') > -1) {
+      return GuestIdentitySchema.parse({});
+    }
+
+    if (scopes.indexOf('customer_id') > -1) {
+      return RegisteredIdentitySchema.parse({});
+    }
+
+    return AnonymousIdentitySchema.parse({});
+  }
+
+  protected async becomeGuest(cache: RequestContextTokenCache) {
+    const credentials = Buffer.from(
+      `${this.config.clientId}:${this.config.clientSecret}`
+    ).toString('base64');
+
+    const response = await fetch(
+      `${this.config.authUrl}/oauth/${this.config.projectKey}/anonymous/token?grant_type=client_credentials`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    cache.set({
+      expirationTime: new Date().getTime() + Number(result.expires_in),
+      token: result.access_token,
+      refreshToken: result.refresh_token,
+    });
+  }
+
+  protected async createClient(reqCtx: RequestContext) {
     const cache = new RequestContextTokenCache(reqCtx);
+    let session = await cache.get();
+    const isNewSession = !session || session.token.length === 0;
 
-    if (reqCtx.identity.type === 'Anonymous') {
-      reqCtx.identity = GuestIdentitySchema.parse({
-        id: {
-          userId: crypto.randomUUID().toString(),
-        },
-        type: 'Guest',
-      });
+    if (isNewSession) {
+      await this.becomeGuest(cache);
+
+      session = await cache.get();
     }
 
-    const identity = reqCtx.identity;
     let builder = this.createBaseClientBuilder(reqCtx);
-
-    if (!identity.token || !identity.refresh_token) {
-      builder = builder.withAnonymousSessionFlow({
-        host: this.config.authUrl,
-        projectKey: this.config.projectKey,
-        credentials: {
-          clientId: this.config.clientId,
-          clientSecret: this.config.clientSecret,
-          anonymousId: identity.id.userId,
-        },
-        tokenCache: cache,
-      });
-    } else {
-      builder = builder.withRefreshTokenFlow({
-        credentials: {
-          clientId: this.config.clientId,
-          clientSecret: this.config.clientSecret,
-        },
-        host: this.config.authUrl,
-        projectKey: this.config.projectKey,
-        refreshToken: identity.refresh_token || '',
-        tokenCache: cache,
-      });
-    }
+    builder = builder.withRefreshTokenFlow({
+      credentials: {
+        clientId: this.config.clientId,
+        clientSecret: this.config.clientSecret,
+      },
+      host: this.config.authUrl,
+      projectKey: this.config.projectKey,
+      refreshToken: session!.refreshToken || '',
+      tokenCache: cache,
+    });
 
     return createApiBuilderFromCtpClient(builder.build());
   }
-
-
-
-
-
-
 
   protected createBaseClientBuilder(reqCtx?: RequestContext) {
     let builder = new ClientBuilder()
@@ -237,7 +293,12 @@ export class CommercetoolsClient {
         httpClient: fetch,
       });
 
-    const correlationId = reqCtx?.correlationId || 'REACTIONARY-' + (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : randomUUID());
+    const correlationId =
+      reqCtx?.correlationId ||
+      'REACTIONARY-' +
+        (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : randomUUID());
     builder = builder.withCorrelationIdMiddleware({
       generate: () => correlationId,
     });
