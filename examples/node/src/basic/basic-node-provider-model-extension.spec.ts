@@ -56,7 +56,7 @@ describe('basic node provider extension (models)', () => {
     };
   }
 
-  const client = new ClientBuilder()
+  const client = new ClientBuilder(reqCtx)
     .withCapability(
       withFakeCapabilities(
         {

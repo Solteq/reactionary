@@ -13,8 +13,9 @@ describe('basic node setup', () => {
   let client: Partial<Client>;
   let reqCtx: RequestContext;
 
-  beforeAll(() => {
-    client = new ClientBuilder()
+  beforeEach(() => {
+    reqCtx = createInitialRequestContext();
+    client = new ClientBuilder(reqCtx)
       .withCapability(
         withFakeCapabilities(
           {
@@ -33,10 +34,6 @@ describe('basic node setup', () => {
       )
       .withCache(new NoOpCache())
       .build();
-  });
-
-  beforeEach(() => {
-    reqCtx = createInitialRequestContext();
   });
 
   it('should only get back the enabled capabilities', async () => {

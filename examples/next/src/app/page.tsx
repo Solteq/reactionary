@@ -7,7 +7,10 @@ import {
 import { withFakeCapabilities } from '@reactionary/provider-fake';
 
 export default async function Index() {
-  const client = new ClientBuilder()
+  const reqCtx = createInitialRequestContext();
+  reqCtx.correlationId = 'nextjs-request-' + new Date().getTime();
+
+  const client = new ClientBuilder(reqCtx)
     .withCapability(
       withFakeCapabilities(
         {
@@ -27,8 +30,6 @@ export default async function Index() {
     .withCache(new NoOpCache())
     .build();
 
-  const reqCtx = createInitialRequestContext();
-  reqCtx.correlationId = 'nextjs-request-' + new Date().getTime();
   const search = await client.productSearch.queryByTerm({
     search: {
       facets: [],

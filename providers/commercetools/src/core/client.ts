@@ -37,11 +37,13 @@ export class CommercetoolsClient {
   }
 
   protected async createClient() {
-        let session = await this.cache.get();
-    const isNewSession = !session || session.token.length === 0;
+    let session = await this.cache.get();
+    const isNewSession = !session || !session.refreshToken;
 
     if (isNewSession) {
+      console.log('creating new session...');
       await this.becomeGuest();
+      console.log('new session created!');
 
       session = await this.cache.get();
     }
@@ -54,7 +56,7 @@ export class CommercetoolsClient {
       },
       host: this.config.authUrl,
       projectKey: this.config.projectKey,
-      refreshToken: session!.refreshToken || '',
+      refreshToken: session?.refreshToken || '',
       tokenCache: this.cache,
     });
 

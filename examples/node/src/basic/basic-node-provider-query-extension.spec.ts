@@ -4,6 +4,7 @@ import type {
   RequestContext} from '@reactionary/core';
 import {
   ClientBuilder,
+  createInitialRequestContext,
   NoOpCache,
   ProductSchema
 } from '@reactionary/core';
@@ -68,7 +69,8 @@ describe('basic node provider extension (models)', () => {
     };
   }
 
-  const client = new ClientBuilder()
+  const reqCtx = createInitialRequestContext();
+  const client = new ClientBuilder(reqCtx)
     .withCapability(
       withFakeCapabilities(
         {
