@@ -200,7 +200,7 @@ export class CommercetoolsClient {
     const result = await response.json();
 
     this.cache.set({
-      expirationTime: new Date().getTime() + Number(result.expires_in),
+      expirationTime: Date.now() + Number(result.expires_in) * 1000 - 5 * 60 * 1000,
       token: result.access_token,
       refreshToken: result.refresh_token,
     });
