@@ -18,5 +18,6 @@
     "@vitest/ui": "*",
     "@vitest/coverage-v8": "*",
     "vite-tsconfig-paths": "*"
-  }
+  },
+  "sideEffects": false
 }

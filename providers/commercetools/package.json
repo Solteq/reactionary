@@ -10,5 +10,6 @@
     "@commercetools/ts-client": "^4.2.1",
     "@commercetools/platform-sdk": "^8.8.0"
   },
-  "type": "module"
+  "type": "module",
+  "sideEffects": false
 }
