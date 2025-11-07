@@ -8,5 +8,6 @@
     "zod": "4.1.9",
     "@faker-js/faker": "^9.8.0"
   },
-  "type": "module"
+  "type": "module",
+  "sideEffects": false
 }

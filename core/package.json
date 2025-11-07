@@ -9,5 +9,6 @@
     "node-object-hash": "^3.1.1",
     "@opentelemetry/api": "^1.9.0"
   },
-  "type": "module"
+  "type": "module",
+  "sideEffects": false
 }
