@@ -32,7 +32,7 @@ import { CommercetoolsInventoryProvider } from "../providers/inventory.provider.
 import { CommercetoolsPriceProvider } from "../providers/price.provider.js";
 import { CommercetoolsCategoryProvider } from "../providers/category.provider.js";
 import { CommercetoolsCheckoutProvider } from "../providers/index.js";
-import { CommercetoolsClient as CTCustomerClient } from "./client.js";
+import { CommercetoolsClient, CommercetoolsClient as CTCustomerClient } from "./client.js";
 
 type CommercetoolsProviderSet<T extends CommercetoolsCapabilities> =
     (T['cart'] extends true ? { cart: CartProvider } : object) &
@@ -52,38 +52,38 @@ export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilitie
 ) {
     return (cache: Cache, context: RequestContext): CommercetoolsProviderSet<T> => {
         const client: any = {};
-        const customerClient = new CTCustomerClient(configuration).getClient(context);
+        const commercetoolsClient = new CommercetoolsClient(configuration, context);
 
         if (capabilities.product) {
-            client.product = new CommercetoolsProductProvider(configuration, ProductSchema, cache, context, customerClient);
+            client.product = new CommercetoolsProductProvider(configuration, ProductSchema, cache, context, commercetoolsClient);
         }
 
         if (capabilities.productSearch) {
-            client.productSearch = new CommercetoolsSearchProvider(configuration, ProductSearchResultItemSchema, cache, context);
+            client.productSearch = new CommercetoolsSearchProvider(configuration, ProductSearchResultItemSchema, cache, context, commercetoolsClient);
         }
 
         if (capabilities.identity) {
-            client.identity = new CommercetoolsIdentityProvider(configuration, IdentitySchema, cache, context);
+            client.identity = new CommercetoolsIdentityProvider(configuration, IdentitySchema, cache, context, commercetoolsClient);
         }
 
         if (capabilities.cart) {
-            client.cart = new CommercetoolsCartProvider(configuration, CartSchema, cache, context);
+            client.cart = new CommercetoolsCartProvider(configuration, CartSchema, cache, context, commercetoolsClient);
         }
 
         if (capabilities.inventory) {
-            client.inventory = new CommercetoolsInventoryProvider(configuration, InventorySchema, cache, context);
+            client.inventory = new CommercetoolsInventoryProvider(configuration, InventorySchema, cache, context, commercetoolsClient);
         }
 
         if (capabilities.price) {
-            client.price = new CommercetoolsPriceProvider(configuration, PriceSchema, cache, context);
+            client.price = new CommercetoolsPriceProvider(configuration, PriceSchema, cache, context, commercetoolsClient);
         }
 
         if (capabilities.category) {
-            client.category = new CommercetoolsCategoryProvider(configuration, CategorySchema, cache, context);
+            client.category = new CommercetoolsCategoryProvider(configuration, CategorySchema, cache, context, commercetoolsClient);
         }
 
         if (capabilities.checkout) {
-          client.checkout = new CommercetoolsCheckoutProvider(configuration, CheckoutSchema, cache, context);
+          client.checkout = new CommercetoolsCheckoutProvider(configuration, CheckoutSchema, cache, context, commercetoolsClient);
         }
 
 
