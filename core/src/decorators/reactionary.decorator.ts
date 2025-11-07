@@ -51,6 +51,8 @@ export class ReactionaryDecoratorOptions {
    */
   public cacheTimeToLiveInSeconds = 60;
 
+  public inputSchema?: any;
+  public outputSchema?: any;
 };
 
 /**
@@ -116,4 +118,8 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
 
     return descriptor;
   };
+}
+
+export function validateInput() {
+  console.log ('foo');
 }

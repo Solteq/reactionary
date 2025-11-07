@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { ClientBuilder, NoOpCache } from '@reactionary/core';
+import { ClientBuilder, createInitialRequestContext, NoOpCache } from '@reactionary/core';
 import { FakeProductProvider, withFakeCapabilities  } from '@reactionary/provider-fake';
 import { CommercetoolsCartProvider, withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 import { AlgoliaSearchProvider, withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 
 describe('client creation', () => {
   it('should be able to mix providers and get a valid, typed client', async () => {
-    const client = new ClientBuilder()
+    const reqCtx = createInitialRequestContext();
+    const client = new ClientBuilder(reqCtx)
       .withCapability(
         withFakeCapabilities(
           {

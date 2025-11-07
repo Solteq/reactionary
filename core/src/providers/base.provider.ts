@@ -5,7 +5,7 @@ import {
   createPaginatedResponseSchema,
 } from '../schemas/models/base.model.js';
 import type { Cache } from '../cache/cache.interface.js';
-import type { RequestContext } from '../schemas/session.schema.js';
+import { type RequestContext } from '../schemas/session.schema.js';
 import type { IdentifierType } from '../schemas/models/identifiers.model.js';
 import { hasher } from "node-object-hash";
 

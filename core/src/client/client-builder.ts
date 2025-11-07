@@ -14,12 +14,16 @@ type MergeCapabilities<Acc, New> = Omit<Acc, keyof New> & New;
 export class ClientBuilder<TClient = object> {
   private factories: Array<CapabilityFactory<Partial<Client>>> = [];
   private cache: Cache | undefined;
-  private context: RequestContext | undefined;
+  private context: RequestContext;
+
+  constructor(context: RequestContext) {
+    this.context = context;
+  }
 
   withCapability<TNew extends Partial<Client>>(
     factory: CapabilityFactory<TNew>
   ): ClientBuilder<MergeCapabilities<TClient, TNew>> {
-    const newBuilder = new ClientBuilder<MergeCapabilities<TClient, TNew>>();
+    const newBuilder = new ClientBuilder<MergeCapabilities<TClient, TNew>>(this.context);
     newBuilder.factories = [...this.factories, factory];
     newBuilder.cache = this.cache;
     newBuilder.context = this.context;
@@ -27,40 +31,29 @@ export class ClientBuilder<TClient = object> {
   }
 
   withCache(cache: Cache): ClientBuilder<TClient> {
-    const newBuilder = new ClientBuilder<TClient>();
+    const newBuilder = new ClientBuilder<TClient>(this.context);
     newBuilder.factories = [...this.factories];
     newBuilder.cache = cache;
     newBuilder.context = this.context;
     return newBuilder;
   }
 
-  withContext(context: RequestContext): ClientBuilder<TClient> {
-    const newBuilder = new ClientBuilder<TClient>();
-    newBuilder.factories = [...this.factories];
-    newBuilder.cache = this.cache;
-    newBuilder.context = context;
-    return newBuilder;
-  }
-
   build(): TClient & { cache: Cache } {
     let client = {} as TClient;
 
-    // Use provided cache or default to NoOpCache
+    // Default to no-op cache if none is provided
     const sharedCache = this.cache || new NoOpCache();
-    const context =
-      this.context ||
-      RequestContextSchema.parse({
-        languageContext: {
-          locale: 'en-US',
-          currencyCode: 'USD',
-          countryCode: 'US',
-        },
-      });
+    const validatedContext = RequestContextSchema.safeParse(this.context);
+
+    // Avoid returning the parsed result for context, to preserve object equality at the top level
+    if (!validatedContext.success) {
+      throw new Error('Invalid context: ' + validatedContext.error);
+    }
 
     const mergedAnalytics: AnalyticsProvider[] = [];
 
     for (const factory of this.factories) {
-      const provider = factory(sharedCache, context);
+      const provider = factory(sharedCache, this.context);
       client = {
         ...client,
         ...provider,
