@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 import { CartSchema, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, createInitialRequestContext, type ProductSearchQueryByTerm, type RequestContext } from '@reactionary/core';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { CommercetoolsSearchProvider } from '../index.js';
+import { CommercetoolsClient, CommercetoolsSearchProvider } from '../index.js';
 import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
 
@@ -20,9 +20,11 @@ describe('Commercetools Cart Provider - Large Scenarios', () => {
 
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
+    const config = getCommercetoolsTestConfiguration();
+    const client = new CommercetoolsClient(config).getClient(reqCtx);
 
-    provider = new CommercetoolsCartProvider(getCommercetoolsTestConfiguration(), CartSchema, new NoOpCache(), reqCtx);
-    searchProvider = new CommercetoolsSearchProvider(getCommercetoolsTestConfiguration(), ProductSearchResultItemSchema, new NoOpCache(), reqCtx);
+    provider = new CommercetoolsCartProvider(config, CartSchema, new NoOpCache(), reqCtx, client);
+    searchProvider = new CommercetoolsSearchProvider(config, ProductSearchResultItemSchema, new NoOpCache(), reqCtx, client);
   });
 
   describe('large carts', () => {

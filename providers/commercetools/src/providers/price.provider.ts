@@ -2,30 +2,24 @@ import { PriceProvider, TieredPriceSchema } from '@reactionary/core';
 import type { PriceQueryBySku, RequestContext , Price, Cache, Currency, TieredPrice } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import { CommercetoolsClient } from '../core/client.js';
-import type { Price as CTPrice, ProductVariant as CTProductVariant } from '@commercetools/platform-sdk';
+import type { ApiRoot, Price as CTPrice, ProductVariant as CTProductVariant } from '@commercetools/platform-sdk';
 export class CommercetoolsPriceProvider<
   T extends Price = Price
 > extends PriceProvider<T> {
   protected config: CommercetoolsConfiguration;
+  protected client: Promise<ApiRoot>;
 
-
-
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, client: Promise<ApiRoot>) {
     super(schema, cache, context);
 
     this.config = config;
+    this.client = client;
   }
-
 
   protected async getClient() {
-    const client = await new CommercetoolsClient(this.config).getClient(
-      this.context
-    );
+    const client = await this.client;
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections()
   }
-
-
 
   public override async getBySKUs(payload: PriceQueryBySku[]): Promise<T[]> {
     const client = await this.getClient();
@@ -39,13 +33,16 @@ export class CommercetoolsPriceProvider<
         staged: false,
         priceCountry: this.context.taxJurisdiction.countryCode,
         priceCustomerGroup: undefined,
-        priceChannel: channels.offerChannelGUID,
+        // FIXME: Hardcoded value for testing, for now...
+        priceChannel: '7293d166-27a3-4136-b7c5-7b4dc3cfce40',
         priceCurrency: this.context.languageContext.currencyCode,
         where: 'variants(sku in (:skus)) OR (masterVariant(sku in (:skus))) ',
         'var.skus': payload.map(p => p.variant.sku),
         limit: payload.length,
       },
     }).execute();
+
+    console.log('response: ', response.body);
 
     const result = [];
     const allReturnedVariants = [...response.body.results.map(x => x.variants).flat(), ...response.body.results.map(x => x.masterVariant).flat()];

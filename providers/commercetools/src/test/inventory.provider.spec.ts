@@ -7,7 +7,8 @@ import {
 } from '@reactionary/core';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import { CommercetoolsInventoryProvider } from '../providers/inventory.provider.js';
-import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
+import { CommercetoolsClient } from '../core/client.js';
 
 describe('Commercetools Inventory Provider', () => {
   let provider: CommercetoolsInventoryProvider;
@@ -15,12 +16,15 @@ describe('Commercetools Inventory Provider', () => {
 
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
+    const config = getCommercetoolsTestConfiguration();
+    const client = new CommercetoolsClient(config).getClient(reqCtx);
 
     provider = new CommercetoolsInventoryProvider(
-      getCommercetoolsTestConfiguration(),
+      config,
       InventorySchema,
       new NoOpCache(),
-      reqCtx
+      reqCtx,
+      client
     );
   });
 

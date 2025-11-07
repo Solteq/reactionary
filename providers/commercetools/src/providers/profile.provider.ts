@@ -6,29 +6,31 @@ import type {
 } from '@reactionary/core';
 import { ProfileProvider } from '@reactionary/core';
 import type z from 'zod';
-import { CommercetoolsClient } from '../core/client.js';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { Cache } from '@reactionary/core';
-import type { Customer } from '@commercetools/platform-sdk';
+import type { ApiRoot, Customer } from '@commercetools/platform-sdk';
 
 export class CommercetoolsProfileProvider<
   T extends Profile = Profile
 > extends ProfileProvider<T> {
   protected config: CommercetoolsConfiguration;
+  protected client: Promise<ApiRoot>;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
-    context: RequestContext
+    context: RequestContext,
+    client: Promise<ApiRoot>
   ) {
     super(schema, cache, context);
 
     this.config = config;
+    this.client = client;
   }
 
   protected async getClient() {
-    const client = await new CommercetoolsClient(this.config).getClient(this.context);
+    const client = await this.client;
     return client.withProjectKey({ projectKey: this.config.projectKey });
   }
 

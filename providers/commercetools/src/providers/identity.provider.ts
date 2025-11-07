@@ -15,16 +15,19 @@ export class CommercetoolsIdentityProvider<
   T extends Identity = Identity
 > extends IdentityProvider<T> {
   protected config: CommercetoolsConfiguration;
+  protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
-    context: RequestContext
+    context: RequestContext,
+    client: CommercetoolsClient
   ) {
     super(schema, cache, context);
 
     this.config = config;
+    this.client = client;
   }
 
   public override async getSelf(

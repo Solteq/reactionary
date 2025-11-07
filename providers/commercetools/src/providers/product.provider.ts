@@ -8,10 +8,9 @@ import {
   ProductVariantIdentifierSchema,
   ProductVariantSchema
 } from '@reactionary/core';
-import { CommercetoolsClient } from '../core/client.js';
 import type { z } from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { ProductProjection, ProductVariant as CTProductVariant, Attribute as CTAttribute } from '@commercetools/platform-sdk';
+import type { ProductProjection, ProductVariant as CTProductVariant, Attribute as CTAttribute, ApiRoot } from '@commercetools/platform-sdk';
 import type { Product, ProductVariant, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariantIdentifier, RequestContext, ProductAttribute, ProductAttributeIdentifier, ProductAttributeValue, ProductAttributeValueIdentifier } from '@reactionary/core';
 import type { Cache, Image } from '@reactionary/core';
 
@@ -19,15 +18,17 @@ export class CommercetoolsProductProvider<
   T extends Product = Product
 > extends ProductProvider<T> {
   protected config: CommercetoolsConfiguration;
+  protected client: Promise<ApiRoot>;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, client: Promise<ApiRoot>) {
     super(schema, cache, context);
 
     this.config = config;
+    this.client = client;
   }
 
   protected async getClient() {
-    const client = await new CommercetoolsClient(this.config).getClient(this.context);
+    const client = await this.client;
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
   }
 
@@ -36,9 +37,10 @@ export class CommercetoolsProductProvider<
   ): Promise<T> {
     const client = await this.getClient();
 
+    // FIXME: This should be a ProductIdentifier...
     try {
       const remote = await client
-        .withId({ ID: payload.id })
+        .withKey({ key: payload.id })
         .get()
         .execute();
 
@@ -56,7 +58,8 @@ export class CommercetoolsProductProvider<
     const remote = await client
       .get({
         queryArgs: {
-          where: 'slug(en-US = :slug)',
+          // FIXME: Hardcoded locale
+          where: 'slug(en = :slug)',
           'var.slug': payload.slug
         }
       })
@@ -93,7 +96,7 @@ export class CommercetoolsProductProvider<
     const base = this.newModel();
 
 
-    base.identifier = { key: data.id };
+    base.identifier = { key: data.key || data.id };
     base.name = data.name[this.context.languageContext.locale];
     base.slug = data.slug[this.context.languageContext.locale];
 

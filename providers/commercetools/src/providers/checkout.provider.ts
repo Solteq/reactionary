@@ -29,13 +29,11 @@ import {
   ShippingMethodSchema,
 } from '@reactionary/core';
 import type z from 'zod';
-import { CommercetoolsClient } from '../core/client.js';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { MyCartUpdateAction } from '@commercetools/platform-sdk';
+import type { ApiRoot, MyCartUpdateAction } from '@commercetools/platform-sdk';
 import {
   CommercetoolsCartIdentifierSchema,
   CommercetoolsCheckoutIdentifierSchema,
-  CommercetoolsOrderIdentifierSchema,
   type CommercetoolsCheckoutIdentifier,
 } from '../schema/commercetools.schema.js';
 import type {
@@ -61,20 +59,23 @@ export class CommercetoolsCheckoutProvider<
   T extends Checkout = Checkout
 > extends CheckoutProvider<T> {
   protected config: CommercetoolsConfiguration;
+  protected client: Promise<ApiRoot>;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
-    context: RequestContext
+    context: RequestContext,
+    client: Promise<ApiRoot>
   ) {
     super(schema, cache, context);
 
     this.config = config;
+    this.client = client;
   }
 
   protected async getClient() {
-    const client = await new CommercetoolsClient(this.config).getClient(this.context);
+    const client = await this.client;
 
     return {
       payments: client

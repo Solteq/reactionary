@@ -1,27 +1,29 @@
 import 'dotenv/config';
-import type { RequestContext} from '@reactionary/core';
 import { NoOpCache, ProductSchema, createInitialRequestContext } from '@reactionary/core';
 import { CommercetoolsProductProvider } from '../providers/product.provider.js';
 import {  getCommercetoolsTestConfiguration } from './test-utils.js';
-import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
+import { CommercetoolsClient } from '../core/client.js';
 
 const testData = {
   product : {
-    id: '4d28f98d-c446-446e-b59a-d9f718e5b98a',
-    name: 'Sunnai Glass Bowl',
-    image: 'https://storage.googleapis.com/merchant-center-europe/sample-data/goodstore/Sunnai_Glass_Bowl-1.1.jpeg',
-    sku: 'SGB-01',
-
+    id: 'product_120368257',
+    name: 'Philips 8720169308886 LED bulb Cool white 4000 K 4.5 W G5 E',
+    image: 'https://images.icecat.biz/img/gallery/30f40d525a608a9266c72337d8efda8ed72fcb23.jpg',
+    sku: '8720169308886',
+    slug: 'philips-8720169308886-led-bulb-cool-white-4000-k-45-w-g5-e-120368257'
   },
 }
 
 describe('Commercetools Product Provider', () => {
     let provider: CommercetoolsProductProvider;
-    let reqCtx: RequestContext;
 
     beforeEach( () => {
-      reqCtx = createInitialRequestContext();
-      provider = new CommercetoolsProductProvider(getCommercetoolsTestConfiguration(), ProductSchema, new NoOpCache(), reqCtx);
+      const reqCtx = createInitialRequestContext();
+      const config = getCommercetoolsTestConfiguration();
+      const client = new CommercetoolsClient(config).getClient(reqCtx);
+
+      provider = new CommercetoolsProductProvider(config, ProductSchema, new NoOpCache(), reqCtx, client);
     })
 
 
@@ -36,9 +38,10 @@ describe('Commercetools Product Provider', () => {
   });
 
   it('should be able to get a product by slug', async () => {
-    const result = await provider.getBySlug( { slug: 'sunnai-glass-bowl' });
+    const result = await provider.getBySlug( { slug: testData.product.slug });
 
     expect(result).toBeTruthy();
+
     if (result) {
       expect(result.meta.placeholder).toBe(false);
       expect(result.identifier.key).toBe(testData.product.id);

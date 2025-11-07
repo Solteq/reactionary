@@ -9,7 +9,8 @@ import {
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
 import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
-import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
+import { CommercetoolsClient } from '../core/client.js';
 
 describe('Commercetools Identity Provider', () => {
   let provider: CommercetoolsIdentityProvider;
@@ -18,19 +19,24 @@ describe('Commercetools Identity Provider', () => {
 
   beforeEach(async () => {
     reqCtx = createInitialRequestContext();
+    const config = getCommercetoolsTestConfiguration();
+    const client = new CommercetoolsClient(config);
+    const clientInstance = client.getClient(reqCtx);
 
     provider = new CommercetoolsIdentityProvider(
-      getCommercetoolsTestConfiguration(),
+      config,
       IdentitySchema,
       new NoOpCache(),
-      reqCtx
+      reqCtx,
+      client
     );
 
     cartProvider = new CommercetoolsCartProvider(
-      getCommercetoolsTestConfiguration(),
+      config,
       CartSchema,
       new NoOpCache(),
-      reqCtx
+      reqCtx,
+      clientInstance
     );
   });
 

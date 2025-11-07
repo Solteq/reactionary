@@ -2,23 +2,23 @@ import { CategoryProvider, createPaginatedResponseSchema } from "@reactionary/co
 import type { CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext , Cache, Category} from "@reactionary/core";
 import type z from "zod";
 import type { CommercetoolsConfiguration } from "../schema/configuration.schema.js";
-import { CommercetoolsClient } from "../core/client.js";
-import type { ByProjectKeyCategoriesRequestBuilder, CategoryPagedQueryResponse, Category as CTCategory } from "@commercetools/platform-sdk";
+import type { ApiRoot, ByProjectKeyCategoriesRequestBuilder, CategoryPagedQueryResponse, Category as CTCategory } from "@commercetools/platform-sdk";
 
 export class CommercetoolsCategoryProvider<
   T extends Category = Category,
 > extends CategoryProvider<T> {
-
   protected config: CommercetoolsConfiguration;
+  protected client: Promise<ApiRoot>;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, client: Promise<ApiRoot>) {
     super(schema, cache, context);
 
     this.config = config;
+    this.client = client;
   }
 
   protected async getClient(): Promise<ByProjectKeyCategoriesRequestBuilder> {
-    const client = await new CommercetoolsClient(this.config).getClient(this.context);
+    const client = await this.client;
     return client.withProjectKey({ projectKey: this.config.projectKey }).categories();
   }
 
