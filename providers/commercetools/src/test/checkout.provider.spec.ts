@@ -14,38 +14,36 @@ import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
 import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
 import { CommercetoolsCheckoutProvider } from '../providers/checkout.provider.js';
 import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
+import { CommercetoolsClient } from '../core/client.js';
 
 const testData = {
-  skuWithoutTiers: 'SGB-01',
-  skuWithTiers: 'GMCT-01',
+  skuWithoutTiers: '8719514465190',
+  skuWithTiers: '8719514435377',
 };
 
 describe('Commercetools Checkout Provider', () => {
   let provider: CommercetoolsCheckoutProvider;
   let cartProvider: CommercetoolsCartProvider;
-  let identityProvider: CommercetoolsIdentityProvider;
   let reqCtx: RequestContext;
 
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
+    const config = getCommercetoolsTestConfiguration();
+    const client = new CommercetoolsClient(config);
+    const customerClient = client.getClient(reqCtx);;
 
     provider = new CommercetoolsCheckoutProvider(
       getCommercetoolsTestConfiguration(),
       CheckoutSchema,
       new NoOpCache(),
-      reqCtx
+      reqCtx,
+      customerClient
     );
     cartProvider = new CommercetoolsCartProvider(
       getCommercetoolsTestConfiguration(),
       CartSchema,
       new NoOpCache(),
-      reqCtx
-    );
-    identityProvider = new CommercetoolsIdentityProvider(
-      getCommercetoolsTestConfiguration(),
-      IdentitySchema,
-      new NoOpCache(),
-      reqCtx
+      reqCtx, customerClient
     );
   });
 

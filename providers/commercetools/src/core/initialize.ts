@@ -32,6 +32,7 @@ import { CommercetoolsInventoryProvider } from "../providers/inventory.provider.
 import { CommercetoolsPriceProvider } from "../providers/price.provider.js";
 import { CommercetoolsCategoryProvider } from "../providers/category.provider.js";
 import { CommercetoolsCheckoutProvider } from "../providers/index.js";
+import { CommercetoolsClient as CTCustomerClient } from "./client.js";
 
 type CommercetoolsClient<T extends CommercetoolsCapabilities> =
     (T['cart'] extends true ? { cart: CartProvider } : object) &
@@ -51,9 +52,10 @@ export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilitie
 ) {
     return (cache: Cache, context: RequestContext): CommercetoolsClient<T> => {
         const client: any = {};
+        const customerClient = new CTCustomerClient(configuration).getClient(context);
 
         if (capabilities.product) {
-            client.product = new CommercetoolsProductProvider(configuration, ProductSchema, cache, context);
+            client.product = new CommercetoolsProductProvider(configuration, ProductSchema, cache, context, customerClient);
         }
 
         if (capabilities.productSearch) {

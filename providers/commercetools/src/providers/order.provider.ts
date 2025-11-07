@@ -3,40 +3,43 @@ import type {
   Cache,
   Order,
   OrderQueryById,
-  Currency} from '@reactionary/core';
+  Currency,
+} from '@reactionary/core';
 import { OrderItemSchema, OrderProvider } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import { CommercetoolsClient } from '../core/client.js';
-import type { Order as CTOrder } from '@commercetools/platform-sdk';
+import type { ApiRoot, Order as CTOrder } from '@commercetools/platform-sdk';
 import { CommercetoolsOrderIdentifierSchema } from '../schema/commercetools.schema.js';
 export class CommercetoolsOrderProvider<
   T extends Order = Order
 > extends OrderProvider<T> {
   protected config: CommercetoolsConfiguration;
+  protected client: Promise<ApiRoot>;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
-    context: RequestContext
+    context: RequestContext,
+    client: Promise<ApiRoot>
   ) {
     super(schema, cache, context);
 
     this.config = config;
+    this.client = client;
   }
 
   protected async getClient() {
-
-    const client = await new CommercetoolsClient(this.config).getClient(
-      this.context
-    );
-    return client.withProjectKey({ projectKey: this.config.projectKey }).me().orders();
+    const client = await this.client;
+    return client
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .me()
+      .orders();
   }
 
-
   public override async getById(payload: OrderQueryById): Promise<T> {
-    const client = await new CommercetoolsClient(this.config).getClient(this.context);
+    const client = await this.client;
 
     try {
       const remote = await client
@@ -52,17 +55,14 @@ export class CommercetoolsOrderProvider<
     }
   }
 
-
   protected override parseSingle(_body: unknown): T {
-      const remote = _body as CTOrder;
-      const result = this.newModel();
+    const remote = _body as CTOrder;
+    const result = this.newModel();
 
-      result.identifier = CommercetoolsOrderIdentifierSchema.parse({
-        key: remote.id,
-        version: remote.version || 0,
-      });
-
-
+    result.identifier = CommercetoolsOrderIdentifierSchema.parse({
+      key: remote.id,
+      version: remote.version || 0,
+    });
 
     result.name = remote.custom?.fields['name'] || '';
     result.description = remote.custom?.fields['description'] || '';
@@ -103,15 +103,22 @@ export class CommercetoolsOrderProvider<
       },
     };
 
-    if (remote.paymentState  === 'Pending' && remote.orderState === 'Open') {
+    if (remote.paymentState === 'Pending' && remote.orderState === 'Open') {
       result.orderStatus = 'AwaitingPayment';
-    } else if (remote.paymentState  === 'Paid' && remote.orderState === 'Confirmed') {
+    } else if (
+      remote.paymentState === 'Paid' &&
+      remote.orderState === 'Confirmed'
+    ) {
       result.orderStatus = 'ReleasedToFulfillment';
     }
     if (remote.shipmentState === 'Ready' && remote.orderState === 'Confirmed') {
       result.orderStatus = 'ReleasedToFulfillment';
     }
-    if ( (remote.shipmentState === 'Shipped' || remote.shipmentState === 'Delivered') && remote.orderState === 'Completed') {
+    if (
+      (remote.shipmentState === 'Shipped' ||
+        remote.shipmentState === 'Delivered') &&
+      remote.orderState === 'Completed'
+    ) {
       result.orderStatus = 'Shipped';
     }
 
@@ -157,8 +164,6 @@ export class CommercetoolsOrderProvider<
       placeholder: false,
     };
 
-
-
-      return this.assert(result);
+    return this.assert(result);
   }
 }

@@ -3,24 +3,25 @@ import type { RequestContext} from '@reactionary/core';
 import { CategorySchema, NoOpCache , createInitialRequestContext} from '@reactionary/core';
 import { CommercetoolsCategoryProvider } from '../providers/category.provider.js';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
-import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
+import { CommercetoolsClient } from '../core/client.js';
 
 const testData = {
   topCategories: [
     {
-      key: 'home-decor', name: 'Home Decor', slug: 'home-decor'
+      key: 'cat_1575', name: 'Fashion & Lifestyle', slug: 'fashion-and-lifestyle', text: 'Clothes such as jeans and sweaters, and accessories such as hats and belts.'
     },
     {
-      key: 'furniture', name: 'Furniture'
+      key: 'cat_2248', name: 'Pet Care'
     }
   ],
 
   childCategoriesOfFirstTopcategory: [
-    { key: 'bedding', name: 'Bedding' },
-    { key: 'room-decor', name: 'Room Decor' }
+    { key: 'cat_1210', name: 'Clothing Care' },
+    { key: 'cat_1054', name: 'Key Tags' }
   ],
 
-  breadCrumb: [ 'home-decor', 'room-decor', 'home-accents' ],
+  breadCrumb: [ 'cat_1575', 'cat_1210' ],
 }
 
 
@@ -30,7 +31,10 @@ describe('Commercetools Category Provider', () => {
 
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
-    provider = new CommercetoolsCategoryProvider(getCommercetoolsTestConfiguration(), CategorySchema, new NoOpCache(), reqCtx);
+    const config = getCommercetoolsTestConfiguration();
+    const client = new CommercetoolsClient(config).getClient(reqCtx);
+
+    provider = new CommercetoolsCategoryProvider(getCommercetoolsTestConfiguration(), CategorySchema, new NoOpCache(), reqCtx, client);
   })
 
   it('should be able to get top-categories', async () => {
@@ -63,8 +67,8 @@ describe('Commercetools Category Provider', () => {
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.items[0].identifier.key).toBe(testData.childCategoriesOfFirstTopcategory[0].key);
     expect(result.items[0].name).toBe(testData.childCategoriesOfFirstTopcategory[0].name);
-    expect(result.totalCount).toBe(2);
-    expect(result.totalPages).toBe(2);
+    expect(result.totalCount).toBe(6);
+    expect(result.totalPages).toBe(6);
     expect(result.pageSize).toBe(1);
     expect(result.pageNumber).toBe(1);
 
@@ -73,8 +77,8 @@ describe('Commercetools Category Provider', () => {
     expect(result.items.length).toBeGreaterThan(0);
     expect(result.items[0].identifier.key).toBe(testData.childCategoriesOfFirstTopcategory[1].key);
     expect(result.items[0].name).toBe(testData.childCategoriesOfFirstTopcategory[1].name);
-    expect(result.totalCount).toBe(2);
-    expect(result.totalPages).toBe(2);
+    expect(result.totalCount).toBe(6);
+    expect(result.totalPages).toBe(6);
     expect(result.pageSize).toBe(1);
     expect(result.pageNumber).toBe(2);
   });
@@ -113,40 +117,38 @@ describe('Commercetools Category Provider', () => {
 
 
   it('should be able to get a category by id', async () => {
-    const result = await provider.getById({ id: { key: 'home-decor'}});
+    const result = await provider.getById({ id: { key: testData.topCategories[0].key }});
 
-    expect(result.identifier.key).toBe('home-decor');
-    expect(result.name).toBe('Home Decor');
-    expect(result.slug).toBe('home-decor');
+    expect(result.identifier.key).toBe(testData.topCategories[0].key);
+    expect(result.name).toBe(testData.topCategories[0].name);
+    expect(result.slug).toBe(testData.topCategories[0].slug);
     expect(result.parentCategory).toBeUndefined();
 
-    expect(result.text).toBe('A test description');
+    expect(result.text).toBe(testData.topCategories[0].text);
     expect(result.meta.placeholder).toBe(false);
 
   });
 
  it('should be able to get a category by id in alternate language', async () => {
 
-    reqCtx.languageContext.locale = 'de-DE';
-    const result = await provider.getById({ id: { key: 'home-decor'}});
+    reqCtx.languageContext.locale = 'da';
+    const result = await provider.getById({ id: { key: testData.topCategories[0].key }});
 
-    expect(result.identifier.key).toBe('home-decor');
-    expect(result.name).toBe('Dekoration');
-    expect(result.slug).toBe('home-decor');
+    expect(result.identifier.key).toBe(testData.topCategories[0].key);
+    expect(result.name).toBe(testData.topCategories[0].name + ' [da Version]');
+    expect(result.slug).toBe(testData.topCategories[0].slug + '_da');
     expect(result.parentCategory).toBeUndefined();
 
-    expect(result.text).toBe('Eine Testbeschreibung');
+    expect(result.text).toBe(testData.topCategories[0].text + ' [da Version]');
     expect(result.meta.placeholder).toBe(false);
-
   });
 
 
   it('returns empty values if you choose a language that is not available', async () => {
-
     reqCtx.languageContext.locale = 'fr-FR';
-    const result = await provider.getById({ id: { key: 'home-decor'}});
+    const result = await provider.getById({ id: { key: testData.topCategories[0].key }});
 
-    expect(result.identifier.key).toBe('home-decor');
+    expect(result.identifier.key).toBe(testData.topCategories[0].key);
     expect(result.name).toBe('No Name');
     expect(result.slug).toBe('');
     expect(result.parentCategory).toBeUndefined();
@@ -154,8 +156,6 @@ describe('Commercetools Category Provider', () => {
     expect(result.meta.placeholder).toBe(false);
 
   });
-
-
 
   it('returns a placeholder if you search for a category that does not exist', async () => {
     const result = await provider.getById({ id: { key: 'non-existent-category'}});

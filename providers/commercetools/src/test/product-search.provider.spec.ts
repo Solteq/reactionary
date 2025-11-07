@@ -4,18 +4,22 @@ import 'dotenv/config';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { CommercetoolsSearchProvider } from '../providers/product-search.provider.js';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
+import { CommercetoolsClient } from '../core/client.js';
 
 const testData = {
   searchTerm: 'bowl'
 }
 
-describe('Commercetools Search Provider', () => {
+describe('Commercetools Product Search Provider', () => {
   let provider: CommercetoolsSearchProvider;
   let reqCtx: RequestContext;
 
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
-    provider = new CommercetoolsSearchProvider(getCommercetoolsTestConfiguration(), ProductSearchResultItemSchema, new NoOpCache(), reqCtx);
+    const config = getCommercetoolsTestConfiguration();
+    const client = new CommercetoolsClient(config).getClient(reqCtx);
+    
+    provider = new CommercetoolsSearchProvider(config, ProductSearchResultItemSchema, new NoOpCache(), reqCtx, client);
   })
 
   it('should be able to get a result by term', async () => {

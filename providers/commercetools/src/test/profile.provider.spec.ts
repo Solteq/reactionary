@@ -10,6 +10,7 @@ import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import { CommercetoolsProfileProvider } from '../providers/profile.provider.js';
 import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
 import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
+import { CommercetoolsClient } from '../core/client.js';
 
 describe('Commercetools Profile Provider', () => {
   let provider: CommercetoolsProfileProvider;
@@ -18,25 +19,31 @@ describe('Commercetools Profile Provider', () => {
 
   beforeEach(async () => {
     reqCtx = createInitialRequestContext();
+    const config = getCommercetoolsTestConfiguration();
+    const client = new CommercetoolsClient(config);
+    const userClient = client.getClient(reqCtx);
+
     provider = new CommercetoolsProfileProvider(
-      getCommercetoolsTestConfiguration(),
+      config,
       ProfileSchema,
       new NoOpCache(),
-      reqCtx
+      reqCtx,
+      userClient
     );
 
     identityProvider = new CommercetoolsIdentityProvider(
-      getCommercetoolsTestConfiguration(),
+      config,
       IdentitySchema,
       new NoOpCache(),
-      reqCtx
+      reqCtx,
+      client
     );
 
     const time = new Date().getTime();
 
     await identityProvider.register({
-        username: `martin.rogne+test-${ time }@solteq.com`,
-        password: 'love2test'
+      username: `martin.rogne+test-${time}@solteq.com`,
+      password: 'love2test',
     });
   });
 

@@ -14,11 +14,9 @@ import type {
   FacetValueIdentifier,
   ProductSearchResultFacetValue,
 } from '@reactionary/core';
-
-import { CommercetoolsClient } from '../core/client.js';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { ProductVariant as CTProductVariant, FacetResult, ProductProjection, ProductProjectionPagedSearchResponse } from '@commercetools/platform-sdk';
+import type { ApiRoot, ProductVariant as CTProductVariant, FacetResult, ProductProjection, ProductProjectionPagedSearchResponse } from '@commercetools/platform-sdk';
 
 import createDebug from 'debug';
 const debug = createDebug('reactionary:commercetools:search');
@@ -27,20 +25,23 @@ export class CommercetoolsSearchProvider<
   T extends ProductSearchResultItem = ProductSearchResultItem
 > extends ProductSearchProvider<T> {
   protected config: CommercetoolsConfiguration;
+  protected client: Promise<ApiRoot>;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
-    context: RequestContext
+    context: RequestContext,
+    client: Promise<ApiRoot>
   ) {
     super(schema, cache, context);
 
     this.config = config;
+    this.client = client;
   }
 
   protected async getClient() {
-    const client = await new CommercetoolsClient(this.config).getClient(this.context);
+    const client = await this.client;
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
   }
 

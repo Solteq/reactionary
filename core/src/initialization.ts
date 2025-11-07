@@ -20,7 +20,7 @@ export function createInitialRequestContext(): RequestContext {
       currentService: undefined,
     },
     languageContext: {
-      locale: 'en-US',
+      locale: 'en',
       currencyCode: 'USD',
     },
     storeIdentifier: {

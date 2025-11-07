@@ -7,7 +7,8 @@ import {
 } from '@reactionary/core';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import { CommercetoolsStoreProvider } from '../providers/store.provider.js';
-import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
+import { CommercetoolsClient } from '../core/client.js';
 
 describe('Commercetools Store Provider', () => {
   let provider: CommercetoolsStoreProvider;
@@ -15,21 +16,25 @@ describe('Commercetools Store Provider', () => {
 
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
+    const config = getCommercetoolsTestConfiguration();
+    const client = new CommercetoolsClient(config);
+    const userClient = client.getClient(reqCtx);
 
     provider = new CommercetoolsStoreProvider(
-      getCommercetoolsTestConfiguration(),
+      config,
       StoreSchema,
       new NoOpCache(),
-      reqCtx
+      reqCtx,
+      userClient
     );
   });
 
   it.skip('should be able to query stores by longitude and latitude', async () => {
     const stores = await provider.queryByProximity({
-        distance: 1000,
-        latitude: 15,
-        longitude: 15,
-        limit: 10
+      distance: 1000,
+      latitude: 15,
+      longitude: 15,
+      limit: 10,
     });
 
     expect(stores.length).toBe(2);

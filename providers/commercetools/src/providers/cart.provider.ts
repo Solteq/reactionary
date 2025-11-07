@@ -1,34 +1,32 @@
-import {
-  CartItemSchema,
-  CartProvider
-} from '@reactionary/core';
+import { CartItemSchema, CartProvider } from '@reactionary/core';
 import type {
   CartMutationItemAdd,
   CartMutationItemQuantityChange,
   CartMutationItemRemove,
   CartQueryById,
-  CartIdentifier, CartMutationApplyCoupon,
+  CartIdentifier,
+  CartMutationApplyCoupon,
   CartMutationCheckout,
   CartMutationDeleteCart,
-  CartMutationRemoveCoupon, CartMutationSetBillingAddress,
+  CartMutationRemoveCoupon,
+  CartMutationSetBillingAddress,
   CartMutationSetShippingInfo,
-  CartMutationChangeCurrency, OrderIdentifier,
+  CartMutationChangeCurrency,
+  OrderIdentifier,
   RequestContext,
   Cart,
-  Currency
-,
-  Cache
+  Currency,
+  Cache,
 } from '@reactionary/core';
 
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { z } from 'zod';
-import { CommercetoolsClient } from '../core/client.js';
 import type {
+  ApiRoot,
   Cart as CTCart,
   MyCartUpdateAction,
 } from '@commercetools/platform-sdk';
-import type {
-  CommercetoolsCartIdentifier} from '../schema/commercetools.schema.js';
+import type { CommercetoolsCartIdentifier } from '../schema/commercetools.schema.js';
 import {
   CommercetoolsCartIdentifierSchema,
   CommercetoolsOrderIdentifierSchema,
@@ -38,26 +36,31 @@ export class CommercetoolsCartProvider<
   T extends Cart = Cart
 > extends CartProvider<T> {
   protected config: CommercetoolsConfiguration;
+  protected client: Promise<ApiRoot>;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
-    context: RequestContext
+    context: RequestContext,
+    client: Promise<ApiRoot>
   ) {
     super(schema, cache, context);
+
     this.config = config;
+    this.client = client;
   }
 
-  public override async getById(
-    payload: CartQueryById
-  ): Promise<T> {
+  public override async getById(payload: CartQueryById): Promise<T> {
     try {
       const client = await this.getClient();
 
       const ctId = payload.cart as CommercetoolsCartIdentifier;
 
-      const remote = await client.carts.withId({ ID: ctId.key }).get().execute();
+      const remote = await client.carts
+        .withId({ ID: ctId.key })
+        .get()
+        .execute();
 
       return this.parseSingle(remote.body);
     } catch (e) {
@@ -65,44 +68,39 @@ export class CommercetoolsCartProvider<
     }
   }
 
-  public override async add(
-    payload: CartMutationItemAdd
-  ): Promise<T> {
+  public override async add(payload: CartMutationItemAdd): Promise<T> {
     let cartIdentifier = payload.cart;
     if (!cartIdentifier.key) {
       cartIdentifier = await this.createCart();
     }
 
-    return this.applyActions(
-      cartIdentifier,
-      [
-        {
-          action: 'addLineItem',
-          quantity: payload.quantity,
-          sku: payload.variant.sku,
-        },
-        {
-          action: 'recalculate',
-        },
-      ]
-    );
+    return this.applyActions(cartIdentifier, [
+      {
+        action: 'addLineItem',
+        quantity: payload.quantity,
+        sku: payload.variant.sku,
+        // FIXME: This should be dynamic, probably as part of the context...
+        distributionChannel: {
+          typeId: 'channel',
+          key: 'OnlineFfmChannel'
+        }
+      },
+      {
+        action: 'recalculate',
+      },
+    ]);
   }
 
-  public override async remove(
-    payload: CartMutationItemRemove,
-  ): Promise<T> {
-    return this.applyActions(
-      payload.cart,
-      [
-        {
-          action: 'removeLineItem',
-          lineItemId: payload.item.key,
-        },
-        {
-          action: 'recalculate',
-        },
-      ]
-    );
+  public override async remove(payload: CartMutationItemRemove): Promise<T> {
+    return this.applyActions(payload.cart, [
+      {
+        action: 'removeLineItem',
+        lineItemId: payload.item.key,
+      },
+      {
+        action: 'recalculate',
+      },
+    ]);
   }
 
   public override async changeQuantity(
@@ -114,37 +112,31 @@ export class CommercetoolsCartProvider<
       return this.getById({ cart: payload.cart });
     }
 
-    return this.applyActions(
-      payload.cart,
-      [
-        {
-          action: 'changeLineItemQuantity',
-          lineItemId: payload.item.key,
-          quantity: payload.quantity,
-        },
-        {
-          action: 'recalculate',
-        },
-      ]
-    );
+    return this.applyActions(payload.cart, [
+      {
+        action: 'changeLineItemQuantity',
+        lineItemId: payload.item.key,
+        quantity: payload.quantity,
+      },
+      {
+        action: 'recalculate',
+      },
+    ]);
   }
 
   public override async getActiveCartId(): Promise<CartIdentifier> {
     const client = await this.getClient();
     try {
-      const carts = await client.activeCart
-        .get()
-        .execute();
+      const carts = await client.activeCart.get().execute();
 
       return CommercetoolsCartIdentifierSchema.parse({
         key: carts.body.id,
-        version: carts.body.version || 0
+        version: carts.body.version || 0,
       });
     } catch (e: any) {
-
       return CommercetoolsCartIdentifierSchema.parse({
         key: '',
-      version: 0
+        version: 0,
       });
     }
   }
@@ -192,7 +184,10 @@ export class CommercetoolsCartProvider<
       actions.push({
         action: 'setShippingAddress',
         address: {
-          country: payload.shippingAddress.countryCode || this.context.taxJurisdiction.countryCode || 'US',
+          country:
+            payload.shippingAddress.countryCode ||
+            this.context.taxJurisdiction.countryCode ||
+            'US',
           firstName: payload.shippingAddress.firstName,
           lastName: payload.shippingAddress.lastName,
           city: payload.shippingAddress.city,
@@ -209,70 +204,67 @@ export class CommercetoolsCartProvider<
   public override setBillingAddress(
     payload: CartMutationSetBillingAddress
   ): Promise<T> {
-    return this.applyActions(
-      payload.cart,
-      [
-        {
-          action: 'setBillingAddress',
-          address: {
-            email: payload.notificationEmailAddress,
-            mobile: payload.notificationPhoneNumber,
-            country: payload.billingAddress.countryCode || this.context.taxJurisdiction.countryCode || 'US',
-            firstName: payload.billingAddress.firstName,
-            lastName: payload.billingAddress.lastName,
-            city: payload.billingAddress.city,
-            postalCode: payload.billingAddress.postalCode,
-            streetName: payload.billingAddress.streetAddress,
-            streetNumber: payload.billingAddress.streetNumber,
-          },
-        },
-        {
-          action: 'setCustomerEmail',
+    return this.applyActions(payload.cart, [
+      {
+        action: 'setBillingAddress',
+        address: {
           email: payload.notificationEmailAddress,
+          mobile: payload.notificationPhoneNumber,
+          country:
+            payload.billingAddress.countryCode ||
+            this.context.taxJurisdiction.countryCode ||
+            'US',
+          firstName: payload.billingAddress.firstName,
+          lastName: payload.billingAddress.lastName,
+          city: payload.billingAddress.city,
+          postalCode: payload.billingAddress.postalCode,
+          streetName: payload.billingAddress.streetAddress,
+          streetNumber: payload.billingAddress.streetNumber,
         },
-        {
-          action: 'setCountry',
-          country: payload.billingAddress.countryCode || this.context.taxJurisdiction.countryCode || 'US',
-        },
-      ]
-    );
+      },
+      {
+        action: 'setCustomerEmail',
+        email: payload.notificationEmailAddress,
+      },
+      {
+        action: 'setCountry',
+        country:
+          payload.billingAddress.countryCode ||
+          this.context.taxJurisdiction.countryCode ||
+          'US',
+      },
+    ]);
   }
 
   public override applyCouponCode(
     payload: CartMutationApplyCoupon
   ): Promise<T> {
-    return this.applyActions(
-      payload.cart,
-      [
-        {
-          action: 'addDiscountCode',
-          code: payload.couponCode,
-        },
-        {
-          action: 'recalculate',
-        },
-      ]
-    );
+    return this.applyActions(payload.cart, [
+      {
+        action: 'addDiscountCode',
+        code: payload.couponCode,
+      },
+      {
+        action: 'recalculate',
+      },
+    ]);
   }
 
   public override removeCouponCode(
     payload: CartMutationRemoveCoupon
   ): Promise<T> {
-    return this.applyActions(
-      payload.cart,
-      [
-        {
-          action: 'removeDiscountCode',
-          discountCode: {
-            id: payload.couponCode,
-            typeId: 'discount-code',
-          },
+    return this.applyActions(payload.cart, [
+      {
+        action: 'removeDiscountCode',
+        discountCode: {
+          id: payload.couponCode,
+          typeId: 'discount-code',
         },
-        {
-          action: 'recalculate',
-        },
-      ]
-    );
+      },
+      {
+        action: 'recalculate',
+      },
+    ]);
   }
 
   public override async checkout(
@@ -288,7 +280,7 @@ export class CommercetoolsCartProvider<
         body: {
           version: ctId.version,
           id: ctId.key,
-        }
+        },
       })
       .execute();
     return CommercetoolsOrderIdentifierSchema.parse({
@@ -332,15 +324,12 @@ export class CommercetoolsCartProvider<
       })
     );
 
-    const response = await this.applyActions(
-      newCartId,
-      [
-        ...cartItemAdds,
-        {
-          action: 'recalculate',
-        },
-      ]
-    );
+    const response = await this.applyActions(newCartId, [
+      ...cartItemAdds,
+      {
+        action: 'recalculate',
+      },
+    ]);
 
     // now delete the old cart.
     await client.carts
@@ -381,27 +370,25 @@ export class CommercetoolsCartProvider<
     const client = await this.getClient();
     const ctId = cart as CommercetoolsCartIdentifier;
 
+    try {
+      const response = await client.carts
+        .withId({ ID: ctId.key })
+        .post({
+          body: {
+            version: ctId.version,
+            actions,
+          },
+        })
+        .execute();
 
-       try {
-        const response = await client.carts
-          .withId({ ID: ctId.key })
-          .post({
-            body: {
-              version: ctId.version,
-              actions,
-            },
-          })
-          .execute();
-
-          if (response.error) {
-            console.error(response.error);
-          }
-          return this.parseSingle(response.body);
-       } catch (e: any) {
-        console.error('Error applying actions to cart:', e);
-        throw e;
-       }
-
+      if (response.error) {
+        console.error(response.error);
+      }
+      return this.parseSingle(response.body);
+    } catch (e: any) {
+      console.error('Error applying actions to cart:', e);
+      throw e;
+    }
   }
 
   /**
@@ -410,15 +397,17 @@ export class CommercetoolsCartProvider<
    * In the future, maybe we can delay this upgrade until we actually need it.
    */
   protected async getClient() {
-    const client = await new CommercetoolsClient(this.config).getClient(this.context);
+    const client = await this.client;
 
-    const clientWithProject = client.withProjectKey({ projectKey: this.config.projectKey });
+    const clientWithProject = client.withProjectKey({
+      projectKey: this.config.projectKey,
+    });
+    
     return {
       carts: clientWithProject.me().carts(),
       activeCart: clientWithProject.me().activeCart(),
-      orders: clientWithProject.me().orders(),
-
-    }
+      orders: clientWithProject.me().orders()
+    };
   }
 
   protected override parseSingle(remote: CTCart): T {
