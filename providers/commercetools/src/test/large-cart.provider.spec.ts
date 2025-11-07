@@ -1,16 +1,10 @@
 import 'dotenv/config';
 
 import { CartSchema, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, createInitialRequestContext, type ProductSearchQueryByTerm, type RequestContext } from '@reactionary/core';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { CommercetoolsClient, CommercetoolsSearchProvider } from '../index.js';
 import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
-
-
-const testData = {
-  skuWithoutTiers: 'SGB-01',
-  skuWithTiers: 'GMCT-01'
-}
 
 describe('Commercetools Cart Provider - Large Scenarios', () => {
 
@@ -21,15 +15,13 @@ describe('Commercetools Cart Provider - Large Scenarios', () => {
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
     const config = getCommercetoolsTestConfiguration();
-    const client = new CommercetoolsClient(config).getClient(reqCtx);
+    const client = new CommercetoolsClient(config, reqCtx);
 
     provider = new CommercetoolsCartProvider(config, CartSchema, new NoOpCache(), reqCtx, client);
     searchProvider = new CommercetoolsSearchProvider(config, ProductSearchResultItemSchema, new NoOpCache(), reqCtx, client);
   });
 
   describe('large carts', () => {
-
-
     it('should be able to add an 50 items to a cart in less than 30 seconds', async () => {
       let cart = await provider.getById({
         cart: { key: '' },

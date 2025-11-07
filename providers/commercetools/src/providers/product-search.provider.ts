@@ -19,20 +19,21 @@ import type { CommercetoolsConfiguration } from '../schema/configuration.schema.
 import type { ApiRoot, ProductVariant as CTProductVariant, FacetResult, ProductProjection, ProductProjectionPagedSearchResponse } from '@commercetools/platform-sdk';
 
 import createDebug from 'debug';
+import type { CommercetoolsClient } from '../core/client.js';
 const debug = createDebug('reactionary:commercetools:search');
 
 export class CommercetoolsSearchProvider<
   T extends ProductSearchResultItem = ProductSearchResultItem
 > extends ProductSearchProvider<T> {
   protected config: CommercetoolsConfiguration;
-  protected client: Promise<ApiRoot>;
+  protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
-    client: Promise<ApiRoot>
+    client: CommercetoolsClient
   ) {
     super(schema, cache, context);
 
@@ -41,10 +42,9 @@ export class CommercetoolsSearchProvider<
   }
 
   protected async getClient() {
-    const client = await this.client;
+    const client = await this.client.getClient();
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
   }
-
 
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm

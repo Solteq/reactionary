@@ -20,8 +20,7 @@ describe('Commercetools Identity Provider', () => {
   beforeEach(async () => {
     reqCtx = createInitialRequestContext();
     const config = getCommercetoolsTestConfiguration();
-    const client = new CommercetoolsClient(config);
-    const clientInstance = client.getClient(reqCtx);
+    const client = new CommercetoolsClient(config, reqCtx);
 
     provider = new CommercetoolsIdentityProvider(
       config,
@@ -36,7 +35,7 @@ describe('Commercetools Identity Provider', () => {
       CartSchema,
       new NoOpCache(),
       reqCtx,
-      clientInstance
+      client
     );
   });
 
@@ -53,7 +52,7 @@ describe('Commercetools Identity Provider', () => {
         cart,
         quantity: 1,
         variant: {
-          sku: 'SGB-01',
+          sku: '8719514465190'
         },
       }
     );

@@ -31,19 +31,20 @@ import {
   CommercetoolsCartIdentifierSchema,
   CommercetoolsOrderIdentifierSchema,
 } from '../schema/commercetools.schema.js';
+import type { CommercetoolsClient } from '../core/client.js';
 
 export class CommercetoolsCartProvider<
   T extends Cart = Cart
 > extends CartProvider<T> {
   protected config: CommercetoolsConfiguration;
-  protected client: Promise<ApiRoot>;
+  protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
-    client: Promise<ApiRoot>
+    client: CommercetoolsClient
   ) {
     super(schema, cache, context);
 
@@ -397,7 +398,7 @@ export class CommercetoolsCartProvider<
    * In the future, maybe we can delay this upgrade until we actually need it.
    */
   protected async getClient() {
-    const client = await this.client;
+    const client = await this.client.getClient();
 
     const clientWithProject = client.withProjectKey({
       projectKey: this.config.projectKey,

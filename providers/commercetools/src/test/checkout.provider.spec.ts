@@ -29,21 +29,20 @@ describe('Commercetools Checkout Provider', () => {
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
     const config = getCommercetoolsTestConfiguration();
-    const client = new CommercetoolsClient(config);
-    const customerClient = client.getClient(reqCtx);;
+    const client = new CommercetoolsClient(config, reqCtx);
 
     provider = new CommercetoolsCheckoutProvider(
       getCommercetoolsTestConfiguration(),
       CheckoutSchema,
       new NoOpCache(),
       reqCtx,
-      customerClient
+      client
     );
     cartProvider = new CommercetoolsCartProvider(
       getCommercetoolsTestConfiguration(),
       CartSchema,
       new NoOpCache(),
-      reqCtx, customerClient
+      reqCtx, client
     );
   });
 

@@ -17,15 +17,14 @@ describe('Commercetools Store Provider', () => {
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
     const config = getCommercetoolsTestConfiguration();
-    const client = new CommercetoolsClient(config);
-    const userClient = client.getClient(reqCtx);
+    const client = new CommercetoolsClient(config, reqCtx);
 
     provider = new CommercetoolsStoreProvider(
       config,
       StoreSchema,
       new NoOpCache(),
       reqCtx,
-      userClient
+      client
     );
   });
 

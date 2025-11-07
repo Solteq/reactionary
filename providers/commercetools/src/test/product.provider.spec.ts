@@ -21,7 +21,7 @@ describe('Commercetools Product Provider', () => {
     beforeEach( () => {
       const reqCtx = createInitialRequestContext();
       const config = getCommercetoolsTestConfiguration();
-      const client = new CommercetoolsClient(config).getClient(reqCtx);
+      const client = new CommercetoolsClient(config, reqCtx);
 
       provider = new CommercetoolsProductProvider(config, ProductSchema, new NoOpCache(), reqCtx, client);
     })

@@ -21,7 +21,7 @@ describe.skip('Commercetools Price Provider', () => {
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
     const config = getCommercetoolsTestConfiguration();
-    const client = new CommercetoolsClient(config).getClient(reqCtx);
+    const client = new CommercetoolsClient(config, reqCtx);
     
     provider = new CommercetoolsPriceProvider(config, PriceSchema, new NoOpCache(), reqCtx, client);
   })
