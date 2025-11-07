@@ -42,6 +42,7 @@ import type {
   Cart as CTCart,
   ShippingMethod as CTShippingMethod,
 } from '@commercetools/platform-sdk';
+import type { CommercetoolsClient } from '../core/client.js';
 
 export class CheckoutNotReadyForFinalizationError extends Error {
   constructor(public checkoutIdentifier: CheckoutIdentifier) {
@@ -59,14 +60,14 @@ export class CommercetoolsCheckoutProvider<
   T extends Checkout = Checkout
 > extends CheckoutProvider<T> {
   protected config: CommercetoolsConfiguration;
-  protected client: Promise<ApiRoot>;
+  protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
-    client: Promise<ApiRoot>
+    client: CommercetoolsClient
   ) {
     super(schema, cache, context);
 
@@ -75,7 +76,7 @@ export class CommercetoolsCheckoutProvider<
   }
 
   protected async getClient() {
-    const client = await this.client;
+    const client = await this.client.getClient();
 
     return {
       payments: client

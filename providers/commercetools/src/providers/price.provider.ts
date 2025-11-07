@@ -3,13 +3,14 @@ import type { PriceQueryBySku, RequestContext , Price, Cache, Currency, TieredPr
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { ApiRoot, Price as CTPrice, ProductVariant as CTProductVariant } from '@commercetools/platform-sdk';
+import type { CommercetoolsClient } from '../core/client.js';
 export class CommercetoolsPriceProvider<
   T extends Price = Price
 > extends PriceProvider<T> {
   protected config: CommercetoolsConfiguration;
-  protected client: Promise<ApiRoot>;
+  protected client: CommercetoolsClient;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, client: Promise<ApiRoot>) {
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, client: CommercetoolsClient) {
     super(schema, cache, context);
 
     this.config = config;
@@ -17,7 +18,7 @@ export class CommercetoolsPriceProvider<
   }
 
   protected async getClient() {
-    const client = await this.client;
+    const client = await this.client.getClient();
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections()
   }
 

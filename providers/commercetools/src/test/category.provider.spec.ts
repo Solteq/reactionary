@@ -32,9 +32,9 @@ describe('Commercetools Category Provider', () => {
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
     const config = getCommercetoolsTestConfiguration();
-    const client = new CommercetoolsClient(config).getClient(reqCtx);
+    const client = new CommercetoolsClient(config, reqCtx);
 
-    provider = new CommercetoolsCategoryProvider(getCommercetoolsTestConfiguration(), CategorySchema, new NoOpCache(), reqCtx, client);
+    provider = new CommercetoolsCategoryProvider(config, CategorySchema, new NoOpCache(), reqCtx, client);
   })
 
   it('should be able to get top-categories', async () => {

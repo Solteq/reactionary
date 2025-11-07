@@ -9,7 +9,7 @@ import {
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type z from 'zod';
-import { CommercetoolsClient } from '../core/client.js';
+import type { CommercetoolsClient } from '../core/client.js';
 
 export class CommercetoolsIdentityProvider<
   T extends Identity = Identity
@@ -33,8 +33,7 @@ export class CommercetoolsIdentityProvider<
   public override async getSelf(
     payload: IdentityQuerySelf
   ): Promise<T> {
-    const client = await new CommercetoolsClient(this.config);
-    const identity = await client.introspect(this.context);
+    const identity = await this.client.introspect();
 
     return identity as T;
   }
@@ -42,10 +41,9 @@ export class CommercetoolsIdentityProvider<
   public override async login(
     payload: IdentityMutationLogin
   ): Promise<T> {
-    const identity = await new CommercetoolsClient(this.config).login(
+    const identity = await this.client.login(
       payload.username,
       payload.password,
-      this.context
     );
 
     return identity as T;
@@ -54,7 +52,7 @@ export class CommercetoolsIdentityProvider<
   public override async logout(
     payload: Record<string, never>
   ): Promise<T> {
-    const identity = await new CommercetoolsClient(this.config).logout(this.context);
+    const identity = await this.client.logout();
 
     return identity as T;
   }
@@ -62,10 +60,9 @@ export class CommercetoolsIdentityProvider<
   public override async register(
     payload: IdentityMutationRegister
   ): Promise<T> {
-    const identity = await new CommercetoolsClient(this.config).register(
+    const identity = await this.client.register(
       payload.username,
-      payload.password,
-      this.context
+      payload.password
     );
 
     return identity as T;

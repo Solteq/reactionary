@@ -1,10 +1,5 @@
-import {
-  ClientBuilder,
-  type TokenCache,
-  type TokenCacheOptions,
-  type TokenStore,
-} from '@commercetools/ts-client';
-import { createApiBuilderFromCtpClient } from '@commercetools/platform-sdk';
+import { ClientBuilder } from '@commercetools/ts-client';
+import { createApiBuilderFromCtpClient, type ApiRoot } from '@commercetools/platform-sdk';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import { randomUUID } from 'crypto';
 import {
@@ -18,66 +13,55 @@ import {
 } from '@reactionary/core';
 import * as crypto from 'crypto';
 import createDebug from 'debug';
-import { CommercetoolsSessionSchema } from '../schema/session.schema.js';
+import { RequestContextTokenCache } from './token-cache.js';
 const debug = createDebug('reactionary:commercetools');
-
-export class RequestContextTokenCache implements TokenCache {
-  constructor(protected context: RequestContext) {}
-
-  public async get(
-    tokenCacheOptions?: TokenCacheOptions
-  ): Promise<TokenStore | undefined> {
-    const session = CommercetoolsSessionSchema.parse(
-      this.context.session['PROVIDER_COMMERCETOOLS'] || {}
-    );
-
-    if (!session) {
-      return {
-        refreshToken: undefined,
-        token: '',
-        expirationTime: new Date().getTime(),
-      };
-    }
-
-    return {
-      refreshToken: session.refreshToken,
-      token: session.token,
-      expirationTime: session.expirationTime,
-    };
-  }
-
-  public async set(
-    cache: TokenStore,
-    tokenCacheOptions?: TokenCacheOptions
-  ): Promise<void> {
-    const session = CommercetoolsSessionSchema.parse(
-      this.context.session['PROVIDER_COMMERCETOOLS'] || {}
-    );
-
-    this.context.session['PROVIDER_COMMERCETOOLS'] = session;
-
-    session.refreshToken = cache.refreshToken;
-    session.token = cache.token;
-    session.expirationTime = cache.expirationTime;
-  }
-}
 
 export class CommercetoolsClient {
   protected config: CommercetoolsConfiguration;
+  protected context: RequestContext;
+  protected cache: RequestContextTokenCache;
+  protected client: Promise<ApiRoot> | undefined;
 
-  constructor(config: CommercetoolsConfiguration) {
+  constructor(config: CommercetoolsConfiguration, context: RequestContext) {
     this.config = config;
+    this.context = context;
+    this.cache = new RequestContextTokenCache(this.context);
   }
 
-  public async getClient(reqCtx: RequestContext) {
-    return this.createClient(reqCtx);
+  public async getClient() {
+    if (!this.client) {
+      this.client = this.createClient();
+    }
+
+    return this.client;
   }
 
-  public async register(
-    username: string,
-    password: string,
-    reqCtx: RequestContext
-  ) {
+  protected async createClient() {
+        let session = await this.cache.get();
+    const isNewSession = !session || session.token.length === 0;
+
+    if (isNewSession) {
+      await this.becomeGuest();
+
+      session = await this.cache.get();
+    }
+
+    let builder = this.createBaseClientBuilder();
+    builder = builder.withRefreshTokenFlow({
+      credentials: {
+        clientId: this.config.clientId,
+        clientSecret: this.config.clientSecret,
+      },
+      host: this.config.authUrl,
+      projectKey: this.config.projectKey,
+      refreshToken: session!.refreshToken || '',
+      tokenCache: this.cache,
+    });
+
+    return createApiBuilderFromCtpClient(builder.build());
+  }
+
+  public async register(username: string, password: string) {
     const registrationBuilder =
       this.createBaseClientBuilder().withAnonymousSessionFlow({
         host: this.config.authUrl,
@@ -105,18 +89,12 @@ export class CommercetoolsClient {
       })
       .execute();
 
-    const login = await this.login(username, password, reqCtx);
+    const login = await this.login(username, password);
 
     return login;
   }
 
-  public async login(
-    username: string,
-    password: string,
-    reqCtx: RequestContext
-  ) {
-    const cache = new RequestContextTokenCache(reqCtx);
-
+  public async login(username: string, password: string) {
     const loginBuilder = this.createBaseClientBuilder().withPasswordFlow({
       host: this.config.authUrl,
       projectKey: this.config.projectKey,
@@ -125,7 +103,7 @@ export class CommercetoolsClient {
         clientSecret: this.config.clientSecret,
         user: { username, password },
       },
-      tokenCache: cache,
+      tokenCache: this.cache,
       scopes: this.config.scopes,
     });
 
@@ -151,23 +129,20 @@ export class CommercetoolsClient {
     });
   }
 
-  public async logout(reqCtx: RequestContext) {
-    const cache = new RequestContextTokenCache(reqCtx);
-    await cache.set({ token: '', refreshToken: '', expirationTime: 0 });
+  public async logout() {
+    await this.cache.set({ token: '', refreshToken: '', expirationTime: 0 });
 
     // TODO: We could do token revocation here, if we wanted to. The above simply whacks the session.
 
     return AnonymousIdentitySchema.parse({});
   }
 
-  public async introspect(
-    reqCtx: RequestContext
-  ): Promise<AnonymousIdentity | GuestIdentity | RegisteredIdentity> {
-    const session = CommercetoolsSessionSchema.parse(
-      reqCtx.session['PROVIDER_COMMERCETOOLS'] || {}
-    );
+  public async introspect(): Promise<
+    AnonymousIdentity | GuestIdentity | RegisteredIdentity
+  > {
+    const session = await this.cache.get();
 
-    if (!session.token) {
+    if (!session || !session.token) {
       return AnonymousIdentitySchema.parse({});
     }
 
@@ -203,7 +178,7 @@ export class CommercetoolsClient {
     return AnonymousIdentitySchema.parse({});
   }
 
-  protected async becomeGuest(cache: RequestContextTokenCache) {
+  protected async becomeGuest() {
     const credentials = Buffer.from(
       `${this.config.clientId}:${this.config.clientSecret}`
     ).toString('base64');
@@ -224,40 +199,14 @@ export class CommercetoolsClient {
 
     const result = await response.json();
 
-    cache.set({
+    this.cache.set({
       expirationTime: new Date().getTime() + Number(result.expires_in),
       token: result.access_token,
       refreshToken: result.refresh_token,
     });
   }
 
-  protected async createClient(reqCtx: RequestContext) {
-    const cache = new RequestContextTokenCache(reqCtx);
-    let session = await cache.get();
-    const isNewSession = !session || session.token.length === 0;
-
-    if (isNewSession) {
-      await this.becomeGuest(cache);
-
-      session = await cache.get();
-    }
-
-    let builder = this.createBaseClientBuilder(reqCtx);
-    builder = builder.withRefreshTokenFlow({
-      credentials: {
-        clientId: this.config.clientId,
-        clientSecret: this.config.clientSecret,
-      },
-      host: this.config.authUrl,
-      projectKey: this.config.projectKey,
-      refreshToken: session!.refreshToken || '',
-      tokenCache: cache,
-    });
-
-    return createApiBuilderFromCtpClient(builder.build());
-  }
-
-  protected createBaseClientBuilder(reqCtx?: RequestContext) {
+  protected createBaseClientBuilder() {
     let builder = new ClientBuilder()
       .withProjectKey(this.config.projectKey)
       .withQueueMiddleware({
@@ -294,7 +243,7 @@ export class CommercetoolsClient {
       });
 
     const correlationId =
-      reqCtx?.correlationId ||
+      this.context.correlationId ||
       'REACTIONARY-' +
         (typeof crypto !== 'undefined' && 'randomUUID' in crypto
           ? crypto.randomUUID()

@@ -34,7 +34,7 @@ import { CommercetoolsCategoryProvider } from "../providers/category.provider.js
 import { CommercetoolsCheckoutProvider } from "../providers/index.js";
 import { CommercetoolsClient as CTCustomerClient } from "./client.js";
 
-type CommercetoolsClient<T extends CommercetoolsCapabilities> =
+type CommercetoolsProviderSet<T extends CommercetoolsCapabilities> =
     (T['cart'] extends true ? { cart: CartProvider } : object) &
     (T['product'] extends true ? { product: ProductProvider } : object) &
     (T['productSearch'] extends true ? { productSearch: ProductSearchProvider } : object) &
@@ -50,7 +50,7 @@ export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilitie
     configuration: CommercetoolsConfiguration,
     capabilities: T
 ) {
-    return (cache: Cache, context: RequestContext): CommercetoolsClient<T> => {
+    return (cache: Cache, context: RequestContext): CommercetoolsProviderSet<T> => {
         const client: any = {};
         const customerClient = new CTCustomerClient(configuration).getClient(context);
 

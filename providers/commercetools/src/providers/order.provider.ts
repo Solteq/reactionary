@@ -8,21 +8,21 @@ import type {
 import { OrderItemSchema, OrderProvider } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import { CommercetoolsClient } from '../core/client.js';
 import type { ApiRoot, Order as CTOrder } from '@commercetools/platform-sdk';
 import { CommercetoolsOrderIdentifierSchema } from '../schema/commercetools.schema.js';
+import type { CommercetoolsClient } from '../core/client.js';
 export class CommercetoolsOrderProvider<
   T extends Order = Order
 > extends OrderProvider<T> {
   protected config: CommercetoolsConfiguration;
-  protected client: Promise<ApiRoot>;
+  protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
-    client: Promise<ApiRoot>
+    client: CommercetoolsClient
   ) {
     super(schema, cache, context);
 
@@ -31,7 +31,7 @@ export class CommercetoolsOrderProvider<
   }
 
   protected async getClient() {
-    const client = await this.client;
+    const client = await this.client.getClient();
     return client
       .withProjectKey({ projectKey: this.config.projectKey })
       .me()
@@ -39,12 +39,10 @@ export class CommercetoolsOrderProvider<
   }
 
   public override async getById(payload: OrderQueryById): Promise<T> {
-    const client = await this.client;
+    const client = await this.getClient();
 
     try {
       const remote = await client
-        .withProjectKey({ projectKey: this.config.projectKey })
-        .orders()
         .withId({ ID: payload.order.key })
         .get()
         .execute();

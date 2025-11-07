@@ -8,21 +8,21 @@ import { InventoryProvider } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
-  ApiRoot,
   InventoryEntry,
 } from '@commercetools/platform-sdk';
+import type { CommercetoolsClient } from '../core/client.js';
 export class CommercetoolsInventoryProvider<
   T extends Inventory = Inventory
 > extends InventoryProvider<T> {
   protected config: CommercetoolsConfiguration;
-  protected client: Promise<ApiRoot>;
+  protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
-    client: Promise<ApiRoot>
+    client: CommercetoolsClient
   ) {
     super(schema, cache, context);
 
@@ -31,21 +31,19 @@ export class CommercetoolsInventoryProvider<
   }
 
   protected async getClient() {
-    const client = await this.client;
+    const client = await this.client.getClient();
     return client
-      .withProjectKey({ projectKey: this.config.projectKey })
-      .inventory();
+      .withProjectKey({ projectKey: this.config.projectKey });
   }
 
   public override async getBySKU(
     payload: InventoryQueryBySKU
   ): Promise<T> {
-    const client = await this.client;
+    const client = await this.getClient();
 
     // TODO: We can't query by supplyChannel.key, so we have to resolve it first.
     // This is probably a good candidate for internal data caching at some point.
     const channel = await client
-      .withProjectKey({ projectKey: this.config.projectKey })
       .channels()
       .withKey({ key: payload.fulfilmentCenter.key })
       .get()
@@ -54,7 +52,6 @@ export class CommercetoolsInventoryProvider<
     const channelId = channel.body.id;
 
     const remote = await client
-      .withProjectKey({ projectKey: this.config.projectKey })
       .inventory()
       .get({
         queryArgs: {

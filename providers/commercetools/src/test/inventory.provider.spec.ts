@@ -17,7 +17,7 @@ describe('Commercetools Inventory Provider', () => {
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
     const config = getCommercetoolsTestConfiguration();
-    const client = new CommercetoolsClient(config).getClient(reqCtx);
+    const client = new CommercetoolsClient(config, reqCtx);
 
     provider = new CommercetoolsInventoryProvider(
       config,

@@ -10,17 +10,18 @@ import {
 } from '@reactionary/core';
 import type { z } from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { ProductProjection, ProductVariant as CTProductVariant, Attribute as CTAttribute, ApiRoot } from '@commercetools/platform-sdk';
+import type { ProductProjection, ProductVariant as CTProductVariant, Attribute as CTAttribute } from '@commercetools/platform-sdk';
 import type { Product, ProductVariant, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariantIdentifier, RequestContext, ProductAttribute, ProductAttributeIdentifier, ProductAttributeValue, ProductAttributeValueIdentifier } from '@reactionary/core';
 import type { Cache, Image } from '@reactionary/core';
+import type { CommercetoolsClient } from '../core/client.js';
 
 export class CommercetoolsProductProvider<
   T extends Product = Product
 > extends ProductProvider<T> {
   protected config: CommercetoolsConfiguration;
-  protected client: Promise<ApiRoot>;
+  protected client: CommercetoolsClient;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, client: Promise<ApiRoot>) {
+  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, client: CommercetoolsClient) {
     super(schema, cache, context);
 
     this.config = config;
@@ -28,7 +29,7 @@ export class CommercetoolsProductProvider<
   }
 
   protected async getClient() {
-    const client = await this.client;
+    const client = await this.client.getClient();
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
   }
 
