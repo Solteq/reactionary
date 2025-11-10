@@ -1,4 +1,4 @@
-import { CartItemSchema, CartProvider } from '@reactionary/core';
+import { CartIdentifierSchema, CartItemSchema, CartMutationApplyCouponSchema, CartMutationChangeCurrencySchema, CartMutationCheckoutSchema, CartMutationDeleteCartSchema, CartMutationItemAddSchema, CartMutationItemQuantityChangeSchema, CartMutationItemRemoveSchema, CartMutationRemoveCouponSchema, CartMutationSetBillingAddressSchema, CartMutationSetShippingInfoSchema, CartProvider, CartQueryByIdSchema, CartSchema, OrderIdentifierSchema, Reactionary } from '@reactionary/core';
 import type {
   CartMutationItemAdd,
   CartMutationItemQuantityChange,
@@ -18,11 +18,9 @@ import type {
   Currency,
   Cache,
 } from '@reactionary/core';
-
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { z } from 'zod';
 import type {
-  ApiRoot,
   Cart as CTCart,
   MyCartUpdateAction,
 } from '@commercetools/platform-sdk';
@@ -52,6 +50,10 @@ export class CommercetoolsCartProvider<
     this.client = client;
   }
 
+  @Reactionary({
+    inputSchema: CartQueryByIdSchema,
+    outputSchema: CartSchema
+  })
   public override async getById(payload: CartQueryById): Promise<T> {
     try {
       const client = await this.getClient();
@@ -69,6 +71,10 @@ export class CommercetoolsCartProvider<
     }
   }
 
+  @Reactionary({
+    inputSchema: CartMutationItemAddSchema,
+    outputSchema: CartSchema
+  })
   public override async add(payload: CartMutationItemAdd): Promise<T> {
     let cartIdentifier = payload.cart;
     if (!cartIdentifier.key) {
@@ -92,6 +98,10 @@ export class CommercetoolsCartProvider<
     ]);
   }
 
+  @Reactionary({
+    inputSchema: CartMutationItemRemoveSchema,
+    outputSchema: CartSchema
+  })
   public override async remove(payload: CartMutationItemRemove): Promise<T> {
     return this.applyActions(payload.cart, [
       {
@@ -104,6 +114,10 @@ export class CommercetoolsCartProvider<
     ]);
   }
 
+  @Reactionary({
+    inputSchema: CartMutationItemQuantityChangeSchema,
+    outputSchema: CartSchema
+  })
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange
   ): Promise<T> {
@@ -125,6 +139,9 @@ export class CommercetoolsCartProvider<
     ]);
   }
 
+  @Reactionary({
+    outputSchema: CartIdentifierSchema
+  })
   public override async getActiveCartId(): Promise<CartIdentifier> {
     const client = await this.getClient();
     try {
@@ -142,6 +159,10 @@ export class CommercetoolsCartProvider<
     }
   }
 
+  @Reactionary({
+    inputSchema: CartMutationDeleteCartSchema,
+    outputSchema: CartSchema
+  })
   public override async deleteCart(
     payload: CartMutationDeleteCart
   ): Promise<T> {
@@ -164,6 +185,10 @@ export class CommercetoolsCartProvider<
     return this.getById({ cart: activeCartId });
   }
 
+  @Reactionary({
+    inputSchema: CartMutationSetShippingInfoSchema,
+    outputSchema: CartSchema
+  })
   public override async setShippingInfo(
     payload: CartMutationSetShippingInfo
   ): Promise<T> {
@@ -202,6 +227,10 @@ export class CommercetoolsCartProvider<
     return this.applyActions(payload.cart, actions);
   }
 
+  @Reactionary({
+    inputSchema: CartMutationSetBillingAddressSchema,
+    outputSchema: CartSchema
+  })
   public override setBillingAddress(
     payload: CartMutationSetBillingAddress
   ): Promise<T> {
@@ -237,6 +266,10 @@ export class CommercetoolsCartProvider<
     ]);
   }
 
+  @Reactionary({
+    inputSchema: CartMutationApplyCouponSchema,
+    outputSchema: CartSchema
+  })
   public override applyCouponCode(
     payload: CartMutationApplyCoupon
   ): Promise<T> {
@@ -251,6 +284,10 @@ export class CommercetoolsCartProvider<
     ]);
   }
 
+  @Reactionary({
+    inputSchema: CartMutationRemoveCouponSchema,
+    outputSchema: CartSchema
+  })
   public override removeCouponCode(
     payload: CartMutationRemoveCoupon
   ): Promise<T> {
@@ -268,6 +305,10 @@ export class CommercetoolsCartProvider<
     ]);
   }
 
+  @Reactionary({
+    inputSchema: CartMutationCheckoutSchema,
+    outputSchema: OrderIdentifierSchema
+  })
   public override async checkout(
     payload: CartMutationCheckout
   ): Promise<OrderIdentifier> {
@@ -290,6 +331,10 @@ export class CommercetoolsCartProvider<
     });
   }
 
+  @Reactionary({
+    inputSchema: CartMutationChangeCurrencySchema,
+    outputSchema: CartSchema
+  })
   public override async changeCurrency(
     payload: CartMutationChangeCurrency
   ): Promise<T> {

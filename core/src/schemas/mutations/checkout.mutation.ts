@@ -34,7 +34,7 @@ export const CheckoutMutationRemovePaymentInstructionSchema = BaseMutationSchema
 
 
 export const CheckoutMutationSetShippingInstructionSchema = BaseMutationSchema.extend({
-    shippingInstruction: ShippingInstructionSchema.omit({ meta: true, status: true, identifier: true }).required(),
+    shippingInstruction: ShippingInstructionSchema.omit({ meta: true }).required(),
     checkout: CartIdentifierSchema.required()
 });
 

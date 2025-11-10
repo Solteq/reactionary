@@ -41,9 +41,7 @@ export class CommercetoolsClient {
     const isNewSession = !session || !session.refreshToken;
 
     if (isNewSession) {
-      console.log('creating new session...');
       await this.becomeGuest();
-      console.log('new session created!');
 
       session = await this.cache.get();
     }

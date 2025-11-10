@@ -5,13 +5,34 @@ import {
   ProductAttributeValueIdentifierSchema,
   ProductAttributeValueSchema,
   ProductProvider,
+  ProductQueryByIdSchema,
+  ProductQueryBySKUSchema,
+  ProductQueryBySlugSchema,
+  ProductSchema,
   ProductVariantIdentifierSchema,
-  ProductVariantSchema
+  ProductVariantSchema,
+  Reactionary,
 } from '@reactionary/core';
 import type { z } from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { ProductProjection, ProductVariant as CTProductVariant, Attribute as CTAttribute } from '@commercetools/platform-sdk';
-import type { Product, ProductVariant, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariantIdentifier, RequestContext, ProductAttribute, ProductAttributeIdentifier, ProductAttributeValue, ProductAttributeValueIdentifier } from '@reactionary/core';
+import type {
+  ProductProjection,
+  ProductVariant as CTProductVariant,
+  Attribute as CTAttribute,
+} from '@commercetools/platform-sdk';
+import type {
+  Product,
+  ProductVariant,
+  ProductQueryById,
+  ProductQueryBySKU,
+  ProductQueryBySlug,
+  ProductVariantIdentifier,
+  RequestContext,
+  ProductAttribute,
+  ProductAttributeIdentifier,
+  ProductAttributeValue,
+  ProductAttributeValueIdentifier,
+} from '@reactionary/core';
 import type { Cache, Image } from '@reactionary/core';
 import type { CommercetoolsClient } from '../core/client.js';
 
@@ -21,7 +42,13 @@ export class CommercetoolsProductProvider<
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, client: CommercetoolsClient) {
+  constructor(
+    config: CommercetoolsConfiguration,
+    schema: z.ZodType<T>,
+    cache: Cache,
+    context: RequestContext,
+    client: CommercetoolsClient
+  ) {
     super(schema, cache, context);
 
     this.config = config;
@@ -30,27 +57,32 @@ export class CommercetoolsProductProvider<
 
   protected async getClient() {
     const client = await this.client.getClient();
-    return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
+    return client
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .productProjections();
   }
 
-  public override async getById(
-    payload: ProductQueryById
-  ): Promise<T> {
+  @Reactionary({
+    inputSchema: ProductQueryByIdSchema,
+    outputSchema: ProductSchema,
+  })
+  public override async getById(payload: ProductQueryById): Promise<T> {
     const client = await this.getClient();
 
     // FIXME: This should be a ProductIdentifier...
     try {
-      const remote = await client
-        .withKey({ key: payload.id })
-        .get()
-        .execute();
+      const remote = await client.withKey({ key: payload.id }).get().execute();
 
       return this.parseSingle(remote.body);
-    } catch(error) {
+    } catch (error) {
       return this.createEmptyProduct(payload.id);
     }
   }
 
+  @Reactionary({
+    inputSchema: ProductQueryBySlugSchema,
+    outputSchema: ProductSchema.nullable(),
+  })
   public override async getBySlug(
     payload: ProductQueryBySlug
   ): Promise<T | null> {
@@ -61,8 +93,8 @@ export class CommercetoolsProductProvider<
         queryArgs: {
           // FIXME: Hardcoded locale
           where: 'slug(en = :slug)',
-          'var.slug': payload.slug
-        }
+          'var.slug': payload.slug,
+        },
       })
       .execute();
 
@@ -72,9 +104,11 @@ export class CommercetoolsProductProvider<
     return this.parseSingle(remote.body.results[0]);
   }
 
-  public override async getBySKU(
-    payload: ProductQueryBySKU
-  ): Promise<T> {
+  @Reactionary({
+    inputSchema: ProductQueryBySKUSchema,
+    outputSchema: ProductSchema,
+  })
+  public override async getBySKU(payload: ProductQueryBySKU): Promise<T> {
     const client = await this.getClient();
 
     const remote = await client
@@ -83,19 +117,16 @@ export class CommercetoolsProductProvider<
           staged: false,
           limit: 1,
           where: 'variants(sku in (:skus)) OR (masterVariant(sku in (:skus))) ',
-          'var.skus': [payload].map(p => p.variant.sku),
-        }
+          'var.skus': [payload].map((p) => p.variant.sku),
+        },
       })
       .execute();
 
     return this.parseSingle(remote.body.results[0]);
   }
 
-
   protected override parseSingle(data: ProductProjection): T {
-
     const base = this.newModel();
-
 
     base.identifier = { key: data.key || data.id };
     base.name = data.name[this.context.languageContext.locale];
@@ -105,53 +136,55 @@ export class CommercetoolsProductProvider<
       base.description = data.description[this.context.languageContext.locale];
     }
 
-
-    base.sharedAttributes = data.masterVariant.attributes?.map(x => this.parseAttribute(x)) || [];
+    base.sharedAttributes =
+      data.masterVariant.attributes?.map((x) => this.parseAttribute(x)) || [];
     base.mainVariant = this.parseVariant(data.masterVariant, data);
 
     base.meta = {
       cache: { hit: false, key: this.generateCacheKeySingle(base.identifier) },
-      placeholder: false
+      placeholder: false,
     };
 
     return this.assert(base);
   }
 
-  protected parseVariant(variant: CTProductVariant, product: ProductProjection): ProductVariant {
+  protected parseVariant(
+    variant: CTProductVariant,
+    product: ProductProjection
+  ): ProductVariant {
     const result = ProductVariantSchema.parse({
       identifier: ProductVariantIdentifierSchema.parse({
-        sku: variant.sku
+        sku: variant.sku,
       } satisfies Partial<ProductVariantIdentifier>),
 
       images: [
-        ...(variant.images || []).map(img => ImageSchema.parse({
-          sourceUrl: img.url,
-          altText: img.label || '',
-          width: img.dimensions?.w,
-          height: img.dimensions?.h,
-        } satisfies Partial<Image>))
-     ],
+        ...(variant.images || []).map((img) =>
+          ImageSchema.parse({
+            sourceUrl: img.url,
+            altText: img.label || '',
+            width: img.dimensions?.w,
+            height: img.dimensions?.h,
+          } satisfies Partial<Image>)
+        ),
+      ],
     } satisfies Partial<ProductVariant>);
     return result;
   }
 
   protected parseAttribute(attr: CTAttribute): ProductAttribute {
-    const result  = ProductAttributeSchema.parse({
+    const result = ProductAttributeSchema.parse({
       identifier: ProductAttributeIdentifierSchema.parse({
-        key: attr.name
-      } satisfies Partial< ProductAttributeIdentifier>),
+        key: attr.name,
+      } satisfies Partial<ProductAttributeIdentifier>),
       group: '',
       name: attr.name,
-      values: [
-        this.parseAttributeValue(attr)
-      ]
-    } satisfies Partial< ProductAttribute >);
+      values: [this.parseAttributeValue(attr)],
+    } satisfies Partial<ProductAttribute>);
 
     return result;
-  };
+  }
 
   protected parseAttributeValue(attr: CTAttribute): ProductAttributeValue {
-
     let attrValue = '';
     if (attr.value && Array.isArray(attr.value)) {
       attrValue = attr.value[0];
@@ -160,20 +193,19 @@ export class CommercetoolsProductProvider<
     if (attrValue && typeof attrValue === 'object') {
       if (this.context.languageContext.locale in attrValue) {
         attrValue = attrValue[this.context.languageContext.locale];
-      } else  {
+      } else {
         attrValue = '-';
       }
     }
 
-    const attrVal =  ProductAttributeValueSchema.parse({
+    const attrVal = ProductAttributeValueSchema.parse({
       identifier: ProductAttributeValueIdentifierSchema.parse({
-        key: attrValue
-      } satisfies Partial< ProductAttributeValueIdentifier>),
+        key: attrValue,
+      } satisfies Partial<ProductAttributeValueIdentifier>),
       value: String(attrValue),
-      label: String(attrValue)
-    } satisfies Partial< ProductAttributeValue >);
+      label: String(attrValue),
+    } satisfies Partial<ProductAttributeValue>);
 
     return attrVal;
   }
-
 }

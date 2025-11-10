@@ -1,4 +1,4 @@
-import { createPaginatedResponseSchema, FacetIdentifierSchema, FacetValueIdentifierSchema, ImageSchema, ProductOptionIdentifierSchema, ProductSearchProvider, ProductSearchResultFacetSchema, ProductSearchResultFacetValueSchema, ProductSearchResultItemVariantSchema, ProductVariantIdentifierSchema, ProductVariantOptionSchema } from '@reactionary/core';
+import { createPaginatedResponseSchema, FacetIdentifierSchema, FacetValueIdentifierSchema, ImageSchema, ProductOptionIdentifierSchema, ProductSearchProvider, ProductSearchQueryByTermSchema, ProductSearchResultFacetSchema, ProductSearchResultFacetValueSchema, ProductSearchResultItemVariantSchema, ProductSearchResultSchema, ProductVariantIdentifierSchema, ProductVariantOptionSchema, Reactionary } from '@reactionary/core';
 import type {
   Cache,
   ProductSearchQueryByTerm,
@@ -16,7 +16,7 @@ import type {
 } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { ApiRoot, ProductVariant as CTProductVariant, FacetResult, ProductProjection, ProductProjectionPagedSearchResponse } from '@commercetools/platform-sdk';
+import type { ProductVariant as CTProductVariant, FacetResult, ProductProjection, ProductProjectionPagedSearchResponse } from '@commercetools/platform-sdk';
 
 import createDebug from 'debug';
 import type { CommercetoolsClient } from '../core/client.js';
@@ -46,6 +46,10 @@ export class CommercetoolsSearchProvider<
     return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections();
   }
 
+  @Reactionary({
+    inputSchema: ProductSearchQueryByTermSchema,
+    outputSchema: ProductSearchResultSchema,
+  })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<ProductSearchResult> {

@@ -4,12 +4,10 @@ import type {
   Cache,
   InventoryQueryBySKU,
 } from '@reactionary/core';
-import { InventoryProvider } from '@reactionary/core';
+import { InventoryProvider, InventoryQueryBySKUSchema, InventorySchema, Reactionary } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type {
-  InventoryEntry,
-} from '@commercetools/platform-sdk';
+import type { InventoryEntry } from '@commercetools/platform-sdk';
 import type { CommercetoolsClient } from '../core/client.js';
 export class CommercetoolsInventoryProvider<
   T extends Inventory = Inventory
@@ -32,13 +30,14 @@ export class CommercetoolsInventoryProvider<
 
   protected async getClient() {
     const client = await this.client.getClient();
-    return client
-      .withProjectKey({ projectKey: this.config.projectKey });
+    return client.withProjectKey({ projectKey: this.config.projectKey });
   }
 
-  public override async getBySKU(
-    payload: InventoryQueryBySKU
-  ): Promise<T> {
+  @Reactionary({
+    inputSchema: InventoryQueryBySKUSchema,
+    outputSchema: InventorySchema,
+  })
+  public override async getBySKU(payload: InventoryQueryBySKU): Promise<T> {
     const client = await this.getClient();
 
     // TODO: We can't query by supplyChannel.key, so we have to resolve it first.
@@ -58,7 +57,7 @@ export class CommercetoolsInventoryProvider<
           where: 'sku=:sku AND supplyChannel(id=:channel)',
           'var.sku': payload.variant.sku,
           'var.channel': channelId,
-          expand: 'supplyChannel'
+          expand: 'supplyChannel',
         },
       })
       .execute();
@@ -70,9 +69,7 @@ export class CommercetoolsInventoryProvider<
     return model;
   }
 
-  protected override parseSingle(
-    body: InventoryEntry
-  ): T {
+  protected override parseSingle(body: InventoryEntry): T {
     const model = this.newModel();
 
     model.identifier = {
