@@ -6,6 +6,11 @@ import {
   type Cache,
   IdentityProvider,
   type IdentityMutationRegister,
+  Reactionary,
+  IdentityQuerySelfSchema,
+  IdentitySchema,
+  IdentityMutationRegisterSchema,
+  IdentityMutationLoginSchema,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type z from 'zod';
@@ -30,33 +35,42 @@ export class CommercetoolsIdentityProvider<
     this.client = client;
   }
 
-  public override async getSelf(
-    payload: IdentityQuerySelf
-  ): Promise<T> {
+  @Reactionary({
+    inputSchema: IdentityQuerySelfSchema,
+    outputSchema: IdentitySchema,
+  })
+  public override async getSelf(payload: IdentityQuerySelf): Promise<T> {
     const identity = await this.client.introspect();
 
     return identity as T;
   }
 
-  public override async login(
-    payload: IdentityMutationLogin
-  ): Promise<T> {
+  @Reactionary({
+    inputSchema: IdentityMutationLoginSchema,
+    outputSchema: IdentitySchema,
+  })
+  public override async login(payload: IdentityMutationLogin): Promise<T> {
     const identity = await this.client.login(
       payload.username,
-      payload.password,
+      payload.password
     );
 
     return identity as T;
   }
 
-  public override async logout(
-    payload: Record<string, never>
-  ): Promise<T> {
+  @Reactionary({
+    outputSchema: IdentitySchema,
+  })
+  public override async logout(payload: Record<string, never>): Promise<T> {
     const identity = await this.client.logout();
 
     return identity as T;
   }
 
+  @Reactionary({
+    inputSchema: IdentityMutationRegisterSchema,
+    outputSchema: IdentitySchema,
+  })
   public override async register(
     payload: IdentityMutationRegister
   ): Promise<T> {

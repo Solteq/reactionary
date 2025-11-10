@@ -5,7 +5,7 @@ import type {
   OrderQueryById,
   Currency,
 } from '@reactionary/core';
-import { OrderItemSchema, OrderProvider } from '@reactionary/core';
+import { OrderItemSchema, OrderProvider, OrderQueryByIdSchema, OrderSchema, Reactionary } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { ApiRoot, Order as CTOrder } from '@commercetools/platform-sdk';
@@ -38,6 +38,10 @@ export class CommercetoolsOrderProvider<
       .orders();
   }
 
+  @Reactionary({
+    inputSchema: OrderQueryByIdSchema,
+    outputSchema: OrderSchema,
+  })
   public override async getById(payload: OrderQueryById): Promise<T> {
     const client = await this.getClient();
 

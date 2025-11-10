@@ -1,8 +1,25 @@
-import { PriceProvider, TieredPriceSchema } from '@reactionary/core';
-import type { PriceQueryBySku, RequestContext , Price, Cache, Currency, TieredPrice } from '@reactionary/core';
-import type z from 'zod';
+import {
+  PriceProvider,
+  PriceQueryBySkuSchema,
+  PriceSchema,
+  Reactionary,
+  TieredPriceSchema,
+} from '@reactionary/core';
+import type {
+  PriceQueryBySku,
+  RequestContext,
+  Price,
+  Cache,
+  Currency,
+  TieredPrice,
+} from '@reactionary/core';
+import z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { ApiRoot, Price as CTPrice, ProductVariant as CTProductVariant } from '@commercetools/platform-sdk';
+import type {
+  ApiRoot,
+  Price as CTPrice,
+  ProductVariant as CTProductVariant,
+} from '@commercetools/platform-sdk';
 import type { CommercetoolsClient } from '../core/client.js';
 export class CommercetoolsPriceProvider<
   T extends Price = Price
@@ -10,7 +27,13 @@ export class CommercetoolsPriceProvider<
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
 
-  constructor(config: CommercetoolsConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, client: CommercetoolsClient) {
+  constructor(
+    config: CommercetoolsConfiguration,
+    schema: z.ZodType<T>,
+    cache: Cache,
+    context: RequestContext,
+    client: CommercetoolsClient
+  ) {
     super(schema, cache, context);
 
     this.config = config;
@@ -19,9 +42,15 @@ export class CommercetoolsPriceProvider<
 
   protected async getClient() {
     const client = await this.client.getClient();
-    return client.withProjectKey({ projectKey: this.config.projectKey }).productProjections()
+    return client
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .productProjections();
   }
 
+  @Reactionary({
+    inputSchema: z.array(PriceQueryBySkuSchema),
+    outputSchema: z.array(PriceSchema),
+  })
   public override async getBySKUs(payload: PriceQueryBySku[]): Promise<T[]> {
     const client = await this.getClient();
 
@@ -29,27 +58,30 @@ export class CommercetoolsPriceProvider<
 
     const channels = await this.getChannels();
 
-    const response = await client.get({
-      queryArgs: {
-        staged: false,
-        priceCountry: this.context.taxJurisdiction.countryCode,
-        priceCustomerGroup: undefined,
-        // FIXME: Hardcoded value for testing, for now...
-        priceChannel: '7293d166-27a3-4136-b7c5-7b4dc3cfce40',
-        priceCurrency: this.context.languageContext.currencyCode,
-        where: 'variants(sku in (:skus)) OR (masterVariant(sku in (:skus))) ',
-        'var.skus': payload.map(p => p.variant.sku),
-        limit: payload.length,
-      },
-    }).execute();
-
-    console.log('response: ', response.body);
+    const response = await client
+      .get({
+        queryArgs: {
+          staged: false,
+          priceCountry: this.context.taxJurisdiction.countryCode,
+          priceCustomerGroup: undefined,
+          // FIXME: Hardcoded value for testing, for now...
+          priceChannel: '7293d166-27a3-4136-b7c5-7b4dc3cfce40',
+          priceCurrency: this.context.languageContext.currencyCode,
+          where: 'variants(sku in (:skus)) OR (masterVariant(sku in (:skus))) ',
+          'var.skus': payload.map((p) => p.variant.sku),
+          limit: payload.length,
+        },
+      })
+      .execute();
 
     const result = [];
-    const allReturnedVariants = [...response.body.results.map(x => x.variants).flat(), ...response.body.results.map(x => x.masterVariant).flat()];
+    const allReturnedVariants = [
+      ...response.body.results.map((x) => x.variants).flat(),
+      ...response.body.results.map((x) => x.masterVariant).flat(),
+    ];
     // Now we need to match the skus requested with the prices returned.
-    for(const p of payload) {
-      const foundSku = allReturnedVariants.find(v => v.sku === p.variant.sku);
+    for (const p of payload) {
+      const foundSku = allReturnedVariants.find((v) => v.sku === p.variant.sku);
 
       if (!foundSku) {
         result.push(this.createEmptyPriceResult(p.variant.sku));
@@ -61,14 +93,13 @@ export class CommercetoolsPriceProvider<
     return result;
   }
 
-
-  public override async getBySKU(
-    payload: PriceQueryBySku
-  ): Promise<T> {
-    return this.getBySKUs([payload]).then(r => r[0]);
+  @Reactionary({
+    inputSchema: PriceQueryBySkuSchema,
+    outputSchema: PriceSchema,
+  })
+  public override async getBySKU(payload: PriceQueryBySku): Promise<T> {
+    return this.getBySKUs([payload]).then((r) => r[0]);
   }
-
-
 
   protected override parseSingle(_body: unknown): T {
     const body = _body as CTProductVariant;
@@ -80,16 +111,16 @@ export class CommercetoolsPriceProvider<
 
     const base = this.newModel();
     base.unitPrice = {
-      value: (price.value.centAmount / 100),
+      value: price.value.centAmount / 100,
       currency: price.value.currencyCode as Currency,
     };
 
     if (price.tiers && price.tiers.length > 0) {
-      const p  = price.tiers.map(x => {
+      const p = price.tiers.map((x) => {
         const tp: TieredPrice = TieredPriceSchema.parse({});
         tp.minimumQuantity = x.minimumQuantity;
         tp.price = {
-          value: (x.value.centAmount / 100),
+          value: x.value.centAmount / 100,
           currency: x.value.currencyCode as Currency,
         };
         return tp;
@@ -99,28 +130,32 @@ export class CommercetoolsPriceProvider<
 
     base.identifier = {
       variant: {
-        sku: body.sku!
-      }
+        sku: body.sku!,
+      },
     };
 
     base.meta = {
       cache: { hit: false, key: this.generateCacheKeySingle(base.identifier) },
-      placeholder: false
+      placeholder: false,
     };
 
     return this.assert(base);
-
   }
 
   protected async getChannels() {
-    if (!(this.context.session['commercetools'] && this.context.session['commercetools'].offerChannelGUID && this.context.session['commercetools'].listChannelGUID)) {
-
+    if (
+      !(
+        this.context.session['commercetools'] &&
+        this.context.session['commercetools'].offerChannelGUID &&
+        this.context.session['commercetools'].listChannelGUID
+      )
+    ) {
       /**
        * Bah - have to be an admin to call these....
        * So either we cache them in the session, or we make the user provide them in the config.
        */
 
-   /*
+      /*
         const configClient = await new CommercetoolsClient(this.config).getClient(reqCtx);
         const offerPriceChannelPromise = configClient.withProjectKey({ projectKey: this.config.projectKey }).channels().withKey({ key: 'Offer Price'}).get().execute();
         const listPriceChannelPromise = configClient.withProjectKey({ projectKey: this.config.projectKey }).channels().withKey({ key: 'List Price'}).get().execute();
@@ -128,17 +163,16 @@ export class CommercetoolsPriceProvider<
         const [offerChannel, listChannel] = await Promise.all([offerPriceChannelPromise, listPriceChannelPromise]);
     */
 
-        this.context.session['commercetools'] = {
-          ...this.context.session['commercetools'],
-          offerChannelGUID: undefined,
-          listChannelGUID: undefined
-        };
+      this.context.session['commercetools'] = {
+        ...this.context.session['commercetools'],
+        offerChannelGUID: undefined,
+        listChannelGUID: undefined,
+      };
     }
-
 
     return {
       offerChannelGUID: this.context.session['commercetools'].offerChannelGUID,
-      listChannelGUID: this.context.session['commercetools'].listChannelGUID
-    }
+      listChannelGUID: this.context.session['commercetools'].listChannelGUID,
+    };
   }
 }
