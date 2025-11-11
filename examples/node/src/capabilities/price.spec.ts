@@ -2,10 +2,8 @@ import 'dotenv/config';
 
 import type { RequestContext} from '@reactionary/core';
 import { NoOpCache, PriceSchema, createInitialRequestContext,} from '@reactionary/core';
-import {   getCommercetoolsTestConfiguration } from './test-utils.js';
-import { CommercetoolsPriceProvider } from '../providers/price.provider.js';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { CommercetoolsClient } from '../core/client.js';
+import { createClient } from '../utils.js';
 
 const testData = {
   skuWithoutTiers: '8719514465190',
@@ -14,20 +12,15 @@ const testData = {
 
 
 // FIXME: Currently broken in terms of actually looking up anything...
-describe.skip('Commercetools Price Provider', () => {
-  let provider: CommercetoolsPriceProvider;
-  let reqCtx: RequestContext;
+describe.skip('Price Capability', () => {
+  let client: ReturnType<typeof createClient>;
 
-  beforeEach( () => {
-    reqCtx = createInitialRequestContext();
-    const config = getCommercetoolsTestConfiguration();
-    const client = new CommercetoolsClient(config, reqCtx);
-    
-    provider = new CommercetoolsPriceProvider(config, PriceSchema, new NoOpCache(), reqCtx, client);
-  })
+  beforeEach(() => {
+    client = createClient();
+  });
 
   it('should be able to get prices for a product without tiers', async () => {
-    const result = await provider.getBySKU({ variant: { sku: testData.skuWithoutTiers }});
+    const result = await client.price.getBySKU({ variant: { sku: testData.skuWithoutTiers }});
 
     expect(result).toBeTruthy();
     if (result) {
@@ -39,7 +32,7 @@ describe.skip('Commercetools Price Provider', () => {
   });
 
   it.skip('should be able to get prices for a product with tiers', async () => {
-    const result = await provider.getBySKU({ variant: { sku: testData.skuWithTiers }});
+    const result = await client.price.getBySKU({ variant: { sku: testData.skuWithTiers }});
 
     expect(result).toBeTruthy();
     if (result) {
@@ -56,7 +49,7 @@ describe.skip('Commercetools Price Provider', () => {
   });
 
   it('should return a placeholder price for an unknown SKU', async () => {
-    const result = await provider.getBySKU({ variant: { sku: 'unknown-sku' }});
+    const result = await client.price.getBySKU({ variant: { sku: 'unknown-sku' }});
 
     expect(result).toBeTruthy();
     if (result) {
@@ -70,7 +63,7 @@ describe.skip('Commercetools Price Provider', () => {
 
   it('can look up multiple prices at once', async () => {
     const skus = [testData.skuWithTiers, testData.skuWithoutTiers, 'unknown-sku'];
-    const results = await Promise.all(skus.map( sku => provider.getBySKU({ variant: { sku: sku }})));
+    const results = await Promise.all(skus.map( sku => client.price.getBySKU({ variant: { sku: sku }})));
 
     expect(results).toHaveLength(skus.length);
     expect(results[0].identifier.variant.sku).toBe(testData.skuWithTiers);
