@@ -75,11 +75,11 @@ UX Pages and components supported:
 - [ ] Medusa - Price capability - AKJ
 - [ ] Medusa - Inventory capability - AKJ
 - [ ] Medusa - Store capability - AKJ
-- [ ] Search Index Model Add information about number of variants on the main model (or directly if it can be added to cart or not) - AKJ
-- [ ] CLI for importing icecat to all vendors - AKJ
-- [ ] Unified Data Set for Products - AKJ
-- [ ] Unified Data Set for Inventory - AKJ
-- [ ] Unified Data Set for Prices - AKJ
+- [X] Search Index Model Add information about number of variants on the main model (or directly if it can be added to cart or not) - AKJ
+- [X] CLI for importing icecat to all vendors - AKJ
+- [X] Unified Data Set for Products - AKJ
+- [X] Unified Data Set for Inventory - AKJ
+- [X] Unified Data Set for Prices - AKJ
 - [ ] Unified test set for all vendors - AKJ
 - [ ] Medusa - test of Client - AKJ
 - [ ] Reactionary Decorator on all public Query and Mutation methods - MR
@@ -192,3 +192,39 @@ Vendors:  Commercetools
 
 
 
+
+
+
+## Adding a new provider
+So, you want to add to the fun, and add a new provider.
+A new provider can be as partial or as complete as you need it to be, but each capability it undertakes, must be fully supported.
+
+## Step 0
+Make sure you have a clean test environment. Ie not some half-baked instance with broken test data. Ideally, you are able to spin up and preconfigure instances via scripts.
+
+## Step 1
+Populate your environment with the shared test-data set. Reactionarys providers all share a set of product information based on ICECAT. 
+
+If you are internal to Solteq, you can work off of https://github.com/Solteq/composable-commerce-base-workspace. If you are external, go to ICECAT.biz, and register an account.
+Then use their API to download the free dataset and all the various product-data files. Parse those, and import them in your system as appropriate.
+
+Consider, that you may not need to import all of it, if your capability doesn't need it. Ie if you are only implementing the CART capability, you don't really need the product images, or long descriptions.
+
+## Step 2
+Add your provider library here.
+
+```
+npx nx g lib providers/<vendor> --buildable --publishable TODO: Martin, fill in
+```
+
+Within each `src` folder, adhere to the naming convention of the existing providers:
+- `core` (capabilities and initalization)
+- `providers` (each capability in its own file, named for itself )
+- `schema` any vendor specific schema overrides
+- `test` any internal/specific test to that provider.
+
+## Step 3
+Create the initialization and capabilities schema, and start adding logic.
+
+## Step 4 
+As your new vendor lib contains the same test data that all other vendors do, you can run the `global-tests` suite. This will show if your capability implementation adheres to the expected behavior within reactionary.

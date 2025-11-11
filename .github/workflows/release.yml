@@ -2,8 +2,17 @@ name: release
 
 on:
   push:
+    paths-ignore:
+      - 'docs/**'
+      - '.gitignore'
+      - 'README.md'
+      - 'documentation/**'
+      - '**/*.md'
+
     branches:
       main
+
+
 
 permissions:
   actions: read
