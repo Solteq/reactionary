@@ -39,10 +39,10 @@ export class MedusaCheckoutProvider<
     const client = await new MedusaClient(this.config).getClient(this.context);
     // we should eventually copy the cart.... but for now we just continue with the existing one.
     if (debug.enabled) {
-      debug(`Initiating checkout for cart with key: ${payload.cart.key}`);
+      debug(`Initiating checkout for cart with key: ${payload.cart.identifier.key}`);
     }
     // zero out existing checkout data?
-    const response = await client.store.cart.update(payload.cart.key, {
+    const response = await client.store.cart.update(payload.cart.identifier.key, {
       billing_address: undefined,
       shipping_address: undefined,
       email: undefined,

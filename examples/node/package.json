@@ -5,6 +5,9 @@
   "types": "src/index.d.ts",
   "dependencies": {
 
+  
+    "@reactionary/core": "0.0.1",
+    "@reactionary/provider-commercetools": "0.0.1"
   },
   "type": "module"
 }

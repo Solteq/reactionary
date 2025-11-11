@@ -259,7 +259,7 @@ describe('Checkout Capability', () => {
           { identifier: checkoutWithPi.identifier },
         );
         if (!checkoutReady) {
-          fail('checkout not found');
+          expect.fail('checkout not found');
         }
         expect(checkoutReady.readyForFinalization).toBe(true);
       });

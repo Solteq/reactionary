@@ -8,6 +8,7 @@ import {
   ImageSchema,
   ProductSearchProvider,
   type ProductSearchQueryByTerm,
+  ProductSearchQueryByTermSchema,
   type ProductSearchResult,
   type ProductSearchResultFacet,
   ProductSearchResultFacetSchema,
@@ -16,6 +17,8 @@ import {
   type ProductSearchResultItem,
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
+  ProductSearchResultSchema,
+  Reactionary,
   type RequestContext
 } from '@reactionary/core';
 import { algoliasearch, type SearchResponse } from 'algoliasearch';
@@ -46,6 +49,10 @@ export class AlgoliaSearchProvider<
     this.config = config;
   }
 
+  @Reactionary({
+    inputSchema: ProductSearchQueryByTermSchema,
+    outputSchema: ProductSearchResultSchema
+  })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<ProductSearchResult> {
