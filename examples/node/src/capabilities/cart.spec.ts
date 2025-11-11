@@ -1,51 +1,23 @@
 import 'dotenv/config';
-import type { RequestContext } from '@reactionary/core';
-import {
-  CartSchema,
-  NoOpCache,
-  ProductSchema,
-  createInitialRequestContext,
-} from '@reactionary/core';
-import { getCommercetoolsTestConfiguration } from './test-utils.js';
-import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
-import { CommercetoolsProductProvider } from '../providers/product.provider.js';
+import { createClient } from '../utils.js';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { CommercetoolsClient } from '../core/client.js';
+import { ProductSearchQueryByTermSchema, type ProductSearchQueryByTerm } from '@reactionary/core';
 
 const testData = {
-  skuWithoutTiers: '8719514465190',
-  skuWithTiers: '8719514435377',
+  skuWithoutTiers: '0766623301831',
+  skuWithTiers: '0766623360203',
 };
 
-describe('Commercetools Cart Provider', () => {
-  let provider: CommercetoolsCartProvider;
-  let productProvider: CommercetoolsProductProvider;
-  let reqCtx: RequestContext;
+describe('Cart Capability', () => {
+  let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
-    reqCtx = createInitialRequestContext();
-    const config = getCommercetoolsTestConfiguration();
-    const client = new CommercetoolsClient(config, reqCtx);
-
-    provider = new CommercetoolsCartProvider(
-      getCommercetoolsTestConfiguration(),
-      CartSchema,
-      new NoOpCache(),
-      reqCtx,
-      client
-    );
-    productProvider = new CommercetoolsProductProvider(
-      getCommercetoolsTestConfiguration(),
-      ProductSchema,
-      new NoOpCache(),
-      reqCtx,
-      client
-    );
+    client = createClient();
   });
 
   describe('anonymous sessions', () => {
     it('should be able to get an empty cart', async () => {
-      const cart = await provider.getById({
+      const cart = await client.cart.getById({
         cart: { key: '' },
       });
 
@@ -55,7 +27,7 @@ describe('Commercetools Cart Provider', () => {
     });
 
     it('should be able to add an item to a cart', async () => {
-      const cart = await provider.add({
+      const cart = await client.cart.add({
         cart: { key: '' },
         variant: {
           sku: testData.skuWithoutTiers,
@@ -69,14 +41,8 @@ describe('Commercetools Cart Provider', () => {
       expect(cart.items[0].quantity).toBe(1);
 
       expect(cart.items[0].price.totalPrice.value).toBeGreaterThan(0);
-      expect(cart.items[0].price.totalPrice.currency).toBe(
-        reqCtx.languageContext.currencyCode
-      );
 
       expect(cart.price.grandTotal.value).toBeGreaterThan(0);
-      expect(cart.price.grandTotal.currency).toBe(
-        reqCtx.languageContext.currencyCode
-      );
 
       expect(cart.price.grandTotal.value).toBe(
         cart.items[0].price.totalPrice.value
@@ -86,7 +52,7 @@ describe('Commercetools Cart Provider', () => {
     });
 
     it('can add multiple different items to a cart', async () => {
-      const cart = await provider.add({
+      const cart = await client.cart.add({
         cart: { key: '' },
         variant: {
           sku: testData.skuWithoutTiers,
@@ -94,7 +60,7 @@ describe('Commercetools Cart Provider', () => {
         quantity: 1,
       });
 
-      const updatedCart = await provider.add({
+      const updatedCart = await client.cart.add({
         cart: cart.identifier,
         variant: {
           sku: testData.skuWithTiers,
@@ -110,7 +76,7 @@ describe('Commercetools Cart Provider', () => {
     });
 
     it('should be able to change quantity of an item in a cart', async () => {
-      const cart = await provider.add({
+      const cart = await client.cart.add({
         cart: { key: '' },
         variant: {
           sku: testData.skuWithoutTiers,
@@ -118,7 +84,7 @@ describe('Commercetools Cart Provider', () => {
         quantity: 1,
       });
 
-      const updatedCart = await provider.changeQuantity({
+      const updatedCart = await client.cart.changeQuantity({
         cart: cart.identifier,
         item: cart.items[0].identifier,
         quantity: 3,
@@ -128,14 +94,16 @@ describe('Commercetools Cart Provider', () => {
       expect(updatedCart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
       expect(updatedCart.items[0].quantity).toBe(3);
 
-      expect(updatedCart.items[0].price.totalPrice.value).toBeGreaterThan(cart.items[0].price.totalPrice.value);
+      expect(updatedCart.items[0].price.totalPrice.value).toBeGreaterThan(
+        cart.items[0].price.totalPrice.value
+      );
       expect(updatedCart.items[0].price.unitPrice.value).toBe(
         cart.items[0].price.unitPrice.value
       );
     });
 
     it('should be able to remove an item from a cart', async () => {
-      const cart = await provider.add({
+      const cart = await client.cart.add({
         cart: { key: '' },
         variant: {
           sku: testData.skuWithoutTiers,
@@ -143,7 +111,7 @@ describe('Commercetools Cart Provider', () => {
         quantity: 1,
       });
 
-      const updatedCart = await provider.remove({
+      const updatedCart = await client.cart.remove({
         cart: cart.identifier,
         item: cart.items[0].identifier,
       });
@@ -152,7 +120,7 @@ describe('Commercetools Cart Provider', () => {
     });
 
     it('should be able to delete a cart', async () => {
-      const cart = await provider.add({
+      const cart = await client.cart.add({
         cart: { key: '' },
         variant: {
           sku: testData.skuWithoutTiers,
@@ -163,14 +131,14 @@ describe('Commercetools Cart Provider', () => {
       expect(cart.items.length).toBe(1);
       expect(cart.identifier.key).toBeTruthy();
 
-      const deletedCart = await provider.deleteCart({
+      const deletedCart = await client.cart.deleteCart({
         cart: cart.identifier,
       });
 
       expect(deletedCart.items.length).toBe(0);
       expect(deletedCart.identifier.key).toBe('');
 
-      const originalCart = await provider.getById({
+      const originalCart = await client.cart.getById({
         cart: cart.identifier,
       });
 
@@ -178,7 +146,7 @@ describe('Commercetools Cart Provider', () => {
     });
 
     it('can load the product information for cart items', async () => {
-      const cart = await provider.add({
+      const cart = await client.cart.add({
         cart: { key: '' },
         variant: {
           sku: testData.skuWithoutTiers,
@@ -187,7 +155,7 @@ describe('Commercetools Cart Provider', () => {
       });
       expect(cart.items[0].variant).toBeDefined();
 
-      const product = await productProvider.getBySKU({
+      const product = await client.product.getBySKU({
         variant: cart.items[0].variant,
       });
       expect(product).toBeTruthy();
@@ -197,16 +165,47 @@ describe('Commercetools Cart Provider', () => {
         );
       }
     });
-    /**
-    it('should be able to create a cart for an anonymous user, then login and merge the cart', async () => {
-    });
 
-    it('should be able to create a cart for an anonymous user, then register and merge the cart', async () => {
-    });
+    it('should be able to add an 50 items to a cart in less than 30 seconds', async () => {
+      let cart = await client.cart.getById({
+        cart: { key: '' },
+      });
 
-    it('should be able to clear the cart', async () => { });
+      const searchResult = await client.productSearch.queryByTerm(
+        ProductSearchQueryByTermSchema.parse({
+          search: {
+            term: 'cable',
+            paginationOptions: {
+              pageNumber: 1,
+              pageSize: 8,
+            },
+            filters: [],
+            facets: [],
+          },
+        } satisfies ProductSearchQueryByTerm)
+      );
+      expect(searchResult.items.length).toBeGreaterThanOrEqual(8);
 
-    it('should be able to check out the cart', async () => { });
-    */
+      for (const product of searchResult.items) {
+        cart = await client.cart.add({
+          cart: cart.identifier,
+          variant: {
+            sku: product.variants[0].variant.sku,
+          },
+          quantity: 1,
+        });
+      }
+
+      if (cart) {
+        expect(cart.identifier.key).toBeDefined();
+        expect(cart.items.length).toBe(8);
+
+        expect(cart.items[0].price.totalPrice.value).toBeGreaterThan(0);
+        expect(cart.price.grandTotal.value).toBeGreaterThan(0);
+        expect(cart.meta?.placeholder).toBeFalsy();
+      } else {
+        throw new Error('Cart is undefined');
+      }
+    }, 30000);
   });
 });

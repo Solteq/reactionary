@@ -1,56 +1,29 @@
 import 'dotenv/config';
-import type { Cart, Checkout, RequestContext } from '@reactionary/core';
+import type { Cart, Checkout } from '@reactionary/core';
 import {
-  CartSchema,
-  CheckoutSchema,
-  IdentitySchema,
-  NoOpCache,
   PaymentInstructionSchema,
   ShippingInstructionSchema,
-  createInitialRequestContext,
 } from '@reactionary/core';
-import { getCommercetoolsTestConfiguration } from './test-utils.js';
-import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
-import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
-import { CommercetoolsCheckoutProvider } from '../providers/checkout.provider.js';
-import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
-import { CommercetoolsClient } from '../core/client.js';
+import { describe, expect, it, beforeEach } from 'vitest';
+import { createClient } from '../utils.js';
 
 const testData = {
-  skuWithoutTiers: '8719514465190',
-  skuWithTiers: '8719514435377',
+  skuWithoutTiers: '0766623301831',
+  skuWithTiers: '0766623360203',
 };
 
-describe('Commercetools Checkout Provider', () => {
-  let provider: CommercetoolsCheckoutProvider;
-  let cartProvider: CommercetoolsCartProvider;
-  let reqCtx: RequestContext;
+describe('Checkout Capability', () => {
+  let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
-    reqCtx = createInitialRequestContext();
-    const config = getCommercetoolsTestConfiguration();
-    const client = new CommercetoolsClient(config, reqCtx);
-
-    provider = new CommercetoolsCheckoutProvider(
-      getCommercetoolsTestConfiguration(),
-      CheckoutSchema,
-      new NoOpCache(),
-      reqCtx,
-      client
-    );
-    cartProvider = new CommercetoolsCartProvider(
-      getCommercetoolsTestConfiguration(),
-      CartSchema,
-      new NoOpCache(),
-      reqCtx, client
-    );
+    client = createClient();
   });
 
   describe('anonymous sessions', () => {
     let cart: Cart;
 
     beforeEach(async () => {
-      cart = await cartProvider.add(
+      cart = await client.cart.add(
         {
           cart: { key: '', version: 0 },
           variant: {
@@ -65,7 +38,7 @@ describe('Commercetools Checkout Provider', () => {
       //  we have either an anonymous user, or an authenticated user.
       // if it is anonymous, we assume you will have collected some basic info by now ?
 
-      const checkout = await provider.initiateCheckoutForCart(
+      const checkout = await client.checkout.initiateCheckoutForCart(
         {
           cart: cart.identifier,
           billingAddress: {
@@ -93,7 +66,7 @@ describe('Commercetools Checkout Provider', () => {
     describe('checkout actions', () => {
       let checkout: Checkout;
       beforeEach(async () => {
-        checkout = await provider.initiateCheckoutForCart(
+        checkout = await client.checkout.initiateCheckoutForCart(
           {
             cart: cart.identifier,
             billingAddress: {
@@ -113,7 +86,7 @@ describe('Commercetools Checkout Provider', () => {
       });
 
       it('can list payment methods', async () => {
-        const paymentMethods = await provider.getAvailablePaymentMethods(
+        const paymentMethods = await client.checkout.getAvailablePaymentMethods(
           {
             checkout: checkout.identifier,
           }
@@ -125,7 +98,7 @@ describe('Commercetools Checkout Provider', () => {
       });
 
       it('can list shipping methods', async () => {
-        const shippingMethods = await provider.getAvailableShippingMethods(
+        const shippingMethods = await client.checkout.getAvailableShippingMethods(
           {
             checkout: checkout.identifier,
           }
@@ -137,7 +110,7 @@ describe('Commercetools Checkout Provider', () => {
       });
 
       it('can add a payment instruction', async () => {
-        const paymentMethods = await provider.getAvailablePaymentMethods(
+        const paymentMethods = await client.checkout.getAvailablePaymentMethods(
           {
             checkout: checkout.identifier,
           }
@@ -145,7 +118,7 @@ describe('Commercetools Checkout Provider', () => {
         const pm = paymentMethods.find((x) => x.identifier.method === 'stripe');
         expect(pm).toBeDefined();
 
-        const checkoutWithPi = await provider.addPaymentInstruction(
+        const checkoutWithPi = await client.checkout.addPaymentInstruction(
           {
             checkout: checkout.identifier,
             paymentInstruction: PaymentInstructionSchema.parse({
@@ -165,7 +138,7 @@ describe('Commercetools Checkout Provider', () => {
       });
 
       it.skip('can cancel an in-progress payment', async () => {
-        const paymentMethods = await provider.getAvailablePaymentMethods(
+        const paymentMethods = await client.checkout.getAvailablePaymentMethods(
           {
             checkout: checkout.identifier,
           }
@@ -173,7 +146,7 @@ describe('Commercetools Checkout Provider', () => {
         const pm = paymentMethods.find((x) => x.identifier.method === 'stripe');
         expect(pm).toBeDefined();
 
-        const checkoutWithPi = await provider.addPaymentInstruction(
+        const checkoutWithPi = await client.checkout.addPaymentInstruction(
           {
             checkout: checkout.identifier,
             paymentInstruction: PaymentInstructionSchema.parse({
@@ -186,7 +159,7 @@ describe('Commercetools Checkout Provider', () => {
 
         expect(checkoutWithPi.paymentInstructions.length).toBe(1);
 
-        const checkoutAfterCancel = await provider.removePaymentInstruction(
+        const checkoutAfterCancel = await client.checkout.removePaymentInstruction(
           {
             checkout: checkout.identifier,
             paymentInstruction:
@@ -198,7 +171,7 @@ describe('Commercetools Checkout Provider', () => {
       });
 
       it('can set shipping address', async () => {
-        const checkoutWithShipping = await provider.setShippingAddress(
+        const checkoutWithShipping = await client.checkout.setShippingAddress(
           {
             checkout: checkout.identifier,
             shippingAddress: {
@@ -219,7 +192,7 @@ describe('Commercetools Checkout Provider', () => {
       });
 
       it('can set shipping instructions', async () => {
-        const shippingMethods = await provider.getAvailableShippingMethods(
+        const shippingMethods = await client.checkout.getAvailableShippingMethods(
           {
             checkout: checkout.identifier,
           }
@@ -235,7 +208,7 @@ describe('Commercetools Checkout Provider', () => {
           pickupPoint: '4190asx141', // this would be a real pickup point ID in a real scenario
         });
 
-        const checkoutWithShipping = await provider.setShippingInstruction(
+        const checkoutWithShipping = await client.checkout.setShippingInstruction(
           {
             checkout: checkout.identifier,
             shippingInstruction,
@@ -262,7 +235,7 @@ describe('Commercetools Checkout Provider', () => {
       it.skip('wont report it finalizable until everything is paid/authorized', async () => {
         expect(checkout.readyForFinalization).toBe(false);
         const pm = (
-          await provider.getAvailablePaymentMethods(
+          await client.checkout.getAvailablePaymentMethods(
             {
               checkout: checkout.identifier,
             }
@@ -270,7 +243,7 @@ describe('Commercetools Checkout Provider', () => {
         ).find((x) => x.identifier.method === 'stripe');
         expect(pm).toBeDefined();
 
-        const checkoutWithPi = await provider.addPaymentInstruction(
+        const checkoutWithPi = await client.checkout.addPaymentInstruction(
           {
             checkout: checkout.identifier,
             paymentInstruction: PaymentInstructionSchema.parse({
@@ -282,7 +255,7 @@ describe('Commercetools Checkout Provider', () => {
         );
 
         // do something to simulate payment authorization ?
-        const checkoutReady = await provider.getById(
+        const checkoutReady = await client.checkout.getById(
           { identifier: checkoutWithPi.identifier },
         );
         if (!checkoutReady) {

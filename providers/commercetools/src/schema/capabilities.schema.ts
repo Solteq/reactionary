@@ -12,6 +12,7 @@ export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
     price: true,
     category: true,
     store: true,
+    profile: true
 }).partial();
 
 export type CommercetoolsCapabilities = z.infer<typeof CommercetoolsCapabilitiesSchema>;

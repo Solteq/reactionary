@@ -10,7 +10,8 @@ import type {
     StoreProvider,
     CheckoutProvider,
     OrderProvider,
-    RequestContext
+    RequestContext,
+    ProfileProvider
     } from "@reactionary/core";
 import {
     CartSchema,
@@ -20,7 +21,8 @@ import {
     ProductSchema,
     CategorySchema,
     CheckoutSchema,
-    ProductSearchResultItemSchema
+    ProductSearchResultItemSchema,
+    ProfileSchema
 } from "@reactionary/core";
 import { CommercetoolsCapabilitiesSchema, type CommercetoolsCapabilities } from "../schema/capabilities.schema.js";
 import { CommercetoolsSearchProvider } from "../providers/product-search.provider.js";
@@ -31,7 +33,7 @@ import { CommercetoolsCartProvider } from "../providers/cart.provider.js";
 import { CommercetoolsInventoryProvider } from "../providers/inventory.provider.js";
 import { CommercetoolsPriceProvider } from "../providers/price.provider.js";
 import { CommercetoolsCategoryProvider } from "../providers/category.provider.js";
-import { CommercetoolsCheckoutProvider } from "../providers/index.js";
+import { CommercetoolsCheckoutProvider, CommercetoolsProfileProvider } from "../providers/index.js";
 import { CommercetoolsClient } from "./client.js";
 
 type CommercetoolsProviderSet<T extends CommercetoolsCapabilities> =
@@ -44,7 +46,8 @@ type CommercetoolsProviderSet<T extends CommercetoolsCapabilities> =
     (T['price'] extends true ? { price: PriceProvider } : object) &
     (T['store'] extends true ? { store: StoreProvider } : object) &
     (T['order'] extends true ? { order: OrderProvider } : object) &
-    (T['checkout'] extends true ? { checkout: CheckoutProvider } : object) ;
+    (T['profile'] extends true ? { profile: ProfileProvider } : object) &
+    (T['checkout'] extends true ? { checkout: CheckoutProvider } : object);
     
 export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilities>(
     configuration: CommercetoolsConfiguration,
@@ -58,6 +61,10 @@ export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilitie
 
         if (caps.product) {
             client.product = new CommercetoolsProductProvider(config, ProductSchema, cache, context, commercetoolsClient);
+        }
+
+        if (caps.profile) {
+            client.profile = new CommercetoolsProfileProvider(config, ProfileSchema, cache, context, commercetoolsClient);
         }
 
         if (caps.productSearch) {
