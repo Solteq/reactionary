@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { createClient } from '../utils.js';
+import { createClient, PrimaryProvider } from '../utils.js';
 
 const testData = {
   topCategories: [
@@ -24,11 +24,11 @@ const testData = {
   breadCrumb: ['2833', '225'],
 };
 
-describe('Category Capability', () => {
+describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
-    client = createClient();
+    client = createClient(provider);
   });
 
   it('should be able to get top-categories', async () => {

@@ -1,12 +1,12 @@
 import 'dotenv/config';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { createClient } from '../utils.js';
+import { createClient, PrimaryProvider } from '../utils.js';
 
-describe('Store Capability', () => {
+describe.each([PrimaryProvider.COMMERCETOOLS])('Store Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
-    client = createClient();
+    client = createClient(provider);
   });
 
   it.skip('should be able to query stores by longitude and latitude', async () => {

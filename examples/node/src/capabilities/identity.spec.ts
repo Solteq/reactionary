@@ -1,12 +1,12 @@
 import 'dotenv/config';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { createClient } from '../utils.js';
+import { createClient, PrimaryProvider } from '../utils.js';
 
-describe('Identity Capability', () => {
+describe.each([PrimaryProvider.COMMERCETOOLS])('Identity Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
-    client = createClient();
+    client = createClient(provider);
   });
 
   it('should default to an anonymous identity if no operations have been performed', async () => {

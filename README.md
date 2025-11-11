@@ -70,7 +70,7 @@ UX Pages and components supported:
 - [ ] Inventory - Model to use ProductVariantIdentifier instead of SKU - AKJ
 - [ ] Price - Add Usage/Pricelist modifier for Queries to allow for List/Offer price. - MR
 - [X] Commercetools - Guest sesion race condition - MR
-- [ ] Commercetools - Seperate temporary admin client from `Me` based client. - MR
+- [X] Commercetools - Seperate temporary admin client from `Me` based client. - MR
 - [ ] Medusa - Identity capability - AKJ
 - [ ] Medusa - Price capability - AKJ
 - [ ] Medusa - Inventory capability - AKJ

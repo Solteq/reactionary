@@ -3,7 +3,7 @@ import type { RequestContext} from '@reactionary/core';
 import { NoOpCache, PriceSchema, createInitialRequestContext } from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils.js';
 import { FakePriceProvider } from '../providers/price.provider.js';
-import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',
@@ -20,7 +20,7 @@ describe('Fake Price Provider', () => {
   })
 
   it('should be able to get prices for a product without tiers', async () => {
-    const result = await provider.getBySKU({ variant: { sku: testData.skuWithoutTiers }});
+    const result = await provider.getBySKU({ variant: { sku: testData.skuWithoutTiers }, type: 'List' });
 
     expect(result).toBeTruthy();
     if (result) {
@@ -32,7 +32,7 @@ describe('Fake Price Provider', () => {
   });
 
   it('should be able to get prices for a product with tiers', async () => {
-    const result = await provider.getBySKU({ variant: { sku: testData.skuWithTiers }});
+    const result = await provider.getBySKU({ variant: { sku: testData.skuWithTiers }, type: 'List' });
 
     expect(result).toBeTruthy();
     if (result) {
@@ -49,7 +49,7 @@ describe('Fake Price Provider', () => {
   });
 
   it('should return a placeholder price for an unknown SKU', async () => {
-    const result = await provider.getBySKU({ variant: { sku: 'unknown-sku' }});
+    const result = await provider.getBySKU({ variant: { sku: 'unknown-sku' }, type: 'List'});
 
     expect(result).toBeTruthy();
     if (result) {
@@ -63,7 +63,7 @@ describe('Fake Price Provider', () => {
 
   it('can look up multiple prices at once', async () => {
     const skus = [testData.skuWithTiers, testData.skuWithoutTiers, 'unknown-sku'];
-    const results = await Promise.all(skus.map( sku => provider.getBySKU({ variant: { sku: sku }})));
+    const results = await Promise.all(skus.map( sku => provider.getBySKU({ variant: { sku: sku }, type: 'List'})));
 
     expect(results).toHaveLength(skus.length);
     expect(results[0].identifier.variant.sku).toBe(testData.skuWithTiers);
