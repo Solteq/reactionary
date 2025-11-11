@@ -66,10 +66,10 @@ UX Pages and components supported:
 
 #### Tasks:
 - [ ] Cart - Remove checkout related functions - AKJ
-- [ ] Checkout - Receive full cart in input - MR
+- [X] Checkout - Receive full cart in input - MR
 - [ ] Inventory - Model to use ProductVariantIdentifier instead of SKU - AKJ
 - [ ] Price - Add Usage/Pricelist modifier for Queries to allow for List/Offer price. - ??
-- [ ] Commercetools - Guest sesion race condition - MR
+- [X] Commercetools - Guest sesion race condition - MR
 - [ ] Commercetools - Seperate temporary admin client from `Me` based client. - MR
 - [ ] Medusa - Identity capability - AKJ
 - [ ] Medusa - Price capability - AKJ
@@ -82,10 +82,11 @@ UX Pages and components supported:
 - [X] Unified Data Set for Prices - AKJ
 - [ ] Unified test set for all vendors - AKJ
 - [ ] Medusa - test of Client - AKJ
-- [ ] Reactionary Decorator on all public Query and Mutation methods - MR
-- [ ] Input validation via Zod.parse for all public Query and Mutation methods - MR
-- [ ] Change Zod schema from looseObjects to .passthrough - MR
-- [ ] Minor fixes from Angular Frontend - MR
+- [-] Reactionary Decorator on all public Query and Mutation methods - MR
+- [X] Input validation via Zod.parse for all public Query and Mutation methods - MR
+- [X] Output validation via Zod.parse for all public Query and Mutation methods - MR
+- [X] Change Zod schema from looseObjects to .passthrough - MR
+- [X] Minor fixes from Angular Frontend - MR
 
 
 
