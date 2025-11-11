@@ -40,7 +40,7 @@ describe('Checkout Capability', () => {
 
       const checkout = await client.checkout.initiateCheckoutForCart(
         {
-          cart: cart.identifier,
+          cart: cart,
           billingAddress: {
             countryCode: 'US',
             firstName: 'John',
@@ -68,7 +68,7 @@ describe('Checkout Capability', () => {
       beforeEach(async () => {
         checkout = await client.checkout.initiateCheckoutForCart(
           {
-            cart: cart.identifier,
+            cart: cart,
             billingAddress: {
               countryCode: 'US',
               firstName: 'John',

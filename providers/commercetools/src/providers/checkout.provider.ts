@@ -121,7 +121,7 @@ export class CommercetoolsCheckoutProvider<
     const client = await this.getClient();
 
     const cart = await client.carts
-      .withId({ ID: (payload.cart as any).key })
+      .withId({ ID: payload.cart.identifier.key })
       .get()
       .execute();
     const replicationResponse = await client.carts
@@ -145,7 +145,7 @@ export class CommercetoolsCheckoutProvider<
           key: 'reactionaryCheckout',
         },
         fields: {
-          commerceToolsCartId: payload.cart.key,
+          commerceToolsCartId: payload.cart.identifier.key,
         },
       },
     ];
