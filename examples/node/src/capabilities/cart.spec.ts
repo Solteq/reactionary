@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { createClient } from '../utils.js';
+import { createClient, PrimaryProvider } from '../utils.js';
 import { describe, expect, it, beforeEach } from 'vitest';
 import { ProductSearchQueryByTermSchema, type ProductSearchQueryByTerm } from '@reactionary/core';
 
@@ -8,11 +8,11 @@ const testData = {
   skuWithTiers: '0766623360203',
 };
 
-describe('Cart Capability', () => {
+describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
-    client = createClient();
+    client = createClient(provider);
   });
 
   describe('anonymous sessions', () => {

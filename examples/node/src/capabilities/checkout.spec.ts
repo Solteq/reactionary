@@ -5,18 +5,18 @@ import {
   ShippingInstructionSchema,
 } from '@reactionary/core';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { createClient } from '../utils.js';
+import { createClient, PrimaryProvider } from '../utils.js';
 
 const testData = {
   skuWithoutTiers: '0766623301831',
   skuWithTiers: '0766623360203',
 };
 
-describe('Checkout Capability', () => {
+describe.each([PrimaryProvider.COMMERCETOOLS])('Checkout Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
-    client = createClient();
+    client = createClient(provider);
   });
 
   describe('anonymous sessions', () => {

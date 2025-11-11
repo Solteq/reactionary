@@ -6,7 +6,7 @@ const testData = {
   searchTerm: 'manhattan',
 };
 
-describe.each([PrimaryProvider.ALGOLIA])(
+describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
   'Product Search Capability - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;

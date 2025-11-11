@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { createClient } from '../utils.js';
+import { createClient, PrimaryProvider } from '../utils.js';
 
 const testData = {
   product: {
@@ -12,11 +12,11 @@ const testData = {
   },
 };
 
-describe('Product Capability', () => {
+describe.each([PrimaryProvider.COMMERCETOOLS])('Product Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
-    client = createClient();
+    client = createClient(provider);
   });
 
   it('should be able to get a product by id', async () => {

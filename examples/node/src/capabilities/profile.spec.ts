@@ -1,12 +1,12 @@
 import 'dotenv/config';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { createClient } from '../utils.js';
+import { createClient, PrimaryProvider } from '../utils.js';
 
-describe('Commercetools Profile Provider', () => {
+describe.each([PrimaryProvider.COMMERCETOOLS])('Profile Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
-    client = createClient();
+    client = createClient(provider);
   });
 
   it('should be able to fetch the profile for the current user', async () => {

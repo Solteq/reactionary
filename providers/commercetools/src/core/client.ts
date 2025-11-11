@@ -1,5 +1,8 @@
 import { ClientBuilder } from '@commercetools/ts-client';
-import { createApiBuilderFromCtpClient, type ApiRoot } from '@commercetools/platform-sdk';
+import {
+  createApiBuilderFromCtpClient,
+  type ApiRoot,
+} from '@commercetools/platform-sdk';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import { randomUUID } from 'crypto';
 import {
@@ -21,6 +24,7 @@ export class CommercetoolsClient {
   protected context: RequestContext;
   protected cache: RequestContextTokenCache;
   protected client: Promise<ApiRoot> | undefined;
+  protected adminClient: Promise<ApiRoot> | undefined;
 
   constructor(config: CommercetoolsConfiguration, context: RequestContext) {
     this.config = config;
@@ -34,6 +38,28 @@ export class CommercetoolsClient {
     }
 
     return this.client;
+  }
+
+  public async getAdminClient() {
+    if (!this.adminClient) {
+      this.adminClient = this.createAdminClient();
+    }
+
+    return this.adminClient;
+  }
+
+  protected async createAdminClient() {
+    let builder = this.createBaseClientBuilder();
+    builder = builder.withAnonymousSessionFlow({
+      credentials: {
+        clientId: this.config.clientId,
+        clientSecret: this.config.clientSecret,
+      },
+      host: this.config.authUrl,
+      projectKey: this.config.projectKey,
+    });
+
+    return createApiBuilderFromCtpClient(builder.build());
   }
 
   protected async createClient() {
@@ -200,7 +226,8 @@ export class CommercetoolsClient {
     const result = await response.json();
 
     this.cache.set({
-      expirationTime: Date.now() + Number(result.expires_in) * 1000 - 5 * 60 * 1000,
+      expirationTime:
+        Date.now() + Number(result.expires_in) * 1000 - 5 * 60 * 1000,
       token: result.access_token,
       refreshToken: result.refresh_token,
     });
