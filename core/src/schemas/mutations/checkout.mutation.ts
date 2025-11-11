@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { CartIdentifierSchema, AddressSchema, PaymentInstructionIdentifierSchema, PaymentInstructionSchema, ShippingInstructionSchema } from "../models/index.js";
+import { CartIdentifierSchema, AddressSchema, PaymentInstructionIdentifierSchema, PaymentInstructionSchema, ShippingInstructionSchema, CartSchema } from "../models/index.js";
 import { BaseMutationSchema } from "./base.mutation.js";
 
 
 export const CheckoutMutationInitiateCheckoutSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required(),
+    cart: CartSchema.required(),
     billingAddress: AddressSchema.omit({identifier: true}).optional(),
     notificationEmail: z.string().optional(),
     notificationPhone: z.string().optional(),
