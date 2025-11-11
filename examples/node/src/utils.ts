@@ -6,6 +6,15 @@ import {
   NoOpCache,
 } from '@reactionary/core';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
+import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
+
+export function getAlgoliaTestConfiguration() {
+  return {
+    apiKey: process.env['ALGOLIA_API_KEY'] || '',
+    appId: process.env['ALGOLIA_APP_ID'] || '',
+    indexName: process.env['ALGOLIA_INDEX'] || '',
+  };
+}
 
 export function getCommercetoolsTestConfiguration() {
   return {
@@ -32,24 +41,38 @@ export function getCommercetoolsTestConfiguration() {
   };
 }
 
-export function createClient() {
-  const context = createInitialRequestContext();
-  const builder = new ClientBuilder(context);
-  const client = builder.withCache(new NoOpCache()).withCapability(
-    withCommercetoolsCapabilities(getCommercetoolsTestConfiguration(), {
-      cart: true,
-      product: true,
-      category: true,
-      checkout: true,
-      identity: true,
-      inventory: true,
-      order: true,
-      price: true,
-      productSearch: true,
-      store: true,
-      profile: true
-    })
-  );
+export enum PrimaryProvider {
+  ALGOLIA = 'Algolia',
+  COMMERCETOOLS = 'Commercetools',
+}
 
-  return client.build();
+export function createClient(provider: PrimaryProvider) {
+  const context = createInitialRequestContext();
+  let builder = new ClientBuilder(context)
+    .withCache(new NoOpCache())
+    .withCapability(
+      withCommercetoolsCapabilities(getCommercetoolsTestConfiguration(), {
+        cart: true,
+        product: true,
+        category: true,
+        checkout: true,
+        identity: true,
+        inventory: true,
+        order: true,
+        price: true,
+        productSearch: true,
+        store: true,
+        profile: true,
+      })
+    );
+
+  if (provider === PrimaryProvider.ALGOLIA) {
+    builder = builder.withCapability(
+      withAlgoliaCapabilities(getAlgoliaTestConfiguration(), {
+        productSearch: true,
+      })
+    );
+  }
+
+  return builder.build();
 }
