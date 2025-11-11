@@ -5,14 +5,14 @@ import { BaseMutationSchema } from "./base.mutation.js";
 
 export const CheckoutMutationInitiateCheckoutSchema = BaseMutationSchema.extend({
     cart: CartSchema.required(),
-    billingAddress: AddressSchema.omit({identifier: true}).optional(),
+    billingAddress: AddressSchema.omit({ identifier: true, meta: true }).optional(),
     notificationEmail: z.string().optional(),
     notificationPhone: z.string().optional(),
 });
 
 export const CheckoutMutationSetShippingAddressSchema = BaseMutationSchema.extend({
     checkout: CartIdentifierSchema.required(),
-    shippingAddress: AddressSchema.omit({identifier: true}).required(),
+    shippingAddress: AddressSchema.omit({ identifier: true, meta: true }).required(),
 });
 
 

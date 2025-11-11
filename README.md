@@ -68,7 +68,7 @@ UX Pages and components supported:
 - [ ] Cart - Remove checkout related functions - AKJ
 - [X] Checkout - Receive full cart in input - MR
 - [ ] Inventory - Model to use ProductVariantIdentifier instead of SKU - AKJ
-- [ ] Price - Add Usage/Pricelist modifier for Queries to allow for List/Offer price. - ??
+- [ ] Price - Add Usage/Pricelist modifier for Queries to allow for List/Offer price. - MR
 - [X] Commercetools - Guest sesion race condition - MR
 - [ ] Commercetools - Seperate temporary admin client from `Me` based client. - MR
 - [ ] Medusa - Identity capability - AKJ
