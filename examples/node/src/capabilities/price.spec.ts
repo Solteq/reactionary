@@ -16,24 +16,24 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Price Capability - %s', (provide
   });
 
   it('should be able to get an offer price for a sku', async () => {
-    const result = await client.price.getBySKU({ variant: { sku: testData.skuWithoutTiers }, type: 'Offer' });
+    const result = await client.price.getCustomerPrice({ variant: { sku: testData.skuWithoutTiers } });
 
     expect(result).toBeTruthy();
     if (result) {
       expect(result.identifier.variant.sku).toBe(testData.skuWithoutTiers);
-      expect(result.unitPrice.value).toBeGreaterThan(0);
+      expect(result.unitPrice.value).toBe(155.1);
       expect(result.unitPrice.currency).toBe('USD');
       expect(result.tieredPrices.length).toBe(0);
     }
   });
 
   it('should be able to get a list price for a sku', async () => {
-    const result = await client.price.getBySKU({ variant: { sku: testData.skuWithoutTiers }, type: 'List' });
+    const result = await client.price.getListPrice({ variant: { sku: testData.skuWithoutTiers } });
 
     expect(result).toBeTruthy();
     if (result) {
       expect(result.identifier.variant.sku).toBe(testData.skuWithoutTiers);
-      expect(result.unitPrice.value).toBeGreaterThan(0);
+      expect(result.unitPrice.value).toBeGreaterThan(200);
       expect(result.unitPrice.currency).toBe('USD');
       expect(result.tieredPrices.length).toBe(0);
     }
