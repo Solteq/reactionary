@@ -1,25 +1,28 @@
 import {
+  CustomerPriceQuerySchema,
+  ListPriceQuerySchema,
   PriceProvider,
-  PriceQueryBySkuSchema,
   PriceSchema,
   Reactionary,
   TieredPriceSchema,
 } from '@reactionary/core';
 import type {
-  PriceQueryBySku,
   RequestContext,
   Price,
   Cache,
   Currency,
   TieredPrice,
+  CustomerPriceQuery,
+  ListPriceQuery,
 } from '@reactionary/core';
-import z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
   Price as CTPrice,
   ProductVariant as CTProductVariant,
 } from '@commercetools/platform-sdk';
 import type { CommercetoolsClient } from '../core/client.js';
+import type z from 'zod';
+
 export class CommercetoolsPriceProvider<
   T extends Price = Price
 > extends PriceProvider<T> {
@@ -39,32 +42,15 @@ export class CommercetoolsPriceProvider<
     this.client = client;
   }
 
-  protected async getClient() {
-    const client = await this.client.getAdminClient();
-    return client
-      .withProjectKey({ projectKey: this.config.projectKey });
-  }
-
   @Reactionary({
-    inputSchema: z.array(PriceQueryBySkuSchema),
-    outputSchema: z.array(PriceSchema),
-  })
-  public override async getBySKUs(payload: PriceQueryBySku[]): Promise<T[]> {
-    /**
-     * TODO: Decide if we actually want this endpoint. It has the downside, at least for broad use, of being difficult to cache
-     */
-    throw new Error('Unsupported!');
-  }
-
-  @Reactionary({
-    inputSchema: PriceQueryBySkuSchema,
+    inputSchema: CustomerPriceQuerySchema,
     outputSchema: PriceSchema,
   })
-  public override async getBySKU(payload: PriceQueryBySku): Promise<T> {
+  public override async getCustomerPrice(
+    payload: CustomerPriceQuery
+  ): Promise<T> {
     const client = await this.getClient();
-
-    // FIXME: Data-cache this, or pass it in through config, or something...
-    const channels = await this.getChannels();
+    const priceChannelId = 'ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86';
 
     const response = await client
       .productProjections()
@@ -73,8 +59,7 @@ export class CommercetoolsPriceProvider<
           staged: false,
           priceCountry: this.context.taxJurisdiction.countryCode,
           priceCustomerGroup: undefined,
-          // FIXME: Hardcoded value
-          priceChannel: 'ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86',
+          priceChannel: priceChannelId,
           priceCurrency: this.context.languageContext.currencyCode,
           where: 'variants(sku in (:skus)) OR (masterVariant(sku in (:skus))) ',
           'var.skus': [payload.variant.sku],
@@ -82,13 +67,56 @@ export class CommercetoolsPriceProvider<
         },
       })
       .execute();
-    
-    const sku = response.body.results[0].masterVariant;
 
-    return this.parseSingle(sku); 
+    const result = response.body.results[0];
+    const sku = [result.masterVariant, ...result.variants].find(
+      (x) => x.sku === payload.variant.sku
+    );
+
+    return this.parseSingle(sku, { includeDiscounts: true });
   }
 
-  protected override parseSingle(_body: unknown): T {
+  @Reactionary({
+    inputSchema: ListPriceQuerySchema,
+    outputSchema: PriceSchema,
+  })
+  public override async getListPrice(payload: ListPriceQuery): Promise<T> {
+    const client = await this.getClient();
+    const priceChannelId = 'ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86';
+
+    const response = await client
+      .productProjections()
+      .get({
+        queryArgs: {
+          staged: false,
+          priceCountry: this.context.taxJurisdiction.countryCode,
+          priceCustomerGroup: undefined,
+          priceChannel: priceChannelId,
+          priceCurrency: this.context.languageContext.currencyCode,
+          where: 'variants(sku in (:skus)) OR (masterVariant(sku in (:skus))) ',
+          'var.skus': [payload.variant.sku],
+          limit: 1,
+        },
+      })
+      .execute();
+
+    const result = response.body.results[0];
+    const sku = [result.masterVariant, ...result.variants].find(
+      (x) => x.sku === payload.variant.sku
+    );
+
+    return this.parseSingle(sku);
+  }
+
+  protected async getClient() {
+    const client = await this.client.getClient();
+    return client.withProjectKey({ projectKey: this.config.projectKey });
+  }
+
+  protected override parseSingle(
+    _body: unknown,
+    options = { includeDiscounts: false }
+  ): T {
     const body = _body as CTProductVariant;
     const price = body.price as CTPrice | undefined;
 
@@ -97,22 +125,19 @@ export class CommercetoolsPriceProvider<
     }
 
     const base = this.newModel();
-    base.unitPrice = {
-      value: price.value.centAmount / 100,
-      currency: price.value.currencyCode as Currency,
-    };
 
-    if (price.tiers && price.tiers.length > 0) {
-      const p = price.tiers.map((x) => {
-        const tp: TieredPrice = TieredPriceSchema.parse({});
-        tp.minimumQuantity = x.minimumQuantity;
-        tp.price = {
-          value: x.value.centAmount / 100,
-          currency: x.value.currencyCode as Currency,
-        };
-        return tp;
-      });
-      base.tieredPrices = p;
+    if (options.includeDiscounts) {
+      const discountedPrice = price.discounted?.value || price.value;
+
+      base.unitPrice = {
+        value: discountedPrice.centAmount / 100,
+        currency: price.value.currencyCode as Currency,
+      };
+    } else {
+      base.unitPrice = {
+        value: price.value.centAmount / 100,
+        currency: price.value.currencyCode as Currency,
+      };
     }
 
     base.identifier = {
@@ -152,7 +177,7 @@ export class CommercetoolsPriceProvider<
 
     return {
       offer: offerChannel.body.id,
-      list: listChannel.body.id
-    }
+      list: listChannel.body.id,
+    };
   }
 }

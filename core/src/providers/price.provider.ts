@@ -1,31 +1,31 @@
 import type { Price } from '../schemas/models/price.model.js';
-import type { PriceQueryBySku } from '../schemas/queries/price.query.js';
+import type { CustomerPriceQuery, ListPriceQuery } from '../schemas/queries/price.query.js';
 import { BaseProvider } from './base.provider.js';
 
 export abstract class PriceProvider<
   T extends Price = Price
 > extends BaseProvider<T> {
+
   /**
-   * Get a price by SKU.
-   *
-   * Note: This does not include any discounts or promotions that may apply.
-   * For B2B scenarios, this will be the base price, and any customer specific pricing
+   * Get a list price price by SKU. This is the most general, undiscounted price and is typically
+   * used as the "before" price in most ecommerce setups.
    *
    * Usecase: You are rendering a product page, and you need to show the price for a SKU.
    * @param payload The SKU to query
    * @param session The session information
    */
-  public abstract getBySKU(payload: PriceQueryBySku): Promise<T>;
-
+  public abstract getListPrice(payload: ListPriceQuery): Promise<T>;
 
   /**
-   * Fetch prices for multiple SKUs in one go.
+   * Get a customer-specific price by SKU.
+   * 
+   * No
    *
-   * Usecase: You are rendering a product grid, and you need to show prices for multiple SKUs.
-   * @param payload The SKUs to query
+   * Usecase: You are rendering a product page, and you need to show the price for a SKU.
+   * @param payload The SKU to query
    * @param session The session information
    */
-  public abstract getBySKUs(payload: PriceQueryBySku[]): Promise<T[]>;
+  public abstract getCustomerPrice(payload: CustomerPriceQuery): Promise<T>;
 
 
   /**
