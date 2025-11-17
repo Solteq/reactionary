@@ -82,7 +82,7 @@ export class CommercetoolsSearchProvider<
       cache: { hit: false, key: ''},
       placeholder: false
     };
-
+    console.dir( result, { depth: 10 } );
 
     return result;
   }

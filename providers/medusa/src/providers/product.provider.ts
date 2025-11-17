@@ -1,5 +1,6 @@
 import type { Cache, Image, Product, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariant, ProductVariantIdentifier, RequestContext } from '@reactionary/core';
 import {
+  CategoryIdentifierSchema,
   ImageSchema,
   ProductAttributeSchema,
   ProductIdentifierSchema,
@@ -21,31 +22,31 @@ export class MedusaProductProvider<
 > extends ProductProvider<T> {
   protected config: MedusaConfiguration;
 
-  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, public client: MedusaClient) {
   super(schema, cache, context);
    this.config = config;
   }
 
 
   public override async getById(payload: ProductQueryById): Promise<T> {
-    const client = await new MedusaClient(this.config).getClient(this.context);
+    const client = await this.client.getClient();
     if (debug.enabled) {
-      debug(`Fetching product by ID: ${payload.id}`);
+      debug(`Fetching product by ID: ${payload.identifier.key}`);
     }
     let response;
     try {
-      response = await client.store.product.retrieve(payload.id);
+      response = await client.store.product.retrieve(payload.identifier.key);
     } catch(error) {
       if (debug.enabled) {
-        debug(`Product with ID: ${payload.id} not found, returning empty product. Error %O `, error);
+        debug(`Product with ID: ${payload.identifier.key} not found, returning empty product. Error %O `, error);
       }
-      return this.createEmptyProduct(payload.id);
+      return this.createEmptyProduct(payload.identifier.key);
     }
     return this.parseSingle(response.product);
   }
 
   public override async getBySlug(payload: ProductQueryBySlug): Promise<T | null> {
-    const client = await new MedusaClient(this.config).getClient(this.context);
+    const client = await this.client.getClient();
     if (debug.enabled) {
       debug(`Fetching product by slug: ${payload.slug}`);
     }
@@ -73,22 +74,7 @@ export class MedusaProductProvider<
       debug(`Fetching product by SKU: ${Array.isArray(payload) ? payload.join(', ') : payload}`);
     }
     const sku = payload.variant.sku;
-
-    // FIXME: Medusa does not support searching by SKU directly, so we have to use the admin client to search for products with variants matching the SKU
-    const adminClient = await new MedusaAdminClient(this.config).getClient(this.context);
-
-    const productsResponse = await adminClient.admin.product.list({
-      limit: 1,
-      offset: 0,
-      variants: {
-        $or: [{ ean: sku }, { upc: sku }, { barcode: sku }],
-      },
-    });
-
-    const product = productsResponse.products[0];
-    if (!product) {
-      throw new Error(`Product with SKU ${sku} not found`);
-    }
+    const product = await this.client.resolveProductForSKU(sku);
 
     const variant = product.variants?.find((v) => v.sku === sku);
     if (!variant) {
@@ -109,7 +95,10 @@ export class MedusaProductProvider<
     model.slug = _body.handle;
     model.description = _body.description || '' || _body.subtitle || '';
     model.sharedAttributes = [];
-
+    model.parentCategories.push(
+      ...
+      _body.categories?.map( (cat) => cat.metadata?.['external_id'] ).map( (id) => CategoryIdentifierSchema.parse({ key: id || '' }) ) || []
+    )
     this.parseAttributes(_body, model);
 
     if (!_body.variants) {

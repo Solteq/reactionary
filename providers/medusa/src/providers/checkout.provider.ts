@@ -20,7 +20,7 @@ import type {
 import { CheckoutProvider, PaymentMethodIdentifierSchema, PaymentMethodSchema, ShippingMethodIdentifierSchema, ShippingMethodSchema } from "@reactionary/core";
 import createDebug from "debug";
 import type z from "zod";
-import { MedusaClient } from "../core/client.js";
+import type { MedusaClient } from "../core/client.js";
 import type { MedusaConfiguration } from "../schema/configuration.schema.js";
 const debug = createDebug('reactionary:medusa:checkout');
 
@@ -36,7 +36,7 @@ export class MedusaCheckoutProvider<
   T extends Checkout = Checkout
 > extends CheckoutProvider<T> {
   public override async initiateCheckoutForCart(payload: CheckoutMutationInitiateCheckout): Promise<T> {
-    const client = await new MedusaClient(this.config).getClient(this.context);
+    const client = (await this.client.getClient());
     // we should eventually copy the cart.... but for now we just continue with the existing one.
     if (debug.enabled) {
       debug(`Initiating checkout for cart with key: ${payload.cart.identifier.key}`);
@@ -51,12 +51,12 @@ export class MedusaCheckoutProvider<
     return this.parseSingle(response.cart);
   }
   public override async getById(payload: CheckoutQueryById): Promise<T | null> {
-    const client = await new MedusaClient(this.config).getClient(this.context);
+    const client = (await this.client.getClient());
     const response = await client.store.cart.retrieve(payload.identifier.key);
     return this.parseSingle(response.cart);
   }
   public override async setShippingAddress(payload: CheckoutMutationSetShippingAddress): Promise<T> {
-    const client = await new MedusaClient(this.config).getClient(this.context);
+    const client = (await this.client.getClient());
 
     const  addressLine = `${payload.shippingAddress.streetAddress[0]} ${payload.shippingAddress.streetNumber || ''}`.trim();
     const response = await client.store.cart.update(payload.checkout.key, {
@@ -74,7 +74,7 @@ export class MedusaCheckoutProvider<
   }
 
   public override async getAvailableShippingMethods(payload: CheckoutQueryForAvailableShippingMethods): Promise<ShippingMethod[]> {
-    const client = await new MedusaClient(this.config).getClient(this.context);
+    const client = (await this.client.getClient());
 
     if (debug.enabled) {
       debug(`Fetching available shipping methods for checkout with key: ${payload.checkout.key}`);
@@ -105,7 +105,7 @@ export class MedusaCheckoutProvider<
   }
 
   public override async getAvailablePaymentMethods(payload: CheckoutQueryForAvailablePaymentMethods): Promise<PaymentMethod[]> {
-    const client = await new MedusaClient(this.config).getClient(this.context);
+    const client = (await this.client.getClient());
 
     if (debug.enabled) {
       debug(`Fetching available payment methods for checkout with key: ${payload.checkout.key}`);
@@ -130,7 +130,7 @@ export class MedusaCheckoutProvider<
   }
 
   public override async addPaymentInstruction(payload: CheckoutMutationAddPaymentInstruction): Promise<T> {
-    const client = await new MedusaClient(this.config).getClient(this.context);
+    const client = (await this.client.getClient());
 
     if (debug.enabled) {
       debug(`Adding payment instruction ${payload.paymentInstruction.paymentMethod.name} to checkout with key: ${payload.checkout.key}`);
@@ -152,7 +152,7 @@ export class MedusaCheckoutProvider<
   }
   protected config: MedusaConfiguration;
 
-  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, public client: MedusaClient) {
     super(schema, cache, context);
     this.config = config;
   }

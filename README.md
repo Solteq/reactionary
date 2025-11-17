@@ -72,7 +72,8 @@ UX Pages and components supported:
 - [X] Commercetools - Guest sesion race condition - MR
 - [X] Commercetools - Seperate temporary admin client from `Me` based client. - MR
 - [ ] Medusa - Identity capability - AKJ
-- [ ] Medusa - Price capability - AKJ
+- [X] Medusa - Price capability - AKJ
+- [X] Medusa - Category capability - AKJ
 - [ ] Medusa - Inventory capability - AKJ
 - [ ] Medusa - Store capability - AKJ
 - [X] Search Index Model Add information about number of variants on the main model (or directly if it can be added to cart or not) - AKJ

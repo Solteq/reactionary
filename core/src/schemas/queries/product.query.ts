@@ -8,7 +8,7 @@ export const ProductQueryBySlugSchema = BaseQuerySchema.extend({
 
 
 export const ProductQueryByIdSchema = BaseQuerySchema.extend({
-    id: z.string()
+    identifier: ProductIdentifierSchema.required()
 });
 
 export const ProductQueryBySKUSchema = BaseQuerySchema.extend({

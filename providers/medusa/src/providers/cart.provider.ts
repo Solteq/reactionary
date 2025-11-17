@@ -21,12 +21,14 @@ import type {
 import {
   CartItemSchema,
   CartProvider,
+  LanguageContextSchema,
   ProductVariantIdentifierSchema
 } from '@reactionary/core';
 
 import createDebug from 'debug';
 import type { z } from 'zod';
-import { MedusaAdminClient, MedusaClient } from '../core/client.js';
+import type { MedusaClient } from '../core/client.js';
+import { MedusaAdminClient } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type {
   MedusaCartIdentifier,
@@ -51,7 +53,8 @@ export class MedusaCartProvider<
     config: MedusaConfiguration,
     schema: z.ZodType<T>,
     cache: Cache,
-    context: RequestContext
+    context: RequestContext,
+    public client: MedusaClient
   ) {
     super(schema, cache, context);
     this.config = config;
@@ -107,8 +110,8 @@ export class MedusaCartProvider<
       // the SKU identifier is supposed to be a globally understood identifier,
 
       // but medusa only accepts variant IDs , so we have to resolve it somehow...
-      const variantId = await this.resolveVariantId(payload.variant.sku);
-
+      const variantId = await this.client.resolveVariantId(payload.variant.sku);
+      const cc = this.context.languageContext;
 
       const response = await client.store.cart.createLineItem(medusaId.key, {
         variant_id: variantId,
@@ -132,30 +135,6 @@ export class MedusaCartProvider<
     }
   }
 
-  protected async resolveVariantId( sku: string): Promise<string> {
-      // FIXME: Medusa does not support searching by SKU directly, so we have to use the admin client to search for products with variants matching the SKU
-      const adminClient = await new MedusaAdminClient(this.config).getClient(this.context);
-
-      const productsResponse = await adminClient.admin.product.list({
-        limit: 1,
-        offset: 0,
-        variants: {
-          $or: [{ ean: sku }, { upc: sku }, { barcode: sku }],
-        },
-      });
-
-      const product = productsResponse.products[0];
-      if (!product) {
-        throw new Error(`Product with SKU ${sku} not found`);
-      }
-
-      const variant = product.variants?.find((v) => v.sku === sku);
-      if (!variant) {
-        throw new Error(`Variant with SKU ${sku} not found`);
-      }
-
-      return variant.id;
-  }
 
   public override async remove(
     payload: CartMutationItemRemove
@@ -223,7 +202,7 @@ export class MedusaCartProvider<
   ): Promise<CartIdentifier> {
     try {
       const client = await this.getClient();
-      const sessionData = this.getSessionData();
+      const sessionData = this.client.getSessionData();
       // Check if customer has an active cart in session storage or create new one
       const activeCartId = sessionData.activeCartId;
 
@@ -232,7 +211,7 @@ export class MedusaCartProvider<
           await client.store.cart.retrieve(activeCartId);
           return MedusaCartIdentifierSchema.parse({
             key: activeCartId,
-    //        region_id: this.currencyToRegion(reqCtx.languageContext.currencyCode, this.config) ||  this.config.defaultRegion,
+            region_id: (await this.client.getActiveRegion()).id
           });
         } catch {
           // Cart doesn't exist, create new one
@@ -242,13 +221,13 @@ export class MedusaCartProvider<
       // For guest users or if no active cart exists, return empty identifier
       return MedusaCartIdentifierSchema.parse({
         key: '',
-  //      region_id: this.currencyToRegion(reqCtx.languageContext.currencyCode, this.config) ||  this.config.defaultRegion,
+        region_id: (await this.client.getActiveRegion()).id
       });
     } catch (error) {
       debug('Failed to get active cart ID:', error);
       return MedusaCartIdentifierSchema.parse({
         key: '',
-//        region_id: this.currencyToRegion(reqCtx.languageContext.currencyCode, this.config) ||  this.config.defaultRegion,
+        region_id: (await this.client.getActiveRegion()).id
       });
     }
   }
@@ -261,10 +240,14 @@ export class MedusaCartProvider<
       const medusaId = payload.cart as MedusaCartIdentifier;
 
       if (medusaId.key) {
-        const sessionData = this.getSessionData();
+        const sessionData = this.client.getSessionData();
         if (sessionData.activeCartId) {
           delete sessionData.activeCartId;
-          this.setSessionData(sessionData);
+          this.client.setSessionData(
+            {
+              activeCartId: undefined
+            }
+          );
         }
       }
       // then delete it. But there is not really a deleteCart method, so we just orphan it.
@@ -453,12 +436,11 @@ export class MedusaCartProvider<
     try {
       const client = await this.getClient();
 
-      const region = this.config.defaultRegion || this.currencyToRegion(payload.newCurrency, this.config);
 
       // Get current cart
       const currentCartResponse = await client.store.cart.retrieve(payload.cart.key);
       client.store.cart.update(payload.cart.key, {
-        // region_id:  region,
+        region_id: (await this.client.getActiveRegion()).id,
       },
       {
         fields: '+items.*'
@@ -472,10 +454,10 @@ export class MedusaCartProvider<
       const newCartResponse = await client.store.cart.retrieve(payload.cart.key);
 
       if (newCartResponse.cart) {
-        const sessionData = this.getSessionData();
         // Update session to use new cart
-        sessionData.activeCartId = newCartResponse.cart.id;
-        this.setSessionData(sessionData);
+        this.client.setSessionData({
+          activeCartId: newCartResponse.cart.id
+        });
 
         return this.parseSingle(newCartResponse.cart);
       }
@@ -492,25 +474,27 @@ export class MedusaCartProvider<
   ): Promise<CartIdentifier> {
     try {
       const client = await this.getClient();
-      const region = this.currencyToRegion(currency || this.context.languageContext.currencyCode || 'EUR', this.config);
 
       const response = await client.store.cart.create({
-        // region_id: region,
-        currency_code: currency || this.context.languageContext.currencyCode || 'EUR',
-
+        currency_code: (currency || this.context.languageContext.currencyCode || '').toLowerCase(),
       },
+      {
+        fields: '+items.*'
+      }
     )
 
       if (response.cart) {
         const cartIdentifier = MedusaCartIdentifierSchema.parse({
           key: response.cart.id,
-          // region_id: response.cart.region_id,
+          region_id: response.cart.region_id,
         });
 
         // Store cart ID in session
-        const sessionData = this.getSessionData();
-        sessionData.activeCartId = cartIdentifier.key;
-        this.setSessionData(sessionData);
+        this.client.setSessionData(
+          {
+            activeCartId: cartIdentifier.key
+          }
+        );
 
 
         return cartIdentifier;
@@ -524,7 +508,7 @@ export class MedusaCartProvider<
   }
 
   protected async getClient() {
-    return new MedusaClient(this.config).getClient(this.context);
+     return this.client.getClient();
   }
 
   protected override parseSingle(remote: MedusaTypes.StoreCart): T {
@@ -622,46 +606,4 @@ export class MedusaCartProvider<
   }
 
 
-  protected regionToCurrency(region: string, config: MedusaConfiguration): string {
-    switch(region) {
-      case 'US':
-        return 'USD';
-      case 'FI':
-        return 'EUR';
-      case 'DK':
-        return 'DKK';
-      case 'GB':
-        return 'GBP';
-      case 'SE':
-        return 'SEK';
-    }
-    return  'EUR';
-  }
-
-  protected currencyToRegion(currency: string, config: MedusaConfiguration): string {
-    switch(currency) {
-      case 'USD':
-        return 'US';
-      case 'EUR':
-        return 'FI';
-      case 'DKK':
-        return 'DK';
-      case 'GBP':
-        return 'GB';
-      case 'SEK':
-        return 'SE';
-    }
-    return config.defaultRegion;
-  }
-
-  protected getSessionData(): MedusaSession {
-    return this.context.session['medusa'] ? this.context.session['medusa'] : MedusaSessionSchema.parse({});
-  }
-
-  protected setSessionData(sessionData: MedusaSession): void {
-    if (!this.context.session['medusa']) {
-      this.context.session['medusa'] = {};
-    }
-    this.context.session['medusa'] = sessionData;
-  }
 }
