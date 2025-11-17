@@ -33,7 +33,7 @@ export class MedusaSearchProvider<
 > extends ProductSearchProvider<T> {
   protected config: MedusaConfiguration;
 
-  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, public client: MedusaClient) {
     super(schema, cache, context);
     this.config = config;
   }
@@ -41,7 +41,7 @@ export class MedusaSearchProvider<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<ProductSearchResult> {
-    const client = await new MedusaClient(this.config).getClient(this.context);
+    const client = await this.client.getClient();
 
     const response = await client.store.product.list({
       q: payload.search.term,
