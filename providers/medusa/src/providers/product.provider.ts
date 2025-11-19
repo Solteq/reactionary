@@ -10,7 +10,7 @@ import {
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type { z } from 'zod';
-import { MedusaAdminClient, MedusaClient } from '../core/client.js';
+import type { MedusaClient } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 import type { StoreProduct, StoreProductImage, StoreProductVariant } from '@medusajs/types';
