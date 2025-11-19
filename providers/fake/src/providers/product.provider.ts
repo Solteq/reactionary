@@ -27,29 +27,29 @@ export class FakeProductProvider<
   public override async getById(
     payload: ProductQueryById
   ): Promise<T> {
-    return this.parseSingle(payload);
+    return this.parseSingle(payload.identifier.key );
   }
 
   @Reactionary({})
   public override async getBySlug(
     payload: ProductQueryBySlug
   ): Promise<T> {
-    return this.parseSingle(payload);
+    return this.parseSingle(payload.slug);
   }
 
   @Reactionary({})
   public override async getBySKU(payload: ProductQueryBySKU): Promise<T> {
-    return this.parseSingle(payload);
+    return this.parseSingle(payload.variant.sku);
   }
 
 
-  protected override parseSingle(body: ProductQueryById | ProductQueryBySlug | ProductQueryBySKU): T {
+  protected override parseSingle(body: string): T {
     const generator = new Faker({
       seed: 42,
       locale: [en, base],
     });
 
-    const key = body.slug || body.id;
+    const key = body;
 
     // Create a model instance based on the schema
     const model = this.newModel();

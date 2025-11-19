@@ -23,7 +23,7 @@ import {
 import createDebug from 'debug';
 import type z from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import { MedusaClient } from '../core/client.js';
+import type { MedusaClient } from '../core/client.js';
 import type { StoreProduct, StoreProductListResponse, StoreProductVariant } from '@medusajs/types';
 
 const debug = createDebug('reactionary:medusa:search');

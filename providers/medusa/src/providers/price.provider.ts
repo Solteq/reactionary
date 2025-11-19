@@ -1,21 +1,17 @@
+import type { StoreProductVariant } from '@medusajs/types';
 import {
-  type Price,
-  type PriceQueryBySku,
-  type RequestContext,
+  PriceProvider,
   type Cache,
   type Currency,
-  PriceProvider,
-  Reactionary,
-  ProductSchema,
-  ProductIdentifierSchema,
-  type Product,
-  type ProductVariantIdentifier,
+  type CustomerPriceQuery,
+  type ListPriceQuery,
+  type Price,
+  type RequestContext
 } from '@reactionary/core';
-import type z from 'zod';
-import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import createDebug from 'debug';
-import type { StoreProductVariant } from '@medusajs/types';
+import type z from 'zod';
 import type { MedusaClient } from '../core/client.js';
+import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 const debug = createDebug('reactionary:medusa:price');
 
@@ -35,19 +31,16 @@ export class MedusaPriceProvider<
     this.config = config;
   }
 
-  public override async getBySKUs(payload: PriceQueryBySku[]): Promise<T[]> {
-    if (debug.enabled) {
-      debug(`Fetching prices for ${payload.length} SKUs`);
-    }
+  public override getListPrice(payload: ListPriceQuery): Promise<T> {
+    return this.getBySKU(payload);
+  }
 
-    const promises = payload.map((p) => this.getBySKU(p));
-    const result = await Promise.all(promises);
-    return result;
+  public override getCustomerPrice(payload: CustomerPriceQuery): Promise<T> {
+    return this.getBySKU(payload);
   }
 
 
-
-  public override async getBySKU(payload: PriceQueryBySku): Promise<T> {
+  protected async getBySKU(payload: ListPriceQuery | CustomerPriceQuery ): Promise<T> {
     const sku = payload.variant.sku;
 
     if (debug.enabled) {
@@ -64,6 +57,8 @@ export class MedusaPriceProvider<
           { region_id: (await this.client.getActiveRegion()).id }
         )
       ).product;
+
+
       const variant = product.variants?.find((v) => v.sku === sku);
       if (!variant) {
         if (debug.enabled) {

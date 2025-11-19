@@ -25,10 +25,10 @@ describe('basic node provider extension (models)', () => {
   type ExtendedProduct = z.infer<typeof ExtendedProductModel>;
 
   class ExtendedProductProvider extends FakeProductProvider<ExtendedProduct> {
-    protected override parseSingle(body: ProductQueryById | ProductQueryBySlug): ExtendedProduct {
+    protected override parseSingle(body: string): ExtendedProduct {
       const model = super.parseSingle(body);
 
-      if (body.id) {
+      if (body) {
         model.gtin = 'gtin-1234';
       }
 
@@ -96,7 +96,7 @@ describe('basic node provider extension (models)', () => {
   it('should be able to get serialized value from the extended provider', async () => {
     const product = await client.product.getById(
       {
-        id: '1234',
+        identifier: { key: '1234' },
       }
     );
 

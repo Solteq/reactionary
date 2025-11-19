@@ -1,6 +1,6 @@
 import type { StoreProductCategory, StoreProductCategoryListResponse } from '@medusajs/types';
 import type { Category, Cache } from '@reactionary/core';
-import { CategoryProvider, createPaginatedResponseSchema, type CategoryQueryById, type CategoryQueryBySlug, type CategoryQueryForBreadcrumb, type CategoryQueryForChildCategories, type CategoryQueryForTopCategories, type RequestContext } from '@reactionary/core';
+import { CategoryIdentifierSchema, CategoryProvider, createPaginatedResponseSchema, type CategoryQueryById, type CategoryQueryBySlug, type CategoryQueryForBreadcrumb, type CategoryQueryForChildCategories, type CategoryQueryForTopCategories, type RequestContext } from '@reactionary/core';
 import type { MedusaClient, MedusaConfiguration } from '../index.js';
 import type z from 'zod';
 
@@ -160,7 +160,7 @@ export class MedusaCategoryProvider<
   protected override parseSingle(_body: StoreProductCategory): T {
 
     const model = this.newModel();
-    model.identifier = { key: _body.metadata?.['external_id'] || ''};
+    model.identifier = CategoryIdentifierSchema.parse({ key: _body.metadata?.['external_id'] || ''});
     model.name = _body.name;
     model.slug = _body.handle;
     model.text = _body.description || _body.name || '';
