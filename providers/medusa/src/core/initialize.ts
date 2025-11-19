@@ -3,6 +3,7 @@ import type {
   CartProvider,
   CategoryProvider,
   CheckoutProvider,
+  InventoryProvider,
   PriceProvider,
   ProductProvider,
   ProductSearchProvider,
@@ -12,11 +13,13 @@ import {
   CartSchema,
   CategorySchema,
   CheckoutSchema,
+  InventorySchema,
   PriceSchema,
   ProductSchema,
   ProductSearchResultItemSchema
 } from "@reactionary/core";
 import { MedusaCartProvider } from "../providers/cart.provider.js";
+import { MedusaInventoryProvider } from "../providers/inventory.provider.js";
 import { MedusaPriceProvider } from "../providers/price.provider.js";
 import { MedusaCapabilitiesSchema, type MedusaCapabilities } from "../schema/capabilities.schema.js";
 import { MedusaConfigurationSchema, type MedusaConfiguration } from "../schema/configuration.schema.js";
@@ -32,6 +35,7 @@ type MedusaProviderSet<T extends MedusaCapabilities> =
     (T['checkout'] extends true ? { checkout: CheckoutProvider } : object) &
     (T['cart'] extends true ? { cart: CartProvider } : object) &
     (T['price'] extends true ? { price: PriceProvider } : object) &
+    (T['inventory'] extends true ? { inventory: InventoryProvider } : object) &
     (T['product'] extends true ? { product: ProductProvider } : object) ;
 
 export function withMedusaCapabilities<T extends MedusaCapabilities>(
@@ -68,6 +72,10 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
 
         if (caps.price) {
             client.price = new MedusaPriceProvider(configuration, PriceSchema, cache, context, medusaClient);
+        }
+
+        if (caps.inventory) {
+            client.inventory = new MedusaInventoryProvider(configuration, InventorySchema, cache, context, medusaClient);
         }
 
         return client;
