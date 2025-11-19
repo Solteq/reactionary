@@ -17,7 +17,24 @@ import type {
   RequestContext,
   ShippingMethod
 } from "@reactionary/core";
-import { CheckoutProvider, PaymentMethodIdentifierSchema, PaymentMethodSchema, ShippingMethodIdentifierSchema, ShippingMethodSchema } from "@reactionary/core";
+import {
+  CheckoutProvider,
+  CheckoutSchema,
+  CheckoutMutationInitiateCheckoutSchema,
+  CheckoutQueryByIdSchema,
+  CheckoutMutationSetShippingAddressSchema,
+  CheckoutQueryForAvailableShippingMethodsSchema,
+  CheckoutQueryForAvailablePaymentMethodsSchema,
+  CheckoutMutationAddPaymentInstructionSchema,
+  CheckoutMutationRemovePaymentInstructionSchema,
+  CheckoutMutationSetShippingInstructionSchema,
+  CheckoutMutationFinalizeCheckoutSchema,
+  PaymentMethodIdentifierSchema,
+  PaymentMethodSchema,
+  ShippingMethodIdentifierSchema,
+  ShippingMethodSchema,
+  Reactionary,
+} from "@reactionary/core";
 import createDebug from "debug";
 import type z from "zod";
 import type { MedusaClient } from "../core/client.js";
@@ -35,6 +52,10 @@ export class CheckoutNotReadyForFinalizationError extends Error {
 export class MedusaCheckoutProvider<
   T extends Checkout = Checkout
 > extends CheckoutProvider<T> {
+  @Reactionary({
+    inputSchema: CheckoutMutationInitiateCheckoutSchema,
+    outputSchema: CheckoutSchema,
+  })
   public override async initiateCheckoutForCart(payload: CheckoutMutationInitiateCheckout): Promise<T> {
     const client = (await this.client.getClient());
     // we should eventually copy the cart.... but for now we just continue with the existing one.
@@ -50,11 +71,19 @@ export class MedusaCheckoutProvider<
 
     return this.parseSingle(response.cart);
   }
+  @Reactionary({
+    inputSchema: CheckoutQueryByIdSchema,
+    outputSchema: CheckoutSchema.nullable(),
+  })
   public override async getById(payload: CheckoutQueryById): Promise<T | null> {
     const client = (await this.client.getClient());
     const response = await client.store.cart.retrieve(payload.identifier.key);
     return this.parseSingle(response.cart);
   }
+  @Reactionary({
+    inputSchema: CheckoutMutationSetShippingAddressSchema,
+    outputSchema: CheckoutSchema,
+  })
   public override async setShippingAddress(payload: CheckoutMutationSetShippingAddress): Promise<T> {
     const client = (await this.client.getClient());
 
@@ -73,6 +102,9 @@ export class MedusaCheckoutProvider<
     return this.parseSingle(response.cart);
   }
 
+  @Reactionary({
+    inputSchema: CheckoutQueryForAvailableShippingMethodsSchema,
+  })
   public override async getAvailableShippingMethods(payload: CheckoutQueryForAvailableShippingMethods): Promise<ShippingMethod[]> {
     const client = (await this.client.getClient());
 
@@ -104,6 +136,9 @@ export class MedusaCheckoutProvider<
     return shippingMethods;
   }
 
+  @Reactionary({
+    inputSchema: CheckoutQueryForAvailablePaymentMethodsSchema,
+  })
   public override async getAvailablePaymentMethods(payload: CheckoutQueryForAvailablePaymentMethods): Promise<PaymentMethod[]> {
     const client = (await this.client.getClient());
 
@@ -129,6 +164,10 @@ export class MedusaCheckoutProvider<
     return paymentMethods;
   }
 
+  @Reactionary({
+    inputSchema: CheckoutMutationAddPaymentInstructionSchema,
+    outputSchema: CheckoutSchema,
+  })
   public override async addPaymentInstruction(payload: CheckoutMutationAddPaymentInstruction): Promise<T> {
     const client = (await this.client.getClient());
 
@@ -138,12 +177,24 @@ export class MedusaCheckoutProvider<
 
     throw new Error("Method not implemented.");
   }
+  @Reactionary({
+    inputSchema: CheckoutMutationRemovePaymentInstructionSchema,
+    outputSchema: CheckoutSchema,
+  })
   public override removePaymentInstruction(payload: CheckoutMutationRemovePaymentInstruction): Promise<T> {
     throw new Error("Method not implemented.");
   }
+  @Reactionary({
+    inputSchema: CheckoutMutationSetShippingInstructionSchema,
+    outputSchema: CheckoutSchema,
+  })
   public override setShippingInstruction(payload: CheckoutMutationSetShippingInstruction): Promise<T> {
     throw new Error("Method not implemented.");
   }
+  @Reactionary({
+    inputSchema: CheckoutMutationFinalizeCheckoutSchema,
+    outputSchema: CheckoutSchema,
+  })
   public override finalizeCheckout(payload: CheckoutMutationFinalizeCheckout): Promise<T> {
     throw new Error("Method not implemented.");
   }

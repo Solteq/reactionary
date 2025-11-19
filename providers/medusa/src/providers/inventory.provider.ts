@@ -4,6 +4,9 @@ import {
   type RequestContext,
   type Cache,
   InventoryProvider,
+  InventorySchema,
+  InventoryQueryBySKUSchema,
+  Reactionary,
 } from '@reactionary/core';
 import type z from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
@@ -29,6 +32,10 @@ export class MedusaInventoryProvider<
     this.config = config;
   }
 
+  @Reactionary({
+    inputSchema: InventoryQueryBySKUSchema,
+    outputSchema: InventorySchema,
+  })
   public override async getBySKU(payload: InventoryQueryBySKU): Promise<T> {
     const sku = payload.variant.sku;
     const fulfillmentCenterKey = payload.fulfilmentCenter.key;

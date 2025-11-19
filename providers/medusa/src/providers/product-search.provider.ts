@@ -1,5 +1,6 @@
 import {
   ProductSearchProvider,
+  ProductSearchQueryByTermSchema,
   type Cache,
   type RequestContext,
   type ProductSearchQueryByTerm,
@@ -19,6 +20,7 @@ import {
   type FacetValueIdentifier,
   type ProductSearchResultFacet,
   type ProductSearchResultFacetValue,
+  Reactionary,
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type z from 'zod';
@@ -38,6 +40,9 @@ export class MedusaSearchProvider<
     this.config = config;
   }
 
+  @Reactionary({
+    inputSchema: ProductSearchQueryByTermSchema,
+  })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<ProductSearchResult> {
