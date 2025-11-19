@@ -1,6 +1,23 @@
 import type { StoreProductCategory, StoreProductCategoryListResponse } from '@medusajs/types';
 import type { Category, Cache } from '@reactionary/core';
-import { CategoryIdentifierSchema, CategoryProvider, createPaginatedResponseSchema, type CategoryQueryById, type CategoryQueryBySlug, type CategoryQueryForBreadcrumb, type CategoryQueryForChildCategories, type CategoryQueryForTopCategories, type RequestContext } from '@reactionary/core';
+import {
+  CategoryIdentifierSchema,
+  CategoryProvider,
+  CategorySchema,
+  CategoryQueryByIdSchema,
+  CategoryQueryBySlugSchema,
+  CategoryQueryForBreadcrumbSchema,
+  CategoryQueryForChildCategoriesSchema,
+  CategoryQueryForTopCategoriesSchema,
+  createPaginatedResponseSchema,
+  Reactionary,
+  type CategoryQueryById,
+  type CategoryQueryBySlug,
+  type CategoryQueryForBreadcrumb,
+  type CategoryQueryForChildCategories,
+  type CategoryQueryForTopCategories,
+  type RequestContext
+} from '@reactionary/core';
 import type { MedusaClient, MedusaConfiguration } from '../index.js';
 import type z from 'zod';
 
@@ -50,6 +67,10 @@ export class MedusaCategoryProvider<
     return candidate || null;
   }
 
+  @Reactionary({
+    inputSchema: CategoryQueryByIdSchema,
+    outputSchema: CategorySchema,
+  })
   public override async getById(payload: CategoryQueryById): Promise<T> {
     const candidate = await this.resolveCategoryIdByExternalId(payload.id.key);
     if (!candidate) {
@@ -62,6 +83,10 @@ export class MedusaCategoryProvider<
     return this.parseSingle(candidate!);
   }
 
+  @Reactionary({
+    inputSchema: CategoryQueryBySlugSchema,
+    outputSchema: CategorySchema.nullable(),
+  })
   public override async getBySlug(payload: CategoryQueryBySlug): Promise<T | null> {
     const sdk = await this.client.getClient();
 
@@ -76,6 +101,9 @@ export class MedusaCategoryProvider<
     return this.parseSingle(categoryResult.product_categories[0]);
   }
 
+  @Reactionary({
+    inputSchema: CategoryQueryForBreadcrumbSchema,
+  })
   public override async getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb): Promise<T[]> {
 
     const actualCategoryId = await this.resolveCategoryIdByExternalId(payload.id.key);
@@ -99,6 +127,9 @@ export class MedusaCategoryProvider<
     return results;
   }
 
+  @Reactionary({
+    inputSchema: CategoryQueryForChildCategoriesSchema,
+  })
   public override async findChildCategories(payload: CategoryQueryForChildCategories) {
     const sdk = await this.client.getClient();
 
@@ -131,6 +162,9 @@ export class MedusaCategoryProvider<
     return result;
   }
 
+  @Reactionary({
+    inputSchema: CategoryQueryForTopCategoriesSchema,
+  })
   public override async findTopCategories(payload: CategoryQueryForTopCategories) {
     const sdk = await this.client.getClient();
 

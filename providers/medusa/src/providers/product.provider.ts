@@ -5,8 +5,13 @@ import {
   ProductAttributeSchema,
   ProductIdentifierSchema,
   ProductProvider,
+  ProductSchema,
+  ProductQueryByIdSchema,
+  ProductQueryBySlugSchema,
+  ProductQueryBySKUSchema,
   ProductVariantIdentifierSchema,
-  ProductVariantSchema
+  ProductVariantSchema,
+  Reactionary,
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type { z } from 'zod';
@@ -28,6 +33,10 @@ export class MedusaProductProvider<
   }
 
 
+  @Reactionary({
+    inputSchema: ProductQueryByIdSchema,
+    outputSchema: ProductSchema,
+  })
   public override async getById(payload: ProductQueryById): Promise<T> {
     const client = await this.client.getClient();
     if (debug.enabled) {
@@ -45,6 +54,10 @@ export class MedusaProductProvider<
     return this.parseSingle(response.product);
   }
 
+  @Reactionary({
+    inputSchema: ProductQueryBySlugSchema,
+    outputSchema: ProductSchema.nullable(),
+  })
   public override async getBySlug(payload: ProductQueryBySlug): Promise<T | null> {
     const client = await this.client.getClient();
     if (debug.enabled) {
@@ -68,6 +81,10 @@ export class MedusaProductProvider<
   }
 
 
+  @Reactionary({
+    inputSchema: ProductQueryBySKUSchema,
+    outputSchema: ProductSchema,
+  })
   public override async getBySKU(payload: ProductQueryBySKU): Promise<T> {
 
     if (debug.enabled) {

@@ -21,8 +21,23 @@ import type {
 import {
   CartItemSchema,
   CartProvider,
+  CartSchema,
+  CartIdentifierSchema,
+  OrderIdentifierSchema,
+  CartQueryByIdSchema,
+  CartMutationItemAddSchema,
+  CartMutationItemRemoveSchema,
+  CartMutationItemQuantityChangeSchema,
+  CartMutationDeleteCartSchema,
+  CartMutationSetShippingInfoSchema,
+  CartMutationSetBillingAddressSchema,
+  CartMutationApplyCouponSchema,
+  CartMutationRemoveCouponSchema,
+  CartMutationCheckoutSchema,
+  CartMutationChangeCurrencySchema,
   LanguageContextSchema,
-  ProductVariantIdentifierSchema
+  ProductVariantIdentifierSchema,
+  Reactionary,
 } from '@reactionary/core';
 
 import createDebug from 'debug';
@@ -60,6 +75,10 @@ export class MedusaCartProvider<
     this.config = config;
   }
 
+  @Reactionary({
+    inputSchema: CartQueryByIdSchema,
+    outputSchema: CartSchema,
+  })
   public override async getById(
     payload: CartQueryById
   ): Promise<T> {
@@ -88,6 +107,10 @@ export class MedusaCartProvider<
     }
   }
 
+  @Reactionary({
+    inputSchema: CartMutationItemAddSchema,
+    outputSchema: CartSchema,
+  })
   public override async add(
     payload: CartMutationItemAdd
   ): Promise<T> {
@@ -136,6 +159,10 @@ export class MedusaCartProvider<
   }
 
 
+  @Reactionary({
+    inputSchema: CartMutationItemRemoveSchema,
+    outputSchema: CartSchema,
+  })
   public override async remove(
     payload: CartMutationItemRemove
   ): Promise<T> {
@@ -162,6 +189,10 @@ export class MedusaCartProvider<
     }
   }
 
+  @Reactionary({
+    inputSchema: CartMutationItemQuantityChangeSchema,
+    outputSchema: CartSchema,
+  })
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange
   ): Promise<T> {
@@ -198,6 +229,9 @@ export class MedusaCartProvider<
     }
   }
 
+  @Reactionary({
+    outputSchema: CartIdentifierSchema,
+  })
   public override async getActiveCartId(
   ): Promise<CartIdentifier> {
     try {
@@ -232,6 +266,10 @@ export class MedusaCartProvider<
     }
   }
 
+  @Reactionary({
+    inputSchema: CartMutationDeleteCartSchema,
+    outputSchema: CartSchema,
+  })
   public override async deleteCart(
     payload: CartMutationDeleteCart
   ): Promise<T> {
@@ -271,6 +309,10 @@ export class MedusaCartProvider<
     }
   }
 
+  @Reactionary({
+    inputSchema: CartMutationSetShippingInfoSchema,
+    outputSchema: CartSchema,
+  })
   public override async setShippingInfo(
     payload: CartMutationSetShippingInfo
   ): Promise<T> {
@@ -317,6 +359,10 @@ export class MedusaCartProvider<
     }
   }
 
+  @Reactionary({
+    inputSchema: CartMutationSetBillingAddressSchema,
+    outputSchema: CartSchema,
+  })
   public override async setBillingAddress(
     payload: CartMutationSetBillingAddress
   ): Promise<T> {
@@ -352,6 +398,10 @@ export class MedusaCartProvider<
     }
   }
 
+  @Reactionary({
+    inputSchema: CartMutationApplyCouponSchema,
+    outputSchema: CartSchema,
+  })
   public override async applyCouponCode(
     payload: CartMutationApplyCoupon
   ): Promise<T> {
@@ -376,6 +426,10 @@ export class MedusaCartProvider<
     }
   }
 
+  @Reactionary({
+    inputSchema: CartMutationRemoveCouponSchema,
+    outputSchema: CartSchema,
+  })
   public override async removeCouponCode(
     payload: CartMutationRemoveCoupon
   ): Promise<T> {
@@ -406,6 +460,10 @@ export class MedusaCartProvider<
     }
   }
 
+  @Reactionary({
+    inputSchema: CartMutationCheckoutSchema,
+    outputSchema: OrderIdentifierSchema,
+  })
   public override async checkout(
     payload: CartMutationCheckout
   ): Promise<OrderIdentifier> {
@@ -430,6 +488,10 @@ export class MedusaCartProvider<
     }
   }
 
+  @Reactionary({
+    inputSchema: CartMutationChangeCurrencySchema,
+    outputSchema: CartSchema,
+  })
   public override async changeCurrency(
     payload: CartMutationChangeCurrency
   ): Promise<T> {

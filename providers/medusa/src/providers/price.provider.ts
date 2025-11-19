@@ -1,6 +1,10 @@
 import type { StoreProductVariant } from '@medusajs/types';
 import {
   PriceProvider,
+  PriceSchema,
+  CustomerPriceQuerySchema,
+  ListPriceQuerySchema,
+  Reactionary,
   type Cache,
   type Currency,
   type CustomerPriceQuery,
@@ -31,10 +35,18 @@ export class MedusaPriceProvider<
     this.config = config;
   }
 
+  @Reactionary({
+    inputSchema: ListPriceQuerySchema,
+    outputSchema: PriceSchema,
+  })
   public override getListPrice(payload: ListPriceQuery): Promise<T> {
     return this.getBySKU(payload);
   }
 
+  @Reactionary({
+    inputSchema: CustomerPriceQuerySchema,
+    outputSchema: PriceSchema,
+  })
   public override getCustomerPrice(payload: CustomerPriceQuery): Promise<T> {
     return this.getBySKU(payload);
   }
