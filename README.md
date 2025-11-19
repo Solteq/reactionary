@@ -71,7 +71,7 @@ UX Pages and components supported:
 - [ ] Price - Add Usage/Pricelist modifier for Queries to allow for List/Offer price. - MR
 - [X] Commercetools - Guest sesion race condition - MR
 - [X] Commercetools - Seperate temporary admin client from `Me` based client. - MR
-- [ ] Medusa - Identity capability - AKJ
+- [X] Medusa - Identity capability - AKJ
 - [X] Medusa - Price capability - AKJ
 - [X] Medusa - Category capability - AKJ
 - [X] Medusa - Inventory capability - AKJ

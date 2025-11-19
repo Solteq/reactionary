@@ -1,5 +1,6 @@
 
-import  {  Admin,  Auth,  Client,  type Config,  Store }  from '@medusajs/js-sdk';
+import  {  Admin,  Auth,  Client,  type Config,  Store, }  from '@medusajs/js-sdk';
+
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
   AnonymousIdentitySchema,
@@ -20,26 +21,49 @@ export interface MedusaAuthToken {
   expires_at?: Date;
 }
 
-export class RequestContextTokenStore {
-  constructor(protected context: RequestContext) {}
+export interface MedusaCustomStorage {
+    getItem(key: string): Promise<string | null>;
+    setItem(key: string, value: string): Promise<void>;
+    removeItem(key: string): Promise<void>;
+}
 
-  public async getToken(): Promise<string | undefined> {
+export class RequestContextTokenStore implements MedusaCustomStorage {
+  constructor(protected context: RequestContext,
+    public keyPrefix = '__x'
+  ) {}
 
-    const session = this.context.session[SESSION_KEY] || {};
-    return session.token;
-  }
 
-  public async setToken(token: string, expiresAt?: Date): Promise<void> {
-    const session = this.context.session[SESSION_KEY] || {};
-    session.token = token;
-    if (expiresAt) {
-      session.expiry = expiresAt;
+  getItem(key: string): Promise<string | null> {
+    if (this.context.session[SESSION_KEY] === undefined) {
+      this.context.session[SESSION_KEY] = {};
     }
+    const retVal = this.context.session[SESSION_KEY] ? this.context.session[SESSION_KEY][this.keyPrefix + '_' + key] || null : null
+    if (debug.enabled) {
+      debug(`Getting token item for key: ${this.keyPrefix + '_' + key} - Found: ${retVal ? 'Yes' : 'No'}`);
+    }
+    return Promise.resolve(retVal);
   }
 
-  public async clearToken(): Promise<void> {
-    this.context.session[SESSION_KEY].token = {};
-    this.context.session[SESSION_KEY].expiry = new Date(0);
+  setItem(key: string, value: string): Promise<void> {
+    if (this.context.session[SESSION_KEY] === undefined) {
+      this.context.session[SESSION_KEY] = {};
+    }
+    if(debug.enabled) {
+      debug(`Setting token item for key: ${this.keyPrefix + '_' + key} - Value: ${value}`);
+    }
+    this.context.session[SESSION_KEY][this.keyPrefix + '_' + key] = value
+    return Promise.resolve();
+  }
+
+  removeItem(key: string): Promise<void> {
+    if (this.context.session[SESSION_KEY] === undefined) {
+      this.context.session[SESSION_KEY] = {};
+    }
+    if(debug.enabled) {
+      debug(`Removing token item for key: ${this.keyPrefix + '_' + key}`);
+    }
+    delete this.context.session[SESSION_KEY][this.keyPrefix + '_' + key]
+    return Promise.resolve();
   }
 }
 
@@ -71,7 +95,7 @@ export class MedusaAdminClient {
     this.client = new Medusa({
       baseUrl: this.config.apiUrl,
       apiKey: this.config.adminApiKey,
-      debug: true
+      debug: true,
     });
   }
 
@@ -189,15 +213,22 @@ export class MedusaClient {
   ) {
     try {
       // Create customer account
-     await (await this.getClient()).auth.register(
+      const client = await this.getClient();
+      const tokenResponse = await client.auth.register(
         "customer",
         "emailpass",
         {
         email,
         password,
+      });
+
+
+      const customer = await client.store.customer.create({
+        email,
         first_name: firstName,
         last_name: lastName,
       });
+
 
       // Automatically log in after registration
       const identity = await this.login(email, password, reqCtx);
@@ -215,21 +246,24 @@ export class MedusaClient {
     reqCtx: RequestContext
   ) {
     try {
-      const tokenStore = new RequestContextTokenStore(reqCtx);
-
+      const client = await this.getClient();
       // Authenticate with Medusa
-      const authResult = await (await this.getClient()).auth.login("customer", "emailpass", {
+      const authResult = await client.auth.login("customer", "emailpass", {
         email,
         password,
       });
 
-      const token = await (await this.getClient()).client.getToken();
-      if (token) {
-        await tokenStore.setToken(token);
+
+      if (typeof authResult === "string") {
+          const token = authResult;
+          if (token) {
+            // await tokenStore.setToken(token);
+            await client.client.setToken(token);
+          }
       }
 
       // Get customer details
-      const customerResponse = await (await this.getClient()).store.customer.retrieve();
+      const customerResponse = await client.store.customer.retrieve();
 
       if (customerResponse.customer) {
          return RegisteredIdentitySchema.parse({
@@ -244,25 +278,18 @@ export class MedusaClient {
   }
 
   public async logout(reqCtx: RequestContext) {
+    const client = await this.getClient();
     try {
-      const tokenStore = new RequestContextTokenStore(reqCtx);
-      const token = await tokenStore.getToken();
 
       // Clear the session on Medusa side
-      if (token) {
-        await (await this.getClient()).auth.logout();
-        await (await this.getClient()).client.clearToken();
-      }
-
-      // Clear local token storage
-      await tokenStore.clearToken();
+      await client.auth.logout();
+      await client.client.clearToken();
 
       return AnonymousIdentitySchema.parse({});
     } catch (error) {
       debug('Logout failed:', error);
-      // Even if logout fails on server side, clear local session
-      const tokenStore = new RequestContextTokenStore(reqCtx);
-      await tokenStore.clearToken();
+      await client.client.clearToken();
+
 
       return AnonymousIdentitySchema.parse({})
     }
@@ -271,16 +298,22 @@ export class MedusaClient {
 
   protected async createAuthenticatedClient(reqCtx: RequestContext): Promise<Medusa> {
     const tokenStore = new RequestContextTokenStore(reqCtx);
-    const initialToken = await tokenStore.getToken();
 
     // Create a client instance
     const authenticatedClient = new Medusa({
       baseUrl: this.config.apiUrl,
       publishableKey: this.config.publishable_key,
       debug: true,
+
+      auth: {
+        type: 'jwt',
+        jwtTokenStorageMethod: 'custom',
+        storage: tokenStore
+      }
     });
 
     // If we have a token, set it for authenticated requests
+    /*
     if (initialToken) {
       // Set the authorization header for authenticated requests
       await authenticatedClient.client.setToken(initialToken);
@@ -289,7 +322,7 @@ export class MedusaClient {
         debug('Token validation failed, clearing token');
         await tokenStore.clearToken();
       }
-    }
+    }*/
 
     return authenticatedClient;
   }
