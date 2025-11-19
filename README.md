@@ -74,7 +74,7 @@ UX Pages and components supported:
 - [ ] Medusa - Identity capability - AKJ
 - [X] Medusa - Price capability - AKJ
 - [X] Medusa - Category capability - AKJ
-- [ ] Medusa - Inventory capability - AKJ
+- [X] Medusa - Inventory capability - AKJ
 - [ ] Medusa - Store capability - AKJ
 - [X] Search Index Model Add information about number of variants on the main model (or directly if it can be added to cart or not) - AKJ
 - [X] CLI for importing icecat to all vendors - AKJ
