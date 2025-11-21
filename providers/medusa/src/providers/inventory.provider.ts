@@ -7,6 +7,7 @@ import {
   InventorySchema,
   InventoryQueryBySKUSchema,
   Reactionary,
+  ProductVariantIdentifierSchema,
 } from '@reactionary/core';
 import type z from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
@@ -130,7 +131,6 @@ export class MedusaInventoryProvider<
       },
     };
 
-    model.sku = sku;
     model.quantity = quantity;
 
     if (model.quantity > 0) {
@@ -165,7 +165,6 @@ export class MedusaInventoryProvider<
       fulfillmentCenter: { key: fulfillmentCenterKey },
     };
 
-    model.sku = sku;
     model.quantity = 0;
     model.status = 'outOfStock';
 

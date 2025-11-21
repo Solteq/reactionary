@@ -186,87 +186,6 @@ export class CommercetoolsCartProvider<
   }
 
   @Reactionary({
-    inputSchema: CartMutationSetShippingInfoSchema,
-    outputSchema: CartSchema
-  })
-  public override async setShippingInfo(
-    payload: CartMutationSetShippingInfo
-  ): Promise<T> {
-    const client = await this.getClient();
-    const ctId = payload.cart as CommercetoolsCartIdentifier;
-
-    const actions: MyCartUpdateAction[] = new Array<MyCartUpdateAction>();
-    if (payload.shippingMethod) {
-      actions.push({
-        action: 'setShippingMethod',
-        shippingMethod: {
-          typeId: 'shipping-method',
-          id: payload.shippingMethod.key,
-        },
-      });
-    }
-
-    if (payload.shippingAddress) {
-      actions.push({
-        action: 'setShippingAddress',
-        address: {
-          country:
-            payload.shippingAddress.countryCode ||
-            this.context.taxJurisdiction.countryCode ||
-            'US',
-          firstName: payload.shippingAddress.firstName,
-          lastName: payload.shippingAddress.lastName,
-          city: payload.shippingAddress.city,
-          postalCode: payload.shippingAddress.postalCode,
-          streetName: payload.shippingAddress.streetAddress,
-          streetNumber: payload.shippingAddress.streetNumber,
-        },
-      });
-    }
-
-    return this.applyActions(payload.cart, actions);
-  }
-
-  @Reactionary({
-    inputSchema: CartMutationSetBillingAddressSchema,
-    outputSchema: CartSchema
-  })
-  public override setBillingAddress(
-    payload: CartMutationSetBillingAddress
-  ): Promise<T> {
-    return this.applyActions(payload.cart, [
-      {
-        action: 'setBillingAddress',
-        address: {
-          email: payload.notificationEmailAddress,
-          mobile: payload.notificationPhoneNumber,
-          country:
-            payload.billingAddress.countryCode ||
-            this.context.taxJurisdiction.countryCode ||
-            'US',
-          firstName: payload.billingAddress.firstName,
-          lastName: payload.billingAddress.lastName,
-          city: payload.billingAddress.city,
-          postalCode: payload.billingAddress.postalCode,
-          streetName: payload.billingAddress.streetAddress,
-          streetNumber: payload.billingAddress.streetNumber,
-        },
-      },
-      {
-        action: 'setCustomerEmail',
-        email: payload.notificationEmailAddress,
-      },
-      {
-        action: 'setCountry',
-        country:
-          payload.billingAddress.countryCode ||
-          this.context.taxJurisdiction.countryCode ||
-          'US',
-      },
-    ]);
-  }
-
-  @Reactionary({
     inputSchema: CartMutationApplyCouponSchema,
     outputSchema: CartSchema
   })
@@ -305,31 +224,6 @@ export class CommercetoolsCartProvider<
     ]);
   }
 
-  @Reactionary({
-    inputSchema: CartMutationCheckoutSchema,
-    outputSchema: OrderIdentifierSchema
-  })
-  public override async checkout(
-    payload: CartMutationCheckout
-  ): Promise<OrderIdentifier> {
-    // In Commercetools, checkout is done by creating an order from the cart.
-
-    const client = await this.getClient();
-    const ctId = payload.cart as CommercetoolsCartIdentifier;
-
-    const orderResponse = await client.orders
-      .post({
-        body: {
-          version: ctId.version,
-          id: ctId.key,
-        },
-      })
-      .execute();
-    return CommercetoolsOrderIdentifierSchema.parse({
-      key: orderResponse.body.id,
-      version: orderResponse.body.version || 0,
-    });
-  }
 
   @Reactionary({
     inputSchema: CartMutationChangeCurrencySchema,
@@ -448,7 +342,7 @@ export class CommercetoolsCartProvider<
     const clientWithProject = client.withProjectKey({
       projectKey: this.config.projectKey,
     });
-    
+
     return {
       carts: clientWithProject.me().carts(),
       activeCart: clientWithProject.me().activeCart(),

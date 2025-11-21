@@ -309,94 +309,6 @@ export class MedusaCartProvider<
     }
   }
 
-  @Reactionary({
-    inputSchema: CartMutationSetShippingInfoSchema,
-    outputSchema: CartSchema,
-  })
-  public override async setShippingInfo(
-    payload: CartMutationSetShippingInfo
-  ): Promise<T> {
-    try {
-      const client = await this.getClient();
-      const medusaId = payload.cart as MedusaCartIdentifier;
-
-      // Set shipping address
-      if (payload.shippingAddress) {
-        await client.store.cart.update(medusaId.key, {
-          shipping_address: {
-            first_name: payload.shippingAddress.firstName,
-            last_name: payload.shippingAddress.lastName,
-            address_1: payload.shippingAddress.streetAddress,
-            address_2: payload.shippingAddress.streetNumber || '',
-            city: payload.shippingAddress.city,
-            postal_code: payload.shippingAddress.postalCode,
-            country_code: payload.shippingAddress.countryCode?.toLowerCase() ||
-                         this.context.taxJurisdiction.countryCode?.toLowerCase() || 'us',
-          },
-        },         {
-          fields: '+items.*'
-        });
-      }
-
-      // Set shipping method
-      if (payload.shippingMethod) {
-        await client.store.cart.addShippingMethod(medusaId.key, {
-          option_id: payload.shippingMethod.key,
-        });
-      }
-
-      // Get updated cart
-      const response = await client.store.cart.retrieve(medusaId.key);
-
-      if (response.cart) {
-        return this.parseSingle(response.cart);
-      }
-
-      throw new Error('Failed to set shipping info');
-    } catch (error) {
-      debug('Failed to set shipping info:', error);
-      throw new Error(`Failed to set shipping info: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  @Reactionary({
-    inputSchema: CartMutationSetBillingAddressSchema,
-    outputSchema: CartSchema,
-  })
-  public override async setBillingAddress(
-    payload: CartMutationSetBillingAddress
-  ): Promise<T> {
-    try {
-      const client = await this.getClient();
-      const medusaId = payload.cart as MedusaCartIdentifier;
-
-      const response = await client.store.cart.update(medusaId.key, {
-        billing_address: {
-          first_name: payload.billingAddress.firstName,
-          last_name: payload.billingAddress.lastName,
-          address_1: payload.billingAddress.streetAddress,
-          address_2: payload.billingAddress.streetNumber || '',
-          city: payload.billingAddress.city,
-          postal_code: payload.billingAddress.postalCode,
-          country_code: payload.billingAddress.countryCode?.toLowerCase() ||
-                       this.context.taxJurisdiction.countryCode?.toLowerCase() || 'us',
-        },
-        email: payload.notificationEmailAddress,
-      },         {
-          fields: '+items.*'
-        }
-);
-
-      if (response.cart) {
-        return this.parseSingle(response.cart);
-      }
-
-      throw new Error('Failed to set billing address');
-    } catch (error) {
-      debug('Failed to set billing address:', error);
-      throw new Error(`Failed to set billing address: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
 
   @Reactionary({
     inputSchema: CartMutationApplyCouponSchema,
@@ -460,33 +372,6 @@ export class MedusaCartProvider<
     }
   }
 
-  @Reactionary({
-    inputSchema: CartMutationCheckoutSchema,
-    outputSchema: OrderIdentifierSchema,
-  })
-  public override async checkout(
-    payload: CartMutationCheckout
-  ): Promise<OrderIdentifier> {
-    try {
-      const client = await this.getClient();
-      const medusaId = payload.cart as MedusaCartIdentifier;
-
-      // Complete the cart to create an order
-      const response = await client.store.cart.complete(medusaId.key);
-
-      if (response.type === 'order') {
-        return MedusaOrderIdentifierSchema.parse({
-          key: response.order.id,
-          display_id: response.order.display_id,
-        });
-      }
-
-      throw new Error('Failed to checkout cart');
-    } catch (error) {
-      debug('Failed to checkout cart:', error);
-      throw new Error(`Failed to checkout cart: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
 
   @Reactionary({
     inputSchema: CartMutationChangeCurrencySchema,

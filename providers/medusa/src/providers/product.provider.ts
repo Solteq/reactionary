@@ -45,6 +45,7 @@ export class MedusaProductProvider<
     let response;
     try {
       response = await client.store.product.retrieve(payload.identifier.key);
+
     } catch(error) {
       if (debug.enabled) {
         debug(`Product with ID: ${payload.identifier.key} not found, returning empty product. Error %O `, error);

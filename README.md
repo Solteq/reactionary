@@ -65,25 +65,25 @@ UX Pages and components supported:
 - Account - Log in (email, password)
 
 #### Tasks:
-- [ ] Cart - Remove checkout related functions - AKJ
+- [X] Cart - Remove checkout related functions - AKJ
 - [X] Checkout - Receive full cart in input - MR
-- [ ] Inventory - Model to use ProductVariantIdentifier instead of SKU - AKJ
-- [ ] Price - Add Usage/Pricelist modifier for Queries to allow for List/Offer price. - MR
+- [X] Inventory - Model to use ProductVariantIdentifier instead of SKU - AKJ
+- [X] Price - Add Usage/Pricelist modifier for Queries to allow for List/Offer price. - MR
 - [X] Commercetools - Guest sesion race condition - MR
 - [X] Commercetools - Seperate temporary admin client from `Me` based client. - MR
 - [X] Medusa - Identity capability - AKJ
 - [X] Medusa - Price capability - AKJ
 - [X] Medusa - Category capability - AKJ
 - [X] Medusa - Inventory capability - AKJ
-- [ ] Medusa - Store capability - AKJ
+- [X] Medusa - Checkout capability - AKJ
 - [X] Search Index Model Add information about number of variants on the main model (or directly if it can be added to cart or not) - AKJ
 - [X] CLI for importing icecat to all vendors - AKJ
 - [X] Unified Data Set for Products - AKJ
 - [X] Unified Data Set for Inventory - AKJ
 - [X] Unified Data Set for Prices - AKJ
-- [ ] Unified test set for all vendors - AKJ
+- [X] Unified test set for all vendors - AKJ
 - [ ] Medusa - test of Client - AKJ
-- [-] Reactionary Decorator on all public Query and Mutation methods - MR
+- [X] Reactionary Decorator on all public Query and Mutation methods - MR
 - [X] Input validation via Zod.parse for all public Query and Mutation methods - MR
 - [X] Output validation via Zod.parse for all public Query and Mutation methods - MR
 - [X] Change Zod schema from looseObjects to .passthrough - MR
@@ -107,7 +107,7 @@ Vendors: Commercetools, Algolia, Medusa
 - Profile - Address book
 - Orderhistory - List and Details
 - Consents - marketing, newsletters etc
-
+- Store location vs pickup points
 
 ### Roadmap to V0.4
 Usecase: As a seller i want to seed my recommendation and analytics with customer actions  (Analytics)
