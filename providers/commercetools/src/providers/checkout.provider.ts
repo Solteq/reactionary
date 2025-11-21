@@ -559,9 +559,6 @@ export class CommercetoolsCheckoutProvider<
     return this.config.paymentMethods || [];
   }
 
-  protected override getResourceName(): string {
-    return 'checkout';
-  }
 
   protected override parseSingle(remote: CTCart): T {
     const result = this.newModel();
