@@ -10,6 +10,6 @@ export default defineProject({
     root: resolve(__dirname),
     globals: true,
     environment: 'node',
-    include: ['src/**/*.{test,spec}.{js,ds,ba,vv,ts}', 'src/**/*.test.{ts,js}'],
+    include: ['src/**/*.{test,spec}.{js,ds,ba,vv,ft,ts}', 'src/**/*.test.{ts,js}'],
   },
 });

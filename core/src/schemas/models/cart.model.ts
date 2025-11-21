@@ -3,6 +3,7 @@ import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchem
 import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
 import { BaseModelSchema } from './base.model.js';
 
+
 export const CartItemSchema = z.looseObject({
     identifier: CartItemIdentifierSchema.default(() => CartItemIdentifierSchema.parse({})),
     product: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})),

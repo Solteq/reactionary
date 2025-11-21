@@ -1,9 +1,10 @@
+import { base, en, Faker } from '@faker-js/faker';
 import type {
-  Inventory,
-  RequestContext,
   Cache,
+  Inventory,
+  InventoryIdentifier,
   InventoryQueryBySKU,
-  InventoryIdentifier
+  RequestContext
 } from '@reactionary/core';
 import {
   InventoryIdentifierSchema,
@@ -11,7 +12,6 @@ import {
 } from '@reactionary/core';
 import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
-import { base, en, Faker } from '@faker-js/faker';
 
 export class FakeInventoryProvider<
   T extends Inventory = Inventory
@@ -46,7 +46,6 @@ export class FakeInventoryProvider<
       variant: payload.variant,
       fulfillmentCenter: payload.fulfilmentCenter
     } satisfies InventoryIdentifier);
-    model.sku = skuString;
 
     model.quantity = generator.number.int({ min: 0, max: 100 });
     if (model.quantity > 0 ) {

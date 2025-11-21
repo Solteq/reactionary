@@ -166,19 +166,10 @@ export class FakeCartProvider<
   public override deleteCart(payload: CartMutationDeleteCart): Promise<T> {
     throw new Error('Method not implemented.');
   }
-  public override setShippingInfo(payload: CartMutationSetShippingInfo): Promise<T> {
-    throw new Error('Method not implemented.');
-  }
-  public override setBillingAddress(payload: CartMutationSetBillingAddress): Promise<T> {
-    throw new Error('Method not implemented.');
-  }
   public override applyCouponCode(payload: CartMutationApplyCoupon): Promise<T> {
     throw new Error('Method not implemented.');
   }
   public override removeCouponCode(payload: CartMutationRemoveCoupon): Promise<T> {
-    throw new Error('Method not implemented.');
-  }
-  public override checkout(payload: CartMutationCheckout): Promise<OrderIdentifier> {
     throw new Error('Method not implemented.');
   }
   public override changeCurrency(payload: CartMutationChangeCurrency): Promise<T> {
