@@ -20,7 +20,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Product Capability - %s', (provi
   });
 
   it('should be able to get a product by id', async () => {
-    const result = await client.product.getById({ id: testData.product.id });
+    const result = await client.product.getById({ identifier: { key: testData.product.id } });
 
     expect(result).toBeTruthy();
     expect(result.identifier.key).toBe(testData.product.id);
@@ -67,7 +67,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Product Capability - %s', (provi
   });
 
   it('should return a placeholder product for unknown id', async () => {
-    const result = await client.product.getById({ id: 'unknown-id' });
+    const result = await client.product.getById({ identifier: { key: 'unknown-id' } });
 
     expect(result).toBeTruthy();
     expect(result.meta.placeholder).toBe(true);

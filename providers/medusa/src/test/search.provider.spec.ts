@@ -3,19 +3,25 @@ import { createInitialRequestContext, NoOpCache, ProductSearchQueryByTermSchema,
 import { describe, expect, it } from 'vitest';
 import { MedusaSearchProvider } from '../providers/product-search.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
+import { MedusaClient } from '../index.js';
 
+const testData = {
+  searchTerm: 'printer',
+}
 describe('Medusa Search Provider', () => {
   const reqCtx = createInitialRequestContext();
+  const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
   const provider = new MedusaSearchProvider(
     getMedusaTestConfiguration(),
     ProductSearchResultItemSchema,
     new NoOpCache(),
-    reqCtx
+    reqCtx,
+    client
   );
 
   it('should be able to get a result by term', async () => {
     const result = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
-      term: 'glass',
+      term: testData.searchTerm,
       paginationOptions: {
         pageNumber: 1,
         pageSize: 20,
@@ -30,7 +36,7 @@ describe('Medusa Search Provider', () => {
 
   it('should be able to paginate', async () => {
     const firstPage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
-      term: 'glass',
+      term: testData.searchTerm,
       paginationOptions: {
         pageNumber: 1,
         pageSize: 2,
@@ -40,7 +46,7 @@ describe('Medusa Search Provider', () => {
     }}));
 
     const secondPage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
-      term: 'glass',
+      term: testData.searchTerm,
       paginationOptions: {
         pageNumber: 2,
         pageSize: 2
@@ -58,7 +64,7 @@ describe('Medusa Search Provider', () => {
 
   it('should be able to change page size', async () => {
     const smallPage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
-      term: 'glass',
+      term: testData.searchTerm,
       paginationOptions: {
         pageNumber: 1,
         pageSize: 2,
@@ -68,7 +74,7 @@ describe('Medusa Search Provider', () => {
     }}));
 
     const largePage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
-      term: 'glass',
+      term: testData.searchTerm,
       paginationOptions: {
         pageNumber: 1,
         pageSize: 30,

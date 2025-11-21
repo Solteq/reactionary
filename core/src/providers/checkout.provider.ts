@@ -99,6 +99,11 @@ export abstract class CheckoutProvider<
    * @param reqCtx
    */
   public abstract finalizeCheckout(payload: CheckoutMutationFinalizeCheckout): Promise<T>;
+
+
+  public override getResourceName(): string {
+    return 'checkout';
+  }
 }
 
 

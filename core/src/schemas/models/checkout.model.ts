@@ -43,7 +43,7 @@ export const CheckoutSchema = BaseModelSchema.extend({
     description: z.string().default(''),
 
 
-    billingAddress: AddressSchema.optional(),
+    billingAddress: AddressSchema.optional().nullable(),
 
     /**
      * Shipping and billing details can be changed on the checkout, but not items or quantities.

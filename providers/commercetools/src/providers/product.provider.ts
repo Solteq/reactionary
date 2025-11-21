@@ -71,11 +71,11 @@ export class CommercetoolsProductProvider<
 
     // FIXME: This should be a ProductIdentifier...
     try {
-      const remote = await client.withKey({ key: payload.id }).get().execute();
+      const remote = await client.withKey({ key: payload.identifier.key }).get().execute();
 
       return this.parseSingle(remote.body);
     } catch (error) {
-      return this.createEmptyProduct(payload.id);
+      return this.createEmptyProduct(payload.identifier.key);
     }
   }
 

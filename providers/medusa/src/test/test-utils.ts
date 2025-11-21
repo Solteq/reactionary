@@ -7,6 +7,7 @@ export function getMedusaTestConfiguration(): MedusaConfiguration {
         publishable_key: process.env['MEDUSA_PUBLISHABLE_KEY'] || '',
         adminApiKey: process.env['MEDUSA_ADMIN_KEY'] || '',
         apiUrl: process.env['MEDUSA_API_URL'] || '',
+        defaultCurrency: process.env['MEDUSA_DEFAULT_CURRENCY'] || '',
     });
 }
 

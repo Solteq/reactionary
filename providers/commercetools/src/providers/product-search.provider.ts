@@ -83,7 +83,6 @@ export class CommercetoolsSearchProvider<
       placeholder: false
     };
 
-
     return result;
   }
 

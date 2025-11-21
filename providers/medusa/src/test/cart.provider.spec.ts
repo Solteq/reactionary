@@ -3,11 +3,12 @@ import { CartSchema, NoOpCache, createInitialRequestContext, type Cart, type Req
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
+import { MedusaClient } from '../core/client.js';
 
 
 const testData = {
-  skuWithoutTiers: '8719514435254',
-  skuWithTiers: '8719514435377'
+  skuWithoutTiers: '4047443491480',
+  skuWithTiers: '0819927012825'
 }
 
 
@@ -17,7 +18,8 @@ describe('Medusa Cart Provider', () => {
 
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
-    provider = new MedusaCartProvider(getMedusaTestConfiguration(), CartSchema, new NoOpCache(), reqCtx);
+    const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
+    provider = new MedusaCartProvider(getMedusaTestConfiguration(), CartSchema, new NoOpCache(), reqCtx, client);
   });
 
   describe('anonymous sessions', () => {

@@ -1,9 +1,8 @@
-import { BaseProvider } from "./base.provider.js";
 import type { Cart } from "../schemas/models/cart.model.js";
+import type { CartIdentifier } from "../schemas/models/identifiers.model.js";
+import type { CartMutationApplyCoupon, CartMutationChangeCurrency, CartMutationDeleteCart, CartMutationItemAdd, CartMutationItemQuantityChange, CartMutationItemRemove, CartMutationRemoveCoupon } from "../schemas/mutations/cart.mutation.js";
 import type { CartQueryById } from "../schemas/queries/cart.query.js";
-import type { RequestContext } from "../schemas/session.schema.js";
-import type { CartMutationApplyCoupon, CartMutationChangeCurrency, CartMutationCheckout, CartMutationDeleteCart, CartMutationItemAdd, CartMutationItemQuantityChange, CartMutationItemRemove, CartMutationRemoveCoupon, CartMutationSetBillingAddress, CartMutationSetShippingInfo } from "../schemas/mutations/cart.mutation.js";
-import type { CartIdentifier, OrderIdentifier } from "../schemas/models/identifiers.model.js";
+import { BaseProvider } from "./base.provider.js";
 
 export abstract class CartProvider<
   T extends Cart = Cart
@@ -70,25 +69,6 @@ export abstract class CartProvider<
   public abstract deleteCart(payload: CartMutationDeleteCart): Promise<T>;
 
   /**
-   * Sets shipping method and address on the cart. Returns the updated and recalculated cart.
-   *
-   * Usecase: User selects shipping method during checkout.
-   * @param payload
-   * @param session
-   */
-  public abstract setShippingInfo(payload: CartMutationSetShippingInfo): Promise<T>;
-
-  /**
-   * Sets billing address on the cart. Returns the updated and recalculated cart.
-   *
-   * Usecase: User enters billing address during checkout.
-   *
-   * @param payload
-   * @param session
-   */
-  public abstract setBillingAddress(payload: CartMutationSetBillingAddress): Promise<T>;
-
-  /**
    * Applies a coupon code to the cart. Returns the updated and recalculated cart.
    *
    * Usecase: User applies a coupon code during checkout.
@@ -106,17 +86,6 @@ export abstract class CartProvider<
    * @param session
    */
   public abstract removeCouponCode(payload: CartMutationRemoveCoupon): Promise<T>;
-
-
-  /**
-   * Checks out the cart. Returns the order identifier of the newly created order.
-   *
-   * Usecase: User proceeds to checkout.
-   *
-   * @param payload
-   * @param session
-   */
-  public abstract checkout(payload: CartMutationCheckout): Promise<OrderIdentifier>;
 
   /**
    * Changes the currency of the cart.

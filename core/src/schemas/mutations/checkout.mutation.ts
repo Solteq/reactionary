@@ -10,6 +10,8 @@ export const CheckoutMutationInitiateCheckoutSchema = BaseMutationSchema.extend(
     notificationPhone: z.string().optional(),
 });
 
+
+
 export const CheckoutMutationSetShippingAddressSchema = BaseMutationSchema.extend({
     checkout: CartIdentifierSchema.required(),
     shippingAddress: AddressSchema.omit({ identifier: true, meta: true }).required(),

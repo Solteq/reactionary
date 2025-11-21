@@ -1,5 +1,6 @@
 import {
   ProductSearchProvider,
+  ProductSearchQueryByTermSchema,
   type Cache,
   type RequestContext,
   type ProductSearchQueryByTerm,
@@ -19,11 +20,12 @@ import {
   type FacetValueIdentifier,
   type ProductSearchResultFacet,
   type ProductSearchResultFacetValue,
+  Reactionary,
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type z from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import { MedusaClient } from '../core/client.js';
+import type { MedusaClient } from '../core/client.js';
 import type { StoreProduct, StoreProductListResponse, StoreProductVariant } from '@medusajs/types';
 
 const debug = createDebug('reactionary:medusa:search');
@@ -33,15 +35,18 @@ export class MedusaSearchProvider<
 > extends ProductSearchProvider<T> {
   protected config: MedusaConfiguration;
 
-  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, public client: MedusaClient) {
     super(schema, cache, context);
     this.config = config;
   }
 
+  @Reactionary({
+    inputSchema: ProductSearchQueryByTermSchema,
+  })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<ProductSearchResult> {
-    const client = await new MedusaClient(this.config).getClient(this.context);
+    const client = await this.client.getClient();
 
     const response = await client.store.product.list({
       q: payload.search.term,

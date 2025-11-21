@@ -4,6 +4,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
 import { MedusaSearchProvider } from '../providers/product-search.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
+import { MedusaClient } from '../core/client.js';
 
 /**
 const testData = {
@@ -19,8 +20,9 @@ describe('Medusa Cart Provider - Large Scenarios', () => {
 
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
-        provider = new MedusaCartProvider(getMedusaTestConfiguration(), CartSchema, new NoOpCache(), reqCtx);
-    searchProvider = new MedusaSearchProvider(getMedusaTestConfiguration(), ProductSearchResultItemSchema, new NoOpCache(), reqCtx);
+    const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
+    provider = new MedusaCartProvider(getMedusaTestConfiguration(), CartSchema, new NoOpCache(), reqCtx, client);
+    searchProvider = new MedusaSearchProvider(getMedusaTestConfiguration(), ProductSearchResultItemSchema, new NoOpCache(), reqCtx, client);
   });
 
   describe('large carts', () => {
