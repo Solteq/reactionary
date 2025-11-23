@@ -27,7 +27,7 @@ import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import { AlgoliaSearchIdentifierSchema, type AlgoliaSearchResult } from '../schema/search.schema.js';
 
 interface AlgoliaNativeVariant {
-  variantID: string;
+  sku: string;
   image: string;
 }
 
@@ -122,7 +122,7 @@ export class AlgoliaSearchProvider<
   protected override parseVariant(variant: AlgoliaNativeVariant, product: AlgoliaNativeRecord): ProductSearchResultItemVariant {
       const result = ProductSearchResultItemVariantSchema.parse({
       variant: {
-        sku: variant.variantID
+        sku: variant.sku
       },
       image: ImageSchema.parse({
         sourceUrl: variant.image,
