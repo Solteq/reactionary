@@ -4,14 +4,14 @@ import { ProductIdentifierSchema, ProductSearchIdentifierSchema } from '../model
 
 export const AnalyticsMutationSearchEventSchema = BaseMutationSchema.extend({
     mutation: z.literal('search'),
-    search: ProductSearchIdentifierSchema.required(),
+    search: ProductSearchIdentifierSchema,
     products: z.array(ProductIdentifierSchema),
 });
 
 export const AnalyticsMutationSearchProductClickEventSchema = BaseMutationSchema.extend({
     mutation: z.literal('product-search-click'),
-    search: ProductSearchIdentifierSchema.required(),
-    product: ProductIdentifierSchema.required(),
+    search: ProductSearchIdentifierSchema,
+    product: ProductIdentifierSchema,
     position: z.number().min(0)
 });
 

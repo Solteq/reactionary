@@ -6,68 +6,67 @@ import { CurrencySchema } from '../models/currency.model.js';
 import { MonetaryAmountSchema } from '../models/price.model.js';
 
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.nonoptional(),
-    variant: ProductVariantIdentifierSchema.nonoptional(),
+    cart: CartIdentifierSchema,
+    variant: ProductVariantIdentifierSchema,
     quantity: z.number()
 });
 
 export const CartMutationItemRemoveSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.nonoptional(),
-    item: CartItemIdentifierSchema.nonoptional()
+    cart: CartIdentifierSchema,
+    item: CartItemIdentifierSchema,
 });
 
 export const CartMutationItemQuantityChangeSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.nonoptional(),
-    item: CartItemIdentifierSchema.nonoptional(),
+    cart: CartIdentifierSchema,
+    item: CartItemIdentifierSchema,
     quantity: z.number()
 });
 
 export const CartMutationDeleteCartSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required()
+    cart: CartIdentifierSchema
 });
 
 export const CartMutationSetShippingInfoSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required(),
+    cart: CartIdentifierSchema,
     shippingMethod: ShippingMethodIdentifierSchema.optional(),
     shippingAddress: AddressSchema.optional(),
 });
 
 export const CartMutationSetBillingAddressSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required(),
-    billingAddress: AddressSchema.required(),
+    cart: CartIdentifierSchema,
+    billingAddress: AddressSchema,
     notificationEmailAddress: z.string().optional(),
     notificationPhoneNumber: z.string().optional(),
 });
 
 export const CartMutationApplyCouponSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required(),
-    couponCode: z.string().default('').nonoptional()
+    cart: CartIdentifierSchema,
+    couponCode: z.string()
 });
 
 export const CartMutationRemoveCouponSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required(),
-    couponCode: z.string().default('').nonoptional()
+    cart: CartIdentifierSchema,
+    couponCode: z.string()
 });
 
 export const CartMutationCheckoutSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required()
+    cart: CartIdentifierSchema
 });
 
 export const CartMutationAddPaymentMethodSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required(),
-    paymentMethodId: PaymentMethodIdentifierSchema.required(),
+    cart: CartIdentifierSchema,
+    paymentMethodId: PaymentMethodIdentifierSchema,
     amount: MonetaryAmountSchema.optional().describe('The amount to authorize for the payment method. If not provided, the full remaining balance of the cart will be authorized.')
 });
 
 export const CartMutationRemovePaymentMethodSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.required(),
+    cart: CartIdentifierSchema,
 });
 
 export const CartMutationChangeCurrencySchema = BaseMutationSchema.extend({
     cart: CartIdentifierSchema.required(),
-    newCurrency: CurrencySchema.default(() => CurrencySchema.parse({})).describe('The new currency to set for the cart.')
+    newCurrency: CurrencySchema.describe('The new currency to set for the cart.')
 });
-
 
 export type CartMutationChangeCurrency = z.infer<typeof CartMutationChangeCurrencySchema>;
 export type CartMutationAddPaymentMethod = z.infer<typeof CartMutationAddPaymentMethodSchema>;

@@ -6,18 +6,17 @@ export const ProductQueryBySlugSchema = BaseQuerySchema.extend({
     slug: z.string()
 });
 
-
 export const ProductQueryByIdSchema = BaseQuerySchema.extend({
-    identifier: ProductIdentifierSchema.required()
+    identifier: ProductIdentifierSchema
 });
 
 export const ProductQueryBySKUSchema = BaseQuerySchema.extend({
-    variant: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})),
+    variant: ProductVariantIdentifierSchema,
 });
 
 export const ProductQueryVariantsSchema = BaseQuerySchema.extend({
-    parentId: ProductIdentifierSchema.default(() => ProductIdentifierSchema.parse({})),
-    paginationOptions: PaginationOptionsSchema.default(() => PaginationOptionsSchema.parse({})),
+    parentId: ProductIdentifierSchema,
+    paginationOptions: PaginationOptionsSchema,
 });
 
 

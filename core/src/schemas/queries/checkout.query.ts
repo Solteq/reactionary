@@ -3,19 +3,16 @@ import { BaseQuerySchema } from './base.query.js';
 import { CheckoutIdentifierSchema } from '../models/identifiers.model.js';
 
 export const CheckoutQueryByIdSchema = BaseQuerySchema.extend({
-    identifier: CheckoutIdentifierSchema.required()
+    identifier: CheckoutIdentifierSchema
 });
 
-
 export const CheckoutQueryForAvailableShippingMethodsSchema = BaseQuerySchema.extend({
-    checkout: CheckoutIdentifierSchema.required()
+    checkout: CheckoutIdentifierSchema
 });
 
 export const CheckoutQueryForAvailablePaymentMethodsSchema = BaseQuerySchema.extend({
-    checkout: CheckoutIdentifierSchema.required()
+    checkout: CheckoutIdentifierSchema
 });
-
-
 
 export type CheckoutQueryForAvailableShippingMethods = z.infer<typeof CheckoutQueryForAvailableShippingMethodsSchema>;
 export type CheckoutQueryForAvailablePaymentMethods = z.infer<typeof CheckoutQueryForAvailablePaymentMethodsSchema>;

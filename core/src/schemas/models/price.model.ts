@@ -4,20 +4,19 @@ import { PriceIdentifierSchema } from './identifiers.model.js';
 import { CurrencySchema } from './currency.model.js';
 
 export const MonetaryAmountSchema = z.looseObject({
-    value: z.number().default(0).describe('The monetary amount in decimal-precision.'),
-    currency: CurrencySchema.default("XXX").describe('The currency associated with the amount, as a ISO 4217 standardized code.')
+    value: z.number().describe('The monetary amount in decimal-precision.'),
+    currency: CurrencySchema.describe('The currency associated with the amount, as a ISO 4217 standardized code.')
 });
 
 export const TieredPriceSchema = z.looseObject({
-    minimumQuantity: z.number().default(0).describe('The minimum quantity required to be eligible for the tiered price.'),
-    price: MonetaryAmountSchema.default(() => MonetaryAmountSchema.parse({})).describe('The monetary amount for the tiered price.'),
+    minimumQuantity: z.number().describe('The minimum quantity required to be eligible for the tiered price.'),
+    price: MonetaryAmountSchema.describe('The monetary amount for the tiered price.'),
 });
 
-
 export const PriceSchema = BaseModelSchema.extend({
-    identifier: PriceIdentifierSchema.default(() => PriceIdentifierSchema.parse({})),
-    unitPrice: MonetaryAmountSchema.default(() => MonetaryAmountSchema.parse({})),
-    tieredPrices: z.array(TieredPriceSchema).default(() => []),
+    identifier: PriceIdentifierSchema,
+    unitPrice: MonetaryAmountSchema,
+    tieredPrices: z.array(TieredPriceSchema)
 });
 
 export type MonetaryAmount = z.infer<typeof MonetaryAmountSchema>;
