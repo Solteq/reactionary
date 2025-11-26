@@ -4,40 +4,34 @@ import { BaseMutationSchema } from "./base.mutation.js";
 
 
 export const CheckoutMutationInitiateCheckoutSchema = BaseMutationSchema.extend({
-    cart: CartSchema.required(),
+    cart: CartSchema,
     billingAddress: AddressSchema.omit({ identifier: true, meta: true }).optional(),
     notificationEmail: z.string().optional(),
     notificationPhone: z.string().optional(),
 });
 
-
-
 export const CheckoutMutationSetShippingAddressSchema = BaseMutationSchema.extend({
-    checkout: CartIdentifierSchema.required(),
-    shippingAddress: AddressSchema.omit({ identifier: true, meta: true }).required(),
+    checkout: CartIdentifierSchema,
+    shippingAddress: AddressSchema.omit({ identifier: true, meta: true }),
 });
-
 
 export const CheckoutMutationFinalizeCheckoutSchema = BaseMutationSchema.extend({
-    checkout: CartIdentifierSchema.required(),
+    checkout: CartIdentifierSchema,
 });
 
-
 export const CheckoutMutationAddPaymentInstructionSchema = BaseMutationSchema.extend({
-    paymentInstruction: PaymentInstructionSchema.omit({ meta: true, status: true, identifier: true }).required(),
-    checkout: CartIdentifierSchema.required()
+    paymentInstruction: PaymentInstructionSchema.omit({ meta: true, status: true, identifier: true }),
+    checkout: CartIdentifierSchema,
 });
 
 export const CheckoutMutationRemovePaymentInstructionSchema = BaseMutationSchema.extend({
-    paymentInstruction: PaymentInstructionIdentifierSchema.required(),
-    checkout: CartIdentifierSchema.required()
+    paymentInstruction: PaymentInstructionIdentifierSchema,
+    checkout: CartIdentifierSchema,
 });
 
-
-
 export const CheckoutMutationSetShippingInstructionSchema = BaseMutationSchema.extend({
-    shippingInstruction: ShippingInstructionSchema.omit({ meta: true }).required(),
-    checkout: CartIdentifierSchema.required()
+    shippingInstruction: ShippingInstructionSchema.omit({ meta: true }),
+    checkout: CartIdentifierSchema,
 });
 
 export type CheckoutMutationInitiateCheckout = z.infer<typeof CheckoutMutationInitiateCheckoutSchema>;

@@ -2,129 +2,123 @@ import { z } from 'zod';
 import { PaginationOptionsSchema } from './base.model.js';
 
 export const FacetIdentifierSchema = z.looseObject({
-  key: z.string().default('').nonoptional(),
+  key: z.string(),
 });
 
 export const FacetValueIdentifierSchema = z.object({
-  facet: FacetIdentifierSchema.default(() => FacetIdentifierSchema.parse({})),
-  key: z.string().default(''),
+  facet: FacetIdentifierSchema,
+  key: z.string(),
 });
 
 export const ProductVariantIdentifierSchema = z.looseObject({
-  sku: z.string().default('').nonoptional(),
+  sku: z.string(),
 });
 
 export const ProductAttributeIdentifierSchema = z.looseObject({
-  key: z.string().default('').describe('The unique identifier for the product attribute.'),
+  key: z.string().describe('The unique identifier for the product attribute.'),
 });
 
 export const ProductAttributeValueIdentifierSchema = z.looseObject({
-  key: z.string().default('').describe('The unique identifier for the product attribute value.'),
+  key: z.string().describe('The unique identifier for the product attribute value.'),
 });
 
-
 export const ProductOptionIdentifierSchema = z.looseObject({
-  key: z.string().default('').describe('The unique identifier for the product option.'),
+  key: z.string().describe('The unique identifier for the product option.'),
 });
 
 export const ProductOptionValueIdentifierSchema = z.looseObject({
-  option: ProductOptionIdentifierSchema.default(() => ProductOptionIdentifierSchema.parse({})),
-  key: z.string().default('').describe('The value of the product option, e.g., "Red" or "Large".'),
+  option: ProductOptionIdentifierSchema,
+  key: z.string().describe('The value of the product option, e.g., "Red" or "Large".'),
 });
 
-
-
 export const ProductIdentifierSchema = z.looseObject({
-  key: z.string().default(''),
+  key: z.string()
 });
 
 export const ProductSearchIdentifierSchema = z.looseObject({
-  term: z.string().default(''),
-  facets: z.array(FacetValueIdentifierSchema.required()).default(() => []),
-  filters: z.array(z.string()).default(() => []),
-  paginationOptions: PaginationOptionsSchema.default(() => PaginationOptionsSchema.parse({})),
+  term: z.string(),
+  facets: z.array(FacetValueIdentifierSchema),
+  filters: z.array(z.string()),
+  paginationOptions: PaginationOptionsSchema,
 });
 
 export const CartIdentifierSchema = z.looseObject({
-  key: z.string().default(''),
+  key: z.string(),
 });
 
 export const CartItemIdentifierSchema = z.looseObject({
-  key: z.string().default(''),
+  key: z.string(),
 });
 
 export const PriceIdentifierSchema = z.looseObject({
-  variant: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})),
+  variant: ProductVariantIdentifierSchema,
 });
 
 export const CategoryIdentifierSchema = z.looseObject({
-  key: z.string().default('').nonoptional(),
+  key: z.string(),
 });
 
 export const StoreIdentifierSchema = z.looseObject({
-  key: z.string().default('').optional(),
+  key: z.string(),
 });
 
 export const OrderIdentifierSchema = z.looseObject({
-  key: z.string().default('').nonoptional(),
+  key: z.string(),
 });
 
 export const OrderItemIdentifierSchema = z.looseObject({
-  key: z.string().default('').nonoptional(),
+  key: z.string(),
 });
 
 
 export const CheckoutIdentifierSchema = z.looseObject({
-    key: z.string().default('').nonoptional()
+    key: z.string(),
 });
 
 export const CheckoutItemIdentifierSchema = z.looseObject({
-    key: z.string().default('').nonoptional()
+    key: z.string(),
 });
 
 /**
  * The target store the user is interacting with. Can change over time, and is not necessarily the same as the default store.
  */
 export const WebStoreIdentifierSchema = z.looseObject({
-  key: z.string().default('').nonoptional(),
+  key: z.string(),
 });
 
 export const FulfillmentCenterIdentifierSchema = z.looseObject({
-  key: z.string().default('').nonoptional(),
+  key: z.string(),
 });
 
 export const InventoryIdentifierSchema = z.looseObject({
-  variant: ProductVariantIdentifierSchema.default(() => ProductVariantIdentifierSchema.parse({})),
-  fulfillmentCenter: FulfillmentCenterIdentifierSchema.default(() =>
-    FulfillmentCenterIdentifierSchema.parse({})
-  ),
+  variant: ProductVariantIdentifierSchema,
+  fulfillmentCenter: FulfillmentCenterIdentifierSchema,
 });
 
 export const IdentityIdentifierSchema = z.looseObject({
-  userId: z.string().default('').nonoptional(),
+  userId: z.string(),
 });
 
 export const ShippingMethodIdentifierSchema = z.looseObject({
-    key: z.string().default('').nonoptional(),
+    key: z.string(),
 });
 
-
 export const PaymentMethodIdentifierSchema = z.looseObject({
-  method: z.string().default('').nonoptional(),
-  name: z.string().default('').nonoptional(),
-  paymentProcessor: z.string().default('').nonoptional(),
+  method: z.string(),
+  name: z.string(),
+  paymentProcessor: z.string(),
 });
 
 export const AddressIdentifierSchema = z.looseObject({
-  nickName: z.string().default('').nonoptional(),
+  nickName: z.string(),
 });
 
 export const PaymentInstructionIdentifierSchema = z.looseObject({
-  key: z.string().default('').nonoptional(),
+  key: z.string(),
 });
 
 export const PickupPointIdentifierSchema = z.looseObject({
-    key: z.string().default('').nonoptional()
+    key: z.string(),
 });
 
 export type ProductIdentifier = z.infer<typeof ProductIdentifierSchema>;

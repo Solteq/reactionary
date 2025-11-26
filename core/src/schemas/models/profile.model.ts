@@ -4,31 +4,27 @@ import { BaseModelSchema } from "./base.model.js";
 
 export const AddressSchema = BaseModelSchema.extend({
     identifier: AddressIdentifierSchema.default(() => AddressIdentifierSchema.parse({})),
-    firstName: z.string().default(''),
-    lastName: z.string().default(''),
-    streetAddress: z.string().default(''),
-    streetNumber: z.string().default(''),
-    city: z.string().default(''),
-    region: z.string().default(''),
-    postalCode: z.string().default(''),
-    countryCode: z.string().default('US'),
+    firstName: z.string(),
+    lastName: z.string(),
+    streetAddress: z.string(),
+    streetNumber: z.string(),
+    city: z.string(),
+    region: z.string(),
+    postalCode: z.string(),
+    countryCode: z.string(),
 });
 
 export const ProfileSchema = BaseModelSchema.extend({
-    identifier: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
-    email: z.string().email().default(''),
-    phone: z.string().default(''),
-
-    emailVerified: z.boolean().default(false),
-    phoneVerified: z.boolean().default(false),
-
-    createdAt: z.string().default(() => new Date().toISOString()),
-    updatedAt: z.string().default(() => new Date().toISOString()),
-
+    identifier: IdentityIdentifierSchema,
+    email: z.email(),
+    phone: z.string(),
+    emailVerified: z.boolean(),
+    phoneVerified: z.boolean(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
     shippingAddress: AddressSchema.optional(),
     billingAddress: AddressSchema.optional(),
-
-    alternateShippingAddresses: z.array(AddressSchema).default(() => []),
+    alternateShippingAddresses: z.array(AddressSchema),
 });
 
 export type Address = z.infer<typeof AddressSchema>;

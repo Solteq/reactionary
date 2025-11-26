@@ -3,7 +3,7 @@ import { BaseQuerySchema } from './base.query.js';
 import { OrderIdentifierSchema } from '../models/identifiers.model.js';
 
 export const OrderQueryByIdSchema = BaseQuerySchema.extend({
-    order: OrderIdentifierSchema.required()
+    order: OrderIdentifierSchema
 });
 
 export type OrderQueryById = z.infer<typeof OrderQueryByIdSchema>;

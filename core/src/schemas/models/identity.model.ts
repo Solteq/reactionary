@@ -3,17 +3,17 @@ import { BaseModelSchema } from './base.model.js';
 import { IdentityIdentifierSchema } from './identifiers.model.js';
 
 export const AnonymousIdentitySchema = BaseModelSchema.extend({
-    type: z.literal('Anonymous').default('Anonymous'),
+    type: z.literal('Anonymous'),
 });
 
 export const GuestIdentitySchema = BaseModelSchema.extend({
-    id: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
-    type: z.literal('Guest').default('Guest'),
+    id: IdentityIdentifierSchema,
+    type: z.literal('Guest')
 });
 
 export const RegisteredIdentitySchema = BaseModelSchema.extend({
-    id: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
-    type: z.literal('Registered').default('Registered'),
+    id: IdentityIdentifierSchema,
+    type: z.literal('Registered'),
 });
 
 export const IdentitySchema = z.discriminatedUnion('type', [ AnonymousIdentitySchema, GuestIdentitySchema, RegisteredIdentitySchema]);
