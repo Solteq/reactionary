@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { WebStoreIdentifierSchema } from './models/identifiers.model.js';
 import { CurrencySchema } from './models/currency.model.js';
+import type { InferType } from '../zod-utils.js';
 
 /**
  * The language and locale context for the current request.
@@ -32,12 +33,11 @@ export const RequestContextSchema = z.looseObject( {
     clientIp: z.string().default('').describe('The IP address of the client making the request, if available. Mostly for logging purposes'),
     userAgent: z.string().default('').describe('The user agent string of the client making the request, if available.'),
     referrer: z.string().default('').describe('The referrer URL, if available.'),
-
 })
 
 
 
-export type Session = z.infer<typeof SessionSchema>;
-export type LanguageContext = z.infer<typeof LanguageContextSchema>;
-export type RequestContext = z.infer<typeof RequestContextSchema>;
-export type TaxJurisdiction = z.infer<typeof TaxJurisdictionSchema>;
+export type Session = InferType<typeof SessionSchema>;
+export type LanguageContext = InferType<typeof LanguageContextSchema>;
+export type RequestContext = InferType<typeof RequestContextSchema>;
+export type TaxJurisdiction = InferType<typeof TaxJurisdictionSchema>;

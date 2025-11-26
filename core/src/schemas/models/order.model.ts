@@ -5,6 +5,7 @@ import { AddressSchema } from './profile.model.js';
 import { ShippingMethodSchema } from './shipping-method.model.js';
 import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
 import { PaymentInstructionSchema } from './payment.model.js';
+import type { InferType } from '../../zod-utils.js';
 
 export const OrderStatusSchema = z.enum(['AwaitingPayment', 'ReleasedToFulfillment', 'Shipped', 'Cancelled']).describe('The current status of the order.');
 export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', 'Backordered', 'Preordered']).describe('The inventory release status of the order.');
@@ -36,5 +37,5 @@ export const OrderSchema = BaseModelSchema.extend({
 
 
 
-export type OrderItem = z.infer<typeof OrderItemSchema>;
-export type Order = z.infer<typeof OrderSchema>;
+export type OrderItem = InferType<typeof OrderItemSchema>;
+export type Order = InferType<typeof OrderSchema>;

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BaseQuerySchema } from './base.query.js';
+import type { InferType } from '../../zod-utils.js';
 
 export const StoreQueryByProximitySchema = BaseQuerySchema.extend({
     longitude: z.number(),
@@ -8,4 +9,4 @@ export const StoreQueryByProximitySchema = BaseQuerySchema.extend({
     limit: z.number(),
 });
 
-export type StoreQueryByProximity = z.infer<typeof StoreQueryByProximitySchema>;
+export type StoreQueryByProximity = InferType<typeof StoreQueryByProximitySchema>;

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ProductIdentifierSchema, FacetValueIdentifierSchema, FacetIdentifierSchema, ProductSearchIdentifierSchema, ProductVariantIdentifierSchema } from './identifiers.model.js';
 import { BaseModelSchema, createPaginatedResponseSchema, ImageSchema } from './base.model.js';
 import { ProductVariantOptionSchema } from './product.model.js';
-
+import type { InferType } from '../../zod-utils.js';
 
 export const ProductSearchResultItemVariantSchema = z.looseObject({
     variant: ProductVariantIdentifierSchema.describe('The specific variant of the product'),
@@ -35,8 +35,8 @@ export const ProductSearchResultSchema = createPaginatedResponseSchema(ProductSe
     facets: z.array(ProductSearchResultFacetSchema),
 });
 
-export type ProductSearchResultItemVariant = z.infer<typeof ProductSearchResultItemVariantSchema>;
-export type ProductSearchResultItem = z.infer<typeof ProductSearchResultItemSchema>;
-export type ProductSearchResult = z.infer<typeof ProductSearchResultSchema>;
-export type ProductSearchResultFacet = z.infer<typeof ProductSearchResultFacetSchema>;
-export type ProductSearchResultFacetValue = z.infer<typeof ProductSearchResultFacetValueSchema>;
+export type ProductSearchResultItemVariant = InferType<typeof ProductSearchResultItemVariantSchema>;
+export type ProductSearchResultItem = InferType<typeof ProductSearchResultItemSchema>;
+export type ProductSearchResult = InferType<typeof ProductSearchResultSchema>;
+export type ProductSearchResultFacet = InferType<typeof ProductSearchResultFacetSchema>;
+export type ProductSearchResultFacetValue = InferType<typeof ProductSearchResultFacetValueSchema>;

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { BaseMutationSchema } from './base.mutation.js';
 import { ProductIdentifierSchema, ProductSearchIdentifierSchema } from '../models/identifiers.model.js';
+import type { InferType } from '../../zod-utils.js';
 
 export const AnalyticsMutationSearchEventSchema = BaseMutationSchema.extend({
     mutation: z.literal('search'),
@@ -17,6 +18,6 @@ export const AnalyticsMutationSearchProductClickEventSchema = BaseMutationSchema
 
 export const AnalyticsMutationSchema = z.union([AnalyticsMutationSearchEventSchema, AnalyticsMutationSearchProductClickEventSchema]);
 
-export type AnalyticsMutation = z.infer<typeof AnalyticsMutationSchema>;
-export type AnalyticsMutationSearchEvent = z.infer<typeof AnalyticsMutationSearchEventSchema>;
-export type AnalyticsMutationSearchProductClickEvent = z.infer<typeof AnalyticsMutationSearchProductClickEventSchema>;
+export type AnalyticsMutation = InferType<typeof AnalyticsMutationSchema>;
+export type AnalyticsMutationSearchEvent = InferType<typeof AnalyticsMutationSearchEventSchema>;
+export type AnalyticsMutationSearchProductClickEvent = InferType<typeof AnalyticsMutationSearchProductClickEventSchema>;

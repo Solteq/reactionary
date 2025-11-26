@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { BaseModelSchema } from './base.model.js';
 import { PriceIdentifierSchema } from './identifiers.model.js';
 import { CurrencySchema } from './currency.model.js';
+import type { InferType } from '../../zod-utils.js';
 
 export const MonetaryAmountSchema = z.looseObject({
     value: z.number().describe('The monetary amount in decimal-precision.'),
@@ -19,6 +20,6 @@ export const PriceSchema = BaseModelSchema.extend({
     tieredPrices: z.array(TieredPriceSchema)
 });
 
-export type MonetaryAmount = z.infer<typeof MonetaryAmountSchema>;
-export type Price = z.infer<typeof PriceSchema>;
-export type TieredPrice = z.infer<typeof TieredPriceSchema>;
+export type MonetaryAmount = InferType<typeof MonetaryAmountSchema>;
+export type Price = InferType<typeof PriceSchema>;
+export type TieredPrice = InferType<typeof TieredPriceSchema>;

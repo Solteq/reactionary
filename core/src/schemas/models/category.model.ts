@@ -1,13 +1,8 @@
-// getBySeoSlug
-// getBreadcrumbPathToCategory
-// getById
-// getByExternalId
-// getChildCategories
-
-
 import { z } from 'zod';
 import { BaseModelSchema, createPaginatedResponseSchema, ImageSchema } from './base.model.js';
 import { CategoryIdentifierSchema } from './identifiers.model.js';
+import type { InferType } from '../../zod-utils.js';
+
 export const CategorySchema = BaseModelSchema.extend({
     identifier:  CategoryIdentifierSchema.default(() => CategoryIdentifierSchema.parse({})),
     name: z.string().default(''),
@@ -17,7 +12,7 @@ export const CategorySchema = BaseModelSchema.extend({
     parentCategory: CategoryIdentifierSchema.optional(),
 });
 
-export type Category = z.infer<typeof CategorySchema>;
+export type Category = InferType<typeof CategorySchema>;
 
 export const CategoryPaginatedResultSchema  = createPaginatedResponseSchema(CategorySchema);
-export type CategoryPaginatedResult = z.infer<typeof CategoryPaginatedResultSchema>;
+export type CategoryPaginatedResult = InferType<typeof CategoryPaginatedResultSchema>;

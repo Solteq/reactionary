@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CartIdentifierSchema, AddressSchema, PaymentInstructionIdentifierSchema, PaymentInstructionSchema, ShippingInstructionSchema, CartSchema } from "../models/index.js";
 import { BaseMutationSchema } from "./base.mutation.js";
+import type { InferType } from '../../zod-utils.js';
 
 
 export const CheckoutMutationInitiateCheckoutSchema = BaseMutationSchema.extend({
@@ -34,9 +35,9 @@ export const CheckoutMutationSetShippingInstructionSchema = BaseMutationSchema.e
     checkout: CartIdentifierSchema,
 });
 
-export type CheckoutMutationInitiateCheckout = z.infer<typeof CheckoutMutationInitiateCheckoutSchema>;
-export type CheckoutMutationSetShippingAddress = z.infer<typeof CheckoutMutationSetShippingAddressSchema>;
-export type CheckoutMutationFinalizeCheckout = z.infer<typeof CheckoutMutationFinalizeCheckoutSchema>;
-export type CheckoutMutationAddPaymentInstruction = z.infer<typeof CheckoutMutationAddPaymentInstructionSchema>;
-export type CheckoutMutationRemovePaymentInstruction = z.infer<typeof CheckoutMutationRemovePaymentInstructionSchema>;
-export type CheckoutMutationSetShippingInstruction = z.infer<typeof CheckoutMutationSetShippingInstructionSchema>;
+export type CheckoutMutationInitiateCheckout = InferType<typeof CheckoutMutationInitiateCheckoutSchema>;
+export type CheckoutMutationSetShippingAddress = InferType<typeof CheckoutMutationSetShippingAddressSchema>;
+export type CheckoutMutationFinalizeCheckout = InferType<typeof CheckoutMutationFinalizeCheckoutSchema>;
+export type CheckoutMutationAddPaymentInstruction = InferType<typeof CheckoutMutationAddPaymentInstructionSchema>;
+export type CheckoutMutationRemovePaymentInstruction = InferType<typeof CheckoutMutationRemovePaymentInstructionSchema>;
+export type CheckoutMutationSetShippingInstruction = InferType<typeof CheckoutMutationSetShippingInstructionSchema>;

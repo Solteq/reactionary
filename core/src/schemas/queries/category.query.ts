@@ -2,6 +2,7 @@ import { z } from "zod";
 import { CategoryIdentifierSchema } from "../models/identifiers.model.js";
 import { BaseQuerySchema } from "./base.query.js";
 import { PaginationOptionsSchema } from "../models/base.model.js";
+import type { InferType } from '../../zod-utils.js';
 
 export const CategoryQueryByIdSchema = BaseQuerySchema.extend({
     id: CategoryIdentifierSchema,
@@ -24,8 +25,8 @@ export const CategoryQueryForTopCategoriesSchema = BaseQuerySchema.extend({
     paginationOptions: PaginationOptionsSchema,
 });
 
-export type CategoryQueryById = z.infer<typeof CategoryQueryByIdSchema>;
-export type CategoryQueryBySlug = z.infer<typeof CategoryQueryBySlugSchema>;
-export type CategoryQueryForBreadcrumb = z.infer<typeof CategoryQueryForBreadcrumbSchema>;
-export type CategoryQueryForChildCategories = z.infer<typeof CategoryQueryForChildCategoriesSchema>;
-export type CategoryQueryForTopCategories = z.infer<typeof CategoryQueryForTopCategoriesSchema>;
+export type CategoryQueryById = InferType<typeof CategoryQueryByIdSchema>;
+export type CategoryQueryBySlug = InferType<typeof CategoryQueryBySlugSchema>;
+export type CategoryQueryForBreadcrumb = InferType<typeof CategoryQueryForBreadcrumbSchema>;
+export type CategoryQueryForChildCategories = InferType<typeof CategoryQueryForChildCategoriesSchema>;
+export type CategoryQueryForTopCategories = InferType<typeof CategoryQueryForTopCategoriesSchema>;

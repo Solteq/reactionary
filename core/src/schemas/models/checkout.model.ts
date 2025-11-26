@@ -1,5 +1,3 @@
-
-
 import { z } from 'zod';
 import { BaseModelSchema } from './base.model.js';
 import { CartIdentifierSchema, CheckoutIdentifierSchema, CheckoutItemIdentifierSchema, OrderIdentifierSchema, ProductVariantIdentifierSchema } from './identifiers.model.js';
@@ -7,6 +5,7 @@ import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
 import { AddressSchema } from './profile.model.js';
 import { ShippingInstructionSchema } from './shipping-method.model.js';
 import { PaymentInstructionSchema } from './payment.model.js';
+import type { InferType } from '../../zod-utils.js';
 
 export const CheckoutItemSchema = z.looseObject({
     identifier: CheckoutItemIdentifierSchema.default(() => CheckoutItemIdentifierSchema.parse({})),
@@ -62,5 +61,5 @@ export const CheckoutSchema = BaseModelSchema.extend({
 
 
 
-export type CheckoutItem = z.infer<typeof CheckoutItemSchema>;
-export type Checkout = z.infer<typeof CheckoutSchema>;
+export type CheckoutItem = InferType<typeof CheckoutItemSchema>;
+export type Checkout = InferType<typeof CheckoutSchema>;

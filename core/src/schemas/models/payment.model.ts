@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { BaseModelSchema, ImageSchema } from './base.model.js';
 import { PaymentInstructionIdentifierSchema, PaymentMethodIdentifierSchema } from './identifiers.model.js';
 import { MonetaryAmountSchema } from './price.model.js';
+import type { InferType } from '../../zod-utils.js';
 
 export const PaymentStatusSchema = z.enum(['pending', 'authorized', 'canceled', 'capture', 'partial_capture', 'refunded', 'partial_refund']);
 
@@ -25,6 +26,6 @@ export const PaymentInstructionSchema = BaseModelSchema.extend({
     status: PaymentStatusSchema,
 });
 
-export type PaymentInstruction = z.infer<typeof PaymentInstructionSchema>;
-export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
-export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
+export type PaymentInstruction = InferType<typeof PaymentInstructionSchema>;
+export type PaymentStatus = InferType<typeof PaymentStatusSchema>;
+export type PaymentMethod = InferType<typeof PaymentMethodSchema>;

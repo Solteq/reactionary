@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { InferType } from '../zod-utils.js';
 
 export const CapabilitiesSchema = z.looseObject({
     product: z.boolean(),
@@ -15,4 +16,4 @@ export const CapabilitiesSchema = z.looseObject({
     profile: z.boolean()
 });
 
-export type Capabilities = z.infer<typeof CapabilitiesSchema>;
+export type Capabilities = InferType<typeof CapabilitiesSchema>;
