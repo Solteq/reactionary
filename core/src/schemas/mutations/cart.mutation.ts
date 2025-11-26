@@ -4,6 +4,7 @@ import { CartIdentifierSchema, CartItemIdentifierSchema, PaymentMethodIdentifier
 import { AddressSchema } from '../models/profile.model.js';
 import { CurrencySchema } from '../models/currency.model.js';
 import { MonetaryAmountSchema } from '../models/price.model.js';
+import type { InferType } from '../../zod-utils.js';
 
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
     cart: CartIdentifierSchema,
@@ -68,15 +69,15 @@ export const CartMutationChangeCurrencySchema = BaseMutationSchema.extend({
     newCurrency: CurrencySchema.describe('The new currency to set for the cart.')
 });
 
-export type CartMutationChangeCurrency = z.infer<typeof CartMutationChangeCurrencySchema>;
-export type CartMutationAddPaymentMethod = z.infer<typeof CartMutationAddPaymentMethodSchema>;
-export type CartMutationRemovePaymentMethod = z.infer<typeof CartMutationRemovePaymentMethodSchema>;
-export type CartMutationCheckout = z.infer<typeof CartMutationCheckoutSchema>;
-export type CartMutationItemAdd = z.infer<typeof CartMutationItemAddSchema>;
-export type CartMutationItemRemove = z.infer<typeof CartMutationItemRemoveSchema>;
-export type CartMutationItemQuantityChange = z.infer<typeof CartMutationItemQuantityChangeSchema>;
-export type CartMutationDeleteCart = z.infer<typeof CartMutationDeleteCartSchema>;
-export type CartMutationSetShippingInfo = z.infer<typeof CartMutationSetShippingInfoSchema>;
-export type CartMutationSetBillingAddress = z.infer<typeof CartMutationSetBillingAddressSchema>;
-export type CartMutationApplyCoupon = z.infer<typeof CartMutationApplyCouponSchema>;
-export type CartMutationRemoveCoupon = z.infer<typeof CartMutationRemoveCouponSchema>;
+export type CartMutationChangeCurrency = InferType<typeof CartMutationChangeCurrencySchema>;
+export type CartMutationAddPaymentMethod = InferType<typeof CartMutationAddPaymentMethodSchema>;
+export type CartMutationRemovePaymentMethod = InferType<typeof CartMutationRemovePaymentMethodSchema>;
+export type CartMutationCheckout = InferType<typeof CartMutationCheckoutSchema>;
+export type CartMutationItemAdd = InferType<typeof CartMutationItemAddSchema>;
+export type CartMutationItemRemove = InferType<typeof CartMutationItemRemoveSchema>;
+export type CartMutationItemQuantityChange = InferType<typeof CartMutationItemQuantityChangeSchema>;
+export type CartMutationDeleteCart = InferType<typeof CartMutationDeleteCartSchema>;
+export type CartMutationSetShippingInfo = InferType<typeof CartMutationSetShippingInfoSchema>;
+export type CartMutationSetBillingAddress = InferType<typeof CartMutationSetBillingAddressSchema>;
+export type CartMutationApplyCoupon = InferType<typeof CartMutationApplyCouponSchema>;
+export type CartMutationRemoveCoupon = InferType<typeof CartMutationRemoveCouponSchema>;

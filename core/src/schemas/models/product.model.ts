@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CategoryIdentifierSchema, ProductAttributeIdentifierSchema, ProductAttributeValueIdentifierSchema, ProductIdentifierSchema, ProductOptionIdentifierSchema, ProductOptionValueIdentifierSchema, ProductVariantIdentifierSchema } from './identifiers.model.js';
 import { BaseModelSchema, ImageSchema } from './base.model.js';
+import type { InferType } from '../../zod-utils.js';
 
 
 export const ProductOptionValueSchema = z.looseObject({
@@ -62,10 +63,10 @@ export const ProductSchema = BaseModelSchema.extend({
 }).describe('A product is a wrapper around sellable items. It contains all the shared information for a set of SKUs. All products have at least one SKU, but can potentially have hundreds.');
 
 
-export type ProductVariant = z.infer<typeof ProductVariantSchema>;
-export type Product = z.infer<typeof ProductSchema>;
-export type ProductAttribute = z.infer<typeof ProductAttributeSchema>;
-export type ProductAttributeValue = z.infer<typeof ProductAttributeValueSchema>;
-export type ProductOption = z.infer<typeof ProductOptionSchema>;
-export type ProductOptionValue = z.infer<typeof ProductOptionValueSchema>;
-export type ProductVariantOption = z.infer<typeof ProductVariantOptionSchema>;
+export type ProductVariant = InferType<typeof ProductVariantSchema>;
+export type Product = InferType<typeof ProductSchema>;
+export type ProductAttribute = InferType<typeof ProductAttributeSchema>;
+export type ProductAttributeValue = InferType<typeof ProductAttributeValueSchema>;
+export type ProductOption = InferType<typeof ProductOptionSchema>;
+export type ProductOptionValue = InferType<typeof ProductOptionValueSchema>;
+export type ProductVariantOption = InferType<typeof ProductVariantOptionSchema>;

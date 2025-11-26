@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { InferType } from '../../zod-utils.js';
 
 export const CacheInformationSchema = z.looseObject({
     hit: z.boolean().default(false),
@@ -14,17 +15,10 @@ export const BaseModelSchema = z.looseObject({
     meta: MetaSchema.default(() => MetaSchema.parse({}))
 });
 
-export type CacheInformation = z.infer<typeof CacheInformationSchema>;
-export type Meta = z.infer<typeof MetaSchema>;
-export type BaseModel = z.infer<typeof BaseModelSchema>;
-
-
 export const PaginationOptionsSchema = z.looseObject({
     pageNumber: z.number().default(1).describe('Current page number, starting from 1'),
     pageSize: z.number().min(1).max(50).default(20).describe('Number of items per page'),
 });
-
-export type PaginationOptions = z.infer<typeof PaginationOptionsSchema>;
 
 /**
  * This seemed like the right way to do it, but we need to be able to pass in the item schema even later than this
@@ -55,6 +49,8 @@ export const ImageSchema = z.looseObject({
     height: z.number().optional().describe('Height of the original image, in pixels, if known'),
 });
 
-export type Image = z.infer<typeof ImageSchema>;
-
-
+export type Image = InferType<typeof ImageSchema>;
+export type PaginationOptions = InferType<typeof PaginationOptionsSchema>;
+export type CacheInformation = InferType<typeof CacheInformationSchema>;
+export type Meta = InferType<typeof MetaSchema>;
+export type BaseModel = InferType<typeof BaseModelSchema>;

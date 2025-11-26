@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MonetaryAmountSchema } from "./price.model.js";
+import type { InferType } from '../../zod-utils.js';
 
 export const CostBreakDownSchema = z.looseObject({
     totalTax: MonetaryAmountSchema.default(() => MonetaryAmountSchema.parse({})).describe('The amount of tax paid on the cart. This may include VAT, GST, sales tax, etc.'),
@@ -17,5 +18,5 @@ export const ItemCostBreakdownSchema = z.looseObject({
     totalDiscount: MonetaryAmountSchema.default(() => MonetaryAmountSchema.parse({})).describe('The total discount applied to all units of the item.'),
 });
 
-export type CostBreakDown = z.infer<typeof CostBreakDownSchema>;
-export type ItemCostBreakdown = z.infer<typeof ItemCostBreakdownSchema>;
+export type CostBreakDown = InferType<typeof CostBreakDownSchema>;
+export type ItemCostBreakdown = InferType<typeof ItemCostBreakdownSchema>;

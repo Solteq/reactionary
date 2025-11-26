@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BaseMutationSchema } from './base.mutation.js';
+import type { InferType } from '../../zod-utils.js';
 
 export const IdentityMutationLoginSchema = BaseMutationSchema.extend({
     username: z.string(),
@@ -15,6 +16,6 @@ export const IdentityMutationRegisterSchema = BaseMutationSchema.extend({
 });
 
 
-export type IdentityMutationLogin = z.infer<typeof IdentityMutationLoginSchema>;
-export type IdentityMutationLogout = z.infer<typeof IdentityMutationLogoutSchema>;
-export type IdentityMutationRegister = z.infer<typeof IdentityMutationRegisterSchema>;
+export type IdentityMutationLogin = InferType<typeof IdentityMutationLoginSchema>;
+export type IdentityMutationLogout = InferType<typeof IdentityMutationLogoutSchema>;
+export type IdentityMutationRegister = InferType<typeof IdentityMutationRegisterSchema>;

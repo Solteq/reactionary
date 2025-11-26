@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import type { InferType } from '../../zod-utils.js';
 
 export const BaseQuerySchema = z.looseObject({
 });
 
-export type BaseQuery = z.infer<typeof BaseQuerySchema>;
+export type BaseQuery = InferType<typeof BaseQuerySchema>;

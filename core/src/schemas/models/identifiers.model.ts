@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PaginationOptionsSchema } from './base.model.js';
+import type { InferType } from '../../zod-utils.js';
 
 export const FacetIdentifierSchema = z.looseObject({
   key: z.string(),
@@ -121,42 +122,42 @@ export const PickupPointIdentifierSchema = z.looseObject({
     key: z.string(),
 });
 
-export type ProductIdentifier = z.infer<typeof ProductIdentifierSchema>;
-export type ProductVariantIdentifier = z.infer<typeof ProductVariantIdentifierSchema>;
-export type SearchIdentifier = z.infer<typeof ProductSearchIdentifierSchema>;
-export type FacetIdentifier = z.infer<typeof FacetIdentifierSchema>;
-export type FacetValueIdentifier = z.infer<typeof FacetValueIdentifierSchema>;
-export type CartIdentifier = z.infer<typeof CartIdentifierSchema>;
-export type CartItemIdentifier = z.infer<typeof CartItemIdentifierSchema>;
-export type PriceIdentifier = z.infer<typeof PriceIdentifierSchema>;
-export type CategoryIdentifier = z.infer<typeof CategoryIdentifierSchema>;
-export type WebStoreIdentifier = z.infer<typeof WebStoreIdentifierSchema>;
-export type InventoryIdentifier = z.infer<typeof InventoryIdentifierSchema>;
-export type FulfillmentCenterIdentifier = z.infer<
+export type ProductIdentifier = InferType<typeof ProductIdentifierSchema>;
+export type ProductVariantIdentifier = InferType<typeof ProductVariantIdentifierSchema>;
+export type SearchIdentifier = InferType<typeof ProductSearchIdentifierSchema>;
+export type FacetIdentifier = InferType<typeof FacetIdentifierSchema>;
+export type FacetValueIdentifier = InferType<typeof FacetValueIdentifierSchema>;
+export type CartIdentifier = InferType<typeof CartIdentifierSchema>;
+export type CartItemIdentifier = InferType<typeof CartItemIdentifierSchema>;
+export type PriceIdentifier = InferType<typeof PriceIdentifierSchema>;
+export type CategoryIdentifier = InferType<typeof CategoryIdentifierSchema>;
+export type WebStoreIdentifier = InferType<typeof WebStoreIdentifierSchema>;
+export type InventoryIdentifier = InferType<typeof InventoryIdentifierSchema>;
+export type FulfillmentCenterIdentifier = InferType<
   typeof FulfillmentCenterIdentifierSchema
 >;
-export type IdentityIdentifier = z.infer<typeof IdentityIdentifierSchema>;
-export type ShippingMethodIdentifier = z.infer<
+export type IdentityIdentifier = InferType<typeof IdentityIdentifierSchema>;
+export type ShippingMethodIdentifier = InferType<
   typeof ShippingMethodIdentifierSchema
 >;
-export type PaymentMethodIdentifier = z.infer<
+export type PaymentMethodIdentifier = InferType<
   typeof PaymentMethodIdentifierSchema
 >;
-export type AddressIdentifier = z.infer<typeof AddressIdentifierSchema>;
-export type PaymentInstructionIdentifier = z.infer<
+export type AddressIdentifier = InferType<typeof AddressIdentifierSchema>;
+export type PaymentInstructionIdentifier = InferType<
   typeof PaymentInstructionIdentifierSchema
 >;
-export type OrderIdentifier = z.infer<typeof OrderIdentifierSchema>;
-export type OrderItemIdentifier = z.infer<typeof OrderItemIdentifierSchema>;
+export type OrderIdentifier = InferType<typeof OrderIdentifierSchema>;
+export type OrderItemIdentifier = InferType<typeof OrderItemIdentifierSchema>;
 
-export type CheckoutIdentifier = z.infer<typeof CheckoutIdentifierSchema>;
-export type CheckoutItemIdentifier = z.infer<typeof CheckoutItemIdentifierSchema>;
-export type PickupPointIdentifier = z.infer<typeof PickupPointIdentifierSchema>;
-export type StoreIdentifier = z.infer<typeof StoreIdentifierSchema>;
-export type ProductOptionIdentifier = z.infer<typeof ProductOptionIdentifierSchema>;
-export type ProductOptionValueIdentifier = z.infer<typeof ProductOptionValueIdentifierSchema>;
-export type ProductAttributeIdentifier = z.infer<typeof ProductAttributeIdentifierSchema>;
-export type ProductAttributeValueIdentifier = z.infer<typeof ProductAttributeValueIdentifierSchema>;
+export type CheckoutIdentifier = InferType<typeof CheckoutIdentifierSchema>;
+export type CheckoutItemIdentifier = InferType<typeof CheckoutItemIdentifierSchema>;
+export type PickupPointIdentifier = InferType<typeof PickupPointIdentifierSchema>;
+export type StoreIdentifier = InferType<typeof StoreIdentifierSchema>;
+export type ProductOptionIdentifier = InferType<typeof ProductOptionIdentifierSchema>;
+export type ProductOptionValueIdentifier = InferType<typeof ProductOptionValueIdentifierSchema>;
+export type ProductAttributeIdentifier = InferType<typeof ProductAttributeIdentifierSchema>;
+export type ProductAttributeValueIdentifier = InferType<typeof ProductAttributeValueIdentifierSchema>;
 
 export type IdentifierType =
   | ProductIdentifier

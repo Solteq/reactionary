@@ -3,6 +3,7 @@ import { ShippingMethodIdentifierSchema } from "./identifiers.model.js";
 import { MonetaryAmountSchema } from "./price.model.js";
 import { BaseModelSchema, ImageSchema } from "./base.model.js";
 import { AddressSchema } from "./profile.model.js";
+import type { InferType } from '../../zod-utils.js';
 
 export const PickupPointSchema = z.looseObject({
     identifier: z.object({
@@ -34,6 +35,6 @@ export const ShippingInstructionSchema = BaseModelSchema.extend({
     consentForUnattendedDelivery: z.boolean().describe('Indicates if the customer has given consent for unattended delivery, if applicable.'),
 });
 
-export type ShippingMethod = z.infer<typeof ShippingMethodSchema>;
-export type PickupPoint = z.infer<typeof PickupPointSchema>;
-export type ShippingInstruction = z.infer<typeof ShippingInstructionSchema>;
+export type ShippingMethod = InferType<typeof ShippingMethodSchema>;
+export type PickupPoint = InferType<typeof PickupPointSchema>;
+export type ShippingInstruction = InferType<typeof ShippingInstructionSchema>;

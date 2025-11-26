@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AddressIdentifierSchema, IdentityIdentifierSchema } from "./identifiers.model.js";
 import { BaseModelSchema } from "./base.model.js";
+import type { InferType } from '../../zod-utils.js';
 
 export const AddressSchema = BaseModelSchema.extend({
     identifier: AddressIdentifierSchema.default(() => AddressIdentifierSchema.parse({})),
@@ -27,5 +28,5 @@ export const ProfileSchema = BaseModelSchema.extend({
     alternateShippingAddresses: z.array(AddressSchema),
 });
 
-export type Address = z.infer<typeof AddressSchema>;
-export type Profile = z.infer<typeof ProfileSchema>;
+export type Address = InferType<typeof AddressSchema>;
+export type Profile = InferType<typeof ProfileSchema>;
