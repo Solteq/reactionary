@@ -194,13 +194,18 @@ export class CommercetoolsProductProvider<
       attrValue = attr.value[0];
     }
 
-    if (attrValue && typeof attrValue === 'object') {
-      if (this.context.languageContext.locale in attrValue) {
-        attrValue = attrValue[this.context.languageContext.locale];
+    if (attr.value && typeof attr.value === 'object') {
+      if (this.context.languageContext.locale in attr.value) {
+        attrValue = attr.value[this.context.languageContext.locale];
       } else {
         attrValue = '-';
       }
     }
+
+    if (typeof attr.value === 'string') {
+      attrValue = attr.value;
+    }
+
 
     const attrVal = ProductAttributeValueSchema.parse({
       identifier: ProductAttributeValueIdentifierSchema.parse({

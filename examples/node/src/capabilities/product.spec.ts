@@ -67,6 +67,8 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Product Capability - %s', (provi
 
     expect(result).toBeTruthy();
     expect(result.sharedAttributes.length).toBeGreaterThan(1);
+    expect(result.sharedAttributes[1].values.length).toBeGreaterThan(0);
+    expect(result.sharedAttributes[1].values[0].value).toBeTruthy();
   })
 
   it('should return null for unknown slug', async () => {
