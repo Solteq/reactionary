@@ -60,6 +60,15 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Product Capability - %s', (provi
     }
   });
 
+  it('should contain both product level and variant level attributes', async () => {
+    const result = await client.product.getBySKU({
+      variant: { sku: testData.product.sku },
+    });
+
+    expect(result).toBeTruthy();
+    expect(result.sharedAttributes.length).toBeGreaterThan(1);
+  })
+
   it('should return null for unknown slug', async () => {
     const result = await client.product.getBySlug({ slug: 'unknown-slug' });
 

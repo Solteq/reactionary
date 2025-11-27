@@ -136,9 +136,13 @@ export class CommercetoolsProductProvider<
       base.description = data.description[this.context.languageContext.locale];
     }
 
-    base.sharedAttributes =
-      data.masterVariant.attributes?.map((x) => this.parseAttribute(x)) || [];
+
+    const variantLevelAttributes = data.masterVariant.attributes?.map((x) => this.parseAttribute(x)) || [];
+    const productLevelAttributes = data.attributes.map((x) => this.parseAttribute(x)) || [];
+    base.sharedAttributes = [...productLevelAttributes, ...variantLevelAttributes];
+
     base.mainVariant = this.parseVariant(data.masterVariant, data);
+
 
     base.meta = {
       cache: { hit: false, key: this.generateCacheKeySingle(base.identifier) },
