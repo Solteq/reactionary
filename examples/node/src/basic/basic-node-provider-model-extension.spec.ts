@@ -90,7 +90,7 @@ describe('basic node provider extension (models)', () => {
     );
 
     expect(product).toBeDefined();
-    expect(product.gtin).toBe('gtin-default');
+    expect(product.gtin).toBe('gtin-1234');
   });
 
   it('should be able to get serialized value from the extended provider', async () => {

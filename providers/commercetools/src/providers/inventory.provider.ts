@@ -40,33 +40,46 @@ export class CommercetoolsInventoryProvider<
   public override async getBySKU(payload: InventoryQueryBySKU): Promise<T> {
     const client = await this.getClient();
 
-    // TODO: We can't query by supplyChannel.key, so we have to resolve it first.
-    // This is probably a good candidate for internal data caching at some point.
-    const channel = await client
-      .channels()
-      .withKey({ key: payload.fulfilmentCenter.key })
-      .get()
-      .execute();
+    try {
 
-    const channelId = channel.body.id;
+      // TODO: We can't query by supplyChannel.key, so we have to resolve it first.
+      // This is probably a good candidate for internal data caching at some point.
+      const channel = await client
+        .channels()
+        .withKey({ key: payload.fulfilmentCenter.key })
+        .get()
+        .execute();
 
-    const remote = await client
-      .inventory()
-      .get({
-        queryArgs: {
-          where: 'sku=:sku AND supplyChannel(id=:channel)',
-          'var.sku': payload.variant.sku,
-          'var.channel': channelId,
-          expand: 'supplyChannel',
-        },
-      })
-      .execute();
+      const channelId = channel.body.id;
 
-    const result = remote.body.results[0];
+      const remote = await client
+        .inventory()
+        .get({
+          queryArgs: {
+            where: 'sku=:sku AND supplyChannel(id=:channel)',
+            'var.sku': payload.variant.sku,
+            'var.channel': channelId,
+            expand: 'supplyChannel',
+          },
+        })
+        .execute();
 
-    const model = this.parseSingle(result);
+      const result = remote.body.results[0];
 
-    return model;
+      const model = this.parseSingle(result);
+
+
+      return model;
+    } catch (error) {
+      console.error('Error fetching inventory by SKU and Fulfillment Center:', error, payload);
+      return this.createEmptyInventory(
+        {
+          variant: { sku: payload.variant.sku },
+          fulfillmentCenter: { key: payload.fulfilmentCenter.key },
+        }
+      );
+    }
+
   }
 
   protected override parseSingle(body: InventoryEntry): T {
