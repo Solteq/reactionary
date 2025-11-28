@@ -1,11 +1,9 @@
 import type { FacetIdentifier, FacetValueIdentifier } from '../index.js';
-import type { ProductSearchResult, ProductSearchResultFacet, ProductSearchResultFacetValue, ProductSearchResultItem, ProductSearchResultItemVariant } from '../schemas/models/product-search.model.js';
+import type { ProductSearchResult, ProductSearchResultFacet, ProductSearchResultFacetValue, ProductSearchResultItemVariant } from '../schemas/models/product-search.model.js';
 import type { ProductSearchQueryByTerm } from '../schemas/queries/product-search.query.js';
 import { BaseProvider } from './base.provider.js';
 
-export abstract class ProductSearchProvider<
-  T extends ProductSearchResultItem = ProductSearchResultItem
-> extends BaseProvider<T> {
+export abstract class ProductSearchProvider extends BaseProvider {
   protected override getResourceName(): string {
     return 'product-search';
   }

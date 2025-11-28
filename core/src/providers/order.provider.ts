@@ -1,12 +1,8 @@
-import { BaseProvider } from "./base.provider.js";
-import type { RequestContext } from "../schemas/session.schema.js";
-import type { Order } from "../schemas/models/index.js";
-import type { OrderQueryById } from "../schemas/queries/index.js";
+import { BaseProvider } from './base.provider.js';
+import type { Order } from '../schemas/models/index.js';
+import type { OrderQueryById } from '../schemas/queries/index.js';
 
-export abstract class OrderProvider<
-  T extends Order = Order
-> extends BaseProvider<T> {
-
+export abstract class OrderProvider extends BaseProvider {
   /**
    * Get order by ID.
    *
@@ -14,12 +10,49 @@ export abstract class OrderProvider<
    * @param payload
    * @param session
    */
-  public abstract getById(payload: OrderQueryById): Promise<T>;
+  public abstract getById(payload: OrderQueryById): Promise<Order>;
 
-  protected createEmptyOrder(): T {
-    const order = this.newModel();
-    order.meta = { placeholder: true, cache: { hit: true, key: 'empty-order' } };
-    order.identifier = { key: '' };
+  protected createEmptyOrder(): Order {
+    const order = {
+      meta: { placeholder: true, cache: { hit: true, key: 'empty-order' } },
+      identifier: {
+        key: '',
+      },
+      inventoryStatus: 'NotAllocated',
+      items: [],
+      orderStatus: 'AwaitingPayment',
+      paymentInstructions: [],
+      price: {
+        grandTotal: {
+          value: 0,
+          currency: 'XXX',
+        },
+        totalDiscount: {
+          value: 0,
+          currency: 'XXX',
+        },
+        totalProductPrice: {
+          value: 0,
+          currency: 'XXX',
+        },
+        totalShipping: {
+          value: 0,
+          currency: 'XXX',
+        },
+        totalSurcharge: {
+          value: 0,
+          currency: 'XXX',
+        },
+        totalTax: {
+          value: 0,
+          currency: 'XXX',
+        },
+      },
+      userId: {
+        userId: '',
+      },
+    } satisfies Order;
+
     return order;
   }
 
@@ -27,5 +60,3 @@ export abstract class OrderProvider<
     return 'order';
   }
 }
-
-

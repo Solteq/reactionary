@@ -1,14 +1,14 @@
 import { ProductSearchIdentifierSchema, ProductSearchResultSchema } from '@reactionary/core';
 import { z } from 'zod';
 
-export const AlgoliaSearchIdentifierSchema = ProductSearchIdentifierSchema.extend({
-   key: z.string().default(''),
-   index: z.string().default('')
+export const AlgoliaProductSearchIdentifierSchema = ProductSearchIdentifierSchema.extend({
+   key: z.string(),
+   index: z.string(),
 });
 
-export const AlgoliaSearchResultSchema = ProductSearchResultSchema.extend({
-    identifier: AlgoliaSearchIdentifierSchema.default(() => AlgoliaSearchIdentifierSchema.parse({}))
+export const AlgoliaProductSearchResultSchema = ProductSearchResultSchema.extend({
+    identifier: AlgoliaProductSearchIdentifierSchema.default(() => AlgoliaProductSearchIdentifierSchema.parse({}))
 });
 
-export type AlgoliaSearchResult = z.infer<typeof AlgoliaSearchResultSchema>;
-export type AlgoliaSearchIdentifier = z.infer<typeof AlgoliaSearchIdentifierSchema>;
+export type AlgoliaProductSearchResult = z.infer<typeof AlgoliaProductSearchResultSchema>;
+export type AlgoliaProductSearchIdentifier = z.infer<typeof AlgoliaProductSearchIdentifierSchema>;

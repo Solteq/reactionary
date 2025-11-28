@@ -1,12 +1,9 @@
 import type { Checkout, PaymentMethod, ShippingMethod } from "../schemas/models/index.js";
-import type { RequestContext } from "../schemas/session.schema.js";
 import { BaseProvider } from "./base.provider.js";
 import type { CheckoutMutationFinalizeCheckout, CheckoutMutationInitiateCheckout, CheckoutMutationSetShippingAddress,  CheckoutMutationAddPaymentInstruction, CheckoutMutationRemovePaymentInstruction, CheckoutMutationSetShippingInstruction } from "../schemas/mutations/checkout.mutation.js";
 import type { CheckoutQueryById, CheckoutQueryForAvailablePaymentMethods, CheckoutQueryForAvailableShippingMethods } from "../schemas/queries/index.js";
 
-export abstract class CheckoutProvider<
-  T extends Checkout = Checkout
-> extends BaseProvider<T> {
+export abstract class CheckoutProvider extends BaseProvider {
 
   /**
    * This starts a new checkout session for the given cart. The checkout might duplicate the cart, or just reference it, depending on implementation, but changes to the cart,
@@ -18,7 +15,7 @@ export abstract class CheckoutProvider<
    * @param billingAddress the billing/shipping address to start with. This affects available shipping methods, and may be required by some payment providers.
    * @param reqCtx
    */
-  public abstract initiateCheckoutForCart(payload: CheckoutMutationInitiateCheckout): Promise<T>;
+  public abstract initiateCheckoutForCart(payload: CheckoutMutationInitiateCheckout): Promise<Checkout>;
 
 
   /**
@@ -28,7 +25,7 @@ export abstract class CheckoutProvider<
    * @param payload
    * @param reqCtx
    */
-  public abstract getById(payload:  CheckoutQueryById): Promise<T | null>;
+  public abstract getById(payload:  CheckoutQueryById): Promise<Checkout | null>;
 
   /**
    * Updates the shipping address for the checkout and recalculates the shipping methods and totals.
@@ -38,7 +35,7 @@ export abstract class CheckoutProvider<
    * NOTE: Unsure this is really needed.
    * @param shippingAddress The updated shipping address. Note: This may also be the billing address, if your store does not differentiate.
    */
-  public abstract setShippingAddress(payload: CheckoutMutationSetShippingAddress): Promise<T>;
+  public abstract setShippingAddress(payload: CheckoutMutationSetShippingAddress): Promise<Checkout>;
 
   /**
    * Returns all available shipping methods for the given checkout. This will typically depend on the shipping address, and possibly also the items in the checkout.
@@ -66,7 +63,7 @@ export abstract class CheckoutProvider<
    *
    * Usecase: User has chosen a payment method, and you need to start the payment process.
    */
-  public abstract addPaymentInstruction(payload: CheckoutMutationAddPaymentInstruction): Promise<T>;
+  public abstract addPaymentInstruction(payload: CheckoutMutationAddPaymentInstruction): Promise<Checkout>;
 
   /**
    * Removes a payment instruction from the checkout. This will typically void the payment intent in the payment provider, and remove the payment instruction from the checkout.
@@ -74,7 +71,7 @@ export abstract class CheckoutProvider<
    * Usecase: User has decided to change payment method, or has cancelled the payment process.
    * @param paymentInstructionId
    */
-  public abstract removePaymentInstruction(payload: CheckoutMutationRemovePaymentInstruction): Promise<T>;
+  public abstract removePaymentInstruction(payload: CheckoutMutationRemovePaymentInstruction): Promise<Checkout>;
 
 
 
@@ -88,7 +85,7 @@ export abstract class CheckoutProvider<
    * @param shippingMethodId
    * @param pickupPoint
    */
-  public abstract setShippingInstruction(payload: CheckoutMutationSetShippingInstruction): Promise<T>;
+  public abstract setShippingInstruction(payload: CheckoutMutationSetShippingInstruction): Promise<Checkout>;
 
   /**
    * Finalizes the checkout process. This typically involves creating an order from the checkout and processing payment.
@@ -98,7 +95,7 @@ export abstract class CheckoutProvider<
    * @param payload
    * @param reqCtx
    */
-  public abstract finalizeCheckout(payload: CheckoutMutationFinalizeCheckout): Promise<T>;
+  public abstract finalizeCheckout(payload: CheckoutMutationFinalizeCheckout): Promise<Checkout>;
 
 
   public override getResourceName(): string {
