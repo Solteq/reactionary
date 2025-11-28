@@ -3,17 +3,15 @@ import type { Inventory } from '../schemas/models/inventory.model.js';
 import type { InventoryQueryBySKU } from '../schemas/queries/inventory.query.js';
 import { BaseProvider } from './base.provider.js';
 
-export abstract class InventoryProvider<
-  T extends Inventory = Inventory
-> extends BaseProvider<T> {
-  public abstract getBySKU(payload: InventoryQueryBySKU): Promise<T>;
+export abstract class InventoryProvider extends BaseProvider {
+  public abstract getBySKU(payload: InventoryQueryBySKU): Promise<Inventory>;
 
   protected override getResourceName(): string {
     return 'inventory';
   }
 
-  protected createEmptyInventory(key: InventoryIdentifier): T {
-    return this.schema.parse({
+  protected createEmptyInventory(key: InventoryIdentifier): Inventory {
+    const inventory = {
         identifier: key,
         quantity: 0,
         status: 'outOfStock',
@@ -24,6 +22,8 @@ export abstract class InventoryProvider<
           },
           placeholder: true,
         }
-    } satisfies Inventory);
+    } satisfies Inventory;
+
+    return inventory;
   }
 }

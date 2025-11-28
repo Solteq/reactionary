@@ -1,11 +1,11 @@
-import type { Price } from '../schemas/models/price.model.js';
-import type { CustomerPriceQuery, ListPriceQuery } from '../schemas/queries/price.query.js';
+import type { Price } from '../schemas/index.js';
+import type {
+  CustomerPriceQuery,
+  ListPriceQuery,
+} from '../schemas/queries/price.query.js';
 import { BaseProvider } from './base.provider.js';
 
-export abstract class PriceProvider<
-  T extends Price = Price
-> extends BaseProvider<T> {
-
+export abstract class PriceProvider extends BaseProvider {
   /**
    * Get a list price price by SKU. This is the most general, undiscounted price and is typically
    * used as the "before" price in most ecommerce setups.
@@ -14,19 +14,18 @@ export abstract class PriceProvider<
    * @param payload The SKU to query
    * @param session The session information
    */
-  public abstract getListPrice(payload: ListPriceQuery): Promise<T>;
+  public abstract getListPrice(payload: ListPriceQuery): Promise<Price>;
 
   /**
    * Get a customer-specific price by SKU.
-   * 
+   *
    * No
    *
    * Usecase: You are rendering a product page, and you need to show the price for a SKU.
    * @param payload The SKU to query
    * @param session The session information
    */
-  public abstract getCustomerPrice(payload: CustomerPriceQuery): Promise<T>;
-
+  public abstract getCustomerPrice(payload: CustomerPriceQuery): Promise<Price>;
 
   /**
    * Utility function to create an empty price result, with a value of -1.
@@ -36,23 +35,29 @@ export abstract class PriceProvider<
    * @param currency
    * @returns
    */
-  protected createEmptyPriceResult(sku: string): T {
-    const base = this.newModel();
-    base.identifier = {
-      variant: { sku: sku }
-    };
-    base.unitPrice = {
-      value: -1,
-      currency: this.context.languageContext.currencyCode,
-    };
-    base.meta = {
-      cache: { hit: false, key: `price-${sku}-${this.context.languageContext.currencyCode}` },
-      placeholder: true
-    };
-    return this.assert(base);
+  protected createEmptyPriceResult(sku: string): Price {
+    const price = {
+      identifier: {
+        variant: {
+          sku,
+        },
+      },
+      tieredPrices: [],
+      unitPrice: {
+        value: -1,
+        currency: this.context.languageContext.currencyCode,
+      },
+      meta: {
+        cache: {
+          hit: false,
+          key: `price-${sku}-${this.context.languageContext.currencyCode}`,
+        },
+        placeholder: true,
+      },
+    } satisfies Price;
+
+    return price;
   }
-
-
 
   protected override getResourceName(): string {
     return 'price';

@@ -1,6 +1,5 @@
 import {
   type Cache,
-  createPaginatedResponseSchema,
   type FacetIdentifier,
   FacetIdentifierSchema,
   type FacetValueIdentifier,
@@ -22,9 +21,8 @@ import {
   type RequestContext
 } from '@reactionary/core';
 import { algoliasearch, type SearchResponse } from 'algoliasearch';
-import type { z } from 'zod';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
-import { AlgoliaSearchIdentifierSchema, type AlgoliaSearchResult } from '../schema/search.schema.js';
+import type { AlgoliaProductSearchResult } from '../schema/search.schema.js';
 
 interface AlgoliaNativeVariant {
   sku: string;
@@ -39,13 +37,11 @@ interface AlgoliaNativeRecord {
 }
 
 
-export class AlgoliaSearchProvider<
-  T extends ProductSearchResultItem = ProductSearchResultItem
-> extends ProductSearchProvider<T> {
+export class AlgoliaSearchProvider extends ProductSearchProvider {
   protected config: AlgoliaConfiguration;
 
-  constructor(config: AlgoliaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
-    super(schema, cache, context);
+  constructor(config: AlgoliaConfiguration, cache: Cache, context: RequestContext) {
+    super(cache, context);
     this.config = config;
   }
 
@@ -78,7 +74,7 @@ export class AlgoliaSearchProvider<
     });
 
     const input = remote.results[0] as SearchResponse<AlgoliaNativeRecord>;
-    const result = this.parsePaginatedResult(input, payload) as AlgoliaSearchResult;
+    const result = this.parsePaginatedResult(input, payload) as AlgoliaProductSearchResult;
 
     for(const selectedFacet of payload.search.facets) {
       const facet = result.facets.find((f) => f.identifier.key === selectedFacet.facet.key);

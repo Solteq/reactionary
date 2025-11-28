@@ -11,7 +11,7 @@ export const LanguageContextSchema = z.looseObject( {
     currencyCode: CurrencySchema.default(() => CurrencySchema.parse({})),
 })
 
-export const SessionSchema = z.record( z.string(), z.any());
+export const SessionSchema = z.record(z.string(), z.any());
 
 export const TaxJurisdictionSchema = z.object( {
     countryCode: z.string().default('US'),
@@ -37,7 +37,9 @@ export const RequestContextSchema = z.looseObject( {
 
 
 
-export type Session = InferType<typeof SessionSchema>;
+// Note, for this ONE type (which is effectively a dictionary), we currently don't want
+// to strip [key: string]: unknown, hence the manual zod infer over the helper.
+export type Session = z.infer<typeof SessionSchema>;
 export type LanguageContext = InferType<typeof LanguageContextSchema>;
 export type RequestContext = InferType<typeof RequestContextSchema>;
 export type TaxJurisdiction = InferType<typeof TaxJurisdictionSchema>;

@@ -1,5 +1,4 @@
 import type { Cache, ProductSearchProvider, RequestContext } from "@reactionary/core";
-import { ProductSearchResultItemSchema } from "@reactionary/core";
 import { AlgoliaSearchProvider } from "../providers/product-search.provider.js";
 import type { AlgoliaCapabilities } from "../schema/capabilities.schema.js";
 import type { AlgoliaConfiguration } from "../schema/configuration.schema.js";
@@ -12,7 +11,7 @@ export function withAlgoliaCapabilities<T extends AlgoliaCapabilities>(configura
         const client: any = {};
 
         if (capabilities.productSearch) {
-            client.productSearch = new AlgoliaSearchProvider(configuration, ProductSearchResultItemSchema, cache, context);
+            client.productSearch = new AlgoliaSearchProvider(configuration, cache, context);
         }
 
         return client;

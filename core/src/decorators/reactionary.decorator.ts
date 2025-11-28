@@ -85,8 +85,7 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
         const input = validateInput(args[0], configuration.inputSchema);
 
         const cacheKey = this.generateCacheKeyForQuery(scope, input as any);
-        const fromCache = await this.cache.get(cacheKey, this.schema);
-
+        const fromCache = await this.cache.get(cacheKey, options.inputSchema as any);
         let result = fromCache;
 
         if (!result) {
