@@ -8,12 +8,9 @@ export class RequestContextTokenCache implements TokenCache {
   public async get(
     tokenCacheOptions?: TokenCacheOptions
   ): Promise<TokenStore | undefined> {
-    console.log('TokenCache get called with options:', tokenCacheOptions);
     const session = CommercetoolsSessionSchema.parse(
       this.context.session['PROVIDER_COMMERCETOOLS'] || {}
     );
-    console.log('TokenCache get session:', session);
-
 
     if (!session) {
       return {
