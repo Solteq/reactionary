@@ -78,16 +78,8 @@ export class AlgoliaSearchProvider<
     });
 
     const input = remote.results[0] as SearchResponse<AlgoliaNativeRecord>;
-    const identifier = AlgoliaSearchIdentifierSchema.parse({
-      ...payload.search,
-      index: input.index,
-      key: input.queryID
-    });
+    const result = this.parsePaginatedResult(input, payload) as AlgoliaSearchResult;
 
-    const result = this.parsePaginatedResult(input) as AlgoliaSearchResult;
-    result.identifier = identifier; // all paginated results should have a .query
-
-    // mark facets active
     for(const selectedFacet of payload.search.facets) {
       const facet = result.facets.find((f) => f.identifier.key === selectedFacet.facet.key);
       if(facet) {
@@ -98,25 +90,26 @@ export class AlgoliaSearchProvider<
         }
     }
 
-    result.meta = {
-      cache: { hit: false, key: ''},
-      placeholder: false
-    };
-
-
     return result;
   }
 
 
-  protected override parseSingle(body: AlgoliaNativeRecord): T {
-    const product = this.newModel();
+  protected parseSingle(body: AlgoliaNativeRecord) {
+    const product = {
+      identifier: { key: body.objectID },
+      name: body.name || body.objectID,
+      slug: body.slug || body.objectID,
+      variants: [ ... (body.variants || []) ].map(variant => this.parseVariant(variant, body)),
+      meta: {
+        placeholder: false,
+        cache: {
+          hit: false,
+          key: ''
+        }
+      }
+    } satisfies ProductSearchResultItem;
 
-    product.identifier = { key: body.objectID};
-    product.name = body.name || body.objectID;
-    product.slug = body.slug || body.objectID;
-    product.variants = [ ... (body.variants || []) ].map(variant => this.parseVariant(variant, body));
-
-    return this.assert(product);
+    return product;
   }
 
   protected override parseVariant(variant: AlgoliaNativeVariant, product: AlgoliaNativeRecord): ProductSearchResultItemVariant {
@@ -133,8 +126,7 @@ export class AlgoliaSearchProvider<
     return result;
   }
 
-  protected override parsePaginatedResult(body: SearchResponse<AlgoliaNativeRecord>) {
-
+  protected parsePaginatedResult(body: SearchResponse<AlgoliaNativeRecord>, query: ProductSearchQueryByTerm) {
     const items = body.hits.map((hit) => this.parseSingle(hit));
     const facets: ProductSearchResultFacet[] = [];
     for (const id in body.facets) {
@@ -147,19 +139,26 @@ export class AlgoliaSearchProvider<
     }
 
 
-    const result = createPaginatedResponseSchema(this.schema).parse({
+    const result = {
+      identifier: {
+        term: query.search.term,
+        facets: query.search.facets,
+        filters: query.search.filters,
+        paginationOptions: query.search.paginationOptions,
+
+      },
       meta: {
         cache: { hit: false, key: 'unknown' },
         placeholder: false
       },
       pageNumber: (body.page || 0) + 1,
-      pageSize: body.hitsPerPage,
-      totalCount: body.nbHits,
-      totalPages: body.nbPages,
+      pageSize: body.hitsPerPage || 0,
+      totalCount: body.nbHits || 0,
+      totalPages: body.nbPages || 0,
       items: items,
-    });
+      facets,
+    } satisfies ProductSearchResult;
 
-    (result as ProductSearchResult).facets = facets;
     return result;
   }
 

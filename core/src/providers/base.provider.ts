@@ -1,9 +1,3 @@
-import type { z } from 'zod';
-import type {
-  BaseModel} from '../schemas/models/base.model.js';
-import {
-  createPaginatedResponseSchema,
-} from '../schemas/models/base.model.js';
 import type { Cache } from '../cache/cache.interface.js';
 import { type RequestContext } from '../schemas/session.schema.js';
 import type { IdentifierType } from '../schemas/models/identifiers.model.js';
@@ -13,43 +7,13 @@ import { hasher } from "node-object-hash";
  * Base capability provider, responsible for mutations (changes) and queries (fetches)
  * for a given business object domain.
  */
-export abstract class BaseProvider<T extends BaseModel = BaseModel> {
+export abstract class BaseProvider {
   protected cache: Cache;
   protected context: RequestContext;
 
-  constructor(public readonly schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
+  constructor(cache: Cache, context: RequestContext) {
     this.cache = cache;
     this.context = context;
-  }
-
-  /**
-   * Validates that the final domain model constructed by the provider
-   * fulfills the schema as defined. This will throw an exception.
-   */
-  protected assert(value: T) {
-    return this.schema.parse(value);
-  }
-
-  /**
-   * Creates a new model entity based on the schema defaults.
-   */
-  protected newModel(): T {
-    return this.schema.parse({});
-  }
-
-  /**
-   * Handler for parsing a response from a remote provider and converting it
-   * into the typed domain model.
-   */
-  protected parseSingle(_body: unknown): T {
-    const model = this.newModel();
-
-    return this.assert(model);
-  }
-
-
-  protected parsePaginatedResult(_body: unknown): z.infer<ReturnType<typeof createPaginatedResponseSchema<typeof this.schema>>> {
-    return createPaginatedResponseSchema(this.schema).parse({});
   }
   
   public generateDependencyIdsForModel(model: unknown): Array<string> {
@@ -79,7 +43,7 @@ export abstract class BaseProvider<T extends BaseModel = BaseModel> {
 
   protected generateCacheKeyPaginatedResult(
     resultSetName: string,
-    res: ReturnType<typeof this.parsePaginatedResult>
+    res: any,
   ): string {
     const type = this.getResourceName();
     const langPart = this.context.languageContext.locale;

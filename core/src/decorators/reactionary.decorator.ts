@@ -146,7 +146,7 @@ export async function traceSpan<T>(
 
   return tracer.startActiveSpan(name, async (span) => {
     try {
-      return fn();
+      return await fn();
     } catch (err: unknown) {
       if (err instanceof Error) {
         span.recordException(err);

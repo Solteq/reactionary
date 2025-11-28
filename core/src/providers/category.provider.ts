@@ -1,6 +1,5 @@
 import type { Category } from "../schemas/models/category.model.js";
 import type { CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories } from "../schemas/queries/category.query.js";
-import type { RequestContext} from "../schemas/session.schema.js";
 import { BaseProvider } from "./base.provider.js";
 
 

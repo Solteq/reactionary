@@ -169,6 +169,7 @@ export class CommercetoolsClient {
     return AnonymousIdentitySchema.parse({});
   }
 
+  // FIXME: This can fail if the short-lived access token has expired. In other words, probably missing a token refresh.
   public async introspect(): Promise<
     AnonymousIdentity | GuestIdentity | RegisteredIdentity
   > {
@@ -211,6 +212,7 @@ export class CommercetoolsClient {
 
     const scopes = body.scope as string;
 
+    // FIXME: Map unmapped user_id...
     if (scopes.indexOf('anonymous_id') > -1) {
       const s = scopes.split(' ');
       const idScope = s.find((x) => x.startsWith('anonymous_id'));
@@ -232,6 +234,7 @@ export class CommercetoolsClient {
       return identity;
     }
 
+    // FIXME: Map unmapped user_id...
     if (scopes.indexOf('customer_id') > -1) {
       const s = scopes.split(' ');
       const idScope = s.find((x) => x.startsWith('customer_id'));
@@ -261,6 +264,7 @@ export class CommercetoolsClient {
       `${this.config.clientId}:${this.config.clientSecret}`
     ).toString('base64');
 
+    // FIXME: Missing scope-down from .env scopes list
     const response = await fetch(
       `${this.config.authUrl}/oauth/${this.config.projectKey}/anonymous/token?grant_type=client_credentials`,
       {
