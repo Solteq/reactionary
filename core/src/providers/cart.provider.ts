@@ -4,9 +4,7 @@ import type { CartMutationApplyCoupon, CartMutationChangeCurrency, CartMutationD
 import type { CartQueryById } from "../schemas/queries/cart.query.js";
 import { BaseProvider } from "./base.provider.js";
 
-export abstract class CartProvider<
-  T extends Cart = Cart
-> extends BaseProvider<T> {
+export abstract class CartProvider extends BaseProvider {
 
   /**
    * Get cart by ID.
@@ -15,7 +13,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract getById(payload: CartQueryById): Promise<T>;
+  public abstract getById(payload: CartQueryById): Promise<Cart>;
 
 
   /**
@@ -36,7 +34,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract add(payload: CartMutationItemAdd): Promise<T>;
+  public abstract add(payload: CartMutationItemAdd): Promise<Cart>;
 
   /**
    * Remove item from cart. If the cart is empty after removal, delete the cart. Returns the updated and recalculated cart.
@@ -45,7 +43,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract remove(payload: CartMutationItemRemove): Promise<T>;
+  public abstract remove(payload: CartMutationItemRemove): Promise<Cart>;
 
   /**
    * Change quantity of item in cart. If the cart is empty after change, delete the cart. Returns the updated and recalculated cart.
@@ -56,7 +54,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract changeQuantity(payload: CartMutationItemQuantityChange): Promise<T>;
+  public abstract changeQuantity(payload: CartMutationItemQuantityChange): Promise<Cart>;
 
 
   /**
@@ -66,7 +64,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract deleteCart(payload: CartMutationDeleteCart): Promise<T>;
+  public abstract deleteCart(payload: CartMutationDeleteCart): Promise<Cart>;
 
   /**
    * Applies a coupon code to the cart. Returns the updated and recalculated cart.
@@ -75,7 +73,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract applyCouponCode(payload: CartMutationApplyCoupon): Promise<T>;
+  public abstract applyCouponCode(payload: CartMutationApplyCoupon): Promise<Cart>;
 
 
   /**
@@ -85,7 +83,7 @@ export abstract class CartProvider<
    * @param payload
    * @param session
    */
-  public abstract removeCouponCode(payload: CartMutationRemoveCoupon): Promise<T>;
+  public abstract removeCouponCode(payload: CartMutationRemoveCoupon): Promise<Cart>;
 
   /**
    * Changes the currency of the cart.
@@ -94,14 +92,46 @@ export abstract class CartProvider<
    * @param newCurrency
    * @param session
    */
-  public abstract changeCurrency(payload: CartMutationChangeCurrency): Promise<T>;
+  public abstract changeCurrency(payload: CartMutationChangeCurrency): Promise<Cart>;
 
+  protected createEmptyCart(): Cart {
+    const cart = {
+      identifier: { key: '' },
+      meta: { placeholder: true, cache: { hit: true, key: 'empty-cart' } },
+      description: '',
+      items: [],
+      name: '',
+      price: {
+        grandTotal: {
+          value: 0,
+          currency: 'XXX'
+        },
+        totalDiscount: {
+          value: 0,
+          currency: 'XXX'
+        },
+        totalProductPrice: {
+          value: 0,
+          currency: 'XXX'
+        },
+        totalShipping: {
+          value: 0,
+          currency: 'XXX'
+        },
+        totalSurcharge: {
+          value: 0,
+          currency: 'XXX'
+        },
+        totalTax: {
+          value: 0,
+          currency: 'XXX'
+        }
+      },
+      userId: {
+        userId: ''
+      }
+    } satisfies Cart;
 
-
-  protected createEmptyCart(): T {
-    const cart = this.newModel();
-    cart.meta = { placeholder: true, cache: { hit: true, key: 'empty-cart' } };
-    cart.identifier = { key: '' };
     return cart;
   }
 
