@@ -147,10 +147,16 @@ export class CommercetoolsClient {
       })
       .execute();
 
+    const self = await loginClient
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .me()
+      .get({})
+      .execute();
+
     return RegisteredIdentitySchema.parse({
       type: 'Registered',
       id: {
-        userId: login.body.customer.id,
+        userId: self.body.id,
       },
     });
   }
@@ -169,7 +175,18 @@ export class CommercetoolsClient {
     const session = await this.cache.get();
 
     if (!session || !session.token) {
-      return AnonymousIdentitySchema.parse({});
+      const identity = {
+        meta: {
+          cache: {
+            hit: false,
+            key: '',
+          },
+          placeholder: false,
+        },
+        type: 'Anonymous'
+      } satisfies AnonymousIdentity;
+
+      return identity;
     }
 
     const authHeader =
@@ -191,14 +208,49 @@ export class CommercetoolsClient {
     });
 
     const body = await response.json();
-    const scopes = body.scope;
+
+    const scopes = body.scope as string;
 
     if (scopes.indexOf('anonymous_id') > -1) {
-      return GuestIdentitySchema.parse({});
+      const s = scopes.split(' ');
+      const idScope = s.find((x) => x.startsWith('anonymous_id'));
+      const id = idScope?.split(':')[1] || '';
+      const identity = {
+        id: {
+          userId: id,
+        },
+        type: 'Guest',
+        meta: {
+          cache: {
+            hit: false,
+            key: id,
+          },
+          placeholder: false,
+        },
+      } satisfies GuestIdentity;
+
+      return identity;
     }
 
     if (scopes.indexOf('customer_id') > -1) {
-      return RegisteredIdentitySchema.parse({});
+      const s = scopes.split(' ');
+      const idScope = s.find((x) => x.startsWith('customer_id'));
+      const id = idScope?.split(':')[1] || '';
+      const identity = {
+        id: {
+          userId: id,
+        },
+        type: 'Registered',
+        meta: {
+          cache: {
+            hit: false,
+            key: id,
+          },
+          placeholder: false,
+        },
+      } satisfies RegisteredIdentity;
+
+      return identity;
     }
 
     return AnonymousIdentitySchema.parse({});
