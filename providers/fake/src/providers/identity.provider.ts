@@ -7,33 +7,43 @@ import {
   type Cache,
   IdentityProvider,
   type IdentityMutationRegister,
+  type AnonymousIdentity,
+  type RegisteredIdentity,
+  Reactionary,
+  IdentityMutationRegisterSchema,
+  IdentitySchema,
+  IdentityMutationLogoutSchema,
+  IdentityMutationLoginSchema,
+  IdentityQuerySelfSchema,
 } from '@reactionary/core';
 import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
 
-export class FakeIdentityProvider<
-  T extends Identity = Identity
-> extends IdentityProvider<T> {
+export class FakeIdentityProvider extends IdentityProvider {
   protected config: FakeConfiguration;
-  private currentIdentity: T | null = null;
+  private currentIdentity: Identity | null = null;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
-    super(schema, cache, context);
+  constructor(
+    config: FakeConfiguration,
+    cache: Cache,
+    context: RequestContext
+  ) {
+    super(cache, context);
 
     this.config = config;
   }
 
+  @Reactionary({
+    inputSchema: IdentityQuerySelfSchema,
+    outputSchema: IdentitySchema
+  })
   public override async getSelf(
     _payload: IdentityQuerySelf
-  ): Promise<T> {
+  ): Promise<Identity> {
     if (!this.currentIdentity) {
-      const model = this.newModel();
-      Object.assign(model, {
-        id: 'anonymous',
+      const model = {
         type: 'Anonymous',
-        issued: new Date(),
-        expiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
         meta: {
           cache: {
             hit: false,
@@ -41,28 +51,31 @@ export class FakeIdentityProvider<
           },
           placeholder: false,
         },
-      });
-      this.currentIdentity = this.assert(model);
+      } satisfies AnonymousIdentity;
+
+      this.currentIdentity = model;
     }
 
     return this.currentIdentity;
   }
 
+  @Reactionary({
+    inputSchema: IdentityMutationLoginSchema,
+    outputSchema: IdentitySchema
+  })
   public override async login(
     payload: IdentityMutationLogin
-  ): Promise<T> {
+  ): Promise<Identity> {
     const generator = new Faker({
       seed: 42,
       locale: [en, base],
     });
 
-    const model = this.newModel();
-    Object.assign(model, {
-      id: generator.string.uuid(),
+    const model = {
       type: 'Registered',
-      token: generator.string.alphanumeric(32),
-      issued: new Date(),
-      expiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+      id: {
+        userId: generator.string.alphanumeric(32),
+      },
       meta: {
         cache: {
           hit: false,
@@ -70,21 +83,22 @@ export class FakeIdentityProvider<
         },
         placeholder: false,
       },
-    });
+    } satisfies RegisteredIdentity;
 
-    this.currentIdentity = this.assert(model);
+    this.currentIdentity = model;
+
     return this.currentIdentity;
   }
 
+  @Reactionary({
+    inputSchema: IdentityMutationLogoutSchema,
+    outputSchema: IdentitySchema
+  })
   public override async logout(
     _payload: IdentityMutationLogout
-  ): Promise<T> {
-    const model = this.newModel();
-    Object.assign(model, {
-      id: 'anonymous',
+  ): Promise<Identity> {
+    const model = {
       type: 'Anonymous',
-      issued: new Date(),
-      expiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
       meta: {
         cache: {
           hit: false,
@@ -92,15 +106,17 @@ export class FakeIdentityProvider<
         },
         placeholder: false,
       },
-    });
+    } satisfies AnonymousIdentity;
 
-    this.currentIdentity = this.assert(model);
+    this.currentIdentity = model;
     return this.currentIdentity;
   }
 
-  public override register(
-    payload: IdentityMutationRegister
-  ): Promise<T> {
+  @Reactionary({
+    inputSchema: IdentityMutationRegisterSchema,
+    outputSchema: IdentitySchema
+  })
+  public override register(payload: IdentityMutationRegister): Promise<Identity> {
     throw new Error('Method not implemented.');
   }
 }

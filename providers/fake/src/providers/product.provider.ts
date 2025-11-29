@@ -1,5 +1,4 @@
 import {
-  type Product,
   type ProductQueryById,
   type ProductQueryBySlug,
   type RequestContext,
@@ -7,43 +6,54 @@ import {
   ProductProvider,
   Reactionary,
   type ProductQueryBySKU,
+  type Product,
+  ProductQueryByIdSchema,
+  ProductSchema,
+  ProductQueryBySlugSchema,
+  ProductQueryBySKUSchema,
 } from '@reactionary/core';
 import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
 
-export class FakeProductProvider<
-  T extends Product = Product
-> extends ProductProvider<T> {
+export class FakeProductProvider extends ProductProvider {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactinaryCache, context: RequestContext) {
-    super(schema, cache, context);
+  constructor(config: FakeConfiguration, cache: ReactinaryCache, context: RequestContext) {
+    super(cache, context);
 
     this.config = config;
   }
 
-  @Reactionary({})
+  @Reactionary({
+    inputSchema: ProductQueryByIdSchema,
+    outputSchema: ProductSchema
+  })
   public override async getById(
     payload: ProductQueryById
-  ): Promise<T> {
+  ): Promise<Product> {
     return this.parseSingle(payload.identifier.key );
   }
 
-  @Reactionary({})
+  @Reactionary({
+    inputSchema: ProductQueryBySlugSchema,
+    outputSchema: ProductSchema
+  })
   public override async getBySlug(
     payload: ProductQueryBySlug
-  ): Promise<T> {
+  ): Promise<Product> {
     return this.parseSingle(payload.slug);
   }
 
-  @Reactionary({})
-  public override async getBySKU(payload: ProductQueryBySKU): Promise<T> {
+  @Reactionary({
+    inputSchema: ProductQueryBySKUSchema,
+    outputSchema: ProductSchema,
+  })
+  public override async getBySKU(payload: ProductQueryBySKU): Promise<Product> {
     return this.parseSingle(payload.variant.sku);
   }
 
-
-  protected override parseSingle(body: string): T {
+  protected parseSingle(body: string): Product {
     const generator = new Faker({
       seed: 42,
       locale: [en, base],
@@ -51,33 +61,42 @@ export class FakeProductProvider<
 
     const key = body;
 
-    // Create a model instance based on the schema
-    const model = this.newModel();
-
     // Merge the generated data into the model
-    Object.assign(model, {
+    const result = {
       identifier: {
         key: key,
       },
       name: generator.commerce.productName(),
       slug: key,
-      attributes: [],
+      brand: '',
+      longDescription: '',
+      mainVariant: {
+        barcode: '',
+        ean: '',
+        gtin: '',
+        identifier: {
+          sku: ''
+        },
+        images: [],
+        name: '',
+        options: [],
+        upc: ''
+      },
       description: generator.commerce.productDescription(),
-      image: generator.image.urlPicsumPhotos({
-        width: 600,
-        height: 600,
-      }),
-      images: [],
+      manufacturer: '',
+      options: [],
+      parentCategories: [],
+      published: true,
+      sharedAttributes: [],
       meta: {
         cache: {
           hit: false,
           key: key,
         },
         placeholder: false,
-      },
-      skus: [],
-    });
+      }
+    } satisfies Product
 
-    return this.assert(model);
+    return result;
   }
 }

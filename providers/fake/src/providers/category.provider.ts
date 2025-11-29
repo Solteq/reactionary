@@ -1,23 +1,20 @@
-import type { Category, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext} from "@reactionary/core";
-import { CategoryProvider, Reactionary } from "@reactionary/core";
+import type { Category, CategoryPaginatedResult, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext} from "@reactionary/core";
+import { CategoryPaginatedResultSchema, CategoryProvider, CategoryQueryByIdSchema, CategoryQueryBySlugSchema, CategoryQueryForBreadcrumbSchema, CategoryQueryForChildCategoriesSchema, CategoryQueryForTopCategoriesSchema, CategorySchema, Reactionary } from "@reactionary/core";
 import type { FakeConfiguration } from "../schema/configuration.schema.js";
 import type { Cache as ReactionaryCache } from "@reactionary/core";
-import type z from "zod";
+import z from "zod";
 import { Faker, en, base } from '@faker-js/faker';
-export class FakeCategoryProvider<
-  T extends Category = Category
-> extends CategoryProvider<T> {
+export class FakeCategoryProvider extends CategoryProvider {
 
   protected config: FakeConfiguration;
 
-  protected topCategories = new Array<T>();
-  protected childCategories = new Map<string, Array<T>>();
-  protected allCategories = new Map<string, T>();
+  protected topCategories = new Array<Category>();
+  protected childCategories = new Map<string, Array<Category>>();
+  protected allCategories = new Map<string, Category>();
 
   protected categoryGenerator: Faker;
 
-  protected generateFakeCategory(parent: Category | undefined, index: number): T {
-
+  protected generateFakeCategory(parent: Category | undefined, index: number): Category {
     let name: string;
     if (!parent) {
       name = this.categoryGenerator.commerce.department();
@@ -25,21 +22,38 @@ export class FakeCategoryProvider<
       name = `${parent.name}-${index}`;
     }
 
-    const category: T = this.newModel();
-    category.identifier = { key: name.toLowerCase().replace(/\s+/g, '-') };
-    category.name = name;
-    category.text = this.categoryGenerator.lorem.sentences(3);
-    category.slug = category.identifier.key + '-slug';
+    const identifier = { key: name.toLowerCase().replace(/\s+/g, '-') };
+    const text = this.categoryGenerator.lorem.sentences(3);
+    const slug = identifier.key + '-slug';
+
+    let parentCategory;
     if (parent) {
-      category.parentCategory = parent.identifier;
+      parentCategory = parent.identifier;
     }
-    this.allCategories.set(category.identifier.key, category);
+
+    const category = {
+      identifier,
+      images: [],
+      meta: {
+        cache: {
+          hit: false,
+          key: ''
+        },
+        placeholder: false
+      },
+      name,
+      slug,
+      text,
+      parentCategory
+    } satisfies Category;
+
+    this.allCategories.set(identifier.key, category);
     return category;
   }
 
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactionaryCache, context: RequestContext) {
-    super(schema, cache, context);
+  constructor(config: FakeConfiguration, cache: ReactionaryCache, context: RequestContext) {
+    super(cache, context);
     this.config = config;
     this.categoryGenerator = new Faker({
       seed: this.config.seeds.category,
@@ -48,21 +62,21 @@ export class FakeCategoryProvider<
 
     // Generate some top-level categories
     for (let i = 0; i < 6; i++) {
-      const category: T = this.generateFakeCategory(undefined, i);
+      const category = this.generateFakeCategory(undefined, i);
       this.topCategories.push(category);
     }
 
     // Generate two levels of child categories
     this.topCategories.forEach((parentCategory) => {
-      const children = new Array<T>();
+      const children = new Array<Category>();
       for (let j = 0; j < 5; j++) {
-        const childCategory: T = this.generateFakeCategory(parentCategory, j);
+        const childCategory = this.generateFakeCategory(parentCategory, j);
         children.push(childCategory);
 
 
-        const subCategoryChildren = new Array<T>();
+        const subCategoryChildren = new Array<Category>();
         for(let k = 0; k < 5; k++) {
-          const subChildCategory: T = this.generateFakeCategory(childCategory, k);
+          const subChildCategory = this.generateFakeCategory(childCategory, k);
           subCategoryChildren.push(subChildCategory);
         }
         this.childCategories.set(childCategory.identifier.key, subCategoryChildren);
@@ -71,47 +85,56 @@ export class FakeCategoryProvider<
     });
   }
 
-  @Reactionary({})
-  public override async getById(payload: CategoryQueryById): Promise<T> {
+  @Reactionary({
+    inputSchema: CategoryQueryByIdSchema,
+    outputSchema: CategorySchema
+  })
+  public override async getById(payload: CategoryQueryById): Promise<Category> {
     const category = this.allCategories.get(payload.id.key);
 
     if(!category) {
-      const dummyCategory = this.newModel();
-      dummyCategory.meta.placeholder = true;
-      dummyCategory.identifier = { key: payload.id.key };
-      return dummyCategory;
+      throw new Error('This should not happen...');
     }
     return category;
   }
 
-  @Reactionary({})
-  public override getBySlug(payload: CategoryQueryBySlug): Promise<T | null> {
+  @Reactionary({
+    inputSchema: CategoryQueryBySlugSchema,
+    outputSchema: CategorySchema
+  })
+  public override getBySlug(payload: CategoryQueryBySlug): Promise<Category | null> {
     for(const p of this.allCategories.values()) {
       if(p.slug === payload.slug) {
-        return Promise.resolve(p as T);
+        return Promise.resolve(p);
       }
     }
     return Promise.resolve(null);
   }
 
-  @Reactionary({})
-  public override getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb): Promise<T[]> {
-    const path = new Array<T>();
+  @Reactionary({
+    inputSchema: CategoryQueryForBreadcrumbSchema,
+    outputSchema: z.array(CategorySchema)
+  })
+  public override getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb): Promise<Category[]> {
+    const path = new Array<Category>();
     let category = this.allCategories.get(payload.id.key);
-    path.push(category as T);
+    path.push(category!);
     while(category?.parentCategory) {
       category = this.allCategories.get(category.parentCategory.key);
       if(category) {
-        path.unshift(category as T);
+        path.unshift(category);
       }
     }
     return Promise.resolve(path);
   }
 
-  public override async findChildCategories(payload: CategoryQueryForChildCategories): Promise<ReturnType<typeof this.parsePaginatedResult>> {
+  @Reactionary({
+    inputSchema: CategoryQueryForChildCategoriesSchema,
+    outputSchema: CategoryPaginatedResultSchema
+  })
+  public override async findChildCategories(payload: CategoryQueryForChildCategories): Promise<CategoryPaginatedResult> {
     const children = this.childCategories.get(payload.parentId.key);
     const page = children?.slice((payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize, payload.paginationOptions.pageNumber * payload.paginationOptions.pageSize);
-
 
     const res = {
       meta: {
@@ -121,7 +144,7 @@ export class FakeCategoryProvider<
           key: 'child-categories-' + payload.parentId.key + '-' + payload.paginationOptions.pageNumber + '-' + payload.paginationOptions.pageSize,
         },
       },
-      items: page ? page as T[] : [],
+      items: page ? page : [],
       totalCount: children ? children.length : 0,
       pageNumber: payload.paginationOptions.pageNumber,
       pageSize: payload.paginationOptions.pageSize,
@@ -130,10 +153,14 @@ export class FakeCategoryProvider<
 
     return Promise.resolve(res);
   }
-  public override findTopCategories(payload: CategoryQueryForTopCategories): Promise<ReturnType<typeof this.parsePaginatedResult>> {
+
+  @Reactionary({
+    inputSchema: CategoryQueryForTopCategoriesSchema,
+    outputSchema: CategoryPaginatedResultSchema
+  })
+  public override findTopCategories(payload: CategoryQueryForTopCategories): Promise<CategoryPaginatedResult> {
     const children = this.topCategories;
     const page = children?.slice((payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize, payload.paginationOptions.pageNumber * payload.paginationOptions.pageSize);
-
 
     const res = {
       meta: {
@@ -143,7 +170,7 @@ export class FakeCategoryProvider<
           key: 'top' + '-' + payload.paginationOptions.pageNumber + '-' + payload.paginationOptions.pageSize,
         },
       },
-      items: page ? page as T[] : [],
+      items: page ? page : [],
       totalCount: children ? children.length : 0,
       pageNumber: payload.paginationOptions.pageNumber,
       pageSize: payload.paginationOptions.pageSize,

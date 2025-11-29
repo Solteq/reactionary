@@ -9,29 +9,34 @@ import type {
   CartIdentifier,
   CartMutationApplyCoupon,
   CartMutationChangeCurrency,
-  CartMutationCheckout,
   CartMutationDeleteCart,
-  CartMutationRemoveCoupon,
-  CartMutationSetBillingAddress,
-  CartMutationSetShippingInfo,
-  OrderIdentifier} from '@reactionary/core';
+  CartMutationRemoveCoupon } from '@reactionary/core';
 import {
-  CartProvider
+  CartIdentifierSchema,
+  CartMutationApplyCouponSchema,
+  CartMutationChangeCurrencySchema,
+  CartMutationDeleteCartSchema,
+  CartMutationItemAddSchema,
+  CartMutationItemQuantityChangeSchema,
+  CartMutationItemRemoveSchema,
+  CartMutationRemoveCouponSchema,
+  CartProvider,
+  CartQueryByIdSchema,
+  CartSchema,
+  Reactionary
 } from '@reactionary/core';
 import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { Faker, en, base } from '@faker-js/faker';
 
-export class FakeCartProvider<
-  T extends Cart = Cart
-> extends CartProvider<T> {
+export class FakeCartProvider extends CartProvider {
   protected config: FakeConfiguration;
-  private carts: Map<string, T> = new Map();
+  private carts: Map<string, Cart> = new Map();
   private generator: Faker;
 
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext) {
-    super(schema, cache, context);
+  constructor(config: FakeConfiguration, cache: Cache, context: RequestContext) {
+    super(cache, context);
     this.generator = new Faker({
       locale: [en, base],
       seed: config.seeds.product
@@ -39,34 +44,24 @@ export class FakeCartProvider<
     this.config = config;
   }
 
+  @Reactionary({
+    inputSchema: CartQueryByIdSchema,
+    outputSchema: CartSchema
+  })
   public override async getById(
     payload: CartQueryById
-  ): Promise<T> {
+  ): Promise<Cart> {
     const cartId = payload.cart.key;
 
     if (payload.cart.key === '') {
-      const result = this.newModel();
-      result.meta = {
-        cache: { hit: false, key: 'empty' },
-        placeholder: true
-      };
-      return this.assert(result);
+      return this.createEmptyCart();
     }
 
     if (!this.carts.has(cartId)) {
-      const model = this.newModel();
-      Object.assign(model, {
-        identifier: { key: cartId },
-        items: [],
-        meta: {
-          cache: {
-            hit: false,
-            key: cartId,
-          },
-          placeholder: false,
-        },
-      });
-      this.carts.set(cartId, this.assert(model));
+      const cart = this.createEmptyCart();
+      cart.identifier.key = cartId;
+
+      this.carts.set(cartId, cart);
     }
 
     const cart = this.carts.get(cartId);
@@ -76,9 +71,13 @@ export class FakeCartProvider<
     return cart;
   }
 
+  @Reactionary({
+    inputSchema: CartMutationItemAddSchema,
+    outputSchema: CartSchema
+  })
   public override async add(
     payload: CartMutationItemAdd
-  ): Promise<T> {
+  ): Promise<Cart> {
 
     const cartId = payload.cart.key || `cart-${this.generator.string.uuid()}`;
     const cart = await this.getById({ cart: { key: cartId } });
@@ -117,19 +116,21 @@ export class FakeCartProvider<
         product: {
           key: `product-for-${payload.variant.sku}`,
         },
-
-
       });
     }
 
     this.recalculateCart(cart);
 
-    return this.assert(cart);
+    return cart;
   }
 
+  @Reactionary({
+    inputSchema: CartMutationItemRemoveSchema,
+    outputSchema: CartSchema
+  })
   public override async remove(
     payload: CartMutationItemRemove
-  ): Promise<T> {
+  ): Promise<Cart> {
     const cartId = payload.cart.key || `cart-${this.generator.string.uuid()}`;
     const cart = await this.getById({ cart: { key: cartId } });
 
@@ -137,12 +138,16 @@ export class FakeCartProvider<
       item => item.identifier.key !== payload.item.key
     );
     this.recalculateCart(cart);
-    return this.assert(cart);
+    return cart;
   }
 
+  @Reactionary({
+    inputSchema: CartMutationItemQuantityChangeSchema,
+    outputSchema: CartSchema
+  })
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange
-  ): Promise<T> {
+  ): Promise<Cart> {
     const cartId = payload.cart.key || `cart-${this.generator.string.uuid()}`;
     const cart = await this.getById({ cart: { key: cartId } });
 
@@ -156,27 +161,49 @@ export class FakeCartProvider<
       item.quantity = payload.quantity;
     }
     this.recalculateCart(cart);
-    return this.assert(cart);
+    return cart;
   }
 
-
+  @Reactionary({
+    outputSchema: CartIdentifierSchema
+  })
   public override getActiveCartId(): Promise<CartIdentifier> {
     throw new Error('Method not implemented.');
   }
-  public override deleteCart(payload: CartMutationDeleteCart): Promise<T> {
-    throw new Error('Method not implemented.');
-  }
-  public override applyCouponCode(payload: CartMutationApplyCoupon): Promise<T> {
-    throw new Error('Method not implemented.');
-  }
-  public override removeCouponCode(payload: CartMutationRemoveCoupon): Promise<T> {
-    throw new Error('Method not implemented.');
-  }
-  public override changeCurrency(payload: CartMutationChangeCurrency): Promise<T> {
+
+  @Reactionary({
+    inputSchema: CartMutationDeleteCartSchema,
+    outputSchema: CartSchema
+  })
+  public override deleteCart(payload: CartMutationDeleteCart): Promise<Cart> {
     throw new Error('Method not implemented.');
   }
 
-  protected recalculateCart(cart: T) {
+  @Reactionary({
+    inputSchema: CartMutationApplyCouponSchema,
+    outputSchema: CartSchema
+  })
+  public override applyCouponCode(payload: CartMutationApplyCoupon): Promise<Cart> {
+    throw new Error('Method not implemented.');
+  }
+
+  @Reactionary({
+    inputSchema: CartMutationRemoveCouponSchema,
+    outputSchema: CartSchema
+  })
+  public override removeCouponCode(payload: CartMutationRemoveCoupon): Promise<Cart> {
+    throw new Error('Method not implemented.');
+  }
+
+  @Reactionary({
+    inputSchema: CartMutationChangeCurrencySchema,
+    outputSchema: CartSchema
+  })
+  public override changeCurrency(payload: CartMutationChangeCurrency): Promise<Cart> {
+    throw new Error('Method not implemented.');
+  }
+
+  protected recalculateCart(cart: Cart) {
     cart.items.forEach(item => {
       item.price.totalPrice.value = item.price.unitPrice.value * item.quantity;
     });

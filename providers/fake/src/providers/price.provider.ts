@@ -1,32 +1,37 @@
 import {
-  type Price,
   type RequestContext,
   type Cache,
   PriceProvider,
   type CustomerPriceQuery,
   type ListPriceQuery,
+  type Price,
+  Reactionary,
+  CustomerPriceQuerySchema,
+  PriceSchema,
+  ListPriceQuerySchema,
 } from '@reactionary/core';
 import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
 
-export class FakePriceProvider<
-  T extends Price = Price
-> extends PriceProvider<T> {
+export class FakePriceProvider extends PriceProvider {
   protected config: FakeConfiguration;
 
   constructor(
     config: FakeConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext
   ) {
-    super(schema, cache, context);
+    super(cache, context);
 
     this.config = config;
   }
 
-  public override async getListPrice(payload: ListPriceQuery): Promise<T> {
+  @Reactionary({
+    inputSchema: ListPriceQuerySchema,
+    outputSchema: PriceSchema
+  })
+  public override async getListPrice(payload: ListPriceQuery): Promise<Price> {
     if (payload.variant.sku === 'unknown-sku') {
       return this.createEmptyPriceResult(payload.variant.sku);
     }
@@ -44,8 +49,7 @@ export class FakePriceProvider<
       locale: [en, base],
     });
 
-    const model = this.newModel();
-    Object.assign(model, {
+    const model = {
       identifier: {
         variant: payload.variant,
       },
@@ -60,7 +64,7 @@ export class FakePriceProvider<
         },
         placeholder: false,
       },
-    });
+    } as Price;
 
     if (skuString.includes('with-tiers')) {
       const unitPrice = model.unitPrice?.value || 0;
@@ -87,10 +91,14 @@ export class FakePriceProvider<
       model.tieredPrices = [];
     }
 
-    return this.assert(model);
+    return model;
   }
 
-  public override async getCustomerPrice(payload: CustomerPriceQuery): Promise<T> {
+  @Reactionary({
+    inputSchema: CustomerPriceQuerySchema,
+    outputSchema: PriceSchema
+  })
+  public override async getCustomerPrice(payload: CustomerPriceQuery): Promise<Price> {
     if (payload.variant.sku === 'unknown-sku') {
       return this.createEmptyPriceResult(payload.variant.sku);
     }
@@ -108,8 +116,7 @@ export class FakePriceProvider<
       locale: [en, base],
     });
 
-    const model = this.newModel();
-    Object.assign(model, {
+    const model = {
       identifier: {
         variant: payload.variant,
       },
@@ -124,7 +131,7 @@ export class FakePriceProvider<
         },
         placeholder: false,
       },
-    });
+    } as Price;
 
     if (skuString.includes('with-tiers')) {
       const unitPrice = model.unitPrice?.value || 0;
@@ -151,6 +158,6 @@ export class FakePriceProvider<
       model.tieredPrices = [];
     }
 
-    return this.assert(model);
+    return model;
   }
 }
