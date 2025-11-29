@@ -3,26 +3,25 @@ import type {
   RequestContext,
   Cache,
   InventoryQueryBySKU,
+  InventoryIdentifier,
+  InventoryStatus,
 } from '@reactionary/core';
 import { InventoryProvider, InventoryQueryBySKUSchema, InventorySchema, Reactionary } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { InventoryEntry } from '@commercetools/platform-sdk';
 import type { CommercetoolsClient } from '../core/client.js';
-export class CommercetoolsInventoryProvider<
-  T extends Inventory = Inventory
-> extends InventoryProvider<T> {
+export class CommercetoolsInventoryProvider extends InventoryProvider {
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     client: CommercetoolsClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
 
     this.config = config;
     this.client = client;
@@ -37,7 +36,7 @@ export class CommercetoolsInventoryProvider<
     inputSchema: InventoryQueryBySKUSchema,
     outputSchema: InventorySchema,
   })
-  public override async getBySKU(payload: InventoryQueryBySKU): Promise<T> {
+  public override async getBySKU(payload: InventoryQueryBySKU): Promise<Inventory> {
     const client = await this.getClient();
 
     try {
@@ -82,32 +81,36 @@ export class CommercetoolsInventoryProvider<
 
   }
 
-  protected override parseSingle(body: InventoryEntry): T {
-    const model = this.newModel();
-
-    model.identifier = {
+  protected parseSingle(body: InventoryEntry): Inventory {
+    const identifier = {
       variant: { sku: body.sku || '' },
       fulfillmentCenter: {
         key: body.supplyChannel?.obj?.key || '',
       },
-    };
+    } satisfies InventoryIdentifier;
 
-    model.quantity = body.availableQuantity || 0;
+    const quantity = body.availableQuantity || 0;
+    let status: InventoryStatus = 'outOfStock';
 
-    if (model.quantity > 0) {
-      model.status = 'inStock';
-    } else {
-      model.status = 'outOfStock';
+    if (quantity > 0) {
+      status = 'inStock';
     }
 
-    model.meta = {
+    const meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeySingle(model.identifier),
+        key: this.generateCacheKeySingle(identifier),
       },
       placeholder: false,
     };
 
-    return this.assert(model);
+    const result = {
+      identifier,
+      quantity,
+      status,
+      meta
+    } satisfies Inventory;
+
+    return result;
   }
 }

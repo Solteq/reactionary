@@ -1,22 +1,34 @@
-import { CartIdentifierSchema, CartItemSchema, CartMutationApplyCouponSchema, CartMutationChangeCurrencySchema, CartMutationCheckoutSchema, CartMutationDeleteCartSchema, CartMutationItemAddSchema, CartMutationItemQuantityChangeSchema, CartMutationItemRemoveSchema, CartMutationRemoveCouponSchema, CartMutationSetBillingAddressSchema, CartMutationSetShippingInfoSchema, CartProvider, CartQueryByIdSchema, CartSchema, OrderIdentifierSchema, Reactionary } from '@reactionary/core';
+import {
+  CartIdentifierSchema,
+  CartItemSchema,
+  CartMutationApplyCouponSchema,
+  CartMutationChangeCurrencySchema,
+  CartMutationDeleteCartSchema,
+  CartMutationItemAddSchema,
+  CartMutationItemQuantityChangeSchema,
+  CartMutationItemRemoveSchema,
+  CartMutationRemoveCouponSchema,
+  CartProvider,
+  CartQueryByIdSchema,
+  CartSchema,
+  Reactionary,
+} from '@reactionary/core';
 import type {
+  CartItem,
   CartMutationItemAdd,
   CartMutationItemQuantityChange,
   CartMutationItemRemove,
   CartQueryById,
   CartIdentifier,
   CartMutationApplyCoupon,
-  CartMutationCheckout,
   CartMutationDeleteCart,
   CartMutationRemoveCoupon,
-  CartMutationSetBillingAddress,
-  CartMutationSetShippingInfo,
   CartMutationChangeCurrency,
-  OrderIdentifier,
   RequestContext,
   Cart,
   Currency,
   Cache,
+  CostBreakDown,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { z } from 'zod';
@@ -25,26 +37,20 @@ import type {
   MyCartUpdateAction,
 } from '@commercetools/platform-sdk';
 import type { CommercetoolsCartIdentifier } from '../schema/commercetools.schema.js';
-import {
-  CommercetoolsCartIdentifierSchema,
-  CommercetoolsOrderIdentifierSchema,
-} from '../schema/commercetools.schema.js';
+import { CommercetoolsCartIdentifierSchema } from '../schema/commercetools.schema.js';
 import type { CommercetoolsClient } from '../core/client.js';
 
-export class CommercetoolsCartProvider<
-  T extends Cart = Cart
-> extends CartProvider<T> {
+export class CommercetoolsCartProvider extends CartProvider {
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     client: CommercetoolsClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
 
     this.config = config;
     this.client = client;
@@ -52,9 +58,9 @@ export class CommercetoolsCartProvider<
 
   @Reactionary({
     inputSchema: CartQueryByIdSchema,
-    outputSchema: CartSchema
+    outputSchema: CartSchema,
   })
-  public override async getById(payload: CartQueryById): Promise<T> {
+  public override async getById(payload: CartQueryById): Promise<Cart> {
     try {
       const client = await this.getClient();
 
@@ -73,9 +79,9 @@ export class CommercetoolsCartProvider<
 
   @Reactionary({
     inputSchema: CartMutationItemAddSchema,
-    outputSchema: CartSchema
+    outputSchema: CartSchema,
   })
-  public override async add(payload: CartMutationItemAdd): Promise<T> {
+  public override async add(payload: CartMutationItemAdd): Promise<Cart> {
     let cartIdentifier = payload.cart;
     if (!cartIdentifier.key) {
       cartIdentifier = await this.createCart();
@@ -89,8 +95,8 @@ export class CommercetoolsCartProvider<
         // FIXME: This should be dynamic, probably as part of the context...
         distributionChannel: {
           typeId: 'channel',
-          key: 'OnlineFfmChannel'
-        }
+          key: 'OnlineFfmChannel',
+        },
       },
       {
         action: 'recalculate',
@@ -100,9 +106,9 @@ export class CommercetoolsCartProvider<
 
   @Reactionary({
     inputSchema: CartMutationItemRemoveSchema,
-    outputSchema: CartSchema
+    outputSchema: CartSchema,
   })
-  public override async remove(payload: CartMutationItemRemove): Promise<T> {
+  public override async remove(payload: CartMutationItemRemove): Promise<Cart> {
     return this.applyActions(payload.cart, [
       {
         action: 'removeLineItem',
@@ -116,11 +122,11 @@ export class CommercetoolsCartProvider<
 
   @Reactionary({
     inputSchema: CartMutationItemQuantityChangeSchema,
-    outputSchema: CartSchema
+    outputSchema: CartSchema,
   })
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange
-  ): Promise<T> {
+  ): Promise<Cart> {
     if (payload.quantity === 0) {
       // Changing quantity to 0 is not allowed. Use the remove call instead. This is done to avoid accidental removal of item.
       // Calls with quantity 0 will just be ignored.
@@ -140,7 +146,7 @@ export class CommercetoolsCartProvider<
   }
 
   @Reactionary({
-    outputSchema: CartIdentifierSchema
+    outputSchema: CartIdentifierSchema,
   })
   public override async getActiveCartId(): Promise<CartIdentifier> {
     const client = await this.getClient();
@@ -161,11 +167,11 @@ export class CommercetoolsCartProvider<
 
   @Reactionary({
     inputSchema: CartMutationDeleteCartSchema,
-    outputSchema: CartSchema
+    outputSchema: CartSchema,
   })
   public override async deleteCart(
     payload: CartMutationDeleteCart
-  ): Promise<T> {
+  ): Promise<Cart> {
     const client = await this.getClient();
     if (payload.cart.key) {
       const ctId = payload.cart as CommercetoolsCartIdentifier;
@@ -187,11 +193,11 @@ export class CommercetoolsCartProvider<
 
   @Reactionary({
     inputSchema: CartMutationApplyCouponSchema,
-    outputSchema: CartSchema
+    outputSchema: CartSchema,
   })
   public override applyCouponCode(
     payload: CartMutationApplyCoupon
-  ): Promise<T> {
+  ): Promise<Cart> {
     return this.applyActions(payload.cart, [
       {
         action: 'addDiscountCode',
@@ -205,11 +211,11 @@ export class CommercetoolsCartProvider<
 
   @Reactionary({
     inputSchema: CartMutationRemoveCouponSchema,
-    outputSchema: CartSchema
+    outputSchema: CartSchema,
   })
   public override removeCouponCode(
     payload: CartMutationRemoveCoupon
-  ): Promise<T> {
+  ): Promise<Cart> {
     return this.applyActions(payload.cart, [
       {
         action: 'removeDiscountCode',
@@ -224,14 +230,13 @@ export class CommercetoolsCartProvider<
     ]);
   }
 
-
   @Reactionary({
     inputSchema: CartMutationChangeCurrencySchema,
-    outputSchema: CartSchema
+    outputSchema: CartSchema,
   })
   public override async changeCurrency(
     payload: CartMutationChangeCurrency
-  ): Promise<T> {
+  ): Promise<Cart> {
     // ok, to do this we have to actually build a new cart, copy over all the items, and then delete the old cart.
     // because Commercetools does not support changing currency of an existing cart.
 
@@ -306,7 +311,7 @@ export class CommercetoolsCartProvider<
   protected async applyActions(
     cart: CartIdentifier,
     actions: MyCartUpdateAction[]
-  ): Promise<T> {
+  ): Promise<Cart> {
     const client = await this.getClient();
     const ctId = cart as CommercetoolsCartIdentifier;
 
@@ -346,20 +351,15 @@ export class CommercetoolsCartProvider<
     return {
       carts: clientWithProject.me().carts(),
       activeCart: clientWithProject.me().activeCart(),
-      orders: clientWithProject.me().orders()
+      orders: clientWithProject.me().orders(),
     };
   }
 
-  protected override parseSingle(remote: CTCart): T {
-    const result = this.newModel();
-
-    result.identifier = CommercetoolsCartIdentifierSchema.parse({
+  protected parseSingle(remote: CTCart): Cart {
+    const identifier = {
       key: remote.id,
       version: remote.version || 0,
-    });
-
-    result.name = remote.custom?.fields['name'] || '';
-    result.description = remote.custom?.fields['description'] || '';
+    } satisfies CommercetoolsCartIdentifier;
 
     const grandTotal = remote.totalPrice.centAmount || 0;
     const shippingTotal = remote.shippingInfo?.price.centAmount || 0;
@@ -370,7 +370,7 @@ export class CommercetoolsCartProvider<
     const surchargeTotal = 0;
     const currency = remote.totalPrice.currencyCode as Currency;
 
-    result.price = {
+    const price = {
       totalTax: {
         value: taxTotal / 100,
         currency,
@@ -395,8 +395,9 @@ export class CommercetoolsCartProvider<
         value: grandTotal / 100,
         currency,
       },
-    };
+    } satisfies CostBreakDown;
 
+    const items = new Array<CartItem>();
     for (const remoteItem of remote.lineItems) {
       const item = CartItemSchema.parse({});
 
@@ -429,17 +430,27 @@ export class CommercetoolsCartProvider<
         },
       };
 
-      result.items.push(item);
+      items.push(item);
     }
 
-    result.meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeySingle(result.identifier),
+    const cart = {
+      identifier,
+      userId: {
+        userId: '???',
       },
-      placeholder: false,
-    };
+      name: remote.custom?.fields['name'] || '',
+      description: remote.custom?.fields['description'] || '',
+      price,
+      meta: {
+        cache: {
+          hit: false,
+          key: this.generateCacheKeySingle(identifier),
+        },
+        placeholder: false,
+      },
+      items,
+    } satisfies Cart;
 
-    return this.assert(result);
+    return cart;
   }
 }

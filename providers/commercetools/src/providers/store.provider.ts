@@ -2,28 +2,28 @@ import type {
   RequestContext,
   Cache,
   StoreQueryByProximity,
+  Store,
+  StoreIdentifier,
+  FulfillmentCenterIdentifier,
+  Meta,
 } from '@reactionary/core';
 import { Reactionary, StoreProvider, StoreQueryByProximitySchema, StoreSchema } from '@reactionary/core';
 import z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { ApiRoot, Channel } from '@commercetools/platform-sdk';
-import type { Store } from '@reactionary/core';
+import type { Channel } from '@commercetools/platform-sdk';
 import type { CommercetoolsClient } from '../core/client.js';
 
-export class CommercetoolsStoreProvider<
-  T extends Store = Store
-> extends StoreProvider<T> {
+export class CommercetoolsStoreProvider extends StoreProvider {
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     client: CommercetoolsClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
 
     this.config = config;
     this.client = client;
@@ -40,7 +40,7 @@ export class CommercetoolsStoreProvider<
   })
   public override async queryByProximity(
     payload: StoreQueryByProximity
-  ): Promise<Array<T>> {
+  ): Promise<Array<Store>> {
     const client = await this.getClient();
 
     const remote = await client
@@ -66,21 +66,36 @@ export class CommercetoolsStoreProvider<
     return results;
   }
 
-  protected override parseSingle(body: Channel): T {
-    const model = this.newModel();
+  protected parseSingle(body: Channel): Store {
 
+    let name = '';
     if (body.name && body.name['la']) {
-      model.name = body.name['la'];
+      name = body.name['la'];
     }
 
-    model.identifier = {
+    const identifier = {
       key: body.key,
-    };
+    } satisfies StoreIdentifier;
 
-    model.fulfillmentCenter = {
+    const fulfillmentCenter = {
       key: body.key,
-    };
+    } satisfies FulfillmentCenterIdentifier;
 
-    return model;
+    const meta = {
+      cache: {
+        hit: false,
+        key: ''
+      },
+      placeholder: false
+    } satisfies Meta;
+
+    const result = {
+      identifier,
+      fulfillmentCenter,
+      name,
+      meta,
+    } satisfies Store;
+
+    return result;
   }
 }

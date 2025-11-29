@@ -4,27 +4,31 @@ import type {
   Order,
   OrderQueryById,
   Currency,
+  OrderIdentifier,
+  CostBreakDown,
+  Meta,
+  OrderStatus,
+  OrderItem,
+  ProductVariantIdentifier,
+  ItemCostBreakdown,
 } from '@reactionary/core';
 import { OrderItemSchema, OrderProvider, OrderQueryByIdSchema, OrderSchema, Reactionary } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { ApiRoot, Order as CTOrder } from '@commercetools/platform-sdk';
-import { CommercetoolsOrderIdentifierSchema } from '../schema/commercetools.schema.js';
+import type { Order as CTOrder } from '@commercetools/platform-sdk';
+import { CommercetoolsOrderIdentifierSchema, type CommercetoolsOrderIdentifier } from '../schema/commercetools.schema.js';
 import type { CommercetoolsClient } from '../core/client.js';
-export class CommercetoolsOrderProvider<
-  T extends Order = Order
-> extends OrderProvider<T> {
+export class CommercetoolsOrderProvider extends OrderProvider {
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     client: CommercetoolsClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
 
     this.config = config;
     this.client = client;
@@ -42,7 +46,7 @@ export class CommercetoolsOrderProvider<
     inputSchema: OrderQueryByIdSchema,
     outputSchema: OrderSchema,
   })
-  public override async getById(payload: OrderQueryById): Promise<T> {
+  public override async getById(payload: OrderQueryById): Promise<Order> {
     const client = await this.getClient();
 
     try {
@@ -57,17 +61,16 @@ export class CommercetoolsOrderProvider<
     }
   }
 
-  protected override parseSingle(_body: unknown): T {
+  protected parseSingle(_body: unknown): Order {
     const remote = _body as CTOrder;
-    const result = this.newModel();
 
-    result.identifier = CommercetoolsOrderIdentifierSchema.parse({
+    const identifier = {
       key: remote.id,
       version: remote.version || 0,
-    });
+    } satisfies CommercetoolsOrderIdentifier;
 
-    result.name = remote.custom?.fields['name'] || '';
-    result.description = remote.custom?.fields['description'] || '';
+    const name = remote.custom?.fields['name'] || '';
+    const description = remote.custom?.fields['description'] || '';
 
     const grandTotal = remote.totalPrice.centAmount || 0;
     const shippingTotal = remote.shippingInfo?.price.centAmount || 0;
@@ -78,7 +81,7 @@ export class CommercetoolsOrderProvider<
     const surchargeTotal = 0;
     const currency = remote.totalPrice.currencyCode as Currency;
 
-    result.price = {
+    const price = {
       totalTax: {
         value: taxTotal / 100,
         currency,
@@ -103,40 +106,45 @@ export class CommercetoolsOrderProvider<
         value: grandTotal / 100,
         currency,
       },
-    };
+    } satisfies CostBreakDown;
 
+    let orderStatus: OrderStatus = 'AwaitingPayment';
     if (remote.paymentState === 'Pending' && remote.orderState === 'Open') {
-      result.orderStatus = 'AwaitingPayment';
+      orderStatus = 'AwaitingPayment';
     } else if (
       remote.paymentState === 'Paid' &&
       remote.orderState === 'Confirmed'
     ) {
-      result.orderStatus = 'ReleasedToFulfillment';
+      orderStatus = 'ReleasedToFulfillment';
     }
     if (remote.shipmentState === 'Ready' && remote.orderState === 'Confirmed') {
-      result.orderStatus = 'ReleasedToFulfillment';
+      orderStatus = 'ReleasedToFulfillment';
     }
     if (
       (remote.shipmentState === 'Shipped' ||
         remote.shipmentState === 'Delivered') &&
       remote.orderState === 'Completed'
     ) {
-      result.orderStatus = 'Shipped';
+      orderStatus = 'Shipped';
     }
 
+    const items = new Array<OrderItem>();
     for (const remoteItem of remote.lineItems) {
-      const item = OrderItemSchema.parse({});
+      const identifier = {
+        key: remoteItem.id
+      } satisfies OrderIdentifier;
 
-      item.identifier.key = remoteItem.id;
-      item.variant.sku = remoteItem.variant.sku || '';
-      item.quantity = remoteItem.quantity;
+      const variant = {
+        sku: remoteItem.variant.sku || ''
+      } satisfies ProductVariantIdentifier;
+      const quantity = remoteItem.quantity;
 
       const unitPrice = remoteItem.price.value.centAmount;
       const totalPrice = remoteItem.totalPrice.centAmount || 0;
       const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
       const unitDiscount = totalDiscount / remoteItem.quantity;
 
-      item.price = {
+      const price = {
         unitPrice: {
           value: unitPrice / 100,
           currency,
@@ -153,19 +161,42 @@ export class CommercetoolsOrderProvider<
           value: totalDiscount / 100,
           currency,
         },
-      };
+      } satisfies ItemCostBreakdown;
 
-      result.items.push(item);
+      const item = {
+        identifier,
+        inventoryStatus: 'NotAllocated',
+        price,
+        quantity,
+        variant
+      } satisfies OrderItem;
+
+      items.push(item);
     }
 
-    result.meta = {
+    const meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeySingle(result.identifier),
+        key: this.generateCacheKeySingle(identifier),
       },
       placeholder: false,
-    };
+    } satisfies Meta;
 
-    return this.assert(result);
+    const result = {
+      identifier,
+      name,
+      description,
+      price,
+      items,
+      inventoryStatus: 'NotAllocated',
+      paymentInstructions: [],
+      userId: {
+        userId: ''
+      },
+      meta,
+      orderStatus
+    } satisfies Order;
+
+    return result;
   }
 }
