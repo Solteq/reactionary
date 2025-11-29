@@ -52,7 +52,6 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
     if (capabilities.product) {
       client.product = new FakeProductProvider(
         configuration,
-        ProductSchema,
         cache,
         context
       );
@@ -61,7 +60,6 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
     if (capabilities.productSearch) {
       client.productSearch = new FakeSearchProvider(
         configuration,
-        ProductSearchResultItemSchema,
         cache,
         context
       );
@@ -70,31 +68,29 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
     if (capabilities.category) {
       client.category = new FakeCategoryProvider(
         configuration,
-        CategorySchema,
         cache,
         context
       );
     }
 
     if (capabilities.cart) {
-      client.cart = new FakeCartProvider(configuration, CartSchema, cache, context);
+      client.cart = new FakeCartProvider(configuration, cache, context);
     }
 
     if (capabilities.inventory) {
       client.inventory = new FakeInventoryProvider(
         configuration,
-        InventorySchema,
         cache,
         context
       );
     }
 
     if (capabilities.store) {
-      client.store = new FakeStoreProvider(configuration, StoreSchema, cache, context);
+      client.store = new FakeStoreProvider(configuration, cache, context);
     }
 
     if (capabilities.price) {
-      client.price = new FakePriceProvider(configuration, PriceSchema, cache, context);
+      client.price = new FakePriceProvider(configuration, cache, context);
     }
 
     return client;

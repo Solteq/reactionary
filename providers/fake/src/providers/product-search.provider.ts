@@ -1,8 +1,10 @@
 import {
   ImageSchema,
   ProductSearchProvider,
+  ProductSearchQueryByTermSchema,
   ProductSearchResultItemSchema,
-  ProductSearchResultSchema
+  ProductSearchResultSchema,
+  Reactionary
 } from '@reactionary/core';
 import type {
   ProductSearchResult,
@@ -16,22 +18,23 @@ import type {
   ProductSearchResultItemVariant
 } from '@reactionary/core';
 import type { RequestContext, ProductSearchQueryByTerm } from '@reactionary/core';
-import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { Faker, en, base } from '@faker-js/faker';
 import { jitter } from '../utilities/jitter.js';
 
-export class FakeSearchProvider<
-  T extends ProductSearchResultItem = ProductSearchResultItem
-> extends ProductSearchProvider<T> {
+export class FakeSearchProvider extends ProductSearchProvider {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, schema: z.ZodType<T>, cache: ReactionaryCache, context: RequestContext) {
-    super(schema, cache, context);
+  constructor(config: FakeConfiguration, cache: ReactionaryCache, context: RequestContext) {
+    super(cache, context);
 
     this.config = config;
   }
 
+  @Reactionary({
+    inputSchema: ProductSearchQueryByTermSchema,
+    outputSchema: ProductSearchResultSchema
+  })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<ProductSearchResult> {
@@ -81,7 +84,6 @@ export class FakeSearchProvider<
             identifier: {
               key: 'product_' + productGenerator.commerce.isbn(),
             },
-            image: img,
             name: productGenerator.commerce.productName(),
             slug: productGenerator.lorem.slug(),
             variants: [{
