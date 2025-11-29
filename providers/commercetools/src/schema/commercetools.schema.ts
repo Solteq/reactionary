@@ -15,6 +15,5 @@ export const CommercetoolsCheckoutIdentifierSchema = CheckoutIdentifierSchema.ex
 });
 
 export type CommercetoolsCheckoutIdentifier = z.infer<typeof CommercetoolsCheckoutIdentifierSchema>;
-
 export type CommercetoolsCartIdentifier = z.infer<typeof CommercetoolsCartIdentifierSchema>;
 export type CommercetoolsOrderIdentifier = z.infer<typeof CommercetoolsOrderIdentifierSchema>;

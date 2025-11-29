@@ -14,6 +14,9 @@ import type {
   TieredPrice,
   CustomerPriceQuery,
   ListPriceQuery,
+  PriceIdentifier,
+  MonetaryAmount,
+  Meta,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
@@ -23,20 +26,17 @@ import type {
 import type { CommercetoolsClient } from '../core/client.js';
 import type z from 'zod';
 
-export class CommercetoolsPriceProvider<
-  T extends Price = Price
-> extends PriceProvider<T> {
+export class CommercetoolsPriceProvider extends PriceProvider {
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     client: CommercetoolsClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
 
     this.config = config;
     this.client = client;
@@ -48,7 +48,7 @@ export class CommercetoolsPriceProvider<
   })
   public override async getCustomerPrice(
     payload: CustomerPriceQuery
-  ): Promise<T> {
+  ): Promise<Price> {
     const client = await this.getClient();
     const priceChannelId = 'ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86';
 
@@ -80,7 +80,7 @@ export class CommercetoolsPriceProvider<
     inputSchema: ListPriceQuerySchema,
     outputSchema: PriceSchema,
   })
-  public override async getListPrice(payload: ListPriceQuery): Promise<T> {
+  public override async getListPrice(payload: ListPriceQuery): Promise<Price> {
     const client = await this.getClient();
     const priceChannelId = 'ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86';
 
@@ -113,10 +113,10 @@ export class CommercetoolsPriceProvider<
     return client.withProjectKey({ projectKey: this.config.projectKey });
   }
 
-  protected override parseSingle(
+  protected parseSingle(
     _body: unknown,
     options = { includeDiscounts: false }
-  ): T {
+  ): Price {
     const body = _body as CTProductVariant;
     const price = body.price as CTPrice | undefined;
 
@@ -124,34 +124,39 @@ export class CommercetoolsPriceProvider<
       return this.createEmptyPriceResult(body.sku!);
     }
 
-    const base = this.newModel();
+    let unitPrice = {
+      value: price.value.centAmount / 100,
+      currency: price.value.currencyCode as Currency,
+    } satisfies MonetaryAmount;
 
     if (options.includeDiscounts) {
       const discountedPrice = price.discounted?.value || price.value;
 
-      base.unitPrice = {
+      unitPrice = {
         value: discountedPrice.centAmount / 100,
         currency: price.value.currencyCode as Currency,
-      };
-    } else {
-      base.unitPrice = {
-        value: price.value.centAmount / 100,
-        currency: price.value.currencyCode as Currency,
-      };
+      } satisfies MonetaryAmount;
     }
 
-    base.identifier = {
+    const identifier = {
       variant: {
         sku: body.sku!,
       },
-    };
+    } satisfies PriceIdentifier;
 
-    base.meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(base.identifier) },
+    const meta = {
+      cache: { hit: false, key: this.generateCacheKeySingle(identifier) },
       placeholder: false,
-    };
+    } satisfies Meta;
 
-    return this.assert(base);
+    const result = {
+      identifier,
+      meta,
+      tieredPrices: [],
+      unitPrice,
+    } satisfies Price;
+
+    return result;
   }
 
   protected async getChannels() {

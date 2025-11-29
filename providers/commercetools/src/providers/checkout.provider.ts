@@ -17,9 +17,11 @@ import type {
   Currency,
   ShippingInstruction,
   PaymentInstruction,
+  Address,
+  CostBreakDown,
+  CheckoutItem
 } from '@reactionary/core';
 import {
-  AddressSchema,
   CheckoutItemSchema,
   CheckoutMutationAddPaymentInstructionSchema,
   CheckoutMutationFinalizeCheckoutSchema,
@@ -42,10 +44,9 @@ import {
 } from '@reactionary/core';
 import z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { ApiRoot, MyCartUpdateAction } from '@commercetools/platform-sdk';
+import type { MyCartUpdateAction } from '@commercetools/platform-sdk';
 import {
-  CommercetoolsCartIdentifierSchema,
-  CommercetoolsCheckoutIdentifierSchema,
+  type CommercetoolsCartIdentifier,
   type CommercetoolsCheckoutIdentifier,
 } from '../schema/commercetools.schema.js';
 import type {
@@ -68,20 +69,17 @@ export class CheckoutNotReadyForFinalizationError extends Error {
   }
 }
 
-export class CommercetoolsCheckoutProvider<
-  T extends Checkout = Checkout
-> extends CheckoutProvider<T> {
+export class CommercetoolsCheckoutProvider extends CheckoutProvider {
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     client: CommercetoolsClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
 
     this.config = config;
     this.client = client;
@@ -115,7 +113,7 @@ export class CommercetoolsCheckoutProvider<
   })
   public async initiateCheckoutForCart(
     payload: CheckoutMutationInitiateCheckout
-  ): Promise<T> {
+  ): Promise<Checkout> {
     // so......we could copy the cart......
 
     const client = await this.getClient();
@@ -196,7 +194,7 @@ export class CommercetoolsCheckoutProvider<
     inputSchema: CheckoutQueryByIdSchema,
     outputSchema: CheckoutSchema.nullable(),
   })
-  public async getById(payload: CheckoutQueryById): Promise<T | null> {
+  public async getById(payload: CheckoutQueryById): Promise<Checkout | null> {
     const client = await this.getClient();
     const checkoutResponse = await client.carts
       .withId({ ID: payload.identifier.key })
@@ -232,7 +230,7 @@ export class CommercetoolsCheckoutProvider<
   })
   public async setShippingAddress(
     payload: CheckoutMutationSetShippingAddress
-  ): Promise<T> {
+  ): Promise<Checkout> {
     const client = await this.getClient();
 
     const version = (payload.checkout as CommercetoolsCheckoutIdentifier)
@@ -329,7 +327,7 @@ export class CommercetoolsCheckoutProvider<
   })
   public async addPaymentInstruction(
     payload: CheckoutMutationAddPaymentInstruction
-  ): Promise<T> {
+  ): Promise<Checkout> {
     const client = await this.getClient();
 
     const response = await client.payments
@@ -387,7 +385,7 @@ export class CommercetoolsCheckoutProvider<
   })
   public async removePaymentInstruction(
     payload: CheckoutMutationRemovePaymentInstruction
-  ): Promise<T> {
+  ): Promise<Checkout> {
     const client = await this.getClient();
 
     // FIXME: Need to get full-endpoint rights, if we want to cancel the authorization on the payment. The MyPayment endpoint does not support
@@ -454,7 +452,7 @@ export class CommercetoolsCheckoutProvider<
   })
   public async setShippingInstruction(
     payload: CheckoutMutationSetShippingInstruction
-  ): Promise<T> {
+  ): Promise<Checkout> {
     const actions: MyCartUpdateAction[] = [];
     actions.push({
       action: 'setShippingMethod',
@@ -491,7 +489,7 @@ export class CommercetoolsCheckoutProvider<
   })
   public async finalizeCheckout(
     payload: CheckoutMutationFinalizeCheckout
-  ): Promise<T> {
+  ): Promise<Checkout> {
     const checkout = await this.getById({ identifier: payload.checkout });
     if (!checkout || !checkout.readyForFinalization) {
       throw new CheckoutNotReadyForFinalizationError(payload.checkout);
@@ -510,13 +508,15 @@ export class CommercetoolsCheckoutProvider<
       })
       .execute();
 
-    return this.getById({ identifier: payload.checkout }) as unknown as T;
+    return this.getById({
+      identifier: payload.checkout,
+    }) as unknown as Checkout;
   }
 
   protected async applyActions(
     checkout: CheckoutIdentifier,
     actions: MyCartUpdateAction[]
-  ): Promise<T> {
+  ): Promise<Checkout> {
     const client = await this.getClient();
     const ctId = checkout as CommercetoolsCheckoutIdentifier;
 
@@ -559,35 +559,31 @@ export class CommercetoolsCheckoutProvider<
     return this.config.paymentMethods || [];
   }
 
-
-  protected override parseSingle(remote: CTCart): T {
-    const result = this.newModel();
-
-    result.identifier = CommercetoolsCheckoutIdentifierSchema.parse({
+  protected parseSingle(remote: CTCart): Checkout {
+    const identifier = {
       key: remote.id,
       version: remote.version || 0,
-    });
+    } satisfies CommercetoolsCheckoutIdentifier;
 
-    result.name = remote.custom?.fields['name'] || '';
-    result.description = remote.custom?.fields['description'] || '';
-
-    result.originalCartReference = CommercetoolsCartIdentifierSchema.parse({
+    const originalCartReference = {
       key: remote.custom?.fields['commerceToolsCartId'] || '',
       version: 0,
-    });
+    } satisfies CommercetoolsCartIdentifier;
 
+    let shippingAddress: Address | undefined;
     if (remote.shippingAddress) {
-      result.shippingAddress = this.parseAddress(remote.shippingAddress);
+      shippingAddress = this.parseAddress(remote.shippingAddress);
     }
 
+    let billingAddress: Address | undefined;
     if (remote.billingAddress) {
-      result.billingAddress = this.parseAddress(remote.billingAddress);
+      billingAddress = this.parseAddress(remote.billingAddress);
     }
-    result.shippingInstruction = this.parseShippingInstruction(remote);
 
+    const paymentInstructions = new Array<PaymentInstruction>();
     for (const p of remote.paymentInfo?.payments || []) {
       if (p.obj) {
-        result.paymentInstructions.push(this.parsePaymentInstruction(p.obj));
+        paymentInstructions.push(this.parsePaymentInstruction(p.obj));
       }
     }
 
@@ -600,7 +596,7 @@ export class CommercetoolsCheckoutProvider<
     const surchargeTotal = 0;
     const currency = remote.totalPrice.currencyCode as Currency;
 
-    result.price = {
+    const price = {
       totalTax: {
         value: taxTotal / 100,
         currency,
@@ -625,8 +621,9 @@ export class CommercetoolsCheckoutProvider<
         value: grandTotal / 100,
         currency,
       },
-    };
+    } satisfies CostBreakDown;
 
+    const items = new Array<CheckoutItem>();
     for (const remoteItem of remote.lineItems) {
       const item = CheckoutItemSchema.parse({});
 
@@ -658,40 +655,55 @@ export class CommercetoolsCheckoutProvider<
         },
       };
 
-      result.items.push(item);
+      items.push(item);
     }
 
-    result.readyForFinalization = this.isReadyForFinalization(result);
-    result.meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeySingle(result.identifier),
-      },
-      placeholder: false,
-    };
+    const shippingInstruction = this.parseShippingInstruction(remote);
+    const readyForFinalization = this.isReadyForFinalization(price, paymentInstructions, billingAddress, shippingAddress, shippingInstruction);
 
-    return this.assert(result);
+    const result = {
+      identifier,
+      originalCartReference,
+      name: remote.custom?.fields['name'] || '',
+      description: remote.custom?.fields['description'] || '',
+      readyForFinalization,
+      meta: {
+        cache: {
+          hit: false,
+          key: this.generateCacheKeySingle(identifier),
+        },
+        placeholder: false,
+      },
+      billingAddress,
+      shippingAddress,
+      shippingInstruction,
+      paymentInstructions,
+      items,
+      price
+    } satisfies Checkout;
+
+    return result;
   }
 
-  protected isReadyForFinalization(checkout: T): boolean {
+  protected isReadyForFinalization(price: CostBreakDown, paymentInstructions: Array<PaymentInstruction>, billingAddress?: Address, shippingAddress?: Address, shippingInstruction?: ShippingInstruction): boolean {
     // we should have a billing address
-    if (!checkout.billingAddress) return false;
+    if (!billingAddress) return false;
 
     // we should know how to ship it
-    if (!checkout.shippingInstruction) return false;
+    if (!shippingInstruction) return false;
 
     // and it should ship either to an address or a pickup point
-    if (!checkout.shippingAddress && !checkout.shippingInstruction.pickupPoint)
+    if (!shippingAddress && !shippingInstruction.pickupPoint)
       return false;
 
     // and it should be paid for
-    if (checkout.paymentInstructions.length === 0) return false;
+    if (paymentInstructions.length === 0) return false;
 
-    const authorizedPayments = checkout.paymentInstructions
+    const authorizedPayments = paymentInstructions
       .filter((pi) => pi.status === 'authorized')
       .map((x) => x.amount.value)
       .reduce((a, b) => a + b, 0);
-    if (checkout.price.grandTotal.value !== authorizedPayments) return false;
+    if (price.grandTotal.value !== authorizedPayments) return false;
 
     return true;
   }
@@ -743,7 +755,7 @@ export class CommercetoolsCheckoutProvider<
   }
 
   protected parseAddress(remote: CTAddress) {
-    return AddressSchema.parse({
+    return {
       countryCode: remote.country || '',
       firstName: remote.firstName || '',
       lastName: remote.lastName || '',
@@ -751,7 +763,18 @@ export class CommercetoolsCheckoutProvider<
       streetNumber: remote.streetNumber || '',
       postalCode: remote.postalCode || '',
       city: remote.city || '',
-    });
+      identifier: {
+        nickName: ''
+      },
+      meta: {
+        cache: {
+          hit: false,
+          key: ''
+        },
+        placeholder: false
+      },
+      region: ''
+    } satisfies Address;
   }
 
   protected parseShippingInstruction(

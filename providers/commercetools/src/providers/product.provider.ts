@@ -32,24 +32,23 @@ import type {
   ProductAttributeIdentifier,
   ProductAttributeValue,
   ProductAttributeValueIdentifier,
+  ProductIdentifier,
+  Meta,
 } from '@reactionary/core';
 import type { Cache, Image } from '@reactionary/core';
 import type { CommercetoolsClient } from '../core/client.js';
 
-export class CommercetoolsProductProvider<
-  T extends Product = Product
-> extends ProductProvider<T> {
+export class CommercetoolsProductProvider extends ProductProvider {
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     client: CommercetoolsClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
 
     this.config = config;
     this.client = client;
@@ -66,7 +65,7 @@ export class CommercetoolsProductProvider<
     inputSchema: ProductQueryByIdSchema,
     outputSchema: ProductSchema,
   })
-  public override async getById(payload: ProductQueryById): Promise<T> {
+  public override async getById(payload: ProductQueryById): Promise<Product> {
     const client = await this.getClient();
 
     // FIXME: This should be a ProductIdentifier...
@@ -85,7 +84,7 @@ export class CommercetoolsProductProvider<
   })
   public override async getBySlug(
     payload: ProductQueryBySlug
-  ): Promise<T | null> {
+  ): Promise<Product | null> {
     const client = await this.getClient();
 
     const remote = await client
@@ -108,7 +107,7 @@ export class CommercetoolsProductProvider<
     inputSchema: ProductQueryBySKUSchema,
     outputSchema: ProductSchema,
   })
-  public override async getBySKU(payload: ProductQueryBySKU): Promise<T> {
+  public override async getBySKU(payload: ProductQueryBySKU): Promise<Product> {
     const client = await this.getClient();
 
     const remote = await client
@@ -125,31 +124,43 @@ export class CommercetoolsProductProvider<
     return this.parseSingle(remote.body.results[0]);
   }
 
-  protected override parseSingle(data: ProductProjection): T {
-    const base = this.newModel();
+  protected parseSingle(data: ProductProjection): Product {
+    const identifier = { key: data.key || data.id } satisfies ProductIdentifier;
+    const name = data.name[this.context.languageContext.locale];
+    const slug = data.slug[this.context.languageContext.locale];
 
-    base.identifier = { key: data.key || data.id };
-    base.name = data.name[this.context.languageContext.locale];
-    base.slug = data.slug[this.context.languageContext.locale];
-
+    let description = '';
     if (data.description) {
-      base.description = data.description[this.context.languageContext.locale];
+      description = data.description[this.context.languageContext.locale];
     }
 
 
     const variantLevelAttributes = data.masterVariant.attributes?.map((x) => this.parseAttribute(x)) || [];
     const productLevelAttributes = data.attributes.map((x) => this.parseAttribute(x)) || [];
-    base.sharedAttributes = [...productLevelAttributes, ...variantLevelAttributes];
-
-    base.mainVariant = this.parseVariant(data.masterVariant, data);
-
-
-    base.meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(base.identifier) },
+    const sharedAttributes = [...productLevelAttributes, ...variantLevelAttributes];
+    const mainVariant = this.parseVariant(data.masterVariant, data);
+    const meta = {
+      cache: { hit: false, key: this.generateCacheKeySingle(identifier) },
       placeholder: false,
-    };
+    } satisfies Meta;
 
-    return this.assert(base);
+    const result = {
+      identifier,
+      name,
+      slug,
+      description,
+      sharedAttributes,
+      mainVariant,
+      meta,
+      brand: '',
+      longDescription: '',
+      manufacturer: '',
+      options: [],
+      parentCategories: [],
+      published: true
+    } satisfies Product;
+
+    return result;
   }
 
   protected parseVariant(

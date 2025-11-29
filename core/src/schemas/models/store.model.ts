@@ -10,7 +10,6 @@ export const StoreSchema = BaseModelSchema.extend({
   identifier: StoreIdentifierSchema,
   name: z.string(),
   fulfillmentCenter: FulfillmentCenterIdentifierSchema,
-  fooArray: z.array(z.string()),
-}).strict();
+});
 
 export type Store = InferType<typeof StoreSchema>;

@@ -17,20 +17,17 @@ import type { Cache } from '@reactionary/core';
 import type { Customer } from '@commercetools/platform-sdk';
 import type { CommercetoolsClient } from '../core/client.js';
 
-export class CommercetoolsProfileProvider<
-  T extends Profile = Profile
-> extends ProfileProvider<T> {
+export class CommercetoolsProfileProvider extends ProfileProvider {
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     client: CommercetoolsClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
 
     this.config = config;
     this.client = client;
@@ -45,7 +42,7 @@ export class CommercetoolsProfileProvider<
     inputSchema: ProfileQuerySelfSchema,
     outputSchema: ProfileSchema,
   })
-  public override async getSelf(payload: ProfileQuerySelf): Promise<T> {
+  public override async getSelf(payload: ProfileQuerySelf): Promise<Profile> {
     const client = await this.getClient();
 
     const remote = await client.me().get().execute();
@@ -58,16 +55,34 @@ export class CommercetoolsProfileProvider<
     inputSchema: ProfileMutationUpdateSchema,
     outputSchema: ProfileSchema,
   })
-  public override async update(payload: ProfileMutationUpdate): Promise<T> {
+  public override async update(payload: ProfileMutationUpdate): Promise<Profile> {
     throw new Error('Method not implemented.');
   }
 
-  protected override parseSingle(body: Customer): T {
-    const model = this.newModel();
+  protected parseSingle(body: Customer): Profile {
+    const email = body.email;
+    const emailVerified = body.isEmailVerified;
 
-    model.email = body.email;
-    model.emailVerified = body.isEmailVerified;
+    const result = {
+      identifier: {
+        userId: ''
+      },
+      email,
+      emailVerified,
+      alternateShippingAddresses: [],
+      createdAt: '',
+      meta: {
+        cache: {
+          hit: false,
+          key: ''
+        },
+        placeholder: false
+      },
+      phone: '',
+      phoneVerified: false,
+      updatedAt: ''
+    } satisfies Profile;
 
-    return model;
+    return result;
   }
 }

@@ -16,20 +16,17 @@ import type { CommercetoolsConfiguration } from '../schema/configuration.schema.
 import type z from 'zod';
 import type { CommercetoolsClient } from '../core/client.js';
 
-export class CommercetoolsIdentityProvider<
-  T extends Identity = Identity
-> extends IdentityProvider<T> {
+export class CommercetoolsIdentityProvider extends IdentityProvider {
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
 
   constructor(
     config: CommercetoolsConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     client: CommercetoolsClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
 
     this.config = config;
     this.client = client;
@@ -39,32 +36,32 @@ export class CommercetoolsIdentityProvider<
     inputSchema: IdentityQuerySelfSchema,
     outputSchema: IdentitySchema,
   })
-  public override async getSelf(payload: IdentityQuerySelf): Promise<T> {
+  public override async getSelf(payload: IdentityQuerySelf): Promise<Identity> {
     const identity = await this.client.introspect();
 
-    return identity as T;
+    return identity;
   }
 
   @Reactionary({
     inputSchema: IdentityMutationLoginSchema,
     outputSchema: IdentitySchema,
   })
-  public override async login(payload: IdentityMutationLogin): Promise<T> {
+  public override async login(payload: IdentityMutationLogin): Promise<Identity> {
     const identity = await this.client.login(
       payload.username,
       payload.password
     );
 
-    return identity as T;
+    return identity;
   }
 
   @Reactionary({
     outputSchema: IdentitySchema,
   })
-  public override async logout(payload: Record<string, never>): Promise<T> {
+  public override async logout(payload: Record<string, never>): Promise<Identity> {
     const identity = await this.client.logout();
 
-    return identity as T;
+    return identity;
   }
 
   @Reactionary({
@@ -73,12 +70,12 @@ export class CommercetoolsIdentityProvider<
   })
   public override async register(
     payload: IdentityMutationRegister
-  ): Promise<T> {
+  ): Promise<Identity> {
     const identity = await this.client.register(
       payload.username,
       payload.password
     );
 
-    return identity as T;
+    return identity;
   }
 }

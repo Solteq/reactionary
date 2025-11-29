@@ -60,39 +60,39 @@ export function withCommercetoolsCapabilities<T extends CommercetoolsCapabilitie
         const commercetoolsClient = new CommercetoolsClient(config, context);
 
         if (caps.product) {
-            client.product = new CommercetoolsProductProvider(config, ProductSchema, cache, context, commercetoolsClient);
+            client.product = new CommercetoolsProductProvider(config, cache, context, commercetoolsClient);
         }
 
         if (caps.profile) {
-            client.profile = new CommercetoolsProfileProvider(config, ProfileSchema, cache, context, commercetoolsClient);
+            client.profile = new CommercetoolsProfileProvider(config, cache, context, commercetoolsClient);
         }
 
         if (caps.productSearch) {
-            client.productSearch = new CommercetoolsSearchProvider(config, ProductSearchResultItemSchema, cache, context, commercetoolsClient);
+            client.productSearch = new CommercetoolsSearchProvider(config, cache, context, commercetoolsClient);
         }
 
         if (caps.identity) {
-            client.identity = new CommercetoolsIdentityProvider(config, IdentitySchema, cache, context, commercetoolsClient);
+            client.identity = new CommercetoolsIdentityProvider(config, cache, context, commercetoolsClient);
         }
 
         if (caps.cart) {
-            client.cart = new CommercetoolsCartProvider(config, CartSchema, cache, context, commercetoolsClient);
+            client.cart = new CommercetoolsCartProvider(config, cache, context, commercetoolsClient);
         }
 
         if (caps.inventory) {
-            client.inventory = new CommercetoolsInventoryProvider(config, InventorySchema, cache, context, commercetoolsClient);
+            client.inventory = new CommercetoolsInventoryProvider(config, cache, context, commercetoolsClient);
         }
 
         if (caps.price) {
-            client.price = new CommercetoolsPriceProvider(config, PriceSchema, cache, context, commercetoolsClient);
+            client.price = new CommercetoolsPriceProvider(config, cache, context, commercetoolsClient);
         }
 
         if (caps.category) {
-            client.category = new CommercetoolsCategoryProvider(config, CategorySchema, cache, context, commercetoolsClient);
+            client.category = new CommercetoolsCategoryProvider(config, cache, context, commercetoolsClient);
         }
 
         if (caps.checkout) {
-          client.checkout = new CommercetoolsCheckoutProvider(config, CheckoutSchema, cache, context, commercetoolsClient);
+          client.checkout = new CommercetoolsCheckoutProvider(config, cache, context, commercetoolsClient);
         }
 
 
