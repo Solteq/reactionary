@@ -14,6 +14,7 @@ import type {
   CheckoutQueryById,
   CheckoutQueryForAvailablePaymentMethods,
   CheckoutQueryForAvailableShippingMethods,
+  CostBreakDown,
   Currency,
   MonetaryAmount,
   PaymentInstruction,
@@ -22,6 +23,7 @@ import type {
   RequestContext,
   ShippingInstruction,
   ShippingMethod,
+  CheckoutItem
 } from '@reactionary/core';
 import {
   AddressIdentifierSchema,
@@ -38,7 +40,6 @@ import {
   CheckoutQueryForAvailablePaymentMethodsSchema,
   CheckoutQueryForAvailableShippingMethodsSchema,
   CheckoutSchema,
-  ImageSchema,
   MonetaryAmountSchema,
   PaymentInstructionIdentifierSchema,
   PaymentInstructionSchema,
@@ -51,7 +52,7 @@ import {
   ShippingMethodSchema
 } from '@reactionary/core';
 import createDebug from 'debug';
-import type z from 'zod';
+import z from 'zod';
 import type { MedusaClient } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
@@ -74,20 +75,17 @@ export class CheckoutNotReadyForFinalizationError extends Error {
   }
 }
 
-export class MedusaCheckoutProvider<
-  T extends Checkout = Checkout
-> extends CheckoutProvider<T> {
+export class MedusaCheckoutProvider extends CheckoutProvider {
   protected config: MedusaConfiguration;
   protected returnedCheckoutFields = '+items.*';
 
   constructor(
     config: MedusaConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     public client: MedusaClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
     this.config = config;
   }
 
@@ -97,7 +95,7 @@ export class MedusaCheckoutProvider<
   })
   public override async initiateCheckoutForCart(
     payload: CheckoutMutationInitiateCheckout
-  ): Promise<T> {
+  ): Promise<Checkout> {
     const client = await this.client.getClient();
     // we should eventually copy the cart.... but for now we just continue with the existing one.
     if (debug.enabled) {
@@ -127,24 +125,26 @@ export class MedusaCheckoutProvider<
 
     return this.parseSingle(response.cart);
   }
+
   @Reactionary({
     inputSchema: CheckoutQueryByIdSchema,
     outputSchema: CheckoutSchema.nullable(),
   })
-  public override async getById(payload: CheckoutQueryById): Promise<T | null> {
+  public override async getById(payload: CheckoutQueryById): Promise<Checkout | null> {
     const client = await this.client.getClient();
     const response = await client.store.cart.retrieve(payload.identifier.key, {
       fields: this.returnedCheckoutFields,
     });
     return this.parseSingle(response.cart);
   }
+
   @Reactionary({
     inputSchema: CheckoutMutationSetShippingAddressSchema,
     outputSchema: CheckoutSchema,
   })
   public override async setShippingAddress(
     payload: CheckoutMutationSetShippingAddress
-  ): Promise<T> {
+  ): Promise<Checkout> {
     const client = await this.client.getClient();
 
     const response = await client.store.cart.update(payload.checkout.key, {
@@ -159,6 +159,7 @@ export class MedusaCheckoutProvider<
 
   @Reactionary({
     inputSchema: CheckoutQueryForAvailableShippingMethodsSchema,
+    outputSchema: z.array(ShippingMethodSchema)
   })
   public override async getAvailableShippingMethods(
     payload: CheckoutQueryForAvailableShippingMethods
@@ -203,6 +204,7 @@ export class MedusaCheckoutProvider<
 
   @Reactionary({
     inputSchema: CheckoutQueryForAvailablePaymentMethodsSchema,
+    outputSchema: z.array(PaymentMethodSchema)
   })
   public override async getAvailablePaymentMethods(
     payload: CheckoutQueryForAvailablePaymentMethods
@@ -252,7 +254,7 @@ export class MedusaCheckoutProvider<
   })
   public override async addPaymentInstruction(
     payload: CheckoutMutationAddPaymentInstruction
-  ): Promise<T> {
+  ): Promise<Checkout> {
     const client = await this.client.getClient();
 
     if (debug.enabled) {
@@ -296,16 +298,17 @@ export class MedusaCheckoutProvider<
   })
   public override removePaymentInstruction(
     payload: CheckoutMutationRemovePaymentInstruction
-  ): Promise<T> {
+  ): Promise<Checkout> {
     throw new Error('Method not implemented.');
   }
+
   @Reactionary({
     inputSchema: CheckoutMutationSetShippingInstructionSchema,
     outputSchema: CheckoutSchema,
   })
   public override async setShippingInstruction(
     payload: CheckoutMutationSetShippingInstruction
-  ): Promise<T> {
+  ): Promise<Checkout> {
     const client = await this.client.getClient();
     const medusaId = payload.checkout as MedusaCartIdentifier;
     try {
@@ -357,7 +360,7 @@ export class MedusaCheckoutProvider<
   })
   public override async finalizeCheckout(
     payload: CheckoutMutationFinalizeCheckout
-  ): Promise<T> {
+  ): Promise<Checkout> {
     const checkout = await this.getById({ identifier: payload.checkout });
     if (!checkout || !checkout.readyForFinalization) {
       throw new CheckoutNotReadyForFinalizationError(payload.checkout);
@@ -377,7 +380,7 @@ export class MedusaCheckoutProvider<
           order_display_id: response.order?.display_id ? +'' : '',
         },
       });
-      return this.getById({ identifier: payload.checkout }) as Promise<T>;
+      return this.getById({ identifier: payload.checkout }) as Promise<Checkout>;
     }
 
     throw new Error('Something failed during order creation');
@@ -418,16 +421,14 @@ export class MedusaCheckoutProvider<
     };
   }
 
-  protected override parseSingle(remote: StoreCart): T {
-    const result = this.newModel();
-
-    result.identifier = CheckoutIdentifierSchema.parse({
+  protected parseSingle(remote: StoreCart): Checkout {
+    const identifier = CheckoutIdentifierSchema.parse({
       key: remote.id,
       //        region_id: remote.region_id,
     });
 
-    result.name = '' + (remote.metadata?.['name'] || '');
-    result.description = '' + (remote.metadata?.['description'] || '');
+    const name = '' + (remote.metadata?.['name'] || '');
+    const description = '' + (remote.metadata?.['description'] || '');
 
     // Calculate totals
     const grandTotal = remote.total || 0;
@@ -437,7 +438,7 @@ export class MedusaCheckoutProvider<
     const subtotal = remote.subtotal || 0;
     const currency = (remote.currency_code || 'EUR').toUpperCase() as Currency;
 
-    result.price = {
+    const price = {
       totalTax: {
         value: taxTotal,
         currency,
@@ -462,9 +463,10 @@ export class MedusaCheckoutProvider<
         value: grandTotal,
         currency,
       },
-    };
+    } satisfies CostBreakDown;
 
     // Parse cart items
+    const items = new Array<CheckoutItem>();
     for (const remoteItem of remote.items || []) {
       const item = CheckoutItemSchema.parse({});
 
@@ -497,24 +499,23 @@ export class MedusaCheckoutProvider<
         },
       };
 
-      result.items.push(item);
+      items.push(item);
     }
 
     const meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeySingle(result.identifier),
+        key: this.generateCacheKeySingle(identifier),
       },
       placeholder: false,
     };
 
-    result.billingAddress = remote.billing_address
+    const billingAddress = remote.billing_address
       ? this.composeAddressFromStoreAddress(remote.billing_address)
       : undefined;
-    result.shippingAddress = remote.shipping_address
+    const shippingAddress = remote.shipping_address
       ? this.composeAddressFromStoreAddress(remote.shipping_address)
       : undefined;
-    result.meta = meta;
 
     const backupUnattendedDelivery =
       remote.metadata?.['consent_for_unattended_delivery'] !== undefined
@@ -529,6 +530,7 @@ export class MedusaCheckoutProvider<
         ? remote.metadata?.['pickup_point'] + ''
         : undefined;
 
+    let shippingInstruction;
     remote.shipping_methods?.forEach((sm) => {
 
       let pickupPoint = '';;
@@ -552,7 +554,7 @@ export class MedusaCheckoutProvider<
       }
 
       // currently Medusa only supports one shipping method per cart
-      result.shippingInstruction = ShippingInstructionSchema.parse({
+      shippingInstruction = ShippingInstructionSchema.parse({
         shippingMethod: ShippingMethodIdentifierSchema.parse({ key: sm.shipping_option_id }),
         consentForUnattendedDelivery,
         instructions,
@@ -561,6 +563,7 @@ export class MedusaCheckoutProvider<
       } satisfies ShippingInstruction);
     });
 
+    const paymentInstructions = new Array<PaymentInstruction>();
     for (const remotePayment of remote.payment_collection?.payment_sessions ||
       []) {
       if (
@@ -578,7 +581,7 @@ export class MedusaCheckoutProvider<
         processor: remotePayment.provider_id,
       });
 
-      result.paymentInstructions.push(
+      paymentInstructions.push(
         PaymentInstructionSchema.parse({
           meta,
           identifier: PaymentInstructionIdentifierSchema.parse({
@@ -600,17 +603,35 @@ export class MedusaCheckoutProvider<
       );
     }
 
-    result.originalCartReference = MedusaCartIdentifierSchema.parse({
+    const originalCartReference = MedusaCartIdentifierSchema.parse({
       key: remote.id,
       region: remote.region_id,
     } satisfies MedusaCartIdentifier);
 
+    let resultingOrder;
     if (remote.metadata?.['order_id']) {
-      result.resultingOrder = MedusaOrderIdentifierSchema.parse({
+      resultingOrder = MedusaOrderIdentifierSchema.parse({
         key: remote.metadata?.['order_id'] + '' || '',
         display_id: Number(remote.metadata?.['order_display_id'] + '' || '0'),
       } satisfies MedusaOrderIdentifier);
     }
-    return this.assert(result);
+    
+    const result = {
+      identifier,
+      name,
+      description,
+      price,
+      items,
+      meta,
+      originalCartReference,
+      paymentInstructions,
+      readyForFinalization: false,
+      billingAddress,
+      resultingOrder,
+      shippingAddress,
+      shippingInstruction
+    } satisfies Checkout;
+
+    return result;
   }
 }

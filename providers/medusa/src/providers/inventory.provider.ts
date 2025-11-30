@@ -7,29 +7,27 @@ import {
   InventorySchema,
   InventoryQueryBySKUSchema,
   Reactionary,
-  ProductVariantIdentifierSchema,
+  type InventoryIdentifier,
+  type InventoryStatus,
+  type Meta,
 } from '@reactionary/core';
 import type z from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import { MedusaAdminClient, type MedusaClient } from '../core/client.js';
 import createDebug from 'debug';
-import type { AdminInventoryLevelResponse } from '@medusajs/types';
 
 const debug = createDebug('reactionary:medusa:inventory');
 
-export class MedusaInventoryProvider<
-  T extends Inventory = Inventory
-> extends InventoryProvider<T> {
+export class MedusaInventoryProvider extends InventoryProvider {
   protected config: MedusaConfiguration;
 
   constructor(
     config: MedusaConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     public client: MedusaClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
     this.config = config;
   }
 
@@ -37,7 +35,7 @@ export class MedusaInventoryProvider<
     inputSchema: InventoryQueryBySKUSchema,
     outputSchema: InventorySchema,
   })
-  public override async getBySKU(payload: InventoryQueryBySKU): Promise<T> {
+  public override async getBySKU(payload: InventoryQueryBySKU): Promise<Inventory> {
     const sku = payload.variant.sku;
     const fulfillmentCenterKey = payload.fulfilmentCenter.key;
 
@@ -112,7 +110,7 @@ export class MedusaInventoryProvider<
     }
   }
 
-  protected override parseSingle(_body: unknown): T {
+  protected parseSingle(_body: unknown): Inventory {
     const { sku, fulfillmentCenterKey, quantity } = _body as {
       sku: string;
       fulfillmentCenterKey: string;
@@ -120,34 +118,36 @@ export class MedusaInventoryProvider<
       inventoryItemId: string;
     };
 
-    const model = this.newModel();
-
-    model.identifier = {
+    const identifier = {
       variant: {
         sku,
       },
       fulfillmentCenter: {
         key: fulfillmentCenterKey,
       },
-    };
+    } satisfies InventoryIdentifier;
 
-    model.quantity = quantity;
-
-    if (model.quantity > 0) {
-      model.status = 'inStock';
-    } else {
-      model.status = 'outOfStock';
+    let status: InventoryStatus = 'outOfStock';
+    if (quantity > 0) {
+      status = 'inStock';
     }
 
-    model.meta = {
+    const meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeySingle(model.identifier),
+        key: this.generateCacheKeySingle(identifier),
       },
       placeholder: false,
-    };
+    } satisfies Meta;
 
-    return this.assert(model);
+    const result = {
+      identifier,
+      meta,
+      quantity,
+      status
+    } satisfies Inventory;
+
+    return result;
   }
 
   /**
@@ -157,26 +157,31 @@ export class MedusaInventoryProvider<
    * @param fulfillmentCenterKey
    * @returns
    */
-  protected createEmptyInventoryResult(sku: string, fulfillmentCenterKey: string): T {
-    const model = this.newModel();
-
-    model.identifier = {
+  protected createEmptyInventoryResult(sku: string, fulfillmentCenterKey: string): Inventory {
+    const identifier = {
       variant: { sku },
       fulfillmentCenter: { key: fulfillmentCenterKey },
-    };
+    } satisfies InventoryIdentifier;
 
-    model.quantity = 0;
-    model.status = 'outOfStock';
+    const quantity = 0;
+    const status = 'outOfStock';
 
-    model.meta = {
+    const meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeySingle(model.identifier),
+        key: this.generateCacheKeySingle(identifier),
       },
       placeholder: true,
     };
 
-    return this.assert(model);
+    const result = {
+      identifier,
+      meta,
+      quantity,
+      status
+    } satisfies Inventory;
+
+    return result;
   }
 
   protected override getResourceName(): string {

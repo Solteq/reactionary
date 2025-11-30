@@ -1,4 +1,4 @@
-import type { Cache, Image, Product, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariant, ProductVariantIdentifier, RequestContext } from '@reactionary/core';
+import type { Cache, Image, Product, ProductAttribute, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariant, ProductVariantIdentifier, RequestContext } from '@reactionary/core';
 import {
   CategoryIdentifierSchema,
   ImageSchema,
@@ -22,22 +22,19 @@ import type { StoreProduct, StoreProductImage, StoreProductVariant } from '@medu
 
 const debug = createDebug('reactionary:medusa:product');
 
-export class MedusaProductProvider<
-  T extends Product = Product
-> extends ProductProvider<T> {
+export class MedusaProductProvider extends ProductProvider {
   protected config: MedusaConfiguration;
 
-  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, public client: MedusaClient) {
-  super(schema, cache, context);
+  constructor(config: MedusaConfiguration, cache: Cache, context: RequestContext, public client: MedusaClient) {
+  super(cache, context);
    this.config = config;
   }
-
 
   @Reactionary({
     inputSchema: ProductQueryByIdSchema,
     outputSchema: ProductSchema,
   })
-  public override async getById(payload: ProductQueryById): Promise<T> {
+  public override async getById(payload: ProductQueryById): Promise<Product> {
     const client = await this.client.getClient();
     if (debug.enabled) {
       debug(`Fetching product by ID: ${payload.identifier.key}`);
@@ -59,7 +56,7 @@ export class MedusaProductProvider<
     inputSchema: ProductQueryBySlugSchema,
     outputSchema: ProductSchema.nullable(),
   })
-  public override async getBySlug(payload: ProductQueryBySlug): Promise<T | null> {
+  public override async getBySlug(payload: ProductQueryBySlug): Promise<Product | null> {
     const client = await this.client.getClient();
     if (debug.enabled) {
       debug(`Fetching product by slug: ${payload.slug}`);
@@ -86,7 +83,7 @@ export class MedusaProductProvider<
     inputSchema: ProductQueryBySKUSchema,
     outputSchema: ProductSchema,
   })
-  public override async getBySKU(payload: ProductQueryBySKU): Promise<T> {
+  public override async getBySKU(payload: ProductQueryBySKU): Promise<Product> {
 
     if (debug.enabled) {
       debug(`Fetching product by SKU: ${Array.isArray(payload) ? payload.join(', ') : payload}`);
@@ -105,38 +102,45 @@ export class MedusaProductProvider<
     return this.parseSingle(product);
   }
 
-  protected override parseSingle(_body: StoreProduct): T {
-    const model = this.newModel();
-
-    model.identifier = ProductIdentifierSchema.parse({ key: _body.id });
-    model.name = _body.title;
-    model.slug = _body.handle;
-    model.description = _body.description || '' || _body.subtitle || '';
-    model.sharedAttributes = [];
-    model.parentCategories.push(
+  protected parseSingle(_body: StoreProduct): Product {
+    const identifier = ProductIdentifierSchema.parse({ key: _body.id });
+    const name = _body.title;
+    const slug = _body.handle;
+    const description = _body.description || '' || _body.subtitle || '';
+    const parentCategories = [];
+    parentCategories.push(
       ...
       _body.categories?.map( (cat) => cat.metadata?.['external_id'] ).map( (id) => CategoryIdentifierSchema.parse({ key: id || '' }) ) || []
     )
-    this.parseAttributes(_body, model);
+    const sharedAttributes = this.parseAttributes(_body);
 
     if (!_body.variants) {
       debug('Product has no variants', _body);
       throw new Error('Product has no variants ' + _body.id);
     }
     const mainVariant = this.parseVariant(_body.variants[0], _body);
-    model.mainVariant = mainVariant;
-
-    if (debug.enabled) {
-      debug(`Parsed product: ${model.name} (ID: ${model.identifier.key})`, model);
-    }
-
-
-    model.meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(model.identifier) },
+    const meta = {
+      cache: { hit: false, key: this.generateCacheKeySingle(identifier) },
       placeholder: false
     };
 
-    return this.assert(model);
+    const result = {
+      brand: '',
+      description,
+      identifier,
+      longDescription: '',
+      mainVariant,
+      manufacturer: '',
+      meta,
+      name,
+      options: [],
+      parentCategories,
+      published: true,
+      sharedAttributes,
+      slug
+    } satisfies Product;
+
+    return result;
   }
 
   protected parseVariant(variant: StoreProductVariant, product: StoreProduct) {
@@ -160,9 +164,11 @@ export class MedusaProductProvider<
 
 
 
-  protected parseAttributes(_body: StoreProduct, model: T): void {
+  protected parseAttributes(_body: StoreProduct): Array<ProductAttribute> {
+    const sharedAttributes = [];
+
     if (_body.origin_country) {
-      model.sharedAttributes.push(ProductAttributeSchema.parse({
+      sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'origin_country',
         name: 'Origin Country',
         value: _body.origin_country,
@@ -170,7 +176,7 @@ export class MedusaProductProvider<
     }
 
     if (_body.height) {
-      model.sharedAttributes.push(ProductAttributeSchema.parse({
+      sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'height',
         name: 'Height',
         value: _body.height,
@@ -178,7 +184,7 @@ export class MedusaProductProvider<
     }
 
     if (_body.weight) {
-      model.sharedAttributes.push(ProductAttributeSchema.parse({
+      sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'weight',
         name: 'Weight',
         value: _body.weight,
@@ -186,7 +192,7 @@ export class MedusaProductProvider<
     }
 
     if (_body.length) {
-      model.sharedAttributes.push(ProductAttributeSchema.parse({
+      sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'length',
         name: 'Length',
         value: _body.length,
@@ -194,7 +200,7 @@ export class MedusaProductProvider<
     }
 
     if (_body.width) {
-      model.sharedAttributes.push(ProductAttributeSchema.parse({
+      sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'width',
         name: 'Width',
         value: _body.width,
@@ -202,12 +208,14 @@ export class MedusaProductProvider<
     }
 
     if (_body.material) {
-      model.sharedAttributes.push(ProductAttributeSchema.parse({
+      sharedAttributes.push(ProductAttributeSchema.parse({
         id: 'material',
         name: 'Material',
         value: _body.material,
       }));
     }
+
+    return sharedAttributes;
   }
 }
 

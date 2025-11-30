@@ -15,6 +15,8 @@ import {
   IdentityMutationLogoutSchema,
   AnonymousIdentitySchema,
   RegisteredIdentitySchema,
+  type AnonymousIdentity,
+  type RegisteredIdentity,
 } from '@reactionary/core';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type z from 'zod';
@@ -23,37 +25,49 @@ import createDebug from 'debug';
 
 const debug = createDebug('reactionary:medusa:identity');
 
-export class MedusaIdentityProvider<
-  T extends Identity = Identity
-> extends IdentityProvider<T> {
+export class MedusaIdentityProvider extends IdentityProvider {
   protected config: MedusaConfiguration;
   protected client: MedusaClient;
 
   constructor(
     config: MedusaConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     client: MedusaClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
 
     this.config = config;
     this.client = client;
+  }
+
+  protected createAnonymousIdentity(): AnonymousIdentity {
+    return {
+      meta: {
+        cache: {
+          hit: false,
+          key: '',
+        },
+        placeholder: false,
+      },
+      type: 'Anonymous',
+    };
   }
 
   @Reactionary({
     inputSchema: IdentityQuerySelfSchema,
     outputSchema: IdentitySchema,
   })
-  public override async getSelf(_payload: IdentityQuerySelf): Promise<T> {
+  public override async getSelf(
+    _payload: IdentityQuerySelf
+  ): Promise<Identity> {
     try {
       const medusaClient = await this.client.getClient();
       const token = await medusaClient.client.getToken();
 
       if (!token) {
         debug('No active session token found, returning anonymous identity');
-        return AnonymousIdentitySchema.parse({}) as T;
+        return this.createAnonymousIdentity();
       }
 
       // Try to fetch customer details to verify authentication
@@ -61,13 +75,25 @@ export class MedusaIdentityProvider<
 
       if (customerResponse.customer) {
         debug('Customer authenticated:', customerResponse.customer.email);
-        return RegisteredIdentitySchema.parse({}) as T;
+        return {
+          id: {
+            userId: customerResponse.customer.id,
+          },
+          meta: {
+            cache: {
+              hit: false,
+              key: '',
+            },
+            placeholder: false,
+          },
+          type: 'Registered',
+        } satisfies RegisteredIdentity;
       }
 
-      return AnonymousIdentitySchema.parse({}) as T;
+      return this.createAnonymousIdentity();
     } catch (error) {
       debug('getSelf failed, returning anonymous identity:', error);
-      return AnonymousIdentitySchema.parse({}) as T;
+      return this.createAnonymousIdentity();
     }
   }
 
@@ -75,7 +101,7 @@ export class MedusaIdentityProvider<
     inputSchema: IdentityMutationLoginSchema,
     outputSchema: IdentitySchema,
   })
-  public override async login(payload: IdentityMutationLogin): Promise<T> {
+  public override async login(payload: IdentityMutationLogin): Promise<Identity> {
     debug('Attempting login for user:', payload.username);
     const identity = await this.client.login(
       payload.username,
@@ -83,25 +109,27 @@ export class MedusaIdentityProvider<
       this.context
     );
 
-    return identity as T;
+    return identity satisfies Identity;
   }
 
   @Reactionary({
     inputSchema: IdentityMutationLogoutSchema,
     outputSchema: IdentitySchema,
   })
-  public override async logout(_payload: IdentityMutationLogout): Promise<T> {
+  public override async logout(_payload: IdentityMutationLogout): Promise<Identity> {
     debug('Logging out user');
     const identity = await this.client.logout(this.context);
 
-    return identity as T;
+    return identity satisfies Identity;
   }
 
   @Reactionary({
     inputSchema: IdentityMutationRegisterSchema,
     outputSchema: IdentitySchema,
   })
-  public override async register(payload: IdentityMutationRegister): Promise<T> {
+  public override async register(
+    payload: IdentityMutationRegister
+  ): Promise<Identity> {
     debug('Registering new user:', payload.username);
 
     // Extract first and last name from username or use defaults
@@ -118,6 +146,6 @@ export class MedusaIdentityProvider<
       this.context
     );
 
-    return identity as T;
+    return identity satisfies Identity;;
   }
 }
