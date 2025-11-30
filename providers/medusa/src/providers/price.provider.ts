@@ -10,7 +10,10 @@ import {
   type CustomerPriceQuery,
   type ListPriceQuery,
   type Price,
-  type RequestContext
+  type RequestContext,
+  type PriceIdentifier,
+  type Meta,
+  type MonetaryAmount
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type z from 'zod';
@@ -19,19 +22,16 @@ import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 const debug = createDebug('reactionary:medusa:price');
 
-export class MedusaPriceProvider<
-  T extends Price = Price
-> extends PriceProvider<T> {
+export class MedusaPriceProvider extends PriceProvider {
   protected config: MedusaConfiguration;
 
   constructor(
     config: MedusaConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     public client: MedusaClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
     this.config = config;
   }
 
@@ -39,7 +39,7 @@ export class MedusaPriceProvider<
     inputSchema: ListPriceQuerySchema,
     outputSchema: PriceSchema,
   })
-  public override getListPrice(payload: ListPriceQuery): Promise<T> {
+  public override getListPrice(payload: ListPriceQuery): Promise<Price> {
     return this.getBySKU(payload);
   }
 
@@ -47,12 +47,12 @@ export class MedusaPriceProvider<
     inputSchema: CustomerPriceQuerySchema,
     outputSchema: PriceSchema,
   })
-  public override getCustomerPrice(payload: CustomerPriceQuery): Promise<T> {
+  public override getCustomerPrice(payload: CustomerPriceQuery): Promise<Price> {
     return this.getBySKU(payload);
   }
 
 
-  protected async getBySKU(payload: ListPriceQuery | CustomerPriceQuery ): Promise<T> {
+  protected async getBySKU(payload: ListPriceQuery | CustomerPriceQuery ): Promise<Price> {
     const sku = payload.variant.sku;
 
     if (debug.enabled) {
@@ -93,47 +93,48 @@ export class MedusaPriceProvider<
     }
   }
 
-  protected override parseSingle(variant: StoreProductVariant): T {
-    const model = this.newModel();
-
-    model.identifier = {
+  protected parseSingle(variant: StoreProductVariant): Price {
+    const identifier = {
       variant: {
         sku: variant.sku || '',
       },
-    };
+    } satisfies PriceIdentifier;
 
     // In Medusa v2, calculated_price contains the final price for the variant
     // based on the region, currency, and any applicable price lists
     const calculatedPrice = variant.calculated_price;
 
+    let unitPrice;
     if (calculatedPrice) {
-      model.unitPrice = {
+      unitPrice = {
         value: calculatedPrice.calculated_amount || 0,
         currency: (calculatedPrice.currency_code?.toUpperCase() ||
           this.context.languageContext.currencyCode) as Currency,
-      };
+      } satisfies MonetaryAmount;
     } else {
       // Fallback to empty price if no calculated price available
-      model.unitPrice = {
+      unitPrice = {
         value: -1,
         currency: this.context.languageContext.currencyCode as Currency,
-      };
+      } satisfies MonetaryAmount;
     }
 
-    // Medusa v2 doesn't have built-in tiered pricing in the same way
-    // You would typically implement this through price lists with different price sets
-    // For now, we'll leave tiered prices empty
-    model.tieredPrices = [];
-
-    model.meta = {
+    const meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeySingle(model.identifier),
+        key: this.generateCacheKeySingle(identifier),
       },
       placeholder: calculatedPrice === undefined,
-    };
+    } satisfies Meta;
 
-    return this.assert(model);
+    const result = {
+      identifier,
+      meta,
+      tieredPrices: [],
+      unitPrice
+    } satisfies Price;
+
+    return result;
   }
 
 

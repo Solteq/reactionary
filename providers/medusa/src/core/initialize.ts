@@ -55,35 +55,35 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
 
 
         if (caps.productSearch) {
-            client.productSearch = new MedusaSearchProvider(configuration, ProductSearchResultItemSchema, cache, context, medusaClient);
+            client.productSearch = new MedusaSearchProvider(configuration, cache, context, medusaClient);
         }
 
         if (caps.category) {
-            client.category = new MedusaCategoryProvider(configuration, CategorySchema, cache, context, medusaClient);
+            client.category = new MedusaCategoryProvider(configuration, cache, context, medusaClient);
         }
 
         if (caps.checkout) {
-            client.checkout = new MedusaCheckoutProvider(configuration, CheckoutSchema, cache, context, medusaClient);
+            client.checkout = new MedusaCheckoutProvider(configuration, cache, context, medusaClient);
         }
 
         if (caps.product) {
-            client.product = new MedusaProductProvider(configuration, ProductSchema, cache, context, medusaClient);
+            client.product = new MedusaProductProvider(configuration, cache, context, medusaClient);
         }
 
         if (caps.cart) {
-            client.cart = new MedusaCartProvider(configuration, CartSchema, cache, context, medusaClient);
+            client.cart = new MedusaCartProvider(configuration, cache, context, medusaClient);
         }
 
         if (caps.price) {
-            client.price = new MedusaPriceProvider(configuration, PriceSchema, cache, context, medusaClient);
+            client.price = new MedusaPriceProvider(configuration, cache, context, medusaClient);
         }
 
         if (caps.inventory) {
-            client.inventory = new MedusaInventoryProvider(configuration, InventorySchema, cache, context, medusaClient);
+            client.inventory = new MedusaInventoryProvider(configuration, cache, context, medusaClient);
         }
 
         if (caps.identity) {
-            client.identity = new MedusaIdentityProvider(configuration, IdentitySchema, cache, context, medusaClient);
+            client.identity = new MedusaIdentityProvider(configuration, cache, context, medusaClient);
         }
 
         return client;

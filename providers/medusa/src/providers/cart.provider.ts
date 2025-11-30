@@ -10,9 +10,12 @@ import type {
   CartMutationItemRemove,
   CartMutationRemoveCoupon,
   CartQueryById,
+  CostBreakDown,
   Currency,
+  Meta,
   ProductVariantIdentifier,
-  RequestContext
+  RequestContext,
+  CartItem,
 } from '@reactionary/core';
 import {
   CartItemSchema,
@@ -50,19 +53,16 @@ import type StoreCartPromotion = require('@medusajs/types');
 
 const debug = createDebug('reactionary:medusa:cart');
 
-export class MedusaCartProvider<
-  T extends Cart = Cart
-> extends CartProvider<T> {
+export class MedusaCartProvider extends CartProvider {
   protected config: MedusaConfiguration;
 
   constructor(
     config: MedusaConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     public client: MedusaClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
     this.config = config;
   }
 
@@ -72,7 +72,7 @@ export class MedusaCartProvider<
   })
   public override async getById(
     payload: CartQueryById
-  ): Promise<T> {
+  ): Promise<Cart> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -104,7 +104,7 @@ export class MedusaCartProvider<
   })
   public override async add(
     payload: CartMutationItemAdd
-  ): Promise<T> {
+  ): Promise<Cart> {
     try {
       const client = await this.getClient();
 
@@ -156,7 +156,7 @@ export class MedusaCartProvider<
   })
   public override async remove(
     payload: CartMutationItemRemove
-  ): Promise<T> {
+  ): Promise<Cart> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -186,7 +186,7 @@ export class MedusaCartProvider<
   })
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange
-  ): Promise<T> {
+  ): Promise<Cart> {
     if (payload.quantity < 1) {
       throw new Error('Changing quantity to 0 is not allowed. Use the remove call instead.');
       // Changing quantity to 0 is not allowed. Use the remove call instead.
@@ -263,7 +263,7 @@ export class MedusaCartProvider<
   })
   public override async deleteCart(
     payload: CartMutationDeleteCart
-  ): Promise<T> {
+  ): Promise<Cart> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -307,7 +307,7 @@ export class MedusaCartProvider<
   })
   public override async applyCouponCode(
     payload: CartMutationApplyCoupon
-  ): Promise<T> {
+  ): Promise<Cart> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -335,7 +335,7 @@ export class MedusaCartProvider<
   })
   public override async removeCouponCode(
     payload: CartMutationRemoveCoupon
-  ): Promise<T> {
+  ): Promise<Cart> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -370,7 +370,7 @@ export class MedusaCartProvider<
   })
   public override async changeCurrency(
     payload: CartMutationChangeCurrency
-  ): Promise<T> {
+  ): Promise<Cart> {
     try {
       const client = await this.getClient();
 
@@ -449,16 +449,14 @@ export class MedusaCartProvider<
      return this.client.getClient();
   }
 
-  protected override parseSingle(remote: MedusaTypes.StoreCart): T {
-    const result = this.newModel();
-
-    result.identifier = MedusaCartIdentifierSchema.parse({
+  protected parseSingle(remote: MedusaTypes.StoreCart): Cart {
+    const identifier = MedusaCartIdentifierSchema.parse({
       key: remote.id,
       region_id: remote.region_id,
     });
 
-    result.name = '' + (remote.metadata?.['name'] || '');
-    result.description = '' + (remote.metadata?.['description'] || '');
+    const name = '' + (remote.metadata?.['name'] || '');
+    const description = '' + (remote.metadata?.['description'] || '');
 
     // Calculate totals
     const grandTotal = remote.total || 0;
@@ -468,7 +466,7 @@ export class MedusaCartProvider<
     const subtotal = remote.subtotal || 0;
     const currency = (remote.currency_code || 'EUR').toUpperCase() as Currency;
 
-    result.price = {
+    const price = {
       totalTax: {
         value: taxTotal,
         currency,
@@ -493,9 +491,10 @@ export class MedusaCartProvider<
         value: grandTotal,
         currency,
       },
-    };
+    } satisfies CostBreakDown;
 
     // Parse cart items
+    const items = new Array<CartItem>();
     for (const remoteItem of remote.items || []) {
       const item = CartItemSchema.parse({});
 
@@ -529,18 +528,30 @@ export class MedusaCartProvider<
         },
       };
 
-      result.items.push(item);
+      items.push(item);
     }
 
-    result.meta = {
+    const meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeySingle(result.identifier),
+        key: this.generateCacheKeySingle(identifier),
       },
       placeholder: false,
-    };
+    } satisfies Meta;
 
-    return this.assert(result);
+    const result = {
+      identifier,
+      name,
+      description,
+      price,
+      items,
+      meta,
+      userId: {
+        userId: '???'
+      }
+    } satisfies Cart;
+
+    return result;
   }
 
 

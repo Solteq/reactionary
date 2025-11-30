@@ -1,5 +1,8 @@
-import type { StoreProductCategory, StoreProductCategoryListResponse } from '@medusajs/types';
-import type { Category, Cache } from '@reactionary/core';
+import type {
+  StoreProductCategory,
+  StoreProductCategoryListResponse,
+} from '@medusajs/types';
+import type { Category, Cache, Meta, CategoryPaginatedResult } from '@reactionary/core';
 import {
   CategoryIdentifierSchema,
   CategoryProvider,
@@ -16,51 +19,54 @@ import {
   type CategoryQueryForBreadcrumb,
   type CategoryQueryForChildCategories,
   type CategoryQueryForTopCategories,
-  type RequestContext
+  type RequestContext,
+  CategoryPaginatedResultSchema,
 } from '@reactionary/core';
 import type { MedusaClient, MedusaConfiguration } from '../index.js';
-import type z from 'zod';
+import z from 'zod';
 
-export class MedusaCategoryProvider<
-  T extends Category = Category
-> extends CategoryProvider<T> {
-
+export class MedusaCategoryProvider extends CategoryProvider {
   protected config: MedusaConfiguration;
 
   constructor(
     config: MedusaConfiguration,
-    schema: z.ZodType<T>,
     cache: Cache,
     context: RequestContext,
     public client: MedusaClient
   ) {
-    super(schema, cache, context);
+    super(cache, context);
     this.config = config;
   }
 
-  protected async resolveCategoryIdByExternalId(externalId: string): Promise<StoreProductCategory | null> {
-        const sdk = await this.client.getClient();
+  protected async resolveCategoryIdByExternalId(
+    externalId: string
+  ): Promise<StoreProductCategory | null> {
+    const sdk = await this.client.getClient();
     let offset = 0;
     const limit = 50;
     let candidate: StoreProductCategory | undefined = undefined;
-    while(true) {
+    while (true) {
       try {
         const categoryResult = await sdk.store.category.list({
           offset,
-          limit
+          limit,
         });
 
         if (categoryResult.product_categories.length === 0) {
           break;
         }
 
-        candidate = categoryResult.product_categories.find((cat) => cat.metadata?.['external_id'] === externalId);
+        candidate = categoryResult.product_categories.find(
+          (cat) => cat.metadata?.['external_id'] === externalId
+        );
         if (candidate) {
           break;
         }
         offset += limit;
       } catch (error) {
-          throw new Error('Category not found ' +  externalId + " due to error: " + error );
+        throw new Error(
+          'Category not found ' + externalId + ' due to error: ' + error
+        );
         break;
       }
     }
@@ -71,14 +77,27 @@ export class MedusaCategoryProvider<
     inputSchema: CategoryQueryByIdSchema,
     outputSchema: CategorySchema,
   })
-  public override async getById(payload: CategoryQueryById): Promise<T> {
+  public override async getById(payload: CategoryQueryById): Promise<Category> {
     const candidate = await this.resolveCategoryIdByExternalId(payload.id.key);
     if (!candidate) {
-      const dummyCategory = this.newModel();
-      dummyCategory.meta.placeholder = true;
-      dummyCategory.identifier = { key: payload.id.key };
-      return dummyCategory;
+      const dummyCategory = {
+        identifier: {
+          key: payload.id.key,
+        },
+        images: [],
+        name: '',
+        slug: '',
+        text: '',
+        meta: {
+          cache: {
+            hit: false,
+            key: '',
+          },
+          placeholder: false,
+        },
+      } satisfies Category;
 
+      return dummyCategory;
     }
     return this.parseSingle(candidate!);
   }
@@ -87,13 +106,15 @@ export class MedusaCategoryProvider<
     inputSchema: CategoryQueryBySlugSchema,
     outputSchema: CategorySchema.nullable(),
   })
-  public override async getBySlug(payload: CategoryQueryBySlug): Promise<T | null> {
+  public override async getBySlug(
+    payload: CategoryQueryBySlug
+  ): Promise<Category | null> {
     const sdk = await this.client.getClient();
 
     const categoryResult = await sdk.store.category.list({
       handle: payload.slug,
       limit: 1,
-      offset: 0
+      offset: 0,
     });
     if (categoryResult.count === 0) {
       return null;
@@ -103,23 +124,27 @@ export class MedusaCategoryProvider<
 
   @Reactionary({
     inputSchema: CategoryQueryForBreadcrumbSchema,
+    outputSchema: z.array(CategorySchema),
   })
-  public override async getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb): Promise<T[]> {
-
-    const actualCategoryId = await this.resolveCategoryIdByExternalId(payload.id.key);
+  public override async getBreadcrumbPathToCategory(
+    payload: CategoryQueryForBreadcrumb
+  ): Promise<Category[]> {
+    const actualCategoryId = await this.resolveCategoryIdByExternalId(
+      payload.id.key
+    );
     if (!actualCategoryId) {
-      throw new Error('Category not found ' +  payload.id.key);
+      throw new Error('Category not found ' + payload.id.key);
     }
 
     const sdk = await this.client.getClient();
     const path = await sdk.store.category.retrieve(actualCategoryId.id, {
       fields: '+metadata,+parent_category.metadata',
-      include_ancestors_tree: true
+      include_ancestors_tree: true,
     });
 
-    let results: T[] = [];
+    let results = new Array<Category>();
     let current: StoreProductCategory | null = path.product_category;
-    while(current) {
+    while (current) {
       results.push(this.parseSingle(current));
       current = current.parent_category;
     }
@@ -129,33 +154,34 @@ export class MedusaCategoryProvider<
 
   @Reactionary({
     inputSchema: CategoryQueryForChildCategoriesSchema,
+    outputSchema: CategoryPaginatedResultSchema,
   })
-  public override async findChildCategories(payload: CategoryQueryForChildCategories) {
+  public override async findChildCategories(
+    payload: CategoryQueryForChildCategories
+  ) {
     const sdk = await this.client.getClient();
 
-    const actualParentId = await this.resolveCategoryIdByExternalId(payload.parentId.key);
+    const actualParentId = await this.resolveCategoryIdByExternalId(
+      payload.parentId.key
+    );
     if (!actualParentId) {
-      throw new Error('Parent category not found ' +  payload.parentId.key);
+      throw new Error('Parent category not found ' + payload.parentId.key);
     }
-
-
-
 
     const response = await sdk.store.category.list({
       fields: '+metadata,+parent_category.metadata',
       parent_category_id: actualParentId.id,
       limit: payload.paginationOptions.pageSize,
-      offset: (payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize,
+      offset:
+        (payload.paginationOptions.pageNumber - 1) *
+        payload.paginationOptions.pageSize,
     });
 
     const result = this.parsePaginatedResult(response);
     result.meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeyPaginatedResult(
-          'top',
-          result
-        ),
+        key: this.generateCacheKeyPaginatedResult('top', result),
       },
       placeholder: false,
     };
@@ -164,65 +190,90 @@ export class MedusaCategoryProvider<
 
   @Reactionary({
     inputSchema: CategoryQueryForTopCategoriesSchema,
+    outputSchema: CategoryPaginatedResultSchema,
   })
-  public override async findTopCategories(payload: CategoryQueryForTopCategories) {
+  public override async findTopCategories(
+    payload: CategoryQueryForTopCategories
+  ) {
     const sdk = await this.client.getClient();
-
 
     const response = await sdk.store.category.list({
       fields: '+metadata',
-      parent_category_id: "null",
+      parent_category_id: 'null',
       limit: payload.paginationOptions.pageSize,
-      offset: (payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize,
+      offset:
+        (payload.paginationOptions.pageNumber - 1) *
+        payload.paginationOptions.pageSize,
     });
 
     const result = this.parsePaginatedResult(response);
     result.meta = {
       cache: {
         hit: false,
-        key: this.generateCacheKeyPaginatedResult(
-          'top',
-          result
-        ),
+        key: this.generateCacheKeyPaginatedResult('top', result),
       },
       placeholder: false,
     };
     return result;
   }
 
+  protected parseSingle(_body: StoreProductCategory): Category {
+    const identifier = CategoryIdentifierSchema.parse({
+      key: _body.metadata?.['external_id'] || '',
+    });
 
-  protected override parseSingle(_body: StoreProductCategory): T {
+    const name = _body.name;
+    const slug = _body.handle;
+    const text = _body.description || _body.name || '';
+    const parentCategory = _body.parent_category_id
+      ? { key: _body.parent_category?.metadata?.['external_id'] + '' || '' }
+      : undefined;
 
-    const model = this.newModel();
-    model.identifier = CategoryIdentifierSchema.parse({ key: _body.metadata?.['external_id'] || ''});
-    model.name = _body.name;
-    model.slug = _body.handle;
-    model.text = _body.description || _body.name || '';
-    model.parentCategory = _body.parent_category_id ? { key: _body.parent_category?.metadata?.['external_id'] + '' || '' } : undefined;
-
-    return this.assert(model);
-  }
-
-  protected override parsePaginatedResult(body: StoreProductCategoryListResponse) {
-
-    const items = body.product_categories.map((x) => this.parseSingle(x));
-
-    const totalPages = Math.ceil((body.count ?? 0) / (Math.max(body.product_categories.length, 1)));
-    const pageNumber = body.count === 0? 1:   Math.floor(body.offset / body.product_categories.length) + 1;
-    const result = createPaginatedResponseSchema(this.schema).parse({
+    const result = {
+      identifier,
+      name,
+      slug,
+      text,
+      parentCategory,
+      images: [],
       meta: {
-        cache: { hit: false, key: 'unknown' },
+        cache: {
+          hit: false,
+          key: '',
+        },
         placeholder: false,
       },
+    } satisfies Category;
+
+    return result;
+  }
+
+  protected parsePaginatedResult(
+    body: StoreProductCategoryListResponse
+  ) {
+    const items = body.product_categories.map((x) => this.parseSingle(x));
+
+    const totalPages = Math.ceil(
+      (body.count ?? 0) / Math.max(body.product_categories.length, 1)
+    );
+    const pageNumber =
+      body.count === 0
+        ? 1
+        : Math.floor(body.offset / body.product_categories.length) + 1;
+    const meta = {
+      cache: { hit: false, key: 'unknown' },
+      placeholder: false,
+    } satisfies Meta;
+
+    const result = {
       pageNumber: pageNumber,
       pageSize: Math.max(body.product_categories.length, 1),
       totalCount: body.count,
-
       totalPages: totalPages,
       items: items,
-    });
+      meta
+    } satisfies CategoryPaginatedResult;
+
     return result;
-
   }
-
 }

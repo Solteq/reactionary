@@ -21,6 +21,9 @@ import {
   type ProductSearchResultFacet,
   type ProductSearchResultFacetValue,
   Reactionary,
+  ProductSearchResultSchema,
+  type Product,
+  type Meta,
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type z from 'zod';
@@ -30,18 +33,17 @@ import type { StoreProduct, StoreProductListResponse, StoreProductVariant } from
 
 const debug = createDebug('reactionary:medusa:search');
 
-export class MedusaSearchProvider<
-  T extends ProductSearchResultItem = ProductSearchResultItem
-> extends ProductSearchProvider<T> {
+export class MedusaSearchProvider extends ProductSearchProvider {
   protected config: MedusaConfiguration;
 
-  constructor(config: MedusaConfiguration, schema: z.ZodType<T>, cache: Cache, context: RequestContext, public client: MedusaClient) {
-    super(schema, cache, context);
+  constructor(config: MedusaConfiguration, cache: Cache, context: RequestContext, public client: MedusaClient) {
+    super(cache, context);
     this.config = config;
   }
 
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
+    outputSchema: ProductSearchResultSchema
   })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
@@ -73,7 +75,7 @@ export class MedusaSearchProvider<
     return result;
   }
 
-  protected override parsePaginatedResult(remote: StoreProductListResponse) {
+  protected parsePaginatedResult(remote: StoreProductListResponse) {
 
     // Parse facets
     // no facets available from Medusa at the moment
@@ -81,7 +83,16 @@ export class MedusaSearchProvider<
     const products: ProductSearchResultItem[] = remote.products.map((p) => this.parseSingle(p));
 
 
-    const result = createPaginatedResponseSchema(this.schema).parse({
+    const result = {
+      identifier: {
+        facets: [],
+        filters: [],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 0
+        },
+        term: ''
+      },
       meta: {
         cache: { hit: false, key: 'unknown' },
         placeholder: false
@@ -91,26 +102,40 @@ export class MedusaSearchProvider<
       totalCount: remote.count,
       totalPages: Math.ceil((remote.count / remote.limit) || 0) + 1,
       items: products,
-    });
+      facets: []
+    } satisfies ProductSearchResult;
 
     (result as ProductSearchResult).facets = [];
     return result;
   }
 
 
-  protected override parseSingle(_body: StoreProduct): T {
-    const result = this.newModel();
-
+  protected parseSingle(_body: StoreProduct): ProductSearchResultItem {
     const heroVariant = _body.variants?.[0];
-    result.identifier = { key: _body.id };
-    result.slug = _body.handle;
-    result.name = heroVariant?.title || _body.title;
-    result.variants = [];
+    const identifier = { key: _body.id };
+    const slug = _body.handle;
+    const name = heroVariant?.title || _body.title;
+    const variants = [];
     if (heroVariant) {
-      result.variants.push(this.parseVariant(heroVariant, _body));
+      variants.push(this.parseVariant(heroVariant, _body));
     }
+    const meta = {
+      cache: {
+        hit: false,
+        key: ''
+      },
+      placeholder: false
+    } satisfies Meta;
 
-    return this.assert(result);
+    const result = {
+      identifier,
+      meta,
+      name,
+      slug,
+      variants
+    } satisfies ProductSearchResultItem;
+
+    return result;
   }
 
 
@@ -135,8 +160,7 @@ export class MedusaSearchProvider<
 
     return ProductSearchResultItemVariantSchema.parse({
       variant: ProductVariantIdentifierSchema.parse({ sku: variant.sku || '' } satisfies ProductVariantIdentifier ),
-      image: img,
-      option: mappedOption,
+      image: img
      } satisfies Partial<ProductSearchResultItemVariant>);
   }
 
