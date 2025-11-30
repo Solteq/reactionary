@@ -52,7 +52,7 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
     beforeEach(async () => {
       cart = await client.cart.add(
         {
-          cart: { key: '', version: 0 },
+          cart: { key: '' },
           variant: {
             sku: testData.skuWithoutTiers,
           },

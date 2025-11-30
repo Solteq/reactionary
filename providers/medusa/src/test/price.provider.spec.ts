@@ -21,7 +21,7 @@ describe('Medusa Price Provider', () => {
     const config = getMedusaTestConfiguration();
     const client = new MedusaClient(config, reqCtx);
 
-    provider = new MedusaPriceProvider(config, PriceSchema, new NoOpCache(), reqCtx, client);
+    provider = new MedusaPriceProvider(config, new NoOpCache(), reqCtx, client);
   })
 
   it('should be able to get prices for a product without tiers', async () => {

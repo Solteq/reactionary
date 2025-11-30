@@ -38,14 +38,14 @@ describe('basic node provider extension (models)', () => {
       // In the real world, call super
       // super.parseItem(data);
       // Which would start by doing
-      const item = this.newModel();
+      const item = { } as any;
 
       if (data) {
         item.name = (data as { name: string }).name;
       }
 
 
-      return this.assert(item);
+      return item;
     }
   }
 
@@ -59,7 +59,6 @@ describe('basic node provider extension (models)', () => {
             product: 1,
             search: 1
           }},
-          ExtendedProductModel,
           cache,
           context
         ),

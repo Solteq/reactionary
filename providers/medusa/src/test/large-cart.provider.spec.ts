@@ -21,8 +21,8 @@ describe('Medusa Cart Provider - Large Scenarios', () => {
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
     const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
-    provider = new MedusaCartProvider(getMedusaTestConfiguration(), CartSchema, new NoOpCache(), reqCtx, client);
-    searchProvider = new MedusaSearchProvider(getMedusaTestConfiguration(), ProductSearchResultItemSchema, new NoOpCache(), reqCtx, client);
+    provider = new MedusaCartProvider(getMedusaTestConfiguration(), new NoOpCache(), reqCtx, client);
+    searchProvider = new MedusaSearchProvider(getMedusaTestConfiguration(), new NoOpCache(), reqCtx, client);
   });
 
   describe('large carts', () => {
