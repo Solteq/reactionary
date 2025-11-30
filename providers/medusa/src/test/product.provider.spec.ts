@@ -23,7 +23,7 @@ describe('Medusa Product Provider', () => {
     beforeEach( () => {
       reqCtx = createInitialRequestContext();
       const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
-      provider = new MedusaProductProvider(getMedusaTestConfiguration(), ProductSchema, new NoOpCache(), reqCtx, client);
+      provider = new MedusaProductProvider(getMedusaTestConfiguration(), new NoOpCache(), reqCtx, client);
     })
 
 

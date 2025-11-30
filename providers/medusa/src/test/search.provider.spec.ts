@@ -13,7 +13,6 @@ describe('Medusa Search Provider', () => {
   const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
   const provider = new MedusaSearchProvider(
     getMedusaTestConfiguration(),
-    ProductSearchResultItemSchema,
     new NoOpCache(),
     reqCtx,
     client

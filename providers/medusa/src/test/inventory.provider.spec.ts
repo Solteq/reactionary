@@ -21,7 +21,7 @@ describe('Medusa Inventory Provider', () => {
     const config = getMedusaTestConfiguration();
     const client = new MedusaClient(config, reqCtx);
 
-    provider = new MedusaInventoryProvider(config, InventorySchema, new NoOpCache(), reqCtx, client);
+    provider = new MedusaInventoryProvider(config, new NoOpCache(), reqCtx, client);
   })
 
   it('should be able to get inventory for a SKU with stock', async () => {

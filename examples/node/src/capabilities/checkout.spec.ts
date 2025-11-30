@@ -25,7 +25,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Checkout Capability - %s', (prov
     beforeEach(async () => {
       cart = await client.cart.add(
         {
-          cart: { key: '', version: 0 },
+          cart: { key: '' },
           variant: {
             sku: testData.skuWithoutTiers,
           },

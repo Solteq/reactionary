@@ -19,7 +19,7 @@ describe('Medusa Cart Provider', () => {
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
     const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
-    provider = new MedusaCartProvider(getMedusaTestConfiguration(), CartSchema, new NoOpCache(), reqCtx, client);
+    provider = new MedusaCartProvider(getMedusaTestConfiguration(), new NoOpCache(), reqCtx, client);
   });
 
   describe('anonymous sessions', () => {

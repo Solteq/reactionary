@@ -34,7 +34,7 @@ describe('Medusa Category Provider', () => {
     const config = getMedusaTestConfiguration();
     const client = new MedusaClient(config, reqCtx);
 
-    provider = new MedusaCategoryProvider(config, CategorySchema, new NoOpCache(), reqCtx, client);
+    provider = new MedusaCategoryProvider(config, new NoOpCache(), reqCtx, client);
   })
 
   it('should be able to get top-categories', async () => {

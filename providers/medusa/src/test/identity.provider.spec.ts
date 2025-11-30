@@ -20,7 +20,7 @@ describe('Medusa Identity Provider', () => {
     const config = getMedusaTestConfiguration();
     const client = new MedusaClient(config, reqCtx);
 
-    provider = new MedusaIdentityProvider(config, IdentitySchema, new NoOpCache(), reqCtx, client);
+    provider = new MedusaIdentityProvider(config, new NoOpCache(), reqCtx, client);
   });
 
   it('should return anonymous identity when not authenticated', async () => {
@@ -47,8 +47,6 @@ describe('Medusa Identity Provider', () => {
       const result = await provider.register({
         username: testData.testEmail,
         password: testData.testPassword,
-        firstName: testData.testFirstName,
-        lastName: testData.testLastName,
       });
       await provider.logout({});
 
