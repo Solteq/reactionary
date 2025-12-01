@@ -67,7 +67,7 @@ export abstract class ProductProvider extends BaseProvider {
           hit: false,
           key: ''
         },
-        placeholder: false
+        placeholder: true
       },
       name: '',
       options: [],

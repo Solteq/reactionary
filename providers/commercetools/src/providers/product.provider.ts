@@ -9,8 +9,6 @@ import {
   ProductQueryBySKUSchema,
   ProductQueryBySlugSchema,
   ProductSchema,
-  ProductVariantIdentifierSchema,
-  ProductVariantSchema,
   Reactionary,
 } from '@reactionary/core';
 import type { z } from 'zod';
@@ -70,7 +68,10 @@ export class CommercetoolsProductProvider extends ProductProvider {
 
     // FIXME: This should be a ProductIdentifier...
     try {
-      const remote = await client.withKey({ key: payload.identifier.key }).get().execute();
+      const remote = await client
+        .withKey({ key: payload.identifier.key })
+        .get()
+        .execute();
 
       return this.parseSingle(remote.body);
     } catch (error) {
@@ -134,10 +135,14 @@ export class CommercetoolsProductProvider extends ProductProvider {
       description = data.description[this.context.languageContext.locale];
     }
 
-
-    const variantLevelAttributes = data.masterVariant.attributes?.map((x) => this.parseAttribute(x)) || [];
-    const productLevelAttributes = data.attributes.map((x) => this.parseAttribute(x)) || [];
-    const sharedAttributes = [...productLevelAttributes, ...variantLevelAttributes];
+    const variantLevelAttributes =
+      data.masterVariant.attributes?.map((x) => this.parseAttribute(x)) || [];
+    const productLevelAttributes =
+      data.attributes.map((x) => this.parseAttribute(x)) || [];
+    const sharedAttributes = [
+      ...productLevelAttributes,
+      ...variantLevelAttributes,
+    ];
     const mainVariant = this.parseVariant(data.masterVariant, data);
     const meta = {
       cache: { hit: false, key: this.generateCacheKeySingle(identifier) },
@@ -157,7 +162,7 @@ export class CommercetoolsProductProvider extends ProductProvider {
       manufacturer: '',
       options: [],
       parentCategories: [],
-      published: true
+      published: true,
     } satisfies Product;
 
     return result;
@@ -167,22 +172,32 @@ export class CommercetoolsProductProvider extends ProductProvider {
     variant: CTProductVariant,
     product: ProductProjection
   ): ProductVariant {
-    const result = ProductVariantSchema.parse({
-      identifier: ProductVariantIdentifierSchema.parse({
-        sku: variant.sku,
-      } satisfies Partial<ProductVariantIdentifier>),
+    const identifier = {
+      sku: variant.sku!,
+    } satisfies ProductVariantIdentifier;
 
-      images: [
-        ...(variant.images || []).map((img) =>
-          ImageSchema.parse({
-            sourceUrl: img.url,
-            altText: img.label || '',
-            width: img.dimensions?.w,
-            height: img.dimensions?.h,
-          } satisfies Partial<Image>)
-        ),
-      ],
-    } satisfies Partial<ProductVariant>);
+    const images = [
+      ...(variant.images || []).map((img) =>
+        ImageSchema.parse({
+          sourceUrl: img.url,
+          altText: img.label || '',
+          width: img.dimensions?.w,
+          height: img.dimensions?.h,
+        } satisfies Image)
+      ),
+    ];
+
+    const result = {
+      identifier,
+      images,
+      barcode: '',
+      ean: '',
+      gtin: '',
+      name: '',
+      options: [],
+      upc: ''
+    } satisfies ProductVariant;
+
     return result;
   }
 
@@ -216,7 +231,6 @@ export class CommercetoolsProductProvider extends ProductProvider {
     if (typeof attr.value === 'string') {
       attrValue = attr.value;
     }
-
 
     const attrVal = ProductAttributeValueSchema.parse({
       identifier: ProductAttributeValueIdentifierSchema.parse({
