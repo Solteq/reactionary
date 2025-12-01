@@ -9,6 +9,7 @@ export const CommercetoolsConfigurationSchema = z.looseObject({
     clientSecret: z.string(),
     scopes: z.array(z.string()).default(() => []),
     paymentMethods: PaymentMethodSchema.array().optional().default(() => []),
+    facetFieldsForSearch: z.array(z.string()).default(() => []),
 });
 
 export type CommercetoolsConfiguration = z.infer<typeof CommercetoolsConfigurationSchema>;

@@ -1,3 +1,28 @@
+import type {
+  ProductSearchFacetResult as CTProductSearchFacetResult,
+  ProductSearchFacetResultBucket as CTProductSearchFacetResultBucket,
+  ProductVariant as CTProductVariant,
+  ProductPagedSearchResponse,
+  ProductProjection,
+  ProductSearchFacetExpression,
+} from '@commercetools/platform-sdk';
+import type {
+  Cache,
+  FacetIdentifier,
+  FacetValueIdentifier,
+  Meta,
+  ProductOptionIdentifier,
+  ProductSearchQueryByTerm,
+  ProductSearchResult,
+  ProductSearchResultFacet,
+  ProductSearchResultFacetValue,
+  ProductSearchResultItem,
+  ProductSearchResultItemVariant,
+  ProductVariantIdentifier,
+  ProductVariantOption,
+  RequestContext,
+  SearchIdentifier,
+} from '@reactionary/core';
 import {
   FacetIdentifierSchema,
   FacetValueIdentifierSchema,
@@ -13,34 +38,11 @@ import {
   ProductVariantOptionSchema,
   Reactionary,
 } from '@reactionary/core';
-import type {
-  Cache,
-  ProductSearchQueryByTerm,
-  RequestContext,
-  ProductSearchResultItem,
-  ProductSearchResult,
-  ProductSearchResultItemVariant,
-  ProductOptionIdentifier,
-  ProductVariantOption,
-  ProductVariantIdentifier,
-  FacetIdentifier,
-  ProductSearchResultFacet,
-  FacetValueIdentifier,
-  ProductSearchResultFacetValue,
-  Meta,
-  SearchIdentifier,
-} from '@reactionary/core';
-import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type {
-  ProductVariant as CTProductVariant,
-  FacetResult,
-  ProductProjection,
-  ProductProjectionPagedSearchResponse,
-} from '@commercetools/platform-sdk';
 
 import createDebug from 'debug';
 import type { CommercetoolsClient } from '../core/client.js';
+
 const debug = createDebug('reactionary:commercetools:search');
 
 export class CommercetoolsSearchProvider extends ProductSearchProvider {
@@ -63,7 +65,90 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
     const client = await this.client.getClient();
     return client
       .withProjectKey({ projectKey: this.config.projectKey })
-      .productProjections();
+      .products();
+  }
+
+  protected async getFacetQuery(
+    payload: ProductSearchQueryByTerm,
+    selectedFacetValue: FacetValueIdentifier
+  ) {
+    return {
+      exact: {
+        field: selectedFacetValue.facet.key,
+        fieldType: 'text',
+        value: selectedFacetValue.key,
+      },
+    };
+  }
+
+  protected async getSearchTermExpression(payload: ProductSearchQueryByTerm) {
+    return {
+      or: [
+        {
+          fullText: {
+            field: 'name',
+            language: `${this.context.languageContext.locale}`,
+            value: payload.search.term,
+          },
+        },
+        {
+          fullText: {
+            field: 'description',
+            language: `${this.context.languageContext.locale}`,
+            value: payload.search.term,
+          },
+        },
+        {
+          fullText: {
+            field: 'searchKeywords',
+            language: `${this.context.languageContext.locale}`,
+            value: payload.search.term,
+          },
+        },
+      ],
+    };
+  }
+
+  protected async getFacetsQuery(payload: ProductSearchQueryByTerm) {
+    if (payload.search.facets.length === 0) {
+      return undefined;
+    }
+
+    const facetsToApply = await Promise.all(
+      payload.search.facets.map((facet) => this.getFacetQuery(payload, facet))
+    );
+
+    if (facetsToApply.length === 0) {
+      return undefined;
+    }
+    if (facetsToApply.length === 1) {
+      return facetsToApply[0];
+    }
+    return {
+      and: facetsToApply,
+    };
+  }
+
+  protected async getFacetsToReturn(
+    payload: ProductSearchQueryByTerm
+  ): Promise<ProductSearchFacetExpression[]> {
+    const facetsToReturn: ProductSearchFacetExpression[] = [];
+
+    const configFacets = this.config.facetFieldsForSearch || ['category.id'];
+
+    // the default behavior is to get a static list of facets from the config. In more advanced implementations, this could be dynamic based on the payload, ie based on category maybe
+    for (const facet of configFacets) {
+      facetsToReturn.push({
+        distinct: {
+          name: facet,
+          field: facet,
+          fieldType: 'text',
+          limit: 50,
+        },
+      });
+    }
+
+    return facetsToReturn;
   }
 
   @Reactionary({
@@ -75,20 +160,38 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
   ): Promise<ProductSearchResult> {
     const client = await this.getClient();
 
+    const facetsToReturn = await this.getFacetsToReturn(payload);
+    const facetsToApply = await this.getFacetsQuery(payload);
+    const searchTermExpression = await this.getSearchTermExpression(payload);
+    let finalFilterExpression: any = undefined;
+
+    if (facetsToApply) {
+      finalFilterExpression = {
+        and: [searchTermExpression, facetsToApply],
+      };
+    } else {
+      finalFilterExpression = searchTermExpression;
+    }
+
     const response = await client
       .search()
-      .get({
-        queryArgs: {
+      .post({
+        body: {
+          query: finalFilterExpression,
+          productProjectionParameters: {
+            storeProjection: this.context.storeIdentifier.key,
+          },
           limit: payload.search.paginationOptions.pageSize,
           offset:
             (payload.search.paginationOptions.pageNumber - 1) *
             payload.search.paginationOptions.pageSize,
-          [`text.${this.context.languageContext.locale}`]: payload.search.term,
+
+          facets: [...facetsToReturn],
         },
       })
       .execute();
-    const responseBody = response.body;
 
+    const responseBody = response.body;
     const result = this.parsePaginatedResult(
       responseBody,
       payload
@@ -113,9 +216,9 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
     const meta = {
       cache: {
         hit: false,
-        key: ''
+        key: '',
       },
-      placeholder: false
+      placeholder: false,
     } satisfies Meta;
 
     const product = {
@@ -123,31 +226,31 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
       name,
       slug,
       variants,
-      meta
+      meta,
     } satisfies ProductSearchResultItem;
 
     return product;
   }
 
   protected parsePaginatedResult(
-    body: ProductProjectionPagedSearchResponse,
+    body: ProductPagedSearchResponse,
     query: ProductSearchQueryByTerm
   ) {
     const identifier = {
-      ...query.search
+      ...query.search,
     } satisfies SearchIdentifier;
+
     const products: ProductSearchResultItem[] = body.results.map((p) =>
-      this.parseSingle(p)
+      this.parseSingle(p.productProjection!)
     );
     const facets: ProductSearchResultFacet[] = [];
 
-    for (const id in body.facets) {
-      const f = body.facets[id];
-      const facetId = FacetIdentifierSchema.parse({
-        key: id,
-      });
-      const facet = this.parseFacet(facetId, f);
-      facets.push(facet);
+    for (const facet of body.facets) {
+      const facetIdentifier = FacetIdentifierSchema.parse({
+        key: facet.name,
+      } satisfies Partial<FacetIdentifier>);
+
+      facets.push(this.parseFacet(facetIdentifier, facet));
     }
 
     const result = {
@@ -161,34 +264,43 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
       totalCount: body.total || 0,
       totalPages: Math.ceil((body.total || 0) / body.limit || 0) + 1,
       items: products,
-      facets
+      facets,
     } satisfies ProductSearchResult;
 
     return result;
   }
 
+  /**
+   * See version 0.0.81 for ProductProjection based facet parsing
+   * @param facetIdentifier
+   * @param facetValue
+   * @returns
+   */
   protected parseFacet(
     facetIdentifier: FacetIdentifier,
-    facetValue: FacetResult
+    facet: CTProductSearchFacetResult
   ): ProductSearchResultFacet {
     const result: ProductSearchResultFacet =
       ProductSearchResultFacetSchema.parse({
         identifier: facetIdentifier,
-        name: facetIdentifier.key,
+        name: facet.name,
         values: [],
       });
-    if (facetValue.type === 'terms') {
-      for (const ft of facetValue.terms) {
+
+    const distinctFacet = facet as CTProductSearchFacetResultBucket;
+    if (distinctFacet) {
+      distinctFacet.buckets.forEach((bucket) => {
         const facetValueIdentifier = FacetValueIdentifierSchema.parse({
           facet: facetIdentifier,
-          key: ft.term,
+          key: bucket.key,
         } satisfies Partial<FacetValueIdentifier>);
 
         result.values.push(
-          this.parseFacetValue(facetValueIdentifier, ft.term, ft.count)
+          this.parseFacetValue(facetValueIdentifier, bucket.key, bucket.count)
         );
-      }
+      });
     }
+
     return result;
   }
 

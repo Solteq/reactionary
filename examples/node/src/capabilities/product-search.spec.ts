@@ -98,7 +98,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
     });
 
     // Skip for CT, as it does not provide facets by default
-    it.skipIf(provider === PrimaryProvider.COMMERCETOOLS)('should be able to apply facets', async () => {
+    it('should be able to apply facets', async () => {
 
       const initial = await client.productSearch.queryByTerm({
         search: {
@@ -111,6 +111,8 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
           filters: [],
         },
       });
+
+      expect(initial.facets.length).toBeGreaterThan(0);
 
       const filtered = await client.productSearch.queryByTerm({
         search: {

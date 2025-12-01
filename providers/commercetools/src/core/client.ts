@@ -121,7 +121,7 @@ export class CommercetoolsClient {
   }
 
   public async login(username: string, password: string) {
-    const loginBuilder = this.createBaseClientBuilder().withPasswordFlow({
+  const loginBuilder = this.createBaseClientBuilder().withPasswordFlow({
       host: this.config.authUrl,
       projectKey: this.config.projectKey,
       credentials: {
@@ -208,9 +208,13 @@ export class CommercetoolsClient {
       }),
     });
 
-    const body = await response.json();
 
-    const scopes = body.scope as string;
+    const body = await response.json();
+    if (!body) {
+      return AnonymousIdentitySchema.parse({});
+    }
+
+    const scopes = body.scope;
 
     // FIXME: Map unmapped user_id...
     if (scopes.indexOf('anonymous_id') > -1) {
