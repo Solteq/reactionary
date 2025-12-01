@@ -31,9 +31,6 @@ export class RequestContextTokenCache implements TokenCache {
     cache: TokenStore,
     tokenCacheOptions?: TokenCacheOptions
   ): Promise<void> {
-
-    console.log('TokenCache set session:', this.context.session['PROVIDER_COMMERCETOOLS'], 'with token:', cache);
-
     const session = CommercetoolsSessionSchema.parse(
       this.context.session['PROVIDER_COMMERCETOOLS'] || {}
     );
@@ -43,7 +40,5 @@ export class RequestContextTokenCache implements TokenCache {
     session.refreshToken = cache.refreshToken;
     session.token = cache.token;
     session.expirationTime = cache.expirationTime;
-
-    console.log('TokenCache updated session:', this.context.session['PROVIDER_COMMERCETOOLS']);
   }
 }
