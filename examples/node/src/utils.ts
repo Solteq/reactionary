@@ -38,6 +38,7 @@ export function getCommercetoolsTestConfiguration() {
         description: 'Stripe payment gateway',
       }),
     ],
+    facetFieldsForSearch: (process.env['CTP_FACET_FIELDS_FOR_SEARCH'] || '').split(',') || ['category.id' ]
   };
 }
 
