@@ -1,10 +1,9 @@
 import {
-  PaymentMethodSchema,
-  PaymentMethodIdentifierSchema,
   createInitialRequestContext,
   ClientBuilder,
   NoOpCache,
 } from '@reactionary/core';
+import type { CommercetoolsConfiguration } from '@reactionary/provider-commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 
@@ -29,17 +28,27 @@ export function getCommercetoolsTestConfiguration() {
       .filter((x) => x && x.length > 0),
 
     paymentMethods: [
-      PaymentMethodSchema.parse({
-        identifier: PaymentMethodIdentifierSchema.parse({
+      {
+        identifier: {
           paymentProvider: 'stripe',
           method: 'stripe',
           name: 'Stripe',
-        }),
+          paymentProcessor: 'stripe'
+        },
+        isPunchOut: false,
+        meta: {
+          cache: {
+            hit: false,
+            key: ''
+          },
+          placeholder: false
+        },
         description: 'Stripe payment gateway',
-      }),
+
+      },
     ],
     facetFieldsForSearch: (process.env['CTP_FACET_FIELDS_FOR_SEARCH'] || '').split(',') || ['category.id' ]
-  };
+  } satisfies CommercetoolsConfiguration;
 }
 
 export enum PrimaryProvider {

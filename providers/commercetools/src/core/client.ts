@@ -7,7 +7,6 @@ import type { CommercetoolsConfiguration } from '../schema/configuration.schema.
 import { randomUUID } from 'crypto';
 import {
   AnonymousIdentitySchema,
-  GuestIdentitySchema,
   RegisteredIdentitySchema,
   type AnonymousIdentity,
   type GuestIdentity,
