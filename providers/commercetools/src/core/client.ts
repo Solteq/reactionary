@@ -165,7 +165,16 @@ export class CommercetoolsClient {
 
     // TODO: We could do token revocation here, if we wanted to. The above simply whacks the session.
 
-    return AnonymousIdentitySchema.parse({});
+    return {
+      type: 'Anonymous',
+      meta: {
+        cache: {
+          hit: false,
+          key: ''
+        },
+        placeholder: false
+      }
+    } satisfies AnonymousIdentity;
   }
 
   // FIXME: This can fail if the short-lived access token has expired. In other words, probably missing a token refresh.
@@ -259,7 +268,16 @@ export class CommercetoolsClient {
       return identity;
     }
 
-    return AnonymousIdentitySchema.parse({});
+    return {
+      type: 'Anonymous',
+      meta: {
+        cache: {
+          hit: false,
+          key: ''
+        },
+        placeholder: false
+      }
+    } satisfies AnonymousIdentity;
   }
 
   protected async becomeGuest() {

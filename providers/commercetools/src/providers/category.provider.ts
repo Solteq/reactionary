@@ -82,7 +82,7 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
             hit: false,
             key: '',
           },
-          placeholder: false,
+          placeholder: true,
         },
       } satisfies Category;
 

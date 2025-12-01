@@ -148,11 +148,11 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
         const checkoutWithPi = await client.checkout.addPaymentInstruction(
           {
             checkout: checkout.identifier,
-            paymentInstruction: PaymentInstructionSchema.parse({
-              paymentMethod: pm?.identifier,
+            paymentInstruction: {
+              paymentMethod: pm!.identifier,
               amount: checkout.price.grandTotal,
               protocolData: [{ key: 'test-key', value: 'test-value' }],
-            }),
+            },
           }
         );
 
@@ -176,11 +176,11 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
         const checkoutWithPi = await client.checkout.addPaymentInstruction(
           {
             checkout: checkout.identifier,
-            paymentInstruction: PaymentInstructionSchema.parse({
-              paymentMethod: pm?.identifier,
+            paymentInstruction: {
+              paymentMethod: pm!.identifier,
               amount: checkout.price.grandTotal,
               protocolData: [{ key: 'test-key', value: 'test-value' }],
-            }),
+            },
           }
         );
 
@@ -227,13 +227,13 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
         const sm = shippingMethods.find((x) => x.name === 'Standard Shipping');
         expect(sm).toBeDefined();
 
-        const shippingInstruction = ShippingInstructionSchema.parse({
+        const shippingInstruction = {
           shippingMethod: sm?.identifier || { key: '' },
           amount: checkout.price.totalShipping,
           instructions: 'Leave at front door if not home',
           consentForUnattendedDelivery: true,
           pickupPoint: '4190asx141', // this would be a real pickup point ID in a real scenario
-        });
+        };
 
         const checkoutWithShipping = await client.checkout.setShippingInstruction(
           {
@@ -273,11 +273,11 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
         const checkoutWithPi = await client.checkout.addPaymentInstruction(
           {
             checkout: checkout.identifier,
-            paymentInstruction: PaymentInstructionSchema.parse({
-              paymentMethod: pm?.identifier,
+            paymentInstruction: {
+              paymentMethod: pm!.identifier,
               amount: checkout.price.grandTotal,
               protocolData: [{ key: 'test-key', value: 'test-value' }],
-            }),
+            },
           }
         );
 

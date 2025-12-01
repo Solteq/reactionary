@@ -29,9 +29,12 @@ import type {
   Currency,
   Cache,
   CostBreakDown,
+  CartItemIdentifier,
+  ProductIdentifier,
+  ProductVariantIdentifier,
+  ItemCostBreakdown,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { z } from 'zod';
 import type {
   Cart as CTCart,
   MyCartUpdateAction,
@@ -385,7 +388,7 @@ export class CommercetoolsCartProvider extends CartProvider {
       },
       totalShipping: {
         value: shippingTotal / 100,
-        currency: remote.shippingInfo?.price.currencyCode as Currency,
+        currency,
       },
       totalProductPrice: {
         value: productTotal / 100,
@@ -399,19 +402,25 @@ export class CommercetoolsCartProvider extends CartProvider {
 
     const items = new Array<CartItem>();
     for (const remoteItem of remote.lineItems) {
-      const item = CartItemSchema.parse({});
+      const identifier = {
+        key: remoteItem.id
+      } satisfies CartItemIdentifier;
 
-      item.identifier.key = remoteItem.id;
-      item.product.key = remoteItem.productId;
-      item.variant.sku = remoteItem.variant.sku || '';
-      item.quantity = remoteItem.quantity;
+      const product = {
+        key: remoteItem.productId
+      } satisfies ProductIdentifier;
+      
+      const variant = { 
+        sku: remoteItem.variant.sku || ''
+      } satisfies ProductVariantIdentifier;
+      const quantity = remoteItem.quantity;
 
       const unitPrice = remoteItem.price.value.centAmount;
       const totalPrice = remoteItem.totalPrice.centAmount || 0;
       const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
       const unitDiscount = totalDiscount / remoteItem.quantity;
 
-      item.price = {
+      const price = {
         unitPrice: {
           value: unitPrice / 100,
           currency,
@@ -428,7 +437,15 @@ export class CommercetoolsCartProvider extends CartProvider {
           value: totalDiscount / 100,
           currency,
         },
-      };
+      } satisfies ItemCostBreakdown;
+
+      const item = {
+        identifier,
+        price,
+        product,
+        quantity,
+        variant
+      } satisfies CartItem;
 
       items.push(item);
     }

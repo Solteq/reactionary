@@ -121,11 +121,11 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Checkout Capability - %s', (prov
         const checkoutWithPi = await client.checkout.addPaymentInstruction(
           {
             checkout: checkout.identifier,
-            paymentInstruction: PaymentInstructionSchema.parse({
-              paymentMethod: pm?.identifier,
+            paymentInstruction: {
+              paymentMethod: pm!.identifier,
               amount: checkout.price.grandTotal,
               protocolData: [{ key: 'test-key', value: 'test-value' }],
-            }),
+            },
           }
         );
 
@@ -149,11 +149,11 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Checkout Capability - %s', (prov
         const checkoutWithPi = await client.checkout.addPaymentInstruction(
           {
             checkout: checkout.identifier,
-            paymentInstruction: PaymentInstructionSchema.parse({
-              paymentMethod: pm?.identifier,
+            paymentInstruction: {
+              paymentMethod: pm!.identifier,
               amount: checkout.price.grandTotal,
               protocolData: [{ key: 'test-key', value: 'test-value' }],
-            }),
+            },
           }
         );
 
@@ -246,11 +246,11 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Checkout Capability - %s', (prov
         const checkoutWithPi = await client.checkout.addPaymentInstruction(
           {
             checkout: checkout.identifier,
-            paymentInstruction: PaymentInstructionSchema.parse({
-              paymentMethod: pm?.identifier,
+            paymentInstruction: {
+              paymentMethod: pm!.identifier,
               amount: checkout.price.grandTotal,
               protocolData: [{ key: 'test-key', value: 'test-value' }],
-            }),
+            },
           }
         );
 

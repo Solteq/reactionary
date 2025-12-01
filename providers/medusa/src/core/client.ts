@@ -1,16 +1,20 @@
-
-import  {  Admin,  Auth,  Client,  type Config,  Store, }  from '@medusajs/js-sdk';
+import { Admin, Auth, Client, type Config, Store } from '@medusajs/js-sdk';
 
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
   AnonymousIdentitySchema,
   Reactionary,
   RegisteredIdentitySchema,
+  type AnonymousIdentity,
   type Currency,
   type RequestContext,
 } from '@reactionary/core';
 import createDebug from 'debug';
-import { MedusaSessionSchema, type MedusaRegion, type MedusaSession } from '../index.js';
+import {
+  MedusaSessionSchema,
+  type MedusaRegion,
+  type MedusaSession,
+} from '../index.js';
 import type { StoreProduct } from '@medusajs/types';
 const debug = createDebug('reactionary:medusa');
 
@@ -22,24 +26,27 @@ export interface MedusaAuthToken {
 }
 
 export interface MedusaCustomStorage {
-    getItem(key: string): Promise<string | null>;
-    setItem(key: string, value: string): Promise<void>;
-    removeItem(key: string): Promise<void>;
+  getItem(key: string): Promise<string | null>;
+  setItem(key: string, value: string): Promise<void>;
+  removeItem(key: string): Promise<void>;
 }
 
 export class RequestContextTokenStore implements MedusaCustomStorage {
-  constructor(protected context: RequestContext,
-    public keyPrefix = '__x'
-  ) {}
-
+  constructor(protected context: RequestContext, public keyPrefix = '__x') {}
 
   getItem(key: string): Promise<string | null> {
     if (this.context.session[SESSION_KEY] === undefined) {
       this.context.session[SESSION_KEY] = {};
     }
-    const retVal = this.context.session[SESSION_KEY] ? this.context.session[SESSION_KEY][this.keyPrefix + '_' + key] || null : null
+    const retVal = this.context.session[SESSION_KEY]
+      ? this.context.session[SESSION_KEY][this.keyPrefix + '_' + key] || null
+      : null;
     if (debug.enabled) {
-      debug(`Getting token item for key: ${this.keyPrefix + '_' + key} - Found: ${retVal ? 'Yes' : 'No'}`);
+      debug(
+        `Getting token item for key: ${this.keyPrefix + '_' + key} - Found: ${
+          retVal ? 'Yes' : 'No'
+        }`
+      );
     }
     return Promise.resolve(retVal);
   }
@@ -48,10 +55,14 @@ export class RequestContextTokenStore implements MedusaCustomStorage {
     if (this.context.session[SESSION_KEY] === undefined) {
       this.context.session[SESSION_KEY] = {};
     }
-    if(debug.enabled) {
-      debug(`Setting token item for key: ${this.keyPrefix + '_' + key} - Value: ${value}`);
+    if (debug.enabled) {
+      debug(
+        `Setting token item for key: ${
+          this.keyPrefix + '_' + key
+        } - Value: ${value}`
+      );
     }
-    this.context.session[SESSION_KEY][this.keyPrefix + '_' + key] = value
+    this.context.session[SESSION_KEY][this.keyPrefix + '_' + key] = value;
     return Promise.resolve();
   }
 
@@ -59,27 +70,27 @@ export class RequestContextTokenStore implements MedusaCustomStorage {
     if (this.context.session[SESSION_KEY] === undefined) {
       this.context.session[SESSION_KEY] = {};
     }
-    if(debug.enabled) {
+    if (debug.enabled) {
       debug(`Removing token item for key: ${this.keyPrefix + '_' + key}`);
     }
-    delete this.context.session[SESSION_KEY][this.keyPrefix + '_' + key]
+    delete this.context.session[SESSION_KEY][this.keyPrefix + '_' + key];
     return Promise.resolve();
   }
 }
 
 class Medusa {
-  public client: Client
+  public client: Client;
 
-  public admin: Admin
-  public store: Store
-  public auth: Auth
+  public admin: Admin;
+  public store: Store;
+  public auth: Auth;
 
   constructor(config: Config) {
-    this.client = new Client(config)
+    this.client = new Client(config);
 
-    this.admin = new Admin(this.client)
-    this.store = new Store(this.client)
-    this.auth = new Auth(this.client, config)
+    this.admin = new Admin(this.client);
+    this.store = new Store(this.client);
+    this.auth = new Auth(this.client, config);
   }
 }
 
@@ -91,7 +102,12 @@ export class MedusaAdminClient {
   constructor(config: MedusaConfiguration, context: RequestContext) {
     this.config = config;
     this.context = context;
-    console.log('MedusaAdminClient config:', this.config, 'Debug enabled:', debug.enabled);
+    console.log(
+      'MedusaAdminClient config:',
+      this.config,
+      'Debug enabled:',
+      debug.enabled
+    );
     this.client = new Medusa({
       baseUrl: this.config.apiUrl,
       apiKey: this.config.adminApiKey,
@@ -104,7 +120,6 @@ export class MedusaAdminClient {
   }
 }
 
-
 export class MedusaClient {
   protected config: MedusaConfiguration;
   protected client: Promise<Medusa> | undefined;
@@ -114,54 +129,67 @@ export class MedusaClient {
     this.config = config;
     this.context = context;
 
-    console.log('MedusaClient config:', this.config, 'Debug enabled:', debug.enabled);
+    console.log(
+      'MedusaClient config:',
+      this.config,
+      'Debug enabled:',
+      debug.enabled
+    );
     this.client = undefined;
   }
 
   public async getActiveRegion() {
     const session = this.getSessionData();
-    if(session.selectedRegion) {
+    if (session.selectedRegion) {
       return session.selectedRegion;
     }
 
     const regions = await (await this.getClient()).store.region.list();
     const allRegions: MedusaRegion[] = [];
-    for(const region of regions.regions) {
+    for (const region of regions.regions) {
       allRegions.push({
         id: region.id,
         name: region.name,
         currency_code: region.currency_code,
       });
     }
-    const selectedRegion = allRegions.find(r => r.currency_code === this.context.languageContext.currencyCode.toLowerCase()) || allRegions[0];
-    this.context.languageContext.currencyCode = (selectedRegion || allRegions[0]).currency_code.toUpperCase() as Currency;
+    const selectedRegion =
+      allRegions.find(
+        (r) =>
+          r.currency_code ===
+          this.context.languageContext.currencyCode.toLowerCase()
+      ) || allRegions[0];
+    this.context.languageContext.currencyCode = (
+      selectedRegion || allRegions[0]
+    ).currency_code.toUpperCase() as Currency;
 
     this.setSessionData({
       allRegions,
       selectedRegion: selectedRegion,
     });
-    return selectedRegion
-
+    return selectedRegion;
   }
 
+  public async resolveProductForSKU(sku: string): Promise<StoreProduct> {
+    const adminClient = await new MedusaAdminClient(
+      this.config,
+      this.context
+    ).getClient();
 
-  public async resolveProductForSKU( sku: string): Promise<StoreProduct> {
-      const adminClient = await new MedusaAdminClient(this.config, this.context).getClient();
+    const productsResponse = await adminClient.admin.product.list({
+      limit: 1,
+      offset: 0,
+      fields: '+categories.metadata.*',
+      variants: {
+        $or: [{ ean: sku }, { upc: sku }, { barcode: sku }],
+      },
+    });
 
-      const productsResponse = await adminClient.admin.product.list({
-        limit: 1,
-        offset: 0,
-        fields: "+categories.metadata.*",
-        variants: {
-          $or: [{ ean: sku }, { upc: sku }, { barcode: sku }],
-        },
-      });
-
-      const product = productsResponse.products[0];
-      if (!product) {
-        throw new Error(`Product with SKU ${sku} not found`);
-      }
-      return product;
+    const product = productsResponse.products[0];
+    if (!product) {
+      throw new Error(`Product with SKU ${sku} not found`);
+    }
+    return product;
   }
 
   /**
@@ -170,18 +198,17 @@ export class MedusaClient {
    * @param sku
    * @returns
    */
-  public async resolveVariantId( sku: string): Promise<string> {
-      // FIXME: Medusa does not support searching by SKU directly, so we have to use the admin client to search for products with variants matching the SKU
-      const product = await this.resolveProductForSKU(sku);
+  public async resolveVariantId(sku: string): Promise<string> {
+    // FIXME: Medusa does not support searching by SKU directly, so we have to use the admin client to search for products with variants matching the SKU
+    const product = await this.resolveProductForSKU(sku);
 
-      const variant = product.variants?.find((v) => v.sku === sku);
-      if (!variant) {
-        throw new Error(`Variant with SKU ${sku} not found`);
-      }
+    const variant = product.variants?.find((v) => v.sku === sku);
+    if (!variant) {
+      throw new Error(`Variant with SKU ${sku} not found`);
+    }
 
-      return variant.id;
+    return variant.id;
   }
-
 
   public async getClient(): Promise<Medusa> {
     if (!this.client) {
@@ -191,7 +218,9 @@ export class MedusaClient {
   }
 
   public getSessionData(): MedusaSession {
-    return this.context.session[SESSION_KEY] ? this.context.session[SESSION_KEY] : MedusaSessionSchema.parse({});
+    return this.context.session[SESSION_KEY]
+      ? this.context.session[SESSION_KEY]
+      : MedusaSessionSchema.parse({});
   }
 
   public setSessionData(sessionData: Partial<MedusaSession>): void {
@@ -199,10 +228,9 @@ export class MedusaClient {
 
     this.context.session[SESSION_KEY] = {
       ...existingData,
-      ...sessionData
+      ...sessionData,
     };
   }
-
 
   public async register(
     email: string,
@@ -215,13 +243,13 @@ export class MedusaClient {
       // Create customer account
       const client = await this.getClient();
       const tokenResponse = await client.auth.register(
-        "customer",
-        "emailpass",
+        'customer',
+        'emailpass',
         {
-        email,
-        password,
-      });
-
+          email,
+          password,
+        }
+      );
 
       const customer = await client.store.customer.create({
         email,
@@ -229,74 +257,94 @@ export class MedusaClient {
         last_name: lastName,
       });
 
-
       // Automatically log in after registration
       const identity = await this.login(email, password, reqCtx);
 
       return identity;
     } catch (error) {
       debug('Registration failed:', error);
-      throw new Error(`Registration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Registration failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
 
-  public async login(
-    email: string,
-    password: string,
-    reqCtx: RequestContext
-  ) {
+  public async login(email: string, password: string, reqCtx: RequestContext) {
     try {
       const client = await this.getClient();
       // Authenticate with Medusa
-      const authResult = await client.auth.login("customer", "emailpass", {
+      const authResult = await client.auth.login('customer', 'emailpass', {
         email,
         password,
       });
 
-
-      if (typeof authResult === "string") {
-          const token = authResult;
-          if (token) {
-            // await tokenStore.setToken(token);
-            await client.client.setToken(token);
-          }
+      if (typeof authResult === 'string') {
+        const token = authResult;
+        if (token) {
+          // await tokenStore.setToken(token);
+          await client.client.setToken(token);
+        }
       }
 
       // Get customer details
       const customerResponse = await client.store.customer.retrieve();
 
       if (customerResponse.customer) {
-         return RegisteredIdentitySchema.parse({
-       });
+        return RegisteredIdentitySchema.parse({});
       }
 
-      return AnonymousIdentitySchema.parse({});
+      return {
+        type: 'Anonymous',
+        meta: {
+          cache: {
+            hit: false,
+            key: '',
+          },
+          placeholder: false,
+        },
+      } satisfies AnonymousIdentity;
     } catch (error) {
       debug('Login failed:', error);
-      throw new Error(`Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Login failed: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
 
   public async logout(reqCtx: RequestContext) {
+    const identity = {
+      type: 'Anonymous',
+      meta: {
+        cache: {
+          hit: false,
+          key: ''
+        },
+        placeholder: false
+      }
+    } satisfies AnonymousIdentity;
+
     const client = await this.getClient();
     try {
-
       // Clear the session on Medusa side
       await client.auth.logout();
       await client.client.clearToken();
 
-      return AnonymousIdentitySchema.parse({});
+      return identity;
     } catch (error) {
       debug('Logout failed:', error);
       await client.client.clearToken();
 
-
-      return AnonymousIdentitySchema.parse({})
+      return identity;
     }
   }
 
-
-  protected async createAuthenticatedClient(reqCtx: RequestContext): Promise<Medusa> {
+  protected async createAuthenticatedClient(
+    reqCtx: RequestContext
+  ): Promise<Medusa> {
     const tokenStore = new RequestContextTokenStore(reqCtx);
 
     // Create a client instance
@@ -308,8 +356,8 @@ export class MedusaClient {
       auth: {
         type: 'jwt',
         jwtTokenStorageMethod: 'custom',
-        storage: tokenStore
-      }
+        storage: tokenStore,
+      },
     });
 
     // If we have a token, set it for authenticated requests
@@ -326,5 +374,4 @@ export class MedusaClient {
 
     return authenticatedClient;
   }
-
 }

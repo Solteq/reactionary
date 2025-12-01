@@ -19,7 +19,16 @@ import type {
   PaymentInstruction,
   Address,
   CostBreakDown,
-  CheckoutItem
+  CheckoutItem,
+  ShippingMethodIdentifier,
+  CheckoutItemIdentifier,
+  ProductVariantIdentifier,
+  ItemCostBreakdown,
+  PaymentInstructionIdentifier,
+  MonetaryAmount,
+  PaymentMethodIdentifier,
+  PaymentStatus,
+  Meta,
 } from '@reactionary/core';
 import {
   CheckoutItemSchema,
@@ -282,23 +291,27 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
     const inputShippingMethods: CTShippingMethod[] = shippingMethodsResponse
       .body.results as CTShippingMethod[];
     for (const sm of inputShippingMethods) {
-      const shippingMethod = ShippingMethodSchema.parse({
-        identifier: {
-          key: sm.key,
-        },
-        name: sm.name,
-        description:
-          sm.localizedDescription?.[this.context.languageContext.locale] || '',
+      const identifier = {
+        key: sm.key!,
+      } satisfies ShippingMethodIdentifier;
+      const name = sm.name;
+      const description = sm.localizedDescription?.[this.context.languageContext.locale] || '';
+      const shippingMethod = {
+        deliveryTime: '',
+        description,
+        identifier,
+        name,
         price: sm.zoneRates[0].shippingRates[0].price
           ? {
               value:
                 (sm.zoneRates[0].shippingRates[0].price.centAmount || 0) / 100,
               currency:
-                sm.zoneRates[0].shippingRates[0].price.currencyCode ||
+                sm.zoneRates[0].shippingRates[0].price.currencyCode as Currency ||
                 this.context.languageContext.currencyCode,
             }
           : { value: 0, currency: this.context.languageContext.currencyCode },
-      });
+      } satisfies ShippingMethod;
+      
       result.push(shippingMethod);
     }
     return result;
@@ -611,7 +624,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       },
       totalShipping: {
         value: shippingTotal / 100,
-        currency: remote.shippingInfo?.price.currencyCode as Currency,
+        currency: currency
       },
       totalProductPrice: {
         value: productTotal / 100,
@@ -625,18 +638,20 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
 
     const items = new Array<CheckoutItem>();
     for (const remoteItem of remote.lineItems) {
-      const item = CheckoutItemSchema.parse({});
-
-      item.identifier.key = remoteItem.id;
-      item.variant.sku = remoteItem.variant.sku || '';
-      item.quantity = remoteItem.quantity;
+      const identifier = {
+        key: remoteItem.id
+      } satisfies CheckoutItemIdentifier;
+      const variant = {
+        sku: remoteItem.variant.sku!
+      } satisfies ProductVariantIdentifier;
+      const quantity = remoteItem.quantity;
 
       const unitPrice = remoteItem.price.value.centAmount;
       const totalPrice = remoteItem.totalPrice.centAmount || 0;
       const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
       const unitDiscount = totalDiscount / remoteItem.quantity;
 
-      item.price = {
+      const price = {
         unitPrice: {
           value: unitPrice / 100,
           currency,
@@ -653,13 +668,26 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
           value: totalDiscount / 100,
           currency,
         },
-      };
+      } satisfies ItemCostBreakdown;
+
+      const item = {
+        identifier,
+        price,
+        quantity,
+        variant
+      } satisfies CheckoutItem;
 
       items.push(item);
     }
 
     const shippingInstruction = this.parseShippingInstruction(remote);
-    const readyForFinalization = this.isReadyForFinalization(price, paymentInstructions, billingAddress, shippingAddress, shippingInstruction);
+    const readyForFinalization = this.isReadyForFinalization(
+      price,
+      paymentInstructions,
+      billingAddress,
+      shippingAddress,
+      shippingInstruction
+    );
 
     const result = {
       identifier,
@@ -679,13 +707,19 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       shippingInstruction,
       paymentInstructions,
       items,
-      price
+      price,
     } satisfies Checkout;
 
     return result;
   }
 
-  protected isReadyForFinalization(price: CostBreakDown, paymentInstructions: Array<PaymentInstruction>, billingAddress?: Address, shippingAddress?: Address, shippingInstruction?: ShippingInstruction): boolean {
+  protected isReadyForFinalization(
+    price: CostBreakDown,
+    paymentInstructions: Array<PaymentInstruction>,
+    billingAddress?: Address,
+    shippingAddress?: Address,
+    shippingInstruction?: ShippingInstruction
+  ): boolean {
     // we should have a billing address
     if (!billingAddress) return false;
 
@@ -693,8 +727,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
     if (!shippingInstruction) return false;
 
     // and it should ship either to an address or a pickup point
-    if (!shippingAddress && !shippingInstruction.pickupPoint)
-      return false;
+    if (!shippingAddress && !shippingInstruction.pickupPoint) return false;
 
     // and it should be paid for
     if (paymentInstructions.length === 0) return false;
@@ -709,30 +742,32 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
   }
 
   protected parsePaymentInstruction(remote: CTPayment): PaymentInstruction {
-    const newModel = PaymentInstructionSchema.parse({});
-    newModel.identifier = PaymentInstructionIdentifierSchema.parse({
-      key: remote.id || '',
-    });
-    newModel.amount = {
+    const identifier = {
+      key: remote.id,
+    } satisfies PaymentInstructionIdentifier;
+    const amount = {
       value: remote.amountPlanned.centAmount / 100,
       currency: remote.amountPlanned.currencyCode as Currency,
-    };
+    } satisfies MonetaryAmount;
 
     const method = remote.paymentMethodInfo?.method || 'unknown';
     const paymentProcessor =
       remote.paymentMethodInfo?.paymentInterface || method;
     const paymentName =
       remote.paymentMethodInfo.name![this.context.languageContext.locale];
-    newModel.paymentMethod = PaymentMethodIdentifierSchema.parse({
+    
+    const paymentMethod = {
       method,
       paymentProcessor,
       name: paymentName || method || 'Unknown',
-    });
+    } satisfies PaymentMethodIdentifier;
 
     const customData = remote.custom?.fields || {};
-    newModel.protocolData =
+    const protocolData =
       Object.keys(customData).map((x) => ({ key: x, value: customData[x] })) ||
       [];
+    
+    let status: PaymentStatus = 'pending';
     if (remote.transactions && remote.transactions.length > 0) {
       const lastTransaction =
         remote.transactions[remote.transactions.length - 1];
@@ -740,18 +775,35 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
         lastTransaction.type === 'Authorization' &&
         lastTransaction.state === 'Pending'
       ) {
-        newModel.status = 'pending';
+        status = 'pending';
       } else if (
         lastTransaction.type === 'Authorization' &&
         lastTransaction.state === 'Success'
       ) {
-        newModel.status = 'authorized';
+        status = 'authorized';
       }
     } else {
-      newModel.status = 'pending';
+      status = 'pending';
     }
 
-    return PaymentInstructionSchema.parse(newModel);
+    const meta = {
+      cache: {
+        hit: false,
+        key: ''
+      },
+      placeholder: false
+    } satisfies Meta;
+
+    const result = {
+      amount,
+      identifier,
+      meta,
+      paymentMethod,
+      protocolData,
+      status
+    } satisfies PaymentInstruction;
+
+    return result;
   }
 
   protected parseAddress(remote: CTAddress) {
@@ -764,16 +816,16 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       postalCode: remote.postalCode || '',
       city: remote.city || '',
       identifier: {
-        nickName: ''
+        nickName: '',
       },
       meta: {
         cache: {
           hit: false,
-          key: ''
+          key: '',
         },
-        placeholder: false
+        placeholder: false,
       },
-      region: ''
+      region: '',
     } satisfies Address;
   }
 
@@ -787,18 +839,21 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       remote.custom?.fields['consentForUnattendedDelivery'] === 'true' || false;
     const pickupPoint = remote.custom?.fields['pickupPointId'] || '';
 
-    const shippingInstruction = ShippingInstructionSchema.parse({
-      amount: {
-        value: (remote.shippingInfo.price.centAmount || 0) / 100,
-        currency: remote.shippingInfo.price.currencyCode as Currency,
-      },
+    const shippingInstruction = {
       shippingMethod: {
         key: remote.shippingInfo.shippingMethod?.obj?.key || '',
       },
       pickupPoint: pickupPoint || '',
       instructions: instructions || '',
       consentForUnattendedDelivery: consentForUnattendedDelivery || false,
-    });
+      meta: {
+        cache: {
+          hit: false,
+          key: ''
+        },
+        placeholder: false
+      }
+    } satisfies ShippingInstruction;
 
     return shippingInstruction;
   }
