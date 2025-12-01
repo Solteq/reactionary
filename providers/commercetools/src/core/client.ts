@@ -214,7 +214,7 @@ export class CommercetoolsClient {
       return AnonymousIdentitySchema.parse({});
     }
 
-    const scopes = body.scope;
+    const scopes: string = body.scope + '';
 
     // FIXME: Map unmapped user_id...
     if (scopes.indexOf('anonymous_id') > -1) {
@@ -241,7 +241,7 @@ export class CommercetoolsClient {
     // FIXME: Map unmapped user_id...
     if (scopes.indexOf('customer_id') > -1) {
       const s = scopes.split(' ');
-      const idScope = s.find((x) => x.startsWith('customer_id'));
+      const idScope = s.find((x: any) => x.startsWith('customer_id'));
       const id = idScope?.split(':')[1] || '';
       const identity = {
         id: {
