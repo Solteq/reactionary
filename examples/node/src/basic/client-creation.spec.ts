@@ -32,7 +32,8 @@ describe('client creation', () => {
          clientSecret: '',
          paymentMethods: [],
          projectKey: '',
-         scopes: []   
+         scopes: [],
+         facetFieldsForSearch: []
         }, { cart: true })
       )
       .withCapability(
