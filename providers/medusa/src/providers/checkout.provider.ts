@@ -1,4 +1,4 @@
-import type { StoreCart } from '@medusajs/types';
+import type { StoreCart, StoreCartAddress, StoreCartLineItem } from '@medusajs/types';
 import type {
   Address,
   AddressIdentifier,
@@ -17,6 +17,7 @@ import type {
   CheckoutQueryForAvailableShippingMethods,
   CostBreakDown,
   Currency,
+  ItemCostBreakdown,
   MonetaryAmount,
   PaymentInstruction,
   PaymentMethod,
@@ -47,6 +48,7 @@ import createDebug from 'debug';
 import z from 'zod';
 import type { MedusaClient } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
+import { handleProviderError,  parseMedusaCostBreakdown, parseMedusaItemPrice } from '../utils/medusa-helpers.js';
 import {
   type MedusaCartIdentifier,
   type MedusaOrderIdentifier
@@ -54,6 +56,9 @@ import {
 const debug = createDebug('reactionary:medusa:checkout');
 
 export class CheckoutNotReadyForFinalizationError extends Error {
+
+
+
   constructor(public checkoutIdentifier: CheckoutIdentifier) {
     super(
       'Checkout is not ready for finalization. Ensure all required fields are set and valid. ' +
@@ -67,7 +72,16 @@ export class CheckoutNotReadyForFinalizationError extends Error {
 
 export class MedusaCheckoutProvider extends CheckoutProvider {
   protected config: MedusaConfiguration;
-  protected returnedCheckoutFields = '+items.*';
+
+  /**
+   * This controls which fields are always included when fetching a cart
+   * You can override this in a subclass to add more fields as needed.
+   *
+   * example: this.includedFields = [includedFields, '+discounts.*'].join(',');
+   */
+  protected includedFields: string = ['+items.*'].join(',');
+
+
 
   constructor(
     config: MedusaConfiguration,
@@ -109,7 +123,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
         },
       },
       {
-        fields: this.returnedCheckoutFields,
+        fields: this.includedFields,
       }
     );
 
@@ -125,7 +139,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   ): Promise<Checkout | null> {
     const client = await this.client.getClient();
     const response = await client.store.cart.retrieve(payload.identifier.key, {
-      fields: this.returnedCheckoutFields,
+      fields: this.includedFields,
     });
     return this.parseSingle(response.cart);
   }
@@ -147,7 +161,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
         ),
       },
       {
-        fields: this.returnedCheckoutFields,
+        fields: this.includedFields,
       }
     );
     return this.parseSingle(response.cart);
@@ -287,7 +301,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       const updatedCartResponse = await client.store.cart.retrieve(
         payload.checkout.key,
         {
-          fields: this.returnedCheckoutFields,
+          fields: this.includedFields,
         }
       );
 
@@ -346,21 +360,16 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
 
       // Get updated cart
       const response = await client.store.cart.retrieve(medusaId.key, {
-        fields: this.returnedCheckoutFields,
+        fields: this.includedFields,
       });
 
       if (response.cart) {
         return this.parseSingle(response.cart);
       }
 
-      throw new Error('Failed to set shipping info');
+      throw new Error('Failed to set shipping method');
     } catch (error) {
-      debug('Failed to set shipping info:', error);
-      throw new Error(
-        `Failed to set shipping info: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      );
+      handleProviderError('set shipping method', error);
     }
   }
   @Reactionary({
@@ -397,6 +406,11 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     throw new Error('Something failed during order creation');
   }
 
+  /**
+   * Extension point to map an Address to a Store Address
+   * @param address
+   * @returns
+   */
   protected mapAddressToStoreAddress(address: Partial<Address>) {
     return {
       first_name: address.firstName,
@@ -409,7 +423,12 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     };
   }
 
-  protected composeAddressFromStoreAddress(storeAddress: any): Address {
+  /**
+   * Extension point to control the parsing of an address from a store cart address
+   * @param storeAddress
+   * @returns
+   */
+  protected composeAddressFromStoreAddress(storeAddress: StoreCartAddress): Address {
     return {
       identifier: AddressIdentifierSchema.parse({
         nickName: storeAddress.id,
@@ -432,9 +451,37 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     };
   }
 
+  /**
+   * Extension point to control the parsing of a single cart item price
+   * @param remoteItem
+   * @param currency
+   * @returns
+   */
+  protected parseItemPrice(
+    remoteItem: StoreCartLineItem,
+    currency: Currency
+  ): ItemCostBreakdown {
+    return parseMedusaItemPrice(remoteItem, currency);
+  }
 
+  /**
+   * Extension point to control the parsing of the cost breakdown of a cart
+   * @param remote
+   * @returns
+   */
+  protected parseCostBreakdown(remote: StoreCart): CostBreakDown {
+    return parseMedusaCostBreakdown(remote);
+  }
+
+
+  /**
+   * Extension point to control the parsing of a single checkout item
+   * @param remoteItem
+   * @param currency
+   * @returns
+   */
   protected parseCheckoutItem(
-    remoteItem: any,
+    remoteItem: StoreCartLineItem,
     currency: Currency
   ): CheckoutItem {
     const unitPrice = remoteItem.unit_price || 0;
@@ -450,28 +497,16 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       },
       quantity: remoteItem.quantity || 1,
 
-      price: {
-        unitPrice: {
-          value: unitPrice,
-          currency,
-        },
-        unitDiscount: {
-          value: discountTotal / remoteItem.quantity,
-          currency,
-        },
-        totalPrice: {
-          value: totalPrice,
-          currency,
-        },
-        totalDiscount: {
-          value: discountTotal,
-          currency,
-        },
-      },
+      price:  this.parseItemPrice(remoteItem,currency),
     };
     return item;
   }
 
+  /**
+   * Extension point to control the parsing of the Checkout object
+   * @param remote
+   * @returns
+   */
   protected parseSingle(remote: StoreCart): Checkout {
     const identifier = {
       key: remote.id,
@@ -481,45 +516,12 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     const name = '' + (remote.metadata?.['name'] || '');
     const description = '' + (remote.metadata?.['description'] || '');
 
-    // Calculate totals
-    const grandTotal = remote.total || 0;
-    const shippingTotal = remote.shipping_total || 0;
-    const taxTotal = remote.tax_total || 0;
-    const discountTotal = remote.discount_total || 0;
-    const subtotal = remote.subtotal || 0;
-    const currency = (remote.currency_code || 'EUR').toUpperCase() as Currency;
-
-    const price = {
-      totalTax: {
-        value: taxTotal,
-        currency,
-      },
-      totalDiscount: {
-        value: discountTotal,
-        currency,
-      },
-      totalSurcharge: {
-        value: 0,
-        currency,
-      },
-      totalShipping: {
-        value: shippingTotal,
-        currency,
-      },
-      totalProductPrice: {
-        value: subtotal,
-        currency,
-      },
-      grandTotal: {
-        value: grandTotal,
-        currency,
-      },
-    } satisfies CostBreakDown;
+    const price = this.parseCostBreakdown(remote);
 
     // Parse checkout items
     const items = new Array<CheckoutItem>();
     for (const remoteItem of remote.items || []) {
-      items.push(this.parseCheckoutItem(remoteItem, currency));
+      items.push(this.parseCheckoutItem(remoteItem, price.grandTotal.currency));
     }
 
     const meta = {
