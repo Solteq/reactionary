@@ -37,6 +37,7 @@ import type {
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
   Cart as CTCart,
+  LineItem,
   MyCartUpdateAction,
 } from '@commercetools/platform-sdk';
 import type { CommercetoolsCartIdentifier } from '../schema/commercetools.schema.js';
@@ -358,6 +359,49 @@ export class CommercetoolsCartProvider extends CartProvider {
     };
   }
 
+
+  protected parseCartItem(remoteItem: LineItem): CartItem {
+      const unitPrice = remoteItem.price.value.centAmount;
+      const totalPrice = remoteItem.totalPrice.centAmount || 0;
+      const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
+      const unitDiscount = totalDiscount / remoteItem.quantity;
+      const currency = remoteItem.price.value.currencyCode.toUpperCase() as Currency;
+
+      const item = {
+        identifier: {
+          key: remoteItem.id,
+        },
+        product: {
+          key: remoteItem.productId,
+        },
+        variant: {
+          sku: remoteItem.variant.sku || '',
+        },
+        quantity: remoteItem.quantity,
+        price : {
+          unitPrice: {
+            value: unitPrice / 100,
+            currency,
+          },
+          unitDiscount: {
+            value: unitDiscount / 100,
+            currency,
+          },
+          totalPrice: {
+            value: (totalPrice || 0) / 100,
+            currency,
+          },
+          totalDiscount: {
+            value: totalDiscount / 100,
+            currency,
+          },
+        }
+      } satisfies CartItem
+
+
+      return CartItemSchema.parse(item);
+  }
+
   protected parseSingle(remote: CTCart): Cart {
     const identifier = {
       key: remote.id,
@@ -402,50 +446,8 @@ export class CommercetoolsCartProvider extends CartProvider {
 
     const items = new Array<CartItem>();
     for (const remoteItem of remote.lineItems) {
-      const identifier = {
-        key: remoteItem.id
-      } satisfies CartItemIdentifier;
 
-      const product = {
-        key: remoteItem.productId
-      } satisfies ProductIdentifier;
-      
-      const variant = { 
-        sku: remoteItem.variant.sku || ''
-      } satisfies ProductVariantIdentifier;
-      const quantity = remoteItem.quantity;
-
-      const unitPrice = remoteItem.price.value.centAmount;
-      const totalPrice = remoteItem.totalPrice.centAmount || 0;
-      const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
-      const unitDiscount = totalDiscount / remoteItem.quantity;
-
-      const price = {
-        unitPrice: {
-          value: unitPrice / 100,
-          currency,
-        },
-        unitDiscount: {
-          value: unitDiscount / 100,
-          currency,
-        },
-        totalPrice: {
-          value: (totalPrice || 0) / 100,
-          currency,
-        },
-        totalDiscount: {
-          value: totalDiscount / 100,
-          currency,
-        },
-      } satisfies ItemCostBreakdown;
-
-      const item = {
-        identifier,
-        price,
-        product,
-        quantity,
-        variant
-      } satisfies CartItem;
+      const item = this.parseCartItem(remoteItem);
 
       items.push(item);
     }

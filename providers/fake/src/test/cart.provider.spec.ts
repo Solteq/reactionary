@@ -18,8 +18,8 @@ describe('Fake Cart Provider', () => {
 
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
-    provider = new FakeCartProvider(getFakerTestConfiguration(), CartSchema, new NoOpCache(), reqCtx);
-    identityProvider = new FakeIdentityProvider(getFakerTestConfiguration(), IdentitySchema, new NoOpCache(), reqCtx);
+    provider = new FakeCartProvider(getFakerTestConfiguration(), new NoOpCache(), reqCtx);
+    identityProvider = new FakeIdentityProvider(getFakerTestConfiguration(), new NoOpCache(), reqCtx);
   });
 
   describe('anonymous sessions', () => {

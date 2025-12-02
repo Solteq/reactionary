@@ -1,5 +1,4 @@
-import 'dotenv/config';
-import type { Cart, Checkout, Client, RequestContext } from '@reactionary/core';
+import type { Cart, Checkout, RequestContext, ShippingInstruction } from '@reactionary/core';
 import {
   ClientBuilder,
   createInitialRequestContext,
@@ -7,10 +6,11 @@ import {
   PaymentInstructionSchema,
   ShippingInstructionSchema,
 } from '@reactionary/core';
-import { describe, expect, it, beforeEach } from 'vitest';
-import { getMedusaTestConfiguration } from './test-utils.js';
+import 'dotenv/config';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { withMedusaCapabilities } from '../core/initialize.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
+import { getMedusaTestConfiguration } from './test-utils.js';
 
 const testData = {
   skuWithoutTiers: '0766623301831',
@@ -227,12 +227,18 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
         const sm = shippingMethods.find((x) => x.name === 'Standard Shipping');
         expect(sm).toBeDefined();
 
-        const shippingInstruction = {
+        const shippingInstruction: ShippingInstruction = {
           shippingMethod: sm?.identifier || { key: '' },
-          amount: checkout.price.totalShipping,
           instructions: 'Leave at front door if not home',
           consentForUnattendedDelivery: true,
-          pickupPoint: '4190asx141', // this would be a real pickup point ID in a real scenario
+          pickupPoint: '4190asx141',
+          meta: {
+            cache: {
+              hit: false,
+              key: '',
+            },
+            placeholder: false,
+          }
         };
 
         const checkoutWithShipping = await client.checkout.setShippingInstruction(

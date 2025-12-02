@@ -1,4 +1,4 @@
-import type { Cache, Image, Product, ProductAttribute, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariant, ProductVariantIdentifier, RequestContext } from '@reactionary/core';
+import type { Cache, Image, Product, ProductAttribute, ProductOptionIdentifier, ProductOptionValue, ProductOptionValueIdentifier, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariant, ProductVariantIdentifier, ProductVariantOption, RequestContext } from '@reactionary/core';
 import {
   CategoryIdentifierSchema,
   ImageSchema,
@@ -12,6 +12,10 @@ import {
   ProductVariantIdentifierSchema,
   ProductVariantSchema,
   Reactionary,
+  ProductVariantOptionSchema,
+  ProductOptionIdentifierSchema,
+  ProductOptionValueSchema,
+  ProductOptionValueIdentifierSchema,
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type { z } from 'zod';
@@ -144,20 +148,45 @@ export class MedusaProductProvider extends ProductProvider {
   }
 
   protected parseVariant(variant: StoreProductVariant, product: StoreProduct) {
-    const result = ProductVariantSchema.parse({
-      identifier: ProductVariantIdentifierSchema.parse({
+
+
+    const options = (variant.options ?? []).map( (option) => {
+
+      const optionId: ProductOptionIdentifier = { key: option.option_id || '' };
+      const title = option.option?.title || '?';
+      const valueIdentifier: ProductOptionValueIdentifier = { key: option.option_id || '', option: optionId };
+      const value = option.value || '';
+
+      const result: ProductVariantOption = {
+        identifier: optionId,
+        name: title,
+        value: {
+          identifier: valueIdentifier,
+          label: value,
+        },
+      }
+      return result;
+    });
+
+
+    const result: ProductVariant = {
+      identifier: {
         sku: variant.sku || '',
-      } satisfies Partial<ProductVariantIdentifier>),
+      },
       name: variant.title || product.title,
-      upc: variant.upc || undefined,
-      ean: variant.ean || undefined,
+      upc: variant.upc || '',
+      ean: variant.ean || '',
 
-      images: (product.images || []).map((img: StoreProductImage) => ImageSchema.parse({
-        sourceUrl: img.url,
-        altText: variant.title || product.title,
-      } satisfies Partial<Image>)),
-
-    } satisfies Partial<ProductVariant>);
+      images: (product.images || []).map((img: StoreProductImage) => {
+        return {
+          sourceUrl: img.url,
+          altText: variant.title || product.title || '',
+        } satisfies Image;
+      }),
+      options: options,
+      gtin: variant.ean ||  '',
+      barcode: variant.ean || ''
+    };
 
     return result;
   }
@@ -168,11 +197,11 @@ export class MedusaProductProvider extends ProductProvider {
     const sharedAttributes = [];
 
     if (_body.origin_country) {
-      sharedAttributes.push(ProductAttributeSchema.parse({
+      sharedAttributes.push({
         id: 'origin_country',
         name: 'Origin Country',
         value: _body.origin_country,
-      }));
+      });
     }
 
     if (_body.height) {

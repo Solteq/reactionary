@@ -5,6 +5,7 @@ import type {
   Cache,
   Checkout,
   CheckoutIdentifier,
+  CheckoutItem,
   CheckoutMutationAddPaymentInstruction,
   CheckoutMutationFinalizeCheckout,
   CheckoutMutationInitiateCheckout,
@@ -19,16 +20,12 @@ import type {
   MonetaryAmount,
   PaymentInstruction,
   PaymentMethod,
-  ProductVariantIdentifier,
+  PaymentMethodIdentifier,
   RequestContext,
-  ShippingInstruction,
-  ShippingMethod,
-  CheckoutItem,
+  ShippingMethod
 } from '@reactionary/core';
 import {
   AddressIdentifierSchema,
-  CheckoutIdentifierSchema,
-  CheckoutItemSchema,
   CheckoutMutationAddPaymentInstructionSchema,
   CheckoutMutationFinalizeCheckoutSchema,
   CheckoutMutationInitiateCheckoutSchema,
@@ -41,13 +38,8 @@ import {
   CheckoutQueryForAvailableShippingMethodsSchema,
   CheckoutSchema,
   MonetaryAmountSchema,
-  PaymentInstructionIdentifierSchema,
-  PaymentInstructionSchema,
-  PaymentMethodIdentifierSchema,
   PaymentMethodSchema,
-  ProductVariantIdentifierSchema,
   Reactionary,
-  ShippingInstructionSchema,
   ShippingMethodIdentifierSchema,
   ShippingMethodSchema,
 } from '@reactionary/core';
@@ -56,10 +48,8 @@ import z from 'zod';
 import type { MedusaClient } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
-  MedusaCartIdentifierSchema,
-  MedusaOrderIdentifierSchema,
   type MedusaCartIdentifier,
-  type MedusaOrderIdentifier,
+  type MedusaOrderIdentifier
 } from '../schema/medusa.schema.js';
 const debug = createDebug('reactionary:medusa:checkout');
 
@@ -196,7 +186,8 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
             currency:
               sm.calculated_price.currency_code?.toUpperCase() as Currency,
           } satisfies MonetaryAmount),
-        })
+          deliveryTime: '',
+        } satisfies ShippingMethod)
       );
     }
 
@@ -234,15 +225,24 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
 
     for (const pm of paymentMethodResponse.payment_providers) {
       paymentMethods.push(
-        PaymentMethodSchema.parse({
-          identifier: PaymentMethodIdentifierSchema.parse({
+        {
+          identifier: {
             method: pm.id,
             name: pm.id,
-            processor: pm.id,
-          }),
+            paymentProcessor: pm.id,
+          },
           logo: undefined,
-          name: pm.id,
-        })
+          description: pm.id,
+          isPunchOut: true,
+          meta: {
+            cache: {
+              hit: false,
+              key: '',
+            },
+            placeholder: false,
+          }
+        }
+
       );
     }
 
@@ -432,11 +432,51 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     };
   }
 
+
+  protected parseCheckoutItem(
+    remoteItem: any,
+    currency: Currency
+  ): CheckoutItem {
+    const unitPrice = remoteItem.unit_price || 0;
+    const totalPrice = unitPrice * remoteItem.quantity || 0;
+    const discountTotal = remoteItem.discount_total || 0;
+
+    const item: CheckoutItem = {
+      identifier: {
+        key: remoteItem.id,
+      },
+      variant: {
+        sku: remoteItem.variant_sku || '',
+      },
+      quantity: remoteItem.quantity || 1,
+
+      price: {
+        unitPrice: {
+          value: unitPrice,
+          currency,
+        },
+        unitDiscount: {
+          value: discountTotal / remoteItem.quantity,
+          currency,
+        },
+        totalPrice: {
+          value: totalPrice,
+          currency,
+        },
+        totalDiscount: {
+          value: discountTotal,
+          currency,
+        },
+      },
+    };
+    return item;
+  }
+
   protected parseSingle(remote: StoreCart): Checkout {
-    const identifier = CheckoutIdentifierSchema.parse({
+    const identifier = {
       key: remote.id,
       //        region_id: remote.region_id,
-    });
+    };
 
     const name = '' + (remote.metadata?.['name'] || '');
     const description = '' + (remote.metadata?.['description'] || '');
@@ -476,41 +516,10 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       },
     } satisfies CostBreakDown;
 
-    // Parse cart items
+    // Parse checkout items
     const items = new Array<CheckoutItem>();
     for (const remoteItem of remote.items || []) {
-      const item = CheckoutItemSchema.parse({});
-
-      item.identifier.key = remoteItem.id;
-      item.variant = ProductVariantIdentifierSchema.parse({
-        sku: remoteItem.variant_sku || '',
-      } satisfies ProductVariantIdentifier);
-      item.quantity = remoteItem.quantity || 1;
-
-      const unitPrice = remoteItem.unit_price || 0;
-      const totalPrice = unitPrice * item.quantity || 0;
-      const discountTotal = remoteItem.discount_total || 0;
-
-      item.price = {
-        unitPrice: {
-          value: unitPrice,
-          currency,
-        },
-        unitDiscount: {
-          value: discountTotal / remoteItem.quantity,
-          currency,
-        },
-        totalPrice: {
-          value: totalPrice,
-          currency,
-        },
-        totalDiscount: {
-          value: discountTotal,
-          currency,
-        },
-      };
-
-      items.push(item);
+      items.push(this.parseCheckoutItem(remoteItem, currency));
     }
 
     const meta = {
@@ -564,15 +573,13 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       }
 
       // currently Medusa only supports one shipping method per cart
-      shippingInstruction = ShippingInstructionSchema.parse({
-        shippingMethod: ShippingMethodIdentifierSchema.parse({
-          key: sm.shipping_option_id,
-        }),
+      shippingInstruction = {
+        shippingMethod: { key: sm.shipping_option_id },
         consentForUnattendedDelivery,
         instructions,
         pickupPoint,
         meta,
-      } satisfies ShippingInstruction);
+      };
     });
 
     const paymentInstructions = new Array<PaymentInstruction>();
@@ -587,46 +594,47 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
         );
         continue;
       }
-      const paymentMethodIdentifier = PaymentMethodIdentifierSchema.parse({
+      const paymentMethodIdentifier: PaymentMethodIdentifier = {
         method: remotePayment.provider_id,
         name: remotePayment.provider_id,
-        processor: remotePayment.provider_id,
-      });
+        paymentProcessor: remotePayment.provider_id,
+      };
 
       paymentInstructions.push({
-        meta,
-        identifier: PaymentInstructionIdentifierSchema.parse({
-          key: remotePayment.id,
-        }),
-        amount: MonetaryAmountSchema.parse({
-          value: remotePayment.amount,
-          currency: remotePayment.currency_code?.toUpperCase() as Currency,
-        }),
-        paymentMethod: paymentMethodIdentifier,
-        protocolData: remotePayment.data
-          ? Object.entries(remotePayment.data).map(([key, value]) => ({
-              key,
-              value: String(value),
-            }))
-          : [],
-        status: 'pending',
-      } satisfies PaymentInstruction);
+          meta,
+          identifier: {
+            key: remotePayment.id,
+          },
+          amount: {
+            value: remotePayment.amount,
+            currency: remotePayment.currency_code?.toUpperCase() as Currency,
+          },
+          paymentMethod: paymentMethodIdentifier,
+          protocolData: remotePayment.data
+            ? Object.entries(remotePayment.data).map(([key, value]) => ({
+                key,
+                value: String(value),
+              }))
+            : [],
+          status: 'pending',
+        }
+      );
     }
 
-    const originalCartReference = MedusaCartIdentifierSchema.parse({
+    const originalCartReference: MedusaCartIdentifier = {
       key: remote.id,
       region: remote.region_id,
-    } satisfies MedusaCartIdentifier);
+    };
 
-    let resultingOrder;
+    let resultingOrder: MedusaOrderIdentifier | undefined = undefined;
     if (remote.metadata?.['order_id']) {
-      resultingOrder = MedusaOrderIdentifierSchema.parse({
+      resultingOrder = {
         key: remote.metadata?.['order_id'] + '' || '',
         display_id: Number(remote.metadata?.['order_display_id'] + '' || '0'),
-      } satisfies MedusaOrderIdentifier);
+      };
     }
 
-    const result = {
+    const result: Checkout = {
       identifier,
       name,
       description,
@@ -639,8 +647,8 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       billingAddress,
       resultingOrder,
       shippingAddress,
-      shippingInstruction,
-    } satisfies Checkout;
+      shippingInstruction
+    };
 
     return result;
   }

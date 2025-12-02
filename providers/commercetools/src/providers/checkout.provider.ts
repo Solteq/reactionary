@@ -1,34 +1,32 @@
+import type { Address as CTAddress, Cart as CTCart, Payment as CTPayment, ShippingMethod as CTShippingMethod, LineItem, MyCartUpdateAction } from '@commercetools/platform-sdk';
 import type {
+  Address,
   Cache,
   Checkout,
-  RequestContext,
-  PaymentMethod,
-  ShippingMethod,
-  CheckoutMutationInitiateCheckout,
-  CheckoutMutationSetShippingAddress,
-  CheckoutMutationFinalizeCheckout,
+  CheckoutIdentifier,
+  CheckoutItem,
   CheckoutMutationAddPaymentInstruction,
+  CheckoutMutationFinalizeCheckout,
+  CheckoutMutationInitiateCheckout,
   CheckoutMutationRemovePaymentInstruction,
+  CheckoutMutationSetShippingAddress,
   CheckoutMutationSetShippingInstruction,
   CheckoutQueryById,
   CheckoutQueryForAvailablePaymentMethods,
   CheckoutQueryForAvailableShippingMethods,
-  CheckoutIdentifier,
-  Currency,
-  ShippingInstruction,
-  PaymentInstruction,
-  Address,
   CostBreakDown,
-  CheckoutItem,
-  ShippingMethodIdentifier,
-  CheckoutItemIdentifier,
-  ProductVariantIdentifier,
-  ItemCostBreakdown,
-  PaymentInstructionIdentifier,
+  Currency,
+  Meta,
   MonetaryAmount,
+  PaymentInstruction,
+  PaymentInstructionIdentifier,
+  PaymentMethod,
   PaymentMethodIdentifier,
   PaymentStatus,
-  Meta,
+  RequestContext,
+  ShippingInstruction,
+  ShippingMethod,
+  ShippingMethodIdentifier
 } from '@reactionary/core';
 import {
   CheckoutItemSchema,
@@ -43,28 +41,17 @@ import {
   CheckoutQueryForAvailablePaymentMethodsSchema,
   CheckoutQueryForAvailableShippingMethodsSchema,
   CheckoutSchema,
-  PaymentInstructionIdentifierSchema,
-  PaymentInstructionSchema,
-  PaymentMethodIdentifierSchema,
   PaymentMethodSchema,
   Reactionary,
-  ShippingInstructionSchema,
-  ShippingMethodSchema,
+  ShippingMethodSchema
 } from '@reactionary/core';
 import z from 'zod';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { MyCartUpdateAction } from '@commercetools/platform-sdk';
+import type { CommercetoolsClient } from '../core/client.js';
 import {
   type CommercetoolsCartIdentifier,
   type CommercetoolsCheckoutIdentifier,
 } from '../schema/commercetools.schema.js';
-import type {
-  Address as CTAddress,
-  Payment as CTPayment,
-  Cart as CTCart,
-  ShippingMethod as CTShippingMethod,
-} from '@commercetools/platform-sdk';
-import type { CommercetoolsClient } from '../core/client.js';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 
 export class CheckoutNotReadyForFinalizationError extends Error {
   constructor(public checkoutIdentifier: CheckoutIdentifier) {
@@ -311,7 +298,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
             }
           : { value: 0, currency: this.context.languageContext.currencyCode },
       } satisfies ShippingMethod;
-      
+
       result.push(shippingMethod);
     }
     return result;
@@ -572,6 +559,45 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
     return this.config.paymentMethods || [];
   }
 
+  protected parseCheckoutItem(remoteItem: LineItem): CheckoutItem {
+    const unitPrice = remoteItem.price.value.centAmount;
+    const totalPrice = remoteItem.totalPrice.centAmount || 0;
+    const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
+    const unitDiscount = totalDiscount / remoteItem.quantity;
+    const currency =
+      remoteItem.price.value.currencyCode.toUpperCase() as Currency;
+
+    const item = {
+      identifier: {
+        key: remoteItem.id,
+      },
+      variant: {
+        sku: remoteItem.variant.sku || '',
+      },
+      quantity: remoteItem.quantity,
+      price: {
+        unitPrice: {
+          value: unitPrice / 100,
+          currency,
+        },
+        unitDiscount: {
+          value: unitDiscount / 100,
+          currency,
+        },
+        totalPrice: {
+          value: (totalPrice || 0) / 100,
+          currency,
+        },
+        totalDiscount: {
+          value: totalDiscount / 100,
+          currency,
+        },
+      },
+    } satisfies CheckoutItem;
+
+    return CheckoutItemSchema.parse(item);
+  }
+
   protected parseSingle(remote: CTCart): Checkout {
     const identifier = {
       key: remote.id,
@@ -638,45 +664,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
 
     const items = new Array<CheckoutItem>();
     for (const remoteItem of remote.lineItems) {
-      const identifier = {
-        key: remoteItem.id
-      } satisfies CheckoutItemIdentifier;
-      const variant = {
-        sku: remoteItem.variant.sku!
-      } satisfies ProductVariantIdentifier;
-      const quantity = remoteItem.quantity;
-
-      const unitPrice = remoteItem.price.value.centAmount;
-      const totalPrice = remoteItem.totalPrice.centAmount || 0;
-      const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
-      const unitDiscount = totalDiscount / remoteItem.quantity;
-
-      const price = {
-        unitPrice: {
-          value: unitPrice / 100,
-          currency,
-        },
-        unitDiscount: {
-          value: unitDiscount / 100,
-          currency,
-        },
-        totalPrice: {
-          value: (totalPrice || 0) / 100,
-          currency,
-        },
-        totalDiscount: {
-          value: totalDiscount / 100,
-          currency,
-        },
-      } satisfies ItemCostBreakdown;
-
-      const item = {
-        identifier,
-        price,
-        quantity,
-        variant
-      } satisfies CheckoutItem;
-
+      const item = this.parseCheckoutItem(remoteItem);
       items.push(item);
     }
 
@@ -755,7 +743,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       remote.paymentMethodInfo?.paymentInterface || method;
     const paymentName =
       remote.paymentMethodInfo.name![this.context.languageContext.locale];
-    
+
     const paymentMethod = {
       method,
       paymentProcessor,
@@ -766,7 +754,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
     const protocolData =
       Object.keys(customData).map((x) => ({ key: x, value: customData[x] })) ||
       [];
-    
+
     let status: PaymentStatus = 'pending';
     if (remote.transactions && remote.transactions.length > 0) {
       const lastTransaction =
