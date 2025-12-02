@@ -12,8 +12,10 @@ const testData = {
     slug: 'lv-ca31-scart-cable-101080',
     image: 'https://images.icecat.biz/img/norm/high/101080-3513.jpg',
     sku: '4960999194479',
-
   },
+  productWithMultiVariants: {
+    slug: 'hp-gk859aa-mouse-office-bluetooth-laser-1600-dpi-1377612',
+  }
 }
 
 describe('Medusa Product Provider', () => {
@@ -48,17 +50,22 @@ describe('Medusa Product Provider', () => {
     expect(result!.sharedAttributes[1].values[0].value).toBeTruthy();
   });
 
-  it('should be able to get a product by slug', async () => {
-    const result = await provider.getBySlug( { slug: testData.product.slug });
+  it('should be able to get a product with multiple variants by slug', async () => {
+    const result = await provider.getBySlug( { slug: testData.productWithMultiVariants.slug });
+
 
     expect(result).toBeTruthy();
     if (result) {
       expect(result.meta.placeholder).toBe(false);
       expect(result.identifier.key).toBeTruthy();
-      expect(result.name).toBe(testData.product.name);
+      expect(result.slug).toBe(testData.productWithMultiVariants.slug);
       expect(result.mainVariant).toBeDefined();
-      expect(result.mainVariant.identifier.sku).toBe(testData.product.sku);
-      expect(result.mainVariant.images[0].sourceUrl).toBe(testData.product.image);
+      expect(result.variants.length).toBeGreaterThan(0);
+      expect(result.variants[0].identifier.sku).toBeTruthy();
+      expect(result.variants[0].identifier.sku).not.toBe(result.mainVariant.identifier.sku);
+      expect(result!.sharedAttributes.length).toBeGreaterThan(1);
+      expect(result!.sharedAttributes[1].values.length).toBeGreaterThan(0);
+      expect(result!.sharedAttributes[1].values[0].value).toBeTruthy();
     }
   });
 

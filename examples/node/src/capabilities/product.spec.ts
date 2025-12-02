@@ -10,6 +10,9 @@ const testData = {
     sku: '0766623170703',
     slug: 'manhattan-170703-cable-accessory-cable-kit-10959528',
   },
+  productWithMultiVariants: {
+    slug: 'hp-gk859aa-mouse-office-bluetooth-laser-1600-dpi-1377612',
+  }
 };
 
 describe.each([PrimaryProvider.COMMERCETOOLS])('Product Capability - %s', (provider) => {
@@ -27,6 +30,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Product Capability - %s', (provi
     expect(result.meta.placeholder).toBe(false);
     expect(result.name).toBe(testData.product.name);
     expect(result.mainVariant.images[0].sourceUrl).toBe(testData.product.image);
+    expect(result.mainVariant.name).toBeTruthy();
   });
 
   it('should be able to get a product by slug', async () => {
@@ -43,6 +47,24 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Product Capability - %s', (provi
       );
     }
   });
+
+  it('should be able to get a multivariant product by slug', async () => {
+    const result = await client.product.getBySlug({ slug: testData.productWithMultiVariants.slug });
+    expect(result).toBeTruthy();
+    if (result) {
+      expect(result.meta.placeholder).toBe(false);
+      expect(result.identifier.key).toBeTruthy();
+      expect(result.slug).toBe(testData.productWithMultiVariants.slug);
+      expect(result.mainVariant).toBeDefined();
+      expect(result.variants.length).toBeGreaterThan(0);
+      expect(result.variants[0].identifier.sku).toBeTruthy();
+      expect(result.variants[0].identifier.sku).not.toBe(result.mainVariant.identifier.sku);
+      expect(result!.sharedAttributes.length).toBeGreaterThan(1);
+      expect(result!.sharedAttributes[1].values.length).toBeGreaterThan(0);
+      expect(result!.sharedAttributes[1].values[0].value).toBeTruthy();
+    }
+  });
+
 
   it('should be able to get a product by sku', async () => {
     const result = await client.product.getBySKU({

@@ -8,6 +8,7 @@ import {
 import type { CommercetoolsConfiguration } from '@reactionary/provider-commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
+import { withMedusaCapabilities } from '@reactionary/provider-medusa';
 
 export function getAlgoliaTestConfiguration() {
   return {
@@ -16,6 +17,17 @@ export function getAlgoliaTestConfiguration() {
     indexName: process.env['ALGOLIA_INDEX'] || '',
   };
 }
+
+export function getMedusaTestConfiguration() {
+  return {
+        publishable_key: process.env['MEDUSA_PUBLISHABLE_KEY'] || '',
+        adminApiKey: process.env['MEDUSA_ADMIN_KEY'] || '',
+        apiUrl: process.env['MEDUSA_API_URL'] || '',
+        defaultCurrency: process.env['MEDUSA_DEFAULT_CURRENCY'] || '',
+        allCurrencies: []
+    };
+}
+
 
 export function getCommercetoolsTestConfiguration() {
   return {
@@ -55,6 +67,7 @@ export function getCommercetoolsTestConfiguration() {
 export enum PrimaryProvider {
   ALGOLIA = 'Algolia',
   COMMERCETOOLS = 'Commercetools',
+  MEDUSA = 'Medusa',
 }
 
 export function createClient(provider: PrimaryProvider) {

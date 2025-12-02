@@ -60,6 +60,7 @@ export const ProductSchema = BaseModelSchema.extend({
     sharedAttributes: z.array(ProductAttributeSchema).describe('A list of technical attributes associated with the product'),
     options: z.array(ProductOptionSchema).describe('A list of options available for the product, such as size or color. Can be empty if product is single-sku'),
     mainVariant: ProductVariantSchema.describe('The primary SKU for the product'),
+    variants: z.array(ProductVariantSchema).default([]).describe('A list of all SKUs for the product. Can be empty or omitted if product is single-sku'),
 }).describe('A product is a wrapper around sellable items. It contains all the shared information for a set of SKUs. All products have at least one SKU, but can potentially have hundreds.');
 
 

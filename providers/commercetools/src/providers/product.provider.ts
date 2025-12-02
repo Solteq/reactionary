@@ -146,6 +146,14 @@ export class CommercetoolsProductProvider extends ProductProvider {
       ...variantLevelAttributes,
     ];
     const mainVariant = this.parseVariant(data.masterVariant, data);
+
+    const otherVariants = [];
+    for (const variant of data.variants || []) {
+      if (variant.id !== data.masterVariant.id) {
+        otherVariants.push(this.parseVariant(variant, data));
+      }
+    }
+
     const meta = {
       cache: { hit: false, key: this.generateCacheKeySingle(identifier) },
       placeholder: false,
@@ -165,6 +173,7 @@ export class CommercetoolsProductProvider extends ProductProvider {
       options: [],
       parentCategories: [],
       published: true,
+      variants: otherVariants,
     } satisfies Product;
 
     return result;
@@ -228,7 +237,7 @@ export class CommercetoolsProductProvider extends ProductProvider {
       barcode: '',
       ean: '',
       gtin: '',
-      name: '',
+      name: product.name[this.context.languageContext.locale],
       options,
       upc: ''
     } satisfies ProductVariant;
