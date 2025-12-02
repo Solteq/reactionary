@@ -180,7 +180,7 @@ export class MedusaClient {
     const productsResponse = await adminClient.admin.product.list({
       limit: 1,
       offset: 0,
-      fields: '+categories.metadata.*',
+      fields: '+metadata.*,+categories.metadata.*',
       variants: {
         $or: [{ ean: sku }, { upc: sku }, { barcode: sku }],
       },
