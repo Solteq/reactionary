@@ -117,6 +117,16 @@ export class MedusaProductProvider extends ProductProvider {
       throw new Error('Product has no variants ' + _body.id);
     }
     const mainVariant = this.parseVariant(_body.variants[0], _body);
+
+
+    const otherVariants = [];
+    if (_body.variants.length > 1) {
+      otherVariants.push(
+        ..._body.variants.slice(1).map( (variant) => this.parseVariant(variant, _body) )
+      );
+    }
+
+
     const meta = {
       cache: { hit: false, key: this.generateCacheKeySingle(identifier) },
       placeholder: false
@@ -135,7 +145,8 @@ export class MedusaProductProvider extends ProductProvider {
       parentCategories,
       published: true,
       sharedAttributes,
-      slug
+      slug,
+      variants: otherVariants,
     } satisfies Product;
 
     return result;

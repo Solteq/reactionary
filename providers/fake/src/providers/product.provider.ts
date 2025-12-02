@@ -88,6 +88,7 @@ export class FakeProductProvider extends ProductProvider {
       parentCategories: [],
       published: true,
       sharedAttributes: [],
+      variants: [],
       meta: {
         cache: {
           hit: false,
