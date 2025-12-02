@@ -36,7 +36,9 @@ export class MedusaProductProvider extends ProductProvider {
     }
     let response;
     try {
-      response = await client.store.product.retrieve(payload.identifier.key);
+      response = await client.store.product.retrieve(payload.identifier.key, {
+        fields: '+metadata,+categories.metadata.*',
+      });
 
     } catch(error) {
       if (debug.enabled) {
@@ -60,7 +62,8 @@ export class MedusaProductProvider extends ProductProvider {
     const response = await client.store.product.list({
       handle: payload.slug,
       limit: 1,
-      offset: 0
+      offset: 0,
+      fields: '+metadata.*',
     });
 
     if (debug.enabled) {
@@ -227,7 +230,11 @@ export class MedusaProductProvider extends ProductProvider {
     if (_body.material) {
       sharedAttributes.push(this.createSynthAttribute('material', 'Material', _body.material));
     }
-
+    if (_body.metadata) {
+      for (const [key, value] of Object.entries(_body.metadata)) {
+        sharedAttributes.push(this.createSynthAttribute(key, key, String(value)));
+      }
+    }
     return sharedAttributes;
   }
 }

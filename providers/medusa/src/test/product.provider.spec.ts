@@ -43,6 +43,9 @@ describe('Medusa Product Provider', () => {
     expect(result.mainVariant).toBeDefined();
     expect(result.mainVariant.identifier.sku).toBe(testData.product.sku);
     expect(result.mainVariant.images[0].sourceUrl).toBe(testData.product.image);
+    expect(result!.sharedAttributes.length).toBeGreaterThan(1);
+    expect(result!.sharedAttributes[1].values.length).toBeGreaterThan(0);
+    expect(result!.sharedAttributes[1].values[0].value).toBeTruthy();
   });
 
   it('should be able to get a product by slug', async () => {
@@ -76,6 +79,9 @@ describe('Medusa Product Provider', () => {
       expect(result.mainVariant).toBeDefined();
       expect(result.mainVariant.identifier.sku).toBe(testData.product.sku);
       expect(result.mainVariant.images[0].sourceUrl).toBe(testData.product.image);
+      expect(result!.sharedAttributes.length).toBeGreaterThan(1);
+      expect(result!.sharedAttributes[1].values.length).toBeGreaterThan(0);
+      expect(result!.sharedAttributes[1].values[0].value).toBeTruthy();
     }
   });
 
@@ -85,6 +91,13 @@ describe('Medusa Product Provider', () => {
     expect(result).toBeNull();
   });
 
+  it('should contain both product level and variant level attributes', async () => {
+    const result = await provider.getBySlug( { slug: testData.product.slug });
+    expect(result).toBeTruthy();
+    expect(result!.sharedAttributes.length).toBeGreaterThan(1);
+    expect(result!.sharedAttributes[1].values.length).toBeGreaterThan(0);
+    expect(result!.sharedAttributes[1].values[0].value).toBeTruthy();
+  })
 
 
   it('should return a placeholder product for unknown id', async () => {
