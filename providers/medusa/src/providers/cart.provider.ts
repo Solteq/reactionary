@@ -2,6 +2,7 @@ import type {
   Cache,
   Cart,
   CartIdentifier,
+  CartItem,
   CartMutationApplyCoupon,
   CartMutationChangeCurrency,
   CartMutationDeleteCart,
@@ -12,42 +13,37 @@ import type {
   CartQueryById,
   CostBreakDown,
   Currency,
+  ItemCostBreakdown,
   Meta,
   ProductVariantIdentifier,
   RequestContext,
-  CartItem,
 } from '@reactionary/core';
 import {
-  CartItemSchema,
-  CartProvider,
-  CartSchema,
   CartIdentifierSchema,
-  CartQueryByIdSchema,
-  CartMutationItemAddSchema,
-  CartMutationItemRemoveSchema,
-  CartMutationItemQuantityChangeSchema,
-  CartMutationDeleteCartSchema,
   CartMutationApplyCouponSchema,
-  CartMutationRemoveCouponSchema,
   CartMutationChangeCurrencySchema,
+  CartMutationDeleteCartSchema,
+  CartMutationItemAddSchema,
+  CartMutationItemQuantityChangeSchema,
+  CartMutationItemRemoveSchema,
+  CartMutationRemoveCouponSchema,
+  CartProvider,
+  CartQueryByIdSchema,
+  CartSchema,
   ProductVariantIdentifierSchema,
-  Reactionary,
+  Reactionary
 } from '@reactionary/core';
 
 import createDebug from 'debug';
-import type { z } from 'zod';
 import type { MedusaClient } from '../core/client.js';
-import { MedusaAdminClient } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type {
-  MedusaCartIdentifier,
-  MedusaSession,
+  MedusaCartIdentifier
 } from '../schema/medusa.schema.js';
 import {
-  MedusaCartIdentifierSchema,
-  MedusaOrderIdentifierSchema,
-  MedusaSessionSchema,
+  MedusaCartIdentifierSchema
 } from '../schema/medusa.schema.js';
+import { handleProviderError, parseMedusaCostBreakdown, parseMedusaItemPrice } from '../utils/medusa-helpers.js';
 import type MedusaTypes = require('@medusajs/types');
 import type StoreCartPromotion = require('@medusajs/types');
 
@@ -55,6 +51,13 @@ const debug = createDebug('reactionary:medusa:cart');
 
 export class MedusaCartProvider extends CartProvider {
   protected config: MedusaConfiguration;
+  /**
+   * This controls which fields are always included when fetching a cart
+   * You can override this in a subclass to add more fields as needed.
+   *
+   * example: this.includedFields = [includedFields, '+discounts.*'].join(',');
+   */
+  protected includedFields: string = ['+items.*'].join(',');
 
   constructor(
     config: MedusaConfiguration,
@@ -128,7 +131,6 @@ export class MedusaCartProvider extends CartProvider {
 
       // but medusa only accepts variant IDs , so we have to resolve it somehow...
       const variantId = await this.client.resolveVariantId(payload.variant.sku);
-      const cc = this.context.languageContext;
 
       const response = await client.store.cart.createLineItem(
         medusaId.key,
@@ -137,7 +139,7 @@ export class MedusaCartProvider extends CartProvider {
           quantity: payload.quantity,
         },
         {
-          fields: '+items.*',
+          fields: this.includedFields,
         }
       );
 
@@ -151,12 +153,7 @@ export class MedusaCartProvider extends CartProvider {
 
       throw new Error('Failed to add item to cart');
     } catch (error) {
-      debug('Failed to add item to cart:', error);
-      throw new Error(
-        `Failed to add item to cart: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      );
+      handleProviderError('add item to cart', error);
     }
   }
 
@@ -173,7 +170,7 @@ export class MedusaCartProvider extends CartProvider {
         medusaId.key,
         payload.item.key,
         {
-          fields: '+items.*',
+          fields: this.includedFields,
         }
       );
 
@@ -183,12 +180,7 @@ export class MedusaCartProvider extends CartProvider {
 
       throw new Error('Failed to remove item from cart');
     } catch (error) {
-      debug('Failed to remove item from cart:', error);
-      throw new Error(
-        `Failed to remove item from cart: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      );
+      handleProviderError('remove item from cart', error);
     }
   }
 
@@ -218,7 +210,7 @@ export class MedusaCartProvider extends CartProvider {
           quantity: payload.quantity,
         },
         {
-          fields: '+items.*',
+          fields: this.includedFields,
         }
       );
 
@@ -228,12 +220,7 @@ export class MedusaCartProvider extends CartProvider {
 
       throw new Error('Failed to change item quantity');
     } catch (error) {
-      debug('Failed to change item quantity:', error);
-      throw new Error(
-        `Failed to change item quantity: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      );
+      handleProviderError('change item quantity', error);
     }
   }
 
@@ -328,7 +315,7 @@ export class MedusaCartProvider extends CartProvider {
           promo_codes: [payload.couponCode],
         },
         {
-          fields: '+items.*',
+          fields: this.includedFields,
         }
       );
 
@@ -338,12 +325,7 @@ export class MedusaCartProvider extends CartProvider {
 
       throw new Error('Failed to apply coupon code');
     } catch (error) {
-      debug('Failed to apply coupon code:', error);
-      throw new Error(
-        `Failed to apply coupon code: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      );
+      handleProviderError('apply coupon code', error);
     }
   }
 
@@ -372,6 +354,8 @@ export class MedusaCartProvider extends CartProvider {
           []) as string[];
         const response = await client.store.cart.update(medusaId.key, {
           promo_codes: remainingCodes || [],
+        }, {
+          fields: this.includedFields,
         });
 
         if (response.cart) {
@@ -381,12 +365,7 @@ export class MedusaCartProvider extends CartProvider {
 
       throw new Error('Failed to remove coupon code');
     } catch (error) {
-      debug('Failed to remove coupon code:', error);
-      throw new Error(
-        `Failed to remove coupon code: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      );
+      handleProviderError('remove coupon code', error);
     }
   }
 
@@ -410,7 +389,7 @@ export class MedusaCartProvider extends CartProvider {
           region_id: (await this.client.getActiveRegion()).id,
         },
         {
-          fields: '+items.*',
+          fields: this.includedFields,
         }
       );
       if (!currentCartResponse.cart) {
@@ -433,12 +412,7 @@ export class MedusaCartProvider extends CartProvider {
 
       throw new Error('Failed to change currency');
     } catch (error) {
-      debug('Failed to change currency:', error);
-      throw new Error(
-        `Failed to change currency: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      );
+      handleProviderError('change currency', error);
     }
   }
 
@@ -455,7 +429,7 @@ export class MedusaCartProvider extends CartProvider {
           ).toLowerCase(),
         },
         {
-          fields: '+items.*',
+          fields: this.includedFields,
         }
       );
 
@@ -475,12 +449,7 @@ export class MedusaCartProvider extends CartProvider {
 
       throw new Error('Failed to create cart');
     } catch (error) {
-      debug('Failed to create cart:', error);
-      throw new Error(
-        `Failed to create cart: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
-      );
+      handleProviderError('create cart', error);
     }
   }
 
@@ -488,14 +457,38 @@ export class MedusaCartProvider extends CartProvider {
     return this.client.getClient();
   }
 
+  /**
+   * Extension point to control the parsing of a single cart item price
+   * @param remoteItem
+   * @param currency
+   * @returns
+   */
+  protected parseItemPrice(
+    remoteItem: MedusaTypes.StoreCartLineItem,
+    currency: Currency
+  ): ItemCostBreakdown {
+    return parseMedusaItemPrice(remoteItem, currency);
+  }
+
+  /**
+   * Extension point to control the parsing of the cost breakdown of a cart
+   * @param remote
+   * @returns
+   */
+  protected parseCostBreakdown(remote: MedusaTypes.StoreCart): CostBreakDown {
+    return parseMedusaCostBreakdown(remote);
+  }
+
+  /**
+   * Extension point to control the parsing of a single cart item
+   * @param remoteItem
+   * @param currency
+   * @returns
+   */
   protected parseCartItem(
     remoteItem: MedusaTypes.StoreCartLineItem,
     currency: Currency
   ): CartItem {
-    const unitPrice = remoteItem.unit_price || 0;
-    const totalPrice = unitPrice * remoteItem.quantity || 0;
-    const discountTotal = remoteItem.discount_total || 0;
-
     const item: CartItem = {
       identifier: {
         key: remoteItem.id,
@@ -507,29 +500,16 @@ export class MedusaCartProvider extends CartProvider {
         sku: remoteItem.variant_sku || '',
       } satisfies ProductVariantIdentifier),
       quantity: remoteItem.quantity || 1,
-
-      price: {
-        unitPrice: {
-          value: unitPrice,
-          currency,
-        },
-        unitDiscount: {
-          value: discountTotal / remoteItem.quantity,
-          currency,
-        },
-        totalPrice: {
-          value: totalPrice,
-          currency,
-        },
-        totalDiscount: {
-          value: discountTotal,
-          currency,
-        },
-      },
+      price: parseMedusaItemPrice(remoteItem, currency),
     };
     return item;
   }
 
+  /**
+   * Extension point to control the parsing of a single cart
+   * @param remote
+   * @returns
+   */
   protected parseSingle(remote: MedusaTypes.StoreCart): Cart {
     const identifier = MedusaCartIdentifierSchema.parse({
       key: remote.id,
@@ -539,40 +519,7 @@ export class MedusaCartProvider extends CartProvider {
     const name = '' + (remote.metadata?.['name'] || '');
     const description = '' + (remote.metadata?.['description'] || '');
 
-    // Calculate totals
-    const grandTotal = remote.total || 0;
-    const shippingTotal = remote.shipping_total || 0;
-    const taxTotal = remote.tax_total || 0;
-    const discountTotal = remote.discount_total || 0;
-    const subtotal = remote.subtotal || 0;
-    const currency = (remote.currency_code || 'EUR').toUpperCase() as Currency;
-
-    const price = {
-      totalTax: {
-        value: taxTotal,
-        currency,
-      },
-      totalDiscount: {
-        value: discountTotal,
-        currency,
-      },
-      totalSurcharge: {
-        value: 0,
-        currency,
-      },
-      totalShipping: {
-        value: shippingTotal,
-        currency,
-      },
-      totalProductPrice: {
-        value: subtotal,
-        currency,
-      },
-      grandTotal: {
-        value: grandTotal,
-        currency,
-      },
-    } satisfies CostBreakDown;
+    const price = this.parseCostBreakdown(remote);
 
     // Parse cart items
     const items = new Array<CartItem>();
@@ -580,7 +527,7 @@ export class MedusaCartProvider extends CartProvider {
     const allItems = remote.items || [];
     allItems.sort( (a,b) => (a.created_at && b.created_at) ? (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) : 0 );
     for (const remoteItem of allItems) {
-      items.push(this.parseCartItem(remoteItem, remote.currency_code.toUpperCase() as Currency));
+      items.push(this.parseCartItem(remoteItem, price.grandTotal.currency));
     }
 
     const meta = {

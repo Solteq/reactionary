@@ -1,9 +1,9 @@
 
-import { CartSchema, NoOpCache, createInitialRequestContext, type Cart, type CartMutationAddPaymentMethod, type CartMutationItemAdd, type RequestContext } from '@reactionary/core';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { NoOpCache, createInitialRequestContext, type Cart, type CartMutationItemAdd, type RequestContext } from '@reactionary/core';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { MedusaClient } from '../core/client.js';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
-import { MedusaClient } from '../core/client.js';
 
 
 const testData = {
