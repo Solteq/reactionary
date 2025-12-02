@@ -41,7 +41,7 @@ import { MedusaAdminClient } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type {
   MedusaCartIdentifier,
-  MedusaSession
+  MedusaSession,
 } from '../schema/medusa.schema.js';
 import {
   MedusaCartIdentifierSchema,
@@ -70,9 +70,7 @@ export class MedusaCartProvider extends CartProvider {
     inputSchema: CartQueryByIdSchema,
     outputSchema: CartSchema,
   })
-  public override async getById(
-    payload: CartQueryById
-  ): Promise<Cart> {
+  public override async getById(payload: CartQueryById): Promise<Cart> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -102,9 +100,7 @@ export class MedusaCartProvider extends CartProvider {
     inputSchema: CartMutationItemAddSchema,
     outputSchema: CartSchema,
   })
-  public override async add(
-    payload: CartMutationItemAdd
-  ): Promise<Cart> {
+  public override async add(payload: CartMutationItemAdd): Promise<Cart> {
     try {
       const client = await this.getClient();
 
@@ -116,7 +112,14 @@ export class MedusaCartProvider extends CartProvider {
       const medusaId = cartIdentifier as MedusaCartIdentifier;
 
       if (debug.enabled) {
-        debug('Adding item to cart ID:', medusaId.key, 'SKU:', payload.variant.sku, 'Quantity:', payload.quantity);
+        debug(
+          'Adding item to cart ID:',
+          medusaId.key,
+          'SKU:',
+          payload.variant.sku,
+          'Quantity:',
+          payload.quantity
+        );
       }
 
       // TODO: Convert from global SKU identifier, to something medusa understands.....
@@ -127,12 +130,16 @@ export class MedusaCartProvider extends CartProvider {
       const variantId = await this.client.resolveVariantId(payload.variant.sku);
       const cc = this.context.languageContext;
 
-      const response = await client.store.cart.createLineItem(medusaId.key, {
-        variant_id: variantId,
-        quantity: payload.quantity,
-      }, {
-        fields: '+items.*'
-      });
+      const response = await client.store.cart.createLineItem(
+        medusaId.key,
+        {
+          variant_id: variantId,
+          quantity: payload.quantity,
+        },
+        {
+          fields: '+items.*',
+        }
+      );
 
       if (debug.enabled) {
         debug('Received add item response:', response);
@@ -145,18 +152,19 @@ export class MedusaCartProvider extends CartProvider {
       throw new Error('Failed to add item to cart');
     } catch (error) {
       debug('Failed to add item to cart:', error);
-      throw new Error(`Failed to add item to cart: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to add item to cart: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
-
 
   @Reactionary({
     inputSchema: CartMutationItemRemoveSchema,
     outputSchema: CartSchema,
   })
-  public override async remove(
-    payload: CartMutationItemRemove
-  ): Promise<Cart> {
+  public override async remove(payload: CartMutationItemRemove): Promise<Cart> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -165,7 +173,7 @@ export class MedusaCartProvider extends CartProvider {
         medusaId.key,
         payload.item.key,
         {
-          fields: '+items.*'
+          fields: '+items.*',
         }
       );
 
@@ -176,7 +184,11 @@ export class MedusaCartProvider extends CartProvider {
       throw new Error('Failed to remove item from cart');
     } catch (error) {
       debug('Failed to remove item from cart:', error);
-      throw new Error(`Failed to remove item from cart: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to remove item from cart: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
 
@@ -188,7 +200,9 @@ export class MedusaCartProvider extends CartProvider {
     payload: CartMutationItemQuantityChange
   ): Promise<Cart> {
     if (payload.quantity < 1) {
-      throw new Error('Changing quantity to 0 is not allowed. Use the remove call instead.');
+      throw new Error(
+        'Changing quantity to 0 is not allowed. Use the remove call instead.'
+      );
       // Changing quantity to 0 is not allowed. Use the remove call instead.
       // return this.getById({ cart: payload.cart }, reqCtx);
     }
@@ -204,9 +218,8 @@ export class MedusaCartProvider extends CartProvider {
           quantity: payload.quantity,
         },
         {
-          fields: '+items.*'
+          fields: '+items.*',
         }
-
       );
 
       if (response.cart) {
@@ -216,15 +229,18 @@ export class MedusaCartProvider extends CartProvider {
       throw new Error('Failed to change item quantity');
     } catch (error) {
       debug('Failed to change item quantity:', error);
-      throw new Error(`Failed to change item quantity: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to change item quantity: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
 
   @Reactionary({
     outputSchema: CartIdentifierSchema,
   })
-  public override async getActiveCartId(
-  ): Promise<CartIdentifier> {
+  public override async getActiveCartId(): Promise<CartIdentifier> {
     try {
       const client = await this.getClient();
       const sessionData = this.client.getSessionData();
@@ -236,7 +252,7 @@ export class MedusaCartProvider extends CartProvider {
           await client.store.cart.retrieve(activeCartId);
           return MedusaCartIdentifierSchema.parse({
             key: activeCartId,
-            region_id: (await this.client.getActiveRegion()).id
+            region_id: (await this.client.getActiveRegion()).id,
           });
         } catch {
           // Cart doesn't exist, create new one
@@ -246,13 +262,13 @@ export class MedusaCartProvider extends CartProvider {
       // For guest users or if no active cart exists, return empty identifier
       return MedusaCartIdentifierSchema.parse({
         key: '',
-        region_id: (await this.client.getActiveRegion()).id
+        region_id: (await this.client.getActiveRegion()).id,
       });
     } catch (error) {
       debug('Failed to get active cart ID:', error);
       return MedusaCartIdentifierSchema.parse({
         key: '',
-        region_id: (await this.client.getActiveRegion()).id
+        region_id: (await this.client.getActiveRegion()).id,
       });
     }
   }
@@ -272,24 +288,19 @@ export class MedusaCartProvider extends CartProvider {
         const sessionData = this.client.getSessionData();
         if (sessionData.activeCartId) {
           delete sessionData.activeCartId;
-          this.client.setSessionData(
-            {
-              activeCartId: undefined
-            }
-          );
+          this.client.setSessionData({
+            activeCartId: undefined,
+          });
         }
       }
       // then delete it. But there is not really a deleteCart method, so we just orphan it.
-//      await client.store.cart.deleteCart(medusaId.key);
+      //      await client.store.cart.deleteCart(medusaId.key);
 
       // lets delete all items
       const cartResponse = await client.store.cart.retrieve(medusaId.key);
       if (cartResponse.cart) {
         for (const item of cartResponse.cart.items || []) {
-          await client.store.cart.deleteLineItem(
-            medusaId.key,
-            item.id,
-          );
+          await client.store.cart.deleteLineItem(medusaId.key, item.id);
         }
       }
 
@@ -299,7 +310,6 @@ export class MedusaCartProvider extends CartProvider {
       return this.createEmptyCart();
     }
   }
-
 
   @Reactionary({
     inputSchema: CartMutationApplyCouponSchema,
@@ -312,11 +322,15 @@ export class MedusaCartProvider extends CartProvider {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
 
-      const response = await client.store.cart.update(medusaId.key, {
-        promo_codes: [ payload.couponCode ],
-      }, {
-        fields: '+items.*'
-      });
+      const response = await client.store.cart.update(
+        medusaId.key,
+        {
+          promo_codes: [payload.couponCode],
+        },
+        {
+          fields: '+items.*',
+        }
+      );
 
       if (response.cart) {
         return this.parseSingle(response.cart);
@@ -325,7 +339,11 @@ export class MedusaCartProvider extends CartProvider {
       throw new Error('Failed to apply coupon code');
     } catch (error) {
       debug('Failed to apply coupon code:', error);
-      throw new Error(`Failed to apply coupon code: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to apply coupon code: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
 
@@ -344,11 +362,16 @@ export class MedusaCartProvider extends CartProvider {
       const cartResponse = await client.store.cart.retrieve(medusaId.key);
 
       if (cartResponse.cart?.promotions) {
-        const manualDiscounts = cartResponse.cart.promotions.filter(x => !x.is_automatic && x.code);
+        const manualDiscounts = cartResponse.cart.promotions.filter(
+          (x) => !x.is_automatic && x.code
+        );
 
-        const remainingCodes = (manualDiscounts.filter(x => x.code !== payload.couponCode).map((promotion: MedusaTypes.StoreCartPromotion) => ( promotion.code )) || []) as string[];
+        const remainingCodes = (manualDiscounts
+          .filter((x) => x.code !== payload.couponCode)
+          .map((promotion: MedusaTypes.StoreCartPromotion) => promotion.code) ||
+          []) as string[];
         const response = await client.store.cart.update(medusaId.key, {
-          promo_codes: (remainingCodes || []),
+          promo_codes: remainingCodes || [],
         });
 
         if (response.cart) {
@@ -359,10 +382,13 @@ export class MedusaCartProvider extends CartProvider {
       throw new Error('Failed to remove coupon code');
     } catch (error) {
       debug('Failed to remove coupon code:', error);
-      throw new Error(`Failed to remove coupon code: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to remove coupon code: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
-
 
   @Reactionary({
     inputSchema: CartMutationChangeCurrencySchema,
@@ -374,27 +400,32 @@ export class MedusaCartProvider extends CartProvider {
     try {
       const client = await this.getClient();
 
-
       // Get current cart
-      const currentCartResponse = await client.store.cart.retrieve(payload.cart.key);
-      client.store.cart.update(payload.cart.key, {
-        region_id: (await this.client.getActiveRegion()).id,
-      },
-      {
-        fields: '+items.*'
-      }
-  );
+      const currentCartResponse = await client.store.cart.retrieve(
+        payload.cart.key
+      );
+      client.store.cart.update(
+        payload.cart.key,
+        {
+          region_id: (await this.client.getActiveRegion()).id,
+        },
+        {
+          fields: '+items.*',
+        }
+      );
       if (!currentCartResponse.cart) {
         throw new Error('Cart not found');
       }
 
       // Get the new cart
-      const newCartResponse = await client.store.cart.retrieve(payload.cart.key);
+      const newCartResponse = await client.store.cart.retrieve(
+        payload.cart.key
+      );
 
       if (newCartResponse.cart) {
         // Update session to use new cart
         this.client.setSessionData({
-          activeCartId: newCartResponse.cart.id
+          activeCartId: newCartResponse.cart.id,
         });
 
         return this.parseSingle(newCartResponse.cart);
@@ -403,23 +434,30 @@ export class MedusaCartProvider extends CartProvider {
       throw new Error('Failed to change currency');
     } catch (error) {
       debug('Failed to change currency:', error);
-      throw new Error(`Failed to change currency: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to change currency: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
 
-  protected async createCart(
-    currency?: string
-  ): Promise<CartIdentifier> {
+  protected async createCart(currency?: string): Promise<CartIdentifier> {
     try {
       const client = await this.getClient();
 
-      const response = await client.store.cart.create({
-        currency_code: (currency || this.context.languageContext.currencyCode || '').toLowerCase(),
-      },
-      {
-        fields: '+items.*'
-      }
-    )
+      const response = await client.store.cart.create(
+        {
+          currency_code: (
+            currency ||
+            this.context.languageContext.currencyCode ||
+            ''
+          ).toLowerCase(),
+        },
+        {
+          fields: '+items.*',
+        }
+      );
 
       if (response.cart) {
         const cartIdentifier = MedusaCartIdentifierSchema.parse({
@@ -428,12 +466,9 @@ export class MedusaCartProvider extends CartProvider {
         });
 
         // Store cart ID in session
-        this.client.setSessionData(
-          {
-            activeCartId: cartIdentifier.key
-          }
-        );
-
+        this.client.setSessionData({
+          activeCartId: cartIdentifier.key,
+        });
 
         return cartIdentifier;
       }
@@ -441,19 +476,65 @@ export class MedusaCartProvider extends CartProvider {
       throw new Error('Failed to create cart');
     } catch (error) {
       debug('Failed to create cart:', error);
-      throw new Error(`Failed to create cart: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create cart: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
     }
   }
 
   protected async getClient() {
-     return this.client.getClient();
+    return this.client.getClient();
+  }
+
+  protected parseCartItem(
+    remoteItem: MedusaTypes.StoreCartLineItem,
+    currency: Currency
+  ): CartItem {
+    const unitPrice = remoteItem.unit_price || 0;
+    const totalPrice = unitPrice * remoteItem.quantity || 0;
+    const discountTotal = remoteItem.discount_total || 0;
+
+    const item: CartItem = {
+      identifier: {
+        key: remoteItem.id,
+      },
+      product: {
+        key: remoteItem.product_id || '',
+      },
+      variant: ProductVariantIdentifierSchema.parse({
+        sku: remoteItem.variant_sku || '',
+      } satisfies ProductVariantIdentifier),
+      quantity: remoteItem.quantity || 1,
+
+      price: {
+        unitPrice: {
+          value: unitPrice,
+          currency,
+        },
+        unitDiscount: {
+          value: discountTotal / remoteItem.quantity,
+          currency,
+        },
+        totalPrice: {
+          value: totalPrice,
+          currency,
+        },
+        totalDiscount: {
+          value: discountTotal,
+          currency,
+        },
+      },
+    };
+    return item;
   }
 
   protected parseSingle(remote: MedusaTypes.StoreCart): Cart {
     const identifier = MedusaCartIdentifierSchema.parse({
       key: remote.id,
       region_id: remote.region_id,
-    });
+    } satisfies MedusaCartIdentifier);
 
     const name = '' + (remote.metadata?.['name'] || '');
     const description = '' + (remote.metadata?.['description'] || '');
@@ -484,7 +565,7 @@ export class MedusaCartProvider extends CartProvider {
         currency,
       },
       totalProductPrice: {
-        value: subtotal ,
+        value: subtotal,
         currency,
       },
       grandTotal: {
@@ -495,40 +576,11 @@ export class MedusaCartProvider extends CartProvider {
 
     // Parse cart items
     const items = new Array<CartItem>();
-    for (const remoteItem of remote.items || []) {
-      const item = CartItemSchema.parse({});
 
-      item.identifier.key = remoteItem.id;
-      item.product.key = remoteItem.product_id || '';
-      item.variant = ProductVariantIdentifierSchema.parse({
-        sku: remoteItem.variant_sku || '',
-      } satisfies ProductVariantIdentifier);
-      item.quantity = remoteItem.quantity || 1;
-
-      const unitPrice = remoteItem.unit_price || 0;
-      const totalPrice = unitPrice * item.quantity || 0;
-      const discountTotal = remoteItem.discount_total || 0;
-
-      item.price = {
-        unitPrice: {
-          value: unitPrice ,
-          currency,
-        },
-        unitDiscount: {
-          value: discountTotal / remoteItem.quantity ,
-          currency,
-        },
-        totalPrice: {
-          value: totalPrice ,
-          currency,
-        },
-        totalDiscount: {
-          value: discountTotal ,
-          currency,
-        },
-      };
-
-      items.push(item);
+    const allItems = remote.items || [];
+    allItems.sort( (a,b) => (a.created_at && b.created_at) ? (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) : 0 );
+    for (const remoteItem of allItems) {
+      items.push(this.parseCartItem(remoteItem, remote.currency_code.toUpperCase() as Currency));
     }
 
     const meta = {
@@ -547,12 +599,10 @@ export class MedusaCartProvider extends CartProvider {
       items,
       meta,
       userId: {
-        userId: '???'
-      }
+        userId: '???',
+      },
     } satisfies Cart;
 
     return result;
   }
-
-
 }

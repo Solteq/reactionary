@@ -164,17 +164,17 @@ export class CommercetoolsClient {
     await this.cache.set({ token: '', refreshToken: '', expirationTime: 0 });
 
     // TODO: We could do token revocation here, if we wanted to. The above simply whacks the session.
-
-    return {
-      type: 'Anonymous',
+    const identity = {
       meta: {
         cache: {
           hit: false,
-          key: ''
+          key: '',
         },
-        placeholder: false
-      }
+        placeholder: false,
+      },
+      type: 'Anonymous'
     } satisfies AnonymousIdentity;
+    return identity;
   }
 
   // FIXME: This can fail if the short-lived access token has expired. In other words, probably missing a token refresh.

@@ -12,14 +12,14 @@ describe('Fake Product Provider', () => {
 
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
-    provider = new FakeProductProvider(getFakerTestConfiguration(), ProductSchema, new MemoryCache(), reqCtx);
+    provider = new FakeProductProvider(getFakerTestConfiguration(),  new MemoryCache(), reqCtx);
   })
 
   it('should cache repeat product lookups by id', async () => {
-    const first = await provider.getById({ id: '1234' });
+    const first = await provider.getById({ identifier: { key : '1234' }});
     expect(first.meta.cache.hit).toBe(false);
 
-    const second = await provider.getById({ id: '1234' });
+    const second = await provider.getById({ identifier: { key : '1234' }});
     expect(second.meta.cache.hit).toBe(true);
   });
 });

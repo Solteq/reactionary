@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import type { Cart, Checkout } from '@reactionary/core';
+import type { Cart, Checkout, PaymentInstruction } from '@reactionary/core';
 import {
   PaymentInstructionSchema,
   ShippingInstructionSchema,
@@ -121,11 +121,15 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Checkout Capability - %s', (prov
         const checkoutWithPi = await client.checkout.addPaymentInstruction(
           {
             checkout: checkout.identifier,
-            paymentInstruction: {
+            paymentInstruction: PaymentInstructionSchema.parse({
               paymentMethod: pm!.identifier,
               amount: checkout.price.grandTotal,
               protocolData: [{ key: 'test-key', value: 'test-value' }],
-            },
+              identifier: {
+                key: 'pm1'
+              },
+              status: 'pending'
+            } satisfies Omit<PaymentInstruction, 'meta'>),
           }
         );
 

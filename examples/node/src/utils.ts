@@ -2,6 +2,8 @@ import {
   createInitialRequestContext,
   ClientBuilder,
   NoOpCache,
+  type PaymentMethod,
+  type PaymentMethodIdentifier,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '@reactionary/provider-commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
@@ -30,7 +32,6 @@ export function getCommercetoolsTestConfiguration() {
     paymentMethods: [
       {
         identifier: {
-          paymentProvider: 'stripe',
           method: 'stripe',
           name: 'Stripe',
           paymentProcessor: 'stripe'

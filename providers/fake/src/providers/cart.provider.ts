@@ -81,7 +81,11 @@ export class FakeCartProvider extends CartProvider {
 
     const cartId = payload.cart.key || `cart-${this.generator.string.uuid()}`;
     const cart = await this.getById({ cart: { key: cartId } });
-
+    if (cart.meta.placeholder) {
+      cart.identifier.key = cartId;
+      cart.meta.placeholder = false;
+      this.carts.set(cartId, cart);
+    }
     const existingItemIndex = cart.items.findIndex(
       item => item.variant.sku === payload.variant.sku
     );

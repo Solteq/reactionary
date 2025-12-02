@@ -7,6 +7,7 @@ import {
   RegisteredIdentitySchema,
   type AnonymousIdentity,
   type Currency,
+  type RegisteredIdentity,
   type RequestContext,
 } from '@reactionary/core';
 import createDebug from 'debug';
@@ -292,11 +293,23 @@ export class MedusaClient {
       const customerResponse = await client.store.customer.retrieve();
 
       if (customerResponse.customer) {
-        return RegisteredIdentitySchema.parse({});
+        const identity = {
+          id: {
+            userId: customerResponse.customer.id,
+          },
+          type: 'Registered',
+          meta: {
+            cache: {
+              hit: false,
+              key: customerResponse.customer.id,
+            },
+            placeholder: false,
+          },
+        } satisfies RegisteredIdentity;
+        return identity;
       }
 
       return {
-        type: 'Anonymous',
         meta: {
           cache: {
             hit: false,
@@ -304,6 +317,7 @@ export class MedusaClient {
           },
           placeholder: false,
         },
+        type: 'Anonymous',
       } satisfies AnonymousIdentity;
     } catch (error) {
       debug('Login failed:', error);

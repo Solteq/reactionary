@@ -32,6 +32,8 @@ import type {
   ProductAttributeValueIdentifier,
   ProductIdentifier,
   Meta,
+  ProductVariantOption,
+  ProductOptionIdentifier,
 } from '@reactionary/core';
 import type { Cache, Image } from '@reactionary/core';
 import type { CommercetoolsClient } from '../core/client.js';
@@ -168,6 +170,19 @@ export class CommercetoolsProductProvider extends ProductProvider {
     return result;
   }
 
+  /**
+   * Return true, if the attribute is a defining attribute (ie an option)
+   * @param attr a variant attribute
+   * @returns true if the attribute is an option
+   */
+  protected isVariantAttributeAnOption(
+    attr: CTAttribute
+  ): boolean {
+    // for now, the assumption is that any variant attribute is a defining attribute (ie an option)
+    // ideally this should be verified with the product type.
+    return true;
+  }
+
   protected parseVariant(
     variant: CTProductVariant,
     product: ProductProjection
@@ -187,6 +202,26 @@ export class CommercetoolsProductProvider extends ProductProvider {
       ),
     ];
 
+    const options = (variant.attributes ?? []).filter(attr => this.isVariantAttributeAnOption(attr)).map((attr) => {
+      const attrVal = this.parseAttributeValue(attr);
+      const optionIdentifier: ProductOptionIdentifier = {
+        key: attr.name
+      }
+      const option: ProductVariantOption = {
+        identifier: optionIdentifier,
+        name: attr.name,
+        value: {
+          identifier: {
+            key: attrVal.value,
+            option: optionIdentifier
+          },
+          label: attrVal.label,
+        }
+      };
+      return option;
+    }
+    ) || [];
+
     const result = {
       identifier,
       images,
@@ -194,7 +229,7 @@ export class CommercetoolsProductProvider extends ProductProvider {
       ean: '',
       gtin: '',
       name: '',
-      options: [],
+      options,
       upc: ''
     } satisfies ProductVariant;
 

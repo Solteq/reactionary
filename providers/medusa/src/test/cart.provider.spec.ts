@@ -1,5 +1,5 @@
 
-import { CartSchema, NoOpCache, createInitialRequestContext, type Cart, type RequestContext } from '@reactionary/core';
+import { CartSchema, NoOpCache, createInitialRequestContext, type Cart, type CartMutationAddPaymentMethod, type CartMutationItemAdd, type RequestContext } from '@reactionary/core';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
@@ -71,7 +71,7 @@ describe('Medusa Cart Provider', () => {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      });
+      } satisfies CartMutationItemAdd);
 
 
       const updatedCart = await provider.add({
