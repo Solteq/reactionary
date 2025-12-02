@@ -1,24 +1,15 @@
-import type { Cache, Image, Product, ProductAttribute, ProductOptionIdentifier, ProductOptionValue, ProductOptionValueIdentifier, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariant, ProductVariantIdentifier, ProductVariantOption, RequestContext } from '@reactionary/core';
+import type { Cache, Image, Product, ProductAttribute, ProductAttributeIdentifier, ProductAttributeValueIdentifier, ProductOptionIdentifier, ProductOptionValueIdentifier, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariant, ProductVariantOption, RequestContext } from '@reactionary/core';
 import {
   CategoryIdentifierSchema,
-  ImageSchema,
-  ProductAttributeSchema,
   ProductIdentifierSchema,
   ProductProvider,
-  ProductSchema,
   ProductQueryByIdSchema,
-  ProductQueryBySlugSchema,
   ProductQueryBySKUSchema,
-  ProductVariantIdentifierSchema,
-  ProductVariantSchema,
-  Reactionary,
-  ProductVariantOptionSchema,
-  ProductOptionIdentifierSchema,
-  ProductOptionValueSchema,
-  ProductOptionValueIdentifierSchema,
+  ProductQueryBySlugSchema,
+  ProductSchema,
+  Reactionary
 } from '@reactionary/core';
 import createDebug from 'debug';
-import type { z } from 'zod';
 import type { MedusaClient } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
@@ -191,57 +182,50 @@ export class MedusaProductProvider extends ProductProvider {
     return result;
   }
 
+  protected createSynthAttribute(key: string, name: string, value: string ): ProductAttribute {
+    const attributeIdentifier: ProductAttributeIdentifier = { key };
+    const valueIdentifier: ProductAttributeValueIdentifier = { key: `${key}-${value}`};
 
+    const attribute: ProductAttribute = {
+      identifier: { key },
+      name,
+      group: '',
+      values: [
+        {
+          identifier: valueIdentifier,
+          label: String(value),
+          value: value,
+        }
+      ]
+    };
+    return attribute;
+  }
 
   protected parseAttributes(_body: StoreProduct): Array<ProductAttribute> {
     const sharedAttributes = [];
 
     if (_body.origin_country) {
-      sharedAttributes.push({
-        id: 'origin_country',
-        name: 'Origin Country',
-        value: _body.origin_country,
-      });
+      sharedAttributes.push(this.createSynthAttribute('origin_country', 'Origin Country', _body.origin_country));
     }
 
     if (_body.height) {
-      sharedAttributes.push(ProductAttributeSchema.parse({
-        id: 'height',
-        name: 'Height',
-        value: _body.height,
-      }));
+      sharedAttributes.push(this.createSynthAttribute('height', 'Height', String(_body.height)));
     }
 
     if (_body.weight) {
-      sharedAttributes.push(ProductAttributeSchema.parse({
-        id: 'weight',
-        name: 'Weight',
-        value: _body.weight,
-      }));
+      sharedAttributes.push(this.createSynthAttribute('weight', 'Weight', String(_body.weight)));
     }
 
     if (_body.length) {
-      sharedAttributes.push(ProductAttributeSchema.parse({
-        id: 'length',
-        name: 'Length',
-        value: _body.length,
-      }));
+      sharedAttributes.push(this.createSynthAttribute('length', 'Length', String(_body.length)));
     }
 
     if (_body.width) {
-      sharedAttributes.push(ProductAttributeSchema.parse({
-        id: 'width',
-        name: 'Width',
-        value: _body.width,
-      }));
+      sharedAttributes.push(this.createSynthAttribute('width', 'Width', String(_body.width)));
     }
 
     if (_body.material) {
-      sharedAttributes.push(ProductAttributeSchema.parse({
-        id: 'material',
-        name: 'Material',
-        value: _body.material,
-      }));
+      sharedAttributes.push(this.createSynthAttribute('material', 'Material', _body.material));
     }
 
     return sharedAttributes;
