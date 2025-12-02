@@ -1,14 +1,13 @@
 {
-  "name": "@reactionary/pexamples-node",
+  "name": "@reactionary/examples-node",
   "version": "0.0.1",
   "main": "index.js",
   "types": "src/index.d.ts",
   "dependencies": {
-
-  
     "@reactionary/core": "0.0.1",
     "@reactionary/provider-commercetools": "0.0.1",
-    "@reactionary/provider-algolia": "0.0.1"
+    "@reactionary/provider-algolia": "0.0.1",
+    "@reactionary/provider-medusa": "0.0.1"
   },
   "type": "module"
 }

@@ -74,7 +74,8 @@ export abstract class ProductProvider extends BaseProvider {
       parentCategories: [],
       published: false,
       sharedAttributes: [],
-      slug: ''
+      slug: '',
+      variants: [],
     } satisfies Product;
 
     return product;
