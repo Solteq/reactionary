@@ -2,8 +2,8 @@
   "name": "@reactionary/provider-medusa",
   "version": "0.0.1",
   "type": "module",
-  "main": "./src/index.js",
-  "types": "./src/index.d.ts",
+  "main": "index.js",
+  "types": "src/index.d.ts",
   "dependencies": {
     "zod": "4.1.9",
     "@reactionary/core": "0.0.1",
