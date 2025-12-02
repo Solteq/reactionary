@@ -82,7 +82,6 @@ UX Pages and components supported:
 - [X] Unified Data Set for Inventory - AKJ
 - [X] Unified Data Set for Prices - AKJ
 - [X] Unified test set for all vendors - AKJ
-- [ ] Medusa - test of Client - AKJ
 - [X] Reactionary Decorator on all public Query and Mutation methods - MR
 - [X] Input validation via Zod.parse for all public Query and Mutation methods - MR
 - [X] Output validation via Zod.parse for all public Query and Mutation methods - MR
