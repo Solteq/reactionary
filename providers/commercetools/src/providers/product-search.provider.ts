@@ -250,7 +250,10 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
         key: facet.name,
       } satisfies Partial<FacetIdentifier>);
 
-      facets.push(this.parseFacet(facetIdentifier, facet));
+      const candidateFacet = this.parseFacet(facetIdentifier, facet);
+      if (candidateFacet.values.length > 0) {
+        facets.push(candidateFacet);
+      }
     }
 
     const result = {

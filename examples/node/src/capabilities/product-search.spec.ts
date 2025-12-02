@@ -97,7 +97,6 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
       expect(largePage.pageSize).toBe(30);
     });
 
-    // Skip for CT, as it does not provide facets by default
     it('should be able to apply facets', async () => {
 
       const initial = await client.productSearch.queryByTerm({
@@ -127,6 +126,24 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
       });
 
       expect(initial.totalPages).toBeGreaterThanOrEqual(filtered.totalPages);
+    });
+
+    it('should not return facets with no values', async () => {
+      const result = await client.productSearch.queryByTerm({
+        search: {
+          term: testData.searchTerm,
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 10,
+          },
+          facets: [],
+          filters: [],
+        },
+      });
+
+      for (const facet of result.facets) {
+        expect(facet.values.length).toBeGreaterThan(0);
+      }
     });
   }
 );
