@@ -28,7 +28,6 @@ export class MemoryCache implements Cache {
     parsed.meta.cache.hit = true;
     this.meter.hits.add(1, {
       'labels.cache_type': 'memory',
-      'labels.object_type': schema.description || 'unknown',
     });
     return parsed;
   }
