@@ -79,11 +79,11 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
   ) {
 
     if (selectedFacetValue.facet.key === 'categories') {
-      const category = await this.resolveCategoryFromKey({ key: selectedFacetValue.key });
+      // const category = await this.resolveCategoryFromKey({ key: selectedFacetValue.key });
       return {
         exact: {
           field: 'categoriesSubTree',
-          values: [category.id],
+          values: [selectedFacetValue.key],
           fieldType: 'text',
         },
       };
@@ -160,12 +160,12 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
     if (!payload.search.categoryFilter) {
       return undefined;
     }
-    const category = await this.resolveCategoryFromKey({ key: payload.search.categoryFilter.key });
-    if (category) {
+    // const category = await this.resolveCategoryFromKey({ key: payload.search.categoryFilter.key });
+    if (payload.search.categoryFilter.key) {
       return {
         exact: {
           field: 'categoriesSubTree',
-          values: [category.id],
+          values: [payload.search.categoryFilter.key],
           fieldType: 'text',
         },
       };
@@ -253,14 +253,17 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
   })
   public override async createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<FacetValueIdentifier> {
     // In Commercetools, we can use the category ID to filter products by category
+
     const categoryPath = payload.categoryPath;
     const deepestCategory = categoryPath[categoryPath.length - 1];
+    const resolvedCategory = await this.resolveCategoryFromKey({ key: deepestCategory.identifier.key });
+    const resolvedId = resolvedCategory?.id;
     const facetIdentifier: FacetIdentifier = {
       key: 'categories',
     }
     const facetValueIdentifier: FacetValueIdentifier = {
       facet: facetIdentifier,
-      key: deepestCategory.identifier.key,
+      key: resolvedId || 'unknown',
     };
 
     return facetValueIdentifier;
@@ -367,10 +370,14 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
       return;
     }
 
+    const resolvedCategories = categoryFacet.values.map((facetValue) => this.resolveCategoryFromId({ id: facetValue.identifier.key }));
+    const categories = await Promise.all(resolvedCategories);
     for (const facetValue of categoryFacet.values) {
       try {
-        const category = await this.resolveCategoryFromId( { id: facetValue.identifier.key } );
-        facetValue.identifier.key = category.key || category.id;
+        const category = categories.find((c) => c.id === facetValue.identifier.key);
+        if (!category) {
+          continue;
+        }
         facetValue.name = category.name[this.context.languageContext.locale] || category.id;
       } catch (error) {
         if (debug.enabled) {
