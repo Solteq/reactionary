@@ -78,6 +78,22 @@ describe('Medusa Search Provider', () => {
         },
       });
 
+      // medusa does not support subtree searches, so we have to drill down to a leaf category
+      let candidate = categories.items[0];
+      while(candidate) {
+        const children = await categoryProvider.findChildCategories({
+          parentId: candidate.identifier,
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 10,
+          },
+        });
+        if(children.items.length > 0) {
+          candidate = children.items[0];
+        } else {
+          break;
+        }
+      }
 
       const unfilteredSearch = await provider.queryByTerm({
         search: {
@@ -94,7 +110,7 @@ describe('Medusa Search Provider', () => {
       expect(unfilteredSearch.totalCount).toBeGreaterThan(0);
 
       const breadCrumb = await categoryProvider.getBreadcrumbPathToCategory({
-        id: categories.items[1].identifier,
+        id: candidate.identifier,
       });
       expect(breadCrumb.length).toBeGreaterThan(0);
 
