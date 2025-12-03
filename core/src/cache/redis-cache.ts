@@ -1,9 +1,12 @@
 import { Redis } from '@upstash/redis';
 import type { Cache, CacheEntryOptions } from './cache.interface.js';
 import type z from 'zod';
+import { getReactionaryCacheMeter } from '../metrics/metrics.js';
 
 export class RedisCache implements Cache {
   protected redis: Redis;
+  protected meter = getReactionaryCacheMeter();
+
 
   constructor() {
     this.redis = Redis.fromEnv();
@@ -18,6 +21,11 @@ export class RedisCache implements Cache {
     const parsed = schema.safeParse(unvalidated);
 
     if (parsed.success) {
+      this.meter.hits.add(1, {
+        'labels.cache_type': 'redis',
+      });
+
+
       return parsed.data;
     }
 
@@ -42,6 +50,10 @@ export class RedisCache implements Cache {
       multi.sadd(`dep:${depId}`, key);
     }
 
+    this.meter.items.record(await this.redis.dbsize(), {
+      'labels.cache_type': 'redis',
+    });
+
     await multi.exec();
   }
 
@@ -56,9 +68,17 @@ export class RedisCache implements Cache {
 
       await this.redis.del(depKey);
     }
+
+    this.meter.items.record(await this.redis.dbsize(), {
+      'labels.cache_type': 'redis',
+    });
+
   }
 
   public async clear(): Promise<void> {
+    this.meter.items.record(await this.redis.dbsize(), {
+      'labels.cache_type': 'redis',
+    });
     // Not sure about supporting this on Redis.
   }
 }

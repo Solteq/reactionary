@@ -1,12 +1,16 @@
+import type {
+  Tracer
+} from '@opentelemetry/api';
+import { trace } from '@opentelemetry/api';
+import type { z } from 'zod';
 import type { BaseProvider } from '../providers/index.js';
-import type { Span, Tracer } from '@opentelemetry/api';
-import { trace, SpanKind } from '@opentelemetry/api';
-import type { z, ZodAny } from 'zod';
+import { getReactionaryMeter } from '../metrics/metrics.js';
 
 const TRACER_NAME = '@reactionary';
 const TRACER_VERSION = '0.0.1';
 
 let globalTracer: Tracer | null = null;
+
 
 export function getTracer(): Tracer {
   if (!globalTracer) {
@@ -73,6 +77,13 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
     const original = descriptor.value;
     const scope = `${target.constructor.name}.${propertyKey.toString()}`;
     const configuration = { ...new ReactionaryDecoratorOptions(), ...options };
+    const meter = getReactionaryMeter();
+    const attributes = {
+      'labels.scope': scope,
+    };
+    const startTime = performance.now();
+    let status = 'ok';
+    let cacheStatus = 'miss';
 
     if (!original) {
       throw new Error(
@@ -82,24 +93,45 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
 
     descriptor.value = async function (this: BaseProvider, ...args: any[]) {
       return traceSpan(scope, async () => {
-        const input = validateInput(args[0], configuration.inputSchema);
+        meter.requestInProgress.add(1, attributes);
+        try {
+          const input = validateInput(args[0], configuration.inputSchema);
 
-        const cacheKey = this.generateCacheKeyForQuery(scope, input as any);
-        const fromCache = await this.cache.get(cacheKey, options.inputSchema as any);
-        let result = fromCache;
+          const cacheKey = this.generateCacheKeyForQuery(scope, input as any);
+          const fromCache = await this.cache.get(
+            cacheKey,
+            options.inputSchema as any
+          );
+          let result = fromCache;
 
-        if (!result) {
-          result = await original.apply(this, [input]);
+          if (!result) {
+            result = await original.apply(this, [input]);
 
-          const dependencyIds = this.generateDependencyIdsForModel(result);
+            const dependencyIds = this.generateDependencyIdsForModel(result);
 
-          this.cache.put(cacheKey, result, {
-            ttlSeconds: configuration.cacheTimeToLiveInSeconds,
-            dependencyIds: dependencyIds,
-          });
+            this.cache.put(cacheKey, result, {
+              ttlSeconds: configuration.cacheTimeToLiveInSeconds,
+              dependencyIds: dependencyIds,
+            });
+          } else {
+            cacheStatus = 'hit';
+          }
+
+          return validateOutput(result, configuration.outputSchema);
+        } catch (err) {
+          status = 'error';
+          throw err;
+        } finally {
+          const duration = performance.now() - startTime;
+          const finalAttributes = {
+            ...attributes,
+            'labels.status': status,
+            'labels.cache_status': cacheStatus,
+          };
+          meter.requestInProgress.add(-1, finalAttributes);
+          meter.requests.add(1, finalAttributes);
+          meter.requestDuration.record(duration, finalAttributes);
         }
-
-        return validateOutput(result, configuration.outputSchema);
       });
     };
 
