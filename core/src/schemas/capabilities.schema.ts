@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { InferType } from '../zod-utils.js';
+import type { Client } from '../client/client.js';
 
 export const CapabilitiesSchema = z.looseObject({
     product: z.boolean(),
@@ -17,3 +18,6 @@ export const CapabilitiesSchema = z.looseObject({
 });
 
 export type Capabilities = InferType<typeof CapabilitiesSchema>;
+export type ClientFromCapabilities<C extends Partial<Capabilities>> = {
+  [K in keyof C & keyof Client as C[K] extends true ? K : never]: Client[K];
+};

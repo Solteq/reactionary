@@ -3,22 +3,13 @@ import type {
   CartProvider,
   CategoryProvider,
   CheckoutProvider,
+  ClientFromCapabilities,
   IdentityProvider,
   InventoryProvider,
   PriceProvider,
   ProductProvider,
   ProductSearchProvider,
   RequestContext,
-} from "@reactionary/core";
-import {
-  CartSchema,
-  CategorySchema,
-  CheckoutSchema,
-  IdentitySchema,
-  InventorySchema,
-  PriceSchema,
-  ProductSchema,
-  ProductSearchResultItemSchema
 } from "@reactionary/core";
 import { MedusaCartProvider } from "../providers/cart.provider.js";
 import { MedusaIdentityProvider } from "../providers/identity.provider.js";
@@ -32,21 +23,11 @@ import { MedusaClient } from "./client.js";
 import { MedusaCategoryProvider } from "../providers/category.provider.js";
 import { MedusaCheckoutProvider } from "../providers/checkout.provider.js";
 
-type MedusaProviderSet<T extends MedusaCapabilities> =
-    (T['product-search'] extends true ? { productSearch: ProductSearchProvider } : object) &
-    (T['category'] extends true ? { category: CategoryProvider } : object) &
-    (T['checkout'] extends true ? { checkout: CheckoutProvider } : object) &
-    (T['cart'] extends true ? { cart: CartProvider } : object) &
-    (T['price'] extends true ? { price: PriceProvider } : object) &
-    (T['inventory'] extends true ? { inventory: InventoryProvider } : object) &
-    (T['identity'] extends true ? { identity: IdentityProvider } : object) &
-    (T['product'] extends true ? { product: ProductProvider } : object) ;
-
 export function withMedusaCapabilities<T extends MedusaCapabilities>(
     configuration: MedusaConfiguration,
     capabilities: T
 ) {
-    return (cache: Cache, context: RequestContext): MedusaProviderSet<T> => {
+    return (cache: Cache, context: RequestContext): ClientFromCapabilities<T> => {
         const client: any = {};
         const config = MedusaConfigurationSchema.parse(configuration);
         const caps = MedusaCapabilitiesSchema.parse(capabilities);
