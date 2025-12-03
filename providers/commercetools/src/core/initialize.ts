@@ -16,7 +16,9 @@ import { CommercetoolsPriceProvider } from '../providers/price.provider.js';
 import { CommercetoolsCategoryProvider } from '../providers/category.provider.js';
 import {
   CommercetoolsCheckoutProvider,
+  CommercetoolsOrderProvider,
   CommercetoolsProfileProvider,
+  CommercetoolsStoreProvider,
 } from '../providers/index.js';
 import { CommercetoolsClient } from './client.js';
 
@@ -103,6 +105,24 @@ export function withCommercetoolsCapabilities<
 
     if (caps.checkout) {
       client.checkout = new CommercetoolsCheckoutProvider(
+        config,
+        cache,
+        context,
+        commercetoolsClient
+      );
+    }
+
+    if (caps.store) {
+        client.store = new CommercetoolsStoreProvider(
+        config,
+        cache,
+        context,
+        commercetoolsClient
+      );
+    }
+
+    if (caps.order) {
+        client.store = new CommercetoolsOrderProvider(
         config,
         cache,
         context,
