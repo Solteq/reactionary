@@ -9,6 +9,7 @@ import type {
   StoreProvider,
   PriceProvider,
   RequestContext,
+  ClientFromCapabilities,
 } from '@reactionary/core';
 import {
   ProductSchema,
@@ -31,22 +32,11 @@ import {
   FakeStoreProvider,
 } from '../providers/index.js';
 
-type FakeClient<T extends FakeCapabilities> = (T['cart'] extends true
-  ? { cart: CartProvider }
-  : object) &
-  (T['product'] extends true ? { product: ProductProvider } : object) &
-  (T['productSearch'] extends true ? { productSearch: ProductSearchProvider } : object) &
-  (T['identity'] extends true ? { identity: IdentityProvider } : object) &
-  (T['category'] extends true ? { category: CategoryProvider } : object) &
-  (T['inventory'] extends true ? { inventory: InventoryProvider } : object) &
-  (T['store'] extends true ? { store: StoreProvider } : object) &
-  (T['price'] extends true ? { price: PriceProvider } : object);
-
 export function withFakeCapabilities<T extends FakeCapabilities>(
   configuration: FakeConfiguration,
   capabilities: T
 ) {
-  return (cache: ReactinaryCache, context: RequestContext): FakeClient<T> => {
+  return (cache: ReactinaryCache, context: RequestContext): ClientFromCapabilities<T> => {
     const client: any = {};
 
     if (capabilities.product) {

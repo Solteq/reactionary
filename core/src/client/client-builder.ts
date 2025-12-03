@@ -11,7 +11,7 @@ type CapabilityFactory<T> = (cache: Cache, context: RequestContext) => T;
 
 type MergeCapabilities<Acc, New> = Omit<Acc, keyof New> & New;
 
-export class ClientBuilder<TClient = object> {
+export class ClientBuilder<TClient = Client> {
   private factories: Array<CapabilityFactory<Partial<Client>>> = [];
   private cache: Cache | undefined;
   private context: RequestContext;
