@@ -24,12 +24,15 @@ import {
   ProductSearchResultSchema,
   type Product,
   type Meta,
+  type ProductSearchQueryCreateNavigationFilter,
+  FacetValueIdentifierSchema,
+  FacetIdentifierSchema,
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type z from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type { MedusaClient } from '../core/client.js';
-import type { StoreProduct, StoreProductListResponse, StoreProductVariant } from '@medusajs/types';
+import type { StoreProduct, StoreProductCategory, StoreProductListResponse, StoreProductVariant } from '@medusajs/types';
 
 const debug = createDebug('reactionary:medusa:search');
 
@@ -41,6 +44,44 @@ export class MedusaSearchProvider extends ProductSearchProvider {
     this.config = config;
   }
 
+
+    protected async resolveCategoryIdByExternalId(
+      externalId: string
+    ): Promise<StoreProductCategory | null> {
+      const sdk = await this.client.getClient();
+      let offset = 0;
+      const limit = 50;
+      let candidate: StoreProductCategory | undefined = undefined;
+      while (true) {
+        try {
+          const categoryResult = await sdk.store.category.list({
+            offset,
+            limit,
+          });
+
+          if (categoryResult.product_categories.length === 0) {
+            break;
+          }
+
+          candidate = categoryResult.product_categories.find(
+            (cat) => cat.metadata?.['external_id'] === externalId
+          );
+          if (candidate) {
+            break;
+          }
+          offset += limit;
+        } catch (error) {
+          throw new Error(
+            'Category not found ' + externalId + ' due to error: ' + error
+          );
+          break;
+        }
+      }
+      return candidate || null;
+    }
+
+
+
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
     outputSchema: ProductSearchResultSchema
@@ -50,8 +91,22 @@ export class MedusaSearchProvider extends ProductSearchProvider {
   ): Promise<ProductSearchResult> {
     const client = await this.client.getClient();
 
+    let categoryIdToFind: string | null = null;
+    if (payload.search.categoryFilter?.key) {
+      debug(`Resolving category filter for key: ${payload.search.categoryFilter.key}`);
+
+      const category = await this.resolveCategoryIdByExternalId(payload.search.categoryFilter.key);
+      if (category) {
+        categoryIdToFind = category.id;
+        debug(`Resolved category filter key ${payload.search.categoryFilter.key} to id: ${categoryIdToFind}`);
+      } else {
+        debug(`Could not resolve category filter for key: ${payload.search.categoryFilter.key}`);
+      }
+    }
+    const finalSearch = (payload.search.term || '').trim().replace("*", "");
     const response = await client.store.product.list({
-      q: payload.search.term,
+      q: finalSearch,
+      ...(categoryIdToFind ? { category_id: categoryIdToFind } : {}),
       limit: payload.search.paginationOptions.pageSize,
       offset: (payload.search.paginationOptions.pageNumber - 1) * payload.search.paginationOptions.pageSize,
     });
@@ -163,6 +218,19 @@ export class MedusaSearchProvider extends ProductSearchProvider {
       image: img
      } satisfies Partial<ProductSearchResultItemVariant>);
   }
+
+  public override async createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<FacetValueIdentifier> {
+    const facetIdentifier = FacetIdentifierSchema.parse({
+      key: 'categories'
+    });
+    const facetValueIdentifier = FacetValueIdentifierSchema.parse({
+      facet: facetIdentifier,
+      key: payload.categoryPath[payload.categoryPath.length -1].identifier.key
+    });
+
+    return facetValueIdentifier
+  }
+
 
   protected override parseFacetValue(facetValueIdentifier: FacetValueIdentifier, label: string, count: number): ProductSearchResultFacetValue {
     throw new Error('Method not implemented.');

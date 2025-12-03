@@ -1,9 +1,10 @@
 import 'dotenv/config';
-import { createInitialRequestContext, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema } from '@reactionary/core';
+import { createInitialRequestContext, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, type ProductSearchQueryCreateNavigationFilter } from '@reactionary/core';
 import { describe, expect, it } from 'vitest';
 import { MedusaSearchProvider } from '../providers/product-search.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 import { MedusaClient } from '../index.js';
+import { MedusaCategoryProvider } from '../providers/category.provider.js';
 
 const testData = {
   searchTerm: 'printer',
@@ -12,6 +13,13 @@ describe('Medusa Search Provider', () => {
   const reqCtx = createInitialRequestContext();
   const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
   const provider = new MedusaSearchProvider(
+    getMedusaTestConfiguration(),
+    new NoOpCache(),
+    reqCtx,
+    client
+  );
+
+  const categoryProvider = new MedusaCategoryProvider(
     getMedusaTestConfiguration(),
     new NoOpCache(),
     reqCtx,
@@ -60,6 +68,58 @@ describe('Medusa Search Provider', () => {
       secondPage.items[0].identifier.key
     );
   });
+
+  it ('should be able to apply a top level category filter', async () => {
+      // First, get a category to filter on
+      const categories = await categoryProvider.findTopCategories({
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 2,
+        },
+      });
+
+
+      const unfilteredSearch = await provider.queryByTerm({
+        search: {
+          term: "",
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 1,
+          },
+          facets: [],
+          filters: [],
+        },
+      });
+
+      expect(unfilteredSearch.totalCount).toBeGreaterThan(0);
+
+      const breadCrumb = await categoryProvider.getBreadcrumbPathToCategory({
+        id: categories.items[1].identifier,
+      });
+      expect(breadCrumb.length).toBeGreaterThan(0);
+
+      const categoryFilter = await provider.createCategoryNavigationFilter({
+        categoryPath: breadCrumb,
+      } satisfies ProductSearchQueryCreateNavigationFilter);
+
+      const filteredSearch = await provider.queryByTerm({
+        search: {
+          term: "",
+          categoryFilter: categoryFilter,
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 1,
+          },
+          facets: [],
+          filters: [],
+        },
+      });
+
+      expect(filteredSearch.totalCount).toBeLessThan(unfilteredSearch.totalCount);
+      expect(filteredSearch.totalCount).toBeGreaterThan(0);
+  });
+
+
 
   it('should be able to change page size', async () => {
     const smallPage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {

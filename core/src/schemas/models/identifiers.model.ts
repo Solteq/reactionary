@@ -36,12 +36,6 @@ export const ProductIdentifierSchema = z.looseObject({
   key: z.string()
 });
 
-export const ProductSearchIdentifierSchema = z.looseObject({
-  term: z.string(),
-  facets: z.array(FacetValueIdentifierSchema),
-  filters: z.array(z.string()),
-  paginationOptions: PaginationOptionsSchema,
-});
 
 export const CartIdentifierSchema = z.looseObject({
   key: z.string(),
@@ -121,6 +115,16 @@ export const PaymentInstructionIdentifierSchema = z.looseObject({
 export const PickupPointIdentifierSchema = z.looseObject({
     key: z.string(),
 });
+
+
+export const ProductSearchIdentifierSchema = z.looseObject({
+  term: z.string().describe('The search term used to find products.'),
+  facets: z.array(FacetValueIdentifierSchema).describe('The facets applied to filter the search results.'),
+  filters: z.array(z.string()).describe('Additional filters applied to the search results.'),
+  paginationOptions: PaginationOptionsSchema.describe('Pagination options for the search results.'),
+  categoryFilter: FacetValueIdentifierSchema.optional().describe('An optional category filter applied to the search results.'),
+});
+
 
 export type ProductIdentifier = InferType<typeof ProductIdentifierSchema>;
 export type ProductVariantIdentifier = InferType<typeof ProductVariantIdentifierSchema>;
