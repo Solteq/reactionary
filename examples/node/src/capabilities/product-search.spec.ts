@@ -102,7 +102,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
 
       const initial = await client.productSearch.queryByTerm({
         search: {
-          term: testData.searchTerm,
+          term: "",
           paginationOptions: {
             pageNumber: 1,
             pageSize: 2,
@@ -116,7 +116,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
 
       const filtered = await client.productSearch.queryByTerm({
         search: {
-          term: testData.searchTerm,
+          term: "",
           paginationOptions: {
             pageNumber: 1,
             pageSize: 2,
@@ -126,7 +126,8 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
         },
       });
 
-      expect(initial.totalPages).toBeGreaterThanOrEqual(filtered.totalPages);
+      expect(initial.totalCount).toBeGreaterThan(filtered.totalCount);
+      expect(filtered.totalCount).toBeGreaterThan(0);
     });
 
     it('should not return facets with no values', async () => {
