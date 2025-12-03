@@ -1,5 +1,5 @@
-import { CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema } from "@reactionary/core";
-import { z } from "zod";
+import { BaseModelSchema, CartIdentifierSchema, CategoryIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema } from "@reactionary/core";
+import { keyof, z } from "zod";
 
 export const CommercetoolsCartIdentifierSchema = CartIdentifierSchema.extend({
     version: z.number().default(0)
@@ -14,6 +14,21 @@ export const CommercetoolsCheckoutIdentifierSchema = CheckoutIdentifierSchema.ex
     version: z.number().default(0)
 });
 
+export const CommercetoolsResolveCategoryQueryByKeySchema = z.object({
+    key: z.string().describe('The key of the category to resolve.'),
+});
+export const CommercetoolsResolveCategoryQueryByIdSchema = z.object({
+    id: z.string().describe('The ID of the category to resolve.'),
+});
+export const CommercetoolsCategoryLookupSchema = BaseModelSchema.extend({
+    id: z.string(),
+    key: z.string().optional(),
+    name: z.record(z.string(), z.string()),
+});
+
 export type CommercetoolsCheckoutIdentifier = z.infer<typeof CommercetoolsCheckoutIdentifierSchema>;
 export type CommercetoolsCartIdentifier = z.infer<typeof CommercetoolsCartIdentifierSchema>;
 export type CommercetoolsOrderIdentifier = z.infer<typeof CommercetoolsOrderIdentifierSchema>;
+export type CommercetoolsResolveCategoryQueryByKey = z.infer<typeof CommercetoolsResolveCategoryQueryByKeySchema>;
+export type CommercetoolsResolveCategoryQueryById = z.infer<typeof CommercetoolsResolveCategoryQueryByIdSchema>;
+export type CommercetoolsCategoryLookup = z.infer<typeof CommercetoolsCategoryLookupSchema>;

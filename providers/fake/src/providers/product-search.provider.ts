@@ -15,7 +15,8 @@ import type {
   FacetIdentifier,
   FacetValueIdentifier,
   ProductSearchResultFacetValue,
-  ProductSearchResultItemVariant
+  ProductSearchResultItemVariant,
+  ProductSearchQueryCreateNavigationFilter
 } from '@reactionary/core';
 import type { RequestContext, ProductSearchQueryByTerm } from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
@@ -29,6 +30,18 @@ export class FakeSearchProvider extends ProductSearchProvider {
     super(cache, context);
 
     this.config = config;
+  }
+
+  public override async createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<FacetValueIdentifier> {
+    const facetIdentifier = {
+      key: 'category',
+    } satisfies FacetIdentifier;
+    const facetValueIdentifier = {
+      facet: facetIdentifier,
+      key: payload.categoryPath[payload.categoryPath.length - 1].identifier.key,
+    } satisfies FacetValueIdentifier;
+
+    return facetValueIdentifier;
   }
 
   @Reactionary({

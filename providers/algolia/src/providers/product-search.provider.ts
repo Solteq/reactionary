@@ -8,6 +8,7 @@ import {
   ProductSearchProvider,
   type ProductSearchQueryByTerm,
   ProductSearchQueryByTermSchema,
+  type ProductSearchQueryCreateNavigationFilter,
   type ProductSearchResult,
   type ProductSearchResultFacet,
   ProductSearchResultFacetSchema,
@@ -53,6 +54,23 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
     payload: ProductSearchQueryByTerm
   ): Promise<ProductSearchResult> {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
+
+    const facetsThatAreNotCategory = payload.search.facets.filter(x => x.facet.key !== 'categories');
+    const categoryFacet = payload.search.facets.find(x => x.facet.key === 'categories') || payload.search.categoryFilter;
+
+    const finalFilters = [...payload.search.filters || []];
+
+
+    const finalFacetFilters = [
+      ...facetsThatAreNotCategory.map(
+        (x) => `${encodeURIComponent(x.facet.key)}:"${x.key}"`
+      ),
+    ]
+    if (categoryFacet) {
+      finalFilters.push(`categories:"${categoryFacet.key}"`);
+    }
+
+
     const remote = await client.search<AlgoliaNativeRecord>({
       requests: [
         {
@@ -63,11 +81,8 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
           facets: ['*'],
           analytics: true,
           clickAnalytics: true,
-          facetFilters: payload.search.facets.map(
-            (x) => `${encodeURIComponent(x.facet.key)}:${x.key}`
-          ),
-          filters: (payload.search.filters || [])
-            .map((x) => `${encodeURIComponent(x)}`)
+          facetFilters: finalFacetFilters,
+          filters: (finalFilters || [])
             .join(' AND '),
         },
       ],
@@ -76,6 +91,7 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
     const input = remote.results[0] as SearchResponse<AlgoliaNativeRecord>;
     const result = this.parsePaginatedResult(input, payload) as AlgoliaProductSearchResult;
 
+    // mark selected facets as active
     for(const selectedFacet of payload.search.facets) {
       const facet = result.facets.find((f) => f.identifier.key === selectedFacet.facet.key);
       if(facet) {
@@ -83,10 +99,22 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
           if(value) {
             value.active = true;
           }
-        }
+      }
     }
 
     return result;
+  }
+
+  public override createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<FacetValueIdentifier> {
+
+    const facetIdentifier = FacetIdentifierSchema.parse({
+      key: 'categories'
+    });
+    const facetValueIdentifier = FacetValueIdentifierSchema.parse({
+      facet: facetIdentifier,
+      key: payload.categoryPath.map(c => c.name).join(' > ')
+    });
+    return Promise.resolve(facetValueIdentifier);
   }
 
 
@@ -124,7 +152,7 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
 
   protected parsePaginatedResult(body: SearchResponse<AlgoliaNativeRecord>, query: ProductSearchQueryByTerm) {
     const items = body.hits.map((hit) => this.parseSingle(hit));
-    const facets: ProductSearchResultFacet[] = [];
+    let facets: ProductSearchResultFacet[] = [];
     for (const id in body.facets) {
       const f = body.facets[id];
       const facetId = FacetIdentifierSchema.parse({
@@ -133,6 +161,37 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
       const facet = this.parseFacet(facetId, f);
       facets.push(facet);
     }
+
+
+    // we do something to convert the hierachy.lvl.n facet values into something more usable
+    const selectedCategoryFacet = query.search.facets.find(x => x.facet.key === 'categories') || query.search.categoryFilter;
+    let subCategoryFacet;
+    if(selectedCategoryFacet) {
+      const valueDepth = selectedCategoryFacet.key.split(' > ').length;
+      // ok, so input defined a facet value from level X, we return hierarchy.lvl.(X+1) as subcategories.
+      // hierarchy counts from 0, so length is already pointing to 'lvl.(X+1)'
+      subCategoryFacet = facets.find(f => f.identifier.key === `hierarchy.lvl${valueDepth}`);
+    } else {
+      // and remap lvl0 to 'categories'
+      subCategoryFacet = facets.find(f => f.identifier.key === 'hierarchy.lvl0');
+    }
+
+    if(subCategoryFacet) {
+      // remap to 'categories' facet
+      subCategoryFacet.identifier = FacetIdentifierSchema.parse({
+        key: 'categories'
+      });
+      subCategoryFacet.name = 'Categories';
+      for(const v of subCategoryFacet.values) {
+        const pathParts = v.identifier.key.split(' > ');
+        v.identifier.facet = subCategoryFacet.identifier;
+        v.name = pathParts[pathParts.length -1];
+      }
+    }
+
+    // remove other hierarchy facets
+    facets = facets.filter(f => !f.identifier.key.startsWith('hierarchy.lvl'));
+
 
 
     const result = {
