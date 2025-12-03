@@ -7,7 +7,7 @@ import type { PriceProvider } from "../providers/price.provider.js";
 import type { InventoryProvider } from "../providers/inventory.provider.js";
 import type { Cache } from "../cache/cache.interface.js";
 import type { CategoryProvider } from "../providers/category.provider.js";
-import type { CheckoutProvider, ProfileProvider } from "../providers/index.js";
+import type { CheckoutProvider, OrderProvider, ProfileProvider, StoreProvider } from "../providers/index.js";
 
 export interface Client {
     product: ProductProvider,
@@ -20,6 +20,8 @@ export interface Client {
     price: PriceProvider,
     inventory: InventoryProvider,
     category: CategoryProvider,
-    profile: ProfileProvider
+    profile: ProfileProvider,
+    store: StoreProvider,
+    order: OrderProvider,
 }
 
