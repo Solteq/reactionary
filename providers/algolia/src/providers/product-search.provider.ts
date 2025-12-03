@@ -63,7 +63,7 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
 
     const finalFacetFilters = [
       ...facetsThatAreNotCategory.map(
-        (x) => `${encodeURIComponent(x.facet.key)}:"${x.key}"`
+        (x) => `${encodeURIComponent(x.facet.key)}:${x.key}`
       ),
     ]
     if (categoryFacet) {
