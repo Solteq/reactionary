@@ -1,6 +1,8 @@
+import { getReactionaryCacheMeter } from '../metrics/metrics.js';
 import type { BaseModel } from '../schemas/models/index.js';
 import type { Cache, CacheEntryOptions } from './cache.interface.js';
 import type z from 'zod';
+
 
 /**
  * Memory version of the cache. Primarily useful for local development.
@@ -8,18 +10,26 @@ import type z from 'zod';
  */
 export class MemoryCache implements Cache {
   protected entries = new Array<{ key: string; value: unknown, options: CacheEntryOptions }>();
+  protected meter = getReactionaryCacheMeter();
+
 
   public async get<T extends BaseModel>(key: string, schema: z.ZodType<T>): Promise<T | null> {
     const c = this.entries.find((x) => x.key === key);
 
     if (!c) {
+      this.meter.misses.add(1, {
+        'labels.cache_type': 'memory',
+      });
       return null;
     }
 
     const parsed = schema.parse(c.value);
 
     parsed.meta.cache.hit = true;
-
+    this.meter.hits.add(1, {
+      'labels.cache_type': 'memory',
+      'labels.object_type': schema.description || 'unknown',
+    });
     return parsed;
   }
 
@@ -32,6 +42,10 @@ export class MemoryCache implements Cache {
         key,
         value,
         options
+    });
+
+    this.meter.items.record(this.entries.length, {
+      'labels.cache_type': 'memory',
     });
 
     return;
@@ -48,9 +62,21 @@ export class MemoryCache implements Cache {
 
       index++;
     }
+
+    this.meter.items.record(this.entries.length, {
+      'labels.cache_type': 'memory',
+    });
+
+
   }
 
   public async clear(): Promise<void> {
     this.entries = [];
+
+    this.meter.items.record(this.entries.length, {
+      'labels.cache_type': 'memory',
+    });
+
+
   }
 }
