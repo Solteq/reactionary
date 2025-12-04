@@ -96,8 +96,8 @@ dependencies:
     specifier: ^5.6.1
     version: 5.6.1
   next:
-    specifier: ~15.2.4
-    version: 15.2.5(@babel/core@7.28.4)(@opentelemetry/api@1.9.0)(@playwright/test@1.53.2)(react-dom@19.0.0)(react@19.0.0)(sass@1.62.1)
+    specifier: ~15.2.6
+    version: 15.2.6(@babel/core@7.28.4)(@opentelemetry/api@1.9.0)(@playwright/test@1.53.2)(react-dom@19.0.0)(react@19.0.0)(sass@1.62.1)
   node-object-hash:
     specifier: ^3.1.1
     version: 3.1.1
@@ -162,7 +162,7 @@ devDependencies:
     version: 22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(debug@4.4.3)(nx@22.1.3)(verdaccio@6.1.5)
   '@nx/next':
     specifier: 22.1.3
-    version: 22.1.3(@babel/core@7.28.4)(@rspack/core@1.6.6)(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(eslint@9.30.0)(next@15.2.5)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(ts-node@10.9.1)(typescript@5.9.3)(verdaccio@6.1.5)(vite@7.1.9)(vitest@3.2.4)(webpack@5.101.3)
+    version: 22.1.3(@babel/core@7.28.4)(@rspack/core@1.6.6)(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(eslint@9.30.0)(next@15.2.6)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(ts-node@10.9.1)(typescript@5.9.3)(verdaccio@6.1.5)(vite@7.1.9)(vitest@3.2.4)(webpack@5.101.3)
   '@nx/node':
     specifier: 22.1.3
     version: 22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@types/node@18.16.9)(debug@4.4.3)(eslint@9.30.0)(nx@22.1.3)(ts-node@10.9.1)(typescript@5.9.3)(verdaccio@6.1.5)
@@ -3205,7 +3205,7 @@ packages:
       - vue-tsc
     dev: true
 
-  /@module-federation/node@2.7.25(@rspack/core@1.6.6)(debug@4.4.3)(next@15.2.5)(react-dom@19.0.0)(react@19.0.0)(typescript@5.9.3)(webpack@5.101.3):
+  /@module-federation/node@2.7.25(@rspack/core@1.6.6)(debug@4.4.3)(next@15.2.6)(react-dom@19.0.0)(react@19.0.0)(typescript@5.9.3)(webpack@5.101.3):
     resolution: {integrity: sha512-/u4f+GYRZfHpSvdt5n40lMCS9Cmve7N3JlDreaFXz8xrWDNOp2wvMgiVGpndo5J4iQdtLjpavWStahGQ05B2cQ==}
     peerDependencies:
       next: '*'
@@ -3225,7 +3225,7 @@ packages:
       '@module-federation/sdk': 0.21.6
       btoa: 1.2.1
       encoding: 0.1.13
-      next: 15.2.5(@babel/core@7.28.4)(@opentelemetry/api@1.9.0)(@playwright/test@1.53.2)(react-dom@19.0.0)(react@19.0.0)(sass@1.62.1)
+      next: 15.2.6(@babel/core@7.28.4)(@opentelemetry/api@1.9.0)(@playwright/test@1.53.2)(react-dom@19.0.0)(react@19.0.0)(sass@1.62.1)
       node-fetch: 2.7.0(encoding@0.1.13)
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
@@ -3571,8 +3571,8 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@next/env@15.2.5:
-    resolution: {integrity: sha512-uWkCf9C8wKTyQjqrNk+BA7eL3LOQdhL+xlmJUf2O85RM4lbzwBwot3Sqv2QGe/RGnc3zysIf1oJdtq9S00pkmQ==}
+  /@next/env@15.2.6:
+    resolution: {integrity: sha512-kp1Mpm4K1IzSSJ5ZALfek0JBD2jBw9VGMXR/aT7ykcA2q/ieDARyBzg+e8J1TkeIb5AFj/YjtZdoajdy5uNy6w==}
 
   /@next/eslint-plugin-next@15.3.4:
     resolution: {integrity: sha512-lBxYdj7TI8phbJcLSAqDt57nIcobEign5NYIKCiy0hXQhrUbTqLqOaSDi568U6vFg4hJfBdZYsG4iP/uKhCqgg==}
@@ -3857,11 +3857,11 @@ packages:
       - supports-color
     dev: true
 
-  /@nx/module-federation@22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(next@15.2.5)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(typescript@5.9.3)(verdaccio@6.1.5):
+  /@nx/module-federation@22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(next@15.2.6)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(typescript@5.9.3)(verdaccio@6.1.5):
     resolution: {integrity: sha512-ALhQsD1dcWQCJ8XgfdM19FkvN8ZdT9ITlOR38AaD3z8ROf4WVS55dbXzq/2BJ5B0uc/iMRKvrmzLwx+DF+IUXQ==}
     dependencies:
       '@module-federation/enhanced': 0.21.6(@rspack/core@1.6.6)(debug@4.4.3)(react-dom@19.0.0)(react@19.0.0)(typescript@5.9.3)(webpack@5.101.3)
-      '@module-federation/node': 2.7.25(@rspack/core@1.6.6)(debug@4.4.3)(next@15.2.5)(react-dom@19.0.0)(react@19.0.0)(typescript@5.9.3)(webpack@5.101.3)
+      '@module-federation/node': 2.7.25(@rspack/core@1.6.6)(debug@4.4.3)(next@15.2.6)(react-dom@19.0.0)(react@19.0.0)(typescript@5.9.3)(webpack@5.101.3)
       '@module-federation/sdk': 0.21.6
       '@nx/devkit': 22.1.3(nx@22.1.3)
       '@nx/js': 22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(debug@4.4.3)(nx@22.1.3)(verdaccio@6.1.5)
@@ -3893,7 +3893,7 @@ packages:
       - webpack-cli
     dev: true
 
-  /@nx/next@22.1.3(@babel/core@7.28.4)(@rspack/core@1.6.6)(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(eslint@9.30.0)(next@15.2.5)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(ts-node@10.9.1)(typescript@5.9.3)(verdaccio@6.1.5)(vite@7.1.9)(vitest@3.2.4)(webpack@5.101.3):
+  /@nx/next@22.1.3(@babel/core@7.28.4)(@rspack/core@1.6.6)(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(eslint@9.30.0)(next@15.2.6)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(ts-node@10.9.1)(typescript@5.9.3)(verdaccio@6.1.5)(vite@7.1.9)(vitest@3.2.4)(webpack@5.101.3):
     resolution: {integrity: sha512-UUMZ9QWpri42w3/tbCxhQMjG6NJVd+pZCwUBsOnwd+CaYLj418DE1SVPXRnblKsXrF7/CxlZqCJQTx3JtFhGiA==}
     peerDependencies:
       next: '>=14.0.0 <17.0.0'
@@ -3902,7 +3902,7 @@ packages:
       '@nx/devkit': 22.1.3(nx@22.1.3)
       '@nx/eslint': 22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(debug@4.4.3)(eslint@9.30.0)(nx@22.1.3)(verdaccio@6.1.5)
       '@nx/js': 22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(debug@4.4.3)(nx@22.1.3)(verdaccio@6.1.5)
-      '@nx/react': 22.1.3(@babel/core@7.28.4)(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(eslint@9.30.0)(next@15.2.5)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(ts-node@10.9.1)(typescript@5.9.3)(verdaccio@6.1.5)(vite@7.1.9)(vitest@3.2.4)(webpack@5.101.3)
+      '@nx/react': 22.1.3(@babel/core@7.28.4)(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(eslint@9.30.0)(next@15.2.6)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(ts-node@10.9.1)(typescript@5.9.3)(verdaccio@6.1.5)(vite@7.1.9)(vitest@3.2.4)(webpack@5.101.3)
       '@nx/web': 22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(debug@4.4.3)(nx@22.1.3)(verdaccio@6.1.5)
       '@nx/webpack': 22.1.3(@rspack/core@1.6.6)(@swc-node/register@1.9.2)(@swc/core@1.5.29)(debug@4.4.3)(esbuild@0.19.12)(nx@22.1.3)(typescript@5.9.3)(verdaccio@6.1.5)
       '@phenomnomnominal/tsquery': 5.0.1(typescript@5.9.3)
@@ -3910,7 +3910,7 @@ packages:
       copy-webpack-plugin: 10.2.4(webpack@5.101.3)
       file-loader: 6.2.0(webpack@5.101.3)
       ignore: 5.3.2
-      next: 15.2.5(@babel/core@7.28.4)(@opentelemetry/api@1.9.0)(@playwright/test@1.53.2)(react-dom@19.0.0)(react@19.0.0)(sass@1.62.1)
+      next: 15.2.6(@babel/core@7.28.4)(@opentelemetry/api@1.9.0)(@playwright/test@1.53.2)(react-dom@19.0.0)(react@19.0.0)(sass@1.62.1)
       semver: 7.7.3
       tslib: 2.8.1
       webpack-merge: 5.10.0
@@ -4086,13 +4086,13 @@ packages:
       - verdaccio
     dev: true
 
-  /@nx/react@22.1.3(@babel/core@7.28.4)(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(eslint@9.30.0)(next@15.2.5)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(ts-node@10.9.1)(typescript@5.9.3)(verdaccio@6.1.5)(vite@7.1.9)(vitest@3.2.4)(webpack@5.101.3):
+  /@nx/react@22.1.3(@babel/core@7.28.4)(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(eslint@9.30.0)(next@15.2.6)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(ts-node@10.9.1)(typescript@5.9.3)(verdaccio@6.1.5)(vite@7.1.9)(vitest@3.2.4)(webpack@5.101.3):
     resolution: {integrity: sha512-PsQYvp7wMW/nLQBo4KNabPI3w9732Ke+RNgZRTvXuNaExmA/15kXsV2DjOSIuuGQhhTYDuO8RhkuhwCzlnLOMA==}
     dependencies:
       '@nx/devkit': 22.1.3(nx@22.1.3)
       '@nx/eslint': 22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(debug@4.4.3)(eslint@9.30.0)(nx@22.1.3)(verdaccio@6.1.5)
       '@nx/js': 22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(debug@4.4.3)(nx@22.1.3)(verdaccio@6.1.5)
-      '@nx/module-federation': 22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(next@15.2.5)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(typescript@5.9.3)(verdaccio@6.1.5)
+      '@nx/module-federation': 22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(@swc/helpers@0.5.17)(debug@4.4.3)(esbuild@0.19.12)(next@15.2.6)(nx@22.1.3)(react-dom@19.0.0)(react@19.0.0)(typescript@5.9.3)(verdaccio@6.1.5)
       '@nx/rollup': 22.1.3(@babel/core@7.28.4)(@swc-node/register@1.9.2)(@swc/core@1.5.29)(debug@4.4.3)(nx@22.1.3)(ts-node@10.9.1)(typescript@5.9.3)(verdaccio@6.1.5)
       '@nx/web': 22.1.3(@swc-node/register@1.9.2)(@swc/core@1.5.29)(debug@4.4.3)(nx@22.1.3)(verdaccio@6.1.5)
       '@phenomnomnominal/tsquery': 5.0.1(typescript@5.9.3)
@@ -9186,9 +9186,6 @@ packages:
       lodash.memoize: 4.1.2
       lodash.uniq: 4.5.0
     dev: true
-
-  /caniuse-lite@1.0.30001726:
-    resolution: {integrity: sha512-VQAUIUzBiZ/UnlM28fSp2CRF3ivUn1BWEvxMcVTNwpw91Py1pGbPIyIKtd+tzct9C3ouceCVdGAXxZOpZAsgdw==}
 
   /caniuse-lite@1.0.30001743:
     resolution: {integrity: sha512-e6Ojr7RV14Un7dz6ASD0aZDmQPT/A+eZU+nuTNfjqmRrmkmQlnTNWH0SKmqagx9PeW87UVqapSurtAXifmtdmw==}
@@ -14382,8 +14379,8 @@ packages:
       - utf-8-validate
     dev: false
 
-  /next@15.2.5(@babel/core@7.28.4)(@opentelemetry/api@1.9.0)(@playwright/test@1.53.2)(react-dom@19.0.0)(react@19.0.0)(sass@1.62.1):
-    resolution: {integrity: sha512-LlqS8ljc7RWR3riUwxB5+14v7ULAa5EuLUyarD/sFgXPd6Hmmscg8DXcu9hDdh5atybrIDVBrFhjDpRIQo/4pQ==}
+  /next@15.2.6(@babel/core@7.28.4)(@opentelemetry/api@1.9.0)(@playwright/test@1.53.2)(react-dom@19.0.0)(react@19.0.0)(sass@1.62.1):
+    resolution: {integrity: sha512-DIKFctUpZoCq5ok2ztVU+PqhWsbiqM9xNP7rHL2cAp29NQcmDp7Y6JnBBhHRbFt4bCsCZigj6uh+/Gwh2158Wg==}
     engines: {node: ^18.18.0 || ^19.8.0 || >= 20.0.0}
     hasBin: true
     peerDependencies:
@@ -14403,13 +14400,13 @@ packages:
       sass:
         optional: true
     dependencies:
-      '@next/env': 15.2.5
+      '@next/env': 15.2.6
       '@opentelemetry/api': 1.9.0
       '@playwright/test': 1.53.2
       '@swc/counter': 0.1.3
       '@swc/helpers': 0.5.15
       busboy: 1.6.0
-      caniuse-lite: 1.0.30001726
+      caniuse-lite: 1.0.30001743
       postcss: 8.4.31
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
