@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 
 const testData = {
@@ -36,12 +36,16 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
       paginationOptions: { pageSize: 10, pageNumber: 1 },
     });
 
-    expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe(testData.topCategories[0].key);
-    expect(result.items[0].name).toBe(testData.topCategories[0].name);
+    if (!result.success) {
+      assert.fail();
+    }
 
-    expect(result.items[1].identifier.key).toBe(testData.topCategories[1].key);
-    expect(result.items[1].name).toBe(testData.topCategories[1].name);
+    expect(result.value.items.length).toBeGreaterThan(0);
+    expect(result.value.items[0].identifier.key).toBe(testData.topCategories[0].key);
+    expect(result.value.items[0].name).toBe(testData.topCategories[0].name);
+
+    expect(result.value.items[1].identifier.key).toBe(testData.topCategories[1].key);
+    expect(result.value.items[1].name).toBe(testData.topCategories[1].name);
   });
 
   it('should be able to get child categories for a category', async () => {
@@ -50,18 +54,22 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
       paginationOptions: { pageSize: 10, pageNumber: 1 },
     });
 
-    expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe(
+    if (!result.success) {
+      assert.fail();
+    }
+
+    expect(result.value.items.length).toBeGreaterThan(0);
+    expect(result.value.items[0].identifier.key).toBe(
       testData.childCategoriesOfFirstTopcategory[0].key
     );
-    expect(result.items[0].name).toBe(
+    expect(result.value.items[0].name).toBe(
       testData.childCategoriesOfFirstTopcategory[0].name
     );
 
-    expect(result.items[1].identifier.key).toBe(
+    expect(result.value.items[1].identifier.key).toBe(
       testData.childCategoriesOfFirstTopcategory[1].key
     );
-    expect(result.items[1].name).toBe(
+    expect(result.value.items[1].name).toBe(
       testData.childCategoriesOfFirstTopcategory[1].name
     );
   });
@@ -71,35 +79,43 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
       parentId: { key: testData.topCategories[0].key },
       paginationOptions: { pageSize: 1, pageNumber: 1 },
     });
+    
+    if (!result.success) {
+      assert.fail();
+    }
 
-    expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe(
+    expect(result.value.items.length).toBeGreaterThan(0);
+    expect(result.value.items[0].identifier.key).toBe(
       testData.childCategoriesOfFirstTopcategory[0].key
     );
-    expect(result.items[0].name).toBe(
+    expect(result.value.items[0].name).toBe(
       testData.childCategoriesOfFirstTopcategory[0].name
     );
-    expect(result.totalCount).toBe(3);
-    expect(result.totalPages).toBe(3);
-    expect(result.pageSize).toBe(1);
-    expect(result.pageNumber).toBe(1);
+    expect(result.value.totalCount).toBe(3);
+    expect(result.value.totalPages).toBe(3);
+    expect(result.value.pageSize).toBe(1);
+    expect(result.value.pageNumber).toBe(1);
 
     result = await client.category.findChildCategories({
       parentId: { key: testData.topCategories[0].key },
       paginationOptions: { pageSize: 1, pageNumber: 2 },
     });
 
-    expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe(
+    if (!result.success) {
+      assert.fail();
+    }
+
+    expect(result.value.items.length).toBeGreaterThan(0);
+    expect(result.value.items[0].identifier.key).toBe(
       testData.childCategoriesOfFirstTopcategory[1].key
     );
-    expect(result.items[0].name).toBe(
+    expect(result.value.items[0].name).toBe(
       testData.childCategoriesOfFirstTopcategory[1].name
     );
-    expect(result.totalCount).toBe(3);
-    expect(result.totalPages).toBe(3);
-    expect(result.pageSize).toBe(1);
-    expect(result.pageNumber).toBe(2);
+    expect(result.value.totalCount).toBe(3);
+    expect(result.value.totalPages).toBe(3);
+    expect(result.value.pageSize).toBe(1);
+    expect(result.value.pageNumber).toBe(2);
   });
 
   it('can load all breadcrumbs for a category', async () => {
@@ -108,9 +124,13 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
       id: { key: leaf! },
     });
 
-    expect(result.length).toBe(testData.breadCrumb.length);
+    if (!result.success) {
+      assert.fail();
+    }
+
+    expect(result.value.length).toBe(testData.breadCrumb.length);
     for (let i = 0; i < testData.breadCrumb.length; i++) {
-      expect(result[i].identifier.key).toBe(testData.breadCrumb[i]);
+      expect(result.value[i].identifier.key).toBe(testData.breadCrumb[i]);
     }
   });
 
@@ -118,20 +138,29 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
     const result = await client.category.getBySlug({
       slug: testData.topCategories[0].slug!,
     });
-    expect(result).toBeTruthy();
+    
+    if (!result.success) {
+      assert.fail();
+    }
+
     if (result) {
-      expect(result.identifier.key).toBe(testData.topCategories[0].key);
-      expect(result.name).toBe(testData.topCategories[0].name);
-      expect(result.slug).toBe(testData.topCategories[0].slug);
-      expect(result.parentCategory).toBeUndefined();
-      expect(result.text).not.toBe('');
-      expect(result.meta.placeholder).toBe(false);
+      expect(result.value.identifier.key).toBe(testData.topCategories[0].key);
+      expect(result.value.name).toBe(testData.topCategories[0].name);
+      expect(result.value.slug).toBe(testData.topCategories[0].slug);
+      expect(result.value.parentCategory).toBeUndefined();
+      expect(result.value.text).not.toBe('');
+      expect(result.value.meta.placeholder).toBe(false);
     }
   });
 
-  it('returns null if looking for slug that does not exist', async () => {
+  it('returns NotFound if looking for slug that does not exist', async () => {
     const result = await client.category.getBySlug({ slug: 'non-existent-slug' });
-    expect(result).toBeNull();
+    
+    if (result.success) {
+      assert.fail();
+    }
+
+    expect(result.error.type).toBe('NotFound');
   });
 
   it('should be able to get a category by id', async () => {
@@ -139,20 +168,28 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
       id: { key: testData.topCategories[0].key },
     });
 
-    expect(result.identifier.key).toBe(testData.topCategories[0].key);
-    expect(result.name).toBe(testData.topCategories[0].name);
-    expect(result.slug).toBe(testData.topCategories[0].slug);
-    expect(result.parentCategory).toBeUndefined();
+    if (!result.success) {
+      assert.fail();
+    }
 
-    expect(result.text).toBe(testData.topCategories[0].text);
-    expect(result.meta.placeholder).toBe(false);
+    expect(result.value.identifier.key).toBe(testData.topCategories[0].key);
+    expect(result.value.name).toBe(testData.topCategories[0].name);
+    expect(result.value.slug).toBe(testData.topCategories[0].slug);
+    expect(result.value.parentCategory).toBeUndefined();
+
+    expect(result.value.text).toBe(testData.topCategories[0].text);
+    expect(result.value.meta.placeholder).toBe(false);
   });
 
-  it('returns a placeholder if you search for a category that does not exist', async () => {
+  it('returns NotFound if you search for a category that does not exist', async () => {
     const result = await client.category.getById({
       id: { key: 'non-existent-category' },
     });
-    expect(result.identifier.key).toBe('non-existent-category');
-    expect(result.meta.placeholder).toBe(true);
+    
+    if (result.success) {
+      assert.fail();
+    }
+
+    expect(result.error.type).toBe('NotFound');
   });
 });

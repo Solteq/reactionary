@@ -10,8 +10,9 @@ import {
   ProductQueryBySlugSchema,
   ProductSchema,
   Reactionary,
+  success,
+  error,
 } from '@reactionary/core';
-import type { z } from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
   ProductProjection,
@@ -34,9 +35,11 @@ import type {
   Meta,
   ProductVariantOption,
   ProductOptionIdentifier,
+  Result,
 } from '@reactionary/core';
 import type { Cache, Image } from '@reactionary/core';
 import type { CommercetoolsClient } from '../core/client.js';
+import type { NotFoundError } from '@reactionary/core';
 
 export class CommercetoolsProductProvider extends ProductProvider {
   protected config: CommercetoolsConfiguration;
@@ -65,29 +68,26 @@ export class CommercetoolsProductProvider extends ProductProvider {
     inputSchema: ProductQueryByIdSchema,
     outputSchema: ProductSchema,
   })
-  public override async getById(payload: ProductQueryById): Promise<Product> {
+  public override async getById(
+    payload: ProductQueryById
+  ): Promise<Result<Product>> {
     const client = await this.getClient();
+    const remote = await client
+      .withKey({ key: payload.identifier.key })
+      .get()
+      .execute();
+    const value = this.parseSingle(remote.body);
 
-    // FIXME: This should be a ProductIdentifier...
-    try {
-      const remote = await client
-        .withKey({ key: payload.identifier.key })
-        .get()
-        .execute();
-
-      return this.parseSingle(remote.body);
-    } catch (error) {
-      return this.createEmptyProduct(payload.identifier.key);
-    }
+    return success(value);
   }
 
   @Reactionary({
     inputSchema: ProductQueryBySlugSchema,
-    outputSchema: ProductSchema.nullable(),
+    outputSchema: ProductSchema,
   })
   public override async getBySlug(
     payload: ProductQueryBySlug
-  ): Promise<Product | null> {
+  ): Promise<Result<Product, NotFoundError>> {
     const client = await this.getClient();
 
     const remote = await client
@@ -101,16 +101,23 @@ export class CommercetoolsProductProvider extends ProductProvider {
       .execute();
 
     if (remote.body.count === 0) {
-      return null;
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.slug,
+      });
     }
-    return this.parseSingle(remote.body.results[0]);
+    const result = this.parseSingle(remote.body.results[0]);
+
+    return success(result);
   }
 
   @Reactionary({
     inputSchema: ProductQueryBySKUSchema,
     outputSchema: ProductSchema,
   })
-  public override async getBySKU(payload: ProductQueryBySKU): Promise<Product> {
+  public override async getBySKU(
+    payload: ProductQueryBySKU
+  ): Promise<Result<Product>> {
     const client = await this.getClient();
 
     const remote = await client
@@ -124,7 +131,9 @@ export class CommercetoolsProductProvider extends ProductProvider {
       })
       .execute();
 
-    return this.parseSingle(remote.body.results[0]);
+    const result = this.parseSingle(remote.body.results[0]);
+
+    return success(result);
   }
 
   protected parseSingle(data: ProductProjection): Product {
@@ -184,9 +193,7 @@ export class CommercetoolsProductProvider extends ProductProvider {
    * @param attr a variant attribute
    * @returns true if the attribute is an option
    */
-  protected isVariantAttributeAnOption(
-    attr: CTAttribute
-  ): boolean {
+  protected isVariantAttributeAnOption(attr: CTAttribute): boolean {
     // for now, the assumption is that any variant attribute is a defining attribute (ie an option)
     // ideally this should be verified with the product type.
     return true;
@@ -211,25 +218,27 @@ export class CommercetoolsProductProvider extends ProductProvider {
       ),
     ];
 
-    const options = (variant.attributes ?? []).filter(attr => this.isVariantAttributeAnOption(attr)).map((attr) => {
-      const attrVal = this.parseAttributeValue(attr);
-      const optionIdentifier: ProductOptionIdentifier = {
-        key: attr.name
-      }
-      const option: ProductVariantOption = {
-        identifier: optionIdentifier,
-        name: attr.name,
-        value: {
-          identifier: {
-            key: attrVal.value,
-            option: optionIdentifier
-          },
-          label: attrVal.label,
-        }
-      };
-      return option;
-    }
-    ) || [];
+    const options =
+      (variant.attributes ?? [])
+        .filter((attr) => this.isVariantAttributeAnOption(attr))
+        .map((attr) => {
+          const attrVal = this.parseAttributeValue(attr);
+          const optionIdentifier: ProductOptionIdentifier = {
+            key: attr.name,
+          };
+          const option: ProductVariantOption = {
+            identifier: optionIdentifier,
+            name: attr.name,
+            value: {
+              identifier: {
+                key: attrVal.value,
+                option: optionIdentifier,
+              },
+              label: attrVal.label,
+            },
+          };
+          return option;
+        }) || [];
 
     const result = {
       identifier,
@@ -239,7 +248,7 @@ export class CommercetoolsProductProvider extends ProductProvider {
       gtin: '',
       name: product.name[this.context.languageContext.locale],
       options,
-      upc: ''
+      upc: '',
     } satisfies ProductVariant;
 
     return result;

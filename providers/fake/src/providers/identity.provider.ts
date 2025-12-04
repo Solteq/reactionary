@@ -15,8 +15,9 @@ import {
   IdentityMutationLogoutSchema,
   IdentityMutationLoginSchema,
   IdentityQuerySelfSchema,
+  type Result,
+  success,
 } from '@reactionary/core';
-import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
 
@@ -40,7 +41,7 @@ export class FakeIdentityProvider extends IdentityProvider {
   })
   public override async getSelf(
     _payload: IdentityQuerySelf
-  ): Promise<Identity> {
+  ): Promise<Result<Identity>> {
     if (!this.currentIdentity) {
       const model = {
         type: 'Anonymous',
@@ -56,7 +57,7 @@ export class FakeIdentityProvider extends IdentityProvider {
       this.currentIdentity = model;
     }
 
-    return this.currentIdentity;
+    return success(this.currentIdentity);
   }
 
   @Reactionary({
@@ -65,7 +66,7 @@ export class FakeIdentityProvider extends IdentityProvider {
   })
   public override async login(
     payload: IdentityMutationLogin
-  ): Promise<Identity> {
+  ): Promise<Result<Identity>> {
     const generator = new Faker({
       seed: 42,
       locale: [en, base],
@@ -87,7 +88,7 @@ export class FakeIdentityProvider extends IdentityProvider {
 
     this.currentIdentity = model;
 
-    return this.currentIdentity;
+    return success(this.currentIdentity);
   }
 
   @Reactionary({
@@ -96,7 +97,7 @@ export class FakeIdentityProvider extends IdentityProvider {
   })
   public override async logout(
     _payload: IdentityMutationLogout
-  ): Promise<Identity> {
+  ): Promise<Result<Identity>> {
     const model = {
       type: 'Anonymous',
       meta: {
@@ -109,14 +110,14 @@ export class FakeIdentityProvider extends IdentityProvider {
     } satisfies AnonymousIdentity;
 
     this.currentIdentity = model;
-    return this.currentIdentity;
+    return success(this.currentIdentity);
   }
 
   @Reactionary({
     inputSchema: IdentityMutationRegisterSchema,
     outputSchema: IdentitySchema
   })
-  public override register(payload: IdentityMutationRegister): Promise<Identity> {
+  public override register(payload: IdentityMutationRegister): Promise<Result<Identity>> {
     throw new Error('Method not implemented.');
   }
 }

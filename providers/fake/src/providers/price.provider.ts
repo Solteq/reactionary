@@ -9,6 +9,9 @@ import {
   CustomerPriceQuerySchema,
   PriceSchema,
   ListPriceQuerySchema,
+  error,
+  success,
+  type Result,
 } from '@reactionary/core';
 import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
@@ -31,9 +34,9 @@ export class FakePriceProvider extends PriceProvider {
     inputSchema: ListPriceQuerySchema,
     outputSchema: PriceSchema
   })
-  public override async getListPrice(payload: ListPriceQuery): Promise<Price> {
+  public override async getListPrice(payload: ListPriceQuery): Promise<Result<Price>> {
     if (payload.variant.sku === 'unknown-sku') {
-      return this.createEmptyPriceResult(payload.variant.sku);
+      return success(this.createEmptyPriceResult(payload.variant.sku));
     }
 
     // Generate a simple hash from the SKU key string for seeding
@@ -91,16 +94,16 @@ export class FakePriceProvider extends PriceProvider {
       model.tieredPrices = [];
     }
 
-    return model;
+    return success(model);
   }
 
   @Reactionary({
     inputSchema: CustomerPriceQuerySchema,
     outputSchema: PriceSchema
   })
-  public override async getCustomerPrice(payload: CustomerPriceQuery): Promise<Price> {
+  public override async getCustomerPrice(payload: CustomerPriceQuery): Promise<Result<Price>> {
     if (payload.variant.sku === 'unknown-sku') {
-      return this.createEmptyPriceResult(payload.variant.sku);
+      return success(this.createEmptyPriceResult(payload.variant.sku));
     }
 
     // Generate a simple hash from the SKU key string for seeding
@@ -158,6 +161,6 @@ export class FakePriceProvider extends PriceProvider {
       model.tieredPrices = [];
     }
 
-    return model;
+    return success(model);
   }
 }

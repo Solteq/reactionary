@@ -18,15 +18,17 @@ import type {
   Currency,
   Meta,
   MonetaryAmount,
+  NotFoundError,
   PaymentInstruction,
   PaymentInstructionIdentifier,
   PaymentMethod,
   PaymentMethodIdentifier,
   PaymentStatus,
   RequestContext,
+  Result,
   ShippingInstruction,
   ShippingMethod,
-  ShippingMethodIdentifier
+  ShippingMethodIdentifier,
 } from '@reactionary/core';
 import {
   CheckoutItemSchema,
@@ -43,7 +45,10 @@ import {
   CheckoutSchema,
   PaymentMethodSchema,
   Reactionary,
-  ShippingMethodSchema
+  ShippingMethodSchema,
+  success,
+  error,
+  unwrapValue
 } from '@reactionary/core';
 import z from 'zod';
 import type { CommercetoolsClient } from '../core/client.js';
@@ -109,7 +114,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
   })
   public async initiateCheckoutForCart(
     payload: CheckoutMutationInitiateCheckout
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     // so......we could copy the cart......
 
     const client = await this.getClient();
@@ -183,14 +188,14 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       })
       .execute();
 
-    return this.parseSingle(checkoutResponse.body);
+    return success(this.parseSingle(checkoutResponse.body));
   }
 
   @Reactionary({
     inputSchema: CheckoutQueryByIdSchema,
     outputSchema: CheckoutSchema.nullable(),
   })
-  public async getById(payload: CheckoutQueryById): Promise<Checkout | null> {
+  public async getById(payload: CheckoutQueryById): Promise<Result<Checkout, NotFoundError>> {
     const client = await this.getClient();
     const checkoutResponse = await client.carts
       .withId({ ID: payload.identifier.key })
@@ -217,7 +222,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       };
     }
 
-    return checkout;
+    return success(checkout);
   }
 
   @Reactionary({
@@ -226,7 +231,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
   })
   public async setShippingAddress(
     payload: CheckoutMutationSetShippingAddress
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     const client = await this.getClient();
 
     const version = (payload.checkout as CommercetoolsCheckoutIdentifier)
@@ -254,7 +259,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       })
       .execute();
 
-    return this.parseSingle(checkoutResponse.body);
+    return success(this.parseSingle(checkoutResponse.body));
   }
 
   @Reactionary({
@@ -263,7 +268,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
   })
   public async getAvailableShippingMethods(
     payload: CheckoutQueryForAvailableShippingMethods
-  ): Promise<ShippingMethod[]> {
+  ): Promise<Result<ShippingMethod[]>> {
     const client = await this.getClient();
     const shippingMethodsResponse = await client.shippingMethods
       .matchingCart()
@@ -301,7 +306,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
 
       result.push(shippingMethod);
     }
-    return result;
+    return success(result);
   }
 
   @Reactionary({
@@ -310,7 +315,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
   })
   public async getAvailablePaymentMethods(
     payload: CheckoutQueryForAvailablePaymentMethods
-  ): Promise<PaymentMethod[]> {
+  ): Promise<Result<PaymentMethod[]>> {
     // Commercetools does not have a concept of payment methods, as these are handled by the payment providers.
     // So for now, we will return an empty array.
     const staticMethods = this.getStaticPaymentMethods(payload.checkout);
@@ -318,7 +323,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
     const dynamicMethods: PaymentMethod[] = [];
     // later we will also fetch any stored payment methods the user has...
 
-    return [...staticMethods, ...dynamicMethods];
+    return success([...staticMethods, ...dynamicMethods]);
   }
 
   @Reactionary({
@@ -327,7 +332,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
   })
   public async addPaymentInstruction(
     payload: CheckoutMutationAddPaymentInstruction
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     const client = await this.getClient();
 
     const response = await client.payments
@@ -373,10 +378,12 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       },
     ];
 
-    return this.applyActions(
+    const result = await this.applyActions(
       payload.checkout as CommercetoolsCheckoutIdentifier,
       actions
     );
+
+    return success(result);
   }
 
   @Reactionary({
@@ -385,7 +392,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
   })
   public async removePaymentInstruction(
     payload: CheckoutMutationRemovePaymentInstruction
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     const client = await this.getClient();
 
     // FIXME: Need to get full-endpoint rights, if we want to cancel the authorization on the payment. The MyPayment endpoint does not support
@@ -442,8 +449,8 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
     }).execute();
     */
 
-    const checkout = await this.getById({ identifier: payload.checkout });
-    return checkout!;
+    const checkout = unwrapValue(await this.getById({ identifier: payload.checkout }));
+    return success(checkout);
   }
 
   @Reactionary({
@@ -452,7 +459,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
   })
   public async setShippingInstruction(
     payload: CheckoutMutationSetShippingInstruction
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     const actions: MyCartUpdateAction[] = [];
     actions.push({
       action: 'setShippingMethod',
@@ -477,10 +484,12 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       value: payload.shippingInstruction.pickupPoint,
     });
 
-    return this.applyActions(
+    const result = await this.applyActions(
       payload.checkout as CommercetoolsCheckoutIdentifier,
       actions
     );
+
+    return success(result);
   }
 
   @Reactionary({
@@ -489,9 +498,9 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
   })
   public async finalizeCheckout(
     payload: CheckoutMutationFinalizeCheckout
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     const checkout = await this.getById({ identifier: payload.checkout });
-    if (!checkout || !checkout.readyForFinalization) {
+    if (!checkout.success || !checkout.value.readyForFinalization) {
       throw new CheckoutNotReadyForFinalizationError(payload.checkout);
     }
 
@@ -510,7 +519,7 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
 
     return this.getById({
       identifier: payload.checkout,
-    }) as unknown as Checkout;
+    }) as unknown as Result<Checkout>;
   }
 
   protected async applyActions(

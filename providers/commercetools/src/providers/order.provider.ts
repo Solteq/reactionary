@@ -11,13 +11,16 @@ import type {
   OrderItem,
   ProductVariantIdentifier,
   ItemCostBreakdown,
+  Result,
+  NotFoundError,
 } from '@reactionary/core';
-import { OrderItemSchema, OrderProvider, OrderQueryByIdSchema, OrderSchema, Reactionary } from '@reactionary/core';
+import { OrderProvider, OrderQueryByIdSchema, OrderSchema, Reactionary, success, error } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { Order as CTOrder } from '@commercetools/platform-sdk';
-import { CommercetoolsOrderIdentifierSchema, type CommercetoolsOrderIdentifier } from '../schema/commercetools.schema.js';
+import { type CommercetoolsOrderIdentifier } from '../schema/commercetools.schema.js';
 import type { CommercetoolsClient } from '../core/client.js';
+
 export class CommercetoolsOrderProvider extends OrderProvider {
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
@@ -46,7 +49,7 @@ export class CommercetoolsOrderProvider extends OrderProvider {
     inputSchema: OrderQueryByIdSchema,
     outputSchema: OrderSchema,
   })
-  public override async getById(payload: OrderQueryById): Promise<Order> {
+  public override async getById(payload: OrderQueryById): Promise<Result<Order, NotFoundError>> {
     const client = await this.getClient();
 
     try {
@@ -55,9 +58,12 @@ export class CommercetoolsOrderProvider extends OrderProvider {
         .get()
         .execute();
 
-      return this.parseSingle(remote.body);
+      return success(this.parseSingle(remote.body));
     } catch (e) {
-      return this.createEmptyOrder();
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload
+      })
     }
   }
 

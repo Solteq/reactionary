@@ -15,8 +15,10 @@ import type {
   Currency,
   ItemCostBreakdown,
   Meta,
+  NotFoundError,
   ProductVariantIdentifier,
   RequestContext,
+  Result,
 } from '@reactionary/core';
 import {
   CartIdentifierSchema,
@@ -31,19 +33,21 @@ import {
   CartQueryByIdSchema,
   CartSchema,
   ProductVariantIdentifierSchema,
-  Reactionary
+  Reactionary,
+  success,
+  error,
 } from '@reactionary/core';
 
 import createDebug from 'debug';
 import type { MedusaClient } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import type {
-  MedusaCartIdentifier
-} from '../schema/medusa.schema.js';
+import type { MedusaCartIdentifier } from '../schema/medusa.schema.js';
+import { MedusaCartIdentifierSchema } from '../schema/medusa.schema.js';
 import {
-  MedusaCartIdentifierSchema
-} from '../schema/medusa.schema.js';
-import { handleProviderError, parseMedusaCostBreakdown, parseMedusaItemPrice } from '../utils/medusa-helpers.js';
+  handleProviderError,
+  parseMedusaCostBreakdown,
+  parseMedusaItemPrice,
+} from '../utils/medusa-helpers.js';
 import type MedusaTypes = require('@medusajs/types');
 import type StoreCartPromotion = require('@medusajs/types');
 
@@ -73,7 +77,9 @@ export class MedusaCartProvider extends CartProvider {
     inputSchema: CartQueryByIdSchema,
     outputSchema: CartSchema,
   })
-  public override async getById(payload: CartQueryById): Promise<Cart> {
+  public override async getById(
+    payload: CartQueryById
+  ): Promise<Result<Cart, NotFoundError>> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -89,13 +95,20 @@ export class MedusaCartProvider extends CartProvider {
       }
 
       if (cartResponse.cart) {
-        return this.parseSingle(cartResponse.cart);
+        return success(this.parseSingle(cartResponse.cart));
       }
 
-      return this.createEmptyCart();
-    } catch (error) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload,
+      });
+    } catch (err) {
       debug('Failed to get cart by ID:', error);
-      return this.createEmptyCart();
+
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload,
+      });
     }
   }
 
@@ -103,12 +116,14 @@ export class MedusaCartProvider extends CartProvider {
     inputSchema: CartMutationItemAddSchema,
     outputSchema: CartSchema,
   })
-  public override async add(payload: CartMutationItemAdd): Promise<Cart> {
+  public override async add(
+    payload: CartMutationItemAdd
+  ): Promise<Result<Cart>> {
     try {
       const client = await this.getClient();
 
       let cartIdentifier = payload.cart;
-      if (!cartIdentifier.key) {
+      if (!cartIdentifier) {
         cartIdentifier = await this.createCart();
       }
 
@@ -148,7 +163,7 @@ export class MedusaCartProvider extends CartProvider {
       }
 
       if (response.cart) {
-        return this.parseSingle(response.cart);
+        return success(this.parseSingle(response.cart));
       }
 
       throw new Error('Failed to add item to cart');
@@ -161,7 +176,9 @@ export class MedusaCartProvider extends CartProvider {
     inputSchema: CartMutationItemRemoveSchema,
     outputSchema: CartSchema,
   })
-  public override async remove(payload: CartMutationItemRemove): Promise<Cart> {
+  public override async remove(
+    payload: CartMutationItemRemove
+  ): Promise<Result<Cart>> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -175,7 +192,7 @@ export class MedusaCartProvider extends CartProvider {
       );
 
       if (response.parent) {
-        return this.parseSingle(response.parent);
+        return success(this.parseSingle(response.parent));
       }
 
       throw new Error('Failed to remove item from cart');
@@ -190,7 +207,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange
-  ): Promise<Cart> {
+  ): Promise<Result<Cart>> {
     if (payload.quantity < 1) {
       throw new Error(
         'Changing quantity to 0 is not allowed. Use the remove call instead.'
@@ -215,7 +232,7 @@ export class MedusaCartProvider extends CartProvider {
       );
 
       if (response.cart) {
-        return this.parseSingle(response.cart);
+        return success(this.parseSingle(response.cart));
       }
 
       throw new Error('Failed to change item quantity');
@@ -227,7 +244,9 @@ export class MedusaCartProvider extends CartProvider {
   @Reactionary({
     outputSchema: CartIdentifierSchema,
   })
-  public override async getActiveCartId(): Promise<CartIdentifier> {
+  public override async getActiveCartId(): Promise<
+    Result<CartIdentifier, NotFoundError>
+  > {
     try {
       const client = await this.getClient();
       const sessionData = this.client.getSessionData();
@@ -237,25 +256,28 @@ export class MedusaCartProvider extends CartProvider {
       if (activeCartId) {
         try {
           await client.store.cart.retrieve(activeCartId);
-          return MedusaCartIdentifierSchema.parse({
-            key: activeCartId,
-            region_id: (await this.client.getActiveRegion()).id,
-          });
+          return success(
+            MedusaCartIdentifierSchema.parse({
+              key: activeCartId,
+              region_id: (await this.client.getActiveRegion()).id,
+            })
+          );
         } catch {
           // Cart doesn't exist, create new one
         }
       }
 
       // For guest users or if no active cart exists, return empty identifier
-      return MedusaCartIdentifierSchema.parse({
-        key: '',
-        region_id: (await this.client.getActiveRegion()).id,
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: undefined,
       });
-    } catch (error) {
+    } catch (err) {
       debug('Failed to get active cart ID:', error);
-      return MedusaCartIdentifierSchema.parse({
-        key: '',
-        region_id: (await this.client.getActiveRegion()).id,
+
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: undefined,
       });
     }
   }
@@ -266,7 +288,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async deleteCart(
     payload: CartMutationDeleteCart
-  ): Promise<Cart> {
+  ): Promise<Result<void>> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -291,10 +313,10 @@ export class MedusaCartProvider extends CartProvider {
         }
       }
 
-      return this.createEmptyCart();
+      return success(undefined);
     } catch (error) {
       debug('Failed to delete cart:', error);
-      return this.createEmptyCart();
+      return success(undefined);
     }
   }
 
@@ -304,7 +326,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async applyCouponCode(
     payload: CartMutationApplyCoupon
-  ): Promise<Cart> {
+  ): Promise<Result<Cart>> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -320,7 +342,7 @@ export class MedusaCartProvider extends CartProvider {
       );
 
       if (response.cart) {
-        return this.parseSingle(response.cart);
+        return success(this.parseSingle(response.cart));
       }
 
       throw new Error('Failed to apply coupon code');
@@ -335,7 +357,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async removeCouponCode(
     payload: CartMutationRemoveCoupon
-  ): Promise<Cart> {
+  ): Promise<Result<Cart>> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -352,14 +374,18 @@ export class MedusaCartProvider extends CartProvider {
           .filter((x) => x.code !== payload.couponCode)
           .map((promotion: MedusaTypes.StoreCartPromotion) => promotion.code) ||
           []) as string[];
-        const response = await client.store.cart.update(medusaId.key, {
-          promo_codes: remainingCodes || [],
-        }, {
-          fields: this.includedFields,
-        });
+        const response = await client.store.cart.update(
+          medusaId.key,
+          {
+            promo_codes: remainingCodes || [],
+          },
+          {
+            fields: this.includedFields,
+          }
+        );
 
         if (response.cart) {
-          return this.parseSingle(response.cart);
+          return success(this.parseSingle(response.cart));
         }
       }
 
@@ -375,7 +401,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async changeCurrency(
     payload: CartMutationChangeCurrency
-  ): Promise<Cart> {
+  ): Promise<Result<Cart>> {
     try {
       const client = await this.getClient();
 
@@ -407,7 +433,7 @@ export class MedusaCartProvider extends CartProvider {
           activeCartId: newCartResponse.cart.id,
         });
 
-        return this.parseSingle(newCartResponse.cart);
+        return success(this.parseSingle(newCartResponse.cart));
       }
 
       throw new Error('Failed to change currency');
@@ -525,7 +551,11 @@ export class MedusaCartProvider extends CartProvider {
     const items = new Array<CartItem>();
 
     const allItems = remote.items || [];
-    allItems.sort( (a,b) => (a.created_at && b.created_at) ? (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) : 0 );
+    allItems.sort((a, b) =>
+      a.created_at && b.created_at
+        ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        : 0
+    );
     for (const remoteItem of allItems) {
       items.push(this.parseCartItem(remoteItem, price.grandTotal.currency));
     }

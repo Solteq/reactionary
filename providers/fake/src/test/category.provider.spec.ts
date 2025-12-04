@@ -1,122 +1,176 @@
 import 'dotenv/config';
 import type { RequestContext } from '@reactionary/core';
-import { CategorySchema, MemoryCache , createInitialRequestContext,} from '@reactionary/core';
+import {
+  CategorySchema,
+  MemoryCache,
+  createInitialRequestContext,
+} from '@reactionary/core';
 import { FakeCategoryProvider } from '../providers/index.js';
 import { getFakerTestConfiguration } from './test-utils.js';
-import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
+import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
 
 describe('Faker Category Provider', () => {
   let provider: FakeCategoryProvider;
   let reqCtx: RequestContext;
   const cache = new MemoryCache();
 
-  beforeEach( () => {
+  beforeEach(() => {
     reqCtx = createInitialRequestContext();
     cache.clear();
 
     provider = new FakeCategoryProvider(
       getFakerTestConfiguration(),
-      CategorySchema,
       cache,
       reqCtx
     );
-  })
+  });
 
   it('should be able to get top-categories', async () => {
-    const result = await provider.findTopCategories({ paginationOptions: { pageSize: 10, pageNumber: 1 }});
+    const result = await provider.findTopCategories({
+      paginationOptions: { pageSize: 10, pageNumber: 1 },
+    });
 
-    expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe('grocery');
-    expect(result.items[0].name).toBe('Grocery');
+    if (!result.success) {
+      assert.fail();
+    }
 
-    expect(result.items[1].identifier.key).toBe('sports');
-    expect(result.items[1].name).toBe('Sports');
+    expect(result.value.items.length).toBeGreaterThan(0);
+    expect(result.value.items[0].identifier.key).toBe('grocery');
+    expect(result.value.items[0].name).toBe('Grocery');
+
+    expect(result.value.items[1].identifier.key).toBe('sports');
+    expect(result.value.items[1].name).toBe('Sports');
   });
 
   it('should be able to get child categories for a category', async () => {
-    const result = await provider.findChildCategories({ parentId: { key: 'grocery' }, paginationOptions: { pageSize: 10, pageNumber: 1 }});
+    const result = await provider.findChildCategories({
+      parentId: { key: 'grocery' },
+      paginationOptions: { pageSize: 10, pageNumber: 1 },
+    });
 
-    expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe('grocery-0');
-    expect(result.items[0].name).toBe('Grocery-0');
+    if (!result.success) {
+      assert.fail();
+    }
 
-    expect(result.items[1].identifier.key).toBe('grocery-1');
-    expect(result.items[1].name).toBe('Grocery-1');
+    expect(result.value.items.length).toBeGreaterThan(0);
+    expect(result.value.items[0].identifier.key).toBe('grocery-0');
+    expect(result.value.items[0].name).toBe('Grocery-0');
+
+    expect(result.value.items[1].identifier.key).toBe('grocery-1');
+    expect(result.value.items[1].name).toBe('Grocery-1');
   });
 
   it('should be able to get child categories for a category, paged', async () => {
-    let result = await provider.findChildCategories({ parentId: { key: 'grocery' }, paginationOptions: { pageSize: 1, pageNumber: 1 }});
+    let result = await provider.findChildCategories({
+      parentId: { key: 'grocery' },
+      paginationOptions: { pageSize: 1, pageNumber: 1 },
+    });
 
-    expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe('grocery-0');
-    expect(result.items[0].name).toBe('Grocery-0');
-    expect(result.totalCount).toBeGreaterThan(1);
-    expect(result.totalPages).toEqual(result.totalCount);
-    expect(result.pageSize).toBe(1);
-    expect(result.pageNumber).toBe(1);
+    if (!result.success) {
+      assert.fail();
+    }
 
-    result = await provider.findChildCategories({ parentId: { key: 'grocery' }, paginationOptions: { pageSize: 1, pageNumber: 2 }});
+    expect(result.value.items.length).toBeGreaterThan(0);
+    expect(result.value.items[0].identifier.key).toBe('grocery-0');
+    expect(result.value.items[0].name).toBe('Grocery-0');
+    expect(result.value.totalCount).toBeGreaterThan(1);
+    expect(result.value.totalPages).toEqual(result.value.totalCount);
+    expect(result.value.pageSize).toBe(1);
+    expect(result.value.pageNumber).toBe(1);
 
-    expect(result.items.length).toBeGreaterThan(0);
-    expect(result.items[0].identifier.key).toBe('grocery-1');
-    expect(result.items[0].name).toBe('Grocery-1');
-    expect(result.totalCount).toBeGreaterThan(1);
-    expect(result.totalPages).toEqual(result.totalCount);
-    expect(result.pageSize).toBe(1);
-    expect(result.pageNumber).toBe(2);
+    result = await provider.findChildCategories({
+      parentId: { key: 'grocery' },
+      paginationOptions: { pageSize: 1, pageNumber: 2 },
+    });
+
+    if (!result.success) {
+      assert.fail();
+    }
+
+    expect(result.value.items.length).toBeGreaterThan(0);
+    expect(result.value.items[0].identifier.key).toBe('grocery-1');
+    expect(result.value.items[0].name).toBe('Grocery-1');
+    expect(result.value.totalCount).toBeGreaterThan(1);
+    expect(result.value.totalPages).toEqual(result.value.totalCount);
+    expect(result.value.pageSize).toBe(1);
+    expect(result.value.pageNumber).toBe(2);
   });
 
   it('can load all breadcrumbs for a category', async () => {
-    const result = await provider.getBreadcrumbPathToCategory({ id: { key: 'grocery-0-0' } });
+    const result = await provider.getBreadcrumbPathToCategory({
+      id: { key: 'grocery-0-0' },
+    });
 
-    expect(result.length).toBeGreaterThan(2);
-    expect(result[0].identifier.key).toBe('grocery');
-    expect(result[0].name).toBe('Grocery');
-    expect(result[0].slug).toBe('grocery-slug');
+    if (!result.success) {
+      assert.fail();
+    }
 
-    expect(result[1].identifier.key).toBe('grocery-0');
-    expect(result[1].name).toBe('Grocery-0');
-    expect(result[1].slug).toBe('grocery-0-slug');
+    expect(result.value.length).toBeGreaterThan(2);
+    expect(result.value[0].identifier.key).toBe('grocery');
+    expect(result.value[0].name).toBe('Grocery');
+    expect(result.value[0].slug).toBe('grocery-slug');
 
-    expect(result[2].identifier.key).toBe('grocery-0-0');
-    expect(result[2].name).toBe('Grocery-0-0');
-    expect(result[2].slug).toBe('grocery-0-0-slug');
+    expect(result.value[1].identifier.key).toBe('grocery-0');
+    expect(result.value[1].name).toBe('Grocery-0');
+    expect(result.value[1].slug).toBe('grocery-0-slug');
+
+    expect(result.value[2].identifier.key).toBe('grocery-0-0');
+    expect(result.value[2].name).toBe('Grocery-0-0');
+    expect(result.value[2].slug).toBe('grocery-0-0-slug');
   });
 
   it('should be able to get a category by slug', async () => {
     const result = await provider.getBySlug({ slug: 'grocery-slug' });
-    expect(result).toBeTruthy();
-    if (result) {
-      expect(result.identifier.key).toBe('grocery');
-      expect(result.name).toBe('Grocery');
-      expect(result.slug).toBe('grocery-slug');
-      expect(result.parentCategory).toBeUndefined();
-      expect(result.text).not.toBe('');
-      expect(result.meta.placeholder).toBe(false);
+
+    if (!result.success) {
+      assert.fail();
     }
+
+    expect(result.value.identifier.key).toBe('grocery');
+    expect(result.value.name).toBe('Grocery');
+    expect(result.value.slug).toBe('grocery-slug');
+    expect(result.value.parentCategory).toBeUndefined();
+    expect(result.value.text).not.toBe('');
+    expect(result.value.meta.placeholder).toBe(false);
   });
 
-  it('returns null if looking for slug that does not exist', async () => {
+  it('returns NotFound if looking for slug that does not exist', async () => {
     const result = await provider.getBySlug({ slug: 'non-existent-slug' });
-    expect(result).toBeNull();
+    
+    if (result.success) {
+      assert.fail();
+    }
+
+    expect(result.error.type).toBe('NotFound');
   });
 
   it('should be able to get a category by id', async () => {
-    const result = await provider.getById({ id: { key: 'grocery'}});
+    const result = await provider.getById({ id: { key: 'grocery' } });
+    
+    if (!result.success) {
+      assert.fail();
+    }
 
-    expect(result.identifier.key).toBe('grocery');
-    expect(result.name).toBe('Grocery');
-    expect(result.slug).toBe('grocery-slug');
-    expect(result.parentCategory).toBeUndefined();
+    expect(result.value.identifier.key).toBe('grocery');
+    expect(result.value.name).toBe('Grocery');
+    expect(result.value.slug).toBe('grocery-slug');
+    expect(result.value.parentCategory).toBeUndefined();
 
-    expect(result.text).not.toBe('');
-    expect(result.meta.placeholder).toBe(false);
+    expect(result.value.text).not.toBe('');
+    expect(result.value.meta.placeholder).toBe(false);
   });
 
   it('returns a placeholder if you search for a category that does not exist', async () => {
-    const result = await provider.getById({ id: { key: 'non-existent-category'}});
-    expect(result.identifier.key).toBe('non-existent-category');
-    expect(result.meta.placeholder).toBe(true);
+    const result = await provider.getById({
+      id: { key: 'non-existent-category' },
+    });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    
+    expect(result.value.identifier.key).toBe('non-existent-category');
+    expect(result.value.meta.placeholder).toBe(true);
   });
 
   describe('caching', () => {
@@ -125,24 +179,39 @@ describe('Faker Category Provider', () => {
 
     it('should cache the results for byId', async () => {
       const first = await provider.getById({ id: { key: 'grocery' } });
-      expect(first.meta.cache.hit).toBe(false);
 
-      const second = await provider.getById(
-        { id: { key: 'grocery' } }
-      );
-      expect(second.meta.cache.hit).toBe(true);
+      if (!first.success) {
+        assert.fail();
+      }
+
+      expect(first.value.meta.cache.hit).toBe(false);
+
+      const second = await provider.getById({ id: { key: 'grocery' } });
+
+      if (!second.success) {
+        assert.fail();
+      }
+
+      expect(second.value.meta.cache.hit).toBe(true);
     });
 
     it('can clear a cache entry by dependency id', async () => {
       const first = await provider.getById({ id: { key: 'grocery' } });
 
+      if (!first.success) {
+        assert.fail();
+      }
+
       const dependencyIds = provider.generateDependencyIdsForModel(first);
       await cache.invalidate(dependencyIds);
 
-      const second = await provider.getById(
-        { id: { key: 'grocery' } }
-      );
-      expect(second.meta.cache.hit).toBe(false);
+      const second = await provider.getById({ id: { key: 'grocery' } });
+
+      if (!second.success) {
+        assert.fail();
+      }
+      
+      expect(second.value.meta.cache.hit).toBe(false);
     });
   });
 });

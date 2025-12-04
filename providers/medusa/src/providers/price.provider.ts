@@ -5,6 +5,8 @@ import {
   CustomerPriceQuerySchema,
   ListPriceQuerySchema,
   Reactionary,
+  success,
+  error,
   type Cache,
   type Currency,
   type CustomerPriceQuery,
@@ -13,7 +15,8 @@ import {
   type RequestContext,
   type PriceIdentifier,
   type Meta,
-  type MonetaryAmount
+  type MonetaryAmount,
+  type Result
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type z from 'zod';
@@ -39,16 +42,20 @@ export class MedusaPriceProvider extends PriceProvider {
     inputSchema: ListPriceQuerySchema,
     outputSchema: PriceSchema,
   })
-  public override getListPrice(payload: ListPriceQuery): Promise<Price> {
-    return this.getBySKU(payload);
+  public override async getListPrice(payload: ListPriceQuery): Promise<Result<Price>> {
+    const result = await this.getBySKU(payload);
+
+    return success(result);
   }
 
   @Reactionary({
     inputSchema: CustomerPriceQuerySchema,
     outputSchema: PriceSchema,
   })
-  public override getCustomerPrice(payload: CustomerPriceQuery): Promise<Price> {
-    return this.getBySKU(payload);
+  public override async getCustomerPrice(payload: CustomerPriceQuery): Promise<Result<Price>> {
+    const result = await this.getBySKU(payload);
+
+    return success(result);
   }
 
 

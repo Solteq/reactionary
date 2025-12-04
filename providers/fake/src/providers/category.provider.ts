@@ -1,9 +1,10 @@
-import type { Category, CategoryPaginatedResult, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext} from "@reactionary/core";
-import { CategoryPaginatedResultSchema, CategoryProvider, CategoryQueryByIdSchema, CategoryQueryBySlugSchema, CategoryQueryForBreadcrumbSchema, CategoryQueryForChildCategoriesSchema, CategoryQueryForTopCategoriesSchema, CategorySchema, Reactionary } from "@reactionary/core";
+import type { Result, NotFoundError, Category, CategoryPaginatedResult, CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories, RequestContext} from "@reactionary/core";
+import { success, error, CategoryPaginatedResultSchema, CategoryProvider, CategoryQueryByIdSchema, CategoryQueryBySlugSchema, CategoryQueryForBreadcrumbSchema, CategoryQueryForChildCategoriesSchema, CategoryQueryForTopCategoriesSchema, CategorySchema, Reactionary } from "@reactionary/core";
 import type { FakeConfiguration } from "../schema/configuration.schema.js";
 import type { Cache as ReactionaryCache } from "@reactionary/core";
 import z from "zod";
 import { Faker, en, base } from '@faker-js/faker';
+
 export class FakeCategoryProvider extends CategoryProvider {
 
   protected config: FakeConfiguration;
@@ -89,33 +90,40 @@ export class FakeCategoryProvider extends CategoryProvider {
     inputSchema: CategoryQueryByIdSchema,
     outputSchema: CategorySchema
   })
-  public override async getById(payload: CategoryQueryById): Promise<Category> {
+  public override async getById(payload: CategoryQueryById): Promise<Result<Category, NotFoundError>> {
     const category = this.allCategories.get(payload.id.key);
 
     if(!category) {
-      throw new Error('This should not happen...');
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload
+      });
     }
-    return category;
+
+    return success(category);
   }
 
   @Reactionary({
     inputSchema: CategoryQueryBySlugSchema,
     outputSchema: CategorySchema
   })
-  public override getBySlug(payload: CategoryQueryBySlug): Promise<Category | null> {
+  public override async getBySlug(payload: CategoryQueryBySlug): Promise<Result<Category, NotFoundError>> {
     for(const p of this.allCategories.values()) {
       if(p.slug === payload.slug) {
-        return Promise.resolve(p);
+        return success(p);
       }
     }
-    return Promise.resolve(null);
+    return error<NotFoundError>({
+      type: 'NotFound',
+      identifier: payload
+    });
   }
 
   @Reactionary({
     inputSchema: CategoryQueryForBreadcrumbSchema,
     outputSchema: z.array(CategorySchema)
   })
-  public override getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb): Promise<Category[]> {
+  public override async getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb): Promise<Result<Category[]>> {
     const path = new Array<Category>();
     let category = this.allCategories.get(payload.id.key);
     path.push(category!);
@@ -125,14 +133,14 @@ export class FakeCategoryProvider extends CategoryProvider {
         path.unshift(category);
       }
     }
-    return Promise.resolve(path);
+    return success(path);
   }
 
   @Reactionary({
     inputSchema: CategoryQueryForChildCategoriesSchema,
     outputSchema: CategoryPaginatedResultSchema
   })
-  public override async findChildCategories(payload: CategoryQueryForChildCategories): Promise<CategoryPaginatedResult> {
+  public override async findChildCategories(payload: CategoryQueryForChildCategories): Promise<Result<CategoryPaginatedResult>> {
     const children = this.childCategories.get(payload.parentId.key);
     const page = children?.slice((payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize, payload.paginationOptions.pageNumber * payload.paginationOptions.pageSize);
 
@@ -151,14 +159,14 @@ export class FakeCategoryProvider extends CategoryProvider {
       totalPages: children ? Math.ceil(children.length / payload.paginationOptions.pageSize) : 1,
     };
 
-    return Promise.resolve(res);
+    return success(res);
   }
 
   @Reactionary({
     inputSchema: CategoryQueryForTopCategoriesSchema,
     outputSchema: CategoryPaginatedResultSchema
   })
-  public override findTopCategories(payload: CategoryQueryForTopCategories): Promise<CategoryPaginatedResult> {
+  public override async findTopCategories(payload: CategoryQueryForTopCategories): Promise<Result<CategoryPaginatedResult>> {
     const children = this.topCategories;
     const page = children?.slice((payload.paginationOptions.pageNumber - 1) * payload.paginationOptions.pageSize, payload.paginationOptions.pageNumber * payload.paginationOptions.pageSize);
 
@@ -177,7 +185,7 @@ export class FakeCategoryProvider extends CategoryProvider {
       totalPages: children ? Math.ceil(children.length / payload.paginationOptions.pageSize) : 1,
     };
 
-    return Promise.resolve(res);
+    return success(res);
   }
 
 }

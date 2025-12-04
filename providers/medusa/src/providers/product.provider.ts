@@ -1,4 +1,4 @@
-import type { Cache, Image, Product, ProductAttribute, ProductAttributeIdentifier, ProductAttributeValueIdentifier, ProductOptionIdentifier, ProductOptionValueIdentifier, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariant, ProductVariantOption, RequestContext } from '@reactionary/core';
+import type { Cache, Image, NotFoundError, Product, ProductAttribute, ProductAttributeIdentifier, ProductAttributeValueIdentifier, ProductOptionIdentifier, ProductOptionValueIdentifier, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariant, ProductVariantOption, RequestContext, Result } from '@reactionary/core';
 import {
   CategoryIdentifierSchema,
   ProductIdentifierSchema,
@@ -7,7 +7,9 @@ import {
   ProductQueryBySKUSchema,
   ProductQueryBySlugSchema,
   ProductSchema,
-  Reactionary
+  Reactionary,
+  success,
+  error,
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type { MedusaClient } from '../core/client.js';
@@ -29,7 +31,7 @@ export class MedusaProductProvider extends ProductProvider {
     inputSchema: ProductQueryByIdSchema,
     outputSchema: ProductSchema,
   })
-  public override async getById(payload: ProductQueryById): Promise<Product> {
+  public override async getById(payload: ProductQueryById): Promise<Result<Product>> {
     const client = await this.client.getClient();
     if (debug.enabled) {
       debug(`Fetching product by ID: ${payload.identifier.key}`);
@@ -44,16 +46,16 @@ export class MedusaProductProvider extends ProductProvider {
       if (debug.enabled) {
         debug(`Product with ID: ${payload.identifier.key} not found, returning empty product. Error %O `, error);
       }
-      return this.createEmptyProduct(payload.identifier.key);
+      return success(this.createEmptyProduct(payload.identifier.key));
     }
-    return this.parseSingle(response.product);
+    return success(this.parseSingle(response.product));
   }
 
   @Reactionary({
     inputSchema: ProductQueryBySlugSchema,
     outputSchema: ProductSchema.nullable(),
   })
-  public override async getBySlug(payload: ProductQueryBySlug): Promise<Product | null> {
+  public override async getBySlug(payload: ProductQueryBySlug): Promise<Result<Product, NotFoundError>> {
     const client = await this.client.getClient();
     if (debug.enabled) {
       debug(`Fetching product by slug: ${payload.slug}`);
@@ -71,9 +73,12 @@ export class MedusaProductProvider extends ProductProvider {
     }
 
     if (response.count === 0) {
-      return null;
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload
+      });
     }
-    return this.parseSingle(response.products[0]);
+    return success(this.parseSingle(response.products[0]));
   }
 
 
@@ -81,8 +86,7 @@ export class MedusaProductProvider extends ProductProvider {
     inputSchema: ProductQueryBySKUSchema,
     outputSchema: ProductSchema,
   })
-  public override async getBySKU(payload: ProductQueryBySKU): Promise<Product> {
-
+  public override async getBySKU(payload: ProductQueryBySKU): Promise<Result<Product>> {
     if (debug.enabled) {
       debug(`Fetching product by SKU: ${Array.isArray(payload) ? payload.join(', ') : payload}`);
     }
@@ -97,7 +101,7 @@ export class MedusaProductProvider extends ProductProvider {
     product.variants.push(variant);
 
     // For simplicity, return the first matched product
-    return this.parseSingle(product);
+    return success(this.parseSingle(product));
   }
 
   protected parseSingle(_body: StoreProduct): Product {

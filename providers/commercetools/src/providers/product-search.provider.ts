@@ -24,6 +24,7 @@ import type {
   ProductVariantIdentifier,
   ProductVariantOption,
   RequestContext,
+  Result,
   SearchIdentifier,
 } from '@reactionary/core';
 import {
@@ -41,6 +42,7 @@ import {
   ProductVariantIdentifierSchema,
   ProductVariantOptionSchema,
   Reactionary,
+  success,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 
@@ -98,11 +100,6 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
     };
   }
 
-
-  @Reactionary({
-    inputSchema: CommercetoolsResolveCategoryQueryByIdSchema,
-    outputSchema: CommercetoolsCategoryLookupSchema,
-  })
   protected async resolveCategoryFromId(payload: CommercetoolsResolveCategoryQueryById): Promise<CommercetoolsCategoryLookup> {
     const client = (await this.client.getClient()).withProjectKey({ projectKey: this.config.projectKey });
 
@@ -251,7 +248,7 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
     inputSchema: ProductSearchQueryCreateNavigationFilterSchema,
     outputSchema: FacetValueIdentifierSchema,
   })
-  public override async createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<FacetValueIdentifier> {
+  public override async createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<Result<FacetValueIdentifier>> {
     // In Commercetools, we can use the category ID to filter products by category
 
     const categoryPath = payload.categoryPath;
@@ -266,7 +263,7 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
       key: resolvedId || 'unknown',
     };
 
-    return facetValueIdentifier;
+    return success(facetValueIdentifier);
   }
 
 
@@ -277,15 +274,13 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
   })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
-  ): Promise<ProductSearchResult> {
+  ): Promise<Result<ProductSearchResult>> {
     const client = await this.getClient();
 
     const facetsToReturn = await this.getFacetsToReturn(payload);
     const facetsToApply = await this.getFacetsQuery(payload);
     const searchTermExpression = await this.getSearchTermExpression(payload);
     const categoryFilterExpression = await this.getCategoryFilterExpression(payload);
-
-
 
     let finalFilterExpression: any = undefined;
     if (searchTermExpression) {
@@ -359,7 +354,7 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
       );
     }
 
-    return result;
+    return success(result);
   }
 
   protected async patchCategoryFacetValues(result: ProductSearchResult) {

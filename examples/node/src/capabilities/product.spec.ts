@@ -1,6 +1,9 @@
 import 'dotenv/config';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
+import { unwrapError, unwrapValue } from '@reactionary/core';
+import { z } from 'zod';
+import { fail } from 'assert';
 
 const testData = {
   product: {
@@ -12,97 +15,115 @@ const testData = {
   },
   productWithMultiVariants: {
     slug: 'hp-gk859aa-mouse-office-bluetooth-laser-1600-dpi-1377612',
-  }
+  },
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS])('Product Capability - %s', (provider) => {
-  let client: ReturnType<typeof createClient>;
+describe.each([PrimaryProvider.COMMERCETOOLS])(
+  'Product Capability - %s',
+  (provider) => {
+    let client: ReturnType<typeof createClient>;
 
-  beforeEach(() => {
-    client = createClient(provider);
-  });
-
-  it('should be able to get a product by id', async () => {
-    const result = await client.product.getById({ identifier: { key: testData.product.id } });
-
-    expect(result).toBeTruthy();
-    expect(result.identifier.key).toBe(testData.product.id);
-    expect(result.meta.placeholder).toBe(false);
-    expect(result.name).toBe(testData.product.name);
-    expect(result.mainVariant.images[0].sourceUrl).toBe(testData.product.image);
-    expect(result.mainVariant.name).toBeTruthy();
-  });
-
-  it('should be able to get a product by slug', async () => {
-    const result = await client.product.getBySlug({ slug: testData.product.slug });
-
-    expect(result).toBeTruthy();
-
-    if (result) {
-      expect(result.meta.placeholder).toBe(false);
-      expect(result.identifier.key).toBe(testData.product.id);
-      expect(result.name).toBe(testData.product.name);
-      expect(result.mainVariant.images[0].sourceUrl).toBe(
-        testData.product.image
-      );
-    }
-  });
-
-  it('should be able to get a multivariant product by slug', async () => {
-    const result = await client.product.getBySlug({ slug: testData.productWithMultiVariants.slug });
-    expect(result).toBeTruthy();
-    if (result) {
-      expect(result.meta.placeholder).toBe(false);
-      expect(result.identifier.key).toBeTruthy();
-      expect(result.slug).toBe(testData.productWithMultiVariants.slug);
-      expect(result.mainVariant).toBeDefined();
-      expect(result.variants.length).toBeGreaterThan(0);
-      expect(result.variants[0].identifier.sku).toBeTruthy();
-      expect(result.variants[0].identifier.sku).not.toBe(result.mainVariant.identifier.sku);
-      expect(result!.sharedAttributes.length).toBeGreaterThan(1);
-      expect(result!.sharedAttributes[1].values.length).toBeGreaterThan(0);
-      expect(result!.sharedAttributes[1].values[0].value).toBeTruthy();
-    }
-  });
-
-
-  it('should be able to get a product by sku', async () => {
-    const result = await client.product.getBySKU({
-      variant: { sku: testData.product.sku },
+    beforeEach(() => {
+      client = createClient(provider);
     });
 
-    expect(result).toBeTruthy();
-    if (result) {
-      expect(result.meta.placeholder).toBe(false);
-      expect(result.identifier.key).toBe(testData.product.id);
-      expect(result.name).toBe(testData.product.name);
-      expect(result.mainVariant.images[0].sourceUrl).toBe(
+    it('should be able to get a product by id', async () => {
+      const response = await client.product.getById({
+        identifier: { key: testData.product.id },
+      });
+
+      if (!response.success) {
+        assert.fail();
+      }
+
+      expect(response.value.identifier.key).toBe(testData.product.id);
+      expect(response.value.meta.placeholder).toBe(false);
+      expect(response.value.name).toBe(testData.product.name);
+      expect(response.value.mainVariant.images[0].sourceUrl).toBe(
         testData.product.image
       );
-    }
-  });
-
-  it('should contain both product level and variant level attributes', async () => {
-    const result = await client.product.getBySKU({
-      variant: { sku: testData.product.sku },
+      expect(response.value.mainVariant.name).toBeTruthy();
     });
 
-    expect(result).toBeTruthy();
-    expect(result.sharedAttributes.length).toBeGreaterThan(1);
-    expect(result.sharedAttributes[1].values.length).toBeGreaterThan(0);
-    expect(result.sharedAttributes[1].values[0].value).toBeTruthy();
-  })
+    it('should be able to get a product by slug', async () => {
+      const response = await client.product.getBySlug({
+        slug: testData.product.slug,
+      });
+      
+      if (!response.success) {
+        assert.fail();
+      }
 
-  it('should return null for unknown slug', async () => {
-    const result = await client.product.getBySlug({ slug: 'unknown-slug' });
+      expect(response.value.meta.placeholder).toBe(false);
+      expect(response.value.identifier.key).toBe(testData.product.id);
+      expect(response.value.name).toBe(testData.product.name);
+      expect(response.value.mainVariant.images[0].sourceUrl).toBe(
+        testData.product.image
+      );
+    });
 
-    expect(result).toBeNull();
-  });
+    it('should be able to get a multivariant product by slug', async () => {
+      const response = await client.product.getBySlug({
+        slug: testData.productWithMultiVariants.slug,
+      });
 
-  it('should return a placeholder product for unknown id', async () => {
-    const result = await client.product.getById({ identifier: { key: 'unknown-id' } });
+      if (!response.success) {
+        assert.fail();
+      }
 
-    expect(result).toBeTruthy();
-    expect(result.meta.placeholder).toBe(true);
-  });
-});
+      expect(response.value.meta.placeholder).toBe(false);
+      expect(response.value.identifier.key).toBeTruthy();
+      expect(response.value.slug).toBe(testData.productWithMultiVariants.slug);
+      expect(response.value.mainVariant).toBeDefined();
+      expect(response.value.variants.length).toBeGreaterThan(0);
+      expect(response.value.variants[0].identifier.sku).toBeTruthy();
+      expect(response.value.variants[0].identifier.sku).not.toBe(
+        response.value.mainVariant.identifier.sku
+      );
+      expect(response.value.sharedAttributes.length).toBeGreaterThan(1);
+      expect(response.value.sharedAttributes[1].values.length).toBeGreaterThan(0);
+      expect(response.value.sharedAttributes[1].values[0].value).toBeTruthy();
+    });
+
+    it('should be able to get a product by sku', async () => {
+      const response = await client.product.getBySKU({
+        variant: { sku: testData.product.sku },
+      });
+
+      if (!response.success) {
+        assert.fail();
+      }
+
+      expect(response.value.meta.placeholder).toBe(false);
+      expect(response.value.identifier.key).toBe(testData.product.id);
+      expect(response.value.name).toBe(testData.product.name);
+      expect(response.value.mainVariant.images[0].sourceUrl).toBe(
+        testData.product.image
+      );
+    });
+
+    it('should contain both product level and variant level attributes', async () => {
+      const response = await client.product.getBySKU({
+        variant: { sku: testData.product.sku },
+      });
+
+      if (!response.success) {
+        assert.fail();
+      }
+
+      expect(response.value.sharedAttributes.length).toBeGreaterThan(1);
+      expect(response.value.sharedAttributes[1].values.length).toBeGreaterThan(0);
+      expect(response.value.sharedAttributes[1].values[0].value).toBeTruthy();
+    });
+
+    it('should return an error of NotFound for unknown slug', async () => {
+      const response = await client.product.getBySlug({ slug: 'unknown-slug' });
+      
+      if (response.success) {
+        assert.fail();
+      }
+
+      expect(response.error.type).toBe('NotFound');
+    });
+  }
+);

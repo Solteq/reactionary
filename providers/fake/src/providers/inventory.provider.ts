@@ -5,13 +5,16 @@ import type {
   InventoryIdentifier,
   InventoryQueryBySKU,
   InventoryStatus,
+  NotFoundError,
   RequestContext,
+  Result,
 } from '@reactionary/core';
 import {
   InventoryProvider,
   InventoryQueryBySKUSchema,
   InventorySchema,
   Reactionary,
+  success,
 } from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 
@@ -32,7 +35,7 @@ export class FakeInventoryProvider extends InventoryProvider {
     inputSchema: InventoryQueryBySKUSchema,
     outputSchema: InventorySchema
   })
-  public override async getBySKU(payload: InventoryQueryBySKU): Promise<Inventory> {
+  public override async getBySKU(payload: InventoryQueryBySKU): Promise<Result<Inventory, NotFoundError>> {
     // Generate a simple hash from the SKU string for seeding
     let hash = 0;
     const skuString = payload.variant.sku;
@@ -73,6 +76,6 @@ export class FakeInventoryProvider extends InventoryProvider {
       status
     } satisfies Inventory;
 
-    return result;
+    return success(result);
   }
 }

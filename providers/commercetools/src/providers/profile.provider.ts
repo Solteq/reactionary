@@ -3,6 +3,7 @@ import type {
   ProfileMutationUpdate,
   ProfileQuerySelf,
   RequestContext,
+  Result,
 } from '@reactionary/core';
 import {
   ProfileMutationUpdateSchema,
@@ -10,6 +11,8 @@ import {
   ProfileQuerySelfSchema,
   ProfileSchema,
   Reactionary,
+  success,
+  error
 } from '@reactionary/core';
 import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
@@ -42,20 +45,20 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
     inputSchema: ProfileQuerySelfSchema,
     outputSchema: ProfileSchema,
   })
-  public override async getSelf(payload: ProfileQuerySelf): Promise<Profile> {
+  public override async getSelf(payload: ProfileQuerySelf): Promise<Result<Profile>> {
     const client = await this.getClient();
 
     const remote = await client.me().get().execute();
     const model = this.parseSingle(remote.body);
 
-    return model;
+    return success(model);
   }
 
   @Reactionary({
     inputSchema: ProfileMutationUpdateSchema,
     outputSchema: ProfileSchema,
   })
-  public override async update(payload: ProfileMutationUpdate): Promise<Profile> {
+  public override async update(payload: ProfileMutationUpdate): Promise<Result<Profile>> {
     throw new Error('Method not implemented.');
   }
 
