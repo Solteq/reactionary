@@ -6,8 +6,9 @@ import type {
   StoreIdentifier,
   FulfillmentCenterIdentifier,
   Meta,
+  Result,
 } from '@reactionary/core';
-import { Reactionary, StoreProvider, StoreQueryByProximitySchema, StoreSchema } from '@reactionary/core';
+import { Reactionary, StoreProvider, StoreQueryByProximitySchema, StoreSchema, success, error } from '@reactionary/core';
 import z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { Channel } from '@commercetools/platform-sdk';
@@ -40,7 +41,7 @@ export class CommercetoolsStoreProvider extends StoreProvider {
   })
   public override async queryByProximity(
     payload: StoreQueryByProximity
-  ): Promise<Array<Store>> {
+  ): Promise<Result<Array<Store>>> {
     const client = await this.getClient();
 
     const remote = await client
@@ -63,7 +64,7 @@ export class CommercetoolsStoreProvider extends StoreProvider {
       results.push(this.parseSingle(r));
     }
 
-    return results;
+    return success(results);
   }
 
   protected parseSingle(body: Channel): Store {

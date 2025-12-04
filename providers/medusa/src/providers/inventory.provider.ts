@@ -10,6 +10,9 @@ import {
   type InventoryIdentifier,
   type InventoryStatus,
   type Meta,
+  type NotFoundError,
+  type Result,
+  success,
 } from '@reactionary/core';
 import type z from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
@@ -35,7 +38,7 @@ export class MedusaInventoryProvider extends InventoryProvider {
     inputSchema: InventoryQueryBySKUSchema,
     outputSchema: InventorySchema,
   })
-  public override async getBySKU(payload: InventoryQueryBySKU): Promise<Inventory> {
+  public override async getBySKU(payload: InventoryQueryBySKU): Promise<Result<Inventory, NotFoundError>> {
     const sku = payload.variant.sku;
     const fulfillmentCenterKey = payload.fulfilmentCenter.key;
 
@@ -57,7 +60,7 @@ export class MedusaInventoryProvider extends InventoryProvider {
         if (debug.enabled) {
           debug(`No inventory items found for SKU: ${sku}`);
         }
-        return this.createEmptyInventoryResult(sku, fulfillmentCenterKey);
+        return success(this.createEmptyInventoryResult(sku, fulfillmentCenterKey));
       }
 
       const inventoryItem = inventoryResponse.inventory_items[0];
@@ -92,21 +95,21 @@ export class MedusaInventoryProvider extends InventoryProvider {
         if (debug.enabled) {
           debug(`No stock location found with name: ${fulfillmentCenterKey}`);
         }
-        return this.createEmptyInventoryResult(sku, fulfillmentCenterKey);
+        return success(this.createEmptyInventoryResult(sku, fulfillmentCenterKey));
       }
 
-      return this.parseSingle({
+      return success(this.parseSingle({
         sku: payload.variant.sku,
         fulfillmentCenterKey,
         quantity,
         inventoryItemId: inventoryItem.id,
-      });
+      }));
 
     } catch (error) {
       if (debug.enabled) {
         debug(`Error fetching inventory for SKU: ${sku}`, error);
       }
-      return this.createEmptyInventoryResult(sku, fulfillmentCenterKey);
+      return success(this.createEmptyInventoryResult(sku, fulfillmentCenterKey));
     }
   }
 

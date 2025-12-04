@@ -7,7 +7,7 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import { withFakeCapabilities } from '@reactionary/provider-fake';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 describe('basic node setup', () => {
   let client: Partial<Client>;
@@ -47,8 +47,12 @@ describe('basic node setup', () => {
         slug: '1234',
       }
     );
+    
+    if (!product.success) {
+      assert.fail();
+    }
 
     expect(product).toBeDefined();
-    expect(product!.slug).toBe('1234');
+    expect(product.value.slug).toBe('1234');
   });
 });

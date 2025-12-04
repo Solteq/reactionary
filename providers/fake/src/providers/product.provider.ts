@@ -11,6 +11,10 @@ import {
   ProductSchema,
   ProductQueryBySlugSchema,
   ProductQueryBySKUSchema,
+  type Result,
+  error,
+  success,
+  type NotFoundError
 } from '@reactionary/core';
 import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
@@ -31,8 +35,8 @@ export class FakeProductProvider extends ProductProvider {
   })
   public override async getById(
     payload: ProductQueryById
-  ): Promise<Product> {
-    return this.parseSingle(payload.identifier.key );
+  ): Promise<Result<Product>> {
+    return success(this.parseSingle(payload.identifier.key));
   }
 
   @Reactionary({
@@ -41,16 +45,16 @@ export class FakeProductProvider extends ProductProvider {
   })
   public override async getBySlug(
     payload: ProductQueryBySlug
-  ): Promise<Product> {
-    return this.parseSingle(payload.slug);
+  ): Promise<Result<Product, NotFoundError>> {
+    return success(this.parseSingle(payload.slug));
   }
 
   @Reactionary({
     inputSchema: ProductQueryBySKUSchema,
     outputSchema: ProductSchema,
   })
-  public override async getBySKU(payload: ProductQueryBySKU): Promise<Product> {
-    return this.parseSingle(payload.variant.sku);
+  public override async getBySKU(payload: ProductQueryBySKU): Promise<Result<Product>> {
+    return success(this.parseSingle(payload.variant.sku));
   }
 
   protected parseSingle(body: string): Product {

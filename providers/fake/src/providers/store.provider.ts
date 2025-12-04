@@ -5,9 +5,10 @@ import type {
   RequestContext,
   Store,
   StoreIdentifier,
-  StoreQueryByProximity
+  StoreQueryByProximity,
+  Result
 } from '@reactionary/core';
-import { Reactionary, StoreProvider, StoreQueryByProximitySchema, StoreSchema } from '@reactionary/core';
+import { Reactionary, StoreProvider, StoreQueryByProximitySchema, StoreSchema, success } from '@reactionary/core';
 import z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
@@ -27,7 +28,7 @@ export class FakeStoreProvider extends StoreProvider {
   })
   public override async queryByProximity(
     payload: StoreQueryByProximity
-  ): Promise<Store[]> {
+  ): Promise<Result<Store[]>> {
     const generator = new Faker({
       seed: 42,
       locale: [en, base],
@@ -59,6 +60,6 @@ export class FakeStoreProvider extends StoreProvider {
         });
     }
 
-    return results;
+    return success(results);
   }
 }

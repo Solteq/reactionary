@@ -19,7 +19,9 @@ import {
   ProductSearchResultItemVariantSchema,
   ProductSearchResultSchema,
   Reactionary,
-  type RequestContext
+  type RequestContext,
+  type Result,
+  success
 } from '@reactionary/core';
 import { algoliasearch, type SearchResponse } from 'algoliasearch';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
@@ -52,7 +54,7 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
   })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
-  ): Promise<ProductSearchResult> {
+  ): Promise<Result<ProductSearchResult>> {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
 
     const facetsThatAreNotCategory = payload.search.facets.filter(x => x.facet.key !== 'categories');
@@ -102,10 +104,10 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
       }
     }
 
-    return result;
+    return success(result);
   }
 
-  public override createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<FacetValueIdentifier> {
+  public override async createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<Result<FacetValueIdentifier>> {
 
     const facetIdentifier = FacetIdentifierSchema.parse({
       key: 'categories'
@@ -114,7 +116,7 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
       facet: facetIdentifier,
       key: payload.categoryPath.map(c => c.name).join(' > ')
     });
-    return Promise.resolve(facetValueIdentifier);
+    return success(facetValueIdentifier);
   }
 
 

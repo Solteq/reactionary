@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 
 describe.each([PrimaryProvider.COMMERCETOOLS])('Identity Capability - %s', (provider) => {
@@ -12,14 +12,16 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Identity Capability - %s', (prov
   it('should default to an anonymous identity if no operations have been performed', async () => {
     const identity = await client.identity.getSelf({});
 
-    expect(identity.type).toBe('Anonymous');
+    if (!identity.success) {
+      assert.fail();
+    }
+
+    expect(identity.value.type).toBe('Anonymous');
   });
 
   it('should automatically upgrade to guest the moment an operation is performed', async () => {
-    const cart = await client.cart.getActiveCartId();
     const updatedCart = await client.cart.add(
       {
-        cart,
         quantity: 1,
         variant: {
           sku: '0766623301831'
@@ -29,7 +31,11 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Identity Capability - %s', (prov
 
     const identity = await client.identity.getSelf({});
 
-    expect(identity.type).toBe('Guest');
+    if (!identity.success) {
+      assert.fail();
+    }
+
+    expect(identity.value.type).toBe('Guest');
   });
 
   it('should be able to register a new customer', async () => {
@@ -41,10 +47,18 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Identity Capability - %s', (prov
       }
     );
 
-    expect(identity.type).toBe('Registered');
+    if (!identity.success) {
+      assert.fail();
+    }
+
+    expect(identity.value.type).toBe('Registered');
 
     const refreshedIdentity = await client.identity.getSelf({});
-    expect(refreshedIdentity.type).toBe('Registered');
+
+    if (!refreshedIdentity.success) {
+      assert.fail();
+    }
+    expect(refreshedIdentity.value.type).toBe('Registered');
   });
 
   it('should be able to log out from a Registered identity', async () => {
@@ -56,12 +70,24 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Identity Capability - %s', (prov
       }
     );
 
-    expect(identity.type).toBe('Registered');
+    if (!identity.success) {
+      assert.fail();
+    }
+
+    expect(identity.value.type).toBe('Registered');
 
     const loggedOutIdentity = await client.identity.logout({});
-    expect(loggedOutIdentity.type).toBe('Anonymous');
+
+    if (!loggedOutIdentity.success) {
+      assert.fail();
+    }
+    expect(loggedOutIdentity.value.type).toBe('Anonymous');
 
     const refreshedIdentity = await client.identity.getSelf({});
-    expect(refreshedIdentity.type).toBe('Anonymous');
+
+    if (!refreshedIdentity.success) {
+      assert.fail();
+    }
+    expect(refreshedIdentity.value.type).toBe('Anonymous');
   });
 });

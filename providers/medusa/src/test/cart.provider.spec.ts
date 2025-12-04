@@ -1,6 +1,6 @@
 
-import { NoOpCache, createInitialRequestContext, type Cart, type CartMutationItemAdd, type RequestContext } from '@reactionary/core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { NoOpCache, createInitialRequestContext, unwrapValue, type Cart, type CartMutationItemAdd, type RequestContext } from '@reactionary/core';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { MedusaClient } from '../core/client.js';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
@@ -23,41 +23,45 @@ describe('Medusa Cart Provider', () => {
   });
 
   describe('anonymous sessions', () => {
-    it('should be able to get an empty cart', async () => {
+    it('should get a NotFound for an unknown identifier', async () => {
       const cart = await provider.getById({
         cart: { key: '' },
       });
 
-      expect(cart.identifier.key).toBeFalsy();
-      expect(cart.items.length).toBe(0);
-      expect(cart.meta?.placeholder).toBe(true);
-
+      if (cart.success) {
+        assert.fail();
+      }
+      
+      expect(cart.error.type).toBe('NotFound');
     });
 
     it('should be able to add an item to a cart', async () => {
       const cart = await provider.add({
-          cart: { key: '' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
       });
 
-      expect(cart.identifier.key).toBeDefined();
-      expect(cart.items.length).toBe(1);
-      expect(cart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
-      expect(cart.items[0].quantity).toBe(1);
+      if (!cart.success) {
+        assert.fail();
+      }
 
-      expect(cart.items[0].price.totalPrice.value).toBeGreaterThan(0);
-      expect(cart.items[0].price.totalPrice.currency).toBe(reqCtx.languageContext.currencyCode);
+      expect(cart.value.identifier.key).toBeDefined();
+      expect(cart.value.items.length).toBe(1);
+      expect(cart.value.items[0].variant.sku).toBe(testData.skuWithoutTiers);
+      expect(cart.value.items[0].quantity).toBe(1);
 
-      expect(cart.price.grandTotal.value).toBeGreaterThan(0);
-      expect(cart.price.grandTotal.currency).toBe(reqCtx.languageContext.currencyCode);
+      expect(cart.value.items[0].price.totalPrice.value).toBeGreaterThan(0);
+      expect(cart.value.items[0].price.totalPrice.currency).toBe(reqCtx.languageContext.currencyCode);
 
-      expect(cart.price.grandTotal.value).toBe(cart.items[0].price.totalPrice.value);
+      expect(cart.value.price.grandTotal.value).toBeGreaterThan(0);
+      expect(cart.value.price.grandTotal.currency).toBe(reqCtx.languageContext.currencyCode);
+
+      expect(cart.value.price.grandTotal.value).toBe(cart.value.items[0].price.totalPrice.value);
 
 
-      expect(cart.meta?.placeholder).toBeFalsy();
+      expect(cart.value.meta.placeholder).toBeFalsy();
 
     });
 
@@ -66,71 +70,79 @@ describe('Medusa Cart Provider', () => {
     it('can add multiple different items to a cart', async () => {
 
       const cart = await provider.add({
-          cart: { key: '' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
       } satisfies CartMutationItemAdd);
 
+      if (!cart.success) {
+        assert.fail();
+      }
 
       const updatedCart = await provider.add({
-          cart: cart.identifier,
+          cart: cart.value.identifier,
           variant: {
             sku: testData.skuWithTiers,
           },
           quantity: 2
       });
 
-      expect(updatedCart.items.length).toBe(2);
-      expect(updatedCart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
-      expect(updatedCart.items[0].quantity).toBe(1);
-      expect(updatedCart.items[1].variant.sku).toBe(testData.skuWithTiers);
-      expect(updatedCart.items[1].quantity).toBe(2);
+      if (!updatedCart.success) {
+        assert.fail();
+      }
+
+      expect(updatedCart.value.items.length).toBe(2);
+      expect(updatedCart.value.items[0].variant.sku).toBe(testData.skuWithoutTiers);
+      expect(updatedCart.value.items[0].quantity).toBe(1);
+      expect(updatedCart.value.items[1].variant.sku).toBe(testData.skuWithTiers);
+      expect(updatedCart.value.items[1].quantity).toBe(2);
     });
 
     it('should be able to change quantity of an item in a cart', async () => {
-
       const cart = await provider.add({
-          cart: { key: '' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
       });
 
+      if (!cart.success) {
+        assert.fail();
+      }
+
       const updatedCart = await provider.changeQuantity({
-        cart: cart.identifier,
-        item: cart.items[0].identifier,
+        cart: cart.value.identifier,
+        item: cart.value.items[0].identifier,
         quantity: 3
       });
 
+      if (!updatedCart.success) {
+        assert.fail();
+      }
 
-      expect(updatedCart.items.length).toBe(1);
-      expect(updatedCart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
-      expect(updatedCart.items[0].quantity).toBe(3);
+      expect(updatedCart.value.items.length).toBe(1);
+      expect(updatedCart.value.items[0].variant.sku).toBe(testData.skuWithoutTiers);
+      expect(updatedCart.value.items[0].quantity).toBe(3);
 
-      expect(updatedCart.items[0].price.totalPrice.value).toBe(cart.items[0].price.totalPrice.value * 3);
-      expect(updatedCart.items[0].price.unitPrice.value).toBe(cart.items[0].price.unitPrice.value);
-
+      expect(updatedCart.value.items[0].price.totalPrice.value).toBe(cart.value.items[0].price.totalPrice.value * 3);
+      expect(updatedCart.value.items[0].price.unitPrice.value).toBe(cart.value.items[0].price.unitPrice.value);
     });
 
     it('cannot set quantity below 1', async () => {
-
-      const cart = await provider.add({
-          cart: { key: '' },
+      const cart = unwrapValue(await provider.add({
           variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
-      });
+      }));
       let updatedCart: Cart;
       try {
-        updatedCart = await provider.changeQuantity({
+        updatedCart = unwrapValue(await provider.changeQuantity({
           cart: cart.identifier,
           item: cart.items[0].identifier,
           quantity: 0
-        });
+        }));
         expect(updatedCart).toBeDefined();
       } catch (error) {
         expect(error).toBeDefined();
@@ -142,48 +154,59 @@ describe('Medusa Cart Provider', () => {
 
 
     it('should be able to remove an item from a cart', async () => {
-
       const cart = await provider.add({
-          cart: { key: '' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
       });
 
+      if (!cart.success) {
+        assert.fail();
+      }
+
       const updatedCart = await provider.remove({
-        cart: cart.identifier,
-        item: cart.items[0].identifier,
+        cart: cart.value.identifier,
+        item: cart.value.items[0].identifier,
       });
 
-      expect(updatedCart.items.length).toBe(0);
+      if (!updatedCart.success) {
+        assert.fail();
+      }
+
+      expect(updatedCart.value.items.length).toBe(0);
     });
 
     it('should be able to delete a cart', async () => {
-
       const cart = await provider.add({
-          cart: { key: '' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
       });
 
-      expect(cart.items.length).toBe(1);
-      expect(cart.identifier.key).toBeTruthy();
+      if (!cart.success) {
+        assert.fail();
+      }
+
+      expect(cart.value.items.length).toBe(1);
+      expect(cart.value.identifier.key).toBeTruthy();
 
       const deletedCart = await provider.deleteCart({
-        cart: cart.identifier,
+        cart: cart.value.identifier,
       });
 
-      expect(deletedCart.items.length).toBe(0);
-      expect(deletedCart.identifier.key).toBe('');
+      expect(deletedCart.success).toBe(true);
 
       const originalCart = await provider.getById({
-        cart: cart.identifier,
+        cart: cart.value.identifier,
       });
 
-      expect(originalCart.items.length).toBe(0);
+      if (originalCart.success) {
+        assert.fail();
+      }
+
+      expect(originalCart.error.type).toBe('NotFound');
     });
 /*
     it('can load the product information for cart items', async () => {
