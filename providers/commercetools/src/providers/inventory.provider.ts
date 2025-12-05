@@ -5,12 +5,14 @@ import type {
   InventoryQueryBySKU,
   InventoryIdentifier,
   InventoryStatus,
+  Result,
+  NotFoundError,
 } from '@reactionary/core';
-import { InventoryProvider, InventoryQueryBySKUSchema, InventorySchema, Reactionary } from '@reactionary/core';
-import type z from 'zod';
+import { InventoryProvider, InventoryQueryBySKUSchema, InventorySchema, Reactionary, success, error } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { InventoryEntry } from '@commercetools/platform-sdk';
 import type { CommercetoolsClient } from '../core/client.js';
+
 export class CommercetoolsInventoryProvider extends InventoryProvider {
   protected config: CommercetoolsConfiguration;
   protected client: CommercetoolsClient;
@@ -36,7 +38,7 @@ export class CommercetoolsInventoryProvider extends InventoryProvider {
     inputSchema: InventoryQueryBySKUSchema,
     outputSchema: InventorySchema,
   })
-  public override async getBySKU(payload: InventoryQueryBySKU): Promise<Inventory> {
+  public override async getBySKU(payload: InventoryQueryBySKU): Promise<Result<Inventory, NotFoundError>> {
     const client = await this.getClient();
 
     try {
@@ -68,17 +70,14 @@ export class CommercetoolsInventoryProvider extends InventoryProvider {
       const model = this.parseSingle(result);
 
 
-      return model;
-    } catch (error) {
+      return success(model);
+    } catch (err) {
       console.error('Error fetching inventory by SKU and Fulfillment Center:', error, payload);
-      return this.createEmptyInventory(
-        {
-          variant: { sku: payload.variant.sku },
-          fulfillmentCenter: { key: payload.fulfilmentCenter.key },
-        }
-      );
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload
+      });
     }
-
   }
 
   protected parseSingle(body: InventoryEntry): Inventory {

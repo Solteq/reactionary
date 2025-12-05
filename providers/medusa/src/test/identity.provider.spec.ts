@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, assert } from 'vitest';
 import { MedusaIdentityProvider } from '../providers/identity.provider.js';
 import { IdentitySchema, NoOpCache, createInitialRequestContext, type RequestContext } from '@reactionary/core';
 import { getMedusaTestConfiguration } from './test-utils.js';
@@ -26,8 +26,12 @@ describe('Medusa Identity Provider', () => {
   it('should return anonymous identity when not authenticated', async () => {
     const result = await provider.getSelf({});
 
-    expect(result).toBeTruthy();
-    expect(result.type).toBe('Anonymous');
+    if (!result.success) {
+      assert.fail();
+    }
+
+    expect(result.value).toBeTruthy();
+    expect(result.value.type).toBe('Anonymous');
   });
 
   it('should be able to register a new user', async () => {
@@ -37,9 +41,13 @@ describe('Medusa Identity Provider', () => {
       password: testData.testPassword,
     });
 
+    if (!result.success) {
+      assert.fail();
+    }
+
     expect(result).toBeTruthy();
     // Registration should auto-login and return Registered identity
-    expect(['Registered', 'Anonymous']).toContain(result.type);
+    expect(['Registered', 'Anonymous']).toContain(result.value.type);
   });
 
   it('should be able to login with valid credentials', async () => {
@@ -59,8 +67,12 @@ describe('Medusa Identity Provider', () => {
       password: testData.testPassword,
     });
 
+    if (!result.success) {
+      assert.fail();
+    }
+
     expect(result).toBeTruthy();
-    expect(['Registered', 'Anonymous']).toContain(result.type);
+    expect(['Registered', 'Anonymous']).toContain(result.value.type);
   });
 
   it('should be able to logout', async () => {
@@ -73,8 +85,12 @@ describe('Medusa Identity Provider', () => {
     // Then logout
     const result = await provider.logout({});
 
+    if (!result.success) {
+      assert.fail();
+    }
+
     expect(result).toBeTruthy();
-    expect(result.type).toBe('Anonymous');
+    expect(result.value.type).toBe('Anonymous');
   });
 
   it('should return registered identity when authenticated', async () => {
@@ -87,8 +103,12 @@ describe('Medusa Identity Provider', () => {
     // Check identity
     const result = await provider.getSelf({});
 
+    if (!result.success) {
+      assert.fail();
+    }
+
     expect(result).toBeTruthy();
-    expect(['Registered', 'Anonymous']).toContain(result.type);
+    expect(['Registered', 'Anonymous']).toContain(result.value.type);
   });
 
   it('should handle login errors gracefully', async () => {

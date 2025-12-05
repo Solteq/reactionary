@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 
 describe.each([PrimaryProvider.COMMERCETOOLS])('Inventory Capability', (provider) => {
@@ -9,7 +9,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Inventory Capability', (provider
     client = createClient(provider);
   });
 
-  it('should return unavailable for unknown SKU', async () => {
+  it('should return NotFound for unknown SKU', async () => {
     const inventory = await client.inventory.getBySKU({
       variant: {
         sku: 'GMCT-01x',
@@ -19,16 +19,14 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Inventory Capability', (provider
       },
     });
 
-    expect(inventory.identifier.variant.sku).toBe('GMCT-01x');
-    expect(inventory.identifier.fulfillmentCenter.key).toBe(
-      'solteqPhysicalStore'
-    );
-    expect(inventory.status).toBe('outOfStock');
-    expect(inventory.quantity).toBe(0);
-    expect(inventory.meta.placeholder).toBe(true);
+    if (inventory.success) {
+      assert.fail();
+    }
+
+    expect(inventory.error.type).toBe('NotFound');
   });
 
-  it('should return unavailable for unknown ffmcenter', async () => {
+  it('should return NotFound for unknown ffmcenter', async () => {
     const inventory = await client.inventory.getBySKU({
       variant: {
         sku: 'GMCT-01',
@@ -38,15 +36,13 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Inventory Capability', (provider
       },
     });
 
-    expect(inventory.identifier.variant.sku).toBe('GMCT-01');
-    expect(inventory.identifier.fulfillmentCenter.key).toBe(
-      'unknown-ffmcenter'
-    );
-    expect(inventory.status).toBe('outOfStock');
-    expect(inventory.quantity).toBe(0);
-    expect(inventory.meta.placeholder).toBe(true);
+    if (inventory.success) {
+      assert.fail();
+    }
 
+    expect(inventory.error.type).toBe('NotFound');
   });
+
   it('should be able to fetch inventory for a given SKU and Fulfillment Center', async () => {
     const inventory = await client.inventory.getBySKU({
       variant: {
@@ -57,10 +53,14 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Inventory Capability', (provider
       },
     });
 
-    expect(inventory.identifier.variant.sku).toBe('GMCT-01');
-    expect(inventory.identifier.fulfillmentCenter.key).toBe(
+    if (!inventory.success) {
+      assert.fail();
+    }
+
+    expect(inventory.value.identifier.variant.sku).toBe('GMCT-01');
+    expect(inventory.value.identifier.fulfillmentCenter.key).toBe(
       'solteqPhysicalStore'
     );
-    expect(inventory.quantity).toBe(42);
+    expect(inventory.value.quantity).toBe(42);
   });
 });

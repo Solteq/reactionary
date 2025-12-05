@@ -1,6 +1,8 @@
 import { BaseProvider } from './base.provider.js';
 import type { Order } from '../schemas/models/index.js';
 import type { OrderQueryById } from '../schemas/queries/index.js';
+import type { Result } from '../schemas/result.js';
+import type { NotFoundError } from '../schemas/index.js';
 
 export abstract class OrderProvider extends BaseProvider {
   /**
@@ -10,7 +12,7 @@ export abstract class OrderProvider extends BaseProvider {
    * @param payload
    * @param session
    */
-  public abstract getById(payload: OrderQueryById): Promise<Order>;
+  public abstract getById(payload: OrderQueryById): Promise<Result<Order, NotFoundError>>;
 
   protected createEmptyOrder(): Order {
     const order = {

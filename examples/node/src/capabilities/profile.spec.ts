@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 
 describe.each([PrimaryProvider.COMMERCETOOLS])('Profile Capability - %s', (provider) => {
@@ -19,7 +19,10 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Profile Capability - %s', (provi
 
     const profile = await client.profile.getSelf({});
 
-    expect(profile).toBeDefined();
-    expect(profile.email).toContain('martin.rogne');
+    if (!profile.success) {
+      assert.fail();
+    }
+
+    expect(profile.value.email).toContain('martin.rogne');
   });
 });

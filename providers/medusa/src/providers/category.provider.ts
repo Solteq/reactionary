@@ -14,6 +14,10 @@ import {
   CategoryQueryForTopCategoriesSchema,
   createPaginatedResponseSchema,
   Reactionary,
+  success,
+  error,
+  type Result,
+  type NotFoundError,
   type CategoryQueryById,
   type CategoryQueryBySlug,
   type CategoryQueryForBreadcrumb,
@@ -77,29 +81,15 @@ export class MedusaCategoryProvider extends CategoryProvider {
     inputSchema: CategoryQueryByIdSchema,
     outputSchema: CategorySchema,
   })
-  public override async getById(payload: CategoryQueryById): Promise<Category> {
+  public override async getById(payload: CategoryQueryById): Promise<Result<Category, NotFoundError>> {
     const candidate = await this.resolveCategoryIdByExternalId(payload.id.key);
     if (!candidate) {
-      const dummyCategory = {
-        identifier: {
-          key: payload.id.key,
-        },
-        images: [],
-        name: '',
-        slug: '',
-        text: '',
-        meta: {
-          cache: {
-            hit: false,
-            key: '',
-          },
-          placeholder: true,
-        },
-      } satisfies Category;
-
-      return dummyCategory;
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload
+      })
     }
-    return this.parseSingle(candidate!);
+    return success(this.parseSingle(candidate));
   }
 
   @Reactionary({
@@ -108,7 +98,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
   })
   public override async getBySlug(
     payload: CategoryQueryBySlug
-  ): Promise<Category | null> {
+  ): Promise<Result<Category, NotFoundError>> {
     const sdk = await this.client.getClient();
 
     const categoryResult = await sdk.store.category.list({
@@ -117,9 +107,12 @@ export class MedusaCategoryProvider extends CategoryProvider {
       offset: 0,
     });
     if (categoryResult.count === 0) {
-      return null;
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload
+      });
     }
-    return this.parseSingle(categoryResult.product_categories[0]);
+    return success(this.parseSingle(categoryResult.product_categories[0]));
   }
 
   @Reactionary({
@@ -128,7 +121,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
   })
   public override async getBreadcrumbPathToCategory(
     payload: CategoryQueryForBreadcrumb
-  ): Promise<Category[]> {
+  ): Promise<Result<Category[]>> {
     const actualCategoryId = await this.resolveCategoryIdByExternalId(
       payload.id.key
     );
@@ -149,7 +142,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
       current = current.parent_category;
     }
     results = results.reverse();
-    return results;
+    return success(results);
   }
 
   @Reactionary({
@@ -185,7 +178,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
       },
       placeholder: false,
     };
-    return result;
+    return success(result);
   }
 
   @Reactionary({
@@ -214,7 +207,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
       },
       placeholder: false,
     };
-    return result;
+    return success(result);
   }
 
   protected parseSingle(_body: StoreProductCategory): Category {

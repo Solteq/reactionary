@@ -9,6 +9,7 @@ import type { CommercetoolsConfiguration } from '@reactionary/provider-commercet
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 import { withMedusaCapabilities } from '@reactionary/provider-medusa';
+import { expect } from 'vitest';
 
 export function getAlgoliaTestConfiguration() {
   return {

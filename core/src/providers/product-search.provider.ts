@@ -1,4 +1,4 @@
-import type { Category, FacetIdentifier, FacetValueIdentifier } from '../index.js';
+import type { Category, FacetIdentifier, FacetValueIdentifier, Result } from '../index.js';
 import type { ProductSearchResult, ProductSearchResultFacet, ProductSearchResultFacetValue, ProductSearchResultItemVariant } from '../schemas/models/product-search.model.js';
 import type { ProductSearchQueryByTerm, ProductSearchQueryCreateNavigationFilter } from '../schemas/queries/product-search.query.js';
 import { BaseProvider } from './base.provider.js';
@@ -8,7 +8,7 @@ export abstract class ProductSearchProvider extends BaseProvider {
     return 'product-search';
   }
 
-public abstract queryByTerm(payload: ProductSearchQueryByTerm): Promise<ProductSearchResult>;
+public abstract queryByTerm(payload: ProductSearchQueryByTerm): Promise<Result<ProductSearchResult>>;
 
 
   /**
@@ -29,7 +29,7 @@ public abstract queryByTerm(payload: ProductSearchQueryByTerm): Promise<ProductS
    *
    * @param categoryPath
    */
-  public abstract createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<FacetValueIdentifier>;
+  public abstract createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<Result<FacetValueIdentifier>>;
 
   /**
    * Parses a facet value from the search response.
@@ -56,9 +56,6 @@ public abstract queryByTerm(payload: ProductSearchQueryByTerm): Promise<ProductS
    * Usecase: Override this to customize the parsing of product variants.
    */
   protected abstract parseVariant(variant: unknown, product: unknown): ProductSearchResultItemVariant;
-
-
-
 }
 
 

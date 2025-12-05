@@ -7,7 +7,7 @@ import { MonetaryAmountSchema } from '../models/price.model.js';
 import type { InferType } from '../../zod-utils.js';
 
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema,
+    cart: CartIdentifierSchema.optional(),
     variant: ProductVariantIdentifierSchema,
     quantity: z.number()
 });

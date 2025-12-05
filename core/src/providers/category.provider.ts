@@ -1,4 +1,4 @@
-import type { Category, CategoryPaginatedResult } from "../schemas/index.js";
+import type { Category, CategoryPaginatedResult, NotFoundError, Result } from "../schemas/index.js";
 import type { CategoryQueryById, CategoryQueryBySlug, CategoryQueryForBreadcrumb, CategoryQueryForChildCategories, CategoryQueryForTopCategories } from "../schemas/queries/category.query.js";
 import { BaseProvider } from "./base.provider.js";
 
@@ -28,7 +28,7 @@ export abstract class CategoryProvider extends BaseProvider {
    * @param id
    * @param session
    */
-  public abstract getById(payload: CategoryQueryById): Promise<Category>;
+  public abstract getById(payload: CategoryQueryById): Promise<Result<Category, NotFoundError>>;
 
   /**
    * Gets a single category by its seo slug
@@ -37,8 +37,7 @@ export abstract class CategoryProvider extends BaseProvider {
    * @param slug the slug
    * @param session
    */
-  public abstract getBySlug(payload: CategoryQueryBySlug): Promise<Category | null>;
-
+  public abstract getBySlug(payload: CategoryQueryBySlug): Promise<Result<Category, NotFoundError>>;
 
   /**
    * Gets the breadcrumb path to the category, i.e. all parents up to the root.
@@ -48,7 +47,7 @@ export abstract class CategoryProvider extends BaseProvider {
    * @param id
    * @param session
    */
-  public abstract getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb): Promise<Category[]>;
+  public abstract getBreadcrumbPathToCategory(payload: CategoryQueryForBreadcrumb): Promise<Result<Category[]>>;
 
   // hmm, this is not really good enough.... We need a type we can pass in that will allow us to specify the precise return type, but otoh we also need
   // to be able to verify and assert the output type. FIXME
@@ -63,7 +62,7 @@ export abstract class CategoryProvider extends BaseProvider {
    * @param id The ID of the parent category.
    * @param session The session information.
    */
-  public abstract findChildCategories(payload: CategoryQueryForChildCategories): Promise<CategoryPaginatedResult>;
+  public abstract findChildCategories(payload: CategoryQueryForChildCategories): Promise<Result<CategoryPaginatedResult>>;
 
   /**
    * Returns all top categories, i.e. categories without a parent.
@@ -72,7 +71,7 @@ export abstract class CategoryProvider extends BaseProvider {
    * @param paginationOptions
    * @param session
    */
-  public abstract findTopCategories( payload: CategoryQueryForTopCategories): Promise<CategoryPaginatedResult>;
+  public abstract findTopCategories( payload: CategoryQueryForTopCategories): Promise<Result<CategoryPaginatedResult>>;
 
 
   protected override getResourceName(): string {

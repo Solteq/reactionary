@@ -5,9 +5,10 @@ import {
   NoOpCache,
   PaymentInstructionSchema,
   ShippingInstructionSchema,
+  unwrapValue,
 } from '@reactionary/core';
 import 'dotenv/config';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { withMedusaCapabilities } from '../core/initialize.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
@@ -50,15 +51,14 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
     let cart: Cart;
 
     beforeEach(async () => {
-      cart = await client.cart.add(
+      cart = unwrapValue(await client.cart.add(
         {
-          cart: { key: '' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1,
         },
-      );
+      ));
     });
 
     it('can create a checkout session from a cart', async () => {
@@ -83,17 +83,21 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
         }
       );
 
-      expect(checkout.identifier.key).toBeDefined();
-      expect(checkout.originalCartReference.key).toBe(cart.identifier.key);
-      expect(checkout.billingAddress?.firstName).toBe('John');
-      expect(checkout.items.length).toBe(1);
-      expect(checkout.items[0].variant.sku).toBe(testData.skuWithoutTiers);
+      if (!checkout.success) {
+        assert.fail();
+      }
+
+      expect(checkout.value.identifier.key).toBeDefined();
+      expect(checkout.value.originalCartReference.key).toBe(cart.identifier.key);
+      expect(checkout.value.billingAddress?.firstName).toBe('John');
+      expect(checkout.value.items.length).toBe(1);
+      expect(checkout.value.items[0].variant.sku).toBe(testData.skuWithoutTiers);
     });
 
     describe('checkout actions', () => {
       let checkout: Checkout;
       beforeEach(async () => {
-        checkout = await client.checkout.initiateCheckoutForCart(
+        checkout = unwrapValue(await client.checkout.initiateCheckoutForCart(
           {
             cart: cart,
             billingAddress: {
@@ -109,7 +113,7 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
             notificationEmail: 'sample@example.com',
             notificationPhone: '+4512345678',
           }
-        );
+        ));
       });
 
       it('can list payment methods', async () => {
@@ -118,9 +122,14 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
             checkout: checkout.identifier,
           }
         );
-        expect(paymentMethods.length).toBeGreaterThan(0);
+
+        if (!paymentMethods.success) {
+          assert.fail();
+        }
+
+        expect(paymentMethods.value.length).toBeGreaterThan(0);
         expect(
-          paymentMethods.find((x) => x.identifier.method === 'pp_stripe_stripe')
+          paymentMethods.value.find((x) => x.identifier.method === 'pp_stripe_stripe')
         ).toBeDefined();
       });
 
@@ -130,9 +139,14 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
             checkout: checkout.identifier,
           }
         );
-        expect(shippingMethods.length).toBeGreaterThan(0);
+
+        if (!shippingMethods.success) {
+          assert.fail();
+        }
+
+        expect(shippingMethods.value.length).toBeGreaterThan(0);
         expect(
-          shippingMethods.find((x) => x.name === 'Standard Shipping')
+          shippingMethods.value.find((x) => x.name === 'Standard Shipping')
         ).toBeDefined();
       });
 
@@ -142,7 +156,12 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
             checkout: checkout.identifier,
           }
         );
-        const pm = paymentMethods.find((x) => x.identifier.method === 'pp_stripe_stripe');
+
+        if (!paymentMethods.success) {
+          assert.fail();
+        }
+
+        const pm = paymentMethods.value.find((x) => x.identifier.method === 'pp_stripe_stripe');
         expect(pm).toBeDefined();
 
         const checkoutWithPi = await client.checkout.addPaymentInstruction(
@@ -156,11 +175,15 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
           }
         );
 
-        expect(checkoutWithPi.paymentInstructions.length).toBe(1);
-        expect(checkoutWithPi.paymentInstructions[0].paymentMethod.method).toBe(
+        if (!checkoutWithPi.success) {
+          assert.fail();
+        }
+
+        expect(checkoutWithPi.value.paymentInstructions.length).toBe(1);
+        expect(checkoutWithPi.value.paymentInstructions[0].paymentMethod.method).toBe(
           'pp_stripe_stripe'
         );
-        expect(checkoutWithPi.paymentInstructions[0].protocolData.find(x => x.key === 'client_secret')?.value).toBeDefined();
+        expect(checkoutWithPi.value.paymentInstructions[0].protocolData.find(x => x.key === 'client_secret')?.value).toBeDefined();
 
       });
 
@@ -170,7 +193,12 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
             checkout: checkout.identifier,
           }
         );
-        const pm = paymentMethods.find((x) => x.identifier.method === 'pp_stripe_stripe');
+
+        if (!paymentMethods.success) {
+          assert.fail();
+        }
+
+        const pm = paymentMethods.value.find((x) => x.identifier.method === 'pp_stripe_stripe');
         expect(pm).toBeDefined();
 
         const checkoutWithPi = await client.checkout.addPaymentInstruction(
@@ -184,17 +212,25 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
           }
         );
 
-        expect(checkoutWithPi.paymentInstructions.length).toBe(1);
+        if (!checkoutWithPi.success) {
+          assert.fail();
+        }
+
+        expect(checkoutWithPi.value.paymentInstructions.length).toBe(1);
 
         const checkoutAfterCancel = await client.checkout.removePaymentInstruction(
           {
             checkout: checkout.identifier,
             paymentInstruction:
-              checkoutWithPi.paymentInstructions[0].identifier,
+              checkoutWithPi.value.paymentInstructions[0].identifier,
           }
         );
 
-        expect(checkoutAfterCancel.paymentInstructions.length).toBe(0);
+        if (!checkoutAfterCancel.success) {
+          assert.fail();
+        }
+
+        expect(checkoutAfterCancel.value.paymentInstructions.length).toBe(0);
       });
 
       it('can set shipping address', async () => {
@@ -214,8 +250,12 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
           }
         );
 
-        expect(checkoutWithShipping.shippingAddress).toBeDefined();
-        expect(checkoutWithShipping.shippingAddress?.firstName).toBe('Jane');
+        if (!checkoutWithShipping.success) {
+          assert.fail();
+        }
+
+        expect(checkoutWithShipping.value.shippingAddress).toBeDefined();
+        expect(checkoutWithShipping.value.shippingAddress?.firstName).toBe('Jane');
       });
 
       it('can set shipping instructions', async () => {
@@ -224,7 +264,12 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
             checkout: checkout.identifier,
           }
         );
-        const sm = shippingMethods.find((x) => x.name === 'Standard Shipping');
+
+        if (!shippingMethods.success) {
+          assert.fail();
+        }
+
+        const sm = shippingMethods.value.find((x) => x.name === 'Standard Shipping');
         expect(sm).toBeDefined();
 
         const shippingInstruction: ShippingInstruction = {
@@ -248,32 +293,38 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
           }
         );
 
+        if (!checkoutWithShipping.success) {
+          assert.fail();
+        }
+
         expect(checkout.price.totalShipping.value).toBe(0);
-        expect(checkoutWithShipping.price.totalShipping.value).toBeGreaterThan(0);
-        expect(checkoutWithShipping.shippingInstruction).toBeDefined();
+        expect(checkoutWithShipping.value.price.totalShipping.value).toBeGreaterThan(0);
+        expect(checkoutWithShipping.value.shippingInstruction).toBeDefined();
         expect(
-          checkoutWithShipping.shippingInstruction?.shippingMethod.key
+          checkoutWithShipping.value.shippingInstruction?.shippingMethod.key
         ).toBe(sm?.identifier.key);
-        expect(checkoutWithShipping.shippingInstruction?.instructions).toBe(
+        expect(checkoutWithShipping.value.shippingInstruction?.instructions).toBe(
           'Leave at front door if not home'
         );
-        expect(checkoutWithShipping.shippingInstruction?.pickupPoint).toBe(
+        expect(checkoutWithShipping.value.shippingInstruction?.pickupPoint).toBe(
           '4190asx141'
         );
         expect(
-          checkoutWithShipping.shippingInstruction?.consentForUnattendedDelivery
+          checkoutWithShipping.value.shippingInstruction?.consentForUnattendedDelivery
         ).toBe(true);
       });
 
       it.skip('wont report it finalizable until everything is paid/authorized', async () => {
         expect(checkout.readyForFinalization).toBe(false);
-        const pm = (
+        const pm = unwrapValue(
           await client.checkout.getAvailablePaymentMethods(
             {
               checkout: checkout.identifier,
             }
           )
         ).find((x) => x.identifier.method === 'stripe');
+
+        
         expect(pm).toBeDefined();
 
         const checkoutWithPi = await client.checkout.addPaymentInstruction(
@@ -286,15 +337,19 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
             },
           }
         );
+        
+        if (!checkoutWithPi.success) {
+          assert.fail();
+        }
 
         // do something to simulate payment authorization ?
         const checkoutReady = await client.checkout.getById(
-          { identifier: checkoutWithPi.identifier },
+          { identifier: checkoutWithPi.value.identifier },
         );
-        if (!checkoutReady) {
+        if (!checkoutReady.success || !checkoutReady) {
           expect.fail('checkout not found');
         }
-        expect(checkoutReady.readyForFinalization).toBe(true);
+        expect(checkoutReady.value.readyForFinalization).toBe(true);
       });
     });
   });

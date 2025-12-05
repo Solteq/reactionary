@@ -1,4 +1,4 @@
-import type { Price } from '../schemas/index.js';
+import type { Price, Result } from '../schemas/index.js';
 import type {
   CustomerPriceQuery,
   ListPriceQuery,
@@ -14,7 +14,7 @@ export abstract class PriceProvider extends BaseProvider {
    * @param payload The SKU to query
    * @param session The session information
    */
-  public abstract getListPrice(payload: ListPriceQuery): Promise<Price>;
+  public abstract getListPrice(payload: ListPriceQuery): Promise<Result<Price>>;
 
   /**
    * Get a customer-specific price by SKU.
@@ -25,7 +25,7 @@ export abstract class PriceProvider extends BaseProvider {
    * @param payload The SKU to query
    * @param session The session information
    */
-  public abstract getCustomerPrice(payload: CustomerPriceQuery): Promise<Price>;
+  public abstract getCustomerPrice(payload: CustomerPriceQuery): Promise<Result<Price>>;
 
   /**
    * Utility function to create an empty price result, with a value of -1.

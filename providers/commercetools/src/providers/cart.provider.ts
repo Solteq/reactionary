@@ -12,6 +12,10 @@ import {
   CartQueryByIdSchema,
   CartSchema,
   Reactionary,
+  success,
+  error,
+  unwrapValue,
+  assertSuccess,
 } from '@reactionary/core';
 import type {
   CartItem,
@@ -29,10 +33,8 @@ import type {
   Currency,
   Cache,
   CostBreakDown,
-  CartItemIdentifier,
-  ProductIdentifier,
-  ProductVariantIdentifier,
-  ItemCostBreakdown,
+  Result,
+  NotFoundError,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
@@ -64,20 +66,19 @@ export class CommercetoolsCartProvider extends CartProvider {
     inputSchema: CartQueryByIdSchema,
     outputSchema: CartSchema,
   })
-  public override async getById(payload: CartQueryById): Promise<Cart> {
+  public override async getById(payload: CartQueryById): Promise<Result<Cart, NotFoundError>> {
+    const client = await this.getClient();
+    const ctId = payload.cart as CommercetoolsCartIdentifier;
+
     try {
-      const client = await this.getClient();
+      const remote = await client.carts.withId({ ID: ctId.key }).get().execute();
 
-      const ctId = payload.cart as CommercetoolsCartIdentifier;
-
-      const remote = await client.carts
-        .withId({ ID: ctId.key })
-        .get()
-        .execute();
-
-      return this.parseSingle(remote.body);
-    } catch (e) {
-      return this.createEmptyCart();
+      return success(this.parseSingle(remote.body));
+    } catch(err) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: ctId
+      });
     }
   }
 
@@ -85,13 +86,13 @@ export class CommercetoolsCartProvider extends CartProvider {
     inputSchema: CartMutationItemAddSchema,
     outputSchema: CartSchema,
   })
-  public override async add(payload: CartMutationItemAdd): Promise<Cart> {
+  public override async add(payload: CartMutationItemAdd): Promise<Result<Cart>> {
     let cartIdentifier = payload.cart;
-    if (!cartIdentifier.key) {
+    if (!cartIdentifier) {
       cartIdentifier = await this.createCart();
     }
 
-    return this.applyActions(cartIdentifier, [
+    const result = await this.applyActions(cartIdentifier, [
       {
         action: 'addLineItem',
         quantity: payload.quantity,
@@ -106,14 +107,16 @@ export class CommercetoolsCartProvider extends CartProvider {
         action: 'recalculate',
       },
     ]);
+
+    return success(result);
   }
 
   @Reactionary({
     inputSchema: CartMutationItemRemoveSchema,
     outputSchema: CartSchema,
   })
-  public override async remove(payload: CartMutationItemRemove): Promise<Cart> {
-    return this.applyActions(payload.cart, [
+  public override async remove(payload: CartMutationItemRemove): Promise<Result<Cart>> {
+    const result = await this.applyActions(payload.cart, [
       {
         action: 'removeLineItem',
         lineItemId: payload.item.key,
@@ -122,6 +125,8 @@ export class CommercetoolsCartProvider extends CartProvider {
         action: 'recalculate',
       },
     ]);
+
+    return success(result);
   }
 
   @Reactionary({
@@ -130,14 +135,19 @@ export class CommercetoolsCartProvider extends CartProvider {
   })
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange
-  ): Promise<Cart> {
+  ): Promise<Result<Cart>> {
     if (payload.quantity === 0) {
       // Changing quantity to 0 is not allowed. Use the remove call instead. This is done to avoid accidental removal of item.
       // Calls with quantity 0 will just be ignored.
-      return this.getById({ cart: payload.cart });
+      const existing = await this.getById({ cart: payload.cart });
+
+      // TODO: Should we instead allow returning NotFound here, if that is indeed the case?
+      assertSuccess(existing);
+
+      return existing;
     }
 
-    return this.applyActions(payload.cart, [
+    const result = await this.applyActions(payload.cart, [
       {
         action: 'changeLineItemQuantity',
         lineItemId: payload.item.key,
@@ -147,25 +157,28 @@ export class CommercetoolsCartProvider extends CartProvider {
         action: 'recalculate',
       },
     ]);
+
+    return success(result);
   }
 
   @Reactionary({
     outputSchema: CartIdentifierSchema,
   })
-  public override async getActiveCartId(): Promise<CartIdentifier> {
+  public override async getActiveCartId(): Promise<Result<CartIdentifier, NotFoundError>> {
     const client = await this.getClient();
     try {
       const carts = await client.activeCart.get().execute();
-
-      return CommercetoolsCartIdentifierSchema.parse({
+      const result = await CommercetoolsCartIdentifierSchema.parse({
         key: carts.body.id,
         version: carts.body.version || 0,
       });
+
+      return success(result);
     } catch (e: any) {
-      return CommercetoolsCartIdentifierSchema.parse({
-        key: '',
-        version: 0,
-      });
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: {}
+      })
     }
   }
 
@@ -175,7 +188,7 @@ export class CommercetoolsCartProvider extends CartProvider {
   })
   public override async deleteCart(
     payload: CartMutationDeleteCart
-  ): Promise<Cart> {
+  ): Promise<Result<void>> {
     const client = await this.getClient();
     if (payload.cart.key) {
       const ctId = payload.cart as CommercetoolsCartIdentifier;
@@ -191,18 +204,17 @@ export class CommercetoolsCartProvider extends CartProvider {
         .execute();
     }
 
-    const activeCartId = await this.getActiveCartId();
-    return this.getById({ cart: activeCartId });
+    return success(undefined);
   }
 
   @Reactionary({
     inputSchema: CartMutationApplyCouponSchema,
     outputSchema: CartSchema,
   })
-  public override applyCouponCode(
+  public override async  applyCouponCode(
     payload: CartMutationApplyCoupon
-  ): Promise<Cart> {
-    return this.applyActions(payload.cart, [
+  ): Promise<Result<Cart>> {
+    const result = await this.applyActions(payload.cart, [
       {
         action: 'addDiscountCode',
         code: payload.couponCode,
@@ -211,16 +223,18 @@ export class CommercetoolsCartProvider extends CartProvider {
         action: 'recalculate',
       },
     ]);
+
+    return success(result);
   }
 
   @Reactionary({
     inputSchema: CartMutationRemoveCouponSchema,
     outputSchema: CartSchema,
   })
-  public override removeCouponCode(
+  public override async removeCouponCode(
     payload: CartMutationRemoveCoupon
-  ): Promise<Cart> {
-    return this.applyActions(payload.cart, [
+  ): Promise<Result<Cart>> {
+    const result = await this.applyActions(payload.cart, [
       {
         action: 'removeDiscountCode',
         discountCode: {
@@ -232,6 +246,8 @@ export class CommercetoolsCartProvider extends CartProvider {
         action: 'recalculate',
       },
     ]);
+
+    return success(result);
   }
 
   @Reactionary({
@@ -240,7 +256,7 @@ export class CommercetoolsCartProvider extends CartProvider {
   })
   public override async changeCurrency(
     payload: CartMutationChangeCurrency
-  ): Promise<Cart> {
+  ): Promise<Result<Cart>> {
     // ok, to do this we have to actually build a new cart, copy over all the items, and then delete the old cart.
     // because Commercetools does not support changing currency of an existing cart.
 
@@ -291,7 +307,7 @@ export class CommercetoolsCartProvider extends CartProvider {
       })
       .execute();
 
-    return response;
+    return success(response);
   }
 
   protected async createCart(): Promise<CartIdentifier> {
@@ -359,47 +375,46 @@ export class CommercetoolsCartProvider extends CartProvider {
     };
   }
 
-
   protected parseCartItem(remoteItem: LineItem): CartItem {
-      const unitPrice = remoteItem.price.value.centAmount;
-      const totalPrice = remoteItem.totalPrice.centAmount || 0;
-      const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
-      const unitDiscount = totalDiscount / remoteItem.quantity;
-      const currency = remoteItem.price.value.currencyCode.toUpperCase() as Currency;
+    const unitPrice = remoteItem.price.value.centAmount;
+    const totalPrice = remoteItem.totalPrice.centAmount || 0;
+    const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
+    const unitDiscount = totalDiscount / remoteItem.quantity;
+    const currency =
+      remoteItem.price.value.currencyCode.toUpperCase() as Currency;
 
-      const item = {
-        identifier: {
-          key: remoteItem.id,
+    const item = {
+      identifier: {
+        key: remoteItem.id,
+      },
+      product: {
+        key: remoteItem.productId,
+      },
+      variant: {
+        sku: remoteItem.variant.sku || '',
+      },
+      quantity: remoteItem.quantity,
+      price: {
+        unitPrice: {
+          value: unitPrice / 100,
+          currency,
         },
-        product: {
-          key: remoteItem.productId,
+        unitDiscount: {
+          value: unitDiscount / 100,
+          currency,
         },
-        variant: {
-          sku: remoteItem.variant.sku || '',
+        totalPrice: {
+          value: (totalPrice || 0) / 100,
+          currency,
         },
-        quantity: remoteItem.quantity,
-        price : {
-          unitPrice: {
-            value: unitPrice / 100,
-            currency,
-          },
-          unitDiscount: {
-            value: unitDiscount / 100,
-            currency,
-          },
-          totalPrice: {
-            value: (totalPrice || 0) / 100,
-            currency,
-          },
-          totalDiscount: {
-            value: totalDiscount / 100,
-            currency,
-          },
-        }
-      } satisfies CartItem
+        totalDiscount: {
+          value: totalDiscount / 100,
+          currency,
+        },
+      },
+    } satisfies CartItem;
 
-
-      return CartItemSchema.parse(item);
+    return CartItemSchema.parse(item);
   }
 
   protected parseSingle(remote: CTCart): Cart {
@@ -446,7 +461,6 @@ export class CommercetoolsCartProvider extends CartProvider {
 
     const items = new Array<CartItem>();
     for (const remoteItem of remote.lineItems) {
-
       const item = this.parseCartItem(remoteItem);
 
       items.push(item);

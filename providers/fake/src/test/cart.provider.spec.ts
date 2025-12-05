@@ -4,7 +4,7 @@ import { CartSchema, IdentitySchema, NoOpCache, createInitialRequestContext } fr
 import { getFakerTestConfiguration } from './test-utils.js';
 import { FakeCartProvider } from '../providers/cart.provider.js';
 import { FakeIdentityProvider } from '../providers/index.js';
-import { describe, expect, it, beforeAll, beforeEach } from 'vitest';
+import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',
@@ -23,101 +23,84 @@ describe('Fake Cart Provider', () => {
   });
 
   describe('anonymous sessions', () => {
-    it('should be able to get an empty cart', async () => {
-      const cart = await provider.getById({
-        cart: { key: '' },
-      });
-
-      expect(cart.identifier.key).toBeFalsy();
-      expect(cart.items.length).toBe(0);
-      expect(cart.meta?.placeholder).toBe(true);
-
-    });
-
     it('should be able to add an item to a cart', async () => {
       const cart = await provider.add({
-          cart: { key: '' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
       });
 
-      expect(cart.identifier.key).toBeDefined();
-      expect(cart.items.length).toBe(1);
-      expect(cart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
-      expect(cart.items[0].quantity).toBe(1);
+      if (!cart.success) {
+        assert.fail();
+      }
 
-      expect(cart.items[0].price.totalPrice.value).toBeGreaterThan(0);
-      expect(cart.items[0].price.totalPrice.currency).toBe(reqCtx.languageContext.currencyCode);
-
-      expect(cart.price.grandTotal.value).toBeGreaterThan(0);
-      expect(cart.price.grandTotal.currency).toBe(reqCtx.languageContext.currencyCode);
-
-      expect(cart.price.grandTotal.value).toBe(cart.items[0].price.totalPrice.value);
-
-
-      expect(cart.meta?.placeholder).toBeFalsy();
-
+      expect(cart.value.identifier.key).toBeDefined();
+      expect(cart.value.items.length).toBe(1);
+      expect(cart.value.items[0].variant.sku).toBe(testData.skuWithoutTiers);
+      expect(cart.value.items[0].quantity).toBe(1);
+      expect(cart.value.items[0].price.totalPrice.value).toBeGreaterThan(0);
+      expect(cart.value.items[0].price.totalPrice.currency).toBe(reqCtx.languageContext.currencyCode);
+      expect(cart.value.price.grandTotal.value).toBeGreaterThan(0);
+      expect(cart.value.price.grandTotal.currency).toBe(reqCtx.languageContext.currencyCode);
+      expect(cart.value.price.grandTotal.value).toBe(cart.value.items[0].price.totalPrice.value);
+      expect(cart.value.meta.placeholder).toBeFalsy();
     });
 
-
     it('should be able to change quantity of an item in a cart', async () => {
-
       const cart = await provider.add({
-          cart: { key: '' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
       });
+      
+      if (!cart.success) {
+        assert.fail();
+      }
 
       const updatedCart = await provider.changeQuantity({
-        cart: cart.identifier,
-        item: cart.items[0].identifier,
+        cart: cart.value.identifier,
+        item: cart.value.items[0].identifier,
         quantity: 3
       });
 
-      expect(updatedCart.identifier.key).toBe(cart.identifier.key);
-      expect(updatedCart.items.length).toBe(1);
-      expect(updatedCart.items[0].variant.sku).toBe(testData.skuWithoutTiers);
-      expect(updatedCart.items[0].quantity).toBe(3);
-      expect(updatedCart.items[0].price.totalPrice.value).toBe(cart.items[0].price.totalPrice.value * 3);
-      expect(updatedCart.items[0].price.unitPrice.value).toBe(cart.items[0].price.unitPrice.value);
+      if (!updatedCart.success) {
+        assert.fail();
+      }
 
-
+      expect(updatedCart.value.identifier.key).toBe(cart.value.identifier.key);
+      expect(updatedCart.value.items.length).toBe(1);
+      expect(updatedCart.value.items[0].variant.sku).toBe(testData.skuWithoutTiers);
+      expect(updatedCart.value.items[0].quantity).toBe(3);
+      expect(updatedCart.value.items[0].price.totalPrice.value).toBe(cart.value.items[0].price.totalPrice.value * 3);
+      expect(updatedCart.value.items[0].price.unitPrice.value).toBe(cart.value.items[0].price.unitPrice.value);
     });
 
     it('should be able to remove an item from a cart', async () => {
-
       const cart = await provider.add({
-          cart: { key: '' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
       });
 
+      if (!cart.success) {
+        assert.fail();
+      }
+
       const updatedCart = await provider.remove({
-        cart: cart.identifier,
-        item: cart.items[0].identifier,
+        cart: cart.value.identifier,
+        item: cart.value.items[0].identifier,
       });
-      expect(updatedCart.identifier.key).toBe(cart.identifier.key);
-      expect(updatedCart.items.length).toBe(0);
+    
+      if (!updatedCart.success) {
+        assert.fail();
+      }
+
+      expect(updatedCart.value.identifier.key).toBe(cart.value.identifier.key);
+      expect(updatedCart.value.items.length).toBe(0);
     });
-
-    /**
-    it('should be able to create a cart for an anonymous user, then login and merge the cart', async () => {
-    });
-
-    it('should be able to create a cart for an anonymous user, then register and merge the cart', async () => {
-    });
-
-    it('should be able to clear the cart', async () => { });
-
-    it('should be able to check out the cart', async () => { });
-    */
-
   });
 
 });

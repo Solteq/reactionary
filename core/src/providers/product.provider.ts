@@ -1,6 +1,8 @@
 import type { Product } from '../schemas/models/product.model.js';
 import { BaseProvider } from './base.provider.js';
 import type { ProductQueryById, ProductQueryBySKU, ProductQueryBySlug } from '../schemas/queries/product.query.js';
+import type { Result } from '../schemas/result.js';
+import type { NotFoundError } from '../schemas/index.js';
 
 export abstract class ProductProvider extends BaseProvider {
 
@@ -15,7 +17,7 @@ export abstract class ProductProvider extends BaseProvider {
    * Marketing will TYPICALLY recommend products, and in some cases maybe HeroVariants of a product.
    * In that case, you would need to resolve the product to its hero variant first, and then get the SKU from there.
    */
-  public abstract getById(payload: ProductQueryById): Promise<Product>;
+  public abstract getById(payload: ProductQueryById): Promise<Result<Product>>;
 
 
   /**
@@ -25,7 +27,7 @@ export abstract class ProductProvider extends BaseProvider {
    *
    * Usecase: You are rendering a product detail page, and you need to fetch the product by its slug.
    */
-  public abstract getBySlug(payload: ProductQueryBySlug): Promise<Product | null>;
+  public abstract getBySlug(payload: ProductQueryBySlug): Promise<Result<Product, NotFoundError>>;
 
 
   /**
@@ -37,7 +39,7 @@ export abstract class ProductProvider extends BaseProvider {
    * and you need to fetch the product details for that SKU. You will get the a Product back, with the variant matching the SKU set as heroSku.
    * It might also be used on a quick-order page, or product recommendations from external system.
    */
-  public abstract getBySKU(payload: ProductQueryBySKU): Promise<Product>;
+  public abstract getBySKU(payload: ProductQueryBySKU): Promise<Result<Product>>;
 
   protected createEmptyProduct(id: string): Product {
     // FIXME: We can probably get rid of this once we switch to errors as values, as we shouldn't even

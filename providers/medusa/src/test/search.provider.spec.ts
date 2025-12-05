@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { createInitialRequestContext, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, type ProductSearchQueryCreateNavigationFilter } from '@reactionary/core';
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { MedusaSearchProvider } from '../providers/product-search.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 import { MedusaClient } from '../index.js';
@@ -37,8 +37,12 @@ describe('Medusa Search Provider', () => {
       filters: [],
     }}));
 
-    expect(result.items.length).toBeGreaterThan(0);
-    expect(result.facets.length).toBe(0);
+    if (!result.success) {
+      assert.fail();
+    }
+
+    expect(result.value.items.length).toBeGreaterThan(0);
+    expect(result.value.facets.length).toBe(0);
   });
 
   it('should be able to paginate', async () => {
@@ -62,10 +66,14 @@ describe('Medusa Search Provider', () => {
       filters: []
     }}));
 
-    expect(firstPage.pageNumber).toBe(1);
-    expect(secondPage.pageNumber).toBe(2);
-    expect(firstPage.items[0].identifier.key).not.toEqual(
-      secondPage.items[0].identifier.key
+    if (!firstPage.success || !secondPage.success) {
+      assert.fail();
+    }
+
+    expect(firstPage.value.pageNumber).toBe(1);
+    expect(secondPage.value.pageNumber).toBe(2);
+    expect(firstPage.value.items[0].identifier.key).not.toEqual(
+      secondPage.value.items[0].identifier.key
     );
   });
 
@@ -78,8 +86,12 @@ describe('Medusa Search Provider', () => {
         },
       });
 
+      if (!categories.success) {
+        assert.fail();
+      }
+
       // medusa does not support subtree searches, so we have to drill down to a leaf category
-      let candidate = categories.items[0];
+      let candidate = categories.value.items[0];
       while(candidate) {
         const children = await categoryProvider.findChildCategories({
           parentId: candidate.identifier,
@@ -88,8 +100,13 @@ describe('Medusa Search Provider', () => {
             pageSize: 10,
           },
         });
-        if(children.items.length > 0) {
-          candidate = children.items[0];
+
+        if (!children.success) {
+          assert.fail();
+        }
+
+        if(children.value.items.length > 0) {
+          candidate = children.value.items[0];
         } else {
           break;
         }
@@ -107,21 +124,34 @@ describe('Medusa Search Provider', () => {
         },
       });
 
-      expect(unfilteredSearch.totalCount).toBeGreaterThan(0);
+      if (!unfilteredSearch.success) {
+        assert.fail();
+      }
+
+      expect(unfilteredSearch.value.totalCount).toBeGreaterThan(0);
 
       const breadCrumb = await categoryProvider.getBreadcrumbPathToCategory({
         id: candidate.identifier,
       });
-      expect(breadCrumb.length).toBeGreaterThan(0);
+
+      if (!breadCrumb.success) {
+        assert.fail();
+      }
+
+      expect(breadCrumb.value.length).toBeGreaterThan(0);
 
       const categoryFilter = await provider.createCategoryNavigationFilter({
-        categoryPath: breadCrumb,
+        categoryPath: breadCrumb.value,
       } satisfies ProductSearchQueryCreateNavigationFilter);
+
+      if (!categoryFilter.success) {
+        assert.fail();
+      }
 
       const filteredSearch = await provider.queryByTerm({
         search: {
           term: "",
-          categoryFilter: categoryFilter,
+          categoryFilter: categoryFilter.value,
           paginationOptions: {
             pageNumber: 1,
             pageSize: 1,
@@ -131,11 +161,13 @@ describe('Medusa Search Provider', () => {
         },
       });
 
-      expect(filteredSearch.totalCount).toBeLessThan(unfilteredSearch.totalCount);
-      expect(filteredSearch.totalCount).toBeGreaterThan(0);
+      if (!filteredSearch.success) {
+        assert.fail();
+      }
+
+      expect(filteredSearch.value.totalCount).toBeLessThan(unfilteredSearch.value.totalCount);
+      expect(filteredSearch.value.totalCount).toBeGreaterThan(0);
   });
-
-
 
   it('should be able to change page size', async () => {
     const smallPage = await provider.queryByTerm(ProductSearchQueryByTermSchema.parse({ search: {
@@ -158,10 +190,14 @@ describe('Medusa Search Provider', () => {
       filters: [],
     }}));
 
-    expect(smallPage.items.length).toBe(2);
-    expect(smallPage.pageSize).toBe(2);
-    expect(largePage.items.length).toBe(30);
-    expect(largePage.pageSize).toBe(30);
+    if (!smallPage.success || !largePage.success) {
+      assert.fail();
+    }
+
+    expect(smallPage.value.items.length).toBe(2);
+    expect(smallPage.value.pageSize).toBe(2);
+    expect(largePage.value.items.length).toBe(30);
+    expect(largePage.value.pageSize).toBe(30);
   });
 
 });

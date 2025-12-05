@@ -42,9 +42,17 @@ export default async function Index() {
     },
   });
 
+  if (!search.success) {
+    return (
+      <div className={styles.page}>
+        An error occured...
+      </div>
+    );
+  }
+
   return (
     <div className={styles.page}>
-      {search.items.map((product, index) => (
+      {search.value.items.map((product, index) => (
         <div key={index}>{product.name}</div>
       ))}
     </div>

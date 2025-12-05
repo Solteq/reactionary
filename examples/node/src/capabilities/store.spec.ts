@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 
 describe.each([PrimaryProvider.COMMERCETOOLS])('Store Capability - %s', (provider) => {
@@ -17,6 +17,10 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Store Capability - %s', (provide
       limit: 10,
     });
 
-    expect(stores.length).toBe(2);
+    if (!stores.success) {
+      assert.fail();
+    }
+
+    expect(stores.value.length).toBe(2);
   });
 });

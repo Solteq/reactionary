@@ -1,16 +1,14 @@
-import type {
-  Tracer
-} from '@opentelemetry/api';
+import type { Tracer } from '@opentelemetry/api';
 import { trace } from '@opentelemetry/api';
 import type { z } from 'zod';
 import type { BaseProvider } from '../providers/index.js';
 import { getReactionaryMeter } from '../metrics/metrics.js';
+import type { Result } from '../schemas/result.js';
 
 const TRACER_NAME = '@reactionary';
 const TRACER_VERSION = '0.0.1';
 
 let globalTracer: Tracer | null = null;
-
 
 export function getTracer(): Tracer {
   if (!globalTracer) {
@@ -97,7 +95,11 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
         try {
           const input = validateInput(args[0], configuration.inputSchema);
 
-          const cacheKey = this.generateCacheKeyForQuery(scope, input as any);
+          if (!input.success) {
+            return input;
+          }
+
+          const cacheKey = this.generateCacheKeyForQuery(scope, input.value);
           const fromCache = await this.cache.get(
             cacheKey,
             options.inputSchema as any
@@ -105,7 +107,7 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
           let result = fromCache;
 
           if (!result) {
-            result = await original.apply(this, [input]);
+            result = await original.apply(this, [input.value]);
 
             const dependencyIds = this.generateDependencyIdsForModel(result);
 
@@ -117,10 +119,22 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
             cacheStatus = 'hit';
           }
 
-          return validateOutput(result, configuration.outputSchema);
+          // TODO: Update the below after fixing the method signature.
+          // That is, making the decorator only applicable to methods with
+          // a signature returning a result.
+          return validateOutput(result as any, configuration.outputSchema);
         } catch (err) {
+          console.error(err);
+
           status = 'error';
-          throw err;
+          
+          return {
+            success: false,
+            error: {
+              type: 'Generic',
+              message: 'Not sure if we actually want to expose this... it could certainly be useful, but it could also contain internals, credentials or what-nots. Perhaps we just want to reference the trace / spanId.'
+            }
+          } satisfies Result<unknown>;
         } finally {
           const duration = performance.now() - startTime;
           const finalAttributes = {
@@ -142,27 +156,63 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
 /**
  * Utility function to handle input validation.
  */
-export function validateInput(input: any, schema: z.ZodType | undefined) {
+export function validateInput<T>(
+  input: T,
+  schema: z.ZodType | undefined
+): Result<T> {
   if (!schema) {
-    return input;
+    return {
+      success: true,
+      value: input,
+    };
   }
 
-  const parsed = schema.parse(input);
+  let validated: Result<T> = {
+    success: true,
+    value: input,
+  };
+  const parse = schema.safeParse(input);
 
-  return parsed;
+  if (!parse.success) {
+    validated = {
+      success: false,
+      error: {
+        type: 'InvalidInput',
+        error: parse.error
+      }
+    };
+  }
+
+  return validated;
 }
 
 /**
  * Utility function to handle output validation.
  */
-export function validateOutput(output: any, schema: z.ZodType | undefined) {
+export function validateOutput(
+  output: Result<unknown>,
+  schema: z.ZodType | undefined
+): Result<unknown> {
   if (!schema) {
     return output;
   }
 
-  const parsed = schema.parse(output);
+  let validated = output;
+  if (output.success) {
+    const parse = schema.safeParse(output.value);
 
-  return parsed;
+    if (!parse.success) {
+      validated = {
+        success: false,
+        error: {
+          type: 'InvalidOutput',
+          error: parse.error,
+        },
+      };
+    }
+  }
+
+  return validated;
 }
 
 /**

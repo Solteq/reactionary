@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 import type { ProductSearchQueryCreateNavigationFilter } from '@reactionary/core';
 
@@ -29,7 +29,11 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
         },
       });
 
-      expect(result.items.length).toBeGreaterThan(0);
+      if (!result.success) {
+        assert.fail(JSON.stringify(result.error));
+      }
+
+      expect(result.value.items.length).toBeGreaterThan(0);
     });
 
     it('should be able to get a result by term, paged', async () => {
@@ -45,8 +49,12 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
         },
       });
 
-      expect(result.items.length).toBeGreaterThan(0);
-      expect(result.totalPages).toBeGreaterThan(1);
+      if (!result.success) {
+        assert.fail();
+      }
+
+      expect(result.value.items.length).toBeGreaterThan(0);
+      expect(result.value.totalPages).toBeGreaterThan(1);
 
       const result2 = await client.productSearch.queryByTerm({
         search: {
@@ -60,10 +68,14 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
         },
       });
 
-      expect(result2.items.length).toBeGreaterThan(0);
-      expect(result2.totalPages).toBeGreaterThan(2);
-      expect(result2.items[0].identifier.key).not.toBe(
-        result.items[0].identifier.key
+      if (!result2.success) {
+        assert.fail();
+      }
+
+      expect(result2.value.items.length).toBeGreaterThan(0);
+      expect(result2.value.totalPages).toBeGreaterThan(2);
+      expect(result2.value.items[0].identifier.key).not.toBe(
+        result.value.items[0].identifier.key
       );
     });
 
@@ -91,15 +103,18 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
           filters: [],
         },
       });
+      
+      if (!smallPage.success || !largePage.success) {
+        assert.fail();
+      }
 
-      expect(smallPage.items.length).toBe(2);
-      expect(smallPage.pageSize).toBe(2);
-      expect(largePage.items.length).toBe(30);
-      expect(largePage.pageSize).toBe(30);
+      expect(smallPage.value.items.length).toBe(2);
+      expect(smallPage.value.pageSize).toBe(2);
+      expect(largePage.value.items.length).toBe(30);
+      expect(largePage.value.pageSize).toBe(30);
     });
 
     it('should be able to apply facets', async () => {
-
       const initial = await client.productSearch.queryByTerm({
         search: {
           term: "",
@@ -112,7 +127,11 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
         },
       });
 
-      expect(initial.facets.length).toBeGreaterThan(0);
+      if (!initial.success) {
+        assert.fail();
+      }
+
+      expect(initial.value.facets.length).toBeGreaterThan(0);
 
       const filtered = await client.productSearch.queryByTerm({
         search: {
@@ -121,13 +140,17 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
             pageNumber: 1,
             pageSize: 2,
           },
-          facets: [initial.facets[0].values[0].identifier],
+          facets: [initial.value.facets[0].values[0].identifier],
           filters: [],
         },
       });
 
-      expect(initial.totalCount).toBeGreaterThan(filtered.totalCount);
-      expect(filtered.totalCount).toBeGreaterThan(0);
+      if (!filtered.success) {
+        assert.fail();
+      }
+
+      expect(initial.value.totalCount).toBeGreaterThan(filtered.value.totalCount);
+      expect(filtered.value.totalCount).toBeGreaterThan(0);
     });
 
     it('should not return facets with no values', async () => {
@@ -143,7 +166,11 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
         },
       });
 
-      for (const facet of result.facets) {
+      if (!result.success) {
+        assert.fail();
+      }
+
+      for (const facet of result.value.facets) {
         expect(facet.values.length).toBeGreaterThan(0);
       }
     });
@@ -162,7 +189,11 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
         },
       });
 
-      const categoryFacet = result.facets.find(
+      if (!result.success) {
+        assert.fail();
+      }
+
+      const categoryFacet = result.value.facets.find(
         (f) => f.identifier.key === 'categories'
       );
       expect(categoryFacet).toBeDefined();
@@ -179,9 +210,14 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
           filters: [],
         },
       });
-      expect(narrowedResult.totalCount).toBeLessThan(result.totalCount);
-      expect(narrowedResult.totalCount).toBeGreaterThan(0);
-      expect(narrowedResult.totalCount).toBe(chosenFacet.count);
+
+      if (!narrowedResult.success) {
+        assert.fail();
+      }
+
+      expect(narrowedResult.value.totalCount).toBeLessThan(result.value.totalCount);
+      expect(narrowedResult.value.totalCount).toBeGreaterThan(0);
+      expect(narrowedResult.value.totalCount).toBe(chosenFacet.count);
 
     });
 
@@ -209,21 +245,34 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
         },
       });
 
-      expect(unfilteredSearch.totalCount).toBeGreaterThan(0);
+      if (!unfilteredSearch.success || !categories.success) {
+        assert.fail();
+      }
+
+      expect(unfilteredSearch.value.totalCount).toBeGreaterThan(0);
 
       const breadCrumb = await client.category.getBreadcrumbPathToCategory({
-        id: categories.items[1].identifier,
+        id: categories.value.items[1].identifier,
       });
-      expect(breadCrumb.length).toBeGreaterThan(0);
+
+      if (!breadCrumb.success) {
+        assert.fail();
+      }
+
+      expect(breadCrumb.value.length).toBeGreaterThan(0);
 
       const categoryFilter = await client.productSearch.createCategoryNavigationFilter({
-        categoryPath: breadCrumb,
+        categoryPath: breadCrumb.value,
       } satisfies ProductSearchQueryCreateNavigationFilter);
+
+      if (!categoryFilter.success) {
+        assert.fail();
+      }
 
       const filteredSearch = await client.productSearch.queryByTerm({
         search: {
           term: "",
-          categoryFilter: categoryFilter,
+          categoryFilter: categoryFilter.value,
           paginationOptions: {
             pageNumber: 1,
             pageSize: 1,
@@ -233,8 +282,12 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS])(
         },
       });
 
-      expect(filteredSearch.totalCount).toBeLessThan(unfilteredSearch.totalCount);
-      expect(filteredSearch.totalCount).toBeGreaterThan(0);
+      if (!filteredSearch.success) {
+        assert.fail();
+      }
+
+      expect(filteredSearch.value.totalCount).toBeLessThan(unfilteredSearch.value.totalCount);
+      expect(filteredSearch.value.totalCount).toBeGreaterThan(0);
     });
   }
 );

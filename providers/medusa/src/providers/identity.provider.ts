@@ -13,10 +13,10 @@ import {
   IdentityMutationRegisterSchema,
   IdentityMutationLoginSchema,
   IdentityMutationLogoutSchema,
-  AnonymousIdentitySchema,
-  RegisteredIdentitySchema,
   type AnonymousIdentity,
   type RegisteredIdentity,
+  type Result,
+  success,
 } from '@reactionary/core';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type z from 'zod';
@@ -60,14 +60,14 @@ export class MedusaIdentityProvider extends IdentityProvider {
   })
   public override async getSelf(
     _payload: IdentityQuerySelf
-  ): Promise<Identity> {
+  ): Promise<Result<Identity>> {
     try {
       const medusaClient = await this.client.getClient();
       const token = await medusaClient.client.getToken();
 
       if (!token) {
         debug('No active session token found, returning anonymous identity');
-        return this.createAnonymousIdentity();
+        return success(this.createAnonymousIdentity());
       }
 
       // Try to fetch customer details to verify authentication
@@ -75,7 +75,7 @@ export class MedusaIdentityProvider extends IdentityProvider {
 
       if (customerResponse.customer) {
         debug('Customer authenticated:', customerResponse.customer.email);
-        return {
+        return success({
           id: {
             userId: customerResponse.customer.id,
           },
@@ -87,13 +87,13 @@ export class MedusaIdentityProvider extends IdentityProvider {
             placeholder: false,
           },
           type: 'Registered',
-        } satisfies RegisteredIdentity;
+        } satisfies RegisteredIdentity);
       }
 
-      return this.createAnonymousIdentity();
+      return success(this.createAnonymousIdentity());
     } catch (error) {
       debug('getSelf failed, returning anonymous identity:', error);
-      return this.createAnonymousIdentity();
+      return success(this.createAnonymousIdentity());
     }
   }
 
@@ -101,26 +101,26 @@ export class MedusaIdentityProvider extends IdentityProvider {
     inputSchema: IdentityMutationLoginSchema,
     outputSchema: IdentitySchema,
   })
-  public override async login(payload: IdentityMutationLogin): Promise<Identity> {
+  public override async login(payload: IdentityMutationLogin): Promise<Result<Identity>> {
     debug('Attempting login for user:', payload.username);
     const identity = await this.client.login(
       payload.username,
       payload.password,
       this.context
-    );
+    ) satisfies Identity;
 
-    return identity satisfies Identity;
+    return success(identity);
   }
 
   @Reactionary({
     inputSchema: IdentityMutationLogoutSchema,
     outputSchema: IdentitySchema,
   })
-  public override async logout(_payload: IdentityMutationLogout): Promise<Identity> {
+  public override async logout(_payload: IdentityMutationLogout): Promise<Result<Identity>> {
     debug('Logging out user');
     const identity = await this.client.logout(this.context);
 
-    return identity satisfies Identity;
+    return success(identity);
   }
 
   @Reactionary({
@@ -129,7 +129,7 @@ export class MedusaIdentityProvider extends IdentityProvider {
   })
   public override async register(
     payload: IdentityMutationRegister
-  ): Promise<Identity> {
+  ): Promise<Result<Identity>> {
     debug('Registering new user:', payload.username);
 
     // Extract first and last name from username or use defaults
@@ -146,6 +146,6 @@ export class MedusaIdentityProvider extends IdentityProvider {
       this.context
     );
 
-    return identity satisfies Identity;;
+    return success(identity);
   }
 }

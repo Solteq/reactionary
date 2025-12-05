@@ -23,7 +23,9 @@ import type {
   PaymentMethod,
   PaymentMethodIdentifier,
   RequestContext,
-  ShippingMethod
+  ShippingMethod,
+  Result,
+  NotFoundError
 } from '@reactionary/core';
 import {
   AddressIdentifierSchema,
@@ -43,6 +45,8 @@ import {
   Reactionary,
   ShippingMethodIdentifierSchema,
   ShippingMethodSchema,
+  success,
+  error
 } from '@reactionary/core';
 import createDebug from 'debug';
 import z from 'zod';
@@ -99,7 +103,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async initiateCheckoutForCart(
     payload: CheckoutMutationInitiateCheckout
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     const client = await this.client.getClient();
     // we should eventually copy the cart.... but for now we just continue with the existing one.
     if (debug.enabled) {
@@ -127,7 +131,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       }
     );
 
-    return this.parseSingle(response.cart);
+    return success(this.parseSingle(response.cart));
   }
 
   @Reactionary({
@@ -136,12 +140,12 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async getById(
     payload: CheckoutQueryById
-  ): Promise<Checkout | null> {
+  ): Promise<Result<Checkout, NotFoundError>> {
     const client = await this.client.getClient();
     const response = await client.store.cart.retrieve(payload.identifier.key, {
       fields: this.includedFields,
     });
-    return this.parseSingle(response.cart);
+    return success(this.parseSingle(response.cart));
   }
 
   @Reactionary({
@@ -150,7 +154,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async setShippingAddress(
     payload: CheckoutMutationSetShippingAddress
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     const client = await this.client.getClient();
 
     const response = await client.store.cart.update(
@@ -164,7 +168,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
         fields: this.includedFields,
       }
     );
-    return this.parseSingle(response.cart);
+    return success(this.parseSingle(response.cart));
   }
 
   @Reactionary({
@@ -173,7 +177,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async getAvailableShippingMethods(
     payload: CheckoutQueryForAvailableShippingMethods
-  ): Promise<ShippingMethod[]> {
+  ): Promise<Result<ShippingMethod[]>> {
     const client = await this.client.getClient();
 
     if (debug.enabled) {
@@ -211,7 +215,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
         shippingMethods
       );
     }
-    return shippingMethods;
+    return success(shippingMethods);
   }
 
   @Reactionary({
@@ -220,7 +224,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async getAvailablePaymentMethods(
     payload: CheckoutQueryForAvailablePaymentMethods
-  ): Promise<PaymentMethod[]> {
+  ): Promise<Result<PaymentMethod[]>> {
     const client = await this.client.getClient();
 
     if (debug.enabled) {
@@ -267,7 +271,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       );
     }
 
-    return paymentMethods;
+    return success(paymentMethods);
   }
 
   @Reactionary({
@@ -276,7 +280,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async addPaymentInstruction(
     payload: CheckoutMutationAddPaymentInstruction
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     const client = await this.client.getClient();
 
     if (debug.enabled) {
@@ -305,7 +309,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
         }
       );
 
-      return this.parseSingle(updatedCartResponse.cart);
+      return success(this.parseSingle(updatedCartResponse.cart));
     } catch (error) {
       debug('Failed to add payment instruction: {0}', [error]);
       throw new Error(
@@ -322,7 +326,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override removePaymentInstruction(
     payload: CheckoutMutationRemovePaymentInstruction
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     throw new Error('Method not implemented.');
   }
 
@@ -332,7 +336,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async setShippingInstruction(
     payload: CheckoutMutationSetShippingInstruction
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     const client = await this.client.getClient();
     const medusaId = payload.checkout as MedusaCartIdentifier;
     try {
@@ -364,7 +368,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       });
 
       if (response.cart) {
-        return this.parseSingle(response.cart);
+        return success(this.parseSingle(response.cart));
       }
 
       throw new Error('Failed to set shipping method');
@@ -378,9 +382,9 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async finalizeCheckout(
     payload: CheckoutMutationFinalizeCheckout
-  ): Promise<Checkout> {
+  ): Promise<Result<Checkout>> {
     const checkout = await this.getById({ identifier: payload.checkout });
-    if (!checkout || !checkout.readyForFinalization) {
+    if (!checkout.success || !checkout.value.readyForFinalization) {
       throw new CheckoutNotReadyForFinalizationError(payload.checkout);
     }
 
@@ -400,7 +404,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       });
       return this.getById({
         identifier: payload.checkout,
-      }) as Promise<Checkout>;
+      }) as Promise<Result<Checkout>>;
     }
 
     throw new Error('Something failed during order creation');

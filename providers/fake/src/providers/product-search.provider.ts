@@ -4,7 +4,9 @@ import {
   ProductSearchQueryByTermSchema,
   ProductSearchResultItemSchema,
   ProductSearchResultSchema,
-  Reactionary
+  Reactionary,
+  success,
+  error,
 } from '@reactionary/core';
 import type {
   ProductSearchResult,
@@ -16,9 +18,13 @@ import type {
   FacetValueIdentifier,
   ProductSearchResultFacetValue,
   ProductSearchResultItemVariant,
-  ProductSearchQueryCreateNavigationFilter
+  ProductSearchQueryCreateNavigationFilter,
+  Result,
 } from '@reactionary/core';
-import type { RequestContext, ProductSearchQueryByTerm } from '@reactionary/core';
+import type {
+  RequestContext,
+  ProductSearchQueryByTerm,
+} from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { Faker, en, base } from '@faker-js/faker';
 import { jitter } from '../utilities/jitter.js';
@@ -26,13 +32,19 @@ import { jitter } from '../utilities/jitter.js';
 export class FakeSearchProvider extends ProductSearchProvider {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, cache: ReactionaryCache, context: RequestContext) {
+  constructor(
+    config: FakeConfiguration,
+    cache: ReactionaryCache,
+    context: RequestContext
+  ) {
     super(cache, context);
 
     this.config = config;
   }
 
-  public override async createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<FacetValueIdentifier> {
+  public override async createCategoryNavigationFilter(
+    payload: ProductSearchQueryCreateNavigationFilter
+  ): Promise<Result<FacetValueIdentifier>> {
     const facetIdentifier = {
       key: 'category',
     } satisfies FacetIdentifier;
@@ -41,25 +53,33 @@ export class FakeSearchProvider extends ProductSearchProvider {
       key: payload.categoryPath[payload.categoryPath.length - 1].identifier.key,
     } satisfies FacetValueIdentifier;
 
-    return facetValueIdentifier;
+    return success(facetValueIdentifier);
   }
 
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
-    outputSchema: ProductSearchResultSchema
+    outputSchema: ProductSearchResultSchema,
   })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
-  ): Promise<ProductSearchResult> {
+  ): Promise<Result<ProductSearchResult>> {
     await jitter(this.config.jitter.mean, this.config.jitter.deviation);
 
     const query = payload.search;
 
     const querySpecificity =
-      20 - query.term.length - query.paginationOptions.pageNumber - query.facets.length;
+      20 -
+      query.term.length -
+      query.paginationOptions.pageNumber -
+      query.facets.length;
     const totalProducts = 10 * querySpecificity;
-    const totalPages = Math.ceil(totalProducts / query.paginationOptions.pageSize);
-    const productsOnPage = Math.min(totalProducts, query.paginationOptions.pageSize);
+    const totalPages = Math.ceil(
+      totalProducts / query.paginationOptions.pageSize
+    );
+    const productsOnPage = Math.min(
+      totalProducts,
+      query.paginationOptions.pageSize
+    );
 
     const productGenerator = new Faker({
       seed: querySpecificity,
@@ -75,13 +95,12 @@ export class FakeSearchProvider extends ProductSearchProvider {
     const facets = new Array<ProductSearchResultFacet>();
 
     for (let i = 0; i < productsOnPage; i++) {
-
-      const srcUrl =  productGenerator.image.urlPicsumPhotos({
-            height: 300,
-            width: 300,
-            grayscale: true,
-            blur: 8,
-          });
+      const srcUrl = productGenerator.image.urlPicsumPhotos({
+        height: 300,
+        width: 300,
+        grayscale: true,
+        blur: 8,
+      });
 
       const img = ImageSchema.parse({
         sourceUrl: srcUrl,
@@ -90,24 +109,23 @@ export class FakeSearchProvider extends ProductSearchProvider {
         width: 300,
       } satisfies Partial<Image>);
 
-
       products.push(
-        ProductSearchResultItemSchema.parse(
-          {
-            identifier: {
-              key: 'product_' + productGenerator.commerce.isbn(),
-            },
-            name: productGenerator.commerce.productName(),
-            slug: productGenerator.lorem.slug(),
-            variants: [{
+        ProductSearchResultItemSchema.parse({
+          identifier: {
+            key: 'product_' + productGenerator.commerce.isbn(),
+          },
+          name: productGenerator.commerce.productName(),
+          slug: productGenerator.lorem.slug(),
+          variants: [
+            {
               variant: {
                 sku: productGenerator.commerce.isbn(),
               },
               image: img,
               options: undefined,
-            } satisfies Partial<ProductSearchResultItemVariant>],
-          } satisfies Partial<ProductSearchResultItem>
-        )
+            } satisfies Partial<ProductSearchResultItemVariant>,
+          ],
+        } satisfies Partial<ProductSearchResultItem>)
       );
     }
 
@@ -125,7 +143,7 @@ export class FakeSearchProvider extends ProductSearchProvider {
       for (let i = 0; i < 10; i++) {
         const valueKey = i.toString();
         const isActive =
-           query.facets.find(
+          query.facets.find(
             (x) => x.facet.key === facet.identifier.key && x.key === valueKey
           ) !== undefined;
 
@@ -153,7 +171,7 @@ export class FakeSearchProvider extends ProductSearchProvider {
           pageSize: query.paginationOptions.pageSize,
         },
         facets: query.facets,
-        filters: []
+        filters: [],
       },
       facets: facets,
       items: products,
@@ -170,24 +188,26 @@ export class FakeSearchProvider extends ProductSearchProvider {
       },
     } satisfies ProductSearchResult);
 
-    const foo = this.childFunction();
-    return result;
+    return success(result);
   }
 
-  protected override parseFacetValue(facetValueIdentifier: FacetValueIdentifier, label: string, count: number): ProductSearchResultFacetValue {
+  protected override parseFacetValue(
+    facetValueIdentifier: FacetValueIdentifier,
+    label: string,
+    count: number
+  ): ProductSearchResultFacetValue {
     throw new Error('Method not implemented.');
   }
-  protected override parseFacet(facetIdentifier: FacetIdentifier, facetValue: unknown): ProductSearchResultFacet {
+  protected override parseFacet(
+    facetIdentifier: FacetIdentifier,
+    facetValue: unknown
+  ): ProductSearchResultFacet {
     throw new Error('Method not implemented.');
   }
-  protected override parseVariant(variant: unknown, product: unknown): ProductSearchResultItemVariant {
+  protected override parseVariant(
+    variant: unknown,
+    product: unknown
+  ): ProductSearchResultItemVariant {
     throw new Error('Method not implemented.');
-  }
-
-
-
-  protected childFunction() {
-    const foo = 42;
-    return foo;
   }
 }

@@ -8,6 +8,8 @@ import {
   CategoryQueryForTopCategoriesSchema,
   CategorySchema,
   Reactionary,
+  success,
+  error,
 } from '@reactionary/core';
 import type {
   CategoryQueryById,
@@ -20,6 +22,8 @@ import type {
   Category,
   CategoryPaginatedResult,
   CategoryIdentifier,
+  Result,
+  NotFoundError,
 } from '@reactionary/core';
 import z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
@@ -60,33 +64,21 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
     inputSchema: CategoryQueryByIdSchema,
     outputSchema: CategorySchema,
   })
-  public override async getById(payload: CategoryQueryById): Promise<Category> {
+  public override async getById(
+    payload: CategoryQueryById
+  ): Promise<Result<Category, NotFoundError>> {
     const client = await this.getClient();
     try {
       const response = await client
         .withKey({ key: payload.id.key })
         .get()
         .execute();
-      return this.parseSingle(response.body);
-    } catch (error) {
-      const dummyCategory = {
-        identifier: {
-          key: payload.id.key,
-        },
-        images: [],
-        name: '',
-        slug: '',
-        text: '',
-        meta: {
-          cache: {
-            hit: false,
-            key: '',
-          },
-          placeholder: true,
-        },
-      } satisfies Category;
-
-      return dummyCategory;
+      return success(this.parseSingle(response.body));
+    } catch (err) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.id,
+      });
     }
   }
 
@@ -95,11 +87,11 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
    */
   @Reactionary({
     inputSchema: CategoryQueryBySlugSchema,
-    outputSchema: CategorySchema.nullable(),
+    outputSchema: CategorySchema,
   })
   public override async getBySlug(
     payload: CategoryQueryBySlug
-  ): Promise<Category | null> {
+  ): Promise<Result<Category, NotFoundError>> {
     const client = await this.getClient();
     try {
       const response = await client
@@ -114,12 +106,18 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
         })
         .execute();
       if (response.body.results.length === 0) {
-        return null;
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: payload.slug,
+        });
       }
-      return this.parseSingle(response.body.results[0]);
-    } catch (error) {
+      return success(this.parseSingle(response.body.results[0]));
+    } catch (err) {
       console.error(`Error fetching category by slug:`, error);
-      return null;
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.slug,
+      });
     }
   }
 
@@ -133,7 +131,7 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
   })
   public override async getBreadcrumbPathToCategory(
     payload: CategoryQueryForBreadcrumb
-  ): Promise<Category[]> {
+  ): Promise<Result<Category[]>> {
     const client = await this.getClient();
     const path = new Array<Category>();
     try {
@@ -160,7 +158,7 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
         error
       );
     }
-    return path;
+    return success(path);
   }
 
   /**
@@ -218,7 +216,7 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
         },
         placeholder: false,
       };
-      return result;
+      return success(result);
     } catch (error) {
       console.error(
         `Error fetching category path for  ${payload.parentId.key}:`,
@@ -241,7 +239,7 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
       totalPages: 0,
     } satisfies CategoryPaginatedResult;
 
-    return empty;
+    return success(empty);
   }
 
   @Reactionary({
@@ -275,7 +273,7 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
         },
         placeholder: false,
       };
-      return result;
+      return success(result);
     } catch (error) {
       console.error(`Error fetching category top categories:`, error);
     }
@@ -295,7 +293,7 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
       totalPages: 0,
     } satisfies CategoryPaginatedResult;
 
-    return empty;
+    return success(empty);
   }
 
   /**
@@ -314,27 +312,28 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
       text: body.description
         ? body.description[languageContext.locale] || ''
         : '',
-      parentCategory: body.parent && body.parent.obj && body.parent.obj?.key
+      parentCategory:
+        body.parent && body.parent.obj && body.parent.obj?.key
           ? { key: body.parent.obj.key }
           : undefined,
       images: (body.assets || [])
-      .filter((asset) => asset.sources.length > 0)
-      .filter((x) => x.sources[0].contentType?.startsWith('image/'))
-      .map((asset) => {
-        return {
-          sourceUrl: asset.sources[0].uri,
-          altText:
-            asset.description?.[languageContext.locale] ||
-            asset.name[languageContext.locale] ||
-            '',
-          height: asset.sources[0].dimensions?.h || 0,
-          width: asset.sources[0].dimensions?.w || 0,
-        };
-      }),
+        .filter((asset) => asset.sources.length > 0)
+        .filter((x) => x.sources[0].contentType?.startsWith('image/'))
+        .map((asset) => {
+          return {
+            sourceUrl: asset.sources[0].uri,
+            altText:
+              asset.description?.[languageContext.locale] ||
+              asset.name[languageContext.locale] ||
+              '',
+            height: asset.sources[0].dimensions?.h || 0,
+            width: asset.sources[0].dimensions?.w || 0,
+          };
+        }),
       meta: {
         cache: { hit: false, key: this.generateCacheKeySingle(identifier) },
         placeholder: false,
-      }
+      },
     } satisfies Category;
 
     return model;

@@ -4,19 +4,20 @@ import {
   PriceProvider,
   PriceSchema,
   Reactionary,
-  TieredPriceSchema,
+  success,
+  error
 } from '@reactionary/core';
 import type {
   RequestContext,
   Price,
   Cache,
   Currency,
-  TieredPrice,
   CustomerPriceQuery,
   ListPriceQuery,
   PriceIdentifier,
   MonetaryAmount,
   Meta,
+  Result,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
@@ -24,7 +25,6 @@ import type {
   ProductVariant as CTProductVariant,
 } from '@commercetools/platform-sdk';
 import type { CommercetoolsClient } from '../core/client.js';
-import type z from 'zod';
 
 export class CommercetoolsPriceProvider extends PriceProvider {
   protected config: CommercetoolsConfiguration;
@@ -48,7 +48,7 @@ export class CommercetoolsPriceProvider extends PriceProvider {
   })
   public override async getCustomerPrice(
     payload: CustomerPriceQuery
-  ): Promise<Price> {
+  ): Promise<Result<Price>> {
     const client = await this.getClient();
     const priceChannelId = 'ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86';
 
@@ -73,14 +73,14 @@ export class CommercetoolsPriceProvider extends PriceProvider {
       (x) => x.sku === payload.variant.sku
     );
 
-    return this.parseSingle(sku, { includeDiscounts: true });
+    return success(this.parseSingle(sku, { includeDiscounts: true }));
   }
 
   @Reactionary({
     inputSchema: ListPriceQuerySchema,
     outputSchema: PriceSchema,
   })
-  public override async getListPrice(payload: ListPriceQuery): Promise<Price> {
+  public override async getListPrice(payload: ListPriceQuery): Promise<Result<Price>> {
     const client = await this.getClient();
     const priceChannelId = 'ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86';
 
@@ -105,7 +105,7 @@ export class CommercetoolsPriceProvider extends PriceProvider {
       (x) => x.sku === payload.variant.sku
     );
 
-    return this.parseSingle(sku);
+    return success(this.parseSingle(sku));
   }
 
   protected async getClient() {
