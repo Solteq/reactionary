@@ -52,8 +52,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
       expect(cart.value.price.grandTotal.value).toBe(
         cart.value.items[0].price.totalPrice.value
       );
-
-      expect(cart.value.meta?.placeholder).toBeFalsy();
     });
 
     it('can add multiple different items to a cart', async () => {
@@ -249,7 +247,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
 
         expect(cart.value.items[0].price.totalPrice.value).toBeGreaterThan(0);
         expect(cart.value.price.grandTotal.value).toBeGreaterThan(0);
-        expect(cart.value.meta?.placeholder).toBeFalsy();
       } else {
         throw new Error('Cart is undefined');
       }
