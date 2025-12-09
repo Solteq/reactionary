@@ -32,7 +32,6 @@ import type {
   ProductAttributeValue,
   ProductAttributeValueIdentifier,
   ProductIdentifier,
-  Meta,
   ProductVariantOption,
   ProductOptionIdentifier,
   Result,
@@ -163,11 +162,6 @@ export class CommercetoolsProductProvider extends ProductProvider {
       }
     }
 
-    const meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(identifier) },
-      placeholder: false,
-    } satisfies Meta;
-
     const result = {
       identifier,
       name,
@@ -175,7 +169,6 @@ export class CommercetoolsProductProvider extends ProductProvider {
       description,
       sharedAttributes,
       mainVariant,
-      meta,
       brand: '',
       longDescription: '',
       manufacturer: '',

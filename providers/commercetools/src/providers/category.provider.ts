@@ -206,16 +206,6 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
         .execute();
 
       const result = this.parsePaginatedResult(response.body);
-      result.meta = {
-        cache: {
-          hit: false,
-          key: this.generateCacheKeyPaginatedResult(
-            'children-of-' + payload.parentId.key,
-            result
-          ),
-        },
-        placeholder: false,
-      };
       return success(result);
     } catch (error) {
       console.error(
@@ -226,13 +216,6 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
 
     const empty = {
       items: [],
-      meta: {
-        cache: {
-          hit: false,
-          key: '',
-        },
-        placeholder: true,
-      },
       pageNumber: payload.paginationOptions.pageNumber,
       pageSize: payload.paginationOptions.pageSize,
       totalCount: 0,
@@ -266,13 +249,6 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
         .execute();
 
       const result = this.parsePaginatedResult(response.body);
-      result.meta = {
-        cache: {
-          hit: false,
-          key: this.generateCacheKeyPaginatedResult('top', result),
-        },
-        placeholder: false,
-      };
       return success(result);
     } catch (error) {
       console.error(`Error fetching category top categories:`, error);
@@ -280,13 +256,6 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
 
     const empty = {
       items: [],
-      meta: {
-        cache: {
-          hit: false,
-          key: '',
-        },
-        placeholder: true,
-      },
       pageNumber: payload.paginationOptions.pageNumber,
       pageSize: payload.paginationOptions.pageSize,
       totalCount: 0,
@@ -330,10 +299,6 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
             width: asset.sources[0].dimensions?.w || 0,
           };
         }),
-      meta: {
-        cache: { hit: false, key: this.generateCacheKeySingle(identifier) },
-        placeholder: false,
-      },
     } satisfies Category;
 
     return model;
@@ -343,10 +308,6 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
     const body = _body as CategoryPagedQueryResponse;
     const items = body.results.map((x) => this.parseSingle(x));
     const result = {
-      meta: {
-        cache: { hit: false, key: 'unknown' },
-        placeholder: false,
-      },
       pageNumber: Math.floor(body.offset / body.count) + 1,
       pageSize: body.count,
       totalCount: body.total || 0,

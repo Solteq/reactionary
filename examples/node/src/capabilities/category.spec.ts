@@ -149,7 +149,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
       expect(result.value.slug).toBe(testData.topCategories[0].slug);
       expect(result.value.parentCategory).toBeUndefined();
       expect(result.value.text).not.toBe('');
-      expect(result.value.meta.placeholder).toBe(false);
     }
   });
 
@@ -178,7 +177,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
     expect(result.value.parentCategory).toBeUndefined();
 
     expect(result.value.text).toBe(testData.topCategories[0].text);
-    expect(result.value.meta.placeholder).toBe(false);
   });
 
   it('returns NotFound if you search for a category that does not exist', async () => {

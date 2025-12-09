@@ -165,13 +165,6 @@ export class CommercetoolsClient {
 
     // TODO: We could do token revocation here, if we wanted to. The above simply whacks the session.
     const identity = {
-      meta: {
-        cache: {
-          hit: false,
-          key: '',
-        },
-        placeholder: false,
-      },
       type: 'Anonymous'
     } satisfies AnonymousIdentity;
     return identity;
@@ -185,13 +178,6 @@ export class CommercetoolsClient {
 
     if (!session || !session.token) {
       const identity = {
-        meta: {
-          cache: {
-            hit: false,
-            key: '',
-          },
-          placeholder: false,
-        },
         type: 'Anonymous'
       } satisfies AnonymousIdentity;
 
@@ -234,13 +220,6 @@ export class CommercetoolsClient {
           userId: id,
         },
         type: 'Guest',
-        meta: {
-          cache: {
-            hit: false,
-            key: id,
-          },
-          placeholder: false,
-        },
       } satisfies GuestIdentity;
 
       return identity;
@@ -256,13 +235,6 @@ export class CommercetoolsClient {
           userId: id,
         },
         type: 'Registered',
-        meta: {
-          cache: {
-            hit: false,
-            key: id,
-          },
-          placeholder: false,
-        },
       } satisfies RegisteredIdentity;
 
       return identity;
@@ -270,13 +242,6 @@ export class CommercetoolsClient {
 
     return {
       type: 'Anonymous',
-      meta: {
-        cache: {
-          hit: false,
-          key: ''
-        },
-        placeholder: false
-      }
     } satisfies AnonymousIdentity;
   }
 

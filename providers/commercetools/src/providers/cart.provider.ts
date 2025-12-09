@@ -474,13 +474,6 @@ export class CommercetoolsCartProvider extends CartProvider {
       name: remote.custom?.fields['name'] || '',
       description: remote.custom?.fields['description'] || '',
       price,
-      meta: {
-        cache: {
-          hit: false,
-          key: this.generateCacheKeySingle(identifier),
-        },
-        placeholder: false,
-      },
       items,
     } satisfies Cart;
 

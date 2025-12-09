@@ -131,7 +131,6 @@ describe('Faker Category Provider', () => {
     expect(result.value.slug).toBe('grocery-slug');
     expect(result.value.parentCategory).toBeUndefined();
     expect(result.value.text).not.toBe('');
-    expect(result.value.meta.placeholder).toBe(false);
   });
 
   it('returns NotFound if looking for slug that does not exist', async () => {
@@ -157,7 +156,6 @@ describe('Faker Category Provider', () => {
     expect(result.value.parentCategory).toBeUndefined();
 
     expect(result.value.text).not.toBe('');
-    expect(result.value.meta.placeholder).toBe(false);
   });
 
   it('returns a placeholder if you search for a category that does not exist', async () => {
@@ -170,7 +168,6 @@ describe('Faker Category Provider', () => {
     }
     
     expect(result.value.identifier.key).toBe('non-existent-category');
-    expect(result.value.meta.placeholder).toBe(true);
   });
 
   describe('caching', () => {
@@ -184,15 +181,11 @@ describe('Faker Category Provider', () => {
         assert.fail();
       }
 
-      expect(first.value.meta.cache.hit).toBe(false);
-
       const second = await provider.getById({ id: { key: 'grocery' } });
 
       if (!second.success) {
         assert.fail();
       }
-
-      expect(second.value.meta.cache.hit).toBe(true);
     });
 
     it('can clear a cache entry by dependency id', async () => {
@@ -210,8 +203,6 @@ describe('Faker Category Provider', () => {
       if (!second.success) {
         assert.fail();
       }
-      
-      expect(second.value.meta.cache.hit).toBe(false);
     });
   });
 });

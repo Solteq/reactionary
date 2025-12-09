@@ -252,13 +252,6 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
           logo: undefined,
           description: pm.id,
           isPunchOut: true,
-          meta: {
-            cache: {
-              hit: false,
-              key: '',
-            },
-            placeholder: false,
-          }
         }
 
       );
@@ -444,13 +437,6 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       city: storeAddress.city || '',
       postalCode: storeAddress.postal_code || '',
       countryCode: storeAddress.country_code || '',
-      meta: {
-        cache: {
-          hit: false,
-          key: '',
-        },
-        placeholder: false,
-      },
       region: '',
     };
   }
@@ -528,14 +514,6 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       items.push(this.parseCheckoutItem(remoteItem, price.grandTotal.currency));
     }
 
-    const meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeySingle(identifier),
-      },
-      placeholder: false,
-    };
-
     const billingAddress = remote.billing_address
       ? this.composeAddressFromStoreAddress(remote.billing_address)
       : undefined;
@@ -584,7 +562,6 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
         consentForUnattendedDelivery,
         instructions,
         pickupPoint,
-        meta,
       };
     });
 
@@ -607,7 +584,6 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       };
 
       paymentInstructions.push({
-          meta,
           identifier: {
             key: remotePayment.id,
           },
@@ -646,7 +622,6 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       description,
       price,
       items,
-      meta,
       originalCartReference,
       paymentInstructions,
       readyForFinalization: false,

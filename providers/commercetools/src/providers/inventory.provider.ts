@@ -95,19 +95,10 @@ export class CommercetoolsInventoryProvider extends InventoryProvider {
       status = 'inStock';
     }
 
-    const meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeySingle(identifier),
-      },
-      placeholder: false,
-    };
-
     const result = {
       identifier,
       quantity,
       status,
-      meta
     } satisfies Inventory;
 
     return result;

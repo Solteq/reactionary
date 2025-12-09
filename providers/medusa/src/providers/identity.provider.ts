@@ -43,13 +43,6 @@ export class MedusaIdentityProvider extends IdentityProvider {
 
   protected createAnonymousIdentity(): AnonymousIdentity {
     return {
-      meta: {
-        cache: {
-          hit: false,
-          key: '',
-        },
-        placeholder: false,
-      },
       type: 'Anonymous',
     };
   }
@@ -78,13 +71,6 @@ export class MedusaIdentityProvider extends IdentityProvider {
         return success({
           id: {
             userId: customerResponse.customer.id,
-          },
-          meta: {
-            cache: {
-              hit: false,
-              key: '',
-            },
-            placeholder: false,
           },
           type: 'Registered',
         } satisfies RegisteredIdentity);

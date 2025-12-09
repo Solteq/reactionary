@@ -76,6 +76,5 @@ describe('Fake Price Provider', () => {
     expect(result.value.unitPrice.value).toBe(-1);
     expect(result.value.unitPrice.currency).toBe('USD');
     expect(result.value.tieredPrices.length).toBe(0);
-    expect(result.value.meta.placeholder).toBe(true);
   });
 });

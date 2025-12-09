@@ -1,3 +1,4 @@
+import { trace } from "@opentelemetry/api";
 import type { GenericError } from "./errors/generic.error.js";
 import type { InvalidInputError } from "./errors/invalid-input.error.js";
 import type { InvalidOutputError } from "./errors/invalid-output.error.js";
@@ -5,11 +6,21 @@ import type { InvalidOutputError } from "./errors/invalid-output.error.js";
 export type Ok<T> = {
   success: true;
   value: T;
+  meta: {
+    trace: string;
+    cache: {
+      hit: boolean,
+      key: string
+    }
+  }
 };
 
-export type Fail<E = Error> = {
+export type Fail<E> = {
   success: false;
   error: E | GenericError | InvalidInputError | InvalidOutputError;
+  meta: {
+    trace: string
+  }
 };
 
 export type Result<T, E = Error> = Ok<T> | Fail<E>;
@@ -58,23 +69,39 @@ export function unwrapValue<T, E = Error>(result: Result<T, E>): T {
 /**
  * Utility function for unwrapping an error. Primarily useful for testing.
  */
-export function unwrapError<T, E = Error>(
+export function unwrapError<T, E>(
   result: Result<T, E>
 ): Fail<E>['error'] {
   assertError(result);
   return result.error;
 }
 
+/**
+ * Helper function for wrapping a success as an Ok<T> type
+ */
 export function success<T>(value: T): Ok<T> {
   return {
     success: true,
-    value
+    value,
+    meta: {
+      trace: trace.getActiveSpan()?.spanContext().traceId || '',
+      cache: {
+        hit: false,
+        key: ''
+      }
+    }
   }
 }
 
+/**
+ * Helper function for wrapping an error as a Fail<E> type
+ */
 export function error<E>(error: E): Fail<E> {
   return {
     success: false,
-    error
+    error,
+    meta: {
+      trace: trace.getActiveSpan()?.spanContext().traceId || '',
+    }
   }
 }

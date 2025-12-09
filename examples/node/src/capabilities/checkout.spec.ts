@@ -94,6 +94,8 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
           });
 
           if (!cc.success) {
+            console.log(cc);
+
             assert.fail();
           }
 
@@ -159,7 +161,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
                 key: 'pm1',
               },
               status: 'pending',
-            } satisfies Omit<PaymentInstruction, 'meta'>),
+            } satisfies PaymentInstruction),
           });
 
           if (!checkoutWithPi.success) {

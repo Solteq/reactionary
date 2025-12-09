@@ -1,7 +1,6 @@
 import type {
   Cache,
   FulfillmentCenterIdentifier,
-  Meta,
   RequestContext,
   Store,
   StoreIdentifier,
@@ -44,18 +43,10 @@ export class FakeStoreProvider extends StoreProvider {
         const fulfillmentCenter = {
           key: '' + i
         } satisfies FulfillmentCenterIdentifier;
-        const meta = {
-          cache: {
-            hit: false,
-            key: '' + i,
-          },
-          placeholder: false
-        } satisfies Meta;
 
         results.push({
           fulfillmentCenter,
           identifier,
-          meta,
           name
         });
     }

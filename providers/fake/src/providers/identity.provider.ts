@@ -45,13 +45,6 @@ export class FakeIdentityProvider extends IdentityProvider {
     if (!this.currentIdentity) {
       const model = {
         type: 'Anonymous',
-        meta: {
-          cache: {
-            hit: false,
-            key: 'anonymous',
-          },
-          placeholder: false,
-        },
       } satisfies AnonymousIdentity;
 
       this.currentIdentity = model;
@@ -77,13 +70,6 @@ export class FakeIdentityProvider extends IdentityProvider {
       id: {
         userId: generator.string.alphanumeric(32),
       },
-      meta: {
-        cache: {
-          hit: false,
-          key: payload.username,
-        },
-        placeholder: false,
-      },
     } satisfies RegisteredIdentity;
 
     this.currentIdentity = model;
@@ -100,13 +86,6 @@ export class FakeIdentityProvider extends IdentityProvider {
   ): Promise<Result<Identity>> {
     const model = {
       type: 'Anonymous',
-      meta: {
-        cache: {
-          hit: false,
-          key: 'anonymous',
-        },
-        placeholder: false,
-      },
     } satisfies AnonymousIdentity;
 
     this.currentIdentity = model;

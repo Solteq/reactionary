@@ -93,13 +93,6 @@ export class FakeProductProvider extends ProductProvider {
       published: true,
       sharedAttributes: [],
       variants: [],
-      meta: {
-        cache: {
-          hit: false,
-          key: key,
-        },
-        placeholder: false,
-      }
     } satisfies Product
 
     return result;

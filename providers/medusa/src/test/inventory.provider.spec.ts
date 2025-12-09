@@ -51,7 +51,6 @@ describe('Medusa Inventory Provider', () => {
     if (result.value.quantity > 0) {
       expect(result.value.status).toBe('inStock');
     }
-    expect(result.value.meta.placeholder).toBeDefined();
   });
 
   it('should return out of stock for a SKU without inventory', async () => {
@@ -85,6 +84,5 @@ describe('Medusa Inventory Provider', () => {
     expect(result.value.identifier.variant.sku).toBe('unknown-sku');
     expect(result.value.quantity).toBe(0);
     expect(result.value.status).toBe('outOfStock');
-    expect(result.value.meta.placeholder).toBe(true);
   });
 });

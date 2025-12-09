@@ -1,5 +1,7 @@
 import { getReactionaryCacheMeter } from '../metrics/metrics.js';
+import { error, NotFoundErrorSchema, success, type NotFoundError } from '../schemas/index.js';
 import type { BaseModel } from '../schemas/models/index.js';
+import type { Result } from '../schemas/result.js';
 import type { Cache, CacheEntryOptions } from './cache.interface.js';
 import type z from 'zod';
 
@@ -20,21 +22,22 @@ export class MemoryCache implements Cache {
       this.meter.misses.add(1, {
         'labels.cache_type': 'memory',
       });
+      
       return null;
     }
 
     const parsed = schema.parse(c.value);
 
-    parsed.meta.cache.hit = true;
     this.meter.hits.add(1, {
       'labels.cache_type': 'memory',
     });
+
     return parsed;
   }
 
   public async put(
     key: string,
-    value: unknown,
+    value: Result<unknown>,
     options: CacheEntryOptions
   ): Promise<void> {
     this.entries.push({

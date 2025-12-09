@@ -61,17 +61,8 @@ export class FakeInventoryProvider extends InventoryProvider {
       status = 'inStock';
     }
 
-    const meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeySingle(identifier),
-      },
-      placeholder: false,
-    };
-
     const result = {
       identifier,
-      meta,
       quantity,
       status
     } satisfies Inventory;

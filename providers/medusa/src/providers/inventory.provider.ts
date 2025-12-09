@@ -9,7 +9,6 @@ import {
   Reactionary,
   type InventoryIdentifier,
   type InventoryStatus,
-  type Meta,
   type NotFoundError,
   type Result,
   success,
@@ -135,17 +134,8 @@ export class MedusaInventoryProvider extends InventoryProvider {
       status = 'inStock';
     }
 
-    const meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeySingle(identifier),
-      },
-      placeholder: false,
-    } satisfies Meta;
-
     const result = {
       identifier,
-      meta,
       quantity,
       status
     } satisfies Inventory;
@@ -168,18 +158,8 @@ export class MedusaInventoryProvider extends InventoryProvider {
 
     const quantity = 0;
     const status = 'outOfStock';
-
-    const meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeySingle(identifier),
-      },
-      placeholder: true,
-    };
-
     const result = {
       identifier,
-      meta,
       quantity,
       status
     } satisfies Inventory;

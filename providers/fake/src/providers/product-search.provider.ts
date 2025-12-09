@@ -179,13 +179,6 @@ export class FakeSearchProvider extends ProductSearchProvider {
       pageSize: query.paginationOptions.pageSize,
       totalCount: totalProducts,
       totalPages: totalPages,
-      meta: {
-        cache: {
-          hit: false,
-          key: '',
-        },
-        placeholder: false,
-      },
     } satisfies ProductSearchResult);
 
     return success(result);

@@ -126,13 +126,6 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
       name: body.name || body.objectID,
       slug: body.slug || body.objectID,
       variants: [ ... (body.variants || []) ].map(variant => this.parseVariant(variant, body)),
-      meta: {
-        placeholder: false,
-        cache: {
-          hit: false,
-          key: ''
-        }
-      }
     } satisfies ProductSearchResultItem;
 
     return product;
@@ -203,10 +196,6 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
         filters: query.search.filters,
         paginationOptions: query.search.paginationOptions,
 
-      },
-      meta: {
-        cache: { hit: false, key: 'unknown' },
-        placeholder: false
       },
       pageNumber: (body.page || 0) + 1,
       pageSize: body.hitsPerPage || 0,

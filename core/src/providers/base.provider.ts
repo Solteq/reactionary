@@ -41,33 +41,6 @@ export abstract class BaseProvider {
     return `${scope}:${queryHash}`;
   }
 
-  protected generateCacheKeyPaginatedResult(
-    resultSetName: string,
-    res: any,
-  ): string {
-    const type = this.getResourceName();
-    const langPart = this.context.languageContext.locale;
-    const currencyPart = this.context.languageContext.currencyCode || 'default';
-    const storePart = this.context.storeIdentifier?.key || 'default';
-    return `${type}-${resultSetName}-paginated|pageNumber:${res.pageNumber}|pageSize:${res.pageSize}|store:${storePart}|lang:${langPart}|currency:${currencyPart}`;
-  }
-
-  protected generateCacheKeySingle(
-    identifier: IdentifierType
-  ): string {
-    const type = this.getResourceName();
-
-    const idPart = Object.entries(identifier)
-      .map(([k, v]) => `${k}:${v}`)
-      .join('#');
-
-    const langPart = this.context.languageContext.locale;
-    const currencyPart = this.context.languageContext.currencyCode || 'default';
-    const storePart = this.context.storeIdentifier?.key || 'default';
-
-    return `${type}-${idPart}|store:${storePart}|lang:${langPart}|currency:${currencyPart}`;
-  }
-
   /**
    * Returns the abstract resource name provided by the remote system.
    */

@@ -277,13 +277,6 @@ describe.each(['Medusa'])('Checkout Capability - %s', (provider) => {
           instructions: 'Leave at front door if not home',
           consentForUnattendedDelivery: true,
           pickupPoint: '4190asx141',
-          meta: {
-            cache: {
-              hit: false,
-              key: '',
-            },
-            placeholder: false,
-          }
         };
 
         const checkoutWithShipping = await client.checkout.setShippingInstruction(

@@ -16,14 +16,7 @@ export abstract class InventoryProvider extends BaseProvider {
     const inventory = {
         identifier: key,
         quantity: 0,
-        status: 'outOfStock',
-        meta: {
-          cache: {
-            hit: false,
-            key: this.generateCacheKeySingle(key),
-          },
-          placeholder: true,
-        }
+        status: 'outOfStock'
     } satisfies Inventory;
 
     return inventory;

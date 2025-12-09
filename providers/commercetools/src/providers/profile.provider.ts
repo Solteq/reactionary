@@ -74,13 +74,6 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
       emailVerified,
       alternateShippingAddresses: [],
       createdAt: '',
-      meta: {
-        cache: {
-          hit: false,
-          key: ''
-        },
-        placeholder: false
-      },
       phone: '',
       phoneVerified: false,
       updatedAt: ''

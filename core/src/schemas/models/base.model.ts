@@ -1,18 +1,7 @@
 import { z } from 'zod';
 import type { InferType } from '../../zod-utils.js';
 
-export const CacheInformationSchema = z.looseObject({
-    hit: z.boolean().default(false),
-    key: z.string().default('')
-})
-
-export const MetaSchema = z.looseObject({
-    cache: CacheInformationSchema.default(() => CacheInformationSchema.parse({})),
-    placeholder: z.boolean().default(false).describe('Whether or not the entity exists in a remote system, or is a default placeholder.')
-});
-
 export const BaseModelSchema = z.looseObject({
-    meta: MetaSchema.default(() => MetaSchema.parse({}))
 });
 
 export const PaginationOptionsSchema = z.looseObject({
@@ -28,7 +17,6 @@ export function createPaginatedResponseSchema<ItemType extends z.ZodTypeAny>(
   itemSchema: ItemType,
 ) {
   return z.object({
-    meta: MetaSchema.default(() => MetaSchema.parse({})),
     pageNumber: z.number().min(1).describe('Current page number, starting from 1'),
     pageSize: z.number().min(1).describe('Number of items per page'),
     totalCount: z.number().min(0).describe('Total number of items available'),
@@ -51,6 +39,4 @@ export const ImageSchema = z.looseObject({
 
 export type Image = InferType<typeof ImageSchema>;
 export type PaginationOptions = InferType<typeof PaginationOptionsSchema>;
-export type CacheInformation = InferType<typeof CacheInformationSchema>;
-export type Meta = InferType<typeof MetaSchema>;
 export type BaseModel = InferType<typeof BaseModelSchema>;

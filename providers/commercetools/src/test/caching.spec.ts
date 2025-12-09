@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import {
   createInitialRequestContext,
@@ -18,17 +18,28 @@ describe('Caching', () => {
     const provider = new CommercetoolsProductProvider(config, cache, context, client);
 
     const identifier = {
-        key: '0766623301831'
+        key: 'product_10959528'
     } satisfies ProductIdentifier;
 
     const uncached = await provider.getById({
         identifier
     });
+
+    if (!uncached.success) {
+      assert.fail();
+    }
+
     expect(uncached.meta.cache.hit).toBe(false);
 
     const cached = await provider.getById({
         identifier
     });
+
+    if (!cached.success) {
+      console.log('cached: ', cached);
+      assert.fail();
+    }
+
     expect(cached.meta.cache.hit).toBe(true);
   });
 });
