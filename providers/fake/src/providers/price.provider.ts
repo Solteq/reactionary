@@ -60,13 +60,6 @@ export class FakePriceProvider extends PriceProvider {
         value: generator.number.int({ min: 300, max: 100000 }) / 100,
         currency: this.context.languageContext.currencyCode,
       },
-      meta: {
-        cache: {
-          hit: false,
-          key: payload.variant.sku,
-        },
-        placeholder: false,
-      },
     } as Price;
 
     if (skuString.includes('with-tiers')) {
@@ -126,13 +119,6 @@ export class FakePriceProvider extends PriceProvider {
       unitPrice: {
         value: generator.number.int({ min: 300, max: 100000 }) / 100,
         currency: this.context.languageContext.currencyCode,
-      },
-      meta: {
-        cache: {
-          hit: false,
-          key: payload.variant.sku,
-        },
-        placeholder: false,
       },
     } as Price;
 

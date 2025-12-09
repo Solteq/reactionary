@@ -157,7 +157,6 @@ describe('Medusa Category Provider', () => {
     expect(result.value.slug).toBe(testData.topCategories[0].slug);
     expect(result.value.parentCategory).toBeUndefined();
     expect(result.value.text).not.toBe('');
-    expect(result.value.meta.placeholder).toBe(false);
   });
 
   it('returns NotFound if looking for slug that does not exist', async () => {
@@ -185,7 +184,6 @@ describe('Medusa Category Provider', () => {
     expect(result.value.parentCategory).toBeUndefined();
 
     expect(result.value.text).toBe(testData.topCategories[0].text);
-    expect(result.value.meta.placeholder).toBe(false);
   });
 
   it.skip('should be able to get a category by id in alternate language', async () => {
@@ -204,7 +202,6 @@ describe('Medusa Category Provider', () => {
     expect(result.value.parentCategory).toBeUndefined();
 
     expect(result.value.text).toBe(testData.topCategories[0].text + ' [da Version]');
-    expect(result.value.meta.placeholder).toBe(false);
   });
 
   it.skip('returns NotFound if you choose a language that is not available', async () => {

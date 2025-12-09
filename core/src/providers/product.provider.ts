@@ -64,13 +64,6 @@ export abstract class ProductProvider extends BaseProvider {
         upc: ''
       },
       manufacturer: '',
-      meta: {
-        cache: {
-          hit: false,
-          key: ''
-        },
-        placeholder: true
-      },
       name: '',
       options: [],
       parentCategories: [],

@@ -130,12 +130,6 @@ export class MedusaProductProvider extends ProductProvider {
       );
     }
 
-
-    const meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(identifier) },
-      placeholder: false
-    };
-
     const result = {
       brand: '',
       description,
@@ -143,7 +137,6 @@ export class MedusaProductProvider extends ProductProvider {
       longDescription: '',
       mainVariant,
       manufacturer: '',
-      meta,
       name,
       options: [],
       parentCategories,

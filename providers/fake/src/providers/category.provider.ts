@@ -35,13 +35,6 @@ export class FakeCategoryProvider extends CategoryProvider {
     const category = {
       identifier,
       images: [],
-      meta: {
-        cache: {
-          hit: false,
-          key: ''
-        },
-        placeholder: false
-      },
       name,
       slug,
       text,

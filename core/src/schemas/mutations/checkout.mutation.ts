@@ -6,14 +6,14 @@ import type { InferType } from '../../zod-utils.js';
 
 export const CheckoutMutationInitiateCheckoutSchema = BaseMutationSchema.extend({
     cart: CartSchema,
-    billingAddress: AddressSchema.omit({ identifier: true, meta: true }).optional(),
+    billingAddress: AddressSchema.omit({ identifier: true }).optional(),
     notificationEmail: z.string().optional(),
     notificationPhone: z.string().optional(),
 });
 
 export const CheckoutMutationSetShippingAddressSchema = BaseMutationSchema.extend({
     checkout: CartIdentifierSchema,
-    shippingAddress: AddressSchema.omit({ identifier: true, meta: true }),
+    shippingAddress: AddressSchema.omit({ identifier: true }),
 });
 
 export const CheckoutMutationFinalizeCheckoutSchema = BaseMutationSchema.extend({
@@ -21,7 +21,7 @@ export const CheckoutMutationFinalizeCheckoutSchema = BaseMutationSchema.extend(
 });
 
 export const CheckoutMutationAddPaymentInstructionSchema = BaseMutationSchema.extend({
-    paymentInstruction: PaymentInstructionSchema.omit({ meta: true, status: true, identifier: true }),
+    paymentInstruction: PaymentInstructionSchema.omit({ status: true, identifier: true }),
     checkout: CartIdentifierSchema,
 });
 
@@ -31,7 +31,7 @@ export const CheckoutMutationRemovePaymentInstructionSchema = BaseMutationSchema
 });
 
 export const CheckoutMutationSetShippingInstructionSchema = BaseMutationSchema.extend({
-    shippingInstruction: ShippingInstructionSchema.omit({ meta: true }),
+    shippingInstruction: ShippingInstructionSchema,
     checkout: CartIdentifierSchema,
 });
 

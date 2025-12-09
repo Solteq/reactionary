@@ -5,14 +5,11 @@ import type {
   ProductPagedSearchResponse,
   ProductProjection,
   ProductSearchFacetExpression,
-  Category as CTCategory,
 } from '@commercetools/platform-sdk';
 import type {
   Cache,
-  Category,
   FacetIdentifier,
   FacetValueIdentifier,
-  Meta,
   ProductOptionIdentifier,
   ProductSearchQueryByTerm,
   ProductSearchQueryCreateNavigationFilter,
@@ -134,7 +131,7 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
     if (!response.body || !response.body.name) {
       throw new Error(`Category with key ${payload.key} not found`);
     }
-    const result: CommercetoolsCategoryLookup = {
+    const result = {
       id: response.body.id,
       key: response.body.key,
       name: response.body.name,
@@ -390,20 +387,12 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
     const variants = [body.masterVariant, ...body.variants].map((variant) =>
       this.parseVariant(variant, body)
     );
-    const meta = {
-      cache: {
-        hit: false,
-        key: '',
-      },
-      placeholder: false,
-    } satisfies Meta;
 
     const product = {
       identifier,
       name,
       slug,
       variants,
-      meta,
     } satisfies ProductSearchResultItem;
 
     return product;
@@ -435,10 +424,6 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
 
     const result = {
       identifier,
-      meta: {
-        cache: { hit: false, key: 'unknown' },
-        placeholder: false,
-      },
       pageNumber: (Math.ceil(body.offset / body.limit) || 0) + 1,
       pageSize: body.limit,
       totalCount: body.total || 0,

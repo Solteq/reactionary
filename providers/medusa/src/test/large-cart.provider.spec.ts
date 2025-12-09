@@ -98,8 +98,6 @@ describe('Medusa Cart Provider - Large Scenarios', () => {
       expect(cart.value.price.grandTotal.currency).toBe(
         reqCtx.languageContext.currencyCode
       );
-
-      expect(cart.value.meta.placeholder).toBeFalsy();
     }, 30000);
   });
 });

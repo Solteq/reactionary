@@ -46,14 +46,7 @@ export abstract class PriceProvider extends BaseProvider {
       unitPrice: {
         value: -1,
         currency: this.context.languageContext.currencyCode,
-      },
-      meta: {
-        cache: {
-          hit: false,
-          key: `price-${sku}-${this.context.languageContext.currencyCode}`,
-        },
-        placeholder: true,
-      },
+      }
     } satisfies Price;
 
     return price;

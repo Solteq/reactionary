@@ -2,7 +2,7 @@ import type {
   StoreProductCategory,
   StoreProductCategoryListResponse,
 } from '@medusajs/types';
-import type { Category, Cache, Meta, CategoryPaginatedResult } from '@reactionary/core';
+import type { Category, Cache, CategoryPaginatedResult } from '@reactionary/core';
 import {
   CategoryIdentifierSchema,
   CategoryProvider,
@@ -171,13 +171,6 @@ export class MedusaCategoryProvider extends CategoryProvider {
     });
 
     const result = this.parsePaginatedResult(response);
-    result.meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeyPaginatedResult('top', result),
-      },
-      placeholder: false,
-    };
     return success(result);
   }
 
@@ -200,13 +193,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
     });
 
     const result = this.parsePaginatedResult(response);
-    result.meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeyPaginatedResult('top', result),
-      },
-      placeholder: false,
-    };
+
     return success(result);
   }
 
@@ -229,13 +216,6 @@ export class MedusaCategoryProvider extends CategoryProvider {
       text,
       parentCategory,
       images: [],
-      meta: {
-        cache: {
-          hit: false,
-          key: '',
-        },
-        placeholder: false,
-      },
     } satisfies Category;
 
     return result;
@@ -253,10 +233,6 @@ export class MedusaCategoryProvider extends CategoryProvider {
       body.count === 0
         ? 1
         : Math.floor(body.offset / body.product_categories.length) + 1;
-    const meta = {
-      cache: { hit: false, key: 'unknown' },
-      placeholder: false,
-    } satisfies Meta;
 
     const result = {
       pageNumber: pageNumber,
@@ -264,7 +240,6 @@ export class MedusaCategoryProvider extends CategoryProvider {
       totalCount: body.count,
       totalPages: totalPages,
       items: items,
-      meta
     } satisfies CategoryPaginatedResult;
 
     return result;

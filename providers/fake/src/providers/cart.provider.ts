@@ -91,9 +91,8 @@ export class FakeCartProvider extends CartProvider {
     const cartId = payload?.cart?.key || `cart-${this.generator.string.uuid()}`;
     const cart = unwrapValue(await this.getById({ cart: { key: cartId } }));
 
-    if (cart.meta.placeholder) {
+    if (cart.identifier.key === '') {
       cart.identifier.key = cartId;
-      cart.meta.placeholder = false;
       this.carts.set(cartId, cart);
     }
     const existingItemIndex = cart.items.findIndex(
@@ -247,7 +246,6 @@ export class FakeCartProvider extends CartProvider {
   protected createEmptyCart(): Cart {
     const cart = {
       identifier: { key: '' },
-      meta: { placeholder: true, cache: { hit: true, key: 'empty-cart' } },
       description: '',
       items: [],
       name: '',

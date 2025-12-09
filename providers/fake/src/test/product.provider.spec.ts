@@ -22,7 +22,7 @@ describe('Fake Product Provider', () => {
       assert.fail();
     }
 
-    expect(first.value.meta.cache.hit).toBe(false);
+    expect(first.meta.cache.hit).toBe(false);
 
     const second = await provider.getById({ identifier: { key : '1234' }});
     
@@ -30,6 +30,6 @@ describe('Fake Product Provider', () => {
       assert.fail();
     }
 
-    expect(second.value.meta.cache.hit).toBe(true);
+    expect(second.meta.cache.hit).toBe(true);
   });
 });

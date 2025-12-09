@@ -5,7 +5,6 @@ import {
   PriceSchema,
   Reactionary,
   success,
-  error
 } from '@reactionary/core';
 import type {
   RequestContext,
@@ -16,7 +15,6 @@ import type {
   ListPriceQuery,
   PriceIdentifier,
   MonetaryAmount,
-  Meta,
   Result,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
@@ -144,14 +142,8 @@ export class CommercetoolsPriceProvider extends PriceProvider {
       },
     } satisfies PriceIdentifier;
 
-    const meta = {
-      cache: { hit: false, key: this.generateCacheKeySingle(identifier) },
-      placeholder: false,
-    } satisfies Meta;
-
     const result = {
       identifier,
-      meta,
       tieredPrices: [],
       unitPrice,
     } satisfies Price;

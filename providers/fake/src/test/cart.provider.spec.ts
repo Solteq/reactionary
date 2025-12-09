@@ -44,7 +44,6 @@ describe('Fake Cart Provider', () => {
       expect(cart.value.price.grandTotal.value).toBeGreaterThan(0);
       expect(cart.value.price.grandTotal.currency).toBe(reqCtx.languageContext.currencyCode);
       expect(cart.value.price.grandTotal.value).toBe(cart.value.items[0].price.totalPrice.value);
-      expect(cart.value.meta.placeholder).toBeFalsy();
     });
 
     it('should be able to change quantity of an item in a cart', async () => {

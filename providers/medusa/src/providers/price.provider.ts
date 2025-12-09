@@ -6,7 +6,6 @@ import {
   ListPriceQuerySchema,
   Reactionary,
   success,
-  error,
   type Cache,
   type Currency,
   type CustomerPriceQuery,
@@ -14,7 +13,6 @@ import {
   type Price,
   type RequestContext,
   type PriceIdentifier,
-  type Meta,
   type MonetaryAmount,
   type Result
 } from '@reactionary/core';
@@ -126,17 +124,8 @@ export class MedusaPriceProvider extends PriceProvider {
       } satisfies MonetaryAmount;
     }
 
-    const meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeySingle(identifier),
-      },
-      placeholder: calculatedPrice === undefined,
-    } satisfies Meta;
-
     const result = {
       identifier,
-      meta,
       tieredPrices: [],
       unitPrice
     } satisfies Price;

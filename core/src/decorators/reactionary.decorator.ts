@@ -3,7 +3,8 @@ import { trace } from '@opentelemetry/api';
 import type { z } from 'zod';
 import type { BaseProvider } from '../providers/index.js';
 import { getReactionaryMeter } from '../metrics/metrics.js';
-import type { Result } from '../schemas/result.js';
+import { error, success, type Result } from '../schemas/result.js';
+import type { InvalidInputError, InvalidOutputError, GenericError} from '../schemas/index.js';
 
 const TRACER_NAME = '@reactionary';
 const TRACER_VERSION = '0.0.1';
@@ -104,37 +105,48 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
             cacheKey,
             options.inputSchema as any
           );
-          let result = fromCache;
 
-          if (!result) {
+          let result;
+          if (!fromCache) {
             result = await original.apply(this, [input.value]);
+            
+            const r = result as Result<unknown>;
 
-            const dependencyIds = this.generateDependencyIdsForModel(result);
+            if (r.success) {
+              const dependencyIds = this.generateDependencyIdsForModel(r.value);
 
-            this.cache.put(cacheKey, result, {
-              ttlSeconds: configuration.cacheTimeToLiveInSeconds,
-              dependencyIds: dependencyIds,
-            });
+              this.cache.put(cacheKey, r.value, {
+                ttlSeconds: configuration.cacheTimeToLiveInSeconds,
+                dependencyIds: dependencyIds,
+              });
+            }
           } else {
+            result = success(fromCache);
             cacheStatus = 'hit';
           }
 
           // TODO: Update the below after fixing the method signature.
           // That is, making the decorator only applicable to methods with
           // a signature returning a result.
-          return validateOutput(result as any, configuration.outputSchema);
+          const validatedResult = validateOutput(result as any, configuration.outputSchema);
+
+          if (validatedResult.success) {
+            validatedResult.meta.cache.hit = !!fromCache;
+            validatedResult.meta.cache.key = cacheKey;
+          }
+
+          return result;
         } catch (err) {
           console.error(err);
 
           status = 'error';
           
-          return {
-            success: false,
-            error: {
-              type: 'Generic',
-              message: 'Not sure if we actually want to expose this... it could certainly be useful, but it could also contain internals, credentials or what-nots. Perhaps we just want to reference the trace / spanId.'
-            }
-          } satisfies Result<unknown>;
+          const result = error<GenericError>({
+            type: 'Generic',
+            message: 'REDACTED'
+          });
+
+          return result;
         } finally {
           const duration = performance.now() - startTime;
           const finalAttributes = {
@@ -161,26 +173,17 @@ export function validateInput<T>(
   schema: z.ZodType | undefined
 ): Result<T> {
   if (!schema) {
-    return {
-      success: true,
-      value: input,
-    };
+    return success(input);
   }
 
-  let validated: Result<T> = {
-    success: true,
-    value: input,
-  };
+  let validated: Result<T> = success(input);
   const parse = schema.safeParse(input);
 
   if (!parse.success) {
-    validated = {
-      success: false,
-      error: {
-        type: 'InvalidInput',
-        error: parse.error
-      }
-    };
+    validated = error<InvalidInputError>({
+      type: 'InvalidInput',
+      error: parse.error
+    })
   }
 
   return validated;
@@ -202,13 +205,10 @@ export function validateOutput(
     const parse = schema.safeParse(output.value);
 
     if (!parse.success) {
-      validated = {
-        success: false,
-        error: {
-          type: 'InvalidOutput',
-          error: parse.error,
-        },
-      };
+      validated = error<InvalidOutputError>({
+        type: 'InvalidOutput',
+        error: parse.error
+      })
     }
   }
 

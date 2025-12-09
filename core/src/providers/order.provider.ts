@@ -16,7 +16,6 @@ export abstract class OrderProvider extends BaseProvider {
 
   protected createEmptyOrder(): Order {
     const order = {
-      meta: { placeholder: true, cache: { hit: true, key: 'empty-order' } },
       identifier: {
         key: '',
       },

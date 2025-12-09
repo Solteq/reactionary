@@ -15,15 +15,12 @@ import {
   type ProductOptionIdentifier,
   ProductSearchResultItemVariantSchema,
   type ProductSearchResultItemVariant,
-  createPaginatedResponseSchema,
   type FacetIdentifier,
   type FacetValueIdentifier,
   type ProductSearchResultFacet,
   type ProductSearchResultFacetValue,
   Reactionary,
   ProductSearchResultSchema,
-  type Product,
-  type Meta,
   type ProductSearchQueryCreateNavigationFilter,
   FacetValueIdentifierSchema,
   FacetIdentifierSchema,
@@ -142,11 +139,6 @@ export class MedusaSearchProvider extends ProductSearchProvider {
       ...payload.search,
     };
 
-    result.meta = {
-      cache: { hit: false, key: '' },
-      placeholder: false,
-    };
-
     return success(result);
   }
 
@@ -167,10 +159,6 @@ export class MedusaSearchProvider extends ProductSearchProvider {
           pageSize: 0,
         },
         term: '',
-      },
-      meta: {
-        cache: { hit: false, key: 'unknown' },
-        placeholder: false,
       },
       pageNumber: (Math.ceil(remote.offset / remote.limit) || 0) + 1,
       pageSize: remote.limit,
@@ -193,17 +181,9 @@ export class MedusaSearchProvider extends ProductSearchProvider {
     if (heroVariant) {
       variants.push(this.parseVariant(heroVariant, _body));
     }
-    const meta = {
-      cache: {
-        hit: false,
-        key: '',
-      },
-      placeholder: false,
-    } satisfies Meta;
 
     const result = {
       identifier,
-      meta,
       name,
       slug,
       variants,

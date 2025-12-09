@@ -16,7 +16,6 @@ import type {
   CheckoutQueryForAvailableShippingMethods,
   CostBreakDown,
   Currency,
-  Meta,
   MonetaryAmount,
   NotFoundError,
   PaymentInstruction,
@@ -692,13 +691,6 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       name: remote.custom?.fields['name'] || '',
       description: remote.custom?.fields['description'] || '',
       readyForFinalization,
-      meta: {
-        cache: {
-          hit: false,
-          key: this.generateCacheKeySingle(identifier),
-        },
-        placeholder: false,
-      },
       billingAddress,
       shippingAddress,
       shippingInstruction,
@@ -783,18 +775,9 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       status = 'pending';
     }
 
-    const meta = {
-      cache: {
-        hit: false,
-        key: ''
-      },
-      placeholder: false
-    } satisfies Meta;
-
     const result = {
       amount,
       identifier,
-      meta,
       paymentMethod,
       protocolData,
       status
@@ -814,13 +797,6 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       city: remote.city || '',
       identifier: {
         nickName: '',
-      },
-      meta: {
-        cache: {
-          hit: false,
-          key: '',
-        },
-        placeholder: false,
       },
       region: '',
     } satisfies Address;
@@ -843,13 +819,6 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
       pickupPoint: pickupPoint || '',
       instructions: instructions || '',
       consentForUnattendedDelivery: consentForUnattendedDelivery || false,
-      meta: {
-        cache: {
-          hit: false,
-          key: ''
-        },
-        placeholder: false
-      }
     } satisfies ShippingInstruction;
 
     return shippingInstruction;

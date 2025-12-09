@@ -1,9 +1,6 @@
 import 'dotenv/config';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
-import { unwrapError, unwrapValue } from '@reactionary/core';
-import { z } from 'zod';
-import { fail } from 'assert';
 
 const testData = {
   product: {
@@ -37,7 +34,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       }
 
       expect(response.value.identifier.key).toBe(testData.product.id);
-      expect(response.value.meta.placeholder).toBe(false);
       expect(response.value.name).toBe(testData.product.name);
       expect(response.value.mainVariant.images[0].sourceUrl).toBe(
         testData.product.image
@@ -54,7 +50,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         assert.fail();
       }
 
-      expect(response.value.meta.placeholder).toBe(false);
       expect(response.value.identifier.key).toBe(testData.product.id);
       expect(response.value.name).toBe(testData.product.name);
       expect(response.value.mainVariant.images[0].sourceUrl).toBe(
@@ -71,7 +66,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         assert.fail();
       }
 
-      expect(response.value.meta.placeholder).toBe(false);
       expect(response.value.identifier.key).toBeTruthy();
       expect(response.value.slug).toBe(testData.productWithMultiVariants.slug);
       expect(response.value.mainVariant).toBeDefined();
@@ -94,7 +88,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         assert.fail();
       }
 
-      expect(response.value.meta.placeholder).toBe(false);
       expect(response.value.identifier.key).toBe(testData.product.id);
       expect(response.value.name).toBe(testData.product.name);
       expect(response.value.mainVariant.images[0].sourceUrl).toBe(

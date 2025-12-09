@@ -2,14 +2,10 @@ import {
   createInitialRequestContext,
   ClientBuilder,
   NoOpCache,
-  type PaymentMethod,
-  type PaymentMethodIdentifier,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '@reactionary/provider-commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
-import { withMedusaCapabilities } from '@reactionary/provider-medusa';
-import { expect } from 'vitest';
 
 export function getAlgoliaTestConfiguration() {
   return {
@@ -50,13 +46,6 @@ export function getCommercetoolsTestConfiguration() {
           paymentProcessor: 'stripe'
         },
         isPunchOut: false,
-        meta: {
-          cache: {
-            hit: false,
-            key: ''
-          },
-          placeholder: false
-        },
         description: 'Stripe payment gateway',
 
       },

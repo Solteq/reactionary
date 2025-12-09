@@ -6,7 +6,6 @@ import type {
   Currency,
   OrderIdentifier,
   CostBreakDown,
-  Meta,
   OrderStatus,
   OrderItem,
   ProductVariantIdentifier,
@@ -180,14 +179,6 @@ export class CommercetoolsOrderProvider extends OrderProvider {
       items.push(item);
     }
 
-    const meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeySingle(identifier),
-      },
-      placeholder: false,
-    } satisfies Meta;
-
     const result = {
       identifier,
       name,
@@ -199,7 +190,6 @@ export class CommercetoolsOrderProvider extends OrderProvider {
       userId: {
         userId: ''
       },
-      meta,
       orderStatus
     } satisfies Order;
 

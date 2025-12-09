@@ -55,7 +55,6 @@ describe('Medusa Product Provider', () => {
     }
 
     expect(result.value.identifier.key).toBe(slugResult.value.identifier.key);
-    expect(result.value.meta.placeholder).toBe(false);
     expect(result.value.name).toBe(testData.product.name);
 
     expect(result.value.mainVariant).toBeDefined();
@@ -77,7 +76,6 @@ describe('Medusa Product Provider', () => {
       assert.fail();
     }
 
-    expect(result.value.meta.placeholder).toBe(false);
     expect(result.value.identifier.key).toBeTruthy();
     expect(result.value.slug).toBe(testData.productWithMultiVariants.slug);
     expect(result.value.mainVariant).toBeDefined();
@@ -108,7 +106,6 @@ describe('Medusa Product Provider', () => {
       assert.fail();
     }
 
-    expect(result.value.meta.placeholder).toBe(false);
     expect(result.value.identifier.key).toBe(slugResult.value.identifier.key);
     expect(result.value.name).toBe(testData.product.name);
     expect(result.value.mainVariant).toBeDefined();
@@ -145,7 +142,5 @@ describe('Medusa Product Provider', () => {
     if (!result.success) {
       assert.fail();
     }
-
-    expect(result.value.meta.placeholder).toBe(true);
   });
 });

@@ -5,7 +5,6 @@ import type {
   Store,
   StoreIdentifier,
   FulfillmentCenterIdentifier,
-  Meta,
   Result,
 } from '@reactionary/core';
 import { Reactionary, StoreProvider, StoreQueryByProximitySchema, StoreSchema, success, error } from '@reactionary/core';
@@ -82,19 +81,10 @@ export class CommercetoolsStoreProvider extends StoreProvider {
       key: body.key,
     } satisfies FulfillmentCenterIdentifier;
 
-    const meta = {
-      cache: {
-        hit: false,
-        key: ''
-      },
-      placeholder: false
-    } satisfies Meta;
-
     const result = {
       identifier,
       fulfillmentCenter,
       name,
-      meta,
     } satisfies Store;
 
     return result;

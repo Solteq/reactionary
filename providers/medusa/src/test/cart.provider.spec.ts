@@ -59,10 +59,6 @@ describe('Medusa Cart Provider', () => {
       expect(cart.value.price.grandTotal.currency).toBe(reqCtx.languageContext.currencyCode);
 
       expect(cart.value.price.grandTotal.value).toBe(cart.value.items[0].price.totalPrice.value);
-
-
-      expect(cart.value.meta.placeholder).toBeFalsy();
-
     });
 
 

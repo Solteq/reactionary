@@ -14,7 +14,6 @@ import type {
   CostBreakDown,
   Currency,
   ItemCostBreakdown,
-  Meta,
   NotFoundError,
   ProductVariantIdentifier,
   RequestContext,
@@ -560,21 +559,12 @@ export class MedusaCartProvider extends CartProvider {
       items.push(this.parseCartItem(remoteItem, price.grandTotal.currency));
     }
 
-    const meta = {
-      cache: {
-        hit: false,
-        key: this.generateCacheKeySingle(identifier),
-      },
-      placeholder: false,
-    } satisfies Meta;
-
     const result = {
       identifier,
       name,
       description,
       price,
       items,
-      meta,
       userId: {
         userId: '???',
       },

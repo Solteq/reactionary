@@ -298,25 +298,11 @@ export class MedusaClient {
             userId: customerResponse.customer.id,
           },
           type: 'Registered',
-          meta: {
-            cache: {
-              hit: false,
-              key: customerResponse.customer.id,
-            },
-            placeholder: false,
-          },
         } satisfies RegisteredIdentity;
         return identity;
       }
 
       return {
-        meta: {
-          cache: {
-            hit: false,
-            key: '',
-          },
-          placeholder: false,
-        },
         type: 'Anonymous',
       } satisfies AnonymousIdentity;
     } catch (error) {
@@ -332,13 +318,6 @@ export class MedusaClient {
   public async logout(reqCtx: RequestContext) {
     const identity = {
       type: 'Anonymous',
-      meta: {
-        cache: {
-          hit: false,
-          key: ''
-        },
-        placeholder: false
-      }
     } satisfies AnonymousIdentity;
 
     const client = await this.getClient();
