@@ -66,6 +66,10 @@ export class CommercetoolsProductProvider extends ProductProvider {
   @Reactionary({
     inputSchema: ProductQueryByIdSchema,
     outputSchema: ProductSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true
   })
   public override async getById(
     payload: ProductQueryById
@@ -83,6 +87,10 @@ export class CommercetoolsProductProvider extends ProductProvider {
   @Reactionary({
     inputSchema: ProductQueryBySlugSchema,
     outputSchema: ProductSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true
   })
   public override async getBySlug(
     payload: ProductQueryBySlug
@@ -113,6 +121,10 @@ export class CommercetoolsProductProvider extends ProductProvider {
   @Reactionary({
     inputSchema: ProductQueryBySKUSchema,
     outputSchema: ProductSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true
   })
   public override async getBySKU(
     payload: ProductQueryBySKU
