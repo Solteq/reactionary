@@ -1,10 +1,14 @@
 import type { Tracer } from '@opentelemetry/api';
 import { trace } from '@opentelemetry/api';
-import type { z } from 'zod';
+import { z } from 'zod';
 import type { BaseProvider } from '../providers/index.js';
 import { getReactionaryMeter } from '../metrics/metrics.js';
 import { error, success, type Result } from '../schemas/result.js';
-import type { InvalidInputError, InvalidOutputError, GenericError} from '../schemas/index.js';
+import type {
+  InvalidInputError,
+  InvalidOutputError,
+  GenericError,
+} from '../schemas/index.js';
 
 const TRACER_NAME = '@reactionary';
 const TRACER_VERSION = '0.0.1';
@@ -54,12 +58,12 @@ export class ReactionaryDecoratorOptions {
   /**
    * The schema for the input (query or mutation) type, for validation purposes
    */
-  public inputSchema?: z.ZodType;
+  public inputSchema: z.ZodType = z.never();
 
   /**
    * The schema for the primary output type, for validation purposes
    */
-  public outputSchema?: z.ZodType;
+  public outputSchema: z.ZodType = z.never();
 }
 
 /**
@@ -101,24 +105,30 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
           }
 
           const cacheKey = this.generateCacheKeyForQuery(scope, input.value);
-          const fromCache = await this.cache.get(
-            cacheKey,
-            options.inputSchema as any
-          );
+          let fromCache = null;
+
+          if (options.cache) {
+            fromCache = await this.cache.get(
+              cacheKey,
+              options.outputSchema as any
+            );
+          }
 
           let result;
           if (!fromCache) {
             result = await original.apply(this, [input.value]);
-            
+
             const r = result as Result<unknown>;
 
             if (r.success) {
               const dependencyIds = this.generateDependencyIdsForModel(r.value);
 
-              this.cache.put(cacheKey, r.value, {
-                ttlSeconds: configuration.cacheTimeToLiveInSeconds,
-                dependencyIds: dependencyIds,
-              });
+              if (options.cache) {
+                this.cache.put(cacheKey, r.value, {
+                  ttlSeconds: configuration.cacheTimeToLiveInSeconds,
+                  dependencyIds: dependencyIds,
+                });
+              }
             }
           } else {
             result = success(fromCache);
@@ -128,7 +138,10 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
           // TODO: Update the below after fixing the method signature.
           // That is, making the decorator only applicable to methods with
           // a signature returning a result.
-          const validatedResult = validateOutput(result as any, configuration.outputSchema);
+          const validatedResult = validateOutput(
+            result as any,
+            configuration.outputSchema
+          );
 
           if (validatedResult.success) {
             validatedResult.meta.cache.hit = !!fromCache;
@@ -137,13 +150,13 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
 
           return result;
         } catch (err) {
-          console.error(err);
-
           status = 'error';
-          
+
+          // TODO: Decide if we want to redact the error message, since the client should never rely
+          // on the internals. On the other hand, it is REALLY convenient to have it during development...
           const result = error<GenericError>({
             type: 'Generic',
-            message: 'REDACTED'
+            message: errorToString(err),
           });
 
           return result;
@@ -182,8 +195,8 @@ export function validateInput<T>(
   if (!parse.success) {
     validated = error<InvalidInputError>({
       type: 'InvalidInput',
-      error: parse.error
-    })
+      error: parse.error,
+    });
   }
 
   return validated;
@@ -207,8 +220,8 @@ export function validateOutput(
     if (!parse.success) {
       validated = error<InvalidOutputError>({
         type: 'InvalidOutput',
-        error: parse.error
-      })
+        error: parse.error,
+      });
     }
   }
 
@@ -245,4 +258,22 @@ export async function traceSpan<T>(
       span.end();
     }
   });
+}
+
+/**
+ * Utility function for converting a caught error to a plain
+ * string for reporting back.
+ */
+export function errorToString(err: unknown): string {
+  if (err instanceof Error) {
+    return err.stack ?? err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
 }
