@@ -408,15 +408,30 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
     return result;
   }
 
+  /**
+   * Checks if an address only contains phone information and lacks essential address fields.
+   * An address is considered incomplete if it has no firstName, lastName, streetName, 
+   * streetNumber, or city.
+   */
+  protected isIncompleteAddress(address: CTAddress | undefined): boolean {
+    if (!address) {
+      return false;
+    }
+    return !address.firstName && 
+           !address.lastName && 
+           !address.streetName && 
+           !address.streetNumber && 
+           !address.city;
+  }
+
   protected parseSingle(body: Customer): Profile {
     const email = body.email;
     const emailVerified = body.isEmailVerified;
     let defaultCTBillingAddress = body.addresses.find(addr => addr.id === body.defaultBillingAddressId);
     const phone = defaultCTBillingAddress?.phone ?? '';
 
-
     // if we only have the phone number on the billing address, we dont really have a billing address, so we ignore it
-    if (defaultCTBillingAddress && !defaultCTBillingAddress.firstName && !defaultCTBillingAddress.lastName && !defaultCTBillingAddress.streetName && !defaultCTBillingAddress.streetNumber && !defaultCTBillingAddress.city) {
+    if (this.isIncompleteAddress(defaultCTBillingAddress)) {
       defaultCTBillingAddress = undefined;
     }
 
