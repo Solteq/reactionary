@@ -10,6 +10,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     price: true,
     inventory: true,
     identity: true,
+    profile: true
 }).partial();
 
 export type MedusaCapabilities = z.infer<typeof MedusaCapabilitiesSchema>;

@@ -22,6 +22,7 @@ import { MedusaProductProvider } from "../providers/product.provider.js";
 import { MedusaClient } from "./client.js";
 import { MedusaCategoryProvider } from "../providers/category.provider.js";
 import { MedusaCheckoutProvider } from "../providers/checkout.provider.js";
+import { MedusaProfileProvider } from "../providers/profile.provider.js";
 
 export function withMedusaCapabilities<T extends MedusaCapabilities>(
     configuration: MedusaConfiguration,
@@ -65,6 +66,9 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
 
         if (caps.identity) {
             client.identity = new MedusaIdentityProvider(configuration, cache, context, medusaClient);
+        }
+        if (caps.profile) {
+            client.profile = new MedusaProfileProvider(configuration, cache, context, medusaClient);
         }
 
         return client;

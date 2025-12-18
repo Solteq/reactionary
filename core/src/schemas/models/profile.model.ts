@@ -25,7 +25,7 @@ export const ProfileSchema = BaseModelSchema.extend({
     updatedAt: z.string(),
     shippingAddress: AddressSchema.optional(),
     billingAddress: AddressSchema.optional(),
-    alternateShippingAddresses: z.array(AddressSchema),
+    alternateShippingAddresses: z.array(AddressSchema).default(() => []),
 });
 
 export type Address = InferType<typeof AddressSchema>;
