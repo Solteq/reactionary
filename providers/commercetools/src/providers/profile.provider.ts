@@ -410,8 +410,10 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
 
   /**
    * Checks if an address only contains phone information and lacks essential address fields.
-   * An address is considered incomplete if it has no firstName, lastName, streetName, 
+   * An address is considered incomplete if it exists but has no firstName, lastName, streetName, 
    * streetNumber, or city.
+   * @param address - The address to check, or undefined
+   * @returns true if the address exists but lacks essential fields, false otherwise (including when address is undefined)
    */
   protected isIncompleteAddress(address: CTAddress | undefined): boolean {
     if (!address) {
