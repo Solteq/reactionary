@@ -6,6 +6,7 @@ import {
 import type { CommercetoolsConfiguration } from '@reactionary/provider-commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
+import { withMedusaCapabilities } from '@reactionary/provider-medusa';
 
 export function getAlgoliaTestConfiguration() {
   return {
@@ -63,22 +64,46 @@ export enum PrimaryProvider {
 export function createClient(provider: PrimaryProvider) {
   const context = createInitialRequestContext();
   let builder = new ClientBuilder(context)
-    .withCache(new NoOpCache())
-    .withCapability(
-      withCommercetoolsCapabilities(getCommercetoolsTestConfiguration(), {
-        cart: true,
-        product: true,
-        category: true,
-        checkout: true,
-        identity: true,
-        inventory: true,
-        order: true,
-        price: true,
-        productSearch: true,
-        store: true,
-        profile: true,
-      })
-    );
+    .withCache(new NoOpCache());
+
+    if (provider === PrimaryProvider.MEDUSA) {
+      builder = builder.withCapability(
+        withMedusaCapabilities( getMedusaTestConfiguration(), {
+          cart: true,
+          product: true,
+          category: true,
+          checkout: true,
+          identity: true,
+          inventory: true,
+          order: true,
+          price: true,
+          productSearch: true,
+          store: true,
+          profile: true
+        })
+      );
+    }
+
+
+
+    if (provider === PrimaryProvider.COMMERCETOOLS) {
+      builder = builder.withCapability(
+        withCommercetoolsCapabilities(getCommercetoolsTestConfiguration(), {
+          cart: true,
+          product: true,
+          category: true,
+          checkout: true,
+          identity: true,
+          inventory: true,
+          order: true,
+          price: true,
+          productSearch: true,
+          store: true,
+          profile: true,
+        })
+      );
+    }
+
 
   if (provider === PrimaryProvider.ALGOLIA) {
     builder = builder.withCapability(
