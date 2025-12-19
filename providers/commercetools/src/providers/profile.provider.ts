@@ -51,7 +51,6 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
     return client.withProjectKey({ projectKey: this.config.projectKey });
   }
 
-
   public override async getById(payload: ProfileQuerySelf): Promise<Result<Profile, NotFoundError>> {
     const client = await this.getClient();
 
@@ -416,7 +415,7 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
 
 
     // if we only have the phone number on the billing address, we dont really have a billing address, so we ignore it
-    if (defaultCTBillingAddress && !defaultCTBillingAddress.firstName && !defaultCTBillingAddress.lastName && !defaultCTBillingAddress.streetName && !defaultCTBillingAddress.streetNumber && !defaultCTBillingAddress.city) {
+    if (this.isIncompleteAddress(defaultCTBillingAddress)) {
       defaultCTBillingAddress = undefined;
     }
 
@@ -458,4 +457,22 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
     };
   }
 
+
+   /**
+   * Checks if an address only contains phone information and lacks essential address fields.
+   * An address is considered incomplete if it exists but has no firstName, lastName, streetName,
+   * streetNumber, or city.
+   * @param address - The address to check, or undefined
+   * @returns true if the address exists but lacks essential fields, false otherwise (including when address is undefined)
+   */
+  protected isIncompleteAddress(address: CTAddress | undefined): boolean {
+    if (!address) {
+      return false;
+    }
+    return !address.firstName &&
+           !address.lastName &&
+           !address.streetName &&
+           !address.streetNumber &&
+           !address.city;
+  }
 }

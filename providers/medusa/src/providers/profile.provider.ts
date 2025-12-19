@@ -1,3 +1,5 @@
+import type {
+  InvalidInputError} from '@reactionary/core';
 import {
   type Profile,
   type ProfileMutationAddShippingAddress,
@@ -21,9 +23,9 @@ import {
   ProfileMutationMakeShippingAddressDefaultSchema,
   ProfileMutationSetBillingAddressSchema,
   success,
-  failure,
   type Address,
   ProfileQueryByIdSchema,
+  error
 } from '@reactionary/core';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type { MedusaClient } from '../core/client.js';
@@ -69,9 +71,9 @@ export class MedusaProfileProvider extends ProfileProvider {
     const customerResponse = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
 
     if (!customerResponse.customer) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Profile not found',
+      return error<NotFoundError>({
+        identifier: payload.identifier,
+        type: 'NotFound',
       });
     }
 
@@ -90,9 +92,9 @@ export class MedusaProfileProvider extends ProfileProvider {
 
     const customerResponse = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
     if (!customerResponse.customer) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Profile not found',
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.identifier,
       });
     }
 
@@ -120,24 +122,28 @@ export class MedusaProfileProvider extends ProfileProvider {
     // check if any address with the same nickName exists
     const customer = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
     if (!customer.customer) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Customer not found',
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.identifier,
       });
     }
     const existingAddress = customer.customer.addresses.find(addr => addr.address_name === payload.address.identifier.nickName);
     if (existingAddress) {
-      return failure({
+      return error<InvalidInputError>({
         type: 'InvalidInput',
-        message: 'Address with the same nickname already exists',
+        error: {
+          message: 'Address with the same nickname already exists',
+        }
       });
     }
 
     const response = await client.store.customer.createAddress(medusaAddress, { fields: this.includedFields.join(',') });
     if (!response.customer) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Failed to add shipping address',
+      return error<InvalidInputError>({
+        type: 'InvalidInput',
+        error: {
+          message: 'Failed to add shipping address',
+        }
       });
     }
 
@@ -156,9 +162,9 @@ export class MedusaProfileProvider extends ProfileProvider {
 
     const customer = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
     if (!customer.customer) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Customer not found',
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.identifier  ,
       });
     }
 
@@ -166,18 +172,20 @@ export class MedusaProfileProvider extends ProfileProvider {
 
     const existingAddress = customer.customer.addresses.find(addr => addr.address_name === payload.address.identifier.nickName);
     if (!existingAddress) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Address to update not found',
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.address.identifier
       });
     }
 
     const response = await client.store.customer.updateAddress(existingAddress.id, medusaAddress , { fields: this.includedFields.join(',') });
     if (!response.customer) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Failed to add shipping address',
-      });
+      return error<InvalidInputError>({
+        type: 'InvalidInput',
+        error: {
+          message: 'Failed to add shipping address',
+        }
+      })
     }
 
     const model = this.parseSingle(response.customer);
@@ -198,24 +206,26 @@ export class MedusaProfileProvider extends ProfileProvider {
 
     const customer = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
     if (!customer.customer) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Customer not found',
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.identifier,
       });
     }
     const existingAddress = customer.customer.addresses.find(addr => addr.address_name === payload.addressIdentifier.nickName);
     if (!existingAddress) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Address to update not found',
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.addressIdentifier,
       });
     }
 
     const response = await client.store.customer.deleteAddress(existingAddress.id,{ fields: this.includedFields.join(',') });
     if (!response.deleted) {
-      return failure({
+      return error<InvalidInputError>({
         type: 'InvalidInput',
-        message: 'Failed to delete shipping address',
+        error: {
+          message: 'Failed to delete shipping address',
+        }
       });
     }
 
@@ -237,17 +247,17 @@ export class MedusaProfileProvider extends ProfileProvider {
 
     const customer = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
     if (!customer.customer) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Customer not found',
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.identifier,
       });
     }
     const existingAddress = customer.customer.addresses.find(addr => addr.address_name === payload.addressIdentifier.nickName);
 
     if (!existingAddress) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Address to update not found',
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.addressIdentifier ,
       });
     }
 
@@ -272,9 +282,9 @@ export class MedusaProfileProvider extends ProfileProvider {
 
     const customerResponse = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
     if (!customerResponse.customer) {
-      return failure({
-        type: 'NotFoundError',
-        message: 'Customer not found',
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.identifier,
       });
     }
     let customer = customerResponse.customer;
@@ -282,9 +292,11 @@ export class MedusaProfileProvider extends ProfileProvider {
     // check that this nickname is not used by another address
     const existingAddressWithNickname = customer.addresses.find(addr => addr.address_name === payload.address.identifier.nickName);
     if (existingAddressWithNickname && !existingAddressWithNickname.is_default_billing) {
-      return failure({
+      return error<InvalidInputError>({
         type: 'InvalidInput',
-        message: 'Another address with the same nickname already exists',
+        error: {
+          message: 'Another address with the same nickname already exists',
+        }
       });
     }
 
@@ -376,5 +388,7 @@ export class MedusaProfileProvider extends ProfileProvider {
       updatedAt: new Date(customer.updated_at || '').toISOString()
     } satisfies Profile;
   }
+
+
 
 }
