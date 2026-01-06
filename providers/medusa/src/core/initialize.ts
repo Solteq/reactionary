@@ -1,28 +1,22 @@
 import type {
   Cache,
-  CartProvider,
-  CategoryProvider,
-  CheckoutProvider,
   ClientFromCapabilities,
-  IdentityProvider,
-  InventoryProvider,
-  PriceProvider,
-  ProductProvider,
-  ProductSearchProvider,
-  RequestContext,
+  RequestContext
 } from "@reactionary/core";
 import { MedusaCartProvider } from "../providers/cart.provider.js";
-import { MedusaIdentityProvider } from "../providers/identity.provider.js";
-import { MedusaInventoryProvider } from "../providers/inventory.provider.js";
-import { MedusaPriceProvider } from "../providers/price.provider.js";
-import { MedusaCapabilitiesSchema, type MedusaCapabilities } from "../schema/capabilities.schema.js";
-import { MedusaConfigurationSchema, type MedusaConfiguration } from "../schema/configuration.schema.js";
-import { MedusaSearchProvider } from "../providers/product-search.provider.js";
-import { MedusaProductProvider } from "../providers/product.provider.js";
-import { MedusaClient } from "./client.js";
 import { MedusaCategoryProvider } from "../providers/category.provider.js";
 import { MedusaCheckoutProvider } from "../providers/checkout.provider.js";
+import { MedusaIdentityProvider } from "../providers/identity.provider.js";
+import { MedusaInventoryProvider } from "../providers/inventory.provider.js";
+import { MedusaOrderSearchProvider } from "../providers/order-search.provider.js";
+import { MedusaOrderProvider } from "../providers/order.provider.js";
+import { MedusaPriceProvider } from "../providers/price.provider.js";
+import { MedusaSearchProvider } from "../providers/product-search.provider.js";
+import { MedusaProductProvider } from "../providers/product.provider.js";
 import { MedusaProfileProvider } from "../providers/profile.provider.js";
+import { MedusaCapabilitiesSchema, type MedusaCapabilities } from "../schema/capabilities.schema.js";
+import { MedusaConfigurationSchema, type MedusaConfiguration } from "../schema/configuration.schema.js";
+import { MedusaClient } from "./client.js";
 
 export function withMedusaCapabilities<T extends MedusaCapabilities>(
     configuration: MedusaConfiguration,
@@ -69,6 +63,14 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
         }
         if (caps.profile) {
             client.profile = new MedusaProfileProvider(configuration, cache, context, medusaClient);
+        }
+
+        if (caps.order) {
+            client.order = new MedusaOrderProvider(configuration, cache, context, medusaClient);
+        }
+
+        if(caps.orderSearch) {
+            client.orderSearch = new MedusaOrderSearchProvider(configuration, cache, context, medusaClient);
         }
 
         return client;

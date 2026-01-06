@@ -8,6 +8,8 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     category: true,
     product: true,
     price: true,
+    order: true,
+    orderSearch: true,
     inventory: true,
     identity: true,
     profile: true

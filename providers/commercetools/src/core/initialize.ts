@@ -17,6 +17,7 @@ import { CommercetoolsCategoryProvider } from '../providers/category.provider.js
 import {
   CommercetoolsCheckoutProvider,
   CommercetoolsOrderProvider,
+  CommercetoolsOrderSearchProvider,
   CommercetoolsProfileProvider,
   CommercetoolsStoreProvider,
 } from '../providers/index.js';
@@ -123,6 +124,14 @@ export function withCommercetoolsCapabilities<
 
     if (caps.order) {
         client.store = new CommercetoolsOrderProvider(
+        config,
+        cache,
+        context,
+        commercetoolsClient
+      );
+    }
+    if (caps.orderSearch) {
+        client.orderSearch = new CommercetoolsOrderSearchProvider(
         config,
         cache,
         context,

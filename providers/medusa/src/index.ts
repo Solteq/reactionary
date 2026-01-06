@@ -6,6 +6,8 @@ export * from './core/client.js';
 export * from './providers/cart.provider.js';
 export * from './providers/identity.provider.js';
 export * from './providers/inventory.provider.js';
+export * from './providers/order.provider.js';
+export * from './providers/order-search.provider.js';
 export * from './providers/price.provider.js';
 export * from './providers/product-search.provider.js';
 export * from './providers/profile.provider.js';

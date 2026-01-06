@@ -1,4 +1,4 @@
-import type { StoreCart } from '@medusajs/types';
+import type { StoreCart, StoreOrder } from '@medusajs/types';
 import type { CostBreakDown, Currency } from '@reactionary/core';
 import createDebug from 'debug';
 
@@ -7,7 +7,7 @@ const debug = createDebug('reactionary:medusa:helpers');
 /**
  * Parses cost breakdown from Medusa StoreCart
  */
-export function parseMedusaCostBreakdown(remote: StoreCart): CostBreakDown {
+export function parseMedusaCostBreakdown(remote: StoreCart | StoreOrder): CostBreakDown {
   const grandTotal = remote.total || 0;
   const shippingTotal = remote.shipping_total || 0;
   const taxTotal = remote.tax_total || 0;

@@ -10,6 +10,7 @@ export const CapabilitiesSchema = z.looseObject({
     cart: z.boolean(),
     checkout: z.boolean(),
     order: z.boolean(),
+    orderSearch: z.boolean(),
     inventory: z.boolean(),
     price: z.boolean(),
     category: z.boolean(),

@@ -17,3 +17,4 @@ export * from './order.model.js';
 export * from './cost.model.js';
 export * from './checkout.model.js';
 export * from './payment.model.js';
+export * from './order-search.model.js'

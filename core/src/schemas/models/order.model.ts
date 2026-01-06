@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
+import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, OrderIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
 import { BaseModelSchema } from './base.model.js';
 import { AddressSchema } from './profile.model.js';
 import { ShippingMethodSchema } from './shipping-method.model.js';
@@ -20,7 +20,7 @@ export const OrderItemSchema = z.looseObject({
 });
 
 export const OrderSchema = BaseModelSchema.extend({
-    identifier: CartIdentifierSchema,
+    identifier: OrderIdentifierSchema,
     userId: IdentityIdentifierSchema,
     items: z.array(OrderItemSchema),
     price: CostBreakDownSchema,
