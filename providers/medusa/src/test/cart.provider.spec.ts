@@ -1,7 +1,7 @@
 
 import { NoOpCache, createInitialRequestContext, unwrapValue, type Cart, type CartMutationItemAdd, type RequestContext } from '@reactionary/core';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
-import { MedusaClient } from '../core/client.js';
+import { MedusaAPI } from '../core/client.js';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 
@@ -18,7 +18,7 @@ describe('Medusa Cart Provider', () => {
 
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
-    const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
+    const client = new MedusaAPI(getMedusaTestConfiguration(), reqCtx);
     provider = new MedusaCartProvider(getMedusaTestConfiguration(), new NoOpCache(), reqCtx, client);
   });
 
@@ -31,7 +31,7 @@ describe('Medusa Cart Provider', () => {
       if (cart.success) {
         assert.fail();
       }
-      
+
       expect(cart.error.type).toBe('NotFound');
     });
 

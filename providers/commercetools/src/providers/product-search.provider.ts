@@ -44,29 +44,29 @@ import {
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 
 import createDebug from 'debug';
-import type { CommercetoolsClient } from '../core/client.js';
+import type { CommercetoolsAPI } from '../core/client.js';
 import { CommercetoolsCategoryLookupSchema,  CommercetoolsResolveCategoryQueryByIdSchema, CommercetoolsResolveCategoryQueryByKeySchema, type CommercetoolsCategoryLookup, type CommercetoolsResolveCategoryQueryById, type CommercetoolsResolveCategoryQueryByKey } from '../schema/commercetools.schema.js';
 
 const debug = createDebug('reactionary:commercetools:search');
 
 export class CommercetoolsSearchProvider extends ProductSearchProvider {
   protected config: CommercetoolsConfiguration;
-  protected client: CommercetoolsClient;
+  protected commercetools: CommercetoolsAPI;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    client: CommercetoolsClient
+    commercetools: CommercetoolsAPI
   ) {
     super(cache, context);
 
     this.config = config;
-    this.client = client;
+    this.commercetools = commercetools;
   }
 
   protected async getClient() {
-    const client = await this.client.getClient();
+    const client = await this.commercetools.getClient();
     return client
       .withProjectKey({ projectKey: this.config.projectKey })
       .products();
@@ -98,7 +98,7 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
   }
 
   protected async resolveCategoryFromId(payload: CommercetoolsResolveCategoryQueryById): Promise<CommercetoolsCategoryLookup> {
-    const client = (await this.client.getClient()).withProjectKey({ projectKey: this.config.projectKey });
+    const client = (await this.commercetools.getClient()).withProjectKey({ projectKey: this.config.projectKey });
 
     const response = await client.categories().withId({ ID: payload.id }).get().execute();
     if (!response.body || !response.body.name) {
@@ -125,7 +125,7 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
     outputSchema: CommercetoolsCategoryLookupSchema,
   })
   protected async resolveCategoryFromKey(payload: CommercetoolsResolveCategoryQueryByKey): Promise<CommercetoolsCategoryLookup> {
-    const client = (await this.client.getClient()).withProjectKey({ projectKey: this.config.projectKey });
+    const client = (await this.commercetools.getClient()).withProjectKey({ projectKey: this.config.projectKey });
 
     const response = await client.categories().withKey({ key: payload.key }).get().execute();
     if (!response.body || !response.body.name) {

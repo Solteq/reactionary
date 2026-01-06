@@ -16,7 +16,7 @@ import { MedusaProductProvider } from "../providers/product.provider.js";
 import { MedusaProfileProvider } from "../providers/profile.provider.js";
 import { MedusaCapabilitiesSchema, type MedusaCapabilities } from "../schema/capabilities.schema.js";
 import { MedusaConfigurationSchema, type MedusaConfiguration } from "../schema/configuration.schema.js";
-import { MedusaClient } from "./client.js";
+import { MedusaAPI } from "./client.js";
 
 export function withMedusaCapabilities<T extends MedusaCapabilities>(
     configuration: MedusaConfiguration,
@@ -27,50 +27,50 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
         const config = MedusaConfigurationSchema.parse(configuration);
         const caps = MedusaCapabilitiesSchema.parse(capabilities);
 
-        const medusaClient = new MedusaClient(config, context);
+        const medusaApi = new MedusaAPI(config, context);
 
 
         if (caps.productSearch) {
-            client.productSearch = new MedusaSearchProvider(configuration, cache, context, medusaClient);
+            client.productSearch = new MedusaSearchProvider(configuration, cache, context, medusaApi);
         }
 
         if (caps.category) {
-            client.category = new MedusaCategoryProvider(configuration, cache, context, medusaClient);
+            client.category = new MedusaCategoryProvider(configuration, cache, context, medusaApi);
         }
 
         if (caps.checkout) {
-            client.checkout = new MedusaCheckoutProvider(configuration, cache, context, medusaClient);
+            client.checkout = new MedusaCheckoutProvider(configuration, cache, context, medusaApi);
         }
 
         if (caps.product) {
-            client.product = new MedusaProductProvider(configuration, cache, context, medusaClient);
+            client.product = new MedusaProductProvider(configuration, cache, context, medusaApi);
         }
 
         if (caps.cart) {
-            client.cart = new MedusaCartProvider(configuration, cache, context, medusaClient);
+            client.cart = new MedusaCartProvider(configuration, cache, context, medusaApi);
         }
 
         if (caps.price) {
-            client.price = new MedusaPriceProvider(configuration, cache, context, medusaClient);
+            client.price = new MedusaPriceProvider(configuration, cache, context, medusaApi);
         }
 
         if (caps.inventory) {
-            client.inventory = new MedusaInventoryProvider(configuration, cache, context, medusaClient);
+            client.inventory = new MedusaInventoryProvider(configuration, cache, context, medusaApi);
         }
 
         if (caps.identity) {
-            client.identity = new MedusaIdentityProvider(configuration, cache, context, medusaClient);
+            client.identity = new MedusaIdentityProvider(configuration, cache, context, medusaApi);
         }
         if (caps.profile) {
-            client.profile = new MedusaProfileProvider(configuration, cache, context, medusaClient);
+            client.profile = new MedusaProfileProvider(configuration, cache, context, medusaApi);
         }
 
         if (caps.order) {
-            client.order = new MedusaOrderProvider(configuration, cache, context, medusaClient);
+            client.order = new MedusaOrderProvider(configuration, cache, context, medusaApi);
         }
 
         if(caps.orderSearch) {
-            client.orderSearch = new MedusaOrderSearchProvider(configuration, cache, context, medusaClient);
+            client.orderSearch = new MedusaOrderSearchProvider(configuration, cache, context, medusaApi);
         }
 
         return client;

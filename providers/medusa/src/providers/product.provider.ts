@@ -12,7 +12,7 @@ import {
   error,
 } from '@reactionary/core';
 import createDebug from 'debug';
-import type { MedusaClient } from '../core/client.js';
+import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 import type { StoreProduct, StoreProductImage, StoreProductVariant } from '@medusajs/types';
@@ -22,7 +22,7 @@ const debug = createDebug('reactionary:medusa:product');
 export class MedusaProductProvider extends ProductProvider {
   protected config: MedusaConfiguration;
 
-  constructor(config: MedusaConfiguration, cache: Cache, context: RequestContext, public client: MedusaClient) {
+  constructor(config: MedusaConfiguration, cache: Cache, context: RequestContext, public medusaApi: MedusaAPI) {
   super(cache, context);
    this.config = config;
   }
@@ -32,7 +32,7 @@ export class MedusaProductProvider extends ProductProvider {
     outputSchema: ProductSchema,
   })
   public override async getById(payload: ProductQueryById): Promise<Result<Product>> {
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
     if (debug.enabled) {
       debug(`Fetching product by ID: ${payload.identifier.key}`);
     }
@@ -56,7 +56,7 @@ export class MedusaProductProvider extends ProductProvider {
     outputSchema: ProductSchema.nullable(),
   })
   public override async getBySlug(payload: ProductQueryBySlug): Promise<Result<Product, NotFoundError>> {
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
     if (debug.enabled) {
       debug(`Fetching product by slug: ${payload.slug}`);
     }
@@ -91,7 +91,7 @@ export class MedusaProductProvider extends ProductProvider {
       debug(`Fetching product by SKU: ${Array.isArray(payload) ? payload.join(', ') : payload}`);
     }
     const sku = payload.variant.sku;
-    const product = await this.client.resolveProductForSKU(sku);
+    const product = await this.medusaApi.resolveProductForSKU(sku);
 
     const variant = product.variants?.find((v) => v.sku === sku);
     if (!variant) {

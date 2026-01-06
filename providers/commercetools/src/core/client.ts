@@ -18,7 +18,7 @@ import createDebug from 'debug';
 import { RequestContextTokenCache } from './token-cache.js';
 const debug = createDebug('reactionary:commercetools');
 
-export class CommercetoolsClient {
+export class CommercetoolsAPI {
   protected config: CommercetoolsConfiguration;
   protected context: RequestContext;
   protected cache: RequestContextTokenCache;

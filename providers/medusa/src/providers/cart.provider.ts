@@ -38,7 +38,7 @@ import {
 } from '@reactionary/core';
 
 import createDebug from 'debug';
-import type { MedusaClient } from '../core/client.js';
+import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type { MedusaCartIdentifier } from '../schema/medusa.schema.js';
 import { MedusaCartIdentifierSchema } from '../schema/medusa.schema.js';
@@ -66,7 +66,7 @@ export class MedusaCartProvider extends CartProvider {
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public client: MedusaClient
+    public medusaApi: MedusaAPI
   ) {
     super(cache, context);
     this.config = config;
@@ -144,7 +144,7 @@ export class MedusaCartProvider extends CartProvider {
       // the SKU identifier is supposed to be a globally understood identifier,
 
       // but medusa only accepts variant IDs , so we have to resolve it somehow...
-      const variantId = await this.client.resolveVariantId(payload.variant.sku);
+      const variantId = await this.medusaApi.resolveVariantId(payload.variant.sku);
 
       const response = await client.store.cart.createLineItem(
         medusaId.key,
@@ -248,7 +248,7 @@ export class MedusaCartProvider extends CartProvider {
   > {
     try {
       const client = await this.getClient();
-      const sessionData = this.client.getSessionData();
+      const sessionData = this.medusaApi.getSessionData();
       // Check if customer has an active cart in session storage or create new one
       const activeCartId = sessionData.activeCartId;
 
@@ -258,7 +258,7 @@ export class MedusaCartProvider extends CartProvider {
           return success(
             MedusaCartIdentifierSchema.parse({
               key: activeCartId,
-              region_id: (await this.client.getActiveRegion()).id,
+              region_id: (await this.medusaApi.getActiveRegion()).id,
             })
           );
         } catch {
@@ -293,10 +293,10 @@ export class MedusaCartProvider extends CartProvider {
       const medusaId = payload.cart as MedusaCartIdentifier;
 
       if (medusaId.key) {
-        const sessionData = this.client.getSessionData();
+        const sessionData = this.medusaApi.getSessionData();
         if (sessionData.activeCartId) {
           delete sessionData.activeCartId;
-          this.client.setSessionData({
+          this.medusaApi.setSessionData({
             activeCartId: undefined,
           });
         }
@@ -411,7 +411,7 @@ export class MedusaCartProvider extends CartProvider {
       client.store.cart.update(
         payload.cart.key,
         {
-          region_id: (await this.client.getActiveRegion()).id,
+          region_id: (await this.medusaApi.getActiveRegion()).id,
         },
         {
           fields: this.includedFields,
@@ -428,7 +428,7 @@ export class MedusaCartProvider extends CartProvider {
 
       if (newCartResponse.cart) {
         // Update session to use new cart
-        this.client.setSessionData({
+        this.medusaApi.setSessionData({
           activeCartId: newCartResponse.cart.id,
         });
 
@@ -465,7 +465,7 @@ export class MedusaCartProvider extends CartProvider {
         });
 
         // Store cart ID in session
-        this.client.setSessionData({
+        this.medusaApi.setSessionData({
           activeCartId: cartIdentifier.key,
         });
 
@@ -479,7 +479,7 @@ export class MedusaCartProvider extends CartProvider {
   }
 
   protected async getClient() {
-    return this.client.getClient();
+    return this.medusaApi.getClient();
   }
 
   /**

@@ -11,7 +11,7 @@ import { assert, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
 import { MedusaSearchProvider } from '../providers/product-search.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
-import { MedusaClient } from '../core/client.js';
+import { MedusaAPI } from '../core/client.js';
 
 /**
 const testData = {
@@ -27,7 +27,7 @@ describe('Medusa Cart Provider - Large Scenarios', () => {
 
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
-    const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
+    const client = new MedusaAPI(getMedusaTestConfiguration(), reqCtx);
     provider = new MedusaCartProvider(
       getMedusaTestConfiguration(),
       new NoOpCache(),

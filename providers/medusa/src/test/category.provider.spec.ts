@@ -8,7 +8,7 @@ import {
 import { MedusaCategoryProvider } from '../providers/category.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
-import { MedusaClient } from '../core/client.js';
+import { MedusaAPI } from '../core/client.js';
 
 const testData = {
   topCategories: [
@@ -40,7 +40,7 @@ describe('Medusa Category Provider', () => {
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
     const config = getMedusaTestConfiguration();
-    const client = new MedusaClient(config, reqCtx);
+    const client = new MedusaAPI(config, reqCtx);
 
     provider = new MedusaCategoryProvider(
       config,
@@ -161,7 +161,7 @@ describe('Medusa Category Provider', () => {
 
   it('returns NotFound if looking for slug that does not exist', async () => {
     const result = await provider.getBySlug({ slug: 'non-existent-slug' });
-    
+
     if (result.success) {
       assert.fail();
     }
@@ -221,7 +221,7 @@ describe('Medusa Category Provider', () => {
     const result = await provider.getById({
       id: { key: 'non-existent-category' },
     });
-    
+
     if (result.success) {
       assert.fail();
     }

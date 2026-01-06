@@ -3,7 +3,7 @@ import { createInitialRequestContext, NoOpCache, ProductSearchQueryByTermSchema,
 import { assert, describe, expect, it } from 'vitest';
 import { MedusaSearchProvider } from '../providers/product-search.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
-import { MedusaClient } from '../index.js';
+import { MedusaAPI } from '../index.js';
 import { MedusaCategoryProvider } from '../providers/category.provider.js';
 
 const testData = {
@@ -11,7 +11,7 @@ const testData = {
 }
 describe('Medusa Search Provider', () => {
   const reqCtx = createInitialRequestContext();
-  const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
+  const client = new MedusaAPI(getMedusaTestConfiguration(), reqCtx);
   const provider = new MedusaSearchProvider(
     getMedusaTestConfiguration(),
     new NoOpCache(),

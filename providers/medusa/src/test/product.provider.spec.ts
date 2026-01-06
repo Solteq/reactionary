@@ -8,7 +8,7 @@ import {
 import { MedusaProductProvider } from '../providers/product.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
-import { MedusaClient } from '../index.js';
+import { MedusaAPI } from '../index.js';
 
 const testData = {
   product: {
@@ -28,7 +28,7 @@ describe('Medusa Product Provider', () => {
 
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
-    const client = new MedusaClient(getMedusaTestConfiguration(), reqCtx);
+    const client = new MedusaAPI(getMedusaTestConfiguration(), reqCtx);
     provider = new MedusaProductProvider(
       getMedusaTestConfiguration(),
       new NoOpCache(),
@@ -124,7 +124,7 @@ describe('Medusa Product Provider', () => {
 
   it('should contain both product level and variant level attributes', async () => {
     const result = await provider.getBySlug({ slug: testData.product.slug });
-    
+
     if (!result.success) {
       assert.fail();
     }

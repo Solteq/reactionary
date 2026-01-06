@@ -50,7 +50,7 @@ import {
 } from '@reactionary/core';
 import createDebug from 'debug';
 import z from 'zod';
-import type { MedusaClient } from '../core/client.js';
+import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import { handleProviderError,  parseMedusaCostBreakdown, parseMedusaItemPrice } from '../utils/medusa-helpers.js';
 import {
@@ -91,7 +91,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public client: MedusaClient
+    public medusaApi: MedusaAPI
   ) {
     super(cache, context);
     this.config = config;
@@ -104,7 +104,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   public override async initiateCheckoutForCart(
     payload: CheckoutMutationInitiateCheckout
   ): Promise<Result<Checkout>> {
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
     // we should eventually copy the cart.... but for now we just continue with the existing one.
     if (debug.enabled) {
       debug(
@@ -141,7 +141,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   public override async getById(
     payload: CheckoutQueryById
   ): Promise<Result<Checkout, NotFoundError>> {
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
     const response = await client.store.cart.retrieve(payload.identifier.key, {
       fields: this.includedFields,
     });
@@ -155,7 +155,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   public override async setShippingAddress(
     payload: CheckoutMutationSetShippingAddress
   ): Promise<Result<Checkout>> {
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
 
     const response = await client.store.cart.update(
       payload.checkout.key,
@@ -178,7 +178,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   public override async getAvailableShippingMethods(
     payload: CheckoutQueryForAvailableShippingMethods
   ): Promise<Result<ShippingMethod[]>> {
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
 
     if (debug.enabled) {
       debug(
@@ -225,7 +225,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   public override async getAvailablePaymentMethods(
     payload: CheckoutQueryForAvailablePaymentMethods
   ): Promise<Result<PaymentMethod[]>> {
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
 
     if (debug.enabled) {
       debug(
@@ -236,7 +236,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     const paymentMethodResponse =
       await client.store.payment.listPaymentProviders({
         region_id:
-          checkout.cart.region_id || (await this.client.getActiveRegion()).id,
+          checkout.cart.region_id || (await this.medusaApi.getActiveRegion()).id,
       });
 
     const paymentMethods: PaymentMethod[] = [];
@@ -274,7 +274,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   public override async addPaymentInstruction(
     payload: CheckoutMutationAddPaymentInstruction
   ): Promise<Result<Checkout>> {
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
 
     if (debug.enabled) {
       debug(
@@ -330,7 +330,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   public override async setShippingInstruction(
     payload: CheckoutMutationSetShippingInstruction
   ): Promise<Result<Checkout>> {
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
     const medusaId = payload.checkout as MedusaCartIdentifier;
     try {
       // Set shipping method
@@ -381,7 +381,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       throw new CheckoutNotReadyForFinalizationError(payload.checkout);
     }
 
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
     const medusaId = payload.checkout as CheckoutIdentifier;
 
     // Complete the cart to create an order

@@ -8,7 +8,7 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import { getMedusaTestConfiguration } from './test-utils.js';
-import { MedusaClient } from '../core/client.js';
+import { MedusaAPI } from '../core/client.js';
 
 const testData = {
   skuWithoutTiers: '8712581327934',
@@ -23,7 +23,7 @@ describe('Medusa Price Provider', () => {
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
     const config = getMedusaTestConfiguration();
-    const client = new MedusaClient(config, reqCtx);
+    const client = new MedusaAPI(config, reqCtx);
 
     provider = new MedusaPriceProvider(config, new NoOpCache(), reqCtx, client);
   });
