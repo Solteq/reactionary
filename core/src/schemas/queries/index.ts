@@ -11,3 +11,4 @@ export * from './product-search.query.js';
 export * from './store.query.js';
 export * from './order.query.js';
 export * from './checkout.query.js';
+export * from './order-search.query.js'

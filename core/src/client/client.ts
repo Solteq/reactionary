@@ -8,6 +8,7 @@ import type { InventoryProvider } from "../providers/inventory.provider.js";
 import type { Cache } from "../cache/cache.interface.js";
 import type { CategoryProvider } from "../providers/category.provider.js";
 import type { CheckoutProvider, OrderProvider, ProfileProvider, StoreProvider } from "../providers/index.js";
+import type { OrderSearchProvider } from "../providers/order-search.provider.js";
 
 export interface Client {
     product: ProductProvider,
@@ -23,5 +24,6 @@ export interface Client {
     profile: ProfileProvider,
     store: StoreProvider,
     order: OrderProvider,
+    orderSearch: OrderSearchProvider,
 }
 
