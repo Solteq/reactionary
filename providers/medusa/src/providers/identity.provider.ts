@@ -20,25 +20,25 @@ import {
 } from '@reactionary/core';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type z from 'zod';
-import type { MedusaClient } from '../core/client.js';
+import type { MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';
 
 const debug = createDebug('reactionary:medusa:identity');
 
 export class MedusaIdentityProvider extends IdentityProvider {
   protected config: MedusaConfiguration;
-  protected client: MedusaClient;
+  protected medusaApi: MedusaAPI;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    client: MedusaClient
+    medusaApi: MedusaAPI
   ) {
     super(cache, context);
 
     this.config = config;
-    this.client = client;
+    this.medusaApi = medusaApi;
   }
 
   protected createAnonymousIdentity(): AnonymousIdentity {
@@ -55,7 +55,7 @@ export class MedusaIdentityProvider extends IdentityProvider {
     _payload: IdentityQuerySelf
   ): Promise<Result<Identity>> {
     try {
-      const medusaClient = await this.client.getClient();
+      const medusaClient = await this.medusaApi.getClient();
       const token = await medusaClient.client.getToken();
 
       if (!token) {
@@ -89,7 +89,7 @@ export class MedusaIdentityProvider extends IdentityProvider {
   })
   public override async login(payload: IdentityMutationLogin): Promise<Result<Identity>> {
     debug('Attempting login for user:', payload.username);
-    const identity = await this.client.login(
+    const identity = await this.medusaApi.login(
       payload.username,
       payload.password,
       this.context
@@ -104,7 +104,7 @@ export class MedusaIdentityProvider extends IdentityProvider {
   })
   public override async logout(_payload: IdentityMutationLogout): Promise<Result<Identity>> {
     debug('Logging out user');
-    const identity = await this.client.logout(this.context);
+    const identity = await this.medusaApi.logout(this.context);
 
     return success(identity);
   }
@@ -124,7 +124,7 @@ export class MedusaIdentityProvider extends IdentityProvider {
     const firstName = nameParts[0] || 'User';
     const lastName = nameParts.slice(1).join(' ') || 'Account';
 
-    const identity = await this.client.register(
+    const identity = await this.medusaApi.register(
       payload.username, // Using username as email
       payload.password,
       firstName,

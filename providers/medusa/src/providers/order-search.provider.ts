@@ -23,7 +23,7 @@ import {
   success,
 } from '@reactionary/core';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import type { MedusaClient } from '../core/client.js';
+import type { MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';
 import type { OrderStatus as MedusaOrderStatus, StoreOrder, StoreOrderAddress,  StoreOrderListResponse } from '@medusajs/types';
 
@@ -31,18 +31,17 @@ const debug = createDebug('reactionary:medusa:order-search');
 
 export class MedusaOrderSearchProvider extends OrderSearchProvider {
   protected config: MedusaConfiguration;
-  protected client: MedusaClient;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    client: MedusaClient
+    public medusaApi: MedusaAPI
   ) {
     super(cache, context);
 
     this.config = config;
-    this.client = client;
+
   }
 
   @Reactionary({
@@ -52,7 +51,7 @@ export class MedusaOrderSearchProvider extends OrderSearchProvider {
   public async queryByTerm(payload: OrderSearchQueryByTerm): Promise<Result<OrderSearchResult>> {
     debug('queryByTerm', payload);
 
-    const medusa = await this.client.getClient();
+    const medusa = await this.medusaApi.getClient();
 
     if (payload.search.term) {
       debug('Searching orders by term is not supported in Medusa');

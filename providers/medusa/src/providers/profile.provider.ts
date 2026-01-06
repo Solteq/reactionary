@@ -28,7 +28,7 @@ import {
   error
 } from '@reactionary/core';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import type { MedusaClient } from '../core/client.js';
+import type { MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';
 import type { StoreCreateCustomerAddress, StoreCustomer, StoreCustomerAddress } from '@medusajs/types';
 
@@ -45,19 +45,17 @@ const debug = createDebug('reactionary:medusa:profile');
  */
 export class MedusaProfileProvider extends ProfileProvider {
   protected config: MedusaConfiguration;
-  protected client: MedusaClient;
   protected includedFields = ['+metadata.*'];
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    client: MedusaClient
+    public medusaApi: MedusaAPI
   ) {
     super(cache, context);
 
     this.config = config;
-    this.client = client;
   }
 
   @Reactionary({
@@ -67,7 +65,7 @@ export class MedusaProfileProvider extends ProfileProvider {
   public async getById(payload: ProfileQueryById): Promise<Result<Profile, NotFoundError>> {
     debug('getById', payload);
 
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
     const customerResponse = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
 
     if (!customerResponse.customer) {
@@ -88,7 +86,7 @@ export class MedusaProfileProvider extends ProfileProvider {
   public async update(payload: ProfileMutationUpdate): Promise<Result<Profile, NotFoundError>> {
     debug('update', payload);
 
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
 
     const customerResponse = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
     if (!customerResponse.customer) {
@@ -115,7 +113,7 @@ export class MedusaProfileProvider extends ProfileProvider {
   public async addShippingAddress(payload: ProfileMutationAddShippingAddress): Promise<Result<Profile, NotFoundError>> {
     debug('addShippingAddress', payload);
 
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
 
     const medusaAddress = this.createMedusaAddress(payload.address);
 
@@ -158,7 +156,7 @@ export class MedusaProfileProvider extends ProfileProvider {
   public async updateShippingAddress(payload: ProfileMutationUpdateShippingAddress): Promise<Result<Profile, NotFoundError>> {
     debug('updateShippingAddress', payload);
 
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
 
     const customer = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
     if (!customer.customer) {
@@ -202,7 +200,7 @@ export class MedusaProfileProvider extends ProfileProvider {
   })
   public async removeShippingAddress(payload: ProfileMutationRemoveShippingAddress): Promise<Result<Profile, NotFoundError>> {
     debug('removeShippingAddress', payload);
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
 
     const customer = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
     if (!customer.customer) {
@@ -243,7 +241,7 @@ export class MedusaProfileProvider extends ProfileProvider {
   public async makeShippingAddressDefault(payload: ProfileMutationMakeShippingAddressDefault): Promise<Result<Profile, NotFoundError>> {
     debug('makeShippingAddressDefault', payload);
 
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
 
     const customer = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
     if (!customer.customer) {
@@ -278,7 +276,7 @@ export class MedusaProfileProvider extends ProfileProvider {
     debug('setBillingAddress', payload);
 
 
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
 
     const customerResponse = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
     if (!customerResponse.customer) {

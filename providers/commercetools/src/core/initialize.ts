@@ -21,7 +21,7 @@ import {
   CommercetoolsProfileProvider,
   CommercetoolsStoreProvider,
 } from '../providers/index.js';
-import { CommercetoolsClient } from './client.js';
+import { CommercetoolsAPI } from './client.js';
 
 export function withCommercetoolsCapabilities<
   T extends CommercetoolsCapabilities
@@ -30,14 +30,14 @@ export function withCommercetoolsCapabilities<
     const client: any = {};
     const config = CommercetoolsConfigurationSchema.parse(configuration);
     const caps = CommercetoolsCapabilitiesSchema.parse(capabilities);
-    const commercetoolsClient = new CommercetoolsClient(config, context);
+    const commercetoolsApi = new CommercetoolsAPI(config, context);
 
     if (caps.product) {
       client.product = new CommercetoolsProductProvider(
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
 
@@ -46,7 +46,7 @@ export function withCommercetoolsCapabilities<
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
 
@@ -55,7 +55,7 @@ export function withCommercetoolsCapabilities<
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
 
@@ -64,7 +64,7 @@ export function withCommercetoolsCapabilities<
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
 
@@ -73,7 +73,7 @@ export function withCommercetoolsCapabilities<
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
 
@@ -82,7 +82,7 @@ export function withCommercetoolsCapabilities<
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
 
@@ -91,7 +91,7 @@ export function withCommercetoolsCapabilities<
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
 
@@ -100,7 +100,7 @@ export function withCommercetoolsCapabilities<
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
 
@@ -109,7 +109,7 @@ export function withCommercetoolsCapabilities<
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
 
@@ -118,7 +118,7 @@ export function withCommercetoolsCapabilities<
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
 
@@ -127,7 +127,7 @@ export function withCommercetoolsCapabilities<
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
     if (caps.orderSearch) {
@@ -135,7 +135,7 @@ export function withCommercetoolsCapabilities<
         config,
         cache,
         context,
-        commercetoolsClient
+        commercetoolsApi
       );
     }
 

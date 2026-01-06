@@ -28,26 +28,26 @@ import type z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { Cache } from '@reactionary/core';
 import type { Customer, MyCustomerUpdateAction, Address as CTAddress } from '@commercetools/platform-sdk';
-import type { CommercetoolsClient } from '../core/client.js';
+import type { CommercetoolsAPI } from '../core/client.js';
 
 export class CommercetoolsProfileProvider extends ProfileProvider {
   protected config: CommercetoolsConfiguration;
-  protected client: CommercetoolsClient;
+  protected commercetools: CommercetoolsAPI;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    client: CommercetoolsClient
+    commercetools: CommercetoolsAPI
   ) {
     super(cache, context);
 
     this.config = config;
-    this.client = client;
+    this.commercetools = commercetools;
   }
 
   protected async getClient() {
-    const client = await this.client.getClient();
+    const client = await this.commercetools.getClient();
     return client.withProjectKey({ projectKey: this.config.projectKey });
   }
 

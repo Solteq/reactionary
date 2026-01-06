@@ -28,7 +28,7 @@ import {
   ProductVariantIdentifierSchema,
 } from '@reactionary/core';
 import createDebug from 'debug';
-import type { MedusaClient } from '../core/client.js';
+import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import { handleProviderError } from '../utils/medusa-helpers.js';
 import type { StoreOrder, StoreOrderLineItem, StorePaymentCollection } from '@medusajs/types';
@@ -37,18 +37,16 @@ const debug = createDebug('reactionary:medusa:order');
 
 export class MedusaOrderProvider extends OrderProvider {
   protected config: MedusaConfiguration;
-  protected client: MedusaClient;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    client: MedusaClient
+    public medusaApi: MedusaAPI
   ) {
     super(cache, context);
 
     this.config = config;
-    this.client = client;
   }
 
   @Reactionary({
@@ -58,7 +56,7 @@ export class MedusaOrderProvider extends OrderProvider {
   public async getById(payload: OrderQueryById): Promise<Result<Order, NotFoundError>> {
     debug('getById', payload);
 
-    const medusa = await this.client.getClient();
+    const medusa = await this.medusaApi.getClient();
 
     try {
       // TODO: Implement actual order retrieval logic

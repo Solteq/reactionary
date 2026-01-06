@@ -18,7 +18,7 @@ import {
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type z from 'zod';
-import type { MedusaClient } from '../core/client.js';
+import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 const debug = createDebug('reactionary:medusa:price');
@@ -30,7 +30,7 @@ export class MedusaPriceProvider extends PriceProvider {
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public client: MedusaClient
+    public medusaApi: MedusaAPI
   ) {
     super(cache, context);
     this.config = config;
@@ -65,13 +65,13 @@ export class MedusaPriceProvider extends PriceProvider {
     }
 
     try {
-      const productForSKU = await this.client.resolveProductForSKU(payload.variant.sku);
+      const productForSKU = await this.medusaApi.resolveProductForSKU(payload.variant.sku);
 
-      const client = await this.client.getClient();
+      const client = await this.medusaApi.getClient();
       const product = (
         await client.store.product.retrieve(
           productForSKU.id || '',
-          { region_id: (await this.client.getActiveRegion()).id }
+          { region_id: (await this.medusaApi.getActiveRegion()).id }
         )
       ).product;
 

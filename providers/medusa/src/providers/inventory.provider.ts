@@ -15,7 +15,7 @@ import {
 } from '@reactionary/core';
 import type z from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import { MedusaAdminClient, type MedusaClient } from '../core/client.js';
+import { MedusaAdminAPI, type MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';
 
 const debug = createDebug('reactionary:medusa:inventory');
@@ -27,7 +27,7 @@ export class MedusaInventoryProvider extends InventoryProvider {
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public client: MedusaClient
+    public medusaApi: MedusaAPI
   ) {
     super(cache, context);
     this.config = config;
@@ -46,7 +46,7 @@ export class MedusaInventoryProvider extends InventoryProvider {
     }
 
     try {
-      const adminClient = await (new MedusaAdminClient(this.config, this.context).getClient());
+      const adminClient = await (new MedusaAdminAPI(this.config, this.context).getClient());
 
       // Get inventory items for this variant
       const inventoryResponse = await adminClient.admin.inventoryItem.list({

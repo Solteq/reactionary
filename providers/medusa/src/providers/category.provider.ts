@@ -26,7 +26,7 @@ import {
   type RequestContext,
   CategoryPaginatedResultSchema,
 } from '@reactionary/core';
-import type { MedusaClient, MedusaConfiguration } from '../index.js';
+import type { MedusaAPI, MedusaConfiguration } from '../index.js';
 import z from 'zod';
 
 export class MedusaCategoryProvider extends CategoryProvider {
@@ -36,7 +36,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public client: MedusaClient
+    public medusaApi: MedusaAPI
   ) {
     super(cache, context);
     this.config = config;
@@ -45,7 +45,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
   protected async resolveCategoryIdByExternalId(
     externalId: string
   ): Promise<StoreProductCategory | null> {
-    const sdk = await this.client.getClient();
+    const sdk = await this.medusaApi.getClient();
     let offset = 0;
     const limit = 50;
     let candidate: StoreProductCategory | undefined = undefined;
@@ -99,7 +99,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
   public override async getBySlug(
     payload: CategoryQueryBySlug
   ): Promise<Result<Category, NotFoundError>> {
-    const sdk = await this.client.getClient();
+    const sdk = await this.medusaApi.getClient();
 
     const categoryResult = await sdk.store.category.list({
       handle: payload.slug,
@@ -129,7 +129,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
       throw new Error('Category not found ' + payload.id.key);
     }
 
-    const sdk = await this.client.getClient();
+    const sdk = await this.medusaApi.getClient();
     const path = await sdk.store.category.retrieve(actualCategoryId.id, {
       fields: '+metadata,+parent_category.metadata',
       include_ancestors_tree: true,
@@ -152,7 +152,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
   public override async findChildCategories(
     payload: CategoryQueryForChildCategories
   ) {
-    const sdk = await this.client.getClient();
+    const sdk = await this.medusaApi.getClient();
 
     const actualParentId = await this.resolveCategoryIdByExternalId(
       payload.parentId.key
@@ -181,7 +181,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
   public override async findTopCategories(
     payload: CategoryQueryForTopCategories
   ) {
-    const sdk = await this.client.getClient();
+    const sdk = await this.medusaApi.getClient();
 
     const response = await sdk.store.category.list({
       fields: '+metadata',

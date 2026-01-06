@@ -44,22 +44,22 @@ import type {
 } from '@commercetools/platform-sdk';
 import type { CommercetoolsCartIdentifier } from '../schema/commercetools.schema.js';
 import { CommercetoolsCartIdentifierSchema } from '../schema/commercetools.schema.js';
-import type { CommercetoolsClient } from '../core/client.js';
+import type { CommercetoolsAPI } from '../core/client.js';
 
 export class CommercetoolsCartProvider extends CartProvider {
   protected config: CommercetoolsConfiguration;
-  protected client: CommercetoolsClient;
+  protected commercetools: CommercetoolsAPI;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    client: CommercetoolsClient
+    commercetools: CommercetoolsAPI
   ) {
     super(cache, context);
 
     this.config = config;
-    this.client = client;
+    this.commercetools = commercetools;
   }
 
   @Reactionary({
@@ -362,7 +362,7 @@ export class CommercetoolsCartProvider extends CartProvider {
    * In the future, maybe we can delay this upgrade until we actually need it.
    */
   protected async getClient() {
-    const client = await this.client.getClient();
+    const client = await this.commercetools.getClient();
 
     const clientWithProject = client.withProjectKey({
       projectKey: this.config.projectKey,

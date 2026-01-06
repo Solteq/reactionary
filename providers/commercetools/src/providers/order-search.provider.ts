@@ -20,7 +20,7 @@ import {
   success,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { CommercetoolsClient } from '../core/client.js';
+import type { CommercetoolsAPI } from '../core/client.js';
 import createDebug from 'debug';
 import type { Order as CTOrder, OrderPagedSearchResponse , Address as CTAddress, OrderPagedQueryResponse} from '@commercetools/platform-sdk';
 
@@ -28,22 +28,22 @@ const debug = createDebug('reactionary:commercetools:order-search');
 
 export class CommercetoolsOrderSearchProvider extends OrderSearchProvider {
   protected config: CommercetoolsConfiguration;
-  protected client: CommercetoolsClient;
+  protected commercetools: CommercetoolsAPI;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    client: CommercetoolsClient
+    commercetools: CommercetoolsAPI
   ) {
     super(cache, context);
 
     this.config = config;
-    this.client = client;
+    this.commercetools = commercetools;
   }
 
   protected async getClient() {
-    const client = await this.client.getClient();
+    const client = await this.commercetools.getClient();
     return client
       .withProjectKey({ projectKey: this.config.projectKey })
       .me()

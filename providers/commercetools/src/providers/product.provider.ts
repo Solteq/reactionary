@@ -37,27 +37,27 @@ import type {
   Result,
 } from '@reactionary/core';
 import type { Cache, Image } from '@reactionary/core';
-import type { CommercetoolsClient } from '../core/client.js';
+import type { CommercetoolsAPI } from '../core/client.js';
 import type { NotFoundError } from '@reactionary/core';
 
 export class CommercetoolsProductProvider extends ProductProvider {
   protected config: CommercetoolsConfiguration;
-  protected client: CommercetoolsClient;
+  protected commercetools: CommercetoolsAPI;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    client: CommercetoolsClient
+    commercetools: CommercetoolsAPI
   ) {
     super(cache, context);
 
     this.config = config;
-    this.client = client;
+    this.commercetools = commercetools;
   }
 
   protected async getClient() {
-    const client = await this.client.getClient();
+    const client = await this.commercetools.getClient();
     return client
       .withProjectKey({ projectKey: this.config.projectKey })
       .productProjections();

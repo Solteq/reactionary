@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, assert } from 'vitest';
 import { MedusaIdentityProvider } from '../providers/identity.provider.js';
 import { IdentitySchema, NoOpCache, createInitialRequestContext, type RequestContext } from '@reactionary/core';
 import { getMedusaTestConfiguration } from './test-utils.js';
-import { MedusaClient } from '../core/client.js';
+import { MedusaAPI } from '../core/client.js';
 
 const testData = {
   testEmail: 'test@example.com',
@@ -18,7 +18,7 @@ describe('Medusa Identity Provider', () => {
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
     const config = getMedusaTestConfiguration();
-    const client = new MedusaClient(config, reqCtx);
+    const client = new MedusaAPI(config, reqCtx);
 
     provider = new MedusaIdentityProvider(config, new NoOpCache(), reqCtx, client);
   });

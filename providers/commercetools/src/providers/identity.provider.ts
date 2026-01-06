@@ -16,22 +16,22 @@ import {
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type z from 'zod';
-import type { CommercetoolsClient } from '../core/client.js';
+import type { CommercetoolsAPI } from '../core/client.js';
 
 export class CommercetoolsIdentityProvider extends IdentityProvider {
   protected config: CommercetoolsConfiguration;
-  protected client: CommercetoolsClient;
+  protected commercetools: CommercetoolsAPI;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    client: CommercetoolsClient
+    commercetools: CommercetoolsAPI
   ) {
     super(cache, context);
 
     this.config = config;
-    this.client = client;
+    this.commercetools = commercetools;
   }
 
   @Reactionary({
@@ -39,7 +39,7 @@ export class CommercetoolsIdentityProvider extends IdentityProvider {
     outputSchema: IdentitySchema,
   })
   public override async getSelf(payload: IdentityQuerySelf): Promise<Result<Identity>> {
-    const identity = await this.client.introspect();
+    const identity = await this.commercetools.introspect();
 
     return success(identity);
   }
@@ -49,7 +49,7 @@ export class CommercetoolsIdentityProvider extends IdentityProvider {
     outputSchema: IdentitySchema,
   })
   public override async login(payload: IdentityMutationLogin): Promise<Result<Identity>> {
-    const identity = await this.client.login(
+    const identity = await this.commercetools.login(
       payload.username,
       payload.password
     );
@@ -61,7 +61,7 @@ export class CommercetoolsIdentityProvider extends IdentityProvider {
     outputSchema: IdentitySchema,
   })
   public override async logout(payload: Record<string, never>): Promise<Result<Identity>> {
-    const identity = await this.client.logout();
+    const identity = await this.commercetools.logout();
 
     return success(identity);
   }
@@ -73,7 +73,7 @@ export class CommercetoolsIdentityProvider extends IdentityProvider {
   public override async register(
     payload: IdentityMutationRegister
   ): Promise<Result<Identity>> {
-    const identity = await this.client.register(
+    const identity = await this.commercetools.register(
       payload.username,
       payload.password
     );

@@ -95,7 +95,7 @@ class Medusa {
   }
 }
 
-export class MedusaAdminClient {
+export class MedusaAdminAPI {
   protected config: MedusaConfiguration;
   protected client: Medusa;
   protected context: RequestContext;
@@ -121,7 +121,7 @@ export class MedusaAdminClient {
   }
 }
 
-export class MedusaClient {
+export class MedusaAPI {
   protected config: MedusaConfiguration;
   protected client: Promise<Medusa> | undefined;
   protected context: RequestContext;
@@ -172,7 +172,7 @@ export class MedusaClient {
   }
 
   public async resolveProductForSKU(sku: string): Promise<StoreProduct> {
-    const adminClient = await new MedusaAdminClient(
+    const adminClient = await new MedusaAdminAPI(
       this.config,
       this.context
     ).getClient();

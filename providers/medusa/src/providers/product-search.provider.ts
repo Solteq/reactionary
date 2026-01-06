@@ -30,7 +30,7 @@ import {
 import createDebug from 'debug';
 import type z from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import type { MedusaClient } from '../core/client.js';
+import type { MedusaAPI } from '../core/client.js';
 import type {
   StoreProduct,
   StoreProductCategory,
@@ -47,7 +47,7 @@ export class MedusaSearchProvider extends ProductSearchProvider {
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public client: MedusaClient
+    public medusaApi: MedusaAPI
   ) {
     super(cache, context);
     this.config = config;
@@ -56,7 +56,7 @@ export class MedusaSearchProvider extends ProductSearchProvider {
   protected async resolveCategoryIdByExternalId(
     externalId: string
   ): Promise<StoreProductCategory | null> {
-    const sdk = await this.client.getClient();
+    const sdk = await this.medusaApi.getClient();
     let offset = 0;
     const limit = 50;
     let candidate: StoreProductCategory | undefined = undefined;
@@ -95,7 +95,7 @@ export class MedusaSearchProvider extends ProductSearchProvider {
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<Result<ProductSearchResult>> {
-    const client = await this.client.getClient();
+    const client = await this.medusaApi.getClient();
 
     let categoryIdToFind: string | null = null;
     if (payload.search.categoryFilter?.key) {
