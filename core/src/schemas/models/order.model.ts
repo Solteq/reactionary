@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, OrderIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
+import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, OrderIdentifierSchema, OrderInventoryStatusSchema, OrderItemIdentifierSchema, OrderStatusSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
 import { BaseModelSchema } from './base.model.js';
 import { AddressSchema } from './profile.model.js';
 import { ShippingMethodSchema } from './shipping-method.model.js';
@@ -7,12 +7,10 @@ import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
 import { PaymentInstructionSchema } from './payment.model.js';
 import type { InferType } from '../../zod-utils.js';
 
-export const OrderStatusSchema = z.enum(['AwaitingPayment', 'ReleasedToFulfillment', 'Shipped', 'Cancelled']).describe('The current status of the order.');
-export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', 'Backordered', 'Preordered']).describe('The inventory release status of the order.');
 
 
 export const OrderItemSchema = z.looseObject({
-    identifier: CartItemIdentifierSchema,
+    identifier: OrderItemIdentifierSchema,
     variant: ProductVariantIdentifierSchema,
     quantity: z.number(),
     price: ItemCostBreakdownSchema,
