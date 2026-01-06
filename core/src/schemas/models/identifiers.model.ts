@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { PaginationOptionsSchema } from './base.model.js';
 import type { InferType } from '../../zod-utils.js';
-import { OrderStatusSchema } from './order.model.js';
+export const OrderStatusSchema = z.enum(['AwaitingPayment', 'ReleasedToFulfillment', 'Shipped', 'Cancelled']).describe('The current status of the order.');
+export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', 'Backordered', 'Preordered']).describe('The inventory release status of the order.');
 
 export const FacetIdentifierSchema = z.looseObject({
   key: z.string(),

@@ -1,7 +1,6 @@
 import z from "zod";
 import { BaseModelSchema, createPaginatedResponseSchema } from "./base.model.js";
-import { IdentityIdentifierSchema, OrderIdentifierSchema, OrderSearchIdentifierSchema } from "./identifiers.model.js";
-import { OrderInventoryStatusSchema, OrderStatusSchema } from "./order.model.js";
+import { IdentityIdentifierSchema, OrderIdentifierSchema, OrderInventoryStatusSchema, OrderSearchIdentifierSchema, OrderStatusSchema } from "./identifiers.model.js";
 import type { InferType } from "../../zod-utils.js";
 import { MonetaryAmountSchema } from "./price.model.js";
 import { AddressSchema } from "./profile.model.js";
