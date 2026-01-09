@@ -123,7 +123,7 @@ export function withCommercetoolsCapabilities<
     }
 
     if (caps.order) {
-        client.store = new CommercetoolsOrderProvider(
+        client.order = new CommercetoolsOrderProvider(
         config,
         cache,
         context,
