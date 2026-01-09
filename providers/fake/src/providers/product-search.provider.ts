@@ -42,20 +42,6 @@ export class FakeSearchProvider extends ProductSearchProvider {
     this.config = config;
   }
 
-  public override async createCategoryNavigationFilter(
-    payload: ProductSearchQueryCreateNavigationFilter
-  ): Promise<Result<FacetValueIdentifier>> {
-    const facetIdentifier = {
-      key: 'category',
-    } satisfies FacetIdentifier;
-    const facetValueIdentifier = {
-      facet: facetIdentifier,
-      key: payload.categoryPath[payload.categoryPath.length - 1].identifier.key,
-    } satisfies FacetValueIdentifier;
-
-    return success(facetValueIdentifier);
-  }
-
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
     outputSchema: ProductSearchResultSchema,
@@ -182,6 +168,20 @@ export class FakeSearchProvider extends ProductSearchProvider {
     } satisfies ProductSearchResult);
 
     return success(result);
+  }
+
+  public override async createCategoryNavigationFilter(
+    payload: ProductSearchQueryCreateNavigationFilter
+  ): Promise<Result<FacetValueIdentifier>> {
+    const facetIdentifier = {
+      key: 'category',
+    } satisfies FacetIdentifier;
+    const facetValueIdentifier = {
+      facet: facetIdentifier,
+      key: payload.categoryPath[payload.categoryPath.length - 1].identifier.key,
+    } satisfies FacetValueIdentifier;
+
+    return success(facetValueIdentifier);
   }
 
   protected override parseFacetValue(
