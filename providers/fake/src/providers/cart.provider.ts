@@ -31,7 +31,6 @@ import {
   success,
   unwrapValue,
 } from '@reactionary/core';
-import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { Faker, en, base } from '@faker-js/faker';
 
