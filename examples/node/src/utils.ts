@@ -48,8 +48,16 @@ export function getCommercetoolsTestConfiguration() {
         },
         isPunchOut: false,
         description: 'Stripe payment gateway',
-
       },
+      {
+        identifier: {
+          method: 'paylater',
+          name: 'Pay Later',
+          paymentProcessor: 'paylater'
+        },
+        description: 'Payment that is handled at a later point',
+        isPunchOut: false
+      }
     ],
     facetFieldsForSearch: (process.env['CTP_FACET_FIELDS_FOR_SEARCH'] || '').split(',') || ['category.id' ]
   } satisfies CommercetoolsConfiguration;

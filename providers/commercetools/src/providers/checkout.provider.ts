@@ -721,6 +721,15 @@ export class CommercetoolsCheckoutProvider extends CheckoutProvider {
     // and it should be paid for
     if (paymentInstructions.length === 0) return false;
 
+    // TODO: consider whether this should happen server-side. 
+    // technically it might make sense to say that PayLater isn't marked as authorized, since authorization is external
+    // but alternatively the CT project should immediately mark it as authorized internally in a hook
+    const payLater = paymentInstructions.filter((pi) => pi.paymentMethod.method === 'paylater');
+
+    if (payLater.length > 0) {
+      return true;
+    }
+
     const authorizedPayments = paymentInstructions
       .filter((pi) => pi.status === 'authorized')
       .map((x) => x.amount.value)
