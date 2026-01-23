@@ -1,0 +1,13 @@
+{
+  "name": "@reactionary/provider-meilisearch",
+  "version": "0.0.1",
+  "main": "index.js",
+  "types": "src/index.d.ts",
+  "dependencies": {
+    "@reactionary/core": "0.0.1",
+    "meilisearch": "0.55.0",
+    "zod": "4.1.9"
+  },
+  "type": "module",
+  "sideEffects": false
+}

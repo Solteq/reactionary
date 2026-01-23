@@ -7,6 +7,7 @@ import type { CommercetoolsConfiguration } from '@reactionary/provider-commercet
 import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 import { withMedusaCapabilities } from '@reactionary/provider-medusa';
+import { withMeilisearchCapabilities } from '@reactionary/provider-meilisearch';
 
 export function getAlgoliaTestConfiguration() {
   return {
@@ -15,6 +16,16 @@ export function getAlgoliaTestConfiguration() {
     indexName: process.env['ALGOLIA_INDEX'] || '',
   };
 }
+
+export function getMeilisearchTestConfiguration() {
+  return {
+    apiKey: process.env['MEILISEARCH_API_KEY'] || '',
+    apiUrl: process.env['MEILISEARCH_API_URL'] || '',
+    indexName: process.env['MEILISEARCH_INDEX'] || '',
+    useAIEmbedding: process.env['MEILISEARCH_USE_AI_EMBEDDING'] || undefined,
+  };
+}
+
 
 export function getMedusaTestConfiguration() {
   return {
@@ -59,6 +70,7 @@ export enum PrimaryProvider {
   ALGOLIA = 'Algolia',
   COMMERCETOOLS = 'Commercetools',
   MEDUSA = 'Medusa',
+  MEILISEARCH = 'Meilisearch'
 }
 
 export function createClient(provider: PrimaryProvider) {
@@ -108,6 +120,14 @@ export function createClient(provider: PrimaryProvider) {
   if (provider === PrimaryProvider.ALGOLIA) {
     builder = builder.withCapability(
       withAlgoliaCapabilities(getAlgoliaTestConfiguration(), {
+        productSearch: true,
+      })
+    );
+  }
+
+  if (provider === PrimaryProvider.MEILISEARCH) {
+    builder = builder.withCapability(
+      withMeilisearchCapabilities(getMeilisearchTestConfiguration(), {
         productSearch: true,
       })
     );

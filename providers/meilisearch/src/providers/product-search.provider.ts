@@ -1,0 +1,247 @@
+import {
+  type Cache,
+  type FacetIdentifier,
+  FacetIdentifierSchema,
+  type FacetValueIdentifier,
+  FacetValueIdentifierSchema,
+  ImageSchema,
+  ProductSearchProvider,
+  type ProductSearchQueryByTerm,
+  ProductSearchQueryByTermSchema,
+  type ProductSearchQueryCreateNavigationFilter,
+  type ProductSearchResult,
+  type ProductSearchResultFacet,
+  ProductSearchResultFacetSchema,
+  type ProductSearchResultFacetValue,
+  ProductSearchResultFacetValueSchema,
+  type ProductSearchResultItem,
+  type ProductSearchResultItemVariant,
+  ProductSearchResultItemVariantSchema,
+  ProductSearchResultSchema,
+  Reactionary,
+  type RequestContext,
+  type Result,
+  success
+} from '@reactionary/core';
+import { MeiliSearch, type SearchParams, type SearchResponse } from 'meilisearch';
+import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
+import type { MeilisearchProductSearchResult } from '../schema/search.schema.js';
+
+interface MeilisearchNativeVariant {
+  sku: string;
+  image: string;
+}
+
+interface MeilisearchNativeRecord {
+  objectID: string;
+  slug?: string;
+  name?: string;
+  variants: Array<MeilisearchNativeVariant>;
+}
+
+
+export class MeilisearchSearchProvider extends ProductSearchProvider {
+  protected config: MeilisearchConfiguration;
+
+  constructor(config: MeilisearchConfiguration, cache: Cache, context: RequestContext) {
+    super(cache, context);
+    this.config = config;
+  }
+
+  @Reactionary({
+    inputSchema: ProductSearchQueryByTermSchema,
+    outputSchema: ProductSearchResultSchema
+  })
+  public override async queryByTerm(
+    payload: ProductSearchQueryByTerm
+  ): Promise<Result<ProductSearchResult>> {
+    const client = new MeiliSearch({
+      host: this.config.apiUrl,
+      apiKey: this.config.apiKey,
+    });
+
+    const index = client.index(this.config.indexName);
+
+    const facetsThatAreNotCategory = payload.search.facets.filter(x => x.facet.key !== 'categories');
+    const categoryFacet = payload.search.facets.find(x => x.facet.key === 'categories') || payload.search.categoryFilter;
+
+    const finalFilters: string[] = [...payload.search.filters || []];
+
+    const finalFacetFilters: string[] = [
+      ...facetsThatAreNotCategory.map(
+        (x) => `${x.facet.key}="${x.key}"`
+      ),
+    ];
+
+    if (categoryFacet) {
+      finalFilters.push(`categories = "${categoryFacet.key}"`);
+    }
+
+    // Combine all filters
+    let filterString: string | undefined;
+    if (finalFilters.length > 0 || finalFacetFilters.length > 0) {
+      const allFilters = [...finalFilters, ...finalFacetFilters];
+      filterString = allFilters.join(' AND ');
+    }
+
+    const searchOptions: SearchParams = {
+      offset: (payload.search.paginationOptions.pageNumber - 1) * payload.search.paginationOptions.pageSize,
+      limit: payload.search.paginationOptions.pageSize,
+      facets: ['*'],
+      filter: filterString,
+    };
+
+    if (this.config.useAIEmbedding) {
+      searchOptions.hybrid = {
+        embedder: this.config.useAIEmbedding
+      };
+    }
+
+    const remote = await index.search<MeilisearchNativeRecord>(payload.search.term, searchOptions);
+
+    const result = this.parsePaginatedResult(remote, payload) as MeilisearchProductSearchResult;
+
+    // mark selected facets as active
+    for (const selectedFacet of payload.search.facets) {
+      const facet = result.facets.find((f) => f.identifier.key === selectedFacet.facet.key);
+      if (facet) {
+        const value = facet.values.find((v) => v.identifier.key === selectedFacet.key);
+        if (value) {
+          value.active = true;
+        }
+      }
+    }
+
+    return success(result);
+  }
+
+  public override async createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<Result<FacetValueIdentifier>> {
+
+    const facetIdentifier = FacetIdentifierSchema.parse({
+      key: 'categories'
+    });
+    const facetValueIdentifier = FacetValueIdentifierSchema.parse({
+      facet: facetIdentifier,
+      key: payload.categoryPath.map(c => c.name).join(' > ')
+    });
+    return success(facetValueIdentifier);
+  }
+
+
+  protected parseSingle(body: MeilisearchNativeRecord) {
+    const product = {
+      identifier: { key: body.objectID },
+      name: body.name || body.objectID,
+      slug: body.slug || body.objectID,
+      variants: [...(body.variants || [])].map(variant => this.parseVariant(variant, body)),
+    } satisfies ProductSearchResultItem;
+
+    return product;
+  }
+
+  protected override parseVariant(variant: MeilisearchNativeVariant, product: MeilisearchNativeRecord): ProductSearchResultItemVariant {
+    const result = ProductSearchResultItemVariantSchema.parse({
+      variant: {
+        sku: variant.sku
+      },
+      image: ImageSchema.parse({
+        sourceUrl: variant.image,
+        altText: product.name || '',
+      })
+    } satisfies Partial<ProductSearchResultItemVariant>);
+
+    return result;
+  }
+
+  protected parsePaginatedResult(body: SearchResponse<MeilisearchNativeRecord>, query: ProductSearchQueryByTerm) {
+    const items = body.hits.map((hit) => this.parseSingle(hit));
+    let facets: ProductSearchResultFacet[] = [];
+
+    if (body.facetDistribution) {
+      for (const id in body.facetDistribution) {
+        const f = body.facetDistribution[id];
+        const facetId = FacetIdentifierSchema.parse({
+          key: id
+        });
+        const facet = this.parseFacet(facetId, f);
+        if (facet.values.length > 0) {
+        facets.push(facet);
+        }
+      }
+    }
+
+    // Handle category hierarchy similar to Algolia
+    const selectedCategoryFacet = query.search.facets.find(x => x.facet.key === 'categories') || query.search.categoryFilter;
+    let subCategoryFacet;
+    if (selectedCategoryFacet) {
+      const valueDepth = selectedCategoryFacet.key.split(' > ').length;
+      subCategoryFacet = facets.find(f => f.identifier.key === `hierarchy.lvl${valueDepth}`);
+    } else {
+      subCategoryFacet = facets.find(f => f.identifier.key === 'hierarchy.lvl0');
+    }
+
+    if (subCategoryFacet) {
+      // remap to 'categories' facet
+      subCategoryFacet.identifier = FacetIdentifierSchema.parse({
+        key: 'categories'
+      });
+      subCategoryFacet.name = 'Categories';
+      for (const v of subCategoryFacet.values) {
+        const pathParts = v.identifier.key.split(' > ');
+        v.identifier.facet = subCategoryFacet.identifier;
+        v.name = pathParts[pathParts.length - 1];
+      }
+    }
+
+    // remove other hierarchy facets
+    facets = facets.filter(f => !f.identifier.key.startsWith('hierarchy.lvl'));
+
+    const totalPages = Math.ceil((body.estimatedTotalHits || 0) / query.search.paginationOptions.pageSize);
+
+    const result = {
+      identifier: {
+        term: query.search.term,
+        facets: query.search.facets,
+        filters: query.search.filters,
+        paginationOptions: query.search.paginationOptions,
+      },
+      pageNumber: query.search.paginationOptions.pageNumber,
+      pageSize: query.search.paginationOptions.pageSize,
+      totalCount: body.estimatedTotalHits || 0,
+      totalPages: totalPages,
+      items: items,
+      facets,
+    } satisfies ProductSearchResult;
+
+    return result;
+  }
+
+  protected parseFacet(facetIdentifier: FacetIdentifier, facetValues: Record<string, number>): ProductSearchResultFacet {
+    const result: ProductSearchResultFacet = ProductSearchResultFacetSchema.parse({
+      identifier: facetIdentifier,
+      name: facetIdentifier.key.replace(/_/g, ' '),
+      values: []
+    });
+
+    for (const vid in facetValues) {
+      const fv = facetValues[vid];
+
+      const facetValueIdentifier = FacetValueIdentifierSchema.parse({
+        facet: facetIdentifier,
+        key: vid
+      } satisfies Partial<FacetValueIdentifier>);
+
+      result.values.push(this.parseFacetValue(facetValueIdentifier, vid, fv));
+    }
+    return result;
+  }
+
+  protected parseFacetValue(facetValueIdentifier: FacetValueIdentifier, label: string, count: number): ProductSearchResultFacetValue {
+    return ProductSearchResultFacetValueSchema.parse({
+      identifier: facetValueIdentifier,
+      name: label,
+      count: count,
+      active: false,
+    } satisfies Partial<ProductSearchResultFacetValue>);
+  }
+}

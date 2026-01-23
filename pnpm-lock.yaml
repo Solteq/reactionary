@@ -95,6 +95,9 @@ dependencies:
   ioredis:
     specifier: ^5.6.1
     version: 5.6.1
+  meilisearch:
+    specifier: ^0.55.0
+    version: 0.55.0
   next:
     specifier: ~15.2.6
     version: 15.2.6(@babel/core@7.28.4)(@opentelemetry/api@1.9.0)(@playwright/test@1.53.2)(react-dom@19.0.0)(react@19.0.0)(sass@1.62.1)
@@ -14078,6 +14081,10 @@ packages:
   /media-typer@1.1.0:
     resolution: {integrity: sha512-aisnrDP4GNe06UcKFnV5bfMNPBUw4jsLGaWwWfnH3v02GnBuXX2MCVn5RbrWo0j3pczUilYblq7fQ7Nw2t5XKw==}
     engines: {node: '>= 0.8'}
+
+  /meilisearch@0.55.0:
+    resolution: {integrity: sha512-qSMeiezfDgIqciIeYzh5E4pXDZZD7CtHeWDCs43kN3trLgl5FtfmBAIkljL3huFaOx08feYtC8FfIFUpVwq6rg==}
+    dev: false
 
   /memfs@3.5.3:
     resolution: {integrity: sha512-UERzLsxzllchadvbPs5aolHh65ISpKpM+ccLbOJ8/vvpBKmAWf+la7dXFy7Mr0ySHbdHrFv5kGFCUHHe6GFEmw==}
