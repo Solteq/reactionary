@@ -33,7 +33,7 @@ interface MeilisearchNativeVariant {
 }
 
 interface MeilisearchNativeRecord {
-  objectID: string;
+  id: string;
   slug?: string;
   name?: string;
   variants: Array<MeilisearchNativeVariant>;
@@ -130,9 +130,9 @@ export class MeilisearchSearchProvider extends ProductSearchProvider {
 
   protected parseSingle(body: MeilisearchNativeRecord) {
     const product = {
-      identifier: { key: body.objectID },
-      name: body.name || body.objectID,
-      slug: body.slug || body.objectID,
+      identifier: { key: body.id },
+      name: body.name || body.id,
+      slug: body.slug || body.id,
       variants: [...(body.variants || [])].map(variant => this.parseVariant(variant, body)),
     } satisfies ProductSearchResultItem;
 
