@@ -1,0 +1,34 @@
+{
+  "name": "provider-meilisearch",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "providers/meilisearch/src",
+  "projectType": "library",
+  "release": {
+    "version": {
+      "currentVersionResolver": "git-tag",
+      "fallbackCurrentVersionResolver": "disk",
+      "preserveLocalDependencyProtocols": false,
+      "manifestRootsToUpdate": ["dist/{projectRoot}"]
+    }
+  },
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/providers/meilisearch",
+        "main": "providers/meilisearch/src/index.ts",
+        "tsConfig": "providers/meilisearch/tsconfig.lib.json",
+        "assets": ["providers/meilisearch/*.md"],
+        "format": ["esm"],
+        "bundle": false
+      }
+    },
+    "nx-release-publish": {
+      "options": {
+        "packageRoot": "dist/{projectRoot}"
+      }
+    }
+  }
+}
