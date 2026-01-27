@@ -245,7 +245,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
           }
 
           expect(checkoutWithShipping.value.shippingAddress).toBeDefined();
-          expect(checkoutWithShipping.value.shippingAddress?.firstName).toBe('Jane');
+          expect(checkoutWithShipping.value.shippingAddress?.firstName).toBe(
+            'Jane'
+          );
         });
 
         it('can set shipping instructions', async () => {
@@ -289,12 +291,12 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
           expect(
             checkoutWithShipping.value.shippingInstruction?.shippingMethod.key
           ).toBe('us-delivery');
-          expect(checkoutWithShipping.value.shippingInstruction?.instructions).toBe(
-            'Leave at front door if not home'
-          );
-          expect(checkoutWithShipping.value.shippingInstruction?.pickupPoint).toBe(
-            '4190asx141'
-          );
+          expect(
+            checkoutWithShipping.value.shippingInstruction?.instructions
+          ).toBe('Leave at front door if not home');
+          expect(
+            checkoutWithShipping.value.shippingInstruction?.pickupPoint
+          ).toBe('4190asx141');
           expect(
             checkoutWithShipping.value.shippingInstruction
               ?.consentForUnattendedDelivery
@@ -306,7 +308,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
           const r = await client.checkout.getAvailablePaymentMethods({
             checkout: checkout.identifier,
           });
-          
+
           if (!r.success) {
             assert.fail();
           }
@@ -334,6 +336,107 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
             expect.fail('checkout not found');
           }
           expect(checkoutReady.value.readyForFinalization).toBe(true);
+        });
+
+        it.only('can finalize a checkout and get an order for PayLater', async () => {
+          expect(checkout.readyForFinalization).toBe(false);
+          const r = await client.checkout.getAvailablePaymentMethods({
+            checkout: checkout.identifier,
+          });
+
+          if (!r.success) {
+            assert.fail();
+          }
+
+          const pm = r.value.find((x) => x.identifier.method === 'paylater');
+
+          const checkoutWithPi = await client.checkout.addPaymentInstruction({
+            checkout: checkout.identifier,
+            paymentInstruction: {
+              paymentMethod: pm!.identifier,
+              amount: checkout.price.grandTotal,
+              protocolData: [{ key: 'test-key', value: 'test-value' }],
+            },
+          });
+
+          if (!checkoutWithPi.success) {
+            assert.fail();
+          }
+
+          const checkoutWithShipping = await client.checkout.setShippingAddress(
+            {
+              checkout: checkout.identifier,
+              shippingAddress: {
+                countryCode: 'US',
+                firstName: 'Jane',
+                lastName: 'Doe',
+                streetAddress: '456 Other St',
+                streetNumber: '2B',
+                postalCode: '54321',
+                city: 'Othertown',
+                region: '',
+              },
+            }
+          );
+
+          if (!checkoutWithShipping.success) {
+            assert.fail();
+          }
+
+          const shippingMethods =
+            await client.checkout.getAvailableShippingMethods({
+              checkout: checkout.identifier,
+            });
+
+          if (!shippingMethods.success) {
+            assert.fail();
+          }
+
+          expect(shippingMethods.value.length).toBeGreaterThan(0);
+
+          const checkoutWithShippingInstruction =
+            await client.checkout.setShippingInstruction({
+              checkout: checkout.identifier,
+              shippingInstruction: {
+                consentForUnattendedDelivery: true,
+                instructions: 'Just get it here!',
+                pickupPoint: '',
+                shippingMethod: shippingMethods.value[0].identifier,
+              },
+            });
+
+          if (!checkoutWithShippingInstruction.success) {
+            assert.fail();
+          }
+
+          const checkoutReady = await client.checkout.getById({
+            identifier: checkoutWithPi.value.identifier,
+          });
+          if (!checkoutReady.success) {
+            expect.fail('checkout not found');
+          }
+          expect(checkoutReady.value.readyForFinalization).toBe(true);
+
+          const finalizedCheckout = await client.checkout.finalizeCheckout({
+            checkout: checkoutReady.value.identifier,
+          });
+
+          if (!finalizedCheckout.success) {
+            assert.fail();
+          }
+
+          expect(finalizedCheckout.value.resultingOrder).toBeDefined();
+          expect(finalizedCheckout.value.resultingOrder?.key).toBeDefined();
+
+          const order = await client.order.getById({
+            order: finalizedCheckout.value.resultingOrder!,
+          });
+
+          if (!order.success) {
+            assert.fail();
+          }
+
+          expect(order.value.items.length).toBeGreaterThan(0);
         });
       });
     });
