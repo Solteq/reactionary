@@ -24,6 +24,25 @@ We will also prepare for open telemetry reporting to NewRelic (also offers free 
 
 
 
+## Errors as values
+We have decided to adopt the Errors-as-values paradigm seen in other server-side APIs, to encourage that all state returned, is inspected for error state, rather than simply allowing an unexpected thrown exception to alter the flow of things.
+
+This means generally, that calls follow this structure:
+
+```
+const cartResponse = await this.client.cart.getById({...});
+if (cartResponse.success) {
+  console.log('my cart is', cartResponse.value)
+}
+
+if (!cartResponse.success) {
+  console.log('Cart was not loadable due to ', cartResponse.error);
+}
+```
+
+This might seem verbose, over simply assuming the value is set when it gets back, but it encourages handling minor problems immediately, rather than starting out developing only the happy-path, and then promising yourself to circle back and deal with errors later.
+
+
 ## Bootstrapping the client
 
 You use the `ClientBuilder` from `@reactionary/core` to create a new client, and then specify which capabilties you need. Only the capabilties you mention will be prepared for you.
@@ -95,50 +114,73 @@ and, then ofc, you need to provide all those values, in, say, a `.env` file (tha
 ### Establishing state
 Before we can start calling vendors, we need to set up the context in which the requests will take place. This is information that is describing who the customer is,  what session data he has, some information about the current request, and so forth. All calls processed during the processing of one request from the frontend, share the same request data, so usually this can be established in some middleware function of your api-server.
 
+The expected lifecycle of a client created here, is for the duration of this single request. 
 
 ```ts
 // we have to create a request context with all the information the underlying layer might need. 
 // We are responsible for the session object, and persisting it between requests.
 // This would normally be in a middleware
-const requestContext = createInitialRequestContext();
 
-// set any locale settings from route or browser (or set it fixed,if there is only one language)
-requestContext.languageContext = LanguageContextSchema.parse({
-  locale: 'en-US',
-  currency: 'USD'
-});
+// getSession here is a utility function from the frontend framework (nextjs,react-router,whatever) that stores your
+// users session data between calls. 
+  const session = await getSession(
+    request.headers.get("Cookie")
+  );
 
-// re-establish session info from last call
+  // from this we create a requestContext
+  
+  const reqCtx = createInitialRequestContext();
 
-const mySession = getSessionDataFromServer();
+  // optionally, set any locale settings from route or browser (or set it fixed,if there is only one language). 
+  reqCtx.languageContext = LanguageContextSchema.parse({
+    locale: 'en-US',
+    currency: 'USD'
+  });
 
-if (!mySession.reactionarySessionData) {
-  mySession.reactionarySessionData = {};
-}
-if (!mySession.reactionaryIdentity) {
-  mySession.reactionaryIdentity =  IdentitySchema.parse({});
-}
+  reqCtx.session = JSON.parse(session.get('reactionarySession') || '{}');
 
-requestContext.identity =  mySession.reactionaryIdentity;
-requestContext.session =  mySession.reactionarySessionData;
+  // the reactionarySession object contains all the session data that reactionary controls.
+  // if it isn't there (new session? ) we create it
+  if (!session.has('reactionarySession')) {
+    session.set('reactionarySession', JSON.stringify({}));
+  }
+  
+  // we capture some information from the request, like some interesting headers and optional correlation ids sent from the frontend for
+  // traceability
+  reqCtx.clientIp = request.headers.get('X-Forwarded-For') || request.headers.get('Remote-Addr') || '';
+  reqCtx.userAgent = request.headers.get('User-Agent') || '';
+  reqCtx.isBot = /bot|crawler|spider|crawling/i.test(reqCtx.userAgent || '');
+  reqCtx.referrer = request.headers.get('Referer') || '';
+  reqCtx.correlationId = request.headers.get('X-Correlation-ID') || 'remix-' + Math.random().toString(36).substring(2, 15);
 
-
-
-// set request specific info
-requestContext.correlationId = 'my-frontend-' + GUID.newGuid();
-requestContext.clientIp = request.headers['REMOTE_CLIENT_IP'] || request.headers['X_REMOTE_CLIENT_IP'] || '';
-requestContext.userAgent = request.headers['USER_AGENT'] || 'none';
-requestContext.isBot = userAgent.match('/bot/gi');
-
-request.reactionaryRequestContext = requestContext;
+  // we now have all we need to set up a client, so we pass the request context to the client builder.
+  // inlined here for clarity. Usually you would put this in a utility function called something like createClient
+  const client = new ClientBuilder(reqCtx)
+    .withCapability(
+      withCommercetoolsCapabilities(getCommercetoolsConfig(), 
+      {
+        product: true,
+        cart: true,
+        order: true
+      }
+    )
+    .withCapability(
+      withAlgoliaCapabilities(getAlgoliaConfig(), {
+        productSearch: true
+      })
+    )
+    .withCache(new NoOpCache())
+    .build();
 ```
 
 Then in your page/component/context 
 
 ```ts
-const me = await client.identity.get(request.reactionaryRequestContext);
-if (me.type === 'REGISTERED_CUSTOMER') {
-  // do something only for registered customers...
+const meResponse = await client.identity.getSelf({});
+if (meResponse.success) {
+  if (meResponse.value.type === 'Registered') {
+    // do something only for registered customers...
+  }
 }
 ```
 
@@ -151,20 +193,29 @@ let cartId = mySession.activeCartId;
 
 // if not, lets see if the system might have it for us
 if (!cartId) {
-  cartId = await client.cart.getActiveCartId();
+  cartIdResponse = await client.cart.getActiveCartId();
+  if (cartIdResponse.success) {
+    cartId = cartIdResponse.value;
+  } else {
+    // we dont really care why it couldn't load.  We just reset to a safe value
+    cartId = '';
+  }
+  
 }
 
 // no? then lets just zero it out, and start over.
 if (!cartId) {
   cartId = '';
 }
-const cart = await client.cart.getById(cartId);
+const cartResponse = await client.cart.getById(cartId);
 
-// store it for future reference
-mySession.activeCartId = cart.identifier.key;
+let totalSum = 0;
+if (cartResponse.success) {
+  // store it for future reference
+  mySession.activeCartId = cartResponse.value.identifier.key;
+  totalSum = cartResponse.value.price.grandTotal.value;
+} 
 
-
-const totalSum = cart.price.grandTotal.value;
 ```
 
 

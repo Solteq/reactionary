@@ -21,10 +21,13 @@ If you want to allow navigating to a specific variant, you have to add your own 
 
 ```ts
 // assume route contains the current url..
-const product = await client.product.getBySlug({ slug: route.url }, reqCtx);
+const productResponse = await client.product.getBySlug({ slug: route.url }, reqCtx);
 
-// product.description
-// product.mainVariant.images[0].sourceUrl
+if (productResponse.success) {
+   const product = productResponse.value;
+   const desc = product.description
+   const mainImage = product.mainVariant.images[0].sourceUrl
+}
 
 ```
 
@@ -33,9 +36,11 @@ If you need to show some data for your cart items, or checkout items, you can us
 
 ```ts
 for(const item of cart.items) {
-  const product = await client.product.getBySKU({ variant: item.variant });
-  // product.mainVariant has the SKU of the item now..
-  // product.mainVariant.images[0].sourceUrl
+  const productResponse = await client.product.getBySKU({ variant: item.variant });
+  if (productResponse.success) {
+    const cartVariant = productResponse.value.mainVariant;
+    const cartVariantImage = productResponse.value.mainVariant.images[0].sourceUrl;
+  }
 }
 ```
 
@@ -43,12 +48,18 @@ for(const item of cart.items) {
 You use the `CategoryProvider#getBreadcrumbPathToCategory` to get the full navigational path from a products parent category to the root of the site.
 
 ```ts
-const breadcrumb = await client.category.getBreadcrumbPathToCategory({ id: product.parentCategories[0] });
+const breadcrumbResponse = await client.category.getBreadcrumbPathToCategory({ id: product.parentCategories[0] });
+if (breadcrumbResponse.success) {
+  const breadcrumb = breadcrumbResponse.value;
+}
 ```
 
 To render site menus, you can use this call
 ```ts
-const topCategories = await client.category.findTopCategories({ paginationOptions: { pageNumber: 1, pageSize: 15 }});
+const topCategoriesResponse = await client.category.findTopCategories({ paginationOptions: { pageNumber: 1, pageSize: 15 }});
+if (topCategoriesResponse.success) {
+  const topCategories = topCategoriesResponse.value;
+}
 ```
 
 Note, both for topCategories and childCategories you have to use pagination options. By design, we do not allow for unbounded calls. The maximum pageSize is 50, but the recommended pageSize is 20. 
@@ -80,7 +91,6 @@ It is *highly* recommended that you take the time to do this.
       if (_body.metaData['rx-product'] === 'true') {
         model.isPrescriptionProduct = true;
       }
-      return this.assert(model);
     }
   }
 ```

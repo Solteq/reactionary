@@ -1,7 +1,8 @@
 # Querying and Changing data
 
-All reactionary calls take an object-based parameter set, and the `RequestContext` in which the call is made.
-For getters, this object is called a Query, and for functions that change state, they are called Mutations. This is the chosen termnology.
+All reactionary calls take an object-based parameter set, and can access the  `RequestContext` from the client in which the call is made.
+
+For getters, this parameter object is called a Query, and for functions that change state, they are called Mutations. This is the chosen termnology.
 
 The naming convention states, that your query must be called
 `<Noun>Query<NameOfQuery>Schema`
@@ -24,7 +25,7 @@ export const CategoryQueryForChildCategoriesSchema = BaseQuerySchema.extend({
 });
 ```
 
-Likewise for changing data, you will see that the mutator object has a nameing convention of `<Noun>Mutation<Operation>Schema`, example
+Likewise for changing data, you will see that the mutator object has a naming convention of `<Noun>Mutation<Operation>Schema`, example
 
 ```ts
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
@@ -60,7 +61,7 @@ To ensure you also get compile time errors you can use the `satisfies` construct
 ie
 ```ts
 const clickedCategory = <the id of the category the user just clicked>
-const childCategories = client.category.findChildCategories({
+const childCategoriesResponse = await client.category.findChildCategories({
   parId: clickedCategory,
   paginationOptions: {
     pageNumber: 1,
