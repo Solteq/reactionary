@@ -50,7 +50,11 @@ export class MeilisearchSearchProvider extends ProductSearchProvider {
 
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
-    outputSchema: ProductSearchResultSchema
+    outputSchema: ProductSearchResultSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true
   })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm

@@ -30,6 +30,10 @@ export class MedusaProductProvider extends ProductProvider {
   @Reactionary({
     inputSchema: ProductQueryByIdSchema,
     outputSchema: ProductSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true
   })
   public override async getById(payload: ProductQueryById): Promise<Result<Product>> {
     const client = await this.medusaApi.getClient();
@@ -53,7 +57,11 @@ export class MedusaProductProvider extends ProductProvider {
 
   @Reactionary({
     inputSchema: ProductQueryBySlugSchema,
-    outputSchema: ProductSchema.nullable(),
+    outputSchema: ProductSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true
   })
   public override async getBySlug(payload: ProductQueryBySlug): Promise<Result<Product, NotFoundError>> {
     const client = await this.medusaApi.getClient();
@@ -85,6 +93,10 @@ export class MedusaProductProvider extends ProductProvider {
   @Reactionary({
     inputSchema: ProductQueryBySKUSchema,
     outputSchema: ProductSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true
   })
   public override async getBySKU(payload: ProductQueryBySKU): Promise<Result<Product>> {
     if (debug.enabled) {

@@ -45,7 +45,7 @@ import type { CommercetoolsConfiguration } from '../schema/configuration.schema.
 
 import createDebug from 'debug';
 import type { CommercetoolsAPI } from '../core/client.js';
-import { CommercetoolsCategoryLookupSchema,  CommercetoolsResolveCategoryQueryByIdSchema, CommercetoolsResolveCategoryQueryByKeySchema, type CommercetoolsCategoryLookup, type CommercetoolsResolveCategoryQueryById, type CommercetoolsResolveCategoryQueryByKey } from '../schema/commercetools.schema.js';
+import { CommercetoolsCategoryLookupSchema, CommercetoolsResolveCategoryQueryByKeySchema, type CommercetoolsCategoryLookup, type CommercetoolsResolveCategoryQueryById, type CommercetoolsResolveCategoryQueryByKey } from '../schema/commercetools.schema.js';
 
 const debug = createDebug('reactionary:commercetools:search');
 
