@@ -7,7 +7,7 @@ A common pattern on most ecommerce sites, is to allow the user to search / navig
 You can react to the user submitting a keyword search, or maybe routing to a special landing page where the page-part is a search term, by doing something like this
 
 ```ts
-const searchresult = await client.productSearch.queryByTerm(
+const searchresultResponse = await client.productSearch.queryByTerm(
     {
       search: {
         facets: [],
@@ -18,10 +18,14 @@ const searchresult = await client.productSearch.queryByTerm(
         term: 'glass',
         filters: []
       },
-    },
-    reqCtx
+    }
   );
+
+if (!searchresultResponse.success) {
+    throw new Response("Error fetching products", { status: 500 });
+}
 ```
+
 What you get back is a miniturazed/specialized product model, optimized for PLP purposes. 
 
 In the Product/Variant mindset, the search returns Products, with enough of each variant to make it identifiable. Ie Image and SKU.
@@ -29,11 +33,32 @@ In addition, the variant part might also contain an indexed `Option`, which can 
 
 The result of the search is a paged result set, but with some added fields for `facets`
 
-So, to iterate you would do something like
+Since price and inventory are expected to be sourced from other areas, you have to look them up
 
 ```ts
 {
-  const prices = await client.price.getBySKUs( searchResult.items.map(x => return { variant: x.variant[0].variant } ), requestContext);
+  const pricePromises = productPageResponse.value.items.map(async (product) => {
+    if (product.variants.length === 0) {
+      //skip
+      return null;
+    }
+    return client.price.getCustomerPrice({
+      variant: product.variants[0].variant,
+    }).then(priceResponse => {
+      if (priceResponse.success) {
+        return priceResponse.value;
+      }
+      return null;
+    }
+    );
+  });
+  const prices = (await Promise.all(pricePromises)).filter((price): price is Price => price !== null);
+
+```
+
+and then accessed further down like
+
+```ts
   searchResult.items.map((product) => {
         const imgUrl = product.variants[0].image[0].sourceUrl || 'assets/no-image.png'
         const imgAlt = product.variants[0].iamge[0].altText || product.name;
@@ -91,11 +116,6 @@ Note, that the search index Variants is expected to be a subset of the `Product`
 So, if your `Product` has 6 sizes (XXL through XS), and 5 colors (red, green, blue, yellow, black), your Product Model might have 30 variants. But your search index should only have 5, one for each color, as this is the visually distinctive set for this product.
 
 If your product has 20 variants, differing on some attribute `Length` or `Diameter`, those are not really good candidates for search index variations as they are not visually distinct. In this case the search index would contain only one variation, but, it would be marked as not directly addable to cart (`ProductSearchResultItemSchema#directAddToCart`).
-
-
-
-
-
 
 
 ## Typeahead
