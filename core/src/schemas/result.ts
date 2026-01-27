@@ -23,7 +23,7 @@ export type Fail<E> = {
   }
 };
 
-export type Result<T, E = Error> = Ok<T> | Fail<E>;
+export type Result<T, E = { type: string }> = Ok<T> | Fail<E>;
 
 /**
  * Utility function for asserting and unwrapping the value of a success.
