@@ -1,5 +1,5 @@
 import type { Tracer } from '@opentelemetry/api';
-import { trace } from '@opentelemetry/api';
+import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { z } from 'zod';
 import type { BaseProvider } from '../providers/index.js';
 import { getReactionaryMeter } from '../metrics/metrics.js';
@@ -13,16 +13,8 @@ import type {
 const TRACER_NAME = '@reactionary';
 const TRACER_VERSION = '0.0.1';
 
-let globalTracer: Tracer | null = null;
-
 export function getTracer(): Tracer {
-  if (!globalTracer) {
-    // Simply get the tracer from the API
-    // If the SDK is not initialized by the host application,
-    // this will return a ProxyTracer that produces NonRecordingSpans
-    globalTracer = trace.getTracer(TRACER_NAME, TRACER_VERSION);
-  }
-  return globalTracer;
+  return trace.getTracer(TRACER_NAME, TRACER_VERSION);
 }
 
 /**
@@ -148,9 +140,10 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
             validatedResult.meta.cache.key = cacheKey;
           }
 
-          return result;
+          return validatedResult;
         } catch (err) {
           status = 'error';
+          trace.getActiveSpan()?.setStatus({ code: SpanStatusCode.ERROR, message: errorToString(err) });
 
           // TODO: Decide if we want to redact the error message, since the client should never rely
           // on the internals. On the other hand, it is REALLY convenient to have it during development...
