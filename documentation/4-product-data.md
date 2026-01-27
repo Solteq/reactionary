@@ -103,10 +103,5 @@ The products identifier is meaningless, and no semantic meaning is assigned to i
 
 ## FAQ about products
 
-### Why cant i get a full product with all variants in one call
-Because virtually no usecase needs it. For rendering a PDP, you need the shared product data, the focused-variant, and a list of all the options that can be selected.
-Only when customer completes a selection, do you need to go find the SKU data.
-
-### What about B2B scenarios where i might have many many skus?
-In some B2B Scenarios, there may be 50 variants, shown as a list rather than a attribute-picker. This is facilitated by the `ProductProvider#getSKUList` which is a paginated service. You should aim to load this lazily on the client if possible.
-
+### What should I do, if i dont want to load all variants at once
+Consider adding a specialized `getSKUList` function, that returns a paged result set of variants. This can be helpful if the number of skus are unbounded.
