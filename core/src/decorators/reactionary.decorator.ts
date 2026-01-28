@@ -50,12 +50,12 @@ export class ReactionaryDecoratorOptions {
   /**
    * The schema for the input (query or mutation) type, for validation purposes
    */
-  public inputSchema: z.ZodType = z.never();
+  public inputSchema: z.ZodType = z.unknown();
 
   /**
    * The schema for the primary output type, for validation purposes
    */
-  public outputSchema: z.ZodType = z.never();
+  public outputSchema: z.ZodType = z.unknown();
 }
 
 /**
