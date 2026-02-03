@@ -127,6 +127,9 @@ export const ProductSearchIdentifierSchema = z.looseObject({
   categoryFilter: FacetValueIdentifierSchema.optional().describe('An optional category filter applied to the search results.'),
 });
 
+/**
+ * Bar
+ */
 export const OrderSearchIdentifierSchema = z.looseObject({
   term: z.string().describe('The search term used to find orders. Not all providers may support term-based search for orders.'),
   partNumber: z.array(z.string()).optional().describe('An optional list part number to filter orders by specific products. Will be ANDed together.'),

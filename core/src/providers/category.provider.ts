@@ -11,6 +11,7 @@ import { BaseProvider } from "./base.provider.js";
  *
  * We only allow fetching one hierachy level at a time, for now. This is to avoid development patterns of "fetch 5000 categories in one go.."
  *
+ * @group Foo
  */
 export abstract class CategoryProvider extends BaseProvider {
   /**

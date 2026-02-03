@@ -1,15 +1,11 @@
 import 'dotenv/config';
 import type { RequestContext } from '@reactionary/core';
 import {
-  CartSchema,
-  IdentitySchema,
   NoOpCache,
   createInitialRequestContext,
 } from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils.js';
-import { FakeCartProvider } from '../providers/cart.provider.js';
-import { FakeIdentityProvider } from '../providers/index.js';
-import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
+import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { FakeCheckoutProvider } from '../providers/checkout.provider.js';
 
 describe('Fake Checkout Provider', () => {
@@ -200,7 +196,7 @@ describe('Fake Checkout Provider', () => {
     });
 
     if (!result.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(result.error));
     }
 
     expect(result.value.length).toBeGreaterThan(0);
@@ -214,7 +210,7 @@ describe('Fake Checkout Provider', () => {
     });
 
     if (!result.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(result.error));
     }
 
     expect(result.value.length).toBeGreaterThan(0);

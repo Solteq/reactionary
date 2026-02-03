@@ -1,4 +1,4 @@
-import type { RequestContext } from "./schemas/session.schema.js";
+import type { RequestContext } from './schemas/session.schema.js';
 
 export function createInitialRequestContext(): RequestContext {
   return {
@@ -15,8 +15,13 @@ export function createInitialRequestContext(): RequestContext {
       countyCode: '',
       cityCode: '',
     },
-    session: {},
-
+    session: {
+      identityContext: {
+        identifier: { userId: '' },
+        lastUpdated: new Date(),
+        personalizationKey: crypto.randomUUID(),
+      },
+    },
     correlationId: '',
     isBot: false,
     clientIp: '',
