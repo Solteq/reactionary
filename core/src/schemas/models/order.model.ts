@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, OrderIdentifierSchema, OrderInventoryStatusSchema, OrderItemIdentifierSchema, OrderStatusSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
+import { CartIdentifierSchema, IdentityIdentifierSchema, OrderIdentifierSchema, OrderInventoryStatusSchema, OrderItemIdentifierSchema, OrderStatusSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
 import { BaseModelSchema } from './base.model.js';
 import { AddressSchema } from './profile.model.js';
 import { ShippingMethodSchema } from './shipping-method.model.js';
@@ -34,7 +34,7 @@ export const OrderSchema = BaseModelSchema.extend({
 });
 
 
-export type OrderStatus = InferType<typeof OrderStatusSchema>;
+export type OrderStatus = z.infer<typeof OrderStatusSchema>;
 export type OrderInventoryStatus = InferType<typeof OrderInventoryStatusSchema>;
 export type OrderItem = InferType<typeof OrderItemSchema>;
 export type Order = InferType<typeof OrderSchema>;

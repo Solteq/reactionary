@@ -1,4 +1,5 @@
 import type {
+  AnalyticsMutation,
   Cache,
   RequestContext} from '@reactionary/core';
 import {
@@ -14,5 +15,9 @@ export class FakeAnalyticsProvider extends AnalyticsProvider {
     super(cache, context);
 
     this.config = config;
+  }
+
+  public override async track(event: AnalyticsMutation): Promise<void> {
+    // No-op
   }
 }

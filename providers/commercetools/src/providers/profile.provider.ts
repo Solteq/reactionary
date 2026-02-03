@@ -237,10 +237,7 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
     if (addressToMakeDefault.id === customer.defaultBillingAddressId) {
       return error<InvalidInputError>({
         type: 'InvalidInput',
-        error: {
-          field: 'addressIdentifier',
-          message: 'Cannot set shipping address as default billing address',
-        }
+        error: 'Cannot set shipping address as default billing address'
       });
     }
 

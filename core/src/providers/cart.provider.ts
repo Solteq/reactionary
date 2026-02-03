@@ -6,6 +6,9 @@ import type { CartQueryById } from "../schemas/queries/cart.query.js";
 import type { Result } from "../schemas/result.js";
 import { BaseProvider } from "./base.provider.js";
 
+/**
+ * @group Providers
+ */
 export abstract class CartProvider extends BaseProvider {
 
   /**

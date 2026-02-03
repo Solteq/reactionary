@@ -29,9 +29,12 @@ import {
   CheckoutMutationFinalizeCheckoutSchema,
   success,
   type CheckoutIdentifier,
+  PaymentMethodSchema,
+  ShippingMethodSchema,
 } from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
+import z from 'zod';
 
 export class FakeCheckoutProvider extends CheckoutProvider {
   protected config: FakeConfiguration;
@@ -90,7 +93,7 @@ export class FakeCheckoutProvider extends CheckoutProvider {
 
   @Reactionary({
     inputSchema: CheckoutQueryForAvailableShippingMethodsSchema,
-    outputSchema: CheckoutSchema,
+    outputSchema: z.array(ShippingMethodSchema),
   })
   public override async getAvailableShippingMethods(
     payload: CheckoutQueryForAvailableShippingMethods
@@ -116,7 +119,7 @@ export class FakeCheckoutProvider extends CheckoutProvider {
 
   @Reactionary({
     inputSchema: CheckoutQueryForAvailablePaymentMethodsSchema,
-    outputSchema: CheckoutSchema,
+    outputSchema: z.array(PaymentMethodSchema),
   })
   public override async getAvailablePaymentMethods(
     payload: CheckoutQueryForAvailablePaymentMethods

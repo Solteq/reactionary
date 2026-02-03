@@ -1,3 +1,7 @@
+---
+slug: /
+---
+
 # Reactionary
 
 Reactionary is an oppinionated abstraction layer between UX developer and Backend developer in a Composable Commerce environment.

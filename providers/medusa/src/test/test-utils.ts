@@ -1,4 +1,3 @@
-import 'dotenv/config';
 
 import { MedusaConfigurationSchema, type MedusaConfiguration } from '../schema/configuration.schema.js';
 

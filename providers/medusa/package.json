@@ -5,18 +5,11 @@
   "main": "index.js",
   "types": "src/index.d.ts",
   "dependencies": {
-    "zod": "4.1.9",
+    "@medusajs/js-sdk": "^2.13.0",
     "@reactionary/core": "0.0.1",
-    "@medusajs/js-sdk": "^2.0.0",
-    "debug": "^4.3.4",
+    "debug": "^4.4.3",
     "@medusajs/types": "^2.11.0",
-    "dotenv": "^17.2.2"
-  },
-  "devDependencies": {
-    "vitest": "*",
-    "@vitest/ui": "*",
-    "@vitest/coverage-v8": "*",
-    "vite-tsconfig-paths": "*"
+    "zod": "4.1.9"
   },
   "sideEffects": false
 }

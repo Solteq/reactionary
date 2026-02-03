@@ -1,0 +1,18 @@
+{
+  "name": "@reactionary/google-analytics",
+  "version": "0.0.1",
+  "main": "index.js",
+  "types": "src/index.d.ts",
+  "dependencies": {
+    "@reactionary/core": "0.0.1",
+    "zod": "4.1.9"
+  },
+  "devDependencies": {
+    "vitest": "*",
+    "@vitest/ui": "*",
+    "@vitest/coverage-v8": "*",
+    "vite-tsconfig-paths": "*"
+  },
+  "type": "module",
+  "sideEffects": false
+}

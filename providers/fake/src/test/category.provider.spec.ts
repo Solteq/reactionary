@@ -158,16 +158,16 @@ describe('Faker Category Provider', () => {
     expect(result.value.text).not.toBe('');
   });
 
-  it('returns a placeholder if you search for a category that does not exist', async () => {
+  it('returns a not found error for categories that do not exist', async () => {
     const result = await provider.getById({
       id: { key: 'non-existent-category' },
     });
 
-    if (!result.success) {
+    if (result.success) {
       assert.fail();
     }
     
-    expect(result.value.identifier.key).toBe('non-existent-category');
+    expect(result.error.type).toBe('NotFound');
   });
 
   describe('caching', () => {

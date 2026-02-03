@@ -193,7 +193,7 @@ export function validateInput<T>(
   if (!parse.success) {
     validated = error<InvalidInputError>({
       type: 'InvalidInput',
-      error: parse.error,
+      error: JSON.stringify(z.flattenError(parse.error)),
     });
   }
 
@@ -218,7 +218,7 @@ export function validateOutput(
     if (!parse.success) {
       validated = error<InvalidOutputError>({
         type: 'InvalidOutput',
-        error: parse.error,
+        error: JSON.stringify(z.flattenError(parse.error)),
       });
     }
   }

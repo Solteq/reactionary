@@ -16,4 +16,6 @@ export type StripIndexSignature<T> =
   } :
   T;
 
-export type InferType<T extends z.ZodTypeAny> = StripIndexSignature<z.infer<T>>;
+export type AvoidSimplification<T> = T & { _?: never }
+
+export type InferType<T extends z.ZodTypeAny> = AvoidSimplification<StripIndexSignature<z.infer<T>>>;
