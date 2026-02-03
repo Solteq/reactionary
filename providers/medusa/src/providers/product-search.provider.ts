@@ -205,20 +205,6 @@ export class MedusaSearchProvider extends ProductSearchProvider {
       altText: product.title || undefined,
     });
 
-    const mappedOptions =
-      variant.options
-        ?.filter((x) => x.option?.title === 'Color')
-        .map((opt) =>
-          ProductVariantOptionSchema.parse({
-            identifier: ProductOptionIdentifierSchema.parse({
-              key: opt.option_id!,
-            } satisfies Partial<ProductOptionIdentifier>),
-            name: opt.value || '',
-          } satisfies Partial<ProductVariantOption>)
-        ) || [];
-
-    const mappedOption = variant.options?.[0];
-
     return ProductSearchResultItemVariantSchema.parse({
       variant: ProductVariantIdentifierSchema.parse({
         sku: variant.sku || '',
