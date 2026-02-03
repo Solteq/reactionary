@@ -1,7 +1,7 @@
 import type { Cache } from '../cache/cache.interface.js';
 import { NoOpCache } from '../cache/noop-cache.js';
 import type { Client } from './client.js';
-import type { AnalyticsProvider } from '../providers/analytics.provider.js';
+import { MulticastAnalyticsProvider, type AnalyticsProvider } from '../providers/analytics.provider.js';
 import {
   RequestContextSchema,
   type RequestContext,
@@ -60,18 +60,14 @@ export class ClientBuilder<TClient = Client> {
       };
 
       if (provider.analytics) {
-        mergedAnalytics.push(...provider.analytics);
+        mergedAnalytics.push(provider.analytics);
       }
-    }
-
-    // Add merged analytics if any were collected
-    if (mergedAnalytics.length > 0) {
-      (client as Record<string, unknown>)['analytics'] = mergedAnalytics;
     }
 
     // Add cache to complete the client
     const completeClient = {
       ...client,
+      analytics: new MulticastAnalyticsProvider(sharedCache, this.context, mergedAnalytics),
       cache: sharedCache,
     } as TClient & { cache: Cache };
 
