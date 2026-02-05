@@ -20,7 +20,9 @@
       "@reactionary/provider-medusa": ["providers/medusa/src/index.ts"],
       "@reactionary/otel": ["otel/src/index.ts"],
       "@reactionary/provider-algolia": ["providers/algolia/src/index.ts"],
-      "@reactionary/provider-meilisearch": ["providers/meilisearch/src/index.ts"],
+      "@reactionary/provider-meilisearch": [
+        "providers/meilisearch/src/index.ts"
+      ],
       "@reactionary/provider-commercetools": [
         "providers/commercetools/src/index.ts"
       ],

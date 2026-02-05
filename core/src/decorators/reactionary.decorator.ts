@@ -143,7 +143,12 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
           return validatedResult;
         } catch (err) {
           status = 'error';
-          trace.getActiveSpan()?.setStatus({ code: SpanStatusCode.ERROR, message: errorToString(err) });
+          trace
+            .getActiveSpan()
+            ?.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: errorToString(err),
+            });
 
           // TODO: Decide if we want to redact the error message, since the client should never rely
           // on the internals. On the other hand, it is REALLY convenient to have it during development...
