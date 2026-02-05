@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { WebStoreIdentifierSchema } from './models/identifiers.model.js';
 import { CurrencySchema } from './models/currency.model.js';
+import type { InferType } from '../zod-utils.js';
 
 /**
  * The language and locale context for the current request.
@@ -32,14 +33,17 @@ export const RequestContextSchema = z.looseObject( {
     clientIp: z.string().default('').describe('The IP address of the client making the request, if available. Mostly for logging purposes'),
     userAgent: z.string().default('').describe('The user agent string of the client making the request, if available.'),
     referrer: z.string().default('').describe('The referrer URL, if available.'),
-})
+});
 
 
 
 // Note, for this ONE type (which is effectively a dictionary), we currently don't want
 // to strip [key: string]: unknown, hence the manual zod infer over the helper.
 // Maybe there is a better solution, with a different typing for SessionSchema...
-export type Session = z.infer<typeof SessionSchema>;
-export type LanguageContext = z.infer<typeof LanguageContextSchema>;
-export type RequestContext = z.infer<typeof RequestContextSchema>;
-export type TaxJurisdiction = z.infer<typeof TaxJurisdictionSchema>;
+/**
+ * @see {@link SessionSchema}
+ */
+export type Session = z.infer<typeof SessionSchema> & { _?: never};
+export type LanguageContext = z.infer<typeof LanguageContextSchema> & { _?: never};
+export type RequestContext = z.infer<typeof RequestContextSchema> & { _?: never};
+export type TaxJurisdiction = z.infer<typeof TaxJurisdictionSchema> & { _?: never};

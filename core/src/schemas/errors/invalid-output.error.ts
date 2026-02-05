@@ -3,7 +3,7 @@ import type { InferType } from '../../zod-utils.js';
 
 export const InvalidOutputErrorSchema = z.looseObject({
     type: z.literal('InvalidOutput'),
-    error: z.ZodError
+    error: z.string()
 });
 
 export type InvalidOutputError = InferType<typeof InvalidOutputErrorSchema>;

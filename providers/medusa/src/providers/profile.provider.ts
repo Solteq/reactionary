@@ -129,9 +129,7 @@ export class MedusaProfileProvider extends ProfileProvider {
     if (existingAddress) {
       return error<InvalidInputError>({
         type: 'InvalidInput',
-        error: {
-          message: 'Address with the same nickname already exists',
-        }
+        error: 'Address with the same nickname already exists'
       });
     }
 
@@ -139,9 +137,7 @@ export class MedusaProfileProvider extends ProfileProvider {
     if (!response.customer) {
       return error<InvalidInputError>({
         type: 'InvalidInput',
-        error: {
-          message: 'Failed to add shipping address',
-        }
+        error: 'Failed to add shipping address'
       });
     }
 
@@ -180,9 +176,7 @@ export class MedusaProfileProvider extends ProfileProvider {
     if (!response.customer) {
       return error<InvalidInputError>({
         type: 'InvalidInput',
-        error: {
-          message: 'Failed to add shipping address',
-        }
+        error: 'Failed to add shipping address'
       })
     }
 
@@ -221,9 +215,7 @@ export class MedusaProfileProvider extends ProfileProvider {
     if (!response.deleted) {
       return error<InvalidInputError>({
         type: 'InvalidInput',
-        error: {
-          message: 'Failed to delete shipping address',
-        }
+        error: 'Failed to delete shipping address'
       });
     }
 
@@ -292,9 +284,7 @@ export class MedusaProfileProvider extends ProfileProvider {
     if (existingAddressWithNickname && !existingAddressWithNickname.is_default_billing) {
       return error<InvalidInputError>({
         type: 'InvalidInput',
-        error: {
-          message: 'Another address with the same nickname already exists',
-        }
+        error: 'Another address with the same nickname already exists'
       });
     }
 

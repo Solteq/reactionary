@@ -4,6 +4,9 @@ import type { Cache } from '../cache/cache.interface.js';
 import { AnalyticsMutationSchema, type AnalyticsMutation } from '../schemas/index.js';
 import { Reactionary } from '../decorators/reactionary.decorator.js';
 
+/**
+ * @group Providers
+ */
 export abstract class AnalyticsProvider extends BaseProvider {
   protected override getResourceName(): string {
     return 'analytics';

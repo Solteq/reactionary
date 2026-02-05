@@ -2,11 +2,18 @@
   "name": "@reactionary/source",
   "version": "0.1.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "docs:start": "docusaurus start --config documentation/docusaurus.config.js",
+    "docs:build": "docusaurus build --config documentation/docusaurus.config.js",
+    "docs:generate": "node ./documentation/scripts/generate.ts"
+  },
   "private": false,
   "dependencies": {
     "@commercetools/platform-sdk": "^8.16.0",
     "@commercetools/ts-client": "^4.2.1",
+    "@commercetools/ts-sdk-apm": "^4.0.0",
+    "@docusaurus/core": "^3.9.2",
+    "@docusaurus/preset-classic": "^3.9.2",
     "@faker-js/faker": "^9.8.0",
     "@medusajs/js-sdk": "^2.13.0",
     "@opentelemetry/api": "^1.9.0",
@@ -53,7 +60,11 @@
     "typescript-eslint": "^8.33.1",
     "vite": "7.1.9",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^4.0.9"
+    "vitest": "^4.0.9",
+    "docusaurus-plugin-typedoc": "^1.4.2",
+    "typedoc": "^0.28.16",
+    "typedoc-plugin-markdown": "^4.9.0",
+    "zod2md": "^0.2.5"
   },
   "nx": {
     "includedScripts": []
