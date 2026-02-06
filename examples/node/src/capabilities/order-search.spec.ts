@@ -132,10 +132,10 @@ describe.each([PrimaryProvider.MEILISEARCH])(
       });
 
       it('can filter by part number', async () => {
+
         const result = await client.orderSearch.queryByTerm({
           search: {
             term: '',
-            partNumber: [testData.sku],
             paginationOptions: {
               pageNumber: 1,
               pageSize: 10,
@@ -147,7 +147,25 @@ describe.each([PrimaryProvider.MEILISEARCH])(
         if (!result.success) {
           assert.fail(JSON.stringify(result.error));
         }
-        expect(result.value.items.length).toBeGreaterThan(0);
+
+
+        const result2 = await client.orderSearch.queryByTerm({
+          search: {
+            term: '',
+            partNumber: [testData.sku],
+            paginationOptions: {
+              pageNumber: 1,
+              pageSize: 10,
+            },
+            filters: [],
+          },
+        });
+
+        if (!result2.success) {
+          assert.fail(JSON.stringify(result2.error));
+        }
+        expect(result2.value.items.length).toBeGreaterThan(0);
+        expect(result2.value.totalCount).toBeLessThanOrEqual(result.value.totalCount);
       });
 
       it('can filter by search term', async () => {
