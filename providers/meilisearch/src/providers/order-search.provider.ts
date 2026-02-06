@@ -73,9 +73,9 @@ export class MeilisearchOrderSearchProvider extends OrderSearchProvider {
       filters.push(`(${statusFilters})`);
     }
 
-    // Add user ID filter
-    if (payload.search.userId) {
-      filters.push(`userIdentifier = "${payload.search.userId}"`);
+    // Add user ID filter for B2B use cases with hierarchical order access
+    if (payload.search.user) {
+      filters.push(`userIdentifier = "${payload.search.user.userId}"`);
     }
 
     // Add date range filters
@@ -84,6 +84,14 @@ export class MeilisearchOrderSearchProvider extends OrderSearchProvider {
     }
     if (payload.search.endDate) {
       filters.push(`orderDate <= ${new Date(payload.search.endDate).getTime()}`);
+    }
+
+
+    if (payload.search.partNumber && payload.search.partNumber.length > 0) {
+      const partNumberFilters = payload.search.partNumber
+        .map((partNumber) => `items.sku = "${partNumber}"`)
+        .join(' OR ');
+      filters.push(`(${partNumberFilters})`);
     }
 
     const searchOptions: SearchParams = {

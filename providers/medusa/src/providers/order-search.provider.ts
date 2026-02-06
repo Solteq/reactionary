@@ -67,9 +67,10 @@ export class MedusaOrderSearchProvider extends OrderSearchProvider {
     if (payload.search.endDate) {
       debug('Searching orders by end date is not supported in Medusa');
     }
-    if (payload.search.userId) {
+    /*
+    if (payload.search.user && payload.search.user.userId) {
       debug('Searching orders by customer ID is not supported in Medusa');
-    }
+    } */
     const statusFilter: MedusaOrderStatus[] = (payload.search.orderStatus ?? []).map((status) => {
       let retStatus: MedusaOrderStatus = 'draft';
       if (status === 'AwaitingPayment') {
