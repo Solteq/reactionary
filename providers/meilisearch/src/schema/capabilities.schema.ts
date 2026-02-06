@@ -3,6 +3,7 @@ import type { z } from 'zod';
 
 export const MeilisearchCapabilitiesSchema = CapabilitiesSchema.pick({
     productSearch: true,
+    orderSearch: true,
     analytics: true
 }).partial();
 

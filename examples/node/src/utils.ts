@@ -23,6 +23,7 @@ export function getMeilisearchTestConfiguration() {
     apiUrl: process.env['MEILISEARCH_API_URL'] || '',
     indexName: process.env['MEILISEARCH_INDEX'] || '',
     useAIEmbedding: process.env['MEILISEARCH_USE_AI_EMBEDDING'] || undefined,
+    orderIndexName: process.env['MEILISEARCH_ORDER_INDEX'] || 'order',
   };
 }
 
@@ -90,6 +91,7 @@ export function createClient(provider: PrimaryProvider) {
           order: true,
           price: true,
           productSearch: true,
+          orderSearch: true,
           store: true,
           profile: true
         })
@@ -110,6 +112,7 @@ export function createClient(provider: PrimaryProvider) {
           order: true,
           price: true,
           productSearch: true,
+          orderSearch: true,
           store: true,
           profile: true,
         })
@@ -129,6 +132,13 @@ export function createClient(provider: PrimaryProvider) {
     builder = builder.withCapability(
       withMeilisearchCapabilities(getMeilisearchTestConfiguration(), {
         productSearch: true,
+        orderSearch: true,
+      }),
+    );
+    builder = builder.withCapability(
+      withMedusaCapabilities(getMedusaTestConfiguration(), {
+        cart: true,
+        identity: true,
       })
     );
   }
