@@ -37,6 +37,7 @@ interface MeilisearchNativeOrderRecord {
   customerName: string;
   shippingAddress: MeilisearchNativeOrderAddress;
   orderDate: string;
+  orderDateTimestamp: number;
   orderStatus: string;
   inventoryStatus: string;
   totalAmount: number;
@@ -80,10 +81,10 @@ export class MeilisearchOrderSearchProvider extends OrderSearchProvider {
 
     // Add date range filters
     if (payload.search.startDate) {
-      filters.push(`orderDate >= ${new Date(payload.search.startDate).getTime()}`);
+      filters.push(`orderDateTimestamp >= ${new Date(payload.search.startDate).getTime()}`);
     }
     if (payload.search.endDate) {
-      filters.push(`orderDate <= ${new Date(payload.search.endDate).getTime()}`);
+      filters.push(`orderDateTimestamp <= ${new Date(payload.search.endDate).getTime()}`);
     }
 
 
@@ -100,6 +101,7 @@ export class MeilisearchOrderSearchProvider extends OrderSearchProvider {
         payload.search.paginationOptions.pageSize,
       limit: payload.search.paginationOptions.pageSize,
       filter: filters.length > 0 ? filters.join(' AND ') : undefined,
+      sort: ['orderDateTimestamp:desc'],
     };
 
     const remote = await index.search<MeilisearchNativeOrderRecord>(
