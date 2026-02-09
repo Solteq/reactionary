@@ -46,13 +46,15 @@ describe('Client Builder', () => {
         .build();
 
     const track = await client.analytics.track({
-        event: "page-view",
-        url: 'https://www.google.com'
+        event: 'product-details-view',
+        product: {
+          key: 'P-1000'
+        }
     });
 
     expect(analyticsProvider.events.length).toBe(1);
-    expect(analyticsProvider.events[0].event).toBe('page-view');
+    expect(analyticsProvider.events[0].event).toBe('product-details-view');
     expect(secondaryAnalyticsProvider.events.length).toBe(1);
-    expect(secondaryAnalyticsProvider.events[0].event).toBe('page-view');
+    expect(secondaryAnalyticsProvider.events[0].event).toBe('product-details-view');
   });
 });

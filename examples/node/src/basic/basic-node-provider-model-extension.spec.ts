@@ -1,7 +1,5 @@
 import type {
   Cache,
-  ProductQueryById,
-  ProductQueryBySlug,
   RequestContext} from '@reactionary/core';
 import {
   ClientBuilder,
