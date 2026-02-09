@@ -9,7 +9,7 @@ export default [
       '**/dist',
       '**/vite.config.*.timestamp*',
       '**/vitest.config.*.timestamp*',
-      '**/vitest.config.ts'
+      '**/vitest.config.ts',
     ],
   },
   {

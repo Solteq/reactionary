@@ -1,0 +1,33 @@
+{
+  "name": "google-analytics",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "providers/google-analytics/src",
+  "projectType": "library",
+  "release": {
+    "version": {
+      "manifestRootsToUpdate": ["dist/{projectRoot}"],
+      "currentVersionResolver": "git-tag",
+      "fallbackCurrentVersionResolver": "disk"
+    }
+  },
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/providers/google-analytics",
+        "main": "providers/google-analytics/src/index.ts",
+        "tsConfig": "providers/google-analytics/tsconfig.lib.json",
+        "assets": ["providers/google-analytics/*.md"],
+        "format": ["esm"],
+        "bundle": false
+      }
+    },
+    "nx-release-publish": {
+      "options": {
+        "packageRoot": "dist/{projectRoot}"
+      }
+    }
+  }
+}

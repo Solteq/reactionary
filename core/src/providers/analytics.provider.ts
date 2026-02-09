@@ -20,19 +20,19 @@ export abstract class AnalyticsProvider extends BaseProvider {
   public async track(event: AnalyticsMutation): Promise<void> {
     switch (event.event) {
       case 'product-summary-view':
-        this.processProductSummaryView(event);
+        await this.processProductSummaryView(event);
         break;
       case 'product-summary-click':
-        this.processProductSummaryClick(event);
+        await this.processProductSummaryClick(event);
         break;
       case 'product-details-view':
-        this.processProductDetailsView(event);
+        await this.processProductDetailsView(event);
         break;
       case 'product-cart-add':
-        this.processProductAddToCart(event);
+        await this.processProductAddToCart(event);
         break;
       case 'purchase':
-        this.processPurchase(event)
+        await this.processPurchase(event)
         break;
     }
   }
