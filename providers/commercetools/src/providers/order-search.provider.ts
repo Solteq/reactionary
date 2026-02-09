@@ -71,7 +71,8 @@ export class CommercetoolsOrderSearchProvider extends OrderSearchProvider {
       }
 
       if (payload.search.user && payload.search.user.userId) {
-        where.push(`customerId="${payload.search.user.userId}"`);
+
+//        where.push(`customerId="${payload.search.user.userId}"`);
       }
 
       if (payload.search.orderStatus) {
