@@ -1,5 +1,5 @@
 {
-  "name": "provider-algolia",
+  "name": "algolia",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "providers/algolia/src",
   "projectType": "library",

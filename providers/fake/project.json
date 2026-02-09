@@ -1,5 +1,5 @@
 {
-  "name": "provider-fake",
+  "name": "fake",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "providers/fake/src",
   "projectType": "library",

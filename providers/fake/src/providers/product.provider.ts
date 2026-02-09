@@ -14,7 +14,7 @@ import {
   type Result,
   error,
   success,
-  type NotFoundError
+  type NotFoundError,
 } from '@reactionary/core';
 import type z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
@@ -23,7 +23,11 @@ import { base, en, Faker } from '@faker-js/faker';
 export class FakeProductProvider extends ProductProvider {
   protected config: FakeConfiguration;
 
-  constructor(config: FakeConfiguration, cache: ReactinaryCache, context: RequestContext) {
+  constructor(
+    config: FakeConfiguration,
+    cache: ReactinaryCache,
+    context: RequestContext
+  ) {
     super(cache, context);
 
     this.config = config;
@@ -31,7 +35,11 @@ export class FakeProductProvider extends ProductProvider {
 
   @Reactionary({
     inputSchema: ProductQueryByIdSchema,
-    outputSchema: ProductSchema
+    outputSchema: ProductSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true,
   })
   public override async getById(
     payload: ProductQueryById
@@ -41,7 +49,7 @@ export class FakeProductProvider extends ProductProvider {
 
   @Reactionary({
     inputSchema: ProductQueryBySlugSchema,
-    outputSchema: ProductSchema
+    outputSchema: ProductSchema,
   })
   public override async getBySlug(
     payload: ProductQueryBySlug
@@ -53,7 +61,9 @@ export class FakeProductProvider extends ProductProvider {
     inputSchema: ProductQueryBySKUSchema,
     outputSchema: ProductSchema,
   })
-  public override async getBySKU(payload: ProductQueryBySKU): Promise<Result<Product>> {
+  public override async getBySKU(
+    payload: ProductQueryBySKU
+  ): Promise<Result<Product>> {
     return success(this.parseSingle(payload.variant.sku));
   }
 
@@ -79,12 +89,12 @@ export class FakeProductProvider extends ProductProvider {
         ean: '',
         gtin: '',
         identifier: {
-          sku: ''
+          sku: '',
         },
         images: [],
         name: '',
         options: [],
-        upc: ''
+        upc: '',
       },
       description: generator.commerce.productDescription(),
       manufacturer: '',
@@ -93,7 +103,7 @@ export class FakeProductProvider extends ProductProvider {
       published: true,
       sharedAttributes: [],
       variants: [],
-    } satisfies Product
+    } satisfies Product;
 
     return result;
   }

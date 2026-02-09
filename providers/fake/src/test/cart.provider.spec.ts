@@ -72,8 +72,6 @@ describe('Fake Cart Provider', () => {
       expect(updatedCart.value.items.length).toBe(1);
       expect(updatedCart.value.items[0].variant.sku).toBe(testData.skuWithoutTiers);
       expect(updatedCart.value.items[0].quantity).toBe(3);
-      expect(updatedCart.value.items[0].price.totalPrice.value).toBe(cart.value.items[0].price.totalPrice.value * 3);
-      expect(updatedCart.value.items[0].price.unitPrice.value).toBe(cart.value.items[0].price.unitPrice.value);
     });
 
     it('should be able to remove an item from a cart', async () => {

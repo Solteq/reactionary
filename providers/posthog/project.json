@@ -1,5 +1,5 @@
 {
-  "name": "provider-posthog",
+  "name": "posthog",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "providers/posthog/src",
   "projectType": "library",
