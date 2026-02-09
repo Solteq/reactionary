@@ -34,7 +34,7 @@ export const OrderSchema = BaseModelSchema.extend({
 });
 
 
-export type OrderStatus = InferType<typeof OrderStatusSchema>;
+export type OrderStatus = z.infer<typeof OrderStatusSchema>;
 export type OrderInventoryStatus = InferType<typeof OrderInventoryStatusSchema>;
 export type OrderItem = InferType<typeof OrderItemSchema>;
 export type Order = InferType<typeof OrderSchema>;
