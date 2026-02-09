@@ -1,4 +1,4 @@
-export * from './analytics.mutation.js';
+export * from './analytics/index.js';
 export * from './base.mutation.js';
 export * from './cart.mutation.js';
 export * from './identity.mutation.js';
