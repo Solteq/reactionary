@@ -77,19 +77,20 @@ export class CommercetoolsOrderSearchProvider extends OrderSearchProvider {
 
       if (payload.search.orderStatus) {
         const orderStatusWhere = payload.search.orderStatus.map(x => {
+          let mappedStatus = 'Open';
           if (x === 'AwaitingPayment') {
-            return `Open`
+            mappedStatus = `Open`
           }
           if (x === 'ReleasedToFulfillment') {
-            return `Confirmed`
+            mappedStatus = `Confirmed`
           }
           if (x === 'Shipped') {
-            return `Completed`
+            mappedStatus = `Complete`
           }
           if (x === 'Cancelled') {
-            return `Cancelled`
+            mappedStatus = `Cancelled`
           }
-          return `orderState="${x}"`
+          return `orderState="${mappedStatus}"`
         }).join(' OR ');
         where.push(orderStatusWhere);
       }
@@ -173,7 +174,14 @@ export class CommercetoolsOrderSearchProvider extends OrderSearchProvider {
     ) {
       orderStatus = 'Shipped';
     }
-    const inventoryStatus = body.shipmentState as OrderSearchResultItem['inventoryStatus'];
+    let inventoryStatus: OrderSearchResultItem['inventoryStatus'];
+
+    if (orderStatus === 'Shipped') {
+      inventoryStatus = 'Allocated'
+    } else {
+      inventoryStatus = 'NotAllocated'
+    }
+
     const totalAmount: MonetaryAmount = {
       currency: body.totalPrice ? body.totalPrice.currencyCode as Currency : this.context.languageContext.currencyCode,
       value: body.totalPrice ? body.totalPrice.centAmount / 100 : 0

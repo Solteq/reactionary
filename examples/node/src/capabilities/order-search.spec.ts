@@ -10,7 +10,7 @@ const testData = {
   email: 'eileen.harvey@example.com',
 };
 
-describe.each([PrimaryProvider.MEILISEARCH])(
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEILISEARCH])(
   'Order Search Capability - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
