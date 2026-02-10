@@ -1,5 +1,5 @@
 import type { Cache, ClientFromCapabilities, RequestContext } from "@reactionary/core";
-import { AlgoliaSearchProvider } from "../providers/product-search.provider.js";
+import { AlgoliaProductSearchProvider } from "../providers/product-search.provider.js";
 import type { AlgoliaCapabilities } from "../schema/capabilities.schema.js";
 import type { AlgoliaConfiguration } from "../schema/configuration.schema.js";
 import { AlgoliaAnalyticsProvider } from "../providers/analytics.provider.js";
@@ -9,7 +9,7 @@ export function withAlgoliaCapabilities<T extends AlgoliaCapabilities>(configura
         const client: any = {};
 
         if (capabilities.productSearch) {
-            client.productSearch = new AlgoliaSearchProvider(configuration, cache, context);
+            client.productSearch = new AlgoliaProductSearchProvider(cache, context, configuration);
         }
 
         if (capabilities.analytics) {

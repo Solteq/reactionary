@@ -40,10 +40,10 @@ interface AlgoliaNativeRecord {
 }
 
 
-export class AlgoliaSearchProvider extends ProductSearchProvider {
+export class AlgoliaProductSearchProvider extends ProductSearchProvider {
   protected config: AlgoliaConfiguration;
 
-  constructor(config: AlgoliaConfiguration, cache: Cache, context: RequestContext) {
+  constructor(cache: Cache, context: RequestContext, config: AlgoliaConfiguration) {
     super(cache, context);
     this.config = config;
   }
@@ -195,7 +195,8 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
         facets: query.search.facets,
         filters: query.search.filters,
         paginationOptions: query.search.paginationOptions,
-
+        index: body.index || '',
+        key: body.queryID || '',
       },
       pageNumber: (body.page || 0) + 1,
       pageSize: body.hitsPerPage || 0,
@@ -203,7 +204,7 @@ export class AlgoliaSearchProvider extends ProductSearchProvider {
       totalPages: body.nbPages || 0,
       items: items,
       facets,
-    } satisfies ProductSearchResult;
+    } satisfies AlgoliaProductSearchResult;
 
     return result;
   }

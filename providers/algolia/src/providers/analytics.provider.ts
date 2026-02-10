@@ -8,12 +8,12 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import {
-  insightsClient,
   type InsightsClient,
   type ViewedObjectIDs,
   type ClickedObjectIDsAfterSearch,
   type AddedToCartObjectIDsAfterSearch,
   type PurchasedObjectIDs,
+  algoliasearch,
 } from 'algoliasearch';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaProductSearchIdentifier } from '../schema/search.schema.js';
@@ -30,7 +30,7 @@ export class AlgoliaAnalyticsProvider extends AnalyticsProvider {
     super(cache, requestContext);
 
     this.config = config;
-    this.client = insightsClient(this.config.appId, this.config.apiKey);
+    this.client = algoliasearch(this.config.appId, this.config.apiKey).initInsights({});
   }
 
   protected override async processProductAddToCart(
@@ -48,7 +48,7 @@ export class AlgoliaAnalyticsProvider extends AnalyticsProvider {
           .key,
       } satisfies AddedToCartObjectIDsAfterSearch;
 
-      this.client.pushEvents({
+      const response = await this.client.pushEvents({
         events: [algoliaEvent],
       });
     }
@@ -69,7 +69,7 @@ export class AlgoliaAnalyticsProvider extends AnalyticsProvider {
           .key,
       } satisfies ClickedObjectIDsAfterSearch;
 
-      this.client.pushEvents({
+      const response = await this.client.pushEvents({
         events: [algoliaEvent],
       });
     }
@@ -87,7 +87,7 @@ export class AlgoliaAnalyticsProvider extends AnalyticsProvider {
         userToken: this.context.session.identityContext.personalizationKey,
       } satisfies ViewedObjectIDs;
 
-      this.client.pushEvents({
+      const response = await this.client.pushEvents({
         events: [algoliaEvent],
       });
     }
@@ -96,16 +96,18 @@ export class AlgoliaAnalyticsProvider extends AnalyticsProvider {
   protected override async processPurchase(
     event: AnalyticsMutationPurchaseEvent
   ): Promise<void> {
+    // TODO: Figure out how to handle the problem below. From the order we have the SKUs,
+    // but in Algolia we have the products indexed, and we can't really resolve it here...
     const algoliaEvent = {
       eventName: 'purchase',
       eventType: 'conversion',
       eventSubtype: 'purchase',
       index: this.config.indexName,
-      objectIDs: event.order.items.map((x) => x.identifier.key),
+      objectIDs: event.order.items.map((x) => x.variant.sku),
       userToken: this.context.session.identityContext.personalizationKey,
     } satisfies PurchasedObjectIDs;
 
-    this.client.pushEvents({
+    const response = await this.client.pushEvents({
       events: [algoliaEvent],
     });
   }
