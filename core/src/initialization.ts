@@ -1,3 +1,4 @@
+import type { AnonymousIdentity } from './schemas/index.js';
 import type { RequestContext } from './schemas/session.schema.js';
 
 export function createInitialRequestContext(): RequestContext {
@@ -17,7 +18,9 @@ export function createInitialRequestContext(): RequestContext {
     },
     session: {
       identityContext: {
-        identifier: { userId: '' },
+        identity: {
+          type: 'Anonymous'
+        } satisfies AnonymousIdentity,
         lastUpdated: new Date(),
         personalizationKey: crypto.randomUUID(),
       },

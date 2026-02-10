@@ -13,4 +13,9 @@ export abstract class IdentityProvider extends BaseProvider {
   protected override getResourceName(): string {
     return 'identity';
   }
+
+  protected updateIdentityContext(identity: Identity) {
+    this.context.session.identityContext.lastUpdated = new Date();
+    this.context.session.identityContext.identity = identity;
+  }
 }

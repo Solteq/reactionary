@@ -15,7 +15,6 @@ import {
   success,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type z from 'zod';
 import type { CommercetoolsAPI } from '../core/client.js';
 
 export class CommercetoolsIdentityProvider extends IdentityProvider {
@@ -41,6 +40,8 @@ export class CommercetoolsIdentityProvider extends IdentityProvider {
   public override async getSelf(payload: IdentityQuerySelf): Promise<Result<Identity>> {
     const identity = await this.commercetools.introspect();
 
+    this.updateIdentityContext(identity);
+
     return success(identity);
   }
 
@@ -54,6 +55,8 @@ export class CommercetoolsIdentityProvider extends IdentityProvider {
       payload.password
     );
 
+    this.updateIdentityContext(identity);
+
     return success(identity);
   }
 
@@ -62,6 +65,8 @@ export class CommercetoolsIdentityProvider extends IdentityProvider {
   })
   public override async logout(payload: Record<string, never>): Promise<Result<Identity>> {
     const identity = await this.commercetools.logout();
+
+    this.updateIdentityContext(identity);
 
     return success(identity);
   }
@@ -77,6 +82,8 @@ export class CommercetoolsIdentityProvider extends IdentityProvider {
       payload.username,
       payload.password
     );
+
+    this.updateIdentityContext(identity);
 
     return success(identity);
   }
