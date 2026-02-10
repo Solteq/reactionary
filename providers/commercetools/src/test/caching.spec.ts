@@ -8,7 +8,7 @@ import {
   type ProductSearchQueryByTerm,
 } from '@reactionary/core';
 import { CommercetoolsProductProvider } from '../providers/product.provider.js';
-import { CommercetoolsClient } from '../core/client.js';
+import { CommercetoolsAPI } from '../core/client.js';
 import { CommercetoolsSearchProvider } from '../providers/product-search.provider.js';
 
 describe('Caching', () => {
@@ -16,7 +16,7 @@ describe('Caching', () => {
     const config = getCommercetoolsTestConfiguration();
     const context = createInitialRequestContext();
     const cache = new MemoryCache();
-    const client = new CommercetoolsClient(config, context);
+    const client = new CommercetoolsAPI(config, context);
     const provider = new CommercetoolsProductProvider(config, cache, context, client);
 
     const identifier = {
@@ -48,7 +48,7 @@ describe('Caching', () => {
     const config = getCommercetoolsTestConfiguration();
     const context = createInitialRequestContext();
     const cache = new MemoryCache();
-    const client = new CommercetoolsClient(config, context);
+    const client = new CommercetoolsAPI(config, context);
     const provider = new CommercetoolsSearchProvider(config, cache, context, client);
 
     const query = {

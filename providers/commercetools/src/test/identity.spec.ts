@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { describe, expect, it } from 'vitest';
-import { CommercetoolsClient } from '../core/client.js';
+import { CommercetoolsAPI } from '../core/client.js';
 import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import {
   createInitialRequestContext,
@@ -12,7 +12,7 @@ import type { CommercetoolsConfiguration } from '../schema/configuration.schema.
 function setup() {
   const config = getCommercetoolsTestConfiguration();
   const context = createInitialRequestContext();
-  const root = new CommercetoolsClient(config, context);
+  const root = new CommercetoolsAPI(config, context);
 
   return {
     config,

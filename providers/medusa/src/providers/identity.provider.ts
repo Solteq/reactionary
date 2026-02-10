@@ -19,7 +19,6 @@ import {
   success,
 } from '@reactionary/core';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import type z from 'zod';
 import type { MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';
 
@@ -60,7 +59,10 @@ export class MedusaIdentityProvider extends IdentityProvider {
 
       if (!token) {
         debug('No active session token found, returning anonymous identity');
-        return success(this.createAnonymousIdentity());
+        const identity = this.createAnonymousIdentity();
+        this.updateIdentityContext(identity);
+
+        return success(identity);
       }
 
       // Try to fetch customer details to verify authentication
@@ -68,18 +70,30 @@ export class MedusaIdentityProvider extends IdentityProvider {
 
       if (customerResponse.customer) {
         debug('Customer authenticated:', customerResponse.customer.email);
-        return success({
+
+        const identity = {
           id: {
             userId: customerResponse.customer.id,
           },
           type: 'Registered',
-        } satisfies RegisteredIdentity);
+        } satisfies RegisteredIdentity;
+
+        this.updateIdentityContext(identity);
+
+        return success(identity);
       }
 
-      return success(this.createAnonymousIdentity());
+      const identity = this.createAnonymousIdentity();
+      this.updateIdentityContext(identity);
+
+      return success(identity);
     } catch (error) {
       debug('getSelf failed, returning anonymous identity:', error);
-      return success(this.createAnonymousIdentity());
+
+      const identity = this.createAnonymousIdentity();
+      this.updateIdentityContext(identity);
+
+      return success(identity);
     }
   }
 
@@ -87,13 +101,17 @@ export class MedusaIdentityProvider extends IdentityProvider {
     inputSchema: IdentityMutationLoginSchema,
     outputSchema: IdentitySchema,
   })
-  public override async login(payload: IdentityMutationLogin): Promise<Result<Identity>> {
+  public override async login(
+    payload: IdentityMutationLogin
+  ): Promise<Result<Identity>> {
     debug('Attempting login for user:', payload.username);
-    const identity = await this.medusaApi.login(
+    const identity = (await this.medusaApi.login(
       payload.username,
       payload.password,
       this.context
-    ) satisfies Identity;
+    )) satisfies Identity;
+
+    this.updateIdentityContext(identity);
 
     return success(identity);
   }
@@ -102,9 +120,13 @@ export class MedusaIdentityProvider extends IdentityProvider {
     inputSchema: IdentityMutationLogoutSchema,
     outputSchema: IdentitySchema,
   })
-  public override async logout(_payload: IdentityMutationLogout): Promise<Result<Identity>> {
+  public override async logout(
+    _payload: IdentityMutationLogout
+  ): Promise<Result<Identity>> {
     debug('Logging out user');
     const identity = await this.medusaApi.logout(this.context);
+
+    this.updateIdentityContext(identity);
 
     return success(identity);
   }
@@ -131,6 +153,8 @@ export class MedusaIdentityProvider extends IdentityProvider {
       lastName,
       this.context
     );
+
+    this.updateIdentityContext(identity);
 
     return success(identity);
   }

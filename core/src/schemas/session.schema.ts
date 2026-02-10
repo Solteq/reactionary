@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { IdentityIdentifierSchema, WebStoreIdentifierSchema } from './models/identifiers.model.js';
 import { CurrencySchema } from './models/currency.model.js';
+import { IdentitySchema } from './models/identity.model.js';
 
 /**
  * The language and locale context for the current request.
@@ -11,7 +12,7 @@ export const LanguageContextSchema = z.looseObject( {
 });
 
 export const IdentityContextSchema = z.looseObject({
-    identifier: IdentityIdentifierSchema,
+    identity: IdentitySchema,
     personalizationKey: z.string(),
     lastUpdated: z.date()
 });
