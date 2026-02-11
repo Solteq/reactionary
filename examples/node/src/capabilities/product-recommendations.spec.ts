@@ -94,3 +94,47 @@ describe.each([PrimaryProvider.MEILISEARCH])(
       expect(result.value.length).toBe(0);
     });
   });
+
+
+
+describe.each([PrimaryProvider.ALGOLIA])(
+  'Product Recommendations - Related - %s',
+  (provider) => {
+    let client: ReturnType<typeof createClient>;
+
+    beforeEach(() => {
+      client = createClient(provider);
+    });
+
+    it('should be able to return a list of products for recommendation - Related ', async () => {
+      const result = await client.productRecommendations.getRecommendations({
+        algorithm: 'related',
+        sourceProduct: {
+          key: testData.product.id,
+        },
+        numberOfRecommendations: 10,
+      });
+
+      if (!result.success) {
+        assert.fail(JSON.stringify(result.error));
+      }
+
+      expect(result.value.length).toBeGreaterThan(0);
+    });
+
+    it('should return an empty result for an unknown sku', async () => {
+      const result = await client.productRecommendations.getRecommendations({
+        algorithm: 'related',
+        sourceProduct: {
+          key: 'unknown-product-id',
+        },
+        numberOfRecommendations: 10,
+      });
+
+      if (!result.success) {
+        assert.fail(JSON.stringify(result.error));
+      }
+
+      expect(result.value.length).toBe(0);
+    });
+  });

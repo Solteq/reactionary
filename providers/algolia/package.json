@@ -5,7 +5,7 @@
   "types": "src/index.d.ts",
   "dependencies": {
     "@reactionary/core": "0.0.1",
-    "algoliasearch": "^5.23.4",
+    "algoliasearch": "^5.48.0",
     "zod": "4.1.9"
   },
   "type": "module",

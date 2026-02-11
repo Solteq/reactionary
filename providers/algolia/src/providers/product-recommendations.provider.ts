@@ -9,7 +9,16 @@ import {
   type RequestContext,
   type ProductRecommendationsQuery,
 } from '@reactionary/core';
-import { recommendClient, type BoughtTogetherQuery, type LookingSimilarQuery, type RecommendationsResults, type RecommendClient, type RecommendSearchParams, type RelatedQuery, type TrendingItemsQuery } from 'algoliasearch';
+import {
+  liteClient,
+  type BoughtTogetherQuery,
+  type LookingSimilarQuery,
+  type RecommendationsResults,
+  type RecommendSearchParams,
+  type RelatedQuery,
+  type TrendingItemsQuery,
+  type LiteClient
+} from 'algoliasearch/lite';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaProductRecommendationIdentifier } from '../schema/product-recommendation.schema.js';
 
@@ -34,14 +43,12 @@ interface AlgoliaRecommendHit {
 
 export class AlgoliaProductRecommendationsProvider extends ProductRecommendationsProvider {
   protected config: AlgoliaConfiguration;
+  protected client: LiteClient;
 
   constructor(config: AlgoliaConfiguration, cache: Cache, context: RequestContext) {
     super(cache, context);
     this.config = config;
-  }
-
-  protected getRecommendClient(): RecommendClient {
-    return recommendClient(this.config.appId, this.config.apiKey);
+    this.client = liteClient(this.config.appId, this.config.apiKey);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -66,12 +73,11 @@ export class AlgoliaProductRecommendationsProvider extends ProductRecommendation
   protected override async getFrequentlyBoughtTogetherRecommendations(
     query: ProductRecommendationAlgorithmFrequentlyBoughtTogetherQuery
   ): Promise<ProductRecommendation[]> {
-    const client = this.getRecommendClient();
 
     try {
       // Note: Algolia's Recommend API requires setting up AI Recommend models
       // This implementation uses the getRecommendations method from the recommend client
-      const response = await client.getRecommendations({
+      const response = await this.client.getRecommendations({
         requests: [
           {
             indexName: this.config.indexName,
@@ -104,10 +110,9 @@ export class AlgoliaProductRecommendationsProvider extends ProductRecommendation
   protected override async getSimilarProductsRecommendations(
     query: ProductRecommendationAlgorithmSimilarProductsQuery
   ): Promise<ProductRecommendation[]> {
-    const client = this.getRecommendClient();
 
     try {
-      const response = await client.getRecommendations({
+      const response = await this.client.getRecommendations({
         requests: [
           {
             indexName: this.config.indexName,
@@ -139,10 +144,9 @@ export class AlgoliaProductRecommendationsProvider extends ProductRecommendation
   protected override async getRelatedProductsRecommendations(
     query: ProductRecommendationAlgorithmRelatedProductsQuery
   ): Promise<ProductRecommendation[]> {
-    const client = this.getRecommendClient();
 
     try {
-      const response = await client.getRecommendations({
+      const response = await this.client.getRecommendations({
         requests: [
           {
             indexName: this.config.indexName,
@@ -174,10 +178,8 @@ export class AlgoliaProductRecommendationsProvider extends ProductRecommendation
   protected override async getTrendingInCategoryRecommendations(
     query: ProductRecommendationAlgorithmTrendingInCategoryQuery
   ): Promise<ProductRecommendation[]> {
-    const client = this.getRecommendClient();
-
     try {
-      const response = await client.getRecommendations({
+      const response = await this.client.getRecommendations({
         requests: [
           {
             indexName: this.config.indexName,
