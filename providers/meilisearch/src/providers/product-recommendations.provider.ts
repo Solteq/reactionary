@@ -12,7 +12,7 @@ import { MeiliSearch, type Hits, type RecordAny, type SearchParams, type SearchR
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
 
 interface MeilisearchRecommendHit {
-  id: string;
+  objectID: string;
 }
 
 /**
@@ -78,11 +78,11 @@ export class MeilisearchProductRecommendationsProvider extends ProductRecommenda
   protected parseRecommendations(recommendation: SearchResponse<MeilisearchRecommendHit>, algorithm: string): ProductRecommendation[] {
     return recommendation.hits.map((hit) => ({
       recommendationIdentifier: {
-        key: hit.id,
+        key: hit.objectID,
         algorithm,
       },
       product: {
-        key: hit.id,
+        key: hit.objectID,
       },
     }));
   }

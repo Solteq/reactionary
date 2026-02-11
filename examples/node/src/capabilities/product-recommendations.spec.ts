@@ -76,6 +76,8 @@ describe.each([PrimaryProvider.MEILISEARCH])(
       }
 
       expect(result.value.length).toBeGreaterThan(0);
+      expect(result.value[0].product.key).toBeDefined();
+      expect(result.value[0].recommendationIdentifier.key).toBeDefined();
     });
 
     it('should return an empty result for an unknown sku', async () => {
