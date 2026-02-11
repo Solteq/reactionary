@@ -80,3 +80,8 @@ const allProducts = Promise.all(
 }
 ```
 
+### Configuration
+Since not every system can provide every recommendation algorithm, Reactionary supports enabling this capability on multiple providers.
+
+So if you have both algolia and medusa, you can set `productRecommendations: true` on both, and the system will then ask each system in turn until the required number of results have been gathered.
+
