@@ -85,3 +85,14 @@ Since not every system can provide every recommendation algorithm, Reactionary s
 
 So if you have both algolia and medusa, you can set `productRecommendations: true` on both, and the system will then ask each system in turn until the required number of results have been gathered.
 
+
+
+## Design decisions
+Since not all systems can deliver full product data back, we are initially only returning the IDs of the products, so you have to use the `product` provider to resolve it into something displayable.
+
+Later, we might add a discriminator, allowing the same bare-bones/tile-ready data to be returned from this, as is returned from the product search.
+
+It was also decided to have the source and target unit be a product (Forest Ranger T-Shirt), and not the individual sku (Forest Ranger T-Shirt, Yellow, Size-32).
+
+This is from emperical studies showign that you will get more results from the toplevel product, than from a rarely used SKU.
+
