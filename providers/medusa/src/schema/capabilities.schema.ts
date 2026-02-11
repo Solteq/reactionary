@@ -3,6 +3,7 @@ import type { z } from 'zod';
 
 export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     productSearch: true,
+    productRecommendations: true,
     cart: true,
     checkout: true,
     category: true,

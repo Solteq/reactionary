@@ -118,6 +118,11 @@ export const PickupPointIdentifierSchema = z.looseObject({
     key: z.string(),
 });
 
+export const ProductRecommendationIdentifierSchema = z.looseObject({
+    key: z.string(),
+    algorithm: z.string(),
+});
+
 
 export const ProductSearchIdentifierSchema = z.looseObject({
   term: z.string().describe('The search term used to find products.'),
@@ -140,6 +145,7 @@ export const OrderSearchIdentifierSchema = z.looseObject({
   filters: z.array(z.string()).describe('Additional filters applied to the search results.'),
   paginationOptions: PaginationOptionsSchema.describe('Pagination options for the search results.'),
 });
+
 
 export type OrderSearchIdentifier = InferType<typeof OrderSearchIdentifierSchema>;
 export type ProductIdentifier = InferType<typeof ProductIdentifierSchema>;
@@ -178,6 +184,7 @@ export type ProductOptionIdentifier = InferType<typeof ProductOptionIdentifierSc
 export type ProductOptionValueIdentifier = InferType<typeof ProductOptionValueIdentifierSchema>;
 export type ProductAttributeIdentifier = InferType<typeof ProductAttributeIdentifierSchema>;
 export type ProductAttributeValueIdentifier = InferType<typeof ProductAttributeValueIdentifierSchema>;
+export type ProductRecommendationIdentifier = InferType<typeof ProductRecommendationIdentifierSchema>;
 
 export type IdentifierType =
   | ProductIdentifier
@@ -191,6 +198,7 @@ export type IdentifierType =
   | CategoryIdentifier
   | WebStoreIdentifier
   | InventoryIdentifier
+  | ProductRecommendationIdentifier
   | FulfillmentCenterIdentifier
   | IdentityIdentifier
   | ShippingMethodIdentifier

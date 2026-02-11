@@ -12,6 +12,7 @@ import { MedusaOrderSearchProvider } from "../providers/order-search.provider.js
 import { MedusaOrderProvider } from "../providers/order.provider.js";
 import { MedusaPriceProvider } from "../providers/price.provider.js";
 import { MedusaSearchProvider } from "../providers/product-search.provider.js";
+import { MedusaProductRecommendationsProvider } from "../providers/product-recommendations.provider.js";
 import { MedusaProductProvider } from "../providers/product.provider.js";
 import { MedusaProfileProvider } from "../providers/profile.provider.js";
 import { MedusaCapabilitiesSchema, type MedusaCapabilities } from "../schema/capabilities.schema.js";
@@ -23,6 +24,7 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
     capabilities: T
 ) {
     return (cache: Cache, context: RequestContext): ClientFromCapabilities<T> => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const client: any = {};
         const config = MedusaConfigurationSchema.parse(configuration);
         const caps = MedusaCapabilitiesSchema.parse(capabilities);
@@ -32,6 +34,10 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
 
         if (caps.productSearch) {
             client.productSearch = new MedusaSearchProvider(configuration, cache, context, medusaApi);
+        }
+
+        if (caps.productRecommendations) {
+            client.productRecommendations = new MedusaProductRecommendationsProvider(configuration, cache, context, medusaApi);
         }
 
         if (caps.category) {

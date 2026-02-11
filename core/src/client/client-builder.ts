@@ -6,6 +6,7 @@ import {
   RequestContextSchema,
   type RequestContext,
 } from '../schemas/session.schema.js';
+import { MulticastProductRecommendationsProvider, type ProductRecommendationsProvider } from '../providers/product-recommendations.provider.js';
 
 type CapabilityFactory<T> = (cache: Cache, context: RequestContext) => T;
 
@@ -52,6 +53,8 @@ export class ClientBuilder<TClient = Client> {
 
     const mergedAnalytics: AnalyticsProvider[] = [];
 
+    const mergedProductRecommendationsProviders: ProductRecommendationsProvider[] = [];
+
     for (const factory of this.factories) {
       const provider = factory(sharedCache, this.context);
       client = {
@@ -62,12 +65,17 @@ export class ClientBuilder<TClient = Client> {
       if (provider.analytics) {
         mergedAnalytics.push(provider.analytics);
       }
+
+      if (provider.productRecommendations) {
+        mergedProductRecommendationsProviders.push(provider.productRecommendations);
+      }
     }
 
     // Add cache to complete the client
     const completeClient = {
       ...client,
       analytics: new MulticastAnalyticsProvider(sharedCache, this.context, mergedAnalytics),
+      productRecommendations: new MulticastProductRecommendationsProvider(sharedCache, this.context, mergedProductRecommendationsProviders),
       cache: sharedCache,
     } as TClient & { cache: Cache };
 
