@@ -91,6 +91,7 @@ export function createClient(provider: PrimaryProvider) {
           order: true,
           price: true,
           productSearch: true,
+          productRecommendations: true,
           orderSearch: true,
           store: true,
           profile: true
@@ -124,6 +125,7 @@ export function createClient(provider: PrimaryProvider) {
     builder = builder.withCapability(
       withAlgoliaCapabilities(getAlgoliaTestConfiguration(), {
         productSearch: true,
+        productRecommendations: true,
       })
     );
   }
@@ -133,6 +135,7 @@ export function createClient(provider: PrimaryProvider) {
       withMeilisearchCapabilities(getMeilisearchTestConfiguration(), {
         productSearch: true,
         orderSearch: true,
+        productRecommendations: true,
       }),
     );
     builder = builder.withCapability(

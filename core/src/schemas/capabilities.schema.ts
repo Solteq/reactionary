@@ -5,6 +5,8 @@ import type { Client } from '../client/client.js';
 export const CapabilitiesSchema = z.looseObject({
     product: z.boolean(),
     productSearch: z.boolean(),
+    productAssociations: z.boolean(),
+    productRecommendations: z.boolean(),
     analytics: z.boolean(),
     identity: z.boolean(),
     cart: z.boolean(),
