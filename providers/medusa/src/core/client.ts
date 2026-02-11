@@ -40,7 +40,7 @@ export class RequestContextTokenStore implements MedusaCustomStorage {
       this.context.session[SESSION_KEY] = {};
     }
     const retVal = this.context.session[SESSION_KEY]
-      ? this.context.session[SESSION_KEY][this.keyPrefix + '_' + key] || null
+      ? (this.context.session[SESSION_KEY] as MedusaSession)[this.keyPrefix + '_' + key] || null
       : null;
     if (debug.enabled) {
       debug(
@@ -49,7 +49,7 @@ export class RequestContextTokenStore implements MedusaCustomStorage {
         }`
       );
     }
-    return Promise.resolve(retVal);
+    return Promise.resolve(retVal as any);
   }
 
   setItem(key: string, value: string): Promise<void> {
@@ -63,7 +63,7 @@ export class RequestContextTokenStore implements MedusaCustomStorage {
         } - Value: ${value}`
       );
     }
-    this.context.session[SESSION_KEY][this.keyPrefix + '_' + key] = value;
+    (this.context.session[SESSION_KEY] as MedusaSession)[this.keyPrefix + '_' + key] = value;
     return Promise.resolve();
   }
 
@@ -74,7 +74,7 @@ export class RequestContextTokenStore implements MedusaCustomStorage {
     if (debug.enabled) {
       debug(`Removing token item for key: ${this.keyPrefix + '_' + key}`);
     }
-    delete this.context.session[SESSION_KEY][this.keyPrefix + '_' + key];
+    delete (this.context.session[SESSION_KEY] as MedusaSession)[this.keyPrefix + '_' + key];
     return Promise.resolve();
   }
 }
@@ -220,12 +220,12 @@ export class MedusaAPI {
 
   public getSessionData(): MedusaSession {
     return this.context.session[SESSION_KEY]
-      ? this.context.session[SESSION_KEY]
+      ? this.context.session[SESSION_KEY] as Partial<MedusaSession>
       : MedusaSessionSchema.parse({});
   }
 
   public setSessionData(sessionData: Partial<MedusaSession>): void {
-    const existingData = this.context.session[SESSION_KEY];
+    const existingData = this.context.session[SESSION_KEY] as Partial<MedusaSession>;
 
     this.context.session[SESSION_KEY] = {
       ...existingData,
