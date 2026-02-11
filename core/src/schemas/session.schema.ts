@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdentityIdentifierSchema, WebStoreIdentifierSchema } from './models/identifiers.model.js';
+import { WebStoreIdentifierSchema } from './models/identifiers.model.js';
 import { CurrencySchema } from './models/currency.model.js';
 import { IdentitySchema } from './models/identity.model.js';
 
@@ -14,12 +14,12 @@ export const LanguageContextSchema = z.looseObject( {
 export const IdentityContextSchema = z.looseObject({
     identity: IdentitySchema,
     personalizationKey: z.string(),
-    lastUpdated: z.date()
+    lastUpdated: z.coerce.date()
 });
 
-export const SessionSchema = z.record(z.string(), z.any()).and(z.object({
+export const SessionSchema = z.looseObject({
     identityContext: IdentityContextSchema
-}));
+});
 
 export const TaxJurisdictionSchema = z.object( {
     countryCode: z.string().default('US'),
