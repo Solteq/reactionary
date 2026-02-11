@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ClientBuilder, createInitialRequestContext, NoOpCache } from '@reactionary/core';
 import { FakeProductProvider, withFakeCapabilities  } from '@reactionary/provider-fake';
 import { CommercetoolsCartProvider, withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
-import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
+import { AlgoliaProductSearchProvider, withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 
 describe('client creation', () => {
   it('should be able to mix providers and get a valid, typed client', async () => {
@@ -48,6 +48,6 @@ describe('client creation', () => {
 
     expect(client.cart).toBeInstanceOf(CommercetoolsCartProvider);
     expect(client.product).toBeInstanceOf(FakeProductProvider);
-    expect(client.productSearch).toBeInstanceOf(AlgoliaSearchProvider);
+    expect(client.productSearch).toBeInstanceOf(AlgoliaProductSearchProvider);
   });
 });
