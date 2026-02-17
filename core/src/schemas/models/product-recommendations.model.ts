@@ -1,8 +1,10 @@
-import z from "zod";
+import { z } from "zod";
 import { ProductIdentifierSchema, ProductRecommendationIdentifierSchema, ProductVariantIdentifierSchema } from "./identifiers.model.js";
 import { ProductSearchResultItemSchema } from "./product-search.model.js";
+import type { InferType } from "../../zod-utils.js";
+import { BaseModelSchema } from "./base.model.js";
 
-export const BaseProductRecommendationSchema = z.looseObject({
+export const BaseProductRecommendationSchema = BaseModelSchema.extend({
     recommendationIdentifier: ProductRecommendationIdentifierSchema.describe('The identifier for the product recommendation, which includes a key and an algorithm and any other vendor specific/instance specific data '),
 });
 
@@ -20,6 +22,6 @@ export const ProductRecommendationSchema = z.discriminatedUnion('recommendationR
   ProductRecommendationProductSearchResultItemSchema
 ]);
 
-export type ProductRecommendationIdOnly = z.infer<typeof ProductRecommendationIdOnlySchema>;
-export type ProductRecommendationSearchItem = z.infer<typeof ProductRecommendationProductSearchResultItemSchema>;
-export type ProductRecommendation = z.infer<typeof ProductRecommendationSchema>;
+export type ProductRecommendationIdOnly = InferType<typeof ProductRecommendationIdOnlySchema>;
+export type ProductRecommendationSearchItem = InferType<typeof ProductRecommendationProductSearchResultItemSchema>;
+export type ProductRecommendation = InferType<typeof ProductRecommendationSchema>;

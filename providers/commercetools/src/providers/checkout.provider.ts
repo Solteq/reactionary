@@ -49,7 +49,7 @@ import {
   error,
   unwrapValue
 } from '@reactionary/core';
-import z from 'zod';
+import { z } from 'zod';
 import type { CommercetoolsAPI } from '../core/client.js';
 import {
   type CommercetoolsCartIdentifier,
