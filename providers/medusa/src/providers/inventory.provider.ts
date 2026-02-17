@@ -13,7 +13,7 @@ import {
   type Result,
   success,
 } from '@reactionary/core';
-import type z from 'zod';
+import type * as z from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import { MedusaAdminAPI, type MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';

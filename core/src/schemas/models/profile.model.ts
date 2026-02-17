@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { AddressIdentifierSchema, IdentityIdentifierSchema } from "./identifiers.model.js";
 import { BaseModelSchema } from "./base.model.js";
 import type { InferType } from '../../zod-utils.js';

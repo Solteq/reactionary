@@ -4,7 +4,7 @@ import {
   ProductSearchIdentifierSchema,
 } from '../../models/identifiers.model.js';
 import { BaseMutationSchema } from '../base.mutation.js';
-import { z } from 'zod';
+import * as z from 'zod';
 
 export const AnalyticsMutationProductSummaryClickEventSchema =
   BaseMutationSchema.extend({

@@ -2,7 +2,7 @@ import type { Result, NotFoundError, Category, CategoryPaginatedResult, Category
 import { success, error, CategoryPaginatedResultSchema, CategoryProvider, CategoryQueryByIdSchema, CategoryQueryBySlugSchema, CategoryQueryForBreadcrumbSchema, CategoryQueryForChildCategoriesSchema, CategoryQueryForTopCategoriesSchema, CategorySchema, Reactionary } from "@reactionary/core";
 import type { FakeConfiguration } from "../schema/configuration.schema.js";
 import type { Cache as ReactionaryCache } from "@reactionary/core";
-import { z } from "zod";
+import * as z from "zod";
 import { Faker, en, base } from '@faker-js/faker';
 
 export class FakeCategoryProvider extends CategoryProvider {

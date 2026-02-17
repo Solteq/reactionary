@@ -12,7 +12,7 @@ import {
   FakeProductProvider,
   withFakeCapabilities,
 } from '@reactionary/provider-fake';
-import { z } from 'zod';
+import * as z from 'zod';
 import { describe, expect, it } from 'vitest';
 
 describe('basic node provider extension (models)', () => {

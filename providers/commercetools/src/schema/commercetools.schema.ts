@@ -1,5 +1,5 @@
 import { BaseModelSchema, CartIdentifierSchema, CategoryIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema } from "@reactionary/core";
-import { keyof, z } from "zod";
+import * as z from "zod";
 
 export const CommercetoolsCartIdentifierSchema = CartIdentifierSchema.extend({
     version: z.number().default(0)
@@ -15,10 +15,10 @@ export const CommercetoolsCheckoutIdentifierSchema = CheckoutIdentifierSchema.ex
 });
 
 export const CommercetoolsResolveCategoryQueryByKeySchema = z.object({
-    key: z.string().describe('The key of the category to resolve.'),
+    key: z.string().meta({ description: 'The key of the category to resolve.' }),
 });
 export const CommercetoolsResolveCategoryQueryByIdSchema = z.object({
-    id: z.string().describe('The ID of the category to resolve.'),
+    id: z.string().meta({ description: 'The ID of the category to resolve.' }),
 });
 export const CommercetoolsCategoryLookupSchema = BaseModelSchema.extend({
     id: z.string(),

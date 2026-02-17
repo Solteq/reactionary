@@ -1,4 +1,4 @@
-import type { z } from 'zod';
+import type * as z from 'zod';
 import { BaseModelSchema } from './base.model.js';
 import type { InferType } from '../../zod-utils.js';
 

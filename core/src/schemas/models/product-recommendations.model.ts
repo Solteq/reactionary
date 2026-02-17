@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { ProductIdentifierSchema, ProductRecommendationIdentifierSchema, ProductVariantIdentifierSchema } from "./identifiers.model.js";
 import { ProductSearchResultItemSchema } from "./product-search.model.js";
 import type { InferType } from "../../zod-utils.js";
@@ -9,11 +9,11 @@ export const BaseProductRecommendationSchema = BaseModelSchema.extend({
 });
 
 export const ProductRecommendationIdOnlySchema = BaseProductRecommendationSchema.extend({
-    recommendationReturnType: z.literal('idOnly').describe('The type of recommendation return'),
+    recommendationReturnType: z.literal('idOnly').meta({ description: 'The type of recommendation return' }),
     product: ProductIdentifierSchema.describe('The identifier for the recommended product.'),
 });
 export const ProductRecommendationProductSearchResultItemSchema = BaseProductRecommendationSchema.extend({
-    recommendationReturnType: z.literal('productSearchResultItem').describe('The type of recommendation return'),
+    recommendationReturnType: z.literal('productSearchResultItem').meta({ description: 'The type of recommendation return' }),
     product: ProductSearchResultItemSchema.describe('The recommended product, including its identifier, name, slug, and variants. This can be used to display the recommended product directly on the frontend without needing to make an additional request to fetch the product details.'),
 });
 

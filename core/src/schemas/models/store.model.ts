@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { BaseModelSchema } from './base.model.js';
 import {
   FulfillmentCenterIdentifierSchema,

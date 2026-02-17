@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 export const FakeConfigurationSchema = z.looseObject({
   jitter: z

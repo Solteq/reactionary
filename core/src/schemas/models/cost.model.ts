@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 import { MonetaryAmountSchema } from "./price.model.js";
 import type { InferType } from '../../zod-utils.js';
 

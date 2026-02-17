@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { WebStoreIdentifierSchema } from './models/identifiers.model.js';
 import { CurrencySchema } from './models/currency.model.js';
 import { IdentitySchema } from './models/identity.model.js';
@@ -34,12 +34,12 @@ export const RequestContextSchema = z.looseObject( {
     storeIdentifier: WebStoreIdentifierSchema.default(() => WebStoreIdentifierSchema.parse({})).describe('ReadOnly. The identifier of the current web store making the request.'),
     taxJurisdiction: TaxJurisdictionSchema.default(() => TaxJurisdictionSchema.parse({})).describe('ReadOnly. The tax jurisdiction for the current request, typically derived from the store location or carts billing address'),
 
-    correlationId: z.string().default('').describe('A unique identifier for the request, can be used for tracing and logging purposes.'),
-    isBot: z.boolean().default(false).describe('Indicates if the request is made by a bot or crawler.'),
+    correlationId: z.string().default('').meta({ description: 'A unique identifier for the request, can be used for tracing and logging purposes.' }),
+    isBot: z.boolean().default(false).meta({ description: 'Indicates if the request is made by a bot or crawler.' }),
 
-    clientIp: z.string().default('').describe('The IP address of the client making the request, if available. Mostly for logging purposes'),
-    userAgent: z.string().default('').describe('The user agent string of the client making the request, if available.'),
-    referrer: z.string().default('').describe('The referrer URL, if available.'),
+    clientIp: z.string().default('').meta({ description: 'The IP address of the client making the request, if available. Mostly for logging purposes' }),
+    userAgent: z.string().default('').meta({ description: 'The user agent string of the client making the request, if available.' }),
+    referrer: z.string().default('').meta({ description: 'The referrer URL, if available.' }),
 });
 
 

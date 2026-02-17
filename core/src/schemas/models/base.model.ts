@@ -1,12 +1,12 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import type { InferType } from '../../zod-utils.js';
 
 export const BaseModelSchema = z.looseObject({
 });
 
 export const PaginationOptionsSchema = z.looseObject({
-    pageNumber: z.number().default(1).describe('Current page number, starting from 1'),
-    pageSize: z.number().min(1).max(50).default(20).describe('Number of items per page'),
+    pageNumber: z.number().default(1).meta({ description: 'Current page number, starting from 1' }),
+    pageSize: z.number().min(1).max(50).default(20).meta({ description: 'Number of items per page' }),
 });
 
 /**
@@ -17,10 +17,10 @@ export function createPaginatedResponseSchema<ItemType extends z.ZodTypeAny>(
   itemSchema: ItemType,
 ) {
   return z.object({
-    pageNumber: z.number().min(1).describe('Current page number, starting from 1'),
-    pageSize: z.number().min(1).describe('Number of items per page'),
-    totalCount: z.number().min(0).describe('Total number of items available'),
-    totalPages: z.number().min(0).describe('Total number of pages available'),
+    pageNumber: z.number().min(1).meta({ description: 'Current page number, starting from 1' }),
+    pageSize: z.number().min(1).meta({ description: 'Number of items per page' }),
+    totalCount: z.number().min(0).meta({ description: 'Total number of items available' }),
+    totalPages: z.number().min(0).meta({ description: 'Total number of pages available' }),
     items: z.array(itemSchema),
   });
 }
@@ -31,10 +31,10 @@ export function createPaginatedResponseSchema<ItemType extends z.ZodTypeAny>(
  * Ie, rather than having distinct thumbnail and image fields, we just have a list of images, and the frontend will generate its own thumbnails as needed?
  */
 export const ImageSchema = z.looseObject({
-    sourceUrl: z.string().default('').describe('The original source URL of the image. Pass this through your image resizing and transcoding service to get the desired size, and generate thumbnails as needed'),
-    altText: z.string().default('').describe('Alternative text for the image, for accessibility purposes. Must always be set, and non-empty'),
-    width: z.number().optional().describe('Width of the original image, in pixels, if known'),
-    height: z.number().optional().describe('Height of the original image, in pixels, if known'),
+    sourceUrl: z.string().default('').meta({ description: 'The original source URL of the image. Pass this through your image resizing and transcoding service to get the desired size, and generate thumbnails as needed' }),
+    altText: z.string().default('').meta({ description: 'Alternative text for the image, for accessibility purposes. Must always be set, and non-empty' }),
+    width: z.number().optional().meta({ description: 'Width of the original image, in pixels, if known' }),
+    height: z.number().optional().meta({ description: 'Height of the original image, in pixels, if known' }),
 });
 
 export type Image = InferType<typeof ImageSchema>;

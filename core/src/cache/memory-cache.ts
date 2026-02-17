@@ -3,7 +3,7 @@ import { error, NotFoundErrorSchema, success, type NotFoundError } from '../sche
 import type { BaseModel } from '../schemas/models/index.js';
 import type { Result } from '../schemas/result.js';
 import type { Cache, CacheEntryOptions } from './cache.interface.js';
-import type z from 'zod';
+import type * as z from 'zod';
 
 
 /**

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, ProductIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
 import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
 import { BaseModelSchema } from './base.model.js';

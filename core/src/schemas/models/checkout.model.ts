@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { BaseModelSchema } from './base.model.js';
 import { CartIdentifierSchema, CheckoutIdentifierSchema, CheckoutItemIdentifierSchema, OrderIdentifierSchema, ProductVariantIdentifierSchema } from './identifiers.model.js';
 import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
@@ -55,7 +55,7 @@ export const CheckoutSchema = BaseModelSchema.extend({
      * Indicates if the checkout has all the required information to be finalized into an order.
      * This does not mean it will succeed, as there may be issues with payment or shipping, but all required information is present.
      */
-    readyForFinalization: z.boolean().default(false).describe('Indicates if the checkout has all the required information to be finalized into an order. This does not mean it will succeed, as there may be issues with payment or shipping, but all required information is present.'),
+    readyForFinalization: z.boolean().default(false).meta({ description: 'Indicates if the checkout has all the required information to be finalized into an order. This does not mean it will succeed, as there may be issues with payment or shipping, but all required information is present.' }),
 });
 
 

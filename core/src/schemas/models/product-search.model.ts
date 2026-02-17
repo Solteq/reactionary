@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { ProductIdentifierSchema, FacetValueIdentifierSchema, FacetIdentifierSchema, ProductSearchIdentifierSchema, ProductVariantIdentifierSchema } from './identifiers.model.js';
 import { BaseModelSchema, createPaginatedResponseSchema, ImageSchema } from './base.model.js';
 import { ProductVariantOptionSchema } from './product.model.js';
@@ -14,7 +14,7 @@ export const ProductSearchResultItemSchema = BaseModelSchema.extend({
     identifier: ProductIdentifierSchema,
     name: z.string(),
     slug: z.string(),
-    variants: z.array(ProductSearchResultItemVariantSchema).describe('A list of variants associated with the product in the search results. If exactly one is present, you can use add-to-cart directly from PLP. If none are present, you must direct to PDP. If mulitple are present, and no options are set, you must direct to PDP. If multiple are present, and they have options, you can render swatches on PLP and allow customer to flip between variants.'),
+    variants: z.array(ProductSearchResultItemVariantSchema).meta({ description: 'A list of variants associated with the product in the search results. If exactly one is present, you can use add-to-cart directly from PLP. If none are present, you must direct to PDP. If mulitple are present, and no options are set, you must direct to PDP. If multiple are present, and they have options, you can render swatches on PLP and allow customer to flip between variants.' }),
 });
 
 export const ProductSearchResultFacetValueSchema = z.looseObject({

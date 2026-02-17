@@ -27,7 +27,7 @@ import {
   CategoryPaginatedResultSchema,
 } from '@reactionary/core';
 import type { MedusaAPI, MedusaConfiguration } from '../index.js';
-import { z } from 'zod';
+import * as z from 'zod';
 
 export class MedusaCategoryProvider extends CategoryProvider {
   protected config: MedusaConfiguration;

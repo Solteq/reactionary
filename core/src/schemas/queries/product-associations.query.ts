@@ -1,11 +1,11 @@
-import { z } from "zod";
+import * as z from "zod";
 import { BaseQuerySchema } from "./base.query.js";
 import { ProductIdentifierSchema, ProductVariantIdentifierSchema } from "../models/identifiers.model.js";
 import { CartItemSchema } from "../models/cart.model.js";
 
 export const ProductAssociationsGetAccessoriesQuerySchema = BaseQuerySchema.extend({
   forProductVariant: ProductVariantIdentifierSchema.describe('The product variant identifier for which to get accessory recommendations. The provider should return recommendations that are relevant to this product, e.g., products that are frequently bought together, products that are similar in style or category, or products that are popular among users with similar preferences.'),
-  numberOfAccessories: z.number().min(1).max(12).describe('The number of accessory recommendations requested. The provider may return fewer than this number, but should not return more.'),
+  numberOfAccessories: z.number().min(1).max(12).meta({ description: 'The number of accessory recommendations requested. The provider may return fewer than this number, but should not return more.' }),
 });
 
 export const ProductAssociationsGetSparepartsQuerySchema = BaseQuerySchema.extend({

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { PaymentMethodSchema } from '@reactionary/core';
 
 export const CommercetoolsConfigurationSchema = z.looseObject({

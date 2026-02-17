@@ -14,7 +14,7 @@ import type {
   NotFoundError,
 } from '@reactionary/core';
 import { OrderProvider, OrderQueryByIdSchema, OrderSchema, Reactionary, success, error } from '@reactionary/core';
-import type z from 'zod';
+import type * as z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { Order as CTOrder } from '@commercetools/platform-sdk';
 import { type CommercetoolsOrderIdentifier } from '../schema/commercetools.schema.js';

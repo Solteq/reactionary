@@ -1,6 +1,6 @@
 import { getReactionaryCacheMeter } from '../metrics/metrics.js';
 import type { Cache, CacheEntryOptions } from './cache.interface.js';
-import type z from 'zod';
+import type * as z from 'zod';
 
 /**
  * No-op cache implementation that never stores or returns data.
