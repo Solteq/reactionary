@@ -1,16 +1,16 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { BaseModelSchema } from './base.model.js';
 import { PriceIdentifierSchema } from './identifiers.model.js';
 import { CurrencySchema } from './currency.model.js';
 import type { InferType } from '../../zod-utils.js';
 
 export const MonetaryAmountSchema = z.looseObject({
-    value: z.number().describe('The monetary amount in decimal-precision.'),
+    value: z.number().meta({ description: 'The monetary amount in decimal-precision.' }),
     currency: CurrencySchema.describe('The currency associated with the amount, as a ISO 4217 standardized code.')
 });
 
 export const TieredPriceSchema = z.looseObject({
-    minimumQuantity: z.number().describe('The minimum quantity required to be eligible for the tiered price.'),
+    minimumQuantity: z.number().meta({ description: 'The minimum quantity required to be eligible for the tiered price.' }),
     price: MonetaryAmountSchema.describe('The monetary amount for the tiered price.'),
 });
 

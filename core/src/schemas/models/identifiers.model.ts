@@ -1,8 +1,8 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { PaginationOptionsSchema } from './base.model.js';
 import type { InferType } from '../../zod-utils.js';
-export const OrderStatusSchema = z.enum(['AwaitingPayment', 'ReleasedToFulfillment', 'Shipped', 'Cancelled']).describe('The current status of the order.');
-export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', 'Backordered', 'Preordered']).describe('The inventory release status of the order.');
+export const OrderStatusSchema = z.enum(['AwaitingPayment', 'ReleasedToFulfillment', 'Shipped', 'Cancelled']).meta({ description: 'The current status of the order.' });
+export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', 'Backordered', 'Preordered']).meta({ description: 'The inventory release status of the order.' });
 
 export const FacetIdentifierSchema = z.looseObject({
   key: z.string(),
@@ -18,20 +18,20 @@ export const ProductVariantIdentifierSchema = z.looseObject({
 });
 
 export const ProductAttributeIdentifierSchema = z.looseObject({
-  key: z.string().describe('The unique identifier for the product attribute.'),
+  key: z.string().meta({ description: 'The unique identifier for the product attribute.' }),
 });
 
 export const ProductAttributeValueIdentifierSchema = z.looseObject({
-  key: z.string().describe('The unique identifier for the product attribute value.'),
+  key: z.string().meta({ description: 'The unique identifier for the product attribute value.' }),
 });
 
 export const ProductOptionIdentifierSchema = z.looseObject({
-  key: z.string().describe('The unique identifier for the product option.'),
+  key: z.string().meta({ description: 'The unique identifier for the product option.' }),
 });
 
 export const ProductOptionValueIdentifierSchema = z.looseObject({
   option: ProductOptionIdentifierSchema,
-  key: z.string().describe('The value of the product option, e.g., "Red" or "Large".'),
+  key: z.string().meta({ description: 'The value of the product option, e.g., "Red" or "Large".' }),
 });
 
 export const ProductIdentifierSchema = z.looseObject({
@@ -125,9 +125,9 @@ export const ProductRecommendationIdentifierSchema = z.looseObject({
 
 
 export const ProductSearchIdentifierSchema = z.looseObject({
-  term: z.string().describe('The search term used to find products.'),
-  facets: z.array(FacetValueIdentifierSchema).describe('The facets applied to filter the search results.'),
-  filters: z.array(z.string()).describe('Additional filters applied to the search results.'),
+  term: z.string().meta({ description: 'The search term used to find products.' }),
+  facets: z.array(FacetValueIdentifierSchema).meta({ description: 'The facets applied to filter the search results.' }),
+  filters: z.array(z.string()).meta({ description: 'Additional filters applied to the search results.' }),
   paginationOptions: PaginationOptionsSchema.describe('Pagination options for the search results.'),
   categoryFilter: FacetValueIdentifierSchema.optional().describe('An optional category filter applied to the search results.'),
 });
@@ -136,13 +136,13 @@ export const ProductSearchIdentifierSchema = z.looseObject({
  * Bar
  */
 export const OrderSearchIdentifierSchema = z.looseObject({
-  term: z.string().describe('The search term used to find orders. Not all providers may support term-based search for orders.'),
-  partNumber: z.array(z.string()).optional().describe('An optional list part number to filter orders by specific products. Will be ANDed together.'),
-  orderStatus: z.array(OrderStatusSchema).optional().describe('An optional list of order statuses to filter the search results.'),
+  term: z.string().meta({ description: 'The search term used to find orders. Not all providers may support term-based search for orders.' }),
+  partNumber: z.array(z.string()).optional().meta({ description: 'An optional list part number to filter orders by specific products. Will be ANDed together.' }),
+  orderStatus: z.array(OrderStatusSchema).optional().meta({ description: 'An optional list of order statuses to filter the search results.' }),
   user: IdentityIdentifierSchema.optional().describe('An optional user ID to filter orders by specific users. Mostly for b2b usecases with hierachial order access.'),
-  startDate: z.string().optional().describe('An optional start date to filter orders from a specific date onwards. ISO8601'),
-  endDate: z.string().optional().describe('An optional end date to filter orders up to a specific date. ISO8601'),
-  filters: z.array(z.string()).describe('Additional filters applied to the search results.'),
+  startDate: z.string().optional().meta({ description: 'An optional start date to filter orders from a specific date onwards. ISO8601' }),
+  endDate: z.string().optional().meta({ description: 'An optional end date to filter orders up to a specific date. ISO8601' }),
+  filters: z.array(z.string()).meta({ description: 'Additional filters applied to the search results.' }),
   paginationOptions: PaginationOptionsSchema.describe('Pagination options for the search results.'),
 });
 

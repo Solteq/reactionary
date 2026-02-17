@@ -1,5 +1,5 @@
 import { ProductSearchIdentifierSchema, ProductSearchResultSchema } from '@reactionary/core';
-import { z } from 'zod';
+import * as z from 'zod';
 
 export const AlgoliaProductSearchIdentifierSchema = ProductSearchIdentifierSchema.extend({
    key: z.string(),

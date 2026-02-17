@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { BaseMutationSchema } from './base.mutation.js';
 import type { InferType } from '../../zod-utils.js';
 import { AddressIdentifierSchema, IdentityIdentifierSchema } from '../models/identifiers.model.js';
@@ -6,8 +6,8 @@ import { AddressSchema } from '../models/profile.model.js';
 
 export const ProfileMutationUpdateSchema = BaseMutationSchema.extend({
     identifier: IdentityIdentifierSchema,
-    email: z.email().describe('The main contact email of the profile'),
-    phone: z.string().describe('The main phone number of the profile'),
+    email: z.email().meta({ description: 'The main contact email of the profile' }),
+    phone: z.string().meta({ description: 'The main phone number of the profile' }),
 });
 
 export const ProfileMutationAddShippingAddressSchema = BaseMutationSchema.extend({

@@ -49,7 +49,7 @@ import {
   error
 } from '@reactionary/core';
 import createDebug from 'debug';
-import { z } from 'zod';
+import * as z from 'zod';
 import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import { handleProviderError,  parseMedusaCostBreakdown, parseMedusaItemPrice } from '../utils/medusa-helpers.js';

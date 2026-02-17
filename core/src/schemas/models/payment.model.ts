@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { BaseModelSchema, ImageSchema } from './base.model.js';
 import { PaymentInstructionIdentifierSchema, PaymentMethodIdentifierSchema } from './identifiers.model.js';
 import { MonetaryAmountSchema } from './price.model.js';
@@ -22,7 +22,7 @@ export const PaymentInstructionSchema = BaseModelSchema.extend({
     identifier: PaymentInstructionIdentifierSchema,
     amount: MonetaryAmountSchema,
     paymentMethod: PaymentMethodIdentifierSchema,
-    protocolData: z.array(PaymentProtocolDataSchema).describe('Additional protocol-specific data for processing the payment.'),
+    protocolData: z.array(PaymentProtocolDataSchema).meta({ description: 'Additional protocol-specific data for processing the payment.' }),
     status: PaymentStatusSchema,
 });
 

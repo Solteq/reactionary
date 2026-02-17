@@ -1,5 +1,5 @@
 import { CartIdentifierSchema, OrderIdentifierSchema } from '@reactionary/core';
-import { z } from 'zod';
+import * as z from 'zod';
 
 export const MedusaCartIdentifierSchema = CartIdentifierSchema.extend({
   region_id: z.string().optional(),

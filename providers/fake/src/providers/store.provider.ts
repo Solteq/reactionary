@@ -8,7 +8,7 @@ import type {
   Result
 } from '@reactionary/core';
 import { Reactionary, StoreProvider, StoreQueryByProximitySchema, StoreSchema, success } from '@reactionary/core';
-import { z } from 'zod';
+import * as z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
 

@@ -24,7 +24,7 @@ import {
   ProfileMutationRemoveShippingAddressSchema,
   ProfileMutationAddShippingAddressSchema
 } from '@reactionary/core';
-import type z from 'zod';
+import type * as z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { Cache } from '@reactionary/core';
 import type { Customer, MyCustomerUpdateAction, Address as CTAddress } from '@commercetools/platform-sdk';

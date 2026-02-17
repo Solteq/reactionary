@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { BaseMutationSchema } from './base.mutation.js';
 import type { InferType } from '../../zod-utils.js';
 

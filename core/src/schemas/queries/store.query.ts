@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { BaseQuerySchema } from './base.query.js';
 import type { InferType } from '../../zod-utils.js';
 

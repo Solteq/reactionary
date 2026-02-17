@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import { BaseModelSchema, createPaginatedResponseSchema, ImageSchema } from './base.model.js';
 import { CategoryIdentifierSchema } from './identifiers.model.js';
 import type { InferType } from '../../zod-utils.js';

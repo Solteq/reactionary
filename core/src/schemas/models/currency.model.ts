@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 import type { InferType } from '../../zod-utils.js';
 
 export const CurrencySchema = z.enum([

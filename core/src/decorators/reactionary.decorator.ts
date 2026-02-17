@@ -1,6 +1,6 @@
 import type { Tracer } from '@opentelemetry/api';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
-import { z } from 'zod';
+import * as z from 'zod';
 import type { BaseProvider } from '../providers/index.js';
 import { getReactionaryMeter } from '../metrics/metrics.js';
 import { error, success, type Result } from '../schemas/result.js';

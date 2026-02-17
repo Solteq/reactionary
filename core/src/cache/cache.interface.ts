@@ -1,4 +1,4 @@
-import type { z } from 'zod';
+import type * as z from 'zod';
 import type { BaseModel } from '../schemas/models/index.js';
 import type { NotFoundError, Result } from '../schemas/index.js';
 

@@ -7,7 +7,7 @@ import {
   type ReactionaryDecoratorOptions,
 } from '../decorators/reactionary.decorator.js';
 import { createInitialRequestContext } from '../initialization.js';
-import { z } from 'zod';
+import * as z from 'zod';
 import { success, MemoryCache, type Result } from '../index.js';
 import { assert } from 'vitest';
 import {

@@ -17,7 +17,7 @@ import {
   type Result
 } from '@reactionary/core';
 import createDebug from 'debug';
-import type z from 'zod';
+import type * as z from 'zod';
 import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 

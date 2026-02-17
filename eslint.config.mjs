@@ -1,9 +1,11 @@
 import nx from '@nx/eslint-plugin';
+import eslintPluginZod from 'eslint-plugin-zod';
 
 export default [
   ...nx.configs['flat/base'],
   ...nx.configs['flat/typescript'],
   ...nx.configs['flat/javascript'],
+  eslintPluginZod.configs['recommended'],
   {
     ignores: [
       '**/dist',

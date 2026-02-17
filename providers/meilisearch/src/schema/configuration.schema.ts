@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 export const MeilisearchConfigurationSchema = z.looseObject({
     apiUrl: z.string(),

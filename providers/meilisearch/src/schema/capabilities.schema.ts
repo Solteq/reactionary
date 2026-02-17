@@ -1,5 +1,5 @@
 import { CapabilitiesSchema } from "@reactionary/core";
-import type { z } from 'zod';
+import type * as z from 'zod';
 
 export const MeilisearchCapabilitiesSchema = CapabilitiesSchema.pick({
     productSearch: true,
