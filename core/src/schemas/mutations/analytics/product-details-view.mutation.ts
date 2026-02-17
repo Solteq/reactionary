@@ -1,4 +1,4 @@
-import z from 'zod';
+import { z } from 'zod';
 import { ProductIdentifierSchema } from '../../models/identifiers.model.js';
 import { BaseMutationSchema } from '../base.mutation.js';
 import type { InferType } from '../../../zod-utils.js';

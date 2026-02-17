@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import type { InferType } from "../../zod-utils.js";
 import { CategoryIdentifierSchema, ProductIdentifierSchema } from "../models/identifiers.model.js";
 import { BaseQuerySchema } from "./base.query.js";

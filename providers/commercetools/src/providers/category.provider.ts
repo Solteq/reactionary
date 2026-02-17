@@ -25,7 +25,7 @@ import type {
   Result,
   NotFoundError,
 } from '@reactionary/core';
-import z from 'zod';
+import { z } from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
   ByProjectKeyCategoriesRequestBuilder,

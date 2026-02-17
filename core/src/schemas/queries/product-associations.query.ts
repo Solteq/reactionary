@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import { BaseQuerySchema } from "./base.query.js";
 import { ProductIdentifierSchema, ProductVariantIdentifierSchema } from "../models/identifiers.model.js";
 import { CartItemSchema } from "../models/cart.model.js";

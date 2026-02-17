@@ -8,7 +8,7 @@ import type {
   Result,
 } from '@reactionary/core';
 import { Reactionary, StoreProvider, StoreQueryByProximitySchema, StoreSchema, success, error } from '@reactionary/core';
-import z from 'zod';
+import { z } from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { Channel } from '@commercetools/platform-sdk';
 import type { CommercetoolsAPI } from '../core/client.js';
