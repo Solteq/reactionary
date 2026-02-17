@@ -76,14 +76,13 @@ export class MeilisearchProductRecommendationsProvider extends ProductRecommenda
    */
   protected parseRecommendations(recommendation: SearchResponse<MeilisearchNativeRecord>, algorithm: string): ProductRecommendation[] {
 
-    const product = this.parseSearchResultItem(recommendation.hits[0] as MeilisearchNativeRecord);
     return recommendation.hits.map((hit) => ({
       recommendationIdentifier: {
         key: hit.objectID,
         algorithm,
       },
       recommendationReturnType: 'productSearchResultItem',
-      product: product
+      product: this.parseSearchResultItem(hit as MeilisearchNativeRecord),
     }));
   }
 
