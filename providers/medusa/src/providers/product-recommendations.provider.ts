@@ -1,14 +1,20 @@
+import type { StoreProduct, StoreProductVariant } from '@medusajs/types';
 import {
-  type Cache,
+  error,
+  ImageSchema,
   ProductRecommendationsProvider,
+  ProductSearchResultItemVariantSchema,
+  ProductVariantIdentifierSchema,
+  success,
+  type Cache,
+  type NotFoundError,
   type ProductRecommendation,
   type ProductRecommendationsByCollectionQuery,
+  type ProductSearchResultItem,
+  type ProductSearchResultItemVariant,
+  type ProductVariantIdentifier,
   type RequestContext,
-  type Result,
-  success, error,
-  NotFoundErrorSchema,
-  type NotFoundError,
-  errorToString,
+  type Result
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type { MedusaAPI } from '../core/client.js';
@@ -89,15 +95,17 @@ export class MedusaProductRecommendationsProvider extends ProductRecommendations
       // Map products to recommendations
       const recommendations: ProductRecommendation[] = [];
 
-      for (const product of productsResponse.products) {
+
+
+      for (const productRes of productsResponse.products) {
+        const product = this.parseSearchResultItem(productRes);
         recommendations.push({
           recommendationIdentifier: {
-            key: `${collection.id}_${product.id}`,
+            key: `${collection.id}_${productRes.id}`,
             algorithm: 'collection',
           },
-          product: {
-            key: product.id
-          },
+          recommendationReturnType: 'productSearchResultItem',
+          product: product,
         });
       }
 
@@ -114,4 +122,43 @@ export class MedusaProductRecommendationsProvider extends ProductRecommendations
       return success([]);
     }
   }
+
+  protected parseSearchResultItem(_body: StoreProduct) {
+     const heroVariant = _body.variants?.[0];
+     const identifier = { key: _body.id };
+     const slug = _body.handle;
+     const name = heroVariant?.title || _body.title;
+     const variants = [];
+     if (heroVariant) {
+       variants.push(this.parseVariant(heroVariant, _body));
+     }
+
+     const result = {
+       identifier,
+       name,
+       slug,
+       variants,
+     } satisfies ProductSearchResultItem;
+
+     return result;
+   }
+
+   protected parseVariant(
+     variant: StoreProductVariant,
+     product: StoreProduct
+   ): ProductSearchResultItemVariant {
+     const img = ImageSchema.parse({
+       sourceUrl: product.images?.[0].url ?? '',
+       altText: product.title || undefined,
+     });
+
+     return ProductSearchResultItemVariantSchema.parse({
+       variant: ProductVariantIdentifierSchema.parse({
+         sku: variant.sku || '',
+       } satisfies ProductVariantIdentifier),
+       image: img,
+     } satisfies Partial<ProductSearchResultItemVariant>);
+   }
+
+
 }

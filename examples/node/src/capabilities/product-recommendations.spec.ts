@@ -36,6 +36,17 @@ describe.each([PrimaryProvider.MEDUSA])(
       }
 
       expect(result.value.length).toBeGreaterThan(0);
+
+      expect(result.value[0].recommendationReturnType).toBe('productSearchResultItem');
+      if (result.value[0].recommendationReturnType === 'productSearchResultItem') {
+        expect(result.value[0].product.identifier.key).toBeDefined();
+        expect(result.value[0].product.name).toBeDefined();
+        expect(result.value[0].product.slug).toBeDefined();
+        expect(result.value[0].product.variants).toBeDefined();
+        expect(result.value[0].product.variants.length).toBeGreaterThan(0);
+        expect(result.value[0].product.variants[0].variant.sku).toBeDefined();
+        expect(result.value[0].product.variants[0].image.sourceUrl).toBeDefined();
+      }
     });
 
     it('should return an empty result for an unknown collection', async () => {
@@ -76,7 +87,16 @@ describe.each([PrimaryProvider.MEILISEARCH])(
       }
 
       expect(result.value.length).toBeGreaterThan(0);
-      expect(result.value[0].product.key).toBeDefined();
+      expect(result.value[0].recommendationReturnType).toBe('productSearchResultItem');
+      if (result.value[0].recommendationReturnType === 'productSearchResultItem') {
+        expect(result.value[0].product.identifier.key).toBeDefined();
+        expect(result.value[0].product.name).toBeDefined();
+        expect(result.value[0].product.slug).toBeDefined();
+        expect(result.value[0].product.variants).toBeDefined();
+        expect(result.value[0].product.variants.length).toBeGreaterThan(0);
+        expect(result.value[0].product.variants[0].variant.sku).toBeDefined();
+        expect(result.value[0].product.variants[0].image.sourceUrl).toBeDefined();
+      }
       expect(result.value[0].recommendationIdentifier.key).toBeDefined();
     });
 
@@ -122,6 +142,17 @@ describe.each([PrimaryProvider.ALGOLIA])(
       }
 
       expect(result.value.length).toBeGreaterThan(0);
+      expect(result.value[0].recommendationReturnType).toBe('productSearchResultItem');
+      if (result.value[0].recommendationReturnType === 'productSearchResultItem') {
+        expect(result.value[0].product.identifier.key).toBeDefined();
+        expect(result.value[0].product.name).toBeDefined();
+        expect(result.value[0].product.slug).toBeDefined();
+        expect(result.value[0].product.variants).toBeDefined();
+        expect(result.value[0].product.variants.length).toBeGreaterThan(0);
+        expect(result.value[0].product.variants[0].variant.sku).toBeDefined();
+        expect(result.value[0].product.variants[0].image.sourceUrl).toBeDefined();
+      }
+
     });
 
     it('should return an empty result for an unknown sku', async () => {

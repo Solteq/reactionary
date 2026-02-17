@@ -12,3 +12,16 @@ export const AlgoliaProductSearchResultSchema = ProductSearchResultSchema.extend
 
 export type AlgoliaProductSearchResult = z.infer<typeof AlgoliaProductSearchResultSchema>;
 export type AlgoliaProductSearchIdentifier = z.infer<typeof AlgoliaProductSearchIdentifierSchema>;
+
+
+export interface AlgoliaNativeVariant {
+  sku: string;
+  image: string;
+}
+
+export interface AlgoliaNativeRecord {
+  objectID: string;
+  slug?:string;
+  name?: string;
+  variants: Array<AlgoliaNativeVariant>;
+}

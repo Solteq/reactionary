@@ -25,19 +25,8 @@ import {
 } from '@reactionary/core';
 import { algoliasearch, type SearchResponse } from 'algoliasearch';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
-import type { AlgoliaProductSearchResult } from '../schema/search.schema.js';
+import type { AlgoliaNativeRecord, AlgoliaNativeVariant, AlgoliaProductSearchResult } from '../schema/search.schema.js';
 
-interface AlgoliaNativeVariant {
-  sku: string;
-  image: string;
-}
-
-interface AlgoliaNativeRecord {
-  objectID: string;
-  slug?:string;
-  name?: string;
-  variants: Array<AlgoliaNativeVariant>;
-}
 
 
 export class AlgoliaProductSearchProvider extends ProductSearchProvider {
