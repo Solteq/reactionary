@@ -8,6 +8,10 @@ import {
   type ProductRecommendationAlgorithmTrendingInCategoryQuery,
   type RequestContext,
   type ProductRecommendationsQuery,
+  type ProductSearchResultItem,
+  type ProductSearchResultItemVariant,
+  ProductSearchResultItemVariantSchema,
+  ImageSchema,
 } from '@reactionary/core';
 import {
   liteClient,
@@ -21,12 +25,8 @@ import {
 } from 'algoliasearch/lite';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaProductRecommendationIdentifier } from '../schema/product-recommendation.schema.js';
+import type { AlgoliaNativeRecord, AlgoliaNativeVariant } from '../schema/search.schema.js';
 
-interface AlgoliaRecommendHit {
-  objectID: string;
-  sku?: string;
-  [key: string]: unknown;
-}
 
 /**
  * AlgoliaProductRecommendationsProvider
@@ -209,7 +209,7 @@ export class AlgoliaProductRecommendationsProvider extends ProductRecommendation
 
   protected parseRecommendation(res: RecommendationsResults, query: ProductRecommendationsQuery) {
     const result = [];
-    for(const hit of res.hits as AlgoliaRecommendHit[]) {
+    for(const hit of res.hits as AlgoliaNativeRecord[]) {
       const recommendationIdentifier = {
         key: res.queryID || 'x',
         algorithm: query.algorithm,
@@ -225,12 +225,40 @@ export class AlgoliaProductRecommendationsProvider extends ProductRecommendation
   /**
    * Maps Algolia recommendation results to ProductRecommendation format
    */
-  protected parseSingle(hit: AlgoliaRecommendHit, recommendationIdentifier: AlgoliaProductRecommendationIdentifier): ProductRecommendation {
+  protected parseSingle(hit: AlgoliaNativeRecord, recommendationIdentifier: AlgoliaProductRecommendationIdentifier): ProductRecommendation {
+
+    const product = this.parseSearchResultItem(hit);
+
     return {
       recommendationIdentifier,
-      product: {
-        key: hit.objectID,
-      },
+      recommendationReturnType: 'productSearchResultItem',
+      product: product,
     } satisfies ProductRecommendation;
   }
+
+
+    protected parseSearchResultItem(body: AlgoliaNativeRecord) {
+      const product = {
+        identifier: { key: body.objectID },
+        name: body.name || body.objectID,
+        slug: body.slug || body.objectID,
+        variants: [ ... (body.variants || []) ].map(variant => this.parseVariant(variant, body)),
+      } satisfies ProductSearchResultItem;
+
+      return product;
+    }
+
+    protected parseVariant(variant: AlgoliaNativeVariant, product: AlgoliaNativeRecord): ProductSearchResultItemVariant {
+        const result = ProductSearchResultItemVariantSchema.parse({
+        variant: {
+          sku: variant.sku
+        },
+        image: ImageSchema.parse({
+          sourceUrl: variant.image,
+          altText: product.name || '',
+        })
+      } satisfies Partial<ProductSearchResultItemVariant>);
+
+      return result;
+    }
 }

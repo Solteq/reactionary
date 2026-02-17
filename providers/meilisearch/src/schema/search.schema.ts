@@ -12,3 +12,14 @@ export const MeilisearchProductSearchResultSchema = ProductSearchResultSchema.ex
 
 export type MeilisearchProductSearchResult = z.infer<typeof MeilisearchProductSearchResultSchema>;
 export type MeilisearchProductSearchIdentifier = z.infer<typeof MeilisearchProductSearchIdentifierSchema>;
+export interface MeilisearchNativeVariant {
+  sku: string;
+  image: string;
+}
+
+export interface MeilisearchNativeRecord {
+  objectID: string;
+  slug?: string;
+  name?: string;
+  variants: Array<MeilisearchNativeVariant>;
+}

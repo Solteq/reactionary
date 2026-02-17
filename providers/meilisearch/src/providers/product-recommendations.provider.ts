@@ -2,18 +2,17 @@ import {
   type Cache,
   ProductRecommendationsProvider,
   type ProductRecommendation,
-  type ProductRecommendationAlgorithmFrequentlyBoughtTogetherQuery,
   type ProductRecommendationAlgorithmSimilarProductsQuery,
-  type ProductRecommendationAlgorithmRelatedProductsQuery,
-  type ProductRecommendationAlgorithmTrendingInCategoryQuery,
   type RequestContext,
+  type ProductSearchResultItem,
+  ImageSchema,
+  type ProductSearchResultItemVariant,
+  ProductSearchResultItemVariantSchema,
 } from '@reactionary/core';
 import { MeiliSearch, type Hits, type RecordAny, type SearchParams, type SearchResponse } from 'meilisearch';
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
+import type { MeilisearchNativeRecord, MeilisearchNativeVariant } from '../schema/index.js';
 
-interface MeilisearchRecommendHit {
-  objectID: string;
-}
 
 /**
  * MeilisearchProductRecommendationsProvider
@@ -57,7 +56,7 @@ export class MeilisearchProductRecommendationsProvider extends ProductRecommenda
         limit: query.numberOfRecommendations,
       };
 
-      const response = await index.searchSimilarDocuments<MeilisearchRecommendHit>({
+      const response = await index.searchSimilarDocuments<MeilisearchNativeRecord>({
         id: query.sourceProduct.key,
         limit: query.numberOfRecommendations,
         embedder: this.config.useAIEmbedding,
@@ -75,15 +74,44 @@ export class MeilisearchProductRecommendationsProvider extends ProductRecommenda
   /**
    * Maps Meilisearch search results to ProductRecommendation format
    */
-  protected parseRecommendations(recommendation: SearchResponse<MeilisearchRecommendHit>, algorithm: string): ProductRecommendation[] {
+  protected parseRecommendations(recommendation: SearchResponse<MeilisearchNativeRecord>, algorithm: string): ProductRecommendation[] {
+
+    const product = this.parseSearchResultItem(recommendation.hits[0] as MeilisearchNativeRecord);
     return recommendation.hits.map((hit) => ({
       recommendationIdentifier: {
         key: hit.objectID,
         algorithm,
       },
-      product: {
-        key: hit.objectID,
-      },
+      recommendationReturnType: 'productSearchResultItem',
+      product: product
     }));
+  }
+
+
+
+
+  protected parseSearchResultItem(body: MeilisearchNativeRecord) {
+    const product = {
+      identifier: { key: body.objectID },
+      name: body.name || body.objectID,
+      slug: body.slug || body.objectID,
+      variants: [...(body.variants || [])].map(variant => this.parseVariant(variant, body)),
+    } satisfies ProductSearchResultItem;
+
+    return product;
+  }
+
+  protected  parseVariant(variant: MeilisearchNativeVariant, product: MeilisearchNativeRecord): ProductSearchResultItemVariant {
+    const result = ProductSearchResultItemVariantSchema.parse({
+      variant: {
+        sku: variant.sku
+      },
+      image: ImageSchema.parse({
+        sourceUrl: variant.image,
+        altText: product.name || '',
+      })
+    } satisfies Partial<ProductSearchResultItemVariant>);
+
+    return result;
   }
 }

@@ -25,19 +25,7 @@ import {
 } from '@reactionary/core';
 import { MeiliSearch, type SearchParams, type SearchResponse } from 'meilisearch';
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
-import type { MeilisearchProductSearchResult } from '../schema/search.schema.js';
-
-interface MeilisearchNativeVariant {
-  sku: string;
-  image: string;
-}
-
-interface MeilisearchNativeRecord {
-  objectID: string;
-  slug?: string;
-  name?: string;
-  variants: Array<MeilisearchNativeVariant>;
-}
+import type { MeilisearchNativeRecord, MeilisearchNativeVariant, MeilisearchProductSearchResult } from '../schema/search.schema.js';
 
 
 export class MeilisearchSearchProvider extends ProductSearchProvider {
