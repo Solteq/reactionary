@@ -20,6 +20,7 @@ import {
   CommercetoolsOrderSearchProvider,
   CommercetoolsProfileProvider,
   CommercetoolsStoreProvider,
+  CommercetoolsProductReviewsProvider,
 } from '../providers/index.js';
 import { CommercetoolsAPI } from './client.js';
 
@@ -52,6 +53,15 @@ export function withCommercetoolsCapabilities<
 
     if (caps.productSearch) {
       client.productSearch = new CommercetoolsSearchProvider(
+        config,
+        cache,
+        context,
+        commercetoolsApi
+      );
+    }
+
+    if (caps.productReviews) {
+      client.productReviews = new CommercetoolsProductReviewsProvider(
         config,
         cache,
         context,

@@ -4,6 +4,7 @@ import type * as z from 'zod';
 export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
     product: true,
     productSearch: true,
+    productReviews: true,
     identity: true,
     cart: true,
     checkout: true,
