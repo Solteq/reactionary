@@ -123,6 +123,17 @@ export const ProductRecommendationIdentifierSchema = z.looseObject({
     algorithm: z.string(),
 });
 
+export const ProductAssociationIdentifierSchema = z.looseObject({
+    key: z.string(),
+});
+
+export const ProductRatingIdentifierSchema = z.looseObject({
+  product: ProductIdentifierSchema.meta({ description: 'The product this rating summary is for.' }),
+});
+
+export const ProductReviewIdentifierSchema = z.looseObject({
+  key: z.string().meta({ description: 'The unique identifier for the product review.' }),
+});
 
 export const ProductSearchIdentifierSchema = z.looseObject({
   term: z.string().meta({ description: 'The search term used to find products.' }),
@@ -185,6 +196,9 @@ export type ProductOptionValueIdentifier = InferType<typeof ProductOptionValueId
 export type ProductAttributeIdentifier = InferType<typeof ProductAttributeIdentifierSchema>;
 export type ProductAttributeValueIdentifier = InferType<typeof ProductAttributeValueIdentifierSchema>;
 export type ProductRecommendationIdentifier = InferType<typeof ProductRecommendationIdentifierSchema>;
+export type ProductAssociationsIdentifier = InferType<typeof ProductAssociationIdentifierSchema>;
+export type ProductRatingIdentifier = InferType<typeof ProductRatingIdentifierSchema>;
+export type ProductReviewIdentifier = InferType<typeof ProductReviewIdentifierSchema>;
 
 export type IdentifierType =
   | ProductIdentifier
@@ -214,4 +228,6 @@ export type IdentifierType =
   | ProductOptionValueIdentifier
   | PickupPointIdentifier
   | ProductAttributeIdentifier
-  | ProductAttributeValueIdentifier;
+  | ProductAttributeValueIdentifier
+  | ProductRatingIdentifier
+  | ProductReviewIdentifier;

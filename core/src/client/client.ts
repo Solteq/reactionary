@@ -10,12 +10,14 @@ import type { AnalyticsProvider, CheckoutProvider, OrderProvider, ProfileProvide
 import type { OrderSearchProvider } from "../providers/order-search.provider.js";
 import type { ProductRecommendationsProvider } from "../providers/product-recommendations.provider.js";
 import type { ProductAssociationsProvider } from "../providers/product-associations.provider.js";
+import type { ProductReviewsProvider } from "../providers/product-reviews.provider.js";
 
 export interface Client {
     product: ProductProvider,
     productSearch: ProductSearchProvider,
     productRecommendations: ProductRecommendationsProvider,
     productAssociations: ProductAssociationsProvider,
+    productReviews: ProductReviewsProvider,
     identity: IdentityProvider,
     cache: Cache,
     cart: CartProvider,

@@ -10,6 +10,7 @@ export * from './payment.model.js';
 export * from './price.model.js';
 export * from './product.model.js';
 export * from './product-search.model.js';
+export * from './product-reviews.model.js';
 export * from './profile.model.js';
 export * from './shipping-method.model.js';
 export * from './store.model.js';

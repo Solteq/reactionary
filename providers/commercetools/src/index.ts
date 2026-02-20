@@ -7,6 +7,7 @@ export * from './providers/inventory.provider.js';
 export * from './providers/order-search.provider.js';
 export * from './providers/price.provider.js';
 export * from './providers/product.provider.js';
+export * from './providers/product-reviews.provider.js';
 export * from './providers/product-search.provider.js';
 
 export * from './schema/capabilities.schema.js';
