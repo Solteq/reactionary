@@ -126,7 +126,7 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
     }
 
     // Build where clause
-    let whereClause = `target(typeId="product" and id="${product.body.id}")`;
+    const whereClause = `target(typeId="product" and id="${product.body.id}")`;
     /*
     if (query.filterByRating) {
       const minRating = query.filterByRating - 0.5;
@@ -150,7 +150,7 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
         sort = ['createdAt desc'];
     }*/
 
-    let sort = ['createdAt desc'];
+    const sort = ['createdAt desc'];
 
     const response = await client
       .reviews()
