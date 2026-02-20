@@ -123,7 +123,7 @@ export const ProductRecommendationIdentifierSchema = z.looseObject({
     algorithm: z.string(),
 });
 
-export const ProductAssociationIdentifierSchema = z.looseObject({
+export const ProductAssociationsIdentifierSchema = z.looseObject({
     key: z.string(),
 });
 
@@ -196,7 +196,7 @@ export type ProductOptionValueIdentifier = InferType<typeof ProductOptionValueId
 export type ProductAttributeIdentifier = InferType<typeof ProductAttributeIdentifierSchema>;
 export type ProductAttributeValueIdentifier = InferType<typeof ProductAttributeValueIdentifierSchema>;
 export type ProductRecommendationIdentifier = InferType<typeof ProductRecommendationIdentifierSchema>;
-export type ProductAssociationsIdentifier = InferType<typeof ProductAssociationIdentifierSchema>;
+export type ProductAssociationsIdentifier = InferType<typeof ProductAssociationsIdentifierSchema>;
 export type ProductRatingIdentifier = InferType<typeof ProductRatingIdentifierSchema>;
 export type ProductReviewIdentifier = InferType<typeof ProductReviewIdentifierSchema>;
 
