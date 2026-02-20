@@ -28,6 +28,7 @@
       ],
       "@reactionary/provider-fake": ["providers/fake/src/index.ts"],
       "@reactionary/provider-posthog": ["providers/posthog/src/index.ts"],
+      "@reactionary/lipscore": ["providers/lipscore/src/index.ts"],
       "@reactionary/google-analytics": [
         "providers/google-analytics/src/index.ts"
       ]

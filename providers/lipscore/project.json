@@ -1,0 +1,34 @@
+{
+  "name": "lipscore",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "providers/lipscore/src",
+  "projectType": "library",
+  "release": {
+    "version": {
+      "currentVersionResolver": "git-tag",
+      "fallbackCurrentVersionResolver": "disk",
+      "preserveLocalDependencyProtocols": false,
+      "manifestRootsToUpdate": ["dist/{projectRoot}"]
+    }
+  },
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/providers/lipscore",
+        "main": "providers/lipscore/src/index.ts",
+        "tsConfig": "providers/lipscore/tsconfig.lib.json",
+        "assets": ["providers/lipscore/*.md"],
+        "format": ["esm"],
+        "bundle": false
+      }
+    },
+    "nx-release-publish": {
+      "options": {
+        "packageRoot": "dist/{projectRoot}"
+      }
+    }
+  }
+}
