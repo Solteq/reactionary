@@ -126,11 +126,11 @@ Usecase: As a merchandiser i want to upsell
 Vendors: Algolia,  Commercetools
 
 - PDP
-  - Recommendations (Products, Categories)
-  - Associations (Spareparts, Accessories)
-  - Ratings and Reviews
+  - [X] Recommendations (Products, Categories) 
+  - [X] Associations (Spareparts, Accessories)
+  - [X] Ratings and Reviews
 - Checkout
-  - Recommendations (Products)
+  - [X] Recommendations (Products)
 
 
 ### Roadmap to V0.6
