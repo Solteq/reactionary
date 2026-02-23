@@ -19,6 +19,7 @@ import { FakeCheckoutProvider } from '../providers/checkout.provider.js';
 import { FakeOrderSearchProvider } from '../providers/order-search.provider.js';
 import { FakeOrderProvider } from '../providers/order.provider.js';
 import { FakeProfileProvider } from '../providers/profile.provider.js';
+import { FakeProductReviewsProvider } from '../providers/product-reviews.provider.js';
 
 export function withFakeCapabilities<T extends FakeCapabilities>(
   configuration: FakeConfiguration,
@@ -88,6 +89,10 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
 
     if (capabilities.profile) {
       client.profile = new FakeProfileProvider(configuration, cache, context);
+    }
+
+    if (capabilities.productReviews) {
+      client.productReviews = new FakeProductReviewsProvider(configuration, cache, context);
     }
 
     return client;

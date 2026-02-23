@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { BaseModelSchema } from './base.model.js';
+import { BaseModelSchema, createPaginatedResponseSchema } from './base.model.js';
 import { ProductIdentifierSchema, ProductRatingIdentifierSchema, ProductReviewIdentifierSchema } from './identifiers.model.js';
 import type { InferType } from '../../zod-utils.js';
 
@@ -35,6 +35,9 @@ export const ProductReviewSchema = BaseModelSchema.extend({
   updatedAt: z.string().optional().meta({ description: 'ISO8601 timestamp when the review was last updated.' }),
   verified: z.boolean().meta({ description: 'Whether this is a verified purchase review.' }),
 });
+
+export const ProductReviewPaginatedResultSchema  = createPaginatedResponseSchema(ProductReviewSchema);
+export type ProductReviewPaginatedResult = InferType<typeof ProductReviewPaginatedResultSchema>;
 
 
 export type ProductReview = InferType<typeof ProductReviewSchema>;
