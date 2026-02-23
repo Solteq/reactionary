@@ -56,6 +56,8 @@ export class FakeProductReviewsProvider extends ProductReviewsProvider {
     const totalReviews = this.faker.number.int({ min: 1, max: 20 });
 
     for (let i = 0; i < totalReviews; i++) {
+      const hasReply = this.faker.datatype.boolean({ probability: 0.3 }); // 30% chance that the review has a reply
+
       const review = {
         identifier: {
           key: `fake-review-${productIdentifier.key}-${i}`,
@@ -69,8 +71,8 @@ export class FakeProductReviewsProvider extends ProductReviewsProvider {
         createdAt: this.faker.date.past({ years: 1 }).toISOString(),
         updatedAt: this.faker.datatype.boolean() ? this.faker.date.recent({ days: 30 }).toISOString() : undefined,
         verified: this.faker.datatype.boolean(),
-        reply: this.faker.datatype.boolean({ probability: 0.3 }) ? this.faker.lorem.sentences(2) : undefined,
-        repliedAt: this.faker.datatype.boolean({ probability: 0.3 }) ? this.faker.date.recent({ days: 7 }).toISOString() : undefined,
+        reply: hasReply ? this.faker.lorem.sentences(2) : undefined,
+        repliedAt: hasReply ? this.faker.date.recent({ days: 7 }).toISOString() : undefined,
 
       } satisfies ProductReview;
 
