@@ -1,8 +1,8 @@
-import type { Result, ProductReview, ProductRatingSummary } from '../schemas/index.js';
+import type { Result, ProductReview, ProductRatingSummary, ProductReviewPaginatedResult } from '../schemas/index.js';
 import type { ProductReviewsListQuery, ProductReviewsGetRatingSummaryQuery } from '../schemas/queries/product-reviews.query.js';
 import type { ProductReviewMutationSubmit } from '../schemas/mutations/product-reviews.mutation.js';
 import { BaseProvider } from './base.provider.js';
-
+import { type ProductRatingIdentifier } from '../schemas/models/identifiers.model.js';
 /**
  * The product reviews provider is responsible for providing detailed product reviews from customers.
  * Reviews contain ratings along with textual feedback, author information, and verification status.
@@ -25,10 +25,9 @@ export abstract class ProductReviewsProvider extends BaseProvider {
    * Usecase: Display customer reviews on product detail pages with filtering and sorting options.
    * @param query The query parameters including product, pagination, sorting, and filtering options
    */
-  public abstract listReviews(
+  public abstract findReviews(
     query: ProductReviewsListQuery
-  ): Promise<Result<ProductReview[]>>;
-
+  ): Promise<Result<ProductReviewPaginatedResult>>;
   /**
    * Submit a review for a product.
    *
@@ -38,6 +37,17 @@ export abstract class ProductReviewsProvider extends BaseProvider {
   public abstract submitReview(
     mutation: ProductReviewMutationSubmit
   ): Promise<Result<ProductReview>>;
+
+
+  protected createEmptyProductRatingSummary(key: ProductRatingIdentifier): ProductRatingSummary {
+    return {
+      identifier: key,
+      averageRating: 0,
+      totalRatings: undefined,
+      ratingDistribution: undefined
+    } satisfies ProductRatingSummary;
+  }
+
 
   getResourceName(): string {
     return 'product-reviews';

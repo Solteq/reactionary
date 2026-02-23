@@ -5,10 +5,12 @@ import {
   error,
   ProductReviewSchema,
   ProductRatingSummarySchema,
+  ProductReviewPaginatedResultSchema,
 } from '@reactionary/core';
 import type {
   ProductReview,
   ProductRatingSummary,
+  ProductReviewPaginatedResult,
   ProductReviewsListQuery,
   ProductReviewsGetRatingSummaryQuery,
   ProductReviewMutationSubmit,
@@ -93,20 +95,20 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
       }
       return success(summary);
     } else {
-      return error<NotFoundError>({ type: 'NotFound', identifier: query.product});
+      return success(this.createEmptyProductRatingSummary({ product: query.product }));
     }
   }
 
   @Reactionary({
-    outputSchema: ProductReviewSchema.array(),
+    outputSchema: ProductReviewPaginatedResultSchema,
     cache: true,
     cacheTimeToLiveInSeconds: 60,
     currencyDependentCaching: false,
     localeDependentCaching: true
   })
-  public override async listReviews(
+  public override async findReviews(
     query: ProductReviewsListQuery
-  ): Promise<Result<ProductReview[]>> {
+  ): Promise<Result<ProductReviewPaginatedResult>> {
     const client = await this.getClient();
 
     const pageNumber = query.paginationOptions?.pageNumber ?? 1;
@@ -122,7 +124,13 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
     });
 
     if (!product || !product.body) {
-      return error<NotFoundError>({ type: 'NotFound', identifier: query.product });
+      return success({
+        items: [],
+        totalCount: 0,
+        pageSize,
+        pageNumber,
+        totalPages: 0,
+      })
     }
 
     // Build where clause
@@ -167,8 +175,15 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
     const reviews = response.body.results.map((review) =>
       this.parseSingle(review, query.product.key)
     );
+    const returnedResult: ProductReviewPaginatedResult = {
+      items: reviews,
+      totalCount: response.body.total || reviews.length,
+      pageSize,
+      pageNumber,
+      totalPages: Math.ceil((response.body.total || reviews.length) / Math.max(pageSize, 1)),
+    };
 
-    return success(reviews);
+    return success(returnedResult);
   }
 
   @Reactionary({

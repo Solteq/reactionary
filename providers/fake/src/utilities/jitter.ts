@@ -1,7 +1,7 @@
 export async function jitter(duration: number, deviation: number) {
     const j = gaussianRandom(duration, deviation);
-    
-    return new Promise(resolve => setTimeout(resolve, j)); 
+
+    return new Promise(resolve => setTimeout(resolve, j));
 }
 
 
@@ -12,3 +12,4 @@ function gaussianRandom(mean: number, deviation: number) {
 
     return z * deviation + mean;
 }
+

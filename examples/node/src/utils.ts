@@ -8,6 +8,8 @@ import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetoo
 import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
 import { withMedusaCapabilities } from '@reactionary/provider-medusa';
 import { withMeilisearchCapabilities } from '@reactionary/provider-meilisearch';
+import { withFakeCapabilities } from '@reactionary/provider-fake';
+import type { FakeConfiguration } from '@reactionary/provider-fake';
 
 export function getAlgoliaTestConfiguration() {
   return {
@@ -38,6 +40,20 @@ export function getMedusaTestConfiguration() {
     };
 }
 
+
+export function getFakeConfiguration(): FakeConfiguration {
+  return {
+    jitter: {
+      mean: 0,
+      deviation: 0,
+    },
+    seeds: {
+      product: 1,
+      search: 1,
+      category: 1,
+    },
+  } satisfies FakeConfiguration;
+}
 
 export function getCommercetoolsTestConfiguration() {
   return {
@@ -71,7 +87,8 @@ export enum PrimaryProvider {
   ALGOLIA = 'Algolia',
   COMMERCETOOLS = 'Commercetools',
   MEDUSA = 'Medusa',
-  MEILISEARCH = 'Meilisearch'
+  MEILISEARCH = 'Meilisearch',
+  FAKE = 'Fake',
 }
 
 export function createClient(provider: PrimaryProvider) {
@@ -99,7 +116,13 @@ export function createClient(provider: PrimaryProvider) {
       );
     }
 
-
+    if (provider === PrimaryProvider.FAKE) {
+      builder = builder.withCapability(
+        withFakeCapabilities( getFakeConfiguration() , {
+          productReviews: true
+        }
+      ))
+    }
 
     if (provider === PrimaryProvider.COMMERCETOOLS) {
       builder = builder.withCapability(
