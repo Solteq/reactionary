@@ -20,3 +20,4 @@ export * from './checkout.model.js';
 export * from './payment.model.js';
 export * from './order-search.model.js'
 export * from './product-recommendations.model.js';
+export * from './product-associations.model.js';

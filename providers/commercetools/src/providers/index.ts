@@ -4,6 +4,7 @@ export * from './identity.provider.js';
 export * from './inventory.provider.js';
 export * from './order-search.provider.js';
 export * from './price.provider.js';
+export * from './product-associations.provider.js';
 export * from './product.provider.js';
 export * from './product-reviews.provider.js';
 export * from './profile.provider.js';

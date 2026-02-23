@@ -1,7 +1,8 @@
 import type { ProductIdentifier, ProductVariantIdentifier } from "../schemas/index.js";
 import type { ProductAssociationsGetAccessoriesQuery, ProductAssociationsGetSparepartsQuery, ProductAssociationsGetReplacementsQuery } from "../schemas/queries/product-associations.query.js";
 import { BaseProvider } from "./base.provider.js";
-
+import type { Result } from '../schemas/result.js';
+import type { ProductAssociation } from '../schemas/models/product-associations.model.js';
 
 /**
  * The product association provider is responsible for providing evidence based associations between products, such as
@@ -19,24 +20,30 @@ export abstract class ProductAssociationsProvider extends BaseProvider {
    *
    * Usecase:
    * - PDP: Accessories for this product
+   *
+   * TODO:  This should be a PaginatedResult
    */
-  public abstract getAccessories(query: ProductAssociationsGetAccessoriesQuery): Promise<ProductVariantIdentifier[]>;
+  public abstract getAccessories(query: ProductAssociationsGetAccessoriesQuery): Promise<Result<ProductAssociation[]>>;
 
   /**
    * Returns a list of product identifiers which are spareparts to the given product.
    * Spareparts are products which are necessary for the use of the main product, but are not typically purchased alongside it. Examples of spareparts include:
    *
    * Usecase:
-   * - PDP: Accessories for this product
+   * - PDP: Spareparts for this product
+   *
+   * TODO:  This should be a PaginatedResult
    */
-  public abstract getSpareparts(query: ProductAssociationsGetSparepartsQuery): Promise<ProductVariantIdentifier[]>;
+  public abstract getSpareparts(query: ProductAssociationsGetSparepartsQuery): Promise<Result<ProductAssociation[]>>;
 
 
   /**
    * This product is replaced by these equivalent or newer products
+   *
+   * TODO:  This should be a PaginatedResult
    * @param query
    */
-  public abstract getReplacements(query: ProductAssociationsGetReplacementsQuery): Promise<ProductVariantIdentifier[]>;
+  public abstract getReplacements(query: ProductAssociationsGetReplacementsQuery): Promise<Result<ProductAssociation[]>>;
 
 
   getResourceName(): string {

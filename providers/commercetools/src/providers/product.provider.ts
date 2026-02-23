@@ -159,8 +159,17 @@ export class CommercetoolsProductProvider extends ProductProvider {
 
     const variantLevelAttributes =
       data.masterVariant.attributes?.map((x) => this.parseAttribute(x)) || [];
+
+
+    const specialAttributes = [
+      'reactionaryaccessories',
+      'reactionaryspareparts',
+      'reactionaryreplacements'
+    ]
+
     const productLevelAttributes =
-      data.attributes.map((x) => this.parseAttribute(x)) || [];
+      data.attributes.filter(x => !specialAttributes.includes(x.name)).map((x) => this.parseAttribute(x)) || [];
+
     const sharedAttributes = [
       ...productLevelAttributes,
       ...variantLevelAttributes,
