@@ -46,3 +46,38 @@ The following are the cases, grouped by their respective importance, that should
 
 ### Unclear
 - Should customizations be allowed to lower the minimum contract? That is, should a customization be able to add another mandatory field to the Cart.add input payload? Or would we expect this to be a new procedure, or optional? On one hand, it allows for cleanly slotting in other features (outside of @reactionary). On the other hand, it always ends up feeling very artificial in the project. As an example, imagine that a project legitimately REQUIRES an additional input to be passed along in order for a cart add operation to be valid. One could argue that the contract is primarily about providing a consistent experience between providers OOTB - not in project scope.
+
+## Outstanding Work (V2 Transition)
+### Contracts
+- Port contracts for non-standard providers still pending:
+  - `product-recommendations` (currently concrete default behavior + multicast pattern, not a pure abstract contract)
+  - `analytics` (`Promise<void>`, not `Result`)
+  - `product-associations` (returns arrays directly, not `Result`)
+- Decide whether these should be normalized into `Result` in V2, or intentionally remain outside V2 contract scope.
+
+### Provider Implementations (Commercetools package)
+- Category is ported and tested.
+- Remaining capabilities still need V2 implementation porting in `packages/commercetools`:
+  - identity
+  - inventory
+  - price
+  - order
+  - order-search
+  - store
+  - product-search
+  - profile
+  - checkout
+- Product and cart currently use placeholder/dummy handlers and need full logic porting.
+
+### Runtime Validation and Middleware Pipeline
+- Input/output runtime parsing is currently commented out in `core/src/v2/core/capability-procedure.ts`.
+- Need final decision on where validation should happen in V2 pipeline (`fetch`, `transform`, both, or wrapper-level only).
+- Define middleware/caching integration point in V2 client creation flow (current tests are being used as a staging ground for this).
+
+### Mapping / Transformation Strategy
+- Continue extracting provider-specific mappers so each domain type has a single reusable mapper per provider.
+- Ensure parity and reuse across old/new code paths while old providers still coexist.
+
+### Naming / Contract Shape Consistency
+- Verify V2 procedure naming conventions across all capabilities (e.g. `byId` vs `getById`, `byTerm` vs `queryByTerm`) before broad provider porting.
+- Confirm page/pagination semantics (`requested pageSize` vs `returned count`) as explicit contract behavior.

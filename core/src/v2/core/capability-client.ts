@@ -1,9 +1,11 @@
 import type * as z from 'zod';
-import { bindProcedure, type CapabilityProcedure, type CapabilityProcedureDefiniton, type ProcedureContext } from "./capability-procedure.js";
+import type { CapabilityProcedureDefinition } from './capability-procedure-definition.js';
+import { type CapabilityProcedure, bindProcedure } from './capability-procedure.js';
+import type { ProcedureContext } from './provider-capability-procedure-definition.js';
 
 export type ClientDefinition<Context extends ProcedureContext> = Record<
   string,
-  Record<string, CapabilityProcedureDefiniton<Context, z.ZodTypeAny, z.ZodTypeAny>>
+  Record<string, CapabilityProcedureDefinition<Context, z.ZodTypeAny, z.ZodTypeAny>>
 >;
 
 export type ClientFromDefinition<Ctx extends ProcedureContext, Defs extends ClientDefinition<Ctx>> = {
@@ -15,7 +17,7 @@ export type ClientFromDefinition<Ctx extends ProcedureContext, Defs extends Clie
   };
 };
 
-export function createClient<Ctx extends ProcedureContext, Defs extends ClientDefinition<Ctx>>(
+export function createClientFromDefinitions<Ctx extends ProcedureContext, Defs extends ClientDefinition<Ctx>>(
   defs: Defs,
   ctx: Ctx
 ): ClientFromDefinition<Ctx, Defs> {
@@ -36,6 +38,7 @@ export function createClient<Ctx extends ProcedureContext, Defs extends ClientDe
 }
 
 type MergeProcs<A, B> = Omit<A, keyof B> & B;
+type MergeObjects<A, B> = Omit<A, keyof B> & B;
 
 type MergeCaps<A, B> = {
   [K in keyof A | keyof B]:
@@ -52,6 +55,15 @@ type MergeMany<Arr extends readonly any[], Acc = object> =
   Arr extends readonly [infer H, ...infer T]
     ? MergeMany<T, MergeCaps<Acc, H>>
     : Acc;
+
+type MergeManyObjects<Arr extends readonly any[], Acc = object> =
+  Arr extends readonly [infer H, ...infer T]
+    ? MergeManyObjects<T, MergeObjects<Acc, H>>
+    : Acc;
+
+type FactoryReturns<Factories extends readonly ((...args: any[]) => any)[]> = {
+  [K in keyof Factories]: ReturnType<Factories[K]>;
+};
 
 
 export function mergeDefs<
@@ -71,4 +83,22 @@ export function mergeDefs<
   }
 
   return out as MergeMany<Providers>;
+}
+
+export type InitializedClientFactory<Ctx extends ProcedureContext, Client extends object> = (context: Ctx) => Client;
+
+export function createClient<
+  Ctx extends ProcedureContext,
+  const Factories extends readonly InitializedClientFactory<Ctx, object>[]
+>(
+  context: Ctx,
+  ...factories: Factories
+): MergeManyObjects<FactoryReturns<Factories>> {
+  const out: object = {};
+
+  for (const factory of factories) {
+    Object.assign(out, factory(context));
+  }
+
+  return out as MergeManyObjects<FactoryReturns<Factories>>;
 }

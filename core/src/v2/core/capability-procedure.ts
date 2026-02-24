@@ -1,35 +1,22 @@
 import type * as z from 'zod';
 import { error, type Result } from '../../schemas/result.js';
-import type { RequestContext } from '../../schemas/session.schema.js';
+import type { CapabilityProcedureDefinition } from './capability-procedure-definition.js';
+import type { ProcedureContext } from './provider-capability-procedure-definition.js';
 
-export type ProcedureContext = {
-  request: RequestContext
-}
-
-export type ProviderProcedureContext = {
-  config: {};
-};
-
-export type ProviderCapabilityProcedureDefiniton<ProviderContext extends ProviderProcedureContext, Ctx extends ProcedureContext, In extends z.ZodTypeAny, Out extends z.ZodTypeAny, Data = any> = {
-  inputSchema: In;
-  outputSchema: Out;
-  fetch: (input: z.infer<In>, ctx: Ctx, providerContext: ProviderContext) => Promise<Result<Data>>;
-  transform: (input: z.infer<In>, ctx: Ctx, data: Data, providerContext: ProviderContext) => Promise<Result<z.infer<Out>>>;
-};
-
-export type CapabilityProcedureDefiniton<Ctx extends ProcedureContext, In extends z.ZodTypeAny, Out extends z.ZodTypeAny, Data = any> = {
-  inputSchema: In;
-  outputSchema: Out;
-  fetch: (input: z.infer<In>, ctx: Ctx) => Promise<Result<Data>>;
-  transform: (input: z.infer<In>, ctx: Ctx, data: Data) => Promise<Result<z.infer<Out>>>;
-};
-
+/**
+ * The final shape of a procedure within a capability, as presented to the calling / consuming party.
+ */
 export type CapabilityProcedure<In extends z.ZodTypeAny, Out extends z.ZodTypeAny> = {
   execute: (input: z.infer<In>) => Promise<Result<z.infer<Out>>>;
 };
 
+/**
+ * Utility function for turning the internal shape of a procedure into the external shape of a procedure. That
+ * is, the transformation from CapabilityProcedureDefinition -> CapabilityProcedure. This involves adding global
+ * middleware such as telemetry, error handling and input / output validation.
+ */
 export function bindProcedure<Ctx extends ProcedureContext, In extends z.ZodTypeAny, Out extends z.ZodTypeAny>(
-  def: CapabilityProcedureDefiniton<Ctx, In, Out>,
+  def: CapabilityProcedureDefinition<Ctx, In, Out>,
   ctx: Ctx
 ): CapabilityProcedure<In, Out> {
   return {
@@ -43,7 +30,7 @@ export function bindProcedure<Ctx extends ProcedureContext, In extends z.ZodType
           return data;
         }
 
-        const result = await def.transform(input, ctx, data);
+        const result = await def.transform(input, ctx, data.value);
 
         // const parsedOut = def.outputSchema.parse(out);
 
