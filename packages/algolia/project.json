@@ -1,14 +1,13 @@
 {
-  "name": "algolia-old",
+  "name": "algolia",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "providers/algolia/src",
+  "sourceRoot": "packages/algolia/src",
   "projectType": "library",
   "release": {
     "version": {
+      "manifestRootsToUpdate": ["dist/{projectRoot}"],
       "currentVersionResolver": "git-tag",
-      "fallbackCurrentVersionResolver": "disk",
-      "preserveLocalDependencyProtocols": false,
-      "manifestRootsToUpdate": ["dist/{projectRoot}"]
+      "fallbackCurrentVersionResolver": "disk"
     }
   },
   "tags": [],
@@ -17,10 +16,10 @@
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "options": {
-        "outputPath": "dist/providers/algolia",
-        "main": "providers/algolia/src/index.ts",
-        "tsConfig": "providers/algolia/tsconfig.lib.json",
-        "assets": ["providers/algolia/*.md"],
+        "outputPath": "dist/packages/algolia",
+        "main": "packages/algolia/src/index.ts",
+        "tsConfig": "packages/algolia/tsconfig.lib.json",
+        "assets": ["packages/algolia/*.md"],
         "format": ["esm"],
         "bundle": false
       }

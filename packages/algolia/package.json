@@ -1,0 +1,13 @@
+{
+  "name": "@reactionary/algolia",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./src/index.d.ts",
+  "dependencies": {
+    "@reactionary/core": "0.0.1",
+    "algoliasearch": "^5.48.0",
+    "zod": "4.1.9"
+  },
+  "sideEffects": false
+}

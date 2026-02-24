@@ -81,3 +81,10 @@ The following are the cases, grouped by their respective importance, that should
 ### Naming / Contract Shape Consistency
 - Verify V2 procedure naming conventions across all capabilities (e.g. `byId` vs `getById`, `byTerm` vs `queryByTerm`) before broad provider porting.
 - Confirm page/pagination semantics (`requested pageSize` vs `returned count`) as explicit contract behavior.
+
+### Provider Implementations (Algolia package)
+- Ported in `packages/algolia`:
+  - product-search
+- Not ported yet (no V2 contract available):
+  - analytics
+  - product-recommendations

@@ -237,7 +237,7 @@ For creating the library in NX, the suitable command is:
 
 After that is done, there are a few manual steps for aligning the build process for the library:
 
-- In project.json
+- In package.json
   - Change type from "commonjs" to "module"
   - Change main from "index.cjs" to "index.js"
   - Change types from "./index.d.ts" to "./src/index.d.ts"
