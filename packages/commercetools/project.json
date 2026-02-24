@@ -1,14 +1,13 @@
 {
-  "name": "commercetools-old",
+  "name": "commercetools",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "providers/commercetools/src",
+  "sourceRoot": "packages/commercetools/src",
   "projectType": "library",
   "release": {
     "version": {
+      "manifestRootsToUpdate": ["dist/{projectRoot}"],
       "currentVersionResolver": "git-tag",
-      "fallbackCurrentVersionResolver": "disk",
-      "preserveLocalDependencyProtocols": false,
-      "manifestRootsToUpdate": ["dist/{projectRoot}"]
+      "fallbackCurrentVersionResolver": "disk"
     }
   },
   "tags": [],
@@ -17,10 +16,10 @@
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "options": {
-        "outputPath": "dist/providers/commercetools",
-        "main": "providers/commercetools/src/index.ts",
-        "tsConfig": "providers/commercetools/tsconfig.lib.json",
-        "assets": ["providers/commercetools/*.md"],
+        "outputPath": "dist/packages/commercetools",
+        "main": "packages/commercetools/src/index.ts",
+        "tsConfig": "packages/commercetools/tsconfig.lib.json",
+        "assets": ["packages/commercetools/*.md"],
         "format": ["esm"],
         "bundle": false
       }

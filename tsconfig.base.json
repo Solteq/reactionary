@@ -30,7 +30,8 @@
       "@reactionary/provider-posthog": ["providers/posthog/src/index.ts"],
       "@reactionary/google-analytics": [
         "providers/google-analytics/src/index.ts"
-      ]
+      ],
+      "@reactionary/commercetools": ["packages/commercetools/src/index.ts"]
     },
     "verbatimModuleSyntax": true
   },

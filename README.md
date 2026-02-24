@@ -230,3 +230,22 @@ Create the initialization and capabilities schema, and start adding logic.
 
 ## Step 4 
 As your new vendor lib contains the same test data that all other vendors do, you can run the `global-tests` suite. This will show if your capability implementation adheres to the expected behavior within reactionary.
+
+For creating the library in NX, the suitable command is:
+
+```npx nx g @nx/js:library packages/commercetools --publishable --importPath=@reactionary/commercetools --bundler=esbuild --linter=eslint --unitTestRunner=vitest```
+
+After that is done, there are a few manual steps for aligning the build process for the library:
+
+- In project.json
+  - Change type from "commonjs" to "module"
+  - Change main from "index.cjs" to "index.js"
+  - Change types from "./index.d.ts" to "./src/index.d.ts"
+  - Add "sideEffects": false
+- In tsconfig.json
+  - Change module from "commonjs" to "nodenext"
+  - Add "moduleResolution": "nodenext",
+- In project.json
+  - Change format from ["cjs"] to ["esm"]
+  - Remove the generatePackageJson line, if the generator still incorrectly generates it for libraries
+  - Add "bundle": false for the build target options

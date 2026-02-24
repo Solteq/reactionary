@@ -1,12 +1,12 @@
 import type * as z from 'zod';
-import { bindProcedure, type CapabilityProcedure, type CapabilityProcedureDefiniton } from "./capability-procedure.js";
+import { bindProcedure, type CapabilityProcedure, type CapabilityProcedureDefiniton, type ProcedureContext } from "./capability-procedure.js";
 
-export type ClientDefinition<Context> = Record<
+export type ClientDefinition<Context extends ProcedureContext> = Record<
   string,
   Record<string, CapabilityProcedureDefiniton<Context, z.ZodTypeAny, z.ZodTypeAny>>
 >;
 
-export type ClientFromDefinition<Ctx, Defs extends ClientDefinition<Ctx>> = {
+export type ClientFromDefinition<Ctx extends ProcedureContext, Defs extends ClientDefinition<Ctx>> = {
   [Cap in keyof Defs]: {
     [Proc in keyof Defs[Cap]]: CapabilityProcedure<
       Defs[Cap][Proc]["inputSchema"],
@@ -15,7 +15,7 @@ export type ClientFromDefinition<Ctx, Defs extends ClientDefinition<Ctx>> = {
   };
 };
 
-export function createClient<Ctx, Defs extends ClientDefinition<Ctx>>(
+export function createClient<Ctx extends ProcedureContext, Defs extends ClientDefinition<Ctx>>(
   defs: Defs,
   ctx: Ctx
 ): ClientFromDefinition<Ctx, Defs> {
@@ -55,7 +55,7 @@ type MergeMany<Arr extends readonly any[], Acc = object> =
 
 
 export function mergeDefs<
-  Ctx,
+  Ctx extends ProcedureContext,
   const Providers extends readonly ClientDefinition<Ctx>[]
 >(...providers: Providers): MergeMany<Providers> {
   const out: any = {};

@@ -1,4 +1,4 @@
-import type { Cache, RequestContext, Client, ClientFromCapabilities } from '@reactionary/core';
+import type { Cache, RequestContext, ClientFromCapabilities } from '@reactionary/core';
 import {
   CommercetoolsCapabilitiesSchema,
   type CommercetoolsCapabilities,

@@ -1,24 +1,26 @@
 import type {
   ProductQueryByIdSchema,
+  ProductQueryBySlugSchema,
   ProductSchema,
-  RequestContext,
 } from '../../schemas/index.js';
-import type { CapabilityProcedureDefiniton } from '../core/capability-procedure.js';
+import type { ProcedureContext, ProviderCapabilityProcedureDefiniton, ProviderProcedureContext } from '../core/capability-procedure.js';
 
-export type ProductByIdProcedureDefinition = CapabilityProcedureDefiniton<
-  RequestContext,
+export type ProductByIdProcedureDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = ProviderCapabilityProcedureDefiniton<
+  Context,
+  ProcedureContext,
   typeof ProductQueryByIdSchema,
   typeof ProductSchema
 >;
-export type ProductBySlugProcedureDefinition = CapabilityProcedureDefiniton<
-  RequestContext,
-  typeof ProductQueryByIdSchema,
+export type ProductBySlugProcedureDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = ProviderCapabilityProcedureDefiniton<
+  Context,
+  ProcedureContext,
+  typeof ProductQueryBySlugSchema,
   typeof ProductSchema
 >;
 
-export type ProductCapabilityDefinition = {
+export type ProductCapabilityDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = {
   product: {
-    byId: ProductByIdProcedureDefinition;
-    bySlug: ProductBySlugProcedureDefinition;
+    byId: ProductByIdProcedureDefinition<Context>;
+    bySlug: ProductBySlugProcedureDefinition<Context>;
   };
 };
