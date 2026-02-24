@@ -2,12 +2,30 @@ import { bindProviderDefinitions, createClientFromDefinitions, type ProcedureCon
 import { CommercetoolsAPI, CommercetoolsConfigurationSchema, type CommercetoolsConfiguration } from "@reactionary/provider-commercetools";
 import { commercetoolsCartCapability } from "../capabilities/cart/cart-capability.js";
 import { commercetoolsCategoryCapability } from "../capabilities/category/category-capability.js";
+import { commercetoolsIdentityCapability } from "../capabilities/identity/identity-capability.js";
+import { commercetoolsInventoryCapability } from "../capabilities/inventory/inventory-capability.js";
+import { commercetoolsCheckoutCapability } from "../capabilities/checkout/checkout-capability.js";
+import { commercetoolsOrderSearchCapability } from "../capabilities/order-search/order-search-capability.js";
+import { commercetoolsOrderCapability } from "../capabilities/order/order-capability.js";
+import { commercetoolsPriceCapability } from "../capabilities/price/price-capability.js";
+import { commercetoolsProductSearchCapability } from "../capabilities/product-search/product-search-capability.js";
 import { commercetoolsProductCapability } from "../capabilities/product/product-capability.js";
+import { commercetoolsProfileCapability } from "../capabilities/profile/profile-capability.js";
+import { commercetoolsStoreCapability } from "../capabilities/store/store-capability.js";
 
 export const commercetoolsCapabilities = {
   ...commercetoolsProductCapability,
   ...commercetoolsCartCapability,
   ...commercetoolsCategoryCapability,
+  ...commercetoolsCheckoutCapability,
+  ...commercetoolsIdentityCapability,
+  ...commercetoolsInventoryCapability,
+  ...commercetoolsProductSearchCapability,
+  ...commercetoolsProfileCapability,
+  ...commercetoolsPriceCapability,
+  ...commercetoolsOrderCapability,
+  ...commercetoolsOrderSearchCapability,
+  ...commercetoolsStoreCapability,
 };
 
 type SelectionFor<P extends object> = Partial<Record<keyof P, boolean>>;
