@@ -13,7 +13,7 @@ import {
   type PurchasedObjectIDs,
   type ViewedObjectIDs,
 } from 'algoliasearch';
-import { z } from 'zod';
+import * as z from 'zod';
 import { algoliaProcedure, type AlgoliaProcedureContext } from '../../core/context.js';
 
 function getUserToken(requestContext: RequestContext): string {

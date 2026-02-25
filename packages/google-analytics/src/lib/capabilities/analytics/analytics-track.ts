@@ -5,7 +5,7 @@ import {
   type AnalyticsTrackProcedureDefinition,
   type RequestContext,
 } from '@reactionary/core';
-import { z } from 'zod';
+import * as z from 'zod';
 import {
   googleAnalyticsProcedure,
   type GoogleAnalyticsProcedureContext,
