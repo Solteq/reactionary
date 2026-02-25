@@ -1,10 +1,9 @@
-import { BaseModelSchema, CartIdentifierSchema, CategoryIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema } from "@reactionary/core";
+import { BaseModelSchema, CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema } from "@reactionary/core";
 import * as z from "zod";
 
 export const CommercetoolsCartIdentifierSchema = CartIdentifierSchema.extend({
     version: z.number().default(0)
 });
-
 
 export const CommercetoolsOrderIdentifierSchema = OrderIdentifierSchema.extend({
     version: z.number().default(0)

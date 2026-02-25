@@ -10,6 +10,8 @@ export const algoliaCapabilities = {
 };
 
 type SelectionFor<P extends object> = Partial<Record<keyof P, boolean>>;
+export type AlgoliaCapabilitySelection = SelectionFor<typeof algoliaCapabilities>;
+type NoExtraKeys<T, Shape> = T & Record<Exclude<keyof T, keyof Shape>, never>;
 
 type PickSelected<P extends object, S extends SelectionFor<P>> = {
   [K in keyof P as K extends keyof S
@@ -36,8 +38,12 @@ function pickCapabilities<const P extends Record<string, unknown>, const S exten
 }
 
 export function initialize<
-  const S extends SelectionFor<typeof algoliaCapabilities> | undefined = undefined,
->(configuration: AlgoliaConfiguration, selection?: S) {
+  const S extends AlgoliaCapabilitySelection | undefined = undefined,
+>(
+  configuration: AlgoliaConfiguration,
+  selection?: AlgoliaCapabilitySelection &
+    (S extends undefined ? undefined : NoExtraKeys<S, AlgoliaCapabilitySelection>),
+) {
   const config = AlgoliaConfigurationSchema.parse(configuration);
   const selectedCapabilities = selection
     ? pickCapabilities(algoliaCapabilities, selection)

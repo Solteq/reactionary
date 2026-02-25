@@ -29,6 +29,8 @@ export const commercetoolsCapabilities = {
 };
 
 type SelectionFor<P extends object> = Partial<Record<keyof P, boolean>>;
+export type CommercetoolsCapabilitySelection = SelectionFor<typeof commercetoolsCapabilities>;
+type NoExtraKeys<T, Shape> = T & Record<Exclude<keyof T, keyof Shape>, never>;
 
 type PickSelected<P extends object, S extends SelectionFor<P>> = {
   [K in keyof P as K extends keyof S
@@ -51,9 +53,12 @@ function pickCapabilities<const P extends Record<string, unknown>, const S exten
   return result as unknown as PickSelected<P, S>;
 }
 
-export function initialize<const S extends SelectionFor<typeof commercetoolsCapabilities> | undefined = undefined>(
+export function initialize<
+  const S extends CommercetoolsCapabilitySelection | undefined = undefined,
+>(
   configuration: CommercetoolsConfiguration,
-  selection?: S,
+  selection?: CommercetoolsCapabilitySelection &
+    (S extends undefined ? undefined : NoExtraKeys<S, CommercetoolsCapabilitySelection>),
 ) {
   const config = CommercetoolsConfigurationSchema.parse(configuration);
   const selectedCapabilities = selection
