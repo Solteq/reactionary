@@ -1,8 +1,11 @@
-import { bindProviderDefinitions, createClientFromDefinitions, ProductSchema, type ProcedureContext } from "@reactionary/core";
+import { bindProviderDefinitions, CategorySchema, ProductSchema, createClientFromDefinitions, type ProcedureContext } from "@reactionary/core";
 import { CommercetoolsAPI, CommercetoolsConfigurationSchema, type CommercetoolsConfiguration } from "@reactionary/provider-commercetools";
 import type * as z from 'zod';
 import { commercetoolsCartCapability } from "../capabilities/cart/cart-capability.js";
-import { commercetoolsCategoryCapability } from "../capabilities/category/category-capability.js";
+import {
+  createCommercetoolsCategoryCapability,
+  commercetoolsCategoryCapability,
+} from "../capabilities/category/category-capability.js";
 import { commercetoolsIdentityCapability } from "../capabilities/identity/identity-capability.js";
 import { commercetoolsInventoryCapability } from "../capabilities/inventory/inventory-capability.js";
 import { commercetoolsCheckoutCapability } from "../capabilities/checkout/checkout-capability.js";
@@ -16,6 +19,7 @@ import {
 } from "../capabilities/product/product-capability.js";
 import { commercetoolsProfileCapability } from "../capabilities/profile/profile-capability.js";
 import { commercetoolsStoreCapability } from "../capabilities/store/store-capability.js";
+import type { CommercetoolsCategoryExtension } from "../capabilities/category/category-extension.js";
 import type { CommercetoolsProductExtension } from "../capabilities/product/product-extension.js";
 
 export const commercetoolsCapabilities = {
@@ -38,9 +42,11 @@ export type CommercetoolsCapabilitySelection = SelectionFor<typeof commercetools
 type NoExtraKeys<T, Shape> = T & Record<Exclude<keyof T, keyof Shape>, never>;
 
 export type CommercetoolsExtensions<
-  ProductOutputSchema extends z.ZodTypeAny = typeof ProductSchema
+  ProductOutputSchema extends z.ZodTypeAny = typeof ProductSchema,
+  CategoryOutputSchema extends z.ZodTypeAny = typeof CategorySchema
 > = {
   product?: Partial<CommercetoolsProductExtension<ProductOutputSchema>>;
+  category?: Partial<CommercetoolsCategoryExtension<CategoryOutputSchema>>;
 };
 
 type PickSelected<P extends object, S extends SelectionFor<P>> = {
@@ -67,11 +73,12 @@ function pickCapabilities<const P extends Record<string, unknown>, const S exten
 export function initialize<
   const S extends CommercetoolsCapabilitySelection | undefined = undefined,
   ProductOutputSchema extends z.ZodTypeAny = typeof ProductSchema,
+  CategoryOutputSchema extends z.ZodTypeAny = typeof CategorySchema,
 >(
   configuration: CommercetoolsConfiguration,
   selection?: CommercetoolsCapabilitySelection &
     (S extends undefined ? undefined : NoExtraKeys<S, CommercetoolsCapabilitySelection>),
-  extensions?: CommercetoolsExtensions<ProductOutputSchema>,
+  extensions?: CommercetoolsExtensions<ProductOutputSchema, CategoryOutputSchema>,
 ) {
   const config = CommercetoolsConfigurationSchema.parse(configuration);
   const productExtension = {
@@ -80,8 +87,13 @@ export function initialize<
   };
   const allCapabilities = {
     ...createCommercetoolsProductCapability(productExtension),
+    ...createCommercetoolsCategoryCapability({
+      schema: (extensions?.category?.schema || CategorySchema) as CategoryOutputSchema,
+      transform: extensions?.category?.transform,
+      breadcrumbPathSchema: extensions?.category?.breadcrumbPathSchema,
+      paginatedSchema: extensions?.category?.paginatedSchema,
+    }),
     ...commercetoolsCartCapability,
-    ...commercetoolsCategoryCapability,
     ...commercetoolsCheckoutCapability,
     ...commercetoolsIdentityCapability,
     ...commercetoolsInventoryCapability,

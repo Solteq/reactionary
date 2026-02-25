@@ -1,6 +1,6 @@
 import type { CommercetoolsConfiguration } from '@reactionary/provider-commercetools';
 import { commercetoolsCapabilitiesInitializer } from '../lib/core/initialize.js';
-import { ProductSchema, createClient, createInitialRequestContext, type Result } from '@reactionary/core';
+import { CategorySchema, ProductSchema, createClient, createInitialRequestContext, type Result } from '@reactionary/core';
 import { z } from 'zod';
 import { expectTypeOf } from 'vitest';
 
@@ -102,6 +102,41 @@ describe('capability initialization', () => {
 
     expectTypeOf<Awaited<ReturnType<typeof client.product.byId.execute>>>().toEqualTypeOf<
       Result<z.infer<typeof ExtendedProductSchema>>
+    >();
+  });
+
+  it('can expose extended category output types across category procedures', () => {
+    const ExtendedCategorySchema = CategorySchema.extend({
+      merchandisingTag: z.string(),
+    });
+
+    const withContext = commercetoolsCapabilitiesInitializer(
+      dummyConfig,
+      {
+        category: true,
+      },
+      {
+        category: {
+          schema: ExtendedCategorySchema,
+          transform: ({ category }) => ({
+            ...category,
+            merchandisingTag: 'navigation',
+          }),
+        },
+      }
+    );
+    const client = withContext({ request: dummyContext });
+
+    expectTypeOf<Awaited<ReturnType<typeof client.category.byId.execute>>>().toEqualTypeOf<
+      Result<z.infer<typeof ExtendedCategorySchema>>
+    >();
+    expectTypeOf<Awaited<ReturnType<typeof client.category.breadcrumbPath.execute>>>().toEqualTypeOf<
+      Result<Array<z.infer<typeof ExtendedCategorySchema>>>
+    >();
+    expectTypeOf<Awaited<ReturnType<typeof client.category.childCategories.execute>>>().toMatchTypeOf<
+      Result<{
+        items: Array<z.infer<typeof ExtendedCategorySchema>>;
+      }>
     >();
   });
 });

@@ -1,52 +1,94 @@
-import { CategoryPaginatedResultSchema, CategoryQueryForTopCategoriesSchema, success, type CategoryTopCategoriesProcedureDefinition } from '@reactionary/core';
+import {
+  CategoryQueryForTopCategoriesSchema,
+  success,
+  type CategoryTopCategoriesProcedureDefinition,
+} from '@reactionary/core';
+import * as z from 'zod';
 import { commercetoolsProcedure, type CommercetoolsProcedureContext } from '../../core/context.js';
 import { getCommercetoolsCategoryClient } from './category-client.js';
 import {
   createEmptyCategoryPaginatedResult,
   parseCommercetoolsCategoryPaginatedResult,
 } from './category-mapper.js';
+import type { CommercetoolsResolvedCategoryExtension } from './category-extension.js';
 
-export const commercetoolsCategoryTopCategories = commercetoolsProcedure({
-  inputSchema: CategoryQueryForTopCategoriesSchema,
-  outputSchema: CategoryPaginatedResultSchema,
-  fetch: async (query, context, provider) => {
-    const client = await getCommercetoolsCategoryClient(provider);
+export function createCommercetoolsCategoryTopCategories<
+  CategoryOutputSchema extends z.ZodTypeAny,
+  CategoryPathOutputSchema extends z.ZodTypeAny,
+  CategoryPaginatedOutputSchema extends z.ZodTypeAny,
+>(
+  extension: CommercetoolsResolvedCategoryExtension<
+    CategoryOutputSchema,
+    CategoryPathOutputSchema,
+    CategoryPaginatedOutputSchema
+  >
+) {
+  return commercetoolsProcedure({
+    inputSchema: CategoryQueryForTopCategoriesSchema,
+    outputSchema: extension.paginatedSchema,
+    fetch: async (query, context, provider) => {
+      const client = await getCommercetoolsCategoryClient(provider);
 
-    try {
-      const response = await client
-        .get({
-          queryArgs: {
-            where: 'parent is not defined',
-            limit: query.paginationOptions.pageSize,
-            offset:
-              (query.paginationOptions.pageNumber - 1) *
+      try {
+        const response = await client
+          .get({
+            queryArgs: {
+              where: 'parent is not defined',
+              limit: query.paginationOptions.pageSize,
+              offset:
+                (query.paginationOptions.pageNumber - 1) *
+                query.paginationOptions.pageSize,
+              sort: 'orderHint asc',
+              storeProjection: context.request.storeIdentifier.key,
+            },
+          })
+          .execute();
+
+        return success(response.body);
+      } catch (_e) {
+        return success(null);
+      }
+    },
+    transform: async (query, context, data) => {
+      if (!data) {
+        return success(
+          extension.paginatedSchema.parse(
+            createEmptyCategoryPaginatedResult(
+              query.paginationOptions.pageNumber,
               query.paginationOptions.pageSize,
-            sort: 'orderHint asc',
-            storeProjection: context.request.storeIdentifier.key,
-          },
-        })
-        .execute();
+            ),
+          ),
+        );
+      }
 
-      return success(response.body);
-    } catch (_e) {
-      return success(null);
-    }
-  },
-  transform: async (query, context, data) => {
-    if (!data) {
-      return success(
-        createEmptyCategoryPaginatedResult(
-          query.paginationOptions.pageNumber,
-          query.paginationOptions.pageSize,
-        ),
-      );
-    }
-
-    return success(
-      parseCommercetoolsCategoryPaginatedResult(
+      const baseResult = parseCommercetoolsCategoryPaginatedResult(
         data,
         context.request.languageContext.locale,
-      ),
-    );
-  },
-}) satisfies CategoryTopCategoriesProcedureDefinition<CommercetoolsProcedureContext>;
+      );
+
+      if (!extension.transform) {
+        return success(extension.paginatedSchema.parse(baseResult));
+      }
+
+      const transformedItems = [];
+      for (let i = 0; i < baseResult.items.length; i++) {
+        const transformedCategory = await extension.transform({
+          category: baseResult.items[i],
+          rawCategory: data.results[i],
+          context,
+        });
+        transformedItems.push(transformedCategory);
+      }
+
+      return success(
+        extension.paginatedSchema.parse({
+          ...baseResult,
+          items: transformedItems,
+        }),
+      );
+    },
+  }) satisfies CategoryTopCategoriesProcedureDefinition<
+    CommercetoolsProcedureContext,
+    CategoryPaginatedOutputSchema
+  >;
+}

@@ -10,49 +10,80 @@ import type {
 } from '../../schemas/index.js';
 import type { ProviderProcedureContext, ProviderCapabilityProcedureDefinition, ProcedureContext } from '../core/provider-capability-procedure-definition.js';
 
-type CategoryPathSchema = z.ZodArray<typeof CategorySchema>;
+type CategoryPathSchema<OutputSchema extends z.ZodTypeAny = typeof CategorySchema> = z.ZodArray<OutputSchema>;
 
-export type CategoryByIdProcedureDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = ProviderCapabilityProcedureDefinition<
+export type CategoryByIdProcedureDefinition<
+  Context extends ProviderProcedureContext = ProviderProcedureContext,
+  CategoryOutputSchema extends z.ZodTypeAny = typeof CategorySchema
+> = ProviderCapabilityProcedureDefinition<
   Context,
   ProcedureContext,
   typeof CategoryQueryByIdSchema,
-  typeof CategorySchema
+  CategoryOutputSchema
 >;
 
-export type CategoryBySlugProcedureDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = ProviderCapabilityProcedureDefinition<
+export type CategoryBySlugProcedureDefinition<
+  Context extends ProviderProcedureContext = ProviderProcedureContext,
+  CategoryOutputSchema extends z.ZodTypeAny = typeof CategorySchema
+> = ProviderCapabilityProcedureDefinition<
   Context,
   ProcedureContext,
   typeof CategoryQueryBySlugSchema,
-  typeof CategorySchema
+  CategoryOutputSchema
 >;
 
-export type CategoryBreadcrumbPathProcedureDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = ProviderCapabilityProcedureDefinition<
+export type CategoryBreadcrumbPathProcedureDefinition<
+  Context extends ProviderProcedureContext = ProviderProcedureContext,
+  CategoryOutputSchema extends z.ZodTypeAny = typeof CategorySchema,
+  CategoryPathOutputSchema extends z.ZodTypeAny = CategoryPathSchema<CategoryOutputSchema>
+> = ProviderCapabilityProcedureDefinition<
   Context,
   ProcedureContext,
   typeof CategoryQueryForBreadcrumbSchema,
-  CategoryPathSchema
+  CategoryPathOutputSchema
 >;
 
-export type CategoryChildCategoriesProcedureDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = ProviderCapabilityProcedureDefinition<
+export type CategoryChildCategoriesProcedureDefinition<
+  Context extends ProviderProcedureContext = ProviderProcedureContext,
+  CategoryPaginatedOutputSchema extends z.ZodTypeAny = typeof CategoryPaginatedResultSchema
+> = ProviderCapabilityProcedureDefinition<
   Context,
   ProcedureContext,
   typeof CategoryQueryForChildCategoriesSchema,
-  typeof CategoryPaginatedResultSchema
+  CategoryPaginatedOutputSchema
 >;
 
-export type CategoryTopCategoriesProcedureDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = ProviderCapabilityProcedureDefinition<
+export type CategoryTopCategoriesProcedureDefinition<
+  Context extends ProviderProcedureContext = ProviderProcedureContext,
+  CategoryPaginatedOutputSchema extends z.ZodTypeAny = typeof CategoryPaginatedResultSchema
+> = ProviderCapabilityProcedureDefinition<
   Context,
   ProcedureContext,
   typeof CategoryQueryForTopCategoriesSchema,
-  typeof CategoryPaginatedResultSchema
+  CategoryPaginatedOutputSchema
 >;
 
-export type CategoryCapabilityDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = {
+export type CategoryCapabilityDefinition<
+  Context extends ProviderProcedureContext = ProviderProcedureContext,
+  CategoryOutputSchema extends z.ZodTypeAny = typeof CategorySchema,
+  CategoryPathOutputSchema extends z.ZodTypeAny = CategoryPathSchema<CategoryOutputSchema>,
+  CategoryPaginatedOutputSchema extends z.ZodTypeAny = typeof CategoryPaginatedResultSchema
+> = {
   category: {
-    byId: CategoryByIdProcedureDefinition<Context>;
-    bySlug: CategoryBySlugProcedureDefinition<Context>;
-    breadcrumbPath: CategoryBreadcrumbPathProcedureDefinition<Context>;
-    childCategories: CategoryChildCategoriesProcedureDefinition<Context>;
-    topCategories: CategoryTopCategoriesProcedureDefinition<Context>;
+    byId: CategoryByIdProcedureDefinition<Context, CategoryOutputSchema>;
+    bySlug: CategoryBySlugProcedureDefinition<Context, CategoryOutputSchema>;
+    breadcrumbPath: CategoryBreadcrumbPathProcedureDefinition<
+      Context,
+      CategoryOutputSchema,
+      CategoryPathOutputSchema
+    >;
+    childCategories: CategoryChildCategoriesProcedureDefinition<
+      Context,
+      CategoryPaginatedOutputSchema
+    >;
+    topCategories: CategoryTopCategoriesProcedureDefinition<
+      Context,
+      CategoryPaginatedOutputSchema
+    >;
   };
 };
