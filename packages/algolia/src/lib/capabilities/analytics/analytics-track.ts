@@ -21,7 +21,7 @@ function getUserToken(requestContext: RequestContext): string {
 }
 
 function getSearchQueryId(event: AnalyticsMutation): string | undefined {
-  if (!event.source || event.source.type !== 'search') {
+  if (!('source' in event) || !event.source || event.source.type !== 'search') {
     return undefined;
   }
 
@@ -77,7 +77,7 @@ async function pushAnalyticsEvent(
       return;
     }
     case 'product-summary-view': {
-      if (!event.source || event.source.type !== 'search') {
+      if (!('source' in event) || !event.source || event.source.type !== 'search') {
         return;
       }
 

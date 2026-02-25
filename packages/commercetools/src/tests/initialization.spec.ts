@@ -1,6 +1,8 @@
 import type { CommercetoolsConfiguration } from '@reactionary/provider-commercetools';
 import { commercetoolsCapabilitiesInitializer } from '../lib/core/initialize.js';
-import { createClient, createInitialRequestContext } from '@reactionary/core';
+import { ProductSchema, createClient, createInitialRequestContext, type Result } from '@reactionary/core';
+import { z } from 'zod';
+import { expectTypeOf } from 'vitest';
 
 describe('capability initialization', () => {
   const dummyConfig = {
@@ -74,5 +76,32 @@ describe('capability initialization', () => {
 
     expect(combinedClient.product).toBeDefined();
     expect(combinedClient.cart).toBeDefined();
+  });
+
+  it('can expose an extended product output schema through the public capability API', async () => {
+    const ExtendedProductSchema = ProductSchema.extend({
+      merchandisingTag: z.string(),
+    });
+
+    const withContext = commercetoolsCapabilitiesInitializer(
+      dummyConfig,
+      {
+        product: true,
+      },
+      {
+        product: {
+          schema: ExtendedProductSchema,
+          transform: ({ product }) => ({
+            ...product,
+            merchandisingTag: 'featured',
+          }),
+        },
+      }
+    );
+    const client = withContext({ request: dummyContext });
+
+    expectTypeOf<Awaited<ReturnType<typeof client.product.byId.execute>>>().toEqualTypeOf<
+      Result<z.infer<typeof ExtendedProductSchema>>
+    >();
   });
 });

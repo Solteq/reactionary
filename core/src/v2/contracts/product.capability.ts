@@ -1,3 +1,4 @@
+import type * as z from 'zod';
 import type {
   ProductQueryByIdSchema,
   ProductQueryBySKUSchema,
@@ -6,29 +7,41 @@ import type {
 } from '../../schemas/index.js';
 import type { ProviderProcedureContext, ProviderCapabilityProcedureDefinition, ProcedureContext } from '../core/provider-capability-procedure-definition.js';
 
-export type ProductByIdProcedureDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = ProviderCapabilityProcedureDefinition<
+export type ProductByIdProcedureDefinition<
+  Context extends ProviderProcedureContext = ProviderProcedureContext,
+  OutputSchema extends z.ZodTypeAny = typeof ProductSchema
+> = ProviderCapabilityProcedureDefinition<
   Context,
   ProcedureContext,
   typeof ProductQueryByIdSchema,
-  typeof ProductSchema
+  OutputSchema
 >;
-export type ProductBySlugProcedureDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = ProviderCapabilityProcedureDefinition<
+export type ProductBySlugProcedureDefinition<
+  Context extends ProviderProcedureContext = ProviderProcedureContext,
+  OutputSchema extends z.ZodTypeAny = typeof ProductSchema
+> = ProviderCapabilityProcedureDefinition<
   Context,
   ProcedureContext,
   typeof ProductQueryBySlugSchema,
-  typeof ProductSchema
+  OutputSchema
 >;
-export type ProductBySkuProcedureDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = ProviderCapabilityProcedureDefinition<
+export type ProductBySkuProcedureDefinition<
+  Context extends ProviderProcedureContext = ProviderProcedureContext,
+  OutputSchema extends z.ZodTypeAny = typeof ProductSchema
+> = ProviderCapabilityProcedureDefinition<
   Context,
   ProcedureContext,
   typeof ProductQueryBySKUSchema,
-  typeof ProductSchema
+  OutputSchema
 >;
 
-export type ProductCapabilityDefinition<Context extends ProviderProcedureContext = ProviderProcedureContext> = {
+export type ProductCapabilityDefinition<
+  Context extends ProviderProcedureContext = ProviderProcedureContext,
+  OutputSchema extends z.ZodTypeAny = typeof ProductSchema
+> = {
   product: {
-    byId: ProductByIdProcedureDefinition<Context>;
-    bySlug: ProductBySlugProcedureDefinition<Context>;
-    bySku: ProductBySkuProcedureDefinition<Context>;
+    byId: ProductByIdProcedureDefinition<Context, OutputSchema>;
+    bySlug: ProductBySlugProcedureDefinition<Context, OutputSchema>;
+    bySku: ProductBySkuProcedureDefinition<Context, OutputSchema>;
   };
 };
