@@ -1,7 +1,7 @@
 {
-  "name": "google-analytics-old",
+  "name": "google-analytics",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "providers/google-analytics/src",
+  "sourceRoot": "packages/google-analytics/src",
   "projectType": "library",
   "release": {
     "version": {
@@ -16,10 +16,10 @@
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "options": {
-        "outputPath": "dist/providers/google-analytics",
-        "main": "providers/google-analytics/src/index.ts",
-        "tsConfig": "providers/google-analytics/tsconfig.lib.json",
-        "assets": ["providers/google-analytics/*.md"],
+        "outputPath": "dist/packages/google-analytics",
+        "main": "packages/google-analytics/src/index.ts",
+        "tsConfig": "packages/google-analytics/tsconfig.lib.json",
+        "assets": ["packages/google-analytics/*.md"],
         "format": ["esm"],
         "bundle": false
       }

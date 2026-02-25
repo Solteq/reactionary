@@ -1,5 +1,5 @@
 {
-  "name": "@reactionary/google-analytics",
+  "name": "@reactionary/google-analytics-old",
   "version": "0.0.1",
   "main": "index.js",
   "types": "src/index.d.ts",

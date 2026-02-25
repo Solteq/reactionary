@@ -2,6 +2,8 @@ import type * as z from 'zod';
 import type { CapabilityProcedureDefinition } from './capability-procedure-definition.js';
 import { type CapabilityProcedure, bindProcedure } from './capability-procedure.js';
 import type { ProcedureContext } from './provider-capability-procedure-definition.js';
+import { success, type Result } from '../../schemas/result.js';
+import type { AnalyticsMutation } from '../../schemas/index.js';
 
 export type ClientDefinition<Context extends ProcedureContext> = Record<
   string,
@@ -87,6 +89,21 @@ export function mergeDefs<
 
 export type InitializedClientFactory<Ctx extends ProcedureContext, Client extends object> = (context: Ctx) => Client;
 
+type AnalyticsTrackExecute = (input: AnalyticsMutation) => Promise<Result<void>>;
+
+type AnalyticsEnabledClient = {
+  analytics: {
+    track: {
+      execute: AnalyticsTrackExecute;
+    };
+  };
+};
+
+function hasAnalyticsTrack(client: object): client is AnalyticsEnabledClient {
+  const candidate = client as Partial<AnalyticsEnabledClient>;
+  return typeof candidate.analytics?.track?.execute === 'function';
+}
+
 export function createClient<
   Ctx extends ProcedureContext,
   const Factories extends readonly InitializedClientFactory<Ctx, object>[]
@@ -95,9 +112,32 @@ export function createClient<
   ...factories: Factories
 ): MergeManyObjects<FactoryReturns<Factories>> {
   const out: object = {};
+  const analyticsTracks: AnalyticsTrackExecute[] = [];
 
   for (const factory of factories) {
-    Object.assign(out, factory(context));
+    const partialClient = factory(context);
+
+    if (hasAnalyticsTrack(partialClient)) {
+      analyticsTracks.push(partialClient.analytics.track.execute);
+      const { analytics: _analytics, ...rest } = partialClient;
+      Object.assign(out, rest);
+      continue;
+    }
+
+    Object.assign(out, partialClient);
+  }
+
+  if (analyticsTracks.length > 0) {
+    Object.assign(out, {
+      analytics: {
+        track: {
+          execute: async (input: AnalyticsMutation): Promise<Result<void>> => {
+            await Promise.allSettled(analyticsTracks.map((track) => track(input)));
+            return success(undefined);
+          },
+        },
+      },
+    });
   }
 
   return out as MergeManyObjects<FactoryReturns<Factories>>;

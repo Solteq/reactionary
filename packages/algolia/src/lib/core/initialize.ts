@@ -4,9 +4,11 @@ import {
   type AlgoliaConfiguration,
 } from './configuration.js';
 import { algoliaProductSearchCapability } from '../capabilities/product-search/product-search-capability.js';
+import { algoliaAnalyticsCapability } from '../capabilities/analytics/analytics-capability.js';
 
 export const algoliaCapabilities = {
   ...algoliaProductSearchCapability,
+  ...algoliaAnalyticsCapability,
 };
 
 type SelectionFor<P extends object> = Partial<Record<keyof P, boolean>>;

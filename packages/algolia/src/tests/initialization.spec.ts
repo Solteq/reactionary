@@ -15,6 +15,7 @@ describe('algolia capability initialization', () => {
     const client = withContext({ request: dummyContext });
 
     expect(client.productSearch).toBeDefined();
+    expect(client.analytics).toBeDefined();
   });
 
   it('can initialize capabilities selectively', () => {
@@ -24,5 +25,16 @@ describe('algolia capability initialization', () => {
     const client = withContext({ request: dummyContext });
 
     expect(client.productSearch).toBeDefined();
+    expect('analytics' in client).toBe(false);
+  });
+
+  it('can initialize analytics capability selectively', () => {
+    const withContext = initialize(dummyConfig, {
+      analytics: true,
+    });
+    const client = withContext({ request: dummyContext });
+
+    expect(client.analytics).toBeDefined();
+    expect('productSearch' in client).toBe(false);
   });
 });

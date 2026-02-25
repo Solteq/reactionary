@@ -51,6 +51,7 @@ export function createMixedClient() {
     getAlgoliaConfiguration(),
     {
       productSearch: true,
+      analytics: true
     },
   );
 

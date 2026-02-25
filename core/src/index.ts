@@ -19,6 +19,7 @@ export * from './v2/contracts/store.capability.js';
 export * from './v2/contracts/product-search.capability.js';
 export * from './v2/contracts/profile.capability.js';
 export * from './v2/contracts/checkout.capability.js';
+export * from './v2/contracts/analytics.capability.js';
 export * from './v2/core/capability-procedure-definition.js';
 export * from './v2/core/capability-procedure.js';
 export * from './v2/core/capability-client.js';
