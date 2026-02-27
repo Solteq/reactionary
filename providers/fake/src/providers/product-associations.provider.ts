@@ -15,6 +15,7 @@ import { calcSeed } from '../utilities/seed.js';
 
 export class FakeProductAssociationsProvider extends ProductAssociationsProvider {
   protected config: FakeConfiguration;
+  protected faker: Faker;
 
   constructor(
     config: FakeConfiguration,
