@@ -15,6 +15,7 @@ export const FakeCapabilitiesSchema = CapabilitiesSchema.pick({
     orderSearch: true,
     profile: true,
     productReviews: true,
+    productAssociations: true,
 }).partial();
 
 export type FakeCapabilities = z.infer<typeof FakeCapabilitiesSchema>;

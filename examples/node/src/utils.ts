@@ -120,7 +120,8 @@ export function createClient(provider: PrimaryProvider) {
     if (provider === PrimaryProvider.FAKE) {
       builder = builder.withCapability(
         withFakeCapabilities( getFakeConfiguration() , {
-          productReviews: true
+          productReviews: true,
+          productAssociations: true,
         }
       ))
     }

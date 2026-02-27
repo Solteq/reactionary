@@ -20,6 +20,7 @@ import { FakeOrderSearchProvider } from '../providers/order-search.provider.js';
 import { FakeOrderProvider } from '../providers/order.provider.js';
 import { FakeProfileProvider } from '../providers/profile.provider.js';
 import { FakeProductReviewsProvider } from '../providers/product-reviews.provider.js';
+import { FakeProductAssociationsProvider } from '../providers/product-associations.provider.js';
 
 export function withFakeCapabilities<T extends FakeCapabilities>(
   configuration: FakeConfiguration,
@@ -93,6 +94,10 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
 
     if (capabilities.productReviews) {
       client.productReviews = new FakeProductReviewsProvider(configuration, cache, context);
+    }
+
+    if (capabilities.productAssociations) {
+      client.productAssociations = new FakeProductAssociationsProvider(configuration, cache, context);
     }
 
     return client;
