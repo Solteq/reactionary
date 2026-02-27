@@ -15,7 +15,7 @@ const testData = {
   },
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS])(
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
   'Product Capability - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
@@ -45,7 +45,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       const response = await client.product.getBySlug({
         slug: testData.product.slug,
       });
-      
+
       if (!response.success) {
         assert.fail();
       }
@@ -111,7 +111,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
 
     it('should return an error of NotFound for unknown slug', async () => {
       const response = await client.product.getBySlug({ slug: 'unknown-slug' });
-      
+
       if (response.success) {
         assert.fail();
       }

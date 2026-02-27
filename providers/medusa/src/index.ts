@@ -11,4 +11,5 @@ export * from './providers/order-search.provider.js';
 export * from './providers/price.provider.js';
 export * from './providers/product-search.provider.js';
 export * from './providers/product-recommendations.provider.js';
+export * from './providers/product-associations.provider.js';
 export * from './providers/profile.provider.js';

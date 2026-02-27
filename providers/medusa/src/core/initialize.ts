@@ -14,6 +14,7 @@ import { MedusaPriceProvider } from "../providers/price.provider.js";
 import { MedusaSearchProvider } from "../providers/product-search.provider.js";
 import { MedusaProductRecommendationsProvider } from "../providers/product-recommendations.provider.js";
 import { MedusaProductProvider } from "../providers/product.provider.js";
+import { MedusaProductAssociationsProvider } from "../providers/product-associations.provider.js";
 import { MedusaProfileProvider } from "../providers/profile.provider.js";
 import { MedusaCapabilitiesSchema, type MedusaCapabilities } from "../schema/capabilities.schema.js";
 import { MedusaConfigurationSchema, type MedusaConfiguration } from "../schema/configuration.schema.js";
@@ -78,7 +79,9 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
         if(caps.orderSearch) {
             client.orderSearch = new MedusaOrderSearchProvider(configuration, cache, context, medusaApi);
         }
-
+        if (caps.productAssociations) {
+            client.productAssociations = new MedusaProductAssociationsProvider(configuration, cache, context, medusaApi);
+        }
         return client;
     };
 }
