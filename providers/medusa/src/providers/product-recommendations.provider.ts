@@ -85,7 +85,7 @@ export class MedusaProductRecommendationsProvider extends ProductRecommendations
       const productsResponse = await client.store.product.list({
         collection_id: [collection.id],
         limit: query.numberOfRecommendations,
-        fields: '+variants.id,+variants.sku',
+        fields: '+variants.id,+variants.sku,+external_id',
       });
 
       if (debug.enabled) {
@@ -125,7 +125,7 @@ export class MedusaProductRecommendationsProvider extends ProductRecommendations
 
   protected parseSearchResultItem(_body: StoreProduct) {
      const heroVariant = _body.variants?.[0];
-     const identifier = { key: _body.id };
+     const identifier = { key: _body.external_id || _body.id };
      const slug = _body.handle;
      const name = heroVariant?.title || _body.title;
      const variants = [];

@@ -126,6 +126,7 @@ export class MedusaSearchProvider extends ProductSearchProvider {
       q: finalSearch,
       ...(categoryIdToFind ? { category_id: categoryIdToFind } : {}),
       limit: payload.search.paginationOptions.pageSize,
+      fields: '+metadata.*,+external_id',
       offset:
         (payload.search.paginationOptions.pageNumber - 1) *
         payload.search.paginationOptions.pageSize,
@@ -178,7 +179,7 @@ export class MedusaSearchProvider extends ProductSearchProvider {
 
   protected parseSingle(_body: StoreProduct): ProductSearchResultItem {
     const heroVariant = _body.variants?.[0];
-    const identifier = { key: _body.id };
+    const identifier = { key: _body.external_id || _body.id };
     const slug = _body.handle;
     const name = heroVariant?.title || _body.title;
     const variants = [];

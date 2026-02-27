@@ -109,6 +109,7 @@ export function createClient(provider: PrimaryProvider) {
           price: true,
           productSearch: true,
           productRecommendations: true,
+          productAssociations: true,
           orderSearch: true,
           store: true,
           profile: true

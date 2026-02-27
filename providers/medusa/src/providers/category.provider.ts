@@ -52,6 +52,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
     while (true) {
       try {
         const categoryResult = await sdk.store.category.list({
+
           offset,
           limit,
         });

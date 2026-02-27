@@ -8,11 +8,11 @@ const testData = {
     id: 'product_102456',
   },
   productWithoutAssociations: {
-    id: 'product_10959528',
+    id: 'product_100201',
   },
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS])(
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
   'Product Associations - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;

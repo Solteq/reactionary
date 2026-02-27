@@ -21,6 +21,7 @@ const debug = createDebug('reactionary:medusa:product');
 
 export class MedusaProductProvider extends ProductProvider {
   protected config: MedusaConfiguration;
+  protected alwaysIncludedFields = ["+metadata.*","+categories.metadata.*","+external_id"]
 
   constructor(config: MedusaConfiguration, cache: Cache, context: RequestContext, public medusaApi: MedusaAPI) {
   super(cache, context);
@@ -40,20 +41,24 @@ export class MedusaProductProvider extends ProductProvider {
     if (debug.enabled) {
       debug(`Fetching product by ID: ${payload.identifier.key}`);
     }
-    let response;
-    try {
-      response = await client.store.product.retrieve(payload.identifier.key, {
-        fields: '+metadata,+categories.metadata.*',
-      });
+    const response = await client.store.product.list(
+      {
+        external_id: payload.identifier.key,
+        limit: 1,
+        offset: 0,
+        fields: this.alwaysIncludedFields.join(','),
+      },
+    );
 
-    } catch(error) {
-      if (debug.enabled) {
-        debug(`Product with ID: ${payload.identifier.key} not found, returning empty product. Error %O `, error);
-      }
-      return success(this.createEmptyProduct(payload.identifier.key));
+    if (response.count === 0) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload
+      });
     }
-    return success(this.parseSingle(response.product));
+    return success(this.parseSingle(response.products[0]));
   }
+
 
   @Reactionary({
     inputSchema: ProductQueryBySlugSchema,
@@ -73,7 +78,7 @@ export class MedusaProductProvider extends ProductProvider {
       handle: payload.slug,
       limit: 1,
       offset: 0,
-      fields: '+metadata.*',
+      fields: this.alwaysIncludedFields.join(','),
     });
 
     if (debug.enabled) {
@@ -109,15 +114,15 @@ export class MedusaProductProvider extends ProductProvider {
     if (!variant) {
       throw new Error(`Variant with SKU ${sku} not found`);
     }
-    product.variants = [];
-    product.variants.push(variant);
+    // move the hero variant to the top of the list for easier parsing later
+    product.variants = product.variants?.filter((v) => v.sku === sku).concat(product.variants?.filter((v) => v.sku !== sku)) || [];
 
     // For simplicity, return the first matched product
     return success(this.parseSingle(product));
   }
 
   protected parseSingle(_body: StoreProduct): Product {
-    const identifier = ProductIdentifierSchema.parse({ key: _body.id });
+    const identifier = ProductIdentifierSchema.parse({ key: _body.external_id || _body.id });
     const name = _body.title;
     const slug = _body.handle;
     const description = _body.description || '' || _body.subtitle || '';
@@ -130,7 +135,7 @@ export class MedusaProductProvider extends ProductProvider {
 
     if (!_body.variants) {
       debug('Product has no variants', _body);
-      throw new Error('Product has no variants ' + _body.id);
+      throw new Error('Product has no variants ' + _body.external_id);
     }
     const mainVariant = this.parseVariant(_body.variants[0], _body);
 
@@ -251,7 +256,11 @@ export class MedusaProductProvider extends ProductProvider {
       sharedAttributes.push(this.createSynthAttribute('material', 'Material', _body.material));
     }
     if (_body.metadata) {
+      const keysToExclude = ['reactionaryaccessories', 'reactionaryreplacements', 'reactionaryspareparts'];
       for (const [key, value] of Object.entries(_body.metadata)) {
+        if (keysToExclude.includes(key)) {
+          continue;
+        }
         sharedAttributes.push(this.createSynthAttribute(key, key, String(value)));
       }
     }
