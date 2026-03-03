@@ -3,6 +3,7 @@ import { PaginationOptionsSchema } from './base.model.js';
 import type { InferType } from '../../zod-utils.js';
 export const OrderStatusSchema = z.enum(['AwaitingPayment', 'ReleasedToFulfillment', 'Shipped', 'Cancelled']).meta({ description: 'The current status of the order.' });
 export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', 'Backordered', 'Preordered']).meta({ description: 'The inventory release status of the order.' });
+export const ProductListTypeSchema = z.enum(['favorite','wish','requisition','shopping']).meta({ description: 'The type of product list, e.g., "wish" or "favorite".' });
 
 export const FacetIdentifierSchema = z.looseObject({
   key: z.string(),
@@ -158,6 +159,31 @@ export const OrderSearchIdentifierSchema = z.looseObject({
 });
 
 
+export const ProductListSearchIdentifierSchema = z.looseObject({
+  listType: ProductListTypeSchema.meta({ description: 'The type of product list, e.g., "wishlist" or "favorites".' }),
+  paginationOptions: PaginationOptionsSchema.describe('Pagination options for the search results.'),
+});
+
+
+export const ProductListIdentifierSchema = z.looseObject({
+  listType: ProductListTypeSchema.meta({ description: 'The type of product list, e.g., "wish" or "favorite".' }),
+  key: z.string().meta({ description: 'The unique identifier for the product list.' }),
+});
+
+export const ProductListItemSearchIdentifierSchema = z.looseObject({
+  list: ProductListIdentifierSchema.describe('The identifier for the product list to query. The provider should return the items in the list that match this identifier. For example, if the identifier is a customer ID, the provider should return the items in the customer\'s wishlist. If the identifier is a session ID, the provider should return the items in the customer\'s current shopping cart. If the identifier is a product ID, the provider should return the items in the product\'s related products list.'),
+  paginationOptions: PaginationOptionsSchema.describe('Pagination options for the search results.'),
+});
+
+export const ProductListItemIdentifierSchema = z.looseObject({
+  key: z.string().meta({ description: 'The unique identifier for the product list item.' }),
+  list: ProductListIdentifierSchema,
+});
+
+
+
+
+
 export type OrderSearchIdentifier = InferType<typeof OrderSearchIdentifierSchema>;
 export type ProductIdentifier = InferType<typeof ProductIdentifierSchema>;
 export type ProductVariantIdentifier = InferType<typeof ProductVariantIdentifierSchema>;
@@ -187,6 +213,8 @@ export type PaymentInstructionIdentifier = InferType<
 export type OrderIdentifier = InferType<typeof OrderIdentifierSchema>;
 export type OrderItemIdentifier = InferType<typeof OrderItemIdentifierSchema>;
 
+
+
 export type CheckoutIdentifier = InferType<typeof CheckoutIdentifierSchema>;
 export type CheckoutItemIdentifier = InferType<typeof CheckoutItemIdentifierSchema>;
 export type PickupPointIdentifier = InferType<typeof PickupPointIdentifierSchema>;
@@ -199,6 +227,11 @@ export type ProductRecommendationIdentifier = InferType<typeof ProductRecommenda
 export type ProductAssociationsIdentifier = InferType<typeof ProductAssociationsIdentifierSchema>;
 export type ProductRatingIdentifier = InferType<typeof ProductRatingIdentifierSchema>;
 export type ProductReviewIdentifier = InferType<typeof ProductReviewIdentifierSchema>;
+export type ProductListIdentifier = InferType<typeof ProductListIdentifierSchema>;
+export type ProductListItemIdentifier = InferType<typeof ProductListItemIdentifierSchema>;
+export type ProductListSearchIdentifier = InferType<typeof ProductListSearchIdentifierSchema>;
+export type ProductListItemSearchIdentifier = InferType<typeof ProductListItemSearchIdentifierSchema>;
+export type ProductListType = InferType<typeof ProductListTypeSchema>;
 
 export type IdentifierType =
   | ProductIdentifier
@@ -230,4 +263,10 @@ export type IdentifierType =
   | ProductAttributeIdentifier
   | ProductAttributeValueIdentifier
   | ProductRatingIdentifier
-  | ProductReviewIdentifier;
+  | ProductReviewIdentifier
+  | ProductAssociationsIdentifier
+  | ProductListIdentifier
+  | ProductListItemIdentifier
+  | ProductListSearchIdentifier
+
+  ;

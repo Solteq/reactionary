@@ -4,7 +4,7 @@ export * from './cart.mutation.js';
 export * from './identity.mutation.js';
 export * from './inventory.mutation.js';
 export * from './price.mutation.js';
-export * from './product.mutation.js';
+export * from './product-list.mutation.js';
 export * from './product-reviews.mutation.js';
 export * from './profile.mutation.js';
 export * from './search.mutation.js';
