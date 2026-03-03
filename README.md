@@ -135,7 +135,7 @@ Vendors: Algolia,  Commercetools
 
 ### Roadmap to V0.6
 Usecase: As a shopper i want to create shoppinglist/wishlist
-Vendors:  Commercetools, Medusa
+Vendors:  Commercetools
 
 - Account - Shopping List, Listing and Details
 - PDP
