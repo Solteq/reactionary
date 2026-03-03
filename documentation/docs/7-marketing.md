@@ -96,3 +96,66 @@ It was also decided to have the source and target unit be a product (Forest Rang
 
 This is from emperical studies showign that you will get more results from the toplevel product, than from a rarely used SKU.
 
+
+
+## Merchandise associations
+Other kinds of associations exist, that are not algorithmically determined, but rather static in nature.
+These we call `productAssociations` and they have a seperate capability.
+
+Reactionary supports 3 kinds of product associations:
+- Accessory
+- Sparepart
+- Replacement
+
+To load the accessories of a product, (to maybe render a `Buy with...`  combo )
+
+```ts
+const pId: ProductIdentifier = product.identifier;
+
+const accessoriesResponse = await client.productAssociations.getAccessories({
+  forProduct: pId,
+  numberOfAssociations: 4
+});
+
+if (!accessoriesResponse.success) {
+  // just skip. Its not important.
+  return;
+}
+```
+
+In the same vein you can get any spareparts related to the product.
+```ts
+const pId: ProductIdentifier = product.identifier;
+
+const sparepartsResponse = await client.productAssociations.getSpareparts({
+  forProduct: pId,
+  numberOfAssociations: 4
+});
+
+if (!sparepartsResponse.success) {
+  // just skip. Its not important.
+  return;
+}
+
+```
+
+
+Finally, on the PDP you might want to see, if the product has been retired, and superseeded by some other product.
+```ts
+const pId: ProductIdentifier = product.identifier;
+
+const replacementResponse = await client.productAssociations.getReplacements({
+  forProduct: pId,
+  numberOfAssociations: 4
+});
+
+if (!replacementResponse.success) {
+  // just skip. Its not important.
+  return;
+}
+
+```
+
+
+## Design decision
+The static accessories could have been special cased recommendations, but we felt they were special enough, in their usecases, that it warrented its own client. At some point, it might be relevant to make these paginated responses, (mostly spareparts), and maybe expand with a more dedicated spare-parts experience. (exploded diagrams, etc)

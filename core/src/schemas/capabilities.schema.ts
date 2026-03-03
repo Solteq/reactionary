@@ -8,6 +8,7 @@ export const CapabilitiesSchema = z.looseObject({
     productAssociations: z.boolean(),
     productRecommendations: z.boolean(),
     productReviews: z.boolean(),
+    productList: z.boolean(),
     analytics: z.boolean(),
     identity: z.boolean(),
     cart: z.boolean(),
