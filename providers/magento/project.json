@@ -1,0 +1,27 @@
+{
+  "name": "magento",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "providers/magento/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "options": {
+        "outputPath": "dist/providers/magento",
+        "main": "providers/magento/src/index.ts",
+        "tsConfig": "providers/magento/tsconfig.lib.json",
+        "assets": [
+          "providers/magento/*.md"
+        ],
+        "format": [
+          "esm"
+        ],
+        "bundle": false
+      }
+    }
+  }
+}

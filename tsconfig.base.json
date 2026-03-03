@@ -23,8 +23,9 @@
       "@reactionary/google-analytics": [
         "packages/google-analytics/src/index.ts"
       ],
+      "@reactionary/magento": ["packages/magento/src/index.ts"],
       "@reactionary/medusa": ["packages/medusa/src/index.ts"],
-      "@reactionary/meilisearch": ["packages/meilisearch/src/index.ts"]
+      "@reactionary/meilisearch": ["packages/meilisearch/src/index.ts"],
     },
   },
   "exclude": ["node_modules", "tmp"]
