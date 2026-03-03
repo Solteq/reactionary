@@ -44,6 +44,14 @@ export function createMixedClient() {
     {
       product: true,
       cart: true,
+      category: true,
+      checkout: true,
+      identity: true,
+      inventory: true,
+      order: true,
+      orderSearch: true,
+      price: true,
+      productSearch: true
     },
   );
 

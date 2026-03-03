@@ -63,6 +63,5 @@ if (!product.success) {
   throw Error('Expected product.bySlug to succeed.');
 }
 
-// Fully typed from ExtendedProductSchema:
 console.log(product.value.merchandisingTag);
 console.log(product.value.rawProviderName);

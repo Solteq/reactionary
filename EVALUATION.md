@@ -1,15 +1,7 @@
 # Evaluation
 This is a temporary write-up in relation to the re-architecting of the client in order to get a better propagation of types up through the hierarchy.
 
-## Glossary
-- Capability: a single business domain that may be utilized by the consumer. Examples: Cart, Product, Category, ProductSearch.
-- Capability Procedure: a single piece of exposed functionality within a business domain. Examples: Cart.addItem, Cart.removeItem, Product.getBySlug
-- Provider: a single remote system providing a set of functionality. A provider may provide anywhere from a single capability to all the capabilities.
-- Schema: the source of truth for input and output types. These need to provide both compile-time types, as well as runtime parsing / validation.
-- Definition: the internal part of a capability or procedure, that is to say the definition of it BEFORE being converted to a client.
-- Client: the final interface exposing the sum of business capabilities to the consumer.
-- Global middleware: functionality that needs to run on all requests performed, across capabilities and providers, such as Telemetry or Caching.
-- Contract: the minimum set of functionality expected to be exposed by providers of a given capability - both in terms of procedures, and the input / output for those procedures.
+
 
 ## OOTB use
 The following are the cases, grouped by their respective importance, that should be considered for OOTB use. OOTB use in this context means "not customized" - that is, the perspective of just needing to get a new project going from scratch.
