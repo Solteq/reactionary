@@ -86,8 +86,8 @@ export class CommercetoolsPriceProvider extends PriceProvider {
   public override async getListPrice(payload: ListPriceQuery): Promise<Result<Price>> {
     const client = await this.getClient();
     let priceChannelId;
-    if (this.config.customerPriceChannelKey) {
-      priceChannelId = await this.commercetools.resolveChannelIdByKey(this.config.customerPriceChannelKey);
+    if (this.config.listPriceChannelKey) {
+      priceChannelId = await this.commercetools.resolveChannelIdByKey(this.config.listPriceChannelKey);
     } else {
       priceChannelId = await this.commercetools.resolveChannelIdByRole('Primary');
     }
