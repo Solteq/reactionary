@@ -2,15 +2,14 @@ import type { TokenCache, TokenCacheOptions, TokenStore } from "@commercetools/t
 import type { RequestContext } from "@reactionary/core";
 import { CommercetoolsSessionSchema } from "../schema/session.schema.js";
 
-export const PROVIDER_COMMERCETOOLS_SESSION_KEY = 'PROVIDER_COMMERCETOOLS';
 export class RequestContextTokenCache implements TokenCache {
-  constructor(protected context: RequestContext) {}
+  constructor(protected context: RequestContext, protected sessionProviderKey: string) {}
 
   public async get(
     tokenCacheOptions?: TokenCacheOptions
   ): Promise<TokenStore | undefined> {
     const session = CommercetoolsSessionSchema.parse(
-      this.context.session[PROVIDER_COMMERCETOOLS_SESSION_KEY] || {}
+      this.context.session[this.sessionProviderKey] || {}
     );
 
     if (!session) {
@@ -33,10 +32,10 @@ export class RequestContextTokenCache implements TokenCache {
     tokenCacheOptions?: TokenCacheOptions
   ): Promise<void> {
     const session = CommercetoolsSessionSchema.parse(
-      this.context.session[PROVIDER_COMMERCETOOLS_SESSION_KEY] || {}
+      this.context.session[this.sessionProviderKey] || {}
     );
 
-    this.context.session[PROVIDER_COMMERCETOOLS_SESSION_KEY] = session;
+    this.context.session[this.sessionProviderKey] = session;
 
     session.refreshToken = cache.refreshToken;
     session.token = cache.token;

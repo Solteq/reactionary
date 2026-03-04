@@ -16,19 +16,23 @@ import {
 import * as crypto from 'crypto';
 import createDebug from 'debug';
 import { RequestContextTokenCache } from './token-cache.js';
+import { CommercetoolsSessionSchema, type CommercetoolsSession } from '../schema/session.schema.js';
 const debug = createDebug('reactionary:commercetools');
+
+export const PROVIDER_SESSION_KEY = 'COMMERCETOOLS_PROVIDER';
+
 
 export class CommercetoolsAPI {
   protected config: CommercetoolsConfiguration;
   protected context: RequestContext;
-  protected cache: RequestContextTokenCache;
+  protected tokenCache: RequestContextTokenCache;
   protected client: Promise<ApiRoot> | undefined;
   protected adminClient: Promise<ApiRoot> | undefined;
 
   constructor(config: CommercetoolsConfiguration, context: RequestContext) {
     this.config = config;
     this.context = context;
-    this.cache = new RequestContextTokenCache(this.context);
+    this.tokenCache = new RequestContextTokenCache(this.context, PROVIDER_SESSION_KEY);
   }
 
   public async getClient() {
@@ -47,6 +51,105 @@ export class CommercetoolsAPI {
     return this.adminClient;
   }
 
+  public getSessionData(): CommercetoolsSession {
+    return this.context.session[PROVIDER_SESSION_KEY]
+      ? this.context.session[PROVIDER_SESSION_KEY] as CommercetoolsSession
+      : CommercetoolsSessionSchema.parse({});
+  }
+
+  public setSessionData(sessionData: Partial<CommercetoolsSession>): void {
+    const existingData = this.context.session[PROVIDER_SESSION_KEY] as Partial<CommercetoolsSession>;
+
+    this.context.session[PROVIDER_SESSION_KEY] = {
+      ...existingData,
+      ...sessionData,
+    };
+  }
+
+  /**
+   * Only caches it pr session for now...... but still better than every call
+   * @param key
+   * @returns
+   */
+  public async resolveChannelIdByKey(key: string): Promise<string> {
+    const sessionData = this.getSessionData();
+
+    const cacheKey = `___channel_${key}`;
+    const cachedValue = sessionData[cacheKey];
+    if (cachedValue) {
+      if (debug.enabled) {
+        debug(`Resolved channel ${key} from cache`);
+      }
+      return cachedValue + '';
+    }
+
+    const client = await this.getAdminClient();
+    const response = await client
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .channels()
+      .withKey({ key: key })
+      .get()
+      .execute();
+
+    const channel = response.body;
+    this.setSessionData({
+      cacheKey: channel.id,
+    })
+    if (debug.enabled) {
+      debug(`Resolved channel ${key} from API and cached it`);
+    }
+
+    return channel.id;
+  }
+
+  /**
+   * Only caches it pr session for now...... but still better than every call
+   * @param key
+   * @returns
+   */
+  public async resolveChannelIdByRole(role: string): Promise<string> {
+    const sessionData = this.getSessionData();
+
+    const cacheKey = `___channel_role_${role}`;
+    const cachedValue = sessionData[cacheKey];
+    if (cachedValue) {
+      if (debug.enabled) {
+        debug(`Resolved channel ${role} from cache`);
+      }
+      return cachedValue + '';
+    }
+
+    const client = await this.getAdminClient();
+    const response = await client
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .channels()
+      .get({
+        queryArgs: {
+          where: `roles contains any (:role)`,
+          'var.role': role,
+        }
+      })
+      .execute();
+
+    const channels = response.body;
+    if (channels.results.length === 0) {
+      throw new Error(`No channel found with role ${role}`);
+    }
+
+    const channel = channels.results[0];
+    this.setSessionData({
+      [cacheKey]: channel.id,
+    });
+
+    if (debug.enabled) {
+      debug(`Resolved channel ${role} from API and cached it`);
+    }
+
+    return channel.id;
+  }
+
+
+
   protected async createAdminClient() {
     let builder = this.createBaseClientBuilder();
     builder = builder.withAnonymousSessionFlow({
@@ -62,13 +165,13 @@ export class CommercetoolsAPI {
   }
 
   protected async createClient() {
-    let session = await this.cache.get();
+    let session = await this.tokenCache.get();
     const isNewSession = !session || !session.refreshToken;
 
     if (isNewSession) {
       await this.becomeGuest();
 
-      session = await this.cache.get();
+      session = await this.tokenCache.get();
     }
 
     let builder = this.createBaseClientBuilder();
@@ -80,7 +183,7 @@ export class CommercetoolsAPI {
       host: this.config.authUrl,
       projectKey: this.config.projectKey,
       refreshToken: session?.refreshToken || '',
-      tokenCache: this.cache,
+      tokenCache: this.tokenCache,
     });
 
     return createApiBuilderFromCtpClient(builder.build());
@@ -128,7 +231,7 @@ export class CommercetoolsAPI {
         clientSecret: this.config.clientSecret,
         user: { username, password },
       },
-      tokenCache: this.cache,
+      tokenCache: this.tokenCache,
       scopes: this.config.scopes,
     });
 
@@ -161,7 +264,7 @@ export class CommercetoolsAPI {
   }
 
   public async logout() {
-    await this.cache.set({ token: '', refreshToken: '', expirationTime: 0 });
+    await this.tokenCache.set({ token: '', refreshToken: '', expirationTime: 0 });
 
     // TODO: We could do token revocation here, if we wanted to. The above simply whacks the session.
     const identity = {
@@ -174,7 +277,7 @@ export class CommercetoolsAPI {
   public async introspect(): Promise<
     AnonymousIdentity | GuestIdentity | RegisteredIdentity
   > {
-    const session = await this.cache.get();
+    const session = await this.tokenCache.get();
 
     if (!session || !session.token) {
       const identity = {
@@ -267,7 +370,7 @@ export class CommercetoolsAPI {
 
     const result = await response.json();
 
-    this.cache.set({
+    this.tokenCache.set({
       expirationTime:
         Date.now() + Number(result.expires_in) * 1000 - 5 * 60 * 1000,
       token: result.access_token,
