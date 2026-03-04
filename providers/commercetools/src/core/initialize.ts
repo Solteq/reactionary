@@ -1,4 +1,4 @@
-import type { Cache, RequestContext, Client, ClientFromCapabilities } from '@reactionary/core';
+import type { Cache, RequestContext } from '@reactionary/core';
 import {
   CommercetoolsCapabilitiesSchema,
   type CommercetoolsCapabilities,
@@ -25,22 +25,64 @@ import {
   CommercetoolsProductListProvider,
 } from '../providers/index.js';
 import { CommercetoolsAPI } from './client.js';
+import { ProductFactory } from '../factories/product.factory.js';
+
+type CommercetoolsProviders<
+  PF extends ProductFactory
+> = {
+  product: CommercetoolsProductProvider<PF>;
+  profile: CommercetoolsProfileProvider;
+  productSearch: CommercetoolsSearchProvider;
+  productAssociations: CommercetoolsProductAssociationsProvider;
+  productList: CommercetoolsProductListProvider;
+  productReviews: CommercetoolsProductReviewsProvider;
+  identity: CommercetoolsIdentityProvider;
+  cart: CommercetoolsCartProvider;
+  inventory: CommercetoolsInventoryProvider;
+  price: CommercetoolsPriceProvider;
+  category: CommercetoolsCategoryProvider;
+  checkout: CommercetoolsCheckoutProvider;
+  store: CommercetoolsStoreProvider;
+  order: CommercetoolsOrderProvider;
+  orderSearch: CommercetoolsOrderSearchProvider;
+};
+
+type EnabledCommercetoolsProviders<
+  T extends CommercetoolsCapabilities,
+  PF extends ProductFactory
+> = {
+  [K in keyof CommercetoolsProviders<PF> as K extends keyof T
+    ? T[K] extends true
+      ? K
+      : never
+    : never]: CommercetoolsProviders<PF>[K];
+};
 
 export function withCommercetoolsCapabilities<
-  T extends CommercetoolsCapabilities
->(configuration: CommercetoolsConfiguration, capabilities: T) {
-  return (cache: Cache, context: RequestContext): ClientFromCapabilities<T> => {
-    const client: any = {};
+  T extends CommercetoolsCapabilities,
+  PF extends ProductFactory = ProductFactory
+>(
+  configuration: CommercetoolsConfiguration,
+  capabilities: T,
+  options?: { productFactory?: PF }
+) {
+  return (
+    cache: Cache,
+    context: RequestContext
+  ): EnabledCommercetoolsProviders<T, PF> => {
+    const client: Partial<CommercetoolsProviders<PF>> = {};
     const config = CommercetoolsConfigurationSchema.parse(configuration);
     const caps = CommercetoolsCapabilitiesSchema.parse(capabilities);
     const commercetoolsApi = new CommercetoolsAPI(config, context);
 
     if (caps.product) {
+      const productFactory = (options?.productFactory ?? new ProductFactory()) as PF;
       client.product = new CommercetoolsProductProvider(
         config,
         cache,
         context,
-        commercetoolsApi
+        commercetoolsApi,
+        productFactory
       );
     }
 
@@ -153,7 +195,7 @@ export function withCommercetoolsCapabilities<
     }
 
     if (caps.order) {
-        client.store = new CommercetoolsOrderProvider(
+        client.order = new CommercetoolsOrderProvider(
         config,
         cache,
         context,
@@ -169,6 +211,6 @@ export function withCommercetoolsCapabilities<
       );
     }
 
-    return client;
+    return client as EnabledCommercetoolsProviders<T, PF>;
   };
 }

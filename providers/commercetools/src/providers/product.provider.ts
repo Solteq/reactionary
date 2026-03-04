@@ -14,6 +14,7 @@ import {
   error,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
+import type * as z from 'zod';
 import type {
   ProductProjection,
   ProductVariant as CTProductVariant,
@@ -39,21 +40,25 @@ import type {
 import type { Cache, Image } from '@reactionary/core';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { NotFoundError } from '@reactionary/core';
+import type { ProductFactory } from '../factories/product.factory.js';
 
-export class CommercetoolsProductProvider extends ProductProvider {
+export class CommercetoolsProductProvider<PF extends ProductFactory = ProductFactory> extends ProductProvider {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: PF;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: PF
   ) {
     super(cache, context);
 
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   protected async getClient() {
@@ -73,13 +78,13 @@ export class CommercetoolsProductProvider extends ProductProvider {
   })
   public override async getById(
     payload: ProductQueryById
-  ): Promise<Result<Product>> {
+  ): Promise<Result<z.infer<PF['schema']>>> {
     const client = await this.getClient();
     const remote = await client
       .withKey({ key: payload.identifier.key })
       .get()
       .execute();
-    const value = this.parseSingle(remote.body);
+    const value = this.factory.parseProduct(remote);
 
     return success(value);
   }
