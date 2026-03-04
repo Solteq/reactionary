@@ -112,7 +112,7 @@ export function createClient(provider: PrimaryProvider) {
           productAssociations: true,
           orderSearch: true,
           store: true,
-          profile: true
+          profile: true,
         })
       );
     }
@@ -120,6 +120,9 @@ export function createClient(provider: PrimaryProvider) {
     if (provider === PrimaryProvider.FAKE) {
       builder = builder.withCapability(
         withFakeCapabilities( getFakeConfiguration() , {
+          price: true,
+          inventory: true,
+          product: true,
           productReviews: true,
           productAssociations: true,
         }

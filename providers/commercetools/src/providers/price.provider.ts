@@ -48,7 +48,12 @@ export class CommercetoolsPriceProvider extends PriceProvider {
     payload: CustomerPriceQuery
   ): Promise<Result<Price>> {
     const client = await this.getClient();
-    const priceChannelId = 'ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86';
+    let priceChannelId;
+    if (this.config.customerPriceChannelKey) {
+      priceChannelId = await this.commercetools.resolveChannelIdByKey(this.config.customerPriceChannelKey);
+    } else {
+      priceChannelId = await this.commercetools.resolveChannelIdByRole('Primary');
+    }
 
     const response = await client
       .productProjections()
@@ -80,8 +85,12 @@ export class CommercetoolsPriceProvider extends PriceProvider {
   })
   public override async getListPrice(payload: ListPriceQuery): Promise<Result<Price>> {
     const client = await this.getClient();
-    const priceChannelId = 'ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86';
-
+    let priceChannelId;
+    if (this.config.customerPriceChannelKey) {
+      priceChannelId = await this.commercetools.resolveChannelIdByKey(this.config.customerPriceChannelKey);
+    } else {
+      priceChannelId = await this.commercetools.resolveChannelIdByRole('Primary');
+    }
     const response = await client
       .productProjections()
       .get({
@@ -127,9 +136,12 @@ export class CommercetoolsPriceProvider extends PriceProvider {
       currency: price.value.currencyCode as Currency,
     } satisfies MonetaryAmount;
 
+    let isOnSale = false;
     if (options.includeDiscounts) {
       const discountedPrice = price.discounted?.value || price.value;
-
+      if (price.discounted) {
+        isOnSale = true;
+      }
       unitPrice = {
         value: discountedPrice.centAmount / 100,
         currency: price.value.currencyCode as Currency,
@@ -146,35 +158,10 @@ export class CommercetoolsPriceProvider extends PriceProvider {
       identifier,
       tieredPrices: [],
       unitPrice,
+      onSale: isOnSale,
     } satisfies Price;
 
     return result;
   }
 
-  protected async getChannels() {
-    const adminClient = await this.commercetools.getAdminClient();
-
-    const offerPriceChannelPromise = adminClient
-      .withProjectKey({ projectKey: this.config.projectKey })
-      .channels()
-      .withKey({ key: 'Offer Price' })
-      .get()
-      .execute();
-    const listPriceChannelPromise = adminClient
-      .withProjectKey({ projectKey: this.config.projectKey })
-      .channels()
-      .withKey({ key: 'List Price' })
-      .get()
-      .execute();
-
-    const [offerChannel, listChannel] = await Promise.all([
-      offerPriceChannelPromise,
-      listPriceChannelPromise,
-    ]);
-
-    return {
-      offer: offerChannel.body.id,
-      list: listChannel.body.id,
-    };
-  }
 }

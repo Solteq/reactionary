@@ -17,8 +17,11 @@ export const TieredPriceSchema = z.looseObject({
 export const PriceSchema = BaseModelSchema.extend({
     identifier: PriceIdentifierSchema,
     unitPrice: MonetaryAmountSchema,
+    onSale: z.boolean().default(false).meta({ description: 'Whether the price is currently discounted. This can be used to indicate if the unitPrice reflects a discount compared to the list price. In B2B the price might differ, due to customer specific pricing, but not necessarily because it is on sale.' }),
     tieredPrices: z.array(TieredPriceSchema)
 });
+
+
 
 export type MonetaryAmount = InferType<typeof MonetaryAmountSchema>;
 export type Price = InferType<typeof PriceSchema>;

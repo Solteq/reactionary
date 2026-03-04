@@ -41,7 +41,7 @@ export class MedusaPriceProvider extends PriceProvider {
     outputSchema: PriceSchema,
   })
   public override async getListPrice(payload: ListPriceQuery): Promise<Result<Price>> {
-    const result = await this.getBySKU(payload);
+    const result = await this.getBySKU(payload, 'list');
 
     return success(result);
   }
@@ -51,13 +51,13 @@ export class MedusaPriceProvider extends PriceProvider {
     outputSchema: PriceSchema,
   })
   public override async getCustomerPrice(payload: CustomerPriceQuery): Promise<Result<Price>> {
-    const result = await this.getBySKU(payload);
+    const result = await this.getBySKU(payload, 'customer');
 
     return success(result);
   }
 
 
-  protected async getBySKU(payload: ListPriceQuery | CustomerPriceQuery ): Promise<Price> {
+  protected async getBySKU(payload: ListPriceQuery | CustomerPriceQuery, mode: 'list' | 'customer' ): Promise<Price> {
     const sku = payload.variant.sku;
 
     if (debug.enabled) {
@@ -71,7 +71,7 @@ export class MedusaPriceProvider extends PriceProvider {
       const product = (
         await client.store.product.retrieve(
           productForSKU.id || '',
-          { region_id: (await this.medusaApi.getActiveRegion()).id }
+          { region_id: (await this.medusaApi.getActiveRegion()).id },
         )
       ).product;
 
@@ -87,7 +87,7 @@ export class MedusaPriceProvider extends PriceProvider {
       }
 
       // For simplicity, return the first matched product
-      return this.parseSingle(variant);
+      return this.parseSingle(variant, mode);
     } catch (error) {
       if (debug.enabled) {
         debug(
@@ -98,7 +98,7 @@ export class MedusaPriceProvider extends PriceProvider {
     }
   }
 
-  protected parseSingle(variant: StoreProductVariant): Price {
+  protected parseSingle(variant: StoreProductVariant, mode: 'list' | 'customer'): Price {
     const identifier = {
       variant: {
         sku: variant.sku || '',
@@ -108,11 +108,19 @@ export class MedusaPriceProvider extends PriceProvider {
     // In Medusa v2, calculated_price contains the final price for the variant
     // based on the region, currency, and any applicable price lists
     const calculatedPrice = variant.calculated_price;
-
     let unitPrice;
+    let isOnSale = false;
     if (calculatedPrice) {
+
+
+      const priceToUse = mode === 'customer' ? calculatedPrice.calculated_amount : calculatedPrice.original_amount;
+
+      if (mode === 'customer') {
+        isOnSale = calculatedPrice.calculated_price?.price_list_type === 'sale'
+      }
+
       unitPrice = {
-        value: calculatedPrice.calculated_amount || 0,
+        value: priceToUse || 0,
         currency: (calculatedPrice.currency_code?.toUpperCase() ||
           this.context.languageContext.currencyCode) as Currency,
       } satisfies MonetaryAmount;
@@ -127,7 +135,8 @@ export class MedusaPriceProvider extends PriceProvider {
     const result = {
       identifier,
       tieredPrices: [],
-      unitPrice
+      unitPrice,
+      onSale: isOnSale,
     } satisfies Price;
 
     return result;

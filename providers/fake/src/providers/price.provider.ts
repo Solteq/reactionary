@@ -16,10 +16,11 @@ import {
 import type * as z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
+import { calcSeed } from '../utilities/seed.js';
 
 export class FakePriceProvider extends PriceProvider {
   protected config: FakeConfiguration;
-
+  protected faker: Faker;
   constructor(
     config: FakeConfiguration,
     cache: Cache,
@@ -28,7 +29,61 @@ export class FakePriceProvider extends PriceProvider {
     super(cache, context);
 
     this.config = config;
+    this.faker = new Faker({
+      locale: [en, base],
+    });
   }
+
+  protected createPrice(variantSku: string, mode: 'list' | 'customer'): Price {
+    const seed = calcSeed(variantSku);
+    this.faker.seed(seed);
+    let price = this.faker.number.int({ min: 300, max: 100000 }) / 100;
+    let onSale = false;
+    if (mode === 'customer') {
+      // For customer price, randomly decide if the product is on sale
+      onSale = this.faker.datatype.boolean({ probability: 0.1 }); // 10% chance of being on sale
+
+      if (onSale) {
+        price = price * this.faker.number.float({ min: 0.5, max: 0.9 }); // Apply a random discount between 10% and 50%
+      }
+    }
+
+    const tiers = [];
+    if (variantSku.includes('with-tiers')) {
+      // Add tiered pricing for SKUs that include "with-tiers"
+      tiers.push({
+        minimumQuantity: this.faker.number.int({ min: 2, max: 5 }),
+        price: {
+          value: price * 0.8, // 20% discount for tier 1
+          currency: this.context.languageContext.currencyCode,
+        },
+      });
+      tiers.push({
+        minimumQuantity: this.faker.number.int({ min: 6, max: 10 }),
+        price: {
+          value: price * 0.6, // 40% discount for tier 2
+          currency: this.context.languageContext.currencyCode,
+        },
+      });
+    }
+
+
+    return {
+      identifier: {
+        variant: {
+          sku: variantSku,
+        },
+      },
+      unitPrice: {
+        value: price,
+        currency: this.context.languageContext.currencyCode,
+      },
+      onSale,
+      tieredPrices: tiers,
+    }
+  }
+
+
 
   @Reactionary({
     inputSchema: ListPriceQuerySchema,
@@ -39,55 +94,7 @@ export class FakePriceProvider extends PriceProvider {
       return success(this.createEmptyPriceResult(payload.variant.sku));
     }
 
-    // Generate a simple hash from the SKU key string for seeding
-    let hash = 0;
-    const skuString = payload.variant.sku;
-    for (let i = 0; i < skuString.length; i++) {
-      hash = (hash << 5) - hash + skuString.charCodeAt(i);
-      hash = hash & hash; // Convert to 32bit integer
-    }
-
-    const generator = new Faker({
-      seed: hash || 42,
-      locale: [en, base],
-    });
-
-    const model = {
-      identifier: {
-        variant: payload.variant,
-      },
-      unitPrice: {
-        value: generator.number.int({ min: 300, max: 100000 }) / 100,
-        currency: this.context.languageContext.currencyCode,
-      },
-    } as Price;
-
-    if (skuString.includes('with-tiers')) {
-      const unitPrice = model.unitPrice?.value || 0;
-      // Ensure tiered prices are less than the unit price
-      const tier1Price = unitPrice * 0.8;
-      const tier2Price = tier1Price * 0.8;
-      model.tieredPrices = [
-        {
-          minimumQuantity: generator.number.int({ min: 2, max: 5 }),
-          price: {
-            value: tier1Price,
-            currency: this.context.languageContext.currencyCode,
-          },
-        },
-        {
-          minimumQuantity: generator.number.int({ min: 6, max: 10 }),
-          price: {
-            value: tier2Price,
-            currency: this.context.languageContext.currencyCode,
-          },
-        },
-      ];
-    } else {
-      model.tieredPrices = [];
-    }
-
-    return success(model);
+    return success(this.createPrice(payload.variant.sku, 'list'));
   }
 
   @Reactionary({
@@ -99,54 +106,6 @@ export class FakePriceProvider extends PriceProvider {
       return success(this.createEmptyPriceResult(payload.variant.sku));
     }
 
-    // Generate a simple hash from the SKU key string for seeding
-    let hash = 0;
-    const skuString = payload.variant.sku;
-    for (let i = 0; i < skuString.length; i++) {
-      hash = (hash << 5) - hash + skuString.charCodeAt(i);
-      hash = hash & hash; // Convert to 32bit integer
-    }
-
-    const generator = new Faker({
-      seed: hash || 42,
-      locale: [en, base],
-    });
-
-    const model = {
-      identifier: {
-        variant: payload.variant,
-      },
-      unitPrice: {
-        value: generator.number.int({ min: 300, max: 100000 }) / 100,
-        currency: this.context.languageContext.currencyCode,
-      },
-    } as Price;
-
-    if (skuString.includes('with-tiers')) {
-      const unitPrice = model.unitPrice?.value || 0;
-      // Ensure tiered prices are less than the unit price
-      const tier1Price = unitPrice * 0.8;
-      const tier2Price = tier1Price * 0.8;
-      model.tieredPrices = [
-        {
-          minimumQuantity: generator.number.int({ min: 2, max: 5 }),
-          price: {
-            value: tier1Price,
-            currency: this.context.languageContext.currencyCode,
-          },
-        },
-        {
-          minimumQuantity: generator.number.int({ min: 6, max: 10 }),
-          price: {
-            value: tier2Price,
-            currency: this.context.languageContext.currencyCode,
-          },
-        },
-      ];
-    } else {
-      model.tieredPrices = [];
-    }
-
-    return success(model);
+    return success(this.createPrice(payload.variant.sku, 'customer'));
   }
 }

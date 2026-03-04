@@ -5,3 +5,5 @@ export const CommercetoolsSessionSchema = z.looseObject({
     refreshToken: z.string().optional(),
     expirationTime: z.number().default(0)
 });
+
+export type CommercetoolsSession = z.infer<typeof CommercetoolsSessionSchema>;
