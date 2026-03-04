@@ -35,6 +35,10 @@ export class CommercetoolsInventoryProvider extends InventoryProvider {
   }
 
   @Reactionary({
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: false,
     inputSchema: InventoryQueryBySKUSchema,
     outputSchema: InventorySchema,
   })
@@ -45,13 +49,7 @@ export class CommercetoolsInventoryProvider extends InventoryProvider {
 
       // TODO: We can't query by supplyChannel.key, so we have to resolve it first.
       // This is probably a good candidate for internal data caching at some point.
-      const channel = await client
-        .channels()
-        .withKey({ key: payload.fulfilmentCenter.key })
-        .get()
-        .execute();
-
-      const channelId = channel.body.id;
+      const channelId = await this.commercetools.resolveChannelIdByKey(payload.fulfilmentCenter.key);
 
       const remote = await client
         .inventory()
