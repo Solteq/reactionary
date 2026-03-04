@@ -123,7 +123,7 @@ Vendors:  Algolia, Google Analytics
 
 ### Roadmap to V0.5
 Usecase: As a merchandiser i want to upsell
-Vendors: Algolia,  Commercetools
+Vendors: Algolia,  Commercetools, Medusa
 
 - PDP
   - [X] Recommendations (Products, Categories) 
