@@ -11,7 +11,7 @@ const config = {} as any;
 const api = {} as any;
 const cache = {} as any;
 const context = {} as any;
-const defaultFactory = new ProductFactory();
+const defaultFactory = new ProductFactory(ProductSchema);
 
 const provider = new CommercetoolsProductProvider(config, cache, context, api, defaultFactory);
 const f = await provider.getById({} as any);
@@ -26,8 +26,10 @@ if (f.success) {
 export const ExtendedProductSchema = ProductSchema.extend({
     extendedField: z.literal('extended')
 })
-export class ExtendedProductFactory extends ProductFactory {
-    public override readonly schema = ExtendedProductSchema;
+export class ExtendedProductFactory extends ProductFactory<z.infer<typeof ExtendedProductSchema>> {
+    public constructor() {
+        super(ExtendedProductSchema);
+    }
 }
 
 const extendedFactory = new ExtendedProductFactory();
@@ -41,11 +43,10 @@ if (ff.success) {
 /**
  * FACTORY EXTENSION THROUGH THE INITIALIZER
  */
-
 const cap = withCommercetoolsCapabilities(
     config,
     { product: true },
-    { productFactory: new ExtendedProductFactory() }
+    { factories: { product: new ExtendedProductFactory() } }
 );
 const capff = await cap(cache, context).product.getById({} as any);
 
