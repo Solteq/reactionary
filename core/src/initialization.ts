@@ -5,13 +5,13 @@ export function createInitialRequestContext(): RequestContext {
   return {
     languageContext: {
       locale: 'en',
-      currencyCode: 'USD',
+      currencyCode: 'EUR',
     },
     storeIdentifier: {
       key: 'the-good-store',
     },
     taxJurisdiction: {
-      countryCode: 'US',
+      countryCode: 'DK',
       stateCode: '',
       countyCode: '',
       cityCode: '',
