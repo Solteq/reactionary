@@ -46,7 +46,8 @@ export abstract class PriceProvider extends BaseProvider {
       unitPrice: {
         value: -1,
         currency: this.context.languageContext.currencyCode,
-      }
+      },
+      onSale: false,
     } satisfies Price;
 
     return price;
