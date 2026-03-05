@@ -1,8 +1,11 @@
 import * as z from 'zod';
-import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, ProductIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
-import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
-import { BaseModelSchema } from './base.model.js';
 import type { InferType } from '../../zod-utils.js';
+import { CartIdentifierSchema, CartItemIdentifierSchema, IdentityIdentifierSchema, ProductIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
+import { BaseModelSchema } from './base.model.js';
+import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
+import { PromotionSchema } from './price.model.js';
+
+
 
 export const CartItemSchema = z.looseObject({
     identifier: CartItemIdentifierSchema.default(() => CartItemIdentifierSchema.parse({})),
@@ -12,11 +15,13 @@ export const CartItemSchema = z.looseObject({
     price: ItemCostBreakdownSchema.default(() => ItemCostBreakdownSchema.parse({})),
 });
 
+
 export const CartSchema = BaseModelSchema.extend({
     identifier: CartIdentifierSchema.default(() => CartIdentifierSchema.parse({})),
     userId: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
     items: z.array(CartItemSchema).default(() => []),
     price: CostBreakDownSchema.default(() => CostBreakDownSchema.parse({})),
+    appliedPromotions: z.array(PromotionSchema).default(() => []),
     name: z.string().default(''),
     description: z.string().default(''),
 });
