@@ -9,8 +9,8 @@
   },
   "private": false,
   "dependencies": {
-    "@commercetools/platform-sdk": "^8.16.0",
-    "@commercetools/ts-client": "^4.2.1",
+    "@commercetools/platform-sdk": "^8.25.0",
+    "@commercetools/ts-client": "^4.9.1",
     "@commercetools/ts-sdk-apm": "^4.0.0",
     "@docusaurus/core": "^3.9.2",
     "@docusaurus/preset-classic": "^3.9.2",
