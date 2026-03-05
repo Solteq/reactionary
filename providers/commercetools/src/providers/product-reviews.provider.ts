@@ -1,4 +1,9 @@
 import {
+  type ProductReviewsFactory,
+  type ProductReviewsFactoryRatingOutput,
+  type ProductReviewsFactoryReviewOutput,
+  type ProductReviewsFactoryReviewPaginatedOutput,
+  type ProductReviewsFactoryWithOutput,
   ProductReviewsProvider,
   Reactionary,
   success,
@@ -8,9 +13,8 @@ import {
   ProductReviewPaginatedResultSchema,
 } from '@reactionary/core';
 import type {
-  ProductReview,
   ProductRatingSummary,
-  ProductReviewPaginatedResult,
+  ProductReview,
   ProductReviewsListQuery,
   ProductReviewsGetRatingSummaryQuery,
   ProductReviewMutationSubmit,
@@ -23,20 +27,30 @@ import type {
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { Review as CTReview } from '@commercetools/platform-sdk';
+import type { CommercetoolsProductReviewsFactory } from '../factories/product-reviews/product-reviews.factory.js';
 
-export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider {
+export class CommercetoolsProductReviewsProvider<
+  TFactory extends ProductReviewsFactory = CommercetoolsProductReviewsFactory,
+> extends ProductReviewsProvider<
+  ProductReviewsFactoryRatingOutput<TFactory>,
+  ProductReviewsFactoryReviewPaginatedOutput<TFactory>,
+  ProductReviewsFactoryReviewOutput<TFactory>
+> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: ProductReviewsFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: ProductReviewsFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   protected async getClient() {
@@ -58,7 +72,7 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
   })
   public override async getRatingSummary(
     query: ProductReviewsGetRatingSummaryQuery
-  ): Promise<Result<ProductRatingSummary>> {
+  ): Promise<Result<ProductReviewsFactoryRatingOutput<TFactory>>> {
     const client = await this.getClient();
 
     // Get all reviews for the product to calculate summary
@@ -80,6 +94,7 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
         },
         averageRating: 0,
         totalRatings: 0,
+        ratingDistribution: undefined,
       }
 
       if (response.body.reviewRatingStatistics) {
@@ -93,9 +108,14 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
           '5': response.body.reviewRatingStatistics.ratingsDistribution['5'] ?? 0,
         };
       }
-      return success(summary);
+      return success(this.factory.parseRatingSummary(this.context, summary));
     } else {
-      return success(this.createEmptyProductRatingSummary({ product: query.product }));
+      return success(
+        this.factory.parseRatingSummary(
+          this.context,
+          this.createEmptyProductRatingSummary({ product: query.product }),
+        ),
+      );
     }
   }
 
@@ -108,7 +128,7 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
   })
   public override async findReviews(
     query: ProductReviewsListQuery
-  ): Promise<Result<ProductReviewPaginatedResult>> {
+  ): Promise<Result<ProductReviewsFactoryReviewPaginatedOutput<TFactory>>> {
     const client = await this.getClient();
 
     const pageNumber = query.paginationOptions?.pageNumber ?? 1;
@@ -124,13 +144,13 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
     });
 
     if (!product || !product.body) {
-      return success({
+      return success(this.factory.parseReviewPaginatedResult(this.context, {
         items: [],
         totalCount: 0,
         pageSize,
         pageNumber,
         totalPages: 0,
-      })
+      }));
     }
 
     // Build where clause
@@ -175,7 +195,7 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
     const reviews = response.body.results.map((review) =>
       this.parseSingle(review, query.product.key)
     );
-    const returnedResult: ProductReviewPaginatedResult = {
+    const returnedResult = {
       items: reviews,
       totalCount: response.body.total || reviews.length,
       pageSize,
@@ -183,7 +203,7 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
       totalPages: Math.ceil((response.body.total || reviews.length) / Math.max(pageSize, 1)),
     };
 
-    return success(returnedResult);
+    return success(this.factory.parseReviewPaginatedResult(this.context, returnedResult));
   }
 
   @Reactionary({
@@ -195,7 +215,7 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
   })
   public override async submitReview(
     mutation: ProductReviewMutationSubmit
-  ): Promise<Result<ProductReview>> {
+  ): Promise<Result<ProductReviewsFactoryReviewOutput<TFactory>>> {
 
 
     if (!(this.context.session.identityContext.identity.type === 'Registered')) {
@@ -227,7 +247,7 @@ export class CommercetoolsProductReviewsProvider extends ProductReviewsProvider 
 
     const review = this.parseSingle(response.body, mutation.product.key);
 
-    return success(review);
+    return success(this.factory.parseReview(this.context, review));
   }
 
   protected parseSingle(review: CTReview, productKey: string): ProductReview {

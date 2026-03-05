@@ -9,7 +9,9 @@ import { BaseProvider } from "./base.provider.js";
  *
  * Usecase: An e-commerce platform wants to provide customers with a way to search through their past orders using filters like date range, order status, or total amount spent.
  */
-export abstract class OrderSearchProvider extends BaseProvider {
+export abstract class OrderSearchProvider<
+  TOrderSearchResult extends OrderSearchResult = OrderSearchResult,
+> extends BaseProvider {
   protected override getResourceName(): string {
     return 'order-search';
   }
@@ -21,7 +23,7 @@ export abstract class OrderSearchProvider extends BaseProvider {
    * Usecase: A widget on the frontpage after login, shows the last 5 orders placed by the customer.
    * @param payload The search criteria for querying orders.
    */
-  public abstract queryByTerm(payload: OrderSearchQueryByTerm): Promise<Result<OrderSearchResult>>;
+  public abstract queryByTerm(payload: OrderSearchQueryByTerm): Promise<Result<TOrderSearchResult>>;
 
 
 

@@ -1,5 +1,8 @@
 import {
   CategoryPaginatedResultSchema,
+  type CategoryFactory,
+  type CategoryFactoryCategoryOutput,
+  type CategoryFactoryWithOutput,
   CategoryProvider,
   CategoryQueryByIdSchema,
   CategoryQueryBySlugSchema,
@@ -19,9 +22,7 @@ import type {
   CategoryQueryForTopCategories,
   RequestContext,
   Cache,
-  Category,
   CategoryPaginatedResult,
-  CategoryIdentifier,
   Result,
   NotFoundError,
 } from '@reactionary/core';
@@ -29,25 +30,32 @@ import * as z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
   ByProjectKeyCategoriesRequestBuilder,
-  CategoryPagedQueryResponse,
-  Category as CTCategory,
 } from '@commercetools/platform-sdk';
 import type { CommercetoolsAPI } from '../core/client.js';
+import type { CommercetoolsCategoryFactory } from '../factories/category/category.factory.js';
 
-export class CommercetoolsCategoryProvider extends CategoryProvider {
+export class CommercetoolsCategoryProvider<
+  TFactory extends CategoryFactory = CommercetoolsCategoryFactory,
+> extends CategoryProvider<
+  CategoryFactoryCategoryOutput<TFactory>,
+  CategoryPaginatedResult
+> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: CategoryFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: CategoryFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   protected async getClient(): Promise<ByProjectKeyCategoriesRequestBuilder> {
@@ -66,14 +74,14 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
   })
   public override async getById(
     payload: CategoryQueryById
-  ): Promise<Result<Category, NotFoundError>> {
+  ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
     try {
       const response = await client
         .withKey({ key: payload.id.key })
         .get()
         .execute();
-      return success(this.parseSingle(response.body));
+      return success(this.factory.parseCategory(this.context, response.body));
     } catch (err) {
       return error<NotFoundError>({
         type: 'NotFound',
@@ -91,7 +99,7 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
   })
   public override async getBySlug(
     payload: CategoryQueryBySlug
-  ): Promise<Result<Category, NotFoundError>> {
+  ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
     try {
       const response = await client
@@ -111,7 +119,7 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
           identifier: payload.slug,
         });
       }
-      return success(this.parseSingle(response.body.results[0]));
+      return success(this.factory.parseCategory(this.context, response.body.results[0]));
     } catch (err) {
       console.error(`Error fetching category by slug:`, error);
       return error<NotFoundError>({
@@ -131,9 +139,9 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
   })
   public override async getBreadcrumbPathToCategory(
     payload: CategoryQueryForBreadcrumb
-  ): Promise<Result<Category[]>> {
+  ): Promise<Result<Array<CategoryFactoryCategoryOutput<TFactory>>>> {
     const client = await this.getClient();
-    const path = new Array<Category>();
+    const path: Array<CategoryFactoryCategoryOutput<TFactory>> = [];
     try {
       const response = await client
         .withKey({ key: payload.id.key })
@@ -144,10 +152,10 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
         })
         .execute();
 
-      const category = this.parseSingle(response.body);
+      const category = this.factory.parseCategory(this.context, response.body);
       for (const anc of response.body.ancestors || []) {
         if (anc.obj) {
-          const parsedAnc = this.parseSingle(anc.obj);
+          const parsedAnc = this.factory.parseCategory(this.context, anc.obj);
           path.push(parsedAnc);
         }
       }
@@ -205,7 +213,7 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
         })
         .execute();
 
-      const result = this.parsePaginatedResult(response.body);
+      const result = this.factory.parseCategoryPaginatedResult(this.context, response.body);
       return success(result);
     } catch (error) {
       console.error(
@@ -248,7 +256,7 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
         })
         .execute();
 
-      const result = this.parsePaginatedResult(response.body);
+      const result = this.factory.parseCategoryPaginatedResult(this.context, response.body);
       return success(result);
     } catch (error) {
       console.error(`Error fetching category top categories:`, error);
@@ -269,52 +277,4 @@ export class CommercetoolsCategoryProvider extends CategoryProvider {
    * Handler for parsing a response from a remote provider and converting it
    * into the typed domain model.
    */
-  protected parseSingle(_body: unknown): Category {
-    const body = _body as CTCategory;
-    const languageContext = this.context.languageContext;
-
-    const identifier = { key: body.key! } satisfies CategoryIdentifier;
-    const model = {
-      identifier,
-      name: body.name[languageContext.locale] || 'No Name',
-      slug: body.slug ? body.slug[languageContext.locale] || '' : '',
-      text: body.description
-        ? body.description[languageContext.locale] || ''
-        : '',
-      parentCategory:
-        body.parent && body.parent.obj && body.parent.obj?.key
-          ? { key: body.parent.obj.key }
-          : undefined,
-      images: (body.assets || [])
-        .filter((asset) => asset.sources.length > 0)
-        .filter((x) => x.sources[0].contentType?.startsWith('image/'))
-        .map((asset) => {
-          return {
-            sourceUrl: asset.sources[0].uri,
-            altText:
-              asset.description?.[languageContext.locale] ||
-              asset.name[languageContext.locale] ||
-              '',
-            height: asset.sources[0].dimensions?.h || 0,
-            width: asset.sources[0].dimensions?.w || 0,
-          };
-        }),
-    } satisfies Category;
-
-    return model;
-  }
-
-  protected parsePaginatedResult(_body: unknown) {
-    const body = _body as CategoryPagedQueryResponse;
-    const items = body.results.map((x) => this.parseSingle(x));
-    const result = {
-      pageNumber: Math.floor(body.offset / body.count) + 1,
-      pageSize: body.count,
-      totalCount: body.total || 0,
-      totalPages: Math.ceil((body.total ?? 0) / body.count),
-      items: items,
-    } satisfies CategoryPaginatedResult;
-
-    return result;
-  }
 }

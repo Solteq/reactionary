@@ -23,15 +23,15 @@ function createMedusaClient(config: MedusaConfiguration, reqCtx: RequestContext)
     .withCache(new NoOpCache())
     .withCapability(
       withMedusaCapabilities(config, {
-        cart: true,
-        product: true,
-        category: true,
-        checkout: true,
-        identity: true,
-        inventory: true,
-        order: true,
-        price: true,
-        productSearch: true,
+        cart: { enabled: true },
+        product: { enabled: true },
+        category: { enabled: true },
+        checkout: { enabled: true },
+        identity: { enabled: true },
+        inventory: { enabled: true },
+        order: { enabled: true },
+        price: { enabled: true },
+        productSearch: { enabled: true },
       })
     );
 

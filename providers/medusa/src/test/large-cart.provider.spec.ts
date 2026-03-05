@@ -1,6 +1,8 @@
 import {
+  CartIdentifierSchema,
   CartSchema,
   NoOpCache,
+  ProductSearchResultSchema,
   ProductSearchQueryByTermSchema,
   ProductSearchResultItemSchema,
   createInitialRequestContext,
@@ -12,6 +14,8 @@ import { MedusaCartProvider } from '../providers/cart.provider.js';
 import { MedusaSearchProvider } from '../providers/product-search.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 import { MedusaAPI } from '../core/client.js';
+import { MedusaCartFactory } from '../factories/cart/cart.factory.js';
+import { MedusaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 
 /**
 const testData = {
@@ -32,13 +36,15 @@ describe('Medusa Cart Provider - Large Scenarios', () => {
       getMedusaTestConfiguration(),
       new NoOpCache(),
       reqCtx,
-      client
+      client,
+      new MedusaCartFactory(CartSchema, CartIdentifierSchema),
     );
     searchProvider = new MedusaSearchProvider(
       getMedusaTestConfiguration(),
       new NoOpCache(),
       reqCtx,
-      client
+      client,
+      new MedusaProductSearchFactory(ProductSearchResultSchema),
     );
   });
 

@@ -1,5 +1,7 @@
 import {
-  type Identity,
+  type IdentityFactory,
+  type IdentityFactoryOutput,
+  type IdentityFactoryWithOutput,
   type IdentityMutationLogin,
   type IdentityQuerySelf,
   type RequestContext,
@@ -16,29 +18,38 @@ import {
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { CommercetoolsAPI } from '../core/client.js';
+import type { CommercetoolsIdentityFactory } from '../factories/identity/identity.factory.js';
 
-export class CommercetoolsIdentityProvider extends IdentityProvider {
+export class CommercetoolsIdentityProvider<
+  TFactory extends IdentityFactory = CommercetoolsIdentityFactory,
+> extends IdentityProvider<IdentityFactoryOutput<TFactory>> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: IdentityFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: IdentityFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   @Reactionary({
     inputSchema: IdentityQuerySelfSchema,
     outputSchema: IdentitySchema,
   })
-  public override async getSelf(payload: IdentityQuerySelf): Promise<Result<Identity>> {
-    const identity = await this.commercetools.introspect();
+  public override async getSelf(payload: IdentityQuerySelf): Promise<Result<IdentityFactoryOutput<TFactory>>> {
+    const identity = this.factory.parseIdentity(
+      this.context,
+      await this.commercetools.introspect(),
+    );
 
     this.updateIdentityContext(identity);
 
@@ -49,10 +60,13 @@ export class CommercetoolsIdentityProvider extends IdentityProvider {
     inputSchema: IdentityMutationLoginSchema,
     outputSchema: IdentitySchema,
   })
-  public override async login(payload: IdentityMutationLogin): Promise<Result<Identity>> {
-    const identity = await this.commercetools.login(
-      payload.username,
-      payload.password
+  public override async login(payload: IdentityMutationLogin): Promise<Result<IdentityFactoryOutput<TFactory>>> {
+    const identity = this.factory.parseIdentity(
+      this.context,
+      await this.commercetools.login(
+        payload.username,
+        payload.password
+      )
     );
 
     this.updateIdentityContext(identity);
@@ -63,8 +77,11 @@ export class CommercetoolsIdentityProvider extends IdentityProvider {
   @Reactionary({
     outputSchema: IdentitySchema,
   })
-  public override async logout(payload: Record<string, never>): Promise<Result<Identity>> {
-    const identity = await this.commercetools.logout();
+  public override async logout(payload: Record<string, never>): Promise<Result<IdentityFactoryOutput<TFactory>>> {
+    const identity = this.factory.parseIdentity(
+      this.context,
+      await this.commercetools.logout(),
+    );
 
     this.updateIdentityContext(identity);
 
@@ -77,10 +94,13 @@ export class CommercetoolsIdentityProvider extends IdentityProvider {
   })
   public override async register(
     payload: IdentityMutationRegister
-  ): Promise<Result<Identity>> {
-    const identity = await this.commercetools.register(
-      payload.username,
-      payload.password
+  ): Promise<Result<IdentityFactoryOutput<TFactory>>> {
+    const identity = this.factory.parseIdentity(
+      this.context,
+      await this.commercetools.register(
+        payload.username,
+        payload.password
+      )
     );
 
     this.updateIdentityContext(identity);

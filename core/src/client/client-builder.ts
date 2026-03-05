@@ -8,14 +8,23 @@ import {
 } from '../schemas/session.schema.js';
 import { MulticastProductRecommendationsProvider, type ProductRecommendationsProvider } from '../providers/product-recommendations.provider.js';
 
-type CapabilityFactory<T> = (cache: Cache, context: RequestContext) => T;
+export interface ClientBuilderFactoryArgs {
+  cache: Cache;
+  context: RequestContext;
+}
+
+export type CapabilityFactory<T> =
+  | ((cache: Cache, context: RequestContext) => T)
+  | ((args: ClientBuilderFactoryArgs) => T);
 
 type MergeCapabilities<Acc, New> = Omit<Acc, keyof New> & New;
+export type CapabilityCollisionStrategy = 'last-wins' | 'first-wins' | 'throw';
 
 export class ClientBuilder<TClient = Client> {
   private factories: Array<CapabilityFactory<Partial<Client>>> = [];
   private cache: Cache | undefined;
   private context: RequestContext;
+  private collisionStrategy: CapabilityCollisionStrategy = 'last-wins';
 
   constructor(context: RequestContext) {
     this.context = context;
@@ -28,6 +37,7 @@ export class ClientBuilder<TClient = Client> {
     newBuilder.factories = [...this.factories, factory];
     newBuilder.cache = this.cache;
     newBuilder.context = this.context;
+    newBuilder.collisionStrategy = this.collisionStrategy;
     return newBuilder;
   }
 
@@ -36,6 +46,16 @@ export class ClientBuilder<TClient = Client> {
     newBuilder.factories = [...this.factories];
     newBuilder.cache = cache;
     newBuilder.context = this.context;
+    newBuilder.collisionStrategy = this.collisionStrategy;
+    return newBuilder;
+  }
+
+  withCollisionStrategy(strategy: CapabilityCollisionStrategy): ClientBuilder<TClient> {
+    const newBuilder = new ClientBuilder<TClient>(this.context);
+    newBuilder.factories = [...this.factories];
+    newBuilder.cache = this.cache;
+    newBuilder.context = this.context;
+    newBuilder.collisionStrategy = strategy;
     return newBuilder;
   }
 
@@ -56,11 +76,8 @@ export class ClientBuilder<TClient = Client> {
     const mergedProductRecommendationsProviders: ProductRecommendationsProvider[] = [];
 
     for (const factory of this.factories) {
-      const provider = factory(sharedCache, this.context);
-      client = {
-        ...client,
-        ...provider,
-      };
+      const provider = this.resolveFactory(factory, sharedCache, this.context);
+      client = this.mergeProviders(client, provider as Partial<TClient>);
 
       if (provider.analytics) {
         mergedAnalytics.push(provider.analytics);
@@ -80,5 +97,36 @@ export class ClientBuilder<TClient = Client> {
     } as TClient & { cache: Cache };
 
     return completeClient;
+  }
+
+  private resolveFactory<TNew extends Partial<Client>>(
+    factory: CapabilityFactory<TNew>,
+    cache: Cache,
+    context: RequestContext,
+  ): TNew {
+    if (factory.length <= 1) {
+      return (factory as (args: ClientBuilderFactoryArgs) => TNew)({ cache, context });
+    }
+    return (factory as (cache: Cache, context: RequestContext) => TNew)(cache, context);
+  }
+
+  private mergeProviders(
+    target: TClient,
+    source: Partial<TClient>,
+  ): TClient {
+    const result = { ...target } as Record<string, unknown>;
+    for (const key of Object.keys(source as object)) {
+      const hasExisting = Object.prototype.hasOwnProperty.call(result, key);
+      if (hasExisting) {
+        if (this.collisionStrategy === 'first-wins') {
+          continue;
+        }
+        if (this.collisionStrategy === 'throw') {
+          throw new Error(`Capability collision detected for "${key}"`);
+        }
+      }
+      result[key] = (source as Record<string, unknown>)[key];
+    }
+    return result as TClient;
   }
 }

@@ -13,6 +13,9 @@ import type {
   OrderSearchIdentifier,
   AddressIdentifier,
   OrderInventoryStatus,
+  OrderSearchFactory,
+  OrderSearchFactoryOutput,
+  OrderSearchFactoryWithOutput,
 } from '@reactionary/core';
 import {
   AddressIdentifierSchema,
@@ -26,21 +29,27 @@ import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type { MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';
 import type { OrderStatus as MedusaOrderStatus, StoreOrder, StoreOrderAddress,  StoreOrderListResponse } from '@medusajs/types';
+import type { MedusaOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
 
 const debug = createDebug('reactionary:medusa:order-search');
 
-export class MedusaOrderSearchProvider extends OrderSearchProvider {
+export class MedusaOrderSearchProvider<
+  TFactory extends OrderSearchFactory = MedusaOrderSearchFactory,
+> extends OrderSearchProvider<OrderSearchFactoryOutput<TFactory>> {
   protected config: MedusaConfiguration;
+  protected factory: OrderSearchFactoryWithOutput<TFactory>;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public medusaApi: MedusaAPI
+    public medusaApi: MedusaAPI,
+    factory: OrderSearchFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
+    this.factory = factory;
 
   }
 
@@ -99,7 +108,9 @@ export class MedusaOrderSearchProvider extends OrderSearchProvider {
     inputSchema: OrderSearchQueryByTermSchema,
     outputSchema: OrderSearchResultSchema,
   })
-  public async queryByTerm(payload: OrderSearchQueryByTerm): Promise<Result<OrderSearchResult>> {
+  public async queryByTerm(
+    payload: OrderSearchQueryByTerm,
+  ): Promise<Result<OrderSearchFactoryOutput<TFactory>>> {
     debug('queryByTerm', payload);
 
     const medusa = await this.medusaApi.getClient();
@@ -109,14 +120,14 @@ export class MedusaOrderSearchProvider extends OrderSearchProvider {
 
     const response = await medusa.store.order.list(this.queryByTermPayload(payload));
 
-    const result = this.parsePaginatedResult(response, payload) as OrderSearchResult;
+    const result = this.parsePaginatedResult(response, payload);
     if (debug.enabled) {
       debug(
         `Search for term "${payload.search.term}" returned ${response.orders.length} orders (page ${payload.search.paginationOptions.pageNumber} of ${result.totalPages})`
       );
     }
 
-    return success(result);
+    return success(this.factory.parseOrderSearchResult(this.context, result, payload));
   }
 
   protected composeAddressFromStoreAddress(storeAddress: StoreOrderAddress): Address {

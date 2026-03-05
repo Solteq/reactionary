@@ -32,7 +32,7 @@ export class MedusaIdentityProvider extends IdentityProvider {
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    medusaApi: MedusaAPI
+    medusaApi: MedusaAPI,
   ) {
     super(cache, context);
 

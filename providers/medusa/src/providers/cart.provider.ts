@@ -3,6 +3,10 @@ import type {
   Cart,
   CartIdentifier,
   CartItem,
+  CartFactory,
+  CartFactoryCartOutput,
+  CartFactoryIdentifierOutput,
+  CartFactoryWithOutput,
   CartMutationApplyCoupon,
   CartMutationChangeCurrency,
   CartMutationDeleteCart,
@@ -49,11 +53,18 @@ import {
   parseMedusaItemPrice,
 } from '../utils/medusa-helpers.js';
 import type { StoreAddCartLineItem, StoreCart, StoreCartAddPromotion, StoreCartLineItem, StoreCartRemovePromotion, StoreCartResponse, StoreCreateCart, StoreProduct, StoreUpdateCart, StoreUpdateCartLineItem } from '@medusajs/types';
+import type { MedusaCartFactory } from '../factories/cart/cart.factory.js';
 
 const debug = createDebug('reactionary:medusa:cart');
 
-export class MedusaCartProvider extends CartProvider {
+export class MedusaCartProvider<
+  TFactory extends CartFactory = MedusaCartFactory,
+> extends CartProvider<
+  CartFactoryCartOutput<TFactory>,
+  CartFactoryIdentifierOutput<TFactory>
+> {
   protected config: MedusaConfiguration;
+  protected factory: CartFactoryWithOutput<TFactory>;
   /**
    * This controls which fields are always included when fetching a cart
    * You can override this in a subclass to add more fields as needed.
@@ -66,10 +77,12 @@ export class MedusaCartProvider extends CartProvider {
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public medusaApi: MedusaAPI
+    public medusaApi: MedusaAPI,
+    factory: CartFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
+    this.factory = factory;
   }
 
   @Reactionary({
@@ -78,7 +91,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async getById(
     payload: CartQueryById
-  ): Promise<Result<Cart, NotFoundError>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>, NotFoundError>> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -132,7 +145,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async add(
     payload: CartMutationItemAdd
-  ): Promise<Result<Cart>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     try {
       const client = await this.getClient();
 
@@ -190,7 +203,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async remove(
     payload: CartMutationItemRemove
-  ): Promise<Result<Cart>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -231,7 +244,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange
-  ): Promise<Result<Cart>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     if (payload.quantity < 1) {
       throw new Error(
         'Changing quantity to 0 is not allowed. Use the remove call instead.'
@@ -267,7 +280,7 @@ export class MedusaCartProvider extends CartProvider {
     outputSchema: CartIdentifierSchema,
   })
   public override async getActiveCartId(): Promise<
-    Result<CartIdentifier, NotFoundError>
+    Result<CartFactoryIdentifierOutput<TFactory>, NotFoundError>
   > {
     try {
       const client = await this.getClient();
@@ -278,12 +291,10 @@ export class MedusaCartProvider extends CartProvider {
       if (activeCartId) {
         try {
           await client.store.cart.retrieve(activeCartId);
-          return success(
-            MedusaCartIdentifierSchema.parse({
-              key: activeCartId,
-              region_id: (await this.medusaApi.getActiveRegion()).id,
-            })
-          );
+          return success(this.factory.parseCartIdentifier(this.context, {
+            key: activeCartId,
+            region_id: (await this.medusaApi.getActiveRegion()).id,
+          }));
         } catch {
           // Cart doesn't exist, create new one
         }
@@ -360,7 +371,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async applyCouponCode(
     payload: CartMutationApplyCoupon
-  ): Promise<Result<Cart>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -414,7 +425,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async removeCouponCode(
     payload: CartMutationRemoveCoupon
-  ): Promise<Result<Cart>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     try {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
@@ -468,7 +479,7 @@ export class MedusaCartProvider extends CartProvider {
   })
   public override async changeCurrency(
     payload: CartMutationChangeCurrency
-  ): Promise<Result<Cart>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     try {
       const client = await this.getClient();
 
@@ -512,7 +523,9 @@ export class MedusaCartProvider extends CartProvider {
   }
 
 
-  protected async createCart(currency?: string): Promise<CartIdentifier> {
+  protected async createCart(
+    currency?: string,
+  ): Promise<CartFactoryIdentifierOutput<TFactory>> {
     try {
       const client = await this.getClient();
 
@@ -524,7 +537,7 @@ export class MedusaCartProvider extends CartProvider {
       );
 
       if (response.cart) {
-        const cartIdentifier = MedusaCartIdentifierSchema.parse({
+        const cartIdentifier = this.factory.parseCartIdentifier(this.context, {
           key: response.cart.id,
           region_id: response.cart.region_id,
         });
@@ -601,7 +614,7 @@ export class MedusaCartProvider extends CartProvider {
    * @param remote
    * @returns
    */
-  protected parseSingle(remote: StoreCart): Cart {
+  protected parseSingle(remote: StoreCart): CartFactoryCartOutput<TFactory> {
     const identifier = MedusaCartIdentifierSchema.parse({
       key: remote.id,
       region_id: remote.region_id,
@@ -659,6 +672,6 @@ export class MedusaCartProvider extends CartProvider {
       },
     } satisfies Cart;
 
-    return result;
+    return this.factory.parseCart(this.context, result);
   }
 }

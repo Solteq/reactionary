@@ -1,9 +1,16 @@
 import 'dotenv/config';
 import type { RequestContext} from '@reactionary/core';
-import { CartSchema, IdentitySchema, NoOpCache, createInitialRequestContext } from '@reactionary/core';
+import {
+  CartIdentifierSchema,
+  CartSchema,
+  IdentitySchema,
+  NoOpCache,
+  createInitialRequestContext,
+} from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils.js';
 import { FakeCartProvider } from '../providers/cart.provider.js';
 import { FakeIdentityProvider } from '../providers/index.js';
+import { FakeCartFactory, FakeIdentityFactory } from '../factories/index.js';
 import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
 
 const testData = {
@@ -18,8 +25,18 @@ describe('Fake Cart Provider', () => {
 
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
-    provider = new FakeCartProvider(getFakerTestConfiguration(), new NoOpCache(), reqCtx);
-    identityProvider = new FakeIdentityProvider(getFakerTestConfiguration(), new NoOpCache(), reqCtx);
+    provider = new FakeCartProvider(
+      getFakerTestConfiguration(),
+      new NoOpCache(),
+      reqCtx,
+      new FakeCartFactory(CartSchema, CartIdentifierSchema),
+    );
+    identityProvider = new FakeIdentityProvider(
+      getFakerTestConfiguration(),
+      new NoOpCache(),
+      reqCtx,
+      new FakeIdentityFactory(IdentitySchema),
+    );
   });
 
   describe('anonymous sessions', () => {

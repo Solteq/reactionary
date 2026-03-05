@@ -1,11 +1,13 @@
 import 'dotenv/config';
 import type { RequestContext } from '@reactionary/core';
 import {
+  CategoryPaginatedResultSchema,
   CategorySchema,
   MemoryCache,
   createInitialRequestContext,
 } from '@reactionary/core';
 import { FakeCategoryProvider } from '../providers/index.js';
+import { FakeCategoryFactory } from '../factories/index.js';
 import { getFakerTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
 
@@ -21,7 +23,8 @@ describe('Faker Category Provider', () => {
     provider = new FakeCategoryProvider(
       getFakerTestConfiguration(),
       cache,
-      reqCtx
+      reqCtx,
+      new FakeCategoryFactory(CategorySchema, CategoryPaginatedResultSchema),
     );
   });
 

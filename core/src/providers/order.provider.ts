@@ -4,7 +4,7 @@ import type { OrderQueryById } from '../schemas/queries/index.js';
 import type { Result } from '../schemas/result.js';
 import type { NotFoundError } from '../schemas/index.js';
 
-export abstract class OrderProvider extends BaseProvider {
+export abstract class OrderProvider<TOrder extends Order = Order> extends BaseProvider {
   /**
    * Get order by ID.
    *
@@ -12,9 +12,9 @@ export abstract class OrderProvider extends BaseProvider {
    * @param payload
    * @param session
    */
-  public abstract getById(payload: OrderQueryById): Promise<Result<Order, NotFoundError>>;
+  public abstract getById(payload: OrderQueryById): Promise<Result<TOrder, NotFoundError>>;
 
-  protected createEmptyOrder(): Order {
+  protected createEmptyOrder(): TOrder {
     const order = {
       identifier: {
         key: '',
@@ -54,7 +54,7 @@ export abstract class OrderProvider extends BaseProvider {
       },
     } satisfies Order;
 
-    return order;
+    return order as unknown as TOrder;
   }
 
   protected override getResourceName(): string {

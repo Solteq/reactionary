@@ -5,7 +5,7 @@ import type {
 } from '../schemas/queries/price.query.js';
 import { BaseProvider } from './base.provider.js';
 
-export abstract class PriceProvider extends BaseProvider {
+export abstract class PriceProvider<TPrice extends Price = Price> extends BaseProvider {
   /**
    * Get a list price price by SKU. This is the most general, undiscounted price and is typically
    * used as the "before" price in most ecommerce setups.
@@ -14,7 +14,7 @@ export abstract class PriceProvider extends BaseProvider {
    * @param payload The SKU to query
    * @param session The session information
    */
-  public abstract getListPrice(payload: ListPriceQuery): Promise<Result<Price>>;
+  public abstract getListPrice(payload: ListPriceQuery): Promise<Result<TPrice>>;
 
   /**
    * Get a customer-specific price by SKU.
@@ -25,7 +25,7 @@ export abstract class PriceProvider extends BaseProvider {
    * @param payload The SKU to query
    * @param session The session information
    */
-  public abstract getCustomerPrice(payload: CustomerPriceQuery): Promise<Result<Price>>;
+  public abstract getCustomerPrice(payload: CustomerPriceQuery): Promise<Result<TPrice>>;
 
   /**
    * Utility function to create an empty price result, with a value of -1.
@@ -35,7 +35,7 @@ export abstract class PriceProvider extends BaseProvider {
    * @param currency
    * @returns
    */
-  protected createEmptyPriceResult(sku: string): Price {
+  protected createEmptyPriceResult(sku: string): TPrice {
     const price = {
       identifier: {
         variant: {
@@ -50,7 +50,7 @@ export abstract class PriceProvider extends BaseProvider {
       onSale: false,
     } satisfies Price;
 
-    return price;
+    return price as unknown as TPrice;
   }
 
   protected override getResourceName(): string {

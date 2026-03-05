@@ -1,4 +1,5 @@
 import {
+  AddressSchema,
   ProfileMutationAddShippingAddressSchema,
   ProfileMutationMakeShippingAddressDefaultSchema,
   ProfileMutationRemoveShippingAddressSchema,
@@ -10,9 +11,13 @@ import {
   ProfileSchema,
   Reactionary,
   type Cache,
+  type Address,
   type IdentityIdentifier,
   type NotFoundError,
   type Profile,
+  type ProfileFactory,
+  type ProfileFactoryOutput,
+  type ProfileFactoryWithOutput,
   type ProfileMutationAddShippingAddress,
   type ProfileMutationMakeShippingAddressDefault,
   type ProfileMutationRemoveShippingAddress,
@@ -26,15 +31,20 @@ import {
 } from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
+import type { FakeProfileFactory } from '../factories/profile/profile.factory.js';
 
-export class FakeProfileProvider extends ProfileProvider {
+export class FakeProfileProvider<
+  TFactory extends ProfileFactory = FakeProfileFactory,
+> extends ProfileProvider<ProfileFactoryOutput<TFactory>> {
   protected config: FakeConfiguration;
+  protected factory: ProfileFactoryWithOutput<TFactory>;
   private generator: Faker;
 
   constructor(
     config: FakeConfiguration,
     cache: Cache,
-    context: RequestContext
+    context: RequestContext,
+    factory: ProfileFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.generator = new Faker({
@@ -42,30 +52,21 @@ export class FakeProfileProvider extends ProfileProvider {
       seed: config.seeds.product,
     });
     this.config = config;
+    this.factory = factory;
   }
 
-  @Reactionary({
-    inputSchema: ProfileQueryByIdSchema,
-    outputSchema: ProfileSchema,
-  })
+  @Reactionary({ inputSchema: ProfileQueryByIdSchema, outputSchema: ProfileSchema })
   public override async getById(
-    payload: ProfileQuerySelf
-  ): Promise<Result<Profile, NotFoundError>> {
-    const profile = this.composeBaseProfile(payload.identifier);
-
-    return success(profile);
+    payload: ProfileQuerySelf,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
+    return success(this.composeProfile(payload.identifier));
   }
 
-  @Reactionary({
-    inputSchema: ProfileMutationUpdateSchema,
-    outputSchema: ProfileSchema,
-  })
+  @Reactionary({ inputSchema: ProfileMutationUpdateSchema, outputSchema: ProfileSchema })
   public override async update(
-    payload: ProfileMutationUpdate
-  ): Promise<Result<Profile, NotFoundError>> {
-    const profile = this.composeBaseProfile(payload.identifier);
-
-    return success(profile);
+    payload: ProfileMutationUpdate,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
+    return success(this.composeProfile(payload.identifier));
   }
 
   @Reactionary({
@@ -73,11 +74,9 @@ export class FakeProfileProvider extends ProfileProvider {
     outputSchema: ProfileSchema,
   })
   public override async addShippingAddress(
-    payload: ProfileMutationAddShippingAddress
-  ): Promise<Result<Profile, NotFoundError>> {
-    const profile = this.composeBaseProfile(payload.identifier);
-
-    return success(profile);
+    payload: ProfileMutationAddShippingAddress,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
+    return success(this.composeProfile(payload.identifier));
   }
 
   @Reactionary({
@@ -85,11 +84,9 @@ export class FakeProfileProvider extends ProfileProvider {
     outputSchema: ProfileSchema,
   })
   public override async updateShippingAddress(
-    payload: ProfileMutationUpdateShippingAddress
-  ): Promise<Result<Profile, NotFoundError>> {
-    const profile = this.composeBaseProfile(payload.identifier);
-
-    return success(profile);
+    payload: ProfileMutationUpdateShippingAddress,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
+    return success(this.composeProfile(payload.identifier));
   }
 
   @Reactionary({
@@ -97,11 +94,9 @@ export class FakeProfileProvider extends ProfileProvider {
     outputSchema: ProfileSchema,
   })
   public override async removeShippingAddress(
-    payload: ProfileMutationRemoveShippingAddress
-  ): Promise<Result<Profile, NotFoundError>> {
-    const profile = this.composeBaseProfile(payload.identifier);
-
-    return success(profile);
+    payload: ProfileMutationRemoveShippingAddress,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
+    return success(this.composeProfile(payload.identifier));
   }
 
   @Reactionary({
@@ -109,11 +104,9 @@ export class FakeProfileProvider extends ProfileProvider {
     outputSchema: ProfileSchema,
   })
   public override async makeShippingAddressDefault(
-    payload: ProfileMutationMakeShippingAddressDefault
-  ): Promise<Result<Profile, NotFoundError>> {
-    const profile = this.composeBaseProfile(payload.identifier);
-
-    return success(profile);
+    payload: ProfileMutationMakeShippingAddressDefault,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
+    return success(this.composeProfile(payload.identifier));
   }
 
   @Reactionary({
@@ -121,27 +114,41 @@ export class FakeProfileProvider extends ProfileProvider {
     outputSchema: ProfileSchema,
   })
   public override async setBillingAddress(
-    payload: ProfileMutationSetBillingAddress
-  ): Promise<Result<Profile, NotFoundError>> {
-    const profile = this.composeBaseProfile(payload.identifier);
-
-    return success(profile);
+    payload: ProfileMutationSetBillingAddress,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
+    return success(this.composeProfile(payload.identifier));
   }
 
-  protected composeBaseProfile(identifier?: IdentityIdentifier) {
-    const profile = {
-      alternateShippingAddresses: [],
-      createdAt: this.generator.date.past().toISOString(),
+  protected composeProfile(identifier: IdentityIdentifier): ProfileFactoryOutput<TFactory> {
+    const baseProfile = {
+      identifier,
       email: this.generator.internet.email(),
-      emailVerified: true,
-      identifier: identifier || {
-        userId: this.generator.string.uuid(),
-      },
       phone: this.generator.phone.number(),
+      emailVerified: true,
       phoneVerified: true,
-      updatedAt: this.generator.date.past().toISOString(),
+      createdAt: this.generator.date.past().toISOString(),
+      updatedAt: this.generator.date.recent().toISOString(),
+      billingAddress: this.createEmptyAddress(),
+      shippingAddress: this.createEmptyAddress(),
+      alternateShippingAddresses: [],
     } satisfies Profile;
 
-    return profile;
+    return this.factory.parseProfile(this.context, baseProfile);
+  }
+
+  protected createEmptyAddress(): Address {
+    return AddressSchema.parse({
+      identifier: {
+        nickName: this.generator.person.firstName().toLowerCase(),
+      },
+      firstName: this.generator.person.firstName(),
+      lastName: this.generator.person.lastName(),
+      streetAddress: this.generator.location.street(),
+      streetNumber: this.generator.location.buildingNumber(),
+      city: this.generator.location.city(),
+      region: this.generator.location.state(),
+      postalCode: this.generator.location.zipCode(),
+      countryCode: this.generator.location.countryCode('alpha-2'),
+    });
   }
 }

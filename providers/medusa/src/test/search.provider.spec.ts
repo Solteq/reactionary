@@ -1,10 +1,21 @@
 import 'dotenv/config';
-import { createInitialRequestContext, NoOpCache, ProductSearchQueryByTermSchema, ProductSearchResultItemSchema, type ProductSearchQueryCreateNavigationFilter } from '@reactionary/core';
+import {
+  CategoryPaginatedResultSchema,
+  CategorySchema,
+  createInitialRequestContext,
+  NoOpCache,
+  ProductSearchQueryByTermSchema,
+  ProductSearchResultItemSchema,
+  ProductSearchResultSchema,
+  type ProductSearchQueryCreateNavigationFilter,
+} from '@reactionary/core';
 import { assert, describe, expect, it } from 'vitest';
 import { MedusaSearchProvider } from '../providers/product-search.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 import { MedusaAPI } from '../index.js';
 import { MedusaCategoryProvider } from '../providers/category.provider.js';
+import { MedusaCategoryFactory } from '../factories/category/category.factory.js';
+import { MedusaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 
 const testData = {
   searchTerm: 'printer',
@@ -16,14 +27,16 @@ describe('Medusa Search Provider', () => {
     getMedusaTestConfiguration(),
     new NoOpCache(),
     reqCtx,
-    client
+    client,
+    new MedusaProductSearchFactory(ProductSearchResultSchema),
   );
 
   const categoryProvider = new MedusaCategoryProvider(
     getMedusaTestConfiguration(),
     new NoOpCache(),
     reqCtx,
-    client
+    client,
+    new MedusaCategoryFactory(CategorySchema, CategoryPaginatedResultSchema),
   );
 
   it('should be able to get a result by term', async () => {

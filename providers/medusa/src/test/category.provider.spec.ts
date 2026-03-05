@@ -1,11 +1,13 @@
 import 'dotenv/config';
 import type { RequestContext } from '@reactionary/core';
 import {
+  CategoryPaginatedResultSchema,
   CategorySchema,
   NoOpCache,
   createInitialRequestContext,
 } from '@reactionary/core';
 import { MedusaCategoryProvider } from '../providers/category.provider.js';
+import { MedusaCategoryFactory } from '../factories/category/category.factory.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { MedusaAPI } from '../core/client.js';
@@ -46,7 +48,8 @@ describe('Medusa Category Provider', () => {
       config,
       new NoOpCache(),
       reqCtx,
-      client
+      client,
+      new MedusaCategoryFactory(CategorySchema, CategoryPaginatedResultSchema),
     );
   });
 

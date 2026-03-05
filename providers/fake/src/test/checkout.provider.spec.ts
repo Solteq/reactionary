@@ -2,11 +2,15 @@ import 'dotenv/config';
 import type { RequestContext } from '@reactionary/core';
 import {
   NoOpCache,
+  CheckoutSchema,
+  ShippingMethodSchema,
+  PaymentMethodSchema,
   createInitialRequestContext,
 } from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { FakeCheckoutProvider } from '../providers/checkout.provider.js';
+import { FakeCheckoutFactory } from '../factories/index.js';
 
 describe('Fake Checkout Provider', () => {
   let provider: FakeCheckoutProvider;
@@ -17,7 +21,12 @@ describe('Fake Checkout Provider', () => {
     provider = new FakeCheckoutProvider(
       getFakerTestConfiguration(),
       new NoOpCache(),
-      reqCtx
+      reqCtx,
+      new FakeCheckoutFactory(
+        CheckoutSchema,
+        ShippingMethodSchema,
+        PaymentMethodSchema,
+      ),
     );
   });
 
@@ -177,7 +186,8 @@ describe('Fake Checkout Provider', () => {
         },
         userId: {
             userId: 'Fake'
-        }
+        },
+        appliedPromotions: [],
       },
     });
 

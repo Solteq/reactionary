@@ -1,9 +1,4 @@
 import {
-  ImageSchema,
-  ProductAttributeIdentifierSchema,
-  ProductAttributeSchema,
-  ProductAttributeValueIdentifierSchema,
-  ProductAttributeValueSchema,
   ProductProvider,
   ProductQueryByIdSchema,
   ProductQueryBySKUSchema,
@@ -12,48 +7,34 @@ import {
   Reactionary,
   success,
   error,
+  type ProductFactory,
+  type ProductFactoryOutput,
+  type ProductFactoryWithOutput,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
-  ProductProjection,
-  ProductVariant as CTProductVariant,
-  Attribute as CTAttribute,
-} from '@commercetools/platform-sdk';
-import type {
-  Product,
-  ProductVariant,
   ProductQueryById,
   ProductQueryBySKU,
   ProductQueryBySlug,
-  ProductVariantIdentifier,
   RequestContext,
-  ProductAttribute,
-  ProductAttributeIdentifier,
-  ProductAttributeValue,
-  ProductAttributeValueIdentifier,
-  ProductIdentifier,
-  ProductVariantOption,
-  ProductOptionIdentifier,
   Result,
 } from '@reactionary/core';
-import type { Cache, Image } from '@reactionary/core';
+import type { Cache } from '@reactionary/core';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { NotFoundError } from '@reactionary/core';
+import type { CommercetoolsProductFactory } from '../factories/product/product.factory.js';
 
-export class CommercetoolsProductProvider extends ProductProvider {
-  protected config: CommercetoolsConfiguration;
-  protected commercetools: CommercetoolsAPI;
-
+export class CommercetoolsProductProvider<
+  TFactory extends ProductFactory = CommercetoolsProductFactory
+> extends ProductProvider<ProductFactoryOutput<TFactory>> {
   constructor(
-    config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    protected config: CommercetoolsConfiguration,
+    protected commercetools: CommercetoolsAPI,
+    protected factory: ProductFactoryWithOutput<TFactory>
   ) {
     super(cache, context);
-
-    this.config = config;
-    this.commercetools = commercetools;
   }
 
   protected async getClient() {
@@ -73,13 +54,14 @@ export class CommercetoolsProductProvider extends ProductProvider {
   })
   public override async getById(
     payload: ProductQueryById
-  ): Promise<Result<Product>> {
+  ): Promise<Result<ProductFactoryOutput<TFactory>>> {
     const client = await this.getClient();
     const remote = await client
       .withKey({ key: payload.identifier.key })
       .get()
       .execute();
-    const value = this.parseSingle(remote.body);
+
+    const value = this.factory.parseProduct(this.context, remote.body);
 
     return success(value);
   }
@@ -94,7 +76,7 @@ export class CommercetoolsProductProvider extends ProductProvider {
   })
   public override async getBySlug(
     payload: ProductQueryBySlug
-  ): Promise<Result<Product, NotFoundError>> {
+  ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
 
     const remote = await client
@@ -113,7 +95,7 @@ export class CommercetoolsProductProvider extends ProductProvider {
         identifier: payload.slug,
       });
     }
-    const result = this.parseSingle(remote.body.results[0]);
+    const result = this.factory.parseProduct(this.context, remote.body.results[0]);
 
     return success(result);
   }
@@ -128,7 +110,7 @@ export class CommercetoolsProductProvider extends ProductProvider {
   })
   public override async getBySKU(
     payload: ProductQueryBySKU
-  ): Promise<Result<Product>> {
+  ): Promise<Result<ProductFactoryOutput<TFactory>>> {
     const client = await this.getClient();
 
     const remote = await client
@@ -142,171 +124,10 @@ export class CommercetoolsProductProvider extends ProductProvider {
       })
       .execute();
 
-    const result = this.parseSingle(remote.body.results[0]);
+    // PAIN: the lack of knowing the non-generic type signature of the factory (the scopedown to CT Product Provider)
+    // this is due to the Typescript construct for ProductFactoryOutput<TFactory>
+    const result = this.factory.parseProduct(this.context, remote.body.results[0]);
 
     return success(result);
-  }
-
-  protected parseSingle(data: ProductProjection): Product {
-    const identifier = { key: data.key || data.id } satisfies ProductIdentifier;
-    const name = data.name[this.context.languageContext.locale];
-    const slug = data.slug[this.context.languageContext.locale];
-
-    let description = '';
-    if (data.description) {
-      description = data.description[this.context.languageContext.locale];
-    }
-
-    const variantLevelAttributes =
-      data.masterVariant.attributes?.map((x) => this.parseAttribute(x)) || [];
-
-
-    const specialAttributes = [
-      'reactionaryaccessories',
-      'reactionaryspareparts',
-      'reactionaryreplacements'
-    ]
-
-    const productLevelAttributes =
-      data.attributes.filter(x => !specialAttributes.includes(x.name)).map((x) => this.parseAttribute(x)) || [];
-
-    const sharedAttributes = [
-      ...productLevelAttributes,
-      ...variantLevelAttributes,
-    ];
-    const mainVariant = this.parseVariant(data.masterVariant, data);
-
-    const otherVariants = [];
-    for (const variant of data.variants || []) {
-      if (variant.id !== data.masterVariant.id) {
-        otherVariants.push(this.parseVariant(variant, data));
-      }
-    }
-
-    const result = {
-      identifier,
-      name,
-      slug,
-      description,
-      sharedAttributes,
-      mainVariant,
-      brand: '',
-      longDescription: '',
-      manufacturer: '',
-      options: [],
-      parentCategories: [],
-      published: true,
-      variants: otherVariants,
-    } satisfies Product;
-
-    return result;
-  }
-
-  /**
-   * Return true, if the attribute is a defining attribute (ie an option)
-   * @param attr a variant attribute
-   * @returns true if the attribute is an option
-   */
-  protected isVariantAttributeAnOption(attr: CTAttribute): boolean {
-    // for now, the assumption is that any variant attribute is a defining attribute (ie an option)
-    // ideally this should be verified with the product type.
-    return true;
-  }
-
-  protected parseVariant(
-    variant: CTProductVariant,
-    product: ProductProjection
-  ): ProductVariant {
-    const identifier = {
-      sku: variant.sku!,
-    } satisfies ProductVariantIdentifier;
-
-    const images = [
-      ...(variant.images || []).map((img) =>
-        ImageSchema.parse({
-          sourceUrl: img.url,
-          altText: img.label || '',
-          width: img.dimensions?.w,
-          height: img.dimensions?.h,
-        } satisfies Image)
-      ),
-    ];
-
-    const options =
-      (variant.attributes ?? [])
-        .filter((attr) => this.isVariantAttributeAnOption(attr))
-        .map((attr) => {
-          const attrVal = this.parseAttributeValue(attr);
-          const optionIdentifier: ProductOptionIdentifier = {
-            key: attr.name,
-          };
-          const option: ProductVariantOption = {
-            identifier: optionIdentifier,
-            name: attr.name,
-            value: {
-              identifier: {
-                key: attrVal.value,
-                option: optionIdentifier,
-              },
-              label: attrVal.label,
-            },
-          };
-          return option;
-        }) || [];
-
-    const result = {
-      identifier,
-      images,
-      barcode: '',
-      ean: '',
-      gtin: '',
-      name: product.name[this.context.languageContext.locale],
-      options,
-      upc: '',
-    } satisfies ProductVariant;
-
-    return result;
-  }
-
-  protected parseAttribute(attr: CTAttribute): ProductAttribute {
-    const result = ProductAttributeSchema.parse({
-      identifier: ProductAttributeIdentifierSchema.parse({
-        key: attr.name,
-      } satisfies Partial<ProductAttributeIdentifier>),
-      group: '',
-      name: attr.name,
-      values: [this.parseAttributeValue(attr)],
-    } satisfies Partial<ProductAttribute>);
-
-    return result;
-  }
-
-  protected parseAttributeValue(attr: CTAttribute): ProductAttributeValue {
-    let attrValue = '';
-    if (attr.value && Array.isArray(attr.value)) {
-      attrValue = attr.value[0];
-    }
-
-    if (attr.value && typeof attr.value === 'object') {
-      if (this.context.languageContext.locale in attr.value) {
-        attrValue = attr.value[this.context.languageContext.locale];
-      } else {
-        attrValue = '-';
-      }
-    }
-
-    if (typeof attr.value === 'string') {
-      attrValue = attr.value;
-    }
-
-    const attrVal = ProductAttributeValueSchema.parse({
-      identifier: ProductAttributeValueIdentifierSchema.parse({
-        key: attrValue,
-      } satisfies Partial<ProductAttributeValueIdentifier>),
-      value: String(attrValue),
-      label: String(attrValue),
-    } satisfies Partial<ProductAttributeValue>);
-
-    return attrVal;
   }
 }

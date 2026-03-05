@@ -8,6 +8,9 @@ import {
   InventoryQueryBySKUSchema,
   Reactionary,
   type InventoryIdentifier,
+  type InventoryFactory,
+  type InventoryFactoryOutput,
+  type InventoryFactoryWithOutput,
   type InventoryStatus,
   type NotFoundError,
   type Result,
@@ -17,27 +20,35 @@ import type * as z from 'zod';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import { MedusaAdminAPI, type MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';
+import type { MedusaInventoryFactory } from '../factories/inventory/inventory.factory.js';
 
 const debug = createDebug('reactionary:medusa:inventory');
 
-export class MedusaInventoryProvider extends InventoryProvider {
+export class MedusaInventoryProvider<
+  TFactory extends InventoryFactory = MedusaInventoryFactory,
+> extends InventoryProvider<InventoryFactoryOutput<TFactory>> {
   protected config: MedusaConfiguration;
+  protected factory: InventoryFactoryWithOutput<TFactory>;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public medusaApi: MedusaAPI
+    public medusaApi: MedusaAPI,
+    factory: InventoryFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
+    this.factory = factory;
   }
 
   @Reactionary({
     inputSchema: InventoryQueryBySKUSchema,
     outputSchema: InventorySchema,
   })
-  public override async getBySKU(payload: InventoryQueryBySKU): Promise<Result<Inventory, NotFoundError>> {
+  public override async getBySKU(
+    payload: InventoryQueryBySKU,
+  ): Promise<Result<InventoryFactoryOutput<TFactory>, NotFoundError>> {
     const sku = payload.variant.sku;
     const fulfillmentCenterKey = payload.fulfilmentCenter.key;
 
@@ -112,7 +123,7 @@ export class MedusaInventoryProvider extends InventoryProvider {
     }
   }
 
-  protected parseSingle(_body: unknown): Inventory {
+  protected parseSingle(_body: unknown): InventoryFactoryOutput<TFactory> {
     const { sku, fulfillmentCenterKey, quantity } = _body as {
       sku: string;
       fulfillmentCenterKey: string;
@@ -140,7 +151,7 @@ export class MedusaInventoryProvider extends InventoryProvider {
       status
     } satisfies Inventory;
 
-    return result;
+    return this.factory.parseInventory(this.context, result);
   }
 
   /**
@@ -150,7 +161,10 @@ export class MedusaInventoryProvider extends InventoryProvider {
    * @param fulfillmentCenterKey
    * @returns
    */
-  protected createEmptyInventoryResult(sku: string, fulfillmentCenterKey: string): Inventory {
+  protected createEmptyInventoryResult(
+    sku: string,
+    fulfillmentCenterKey: string,
+  ): InventoryFactoryOutput<TFactory> {
     const identifier = {
       variant: { sku },
       fulfillmentCenter: { key: fulfillmentCenterKey },
@@ -164,7 +178,7 @@ export class MedusaInventoryProvider extends InventoryProvider {
       status
     } satisfies Inventory;
 
-    return result;
+    return this.factory.parseInventory(this.context, result);
   }
 
   protected override getResourceName(): string {

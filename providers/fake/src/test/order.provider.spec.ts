@@ -1,17 +1,14 @@
 import 'dotenv/config';
 import type { RequestContext } from '@reactionary/core';
 import {
-  CartSchema,
-  IdentitySchema,
   NoOpCache,
+  OrderSchema,
   createInitialRequestContext,
 } from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils.js';
-import { FakeCartProvider } from '../providers/cart.provider.js';
-import { FakeIdentityProvider } from '../providers/index.js';
 import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
-import { FakeCheckoutProvider } from '../providers/checkout.provider.js';
 import { FakeOrderProvider } from '../providers/order.provider.js';
+import { FakeOrderFactory } from '../factories/index.js';
 
 describe('Fake Order Provider', () => {
   let provider: FakeOrderProvider;
@@ -22,7 +19,8 @@ describe('Fake Order Provider', () => {
     provider = new FakeOrderProvider(
       getFakerTestConfiguration(),
       new NoOpCache(),
-      reqCtx
+      reqCtx,
+      new FakeOrderFactory(OrderSchema),
     );
   });
 

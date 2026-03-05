@@ -9,7 +9,10 @@ import { BaseProvider } from "./base.provider.js";
 /**
  * @group Providers
  */
-export abstract class CartProvider extends BaseProvider {
+export abstract class CartProvider<
+  TCart extends Cart = Cart,
+  TCartIdentifier extends CartIdentifier = CartIdentifier,
+> extends BaseProvider {
 
   /**
    * Get cart by ID.
@@ -18,7 +21,7 @@ export abstract class CartProvider extends BaseProvider {
    * @param payload
    * @param session
    */
-  public abstract getById(payload: CartQueryById): Promise<Result<Cart, NotFoundError>>;
+  public abstract getById(payload: CartQueryById): Promise<Result<TCart, NotFoundError>>;
 
 
   /**
@@ -27,7 +30,7 @@ export abstract class CartProvider extends BaseProvider {
    * Usecase: Most common usecase during site load, or after login. You want to get the active cart for the user, so you can display it in the minicart.
    * @param session
    */
-  public abstract getActiveCartId(): Promise<Result<CartIdentifier, NotFoundError>>;
+  public abstract getActiveCartId(): Promise<Result<TCartIdentifier, NotFoundError>>;
 
 
   /**
@@ -39,7 +42,7 @@ export abstract class CartProvider extends BaseProvider {
    * @param payload
    * @param session
    */
-  public abstract add(payload: CartMutationItemAdd): Promise<Result<Cart>>;
+  public abstract add(payload: CartMutationItemAdd): Promise<Result<TCart>>;
 
   /**
    * Remove item from cart. If the cart is empty after removal, delete the cart. Returns the updated and recalculated cart.
@@ -48,7 +51,7 @@ export abstract class CartProvider extends BaseProvider {
    * @param payload
    * @param session
    */
-  public abstract remove(payload: CartMutationItemRemove): Promise<Result<Cart>>;
+  public abstract remove(payload: CartMutationItemRemove): Promise<Result<TCart>>;
 
   /**
    * Change quantity of item in cart. If the cart is empty after change, delete the cart. Returns the updated and recalculated cart.
@@ -59,7 +62,7 @@ export abstract class CartProvider extends BaseProvider {
    * @param payload
    * @param session
    */
-  public abstract changeQuantity(payload: CartMutationItemQuantityChange): Promise<Result<Cart>>;
+  public abstract changeQuantity(payload: CartMutationItemQuantityChange): Promise<Result<TCart>>;
 
 
   /**
@@ -78,7 +81,7 @@ export abstract class CartProvider extends BaseProvider {
    * @param payload
    * @param session
    */
-  public abstract applyCouponCode(payload: CartMutationApplyCoupon): Promise<Result<Cart>>;
+  public abstract applyCouponCode(payload: CartMutationApplyCoupon): Promise<Result<TCart>>;
 
 
   /**
@@ -88,7 +91,7 @@ export abstract class CartProvider extends BaseProvider {
    * @param payload
    * @param session
    */
-  public abstract removeCouponCode(payload: CartMutationRemoveCoupon): Promise<Result<Cart>>;
+  public abstract removeCouponCode(payload: CartMutationRemoveCoupon): Promise<Result<TCart>>;
 
   /**
    * Changes the currency of the cart.
@@ -97,10 +100,9 @@ export abstract class CartProvider extends BaseProvider {
    * @param newCurrency
    * @param session
    */
-  public abstract changeCurrency(payload: CartMutationChangeCurrency): Promise<Result<Cart>>;
+  public abstract changeCurrency(payload: CartMutationChangeCurrency): Promise<Result<TCart>>;
 
   protected override getResourceName(): string {
     return 'cart';
   }
 }
-

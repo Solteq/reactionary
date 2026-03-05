@@ -7,6 +7,7 @@ import {
 } from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils.js';
 import { FakePriceProvider } from '../providers/price.provider.js';
+import { FakePriceFactory } from '../factories/index.js';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
 
 const testData = {
@@ -23,7 +24,8 @@ describe('Fake Price Provider', () => {
     provider = new FakePriceProvider(
       getFakerTestConfiguration(),
       new NoOpCache(),
-      reqCtx
+      reqCtx,
+      new FakePriceFactory(PriceSchema),
     );
   });
 

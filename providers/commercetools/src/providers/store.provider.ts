@@ -1,32 +1,37 @@
 import type {
   RequestContext,
   Cache,
+  StoreFactory,
+  StoreFactoryOutput,
+  StoreFactoryWithOutput,
   StoreQueryByProximity,
-  Store,
-  StoreIdentifier,
-  FulfillmentCenterIdentifier,
   Result,
 } from '@reactionary/core';
 import { Reactionary, StoreProvider, StoreQueryByProximitySchema, StoreSchema, success, error } from '@reactionary/core';
 import * as z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { Channel } from '@commercetools/platform-sdk';
 import type { CommercetoolsAPI } from '../core/client.js';
+import type { CommercetoolsStoreFactory } from '../factories/store/store.factory.js';
 
-export class CommercetoolsStoreProvider extends StoreProvider {
+export class CommercetoolsStoreProvider<
+  TFactory extends StoreFactory = CommercetoolsStoreFactory,
+> extends StoreProvider<StoreFactoryOutput<TFactory>> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: StoreFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: StoreFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   protected async getClient() {
@@ -40,7 +45,7 @@ export class CommercetoolsStoreProvider extends StoreProvider {
   })
   public override async queryByProximity(
     payload: StoreQueryByProximity
-  ): Promise<Result<Array<Store>>> {
+  ): Promise<Result<Array<StoreFactoryOutput<TFactory>>>> {
     const client = await this.getClient();
 
     const remote = await client
@@ -60,33 +65,10 @@ export class CommercetoolsStoreProvider extends StoreProvider {
     const results = [];
 
     for (const r of remote.body.results) {
-      results.push(this.parseSingle(r));
+      results.push(this.factory.parseStore(this.context, r));
     }
 
     return success(results);
   }
 
-  protected parseSingle(body: Channel): Store {
-
-    let name = '';
-    if (body.name && body.name['la']) {
-      name = body.name['la'];
-    }
-
-    const identifier = {
-      key: body.key,
-    } satisfies StoreIdentifier;
-
-    const fulfillmentCenter = {
-      key: body.key,
-    } satisfies FulfillmentCenterIdentifier;
-
-    const result = {
-      identifier,
-      fulfillmentCenter,
-      name,
-    } satisfies Store;
-
-    return result;
-  }
 }

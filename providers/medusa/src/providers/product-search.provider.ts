@@ -17,6 +17,9 @@ import {
   type ProductSearchResultItemVariant,
   type FacetIdentifier,
   type FacetValueIdentifier,
+  type ProductSearchFactory,
+  type ProductSearchFactoryOutput,
+  type ProductSearchFactoryWithOutput,
   type ProductSearchResultFacet,
   type ProductSearchResultFacetValue,
   Reactionary,
@@ -37,20 +40,26 @@ import type {
   StoreProductListResponse,
   StoreProductVariant,
 } from '@medusajs/types';
+import type { MedusaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 
 const debug = createDebug('reactionary:medusa:search');
 
-export class MedusaSearchProvider extends ProductSearchProvider {
+export class MedusaSearchProvider<
+  TFactory extends ProductSearchFactory = MedusaProductSearchFactory,
+> extends ProductSearchProvider<ProductSearchFactoryOutput<TFactory>> {
   protected config: MedusaConfiguration;
+  protected factory: ProductSearchFactoryWithOutput<TFactory>;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public medusaApi: MedusaAPI
+    public medusaApi: MedusaAPI,
+    factory: ProductSearchFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
+    this.factory = factory;
   }
 
   protected async resolveCategoryIdByExternalId(
@@ -114,7 +123,7 @@ export class MedusaSearchProvider extends ProductSearchProvider {
   })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
-  ): Promise<Result<ProductSearchResult>> {
+  ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
     const client = await this.medusaApi.getClient();
 
     let categoryIdToFind: string | null = null;
@@ -141,22 +150,20 @@ export class MedusaSearchProvider extends ProductSearchProvider {
 
     const response = await client.store.product.list(this.queryByTermPayload(payload, categoryIdToFind));
 
-    const result = this.parsePaginatedResult(response) as ProductSearchResult;
+    const result = this.parsePaginatedResult(response, payload);
     if (debug.enabled) {
       debug(
         `Search for term "${payload.search.term}" returned ${response.products.length} products (page ${payload.search.paginationOptions.pageNumber} of ${result.totalPages})`
       );
     }
 
-    // Set result metadata
-    result.identifier = {
-      ...payload.search,
-    };
-
-    return success(result);
+    return success(this.factory.parseSearchResult(this.context, result, payload));
   }
 
-  protected parsePaginatedResult(remote: StoreProductListResponse) {
+  protected parsePaginatedResult(
+    remote: StoreProductListResponse,
+    query: ProductSearchQueryByTerm,
+  ) {
     // Parse facets
     // no facets available from Medusa at the moment
 
@@ -166,13 +173,7 @@ export class MedusaSearchProvider extends ProductSearchProvider {
 
     const result = {
       identifier: {
-        facets: [],
-        filters: [],
-        paginationOptions: {
-          pageNumber: 1,
-          pageSize: 0,
-        },
-        term: '',
+        ...query.search,
       },
       pageNumber: (Math.ceil(remote.offset / remote.limit) || 0) + 1,
       pageSize: remote.limit,
@@ -237,17 +238,4 @@ export class MedusaSearchProvider extends ProductSearchProvider {
     return success(facetValueIdentifier);
   }
 
-  protected override parseFacetValue(
-    facetValueIdentifier: FacetValueIdentifier,
-    label: string,
-    count: number
-  ): ProductSearchResultFacetValue {
-    throw new Error('Method not implemented.');
-  }
-  protected override parseFacet(
-    facetIdentifier: FacetIdentifier,
-    facetValue: unknown
-  ): ProductSearchResultFacet {
-    throw new Error('Method not implemented.');
-  }
 }

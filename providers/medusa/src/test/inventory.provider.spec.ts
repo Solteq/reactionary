@@ -8,6 +8,7 @@ import {
 } from '@reactionary/core';
 import { getMedusaTestConfiguration } from './test-utils.js';
 import { MedusaAPI } from '../core/client.js';
+import { MedusaInventoryFactory } from '../factories/inventory/inventory.factory.js';
 
 const testData = {
   skuInStock: '	4007249524126',
@@ -29,7 +30,8 @@ describe('Medusa Inventory Provider', () => {
       config,
       new NoOpCache(),
       reqCtx,
-      client
+      client,
+      new MedusaInventoryFactory(InventorySchema),
     );
   });
 

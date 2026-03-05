@@ -7,23 +7,36 @@ import {
   type Result,
   success,
   type ProductAssociation,
+  type Cache,
   type ProductSearchResultItem,
+  type RequestContext,
+} from '@reactionary/core';
+import type {
+  ProductAssociationsFactory,
+  ProductAssociationsFactoryOutput,
+  ProductAssociationsFactoryWithOutput,
 } from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
-import { base, en, Faker } from '@faker-js/faker';
+import { en, Faker } from '@faker-js/faker';
 import { calcSeed } from '../utilities/seed.js';
+import type { FakeProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
 
-export class FakeProductAssociationsProvider extends ProductAssociationsProvider {
+export class FakeProductAssociationsProvider<
+  TFactory extends ProductAssociationsFactory = FakeProductAssociationsFactory,
+> extends ProductAssociationsProvider<ProductAssociationsFactoryOutput<TFactory>> {
   protected config: FakeConfiguration;
+  protected factory: ProductAssociationsFactoryWithOutput<TFactory>;
   protected faker: Faker;
 
   constructor(
     config: FakeConfiguration,
-    cache: any,
-    context: any
+    cache: Cache,
+    context: RequestContext,
+    factory: ProductAssociationsFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
+    this.factory = factory;
     this.faker = new Faker({ locale: [en] });
   }
 
@@ -35,7 +48,7 @@ export class FakeProductAssociationsProvider extends ProductAssociationsProvider
   })
   public override async getAccessories(
     query: ProductAssociationsGetAccessoriesQuery
-  ): Promise<Result<ProductAssociation[]>> {
+  ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
     const associatedProducts = this.generateFakeAssociatedProducts(query.forProduct.key, query.numberOfAccessories || 4, 'accessory');
 
     const result: ProductAssociation[] = associatedProducts.map(product => ({
@@ -46,7 +59,7 @@ export class FakeProductAssociationsProvider extends ProductAssociationsProvider
       product,
     } satisfies ProductAssociation));
 
-    return success(result);
+    return success(result.map((x) => this.factory.parseAssociation(this.context, x)));
   }
 
   @Reactionary({
@@ -57,7 +70,7 @@ export class FakeProductAssociationsProvider extends ProductAssociationsProvider
   })
   public override async getSpareparts(
     query: ProductAssociationsGetSparepartsQuery
-  ): Promise<Result<ProductAssociation[]>> {
+  ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
     const associatedProducts = this.generateFakeAssociatedProducts(query.forProduct.key, query.numberOfSpareparts || 4, 'sparepart');
 
     const result: ProductAssociation[] = associatedProducts.map(product => ({
@@ -68,7 +81,7 @@ export class FakeProductAssociationsProvider extends ProductAssociationsProvider
       product,
     } satisfies ProductAssociation));
 
-    return success(result);
+    return success(result.map((x) => this.factory.parseAssociation(this.context, x)));
   }
 
   @Reactionary({
@@ -79,7 +92,7 @@ export class FakeProductAssociationsProvider extends ProductAssociationsProvider
   })
   public override async getReplacements(
     query: ProductAssociationsGetReplacementsQuery
-  ): Promise<Result<ProductAssociation[]>> {
+  ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
     const associatedProducts = this.generateFakeAssociatedProducts(query.forProduct.key, query.numberOfReplacements || 4, 'replacement');
 
     const result: ProductAssociation[] = associatedProducts.map(product => ({
@@ -90,7 +103,7 @@ export class FakeProductAssociationsProvider extends ProductAssociationsProvider
       product,
     } satisfies ProductAssociation));
 
-    return success(result);
+    return success(result.map((x) => this.factory.parseAssociation(this.context, x)));
   }
 
   private generateFakeAssociatedProducts(baseProductKey: string, count: number, type: string): ProductSearchResultItem[] {

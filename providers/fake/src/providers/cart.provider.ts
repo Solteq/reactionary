@@ -1,5 +1,8 @@
 import type {
   Cart,
+  CartFactory,
+  CartFactoryCartOutput,
+  CartFactoryWithOutput,
   CartQueryById,
   CartMutationItemAdd,
   CartMutationItemRemove,
@@ -33,16 +36,21 @@ import {
 } from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { Faker, en, base } from '@faker-js/faker';
+import type { FakeCartFactory } from '../factories/cart/cart.factory.js';
 
-export class FakeCartProvider extends CartProvider {
+export class FakeCartProvider<
+  TFactory extends CartFactory = FakeCartFactory,
+> extends CartProvider<CartFactoryCartOutput<TFactory>, CartIdentifier> {
   protected config: FakeConfiguration;
+  protected factory: CartFactoryWithOutput<TFactory>;
   private carts: Map<string, Cart> = new Map();
   private generator: Faker;
 
   constructor(
     config: FakeConfiguration,
     cache: Cache,
-    context: RequestContext
+    context: RequestContext,
+    factory: CartFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.generator = new Faker({
@@ -50,6 +58,7 @@ export class FakeCartProvider extends CartProvider {
       seed: config.seeds.product,
     });
     this.config = config;
+    this.factory = factory;
   }
 
   @Reactionary({
@@ -58,7 +67,7 @@ export class FakeCartProvider extends CartProvider {
   })
   public override async getById(
     payload: CartQueryById
-  ): Promise<Result<Cart, NotFoundError>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>, NotFoundError>> {
     const cartId = payload.cart.key;
 
     if (payload.cart.key === '') {
@@ -79,14 +88,14 @@ export class FakeCartProvider extends CartProvider {
     if (!cart) {
       throw new Error(`Cart with id ${cartId} not found`);
     }
-    return success(cart);
+    return success(this.factory.parseCart(this.context, cart));
   }
 
   @Reactionary({
     inputSchema: CartMutationItemAddSchema,
     outputSchema: CartSchema,
   })
-  public override async add(payload: CartMutationItemAdd): Promise<Result<Cart>> {
+  public override async add(payload: CartMutationItemAdd): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     const cartId = payload?.cart?.key || `cart-${this.generator.string.uuid()}`;
     const cart = unwrapValue(await this.getById({ cart: { key: cartId } }));
 
@@ -133,14 +142,14 @@ export class FakeCartProvider extends CartProvider {
 
     this.recalculateCart(cart);
 
-    return success(cart);
+    return success(this.factory.parseCart(this.context, cart));
   }
 
   @Reactionary({
     inputSchema: CartMutationItemRemoveSchema,
     outputSchema: CartSchema,
   })
-  public override async remove(payload: CartMutationItemRemove): Promise<Result<Cart>> {
+  public override async remove(payload: CartMutationItemRemove): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     const cartId = payload.cart.key || `cart-${this.generator.string.uuid()}`;
     const cart = unwrapValue(await this.getById({ cart: { key: cartId } }));
 
@@ -149,7 +158,7 @@ export class FakeCartProvider extends CartProvider {
     );
     this.recalculateCart(cart);
 
-    return success(cart);
+    return success(this.factory.parseCart(this.context, cart));
   }
 
   @Reactionary({
@@ -158,7 +167,7 @@ export class FakeCartProvider extends CartProvider {
   })
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange
-  ): Promise<Result<Cart>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     const cartId = payload.cart.key || `cart-${this.generator.string.uuid()}`;
     const cart = unwrapValue(await this.getById({ cart: { key: cartId } }));
 
@@ -166,13 +175,13 @@ export class FakeCartProvider extends CartProvider {
       (item) => item.identifier.key === payload.item.key
     );
     if (payload.quantity < 1) {
-      return success(cart);
+      return success(this.factory.parseCart(this.context, cart));
     }
     if (item) {
       item.quantity = payload.quantity;
     }
     this.recalculateCart(cart);
-    return success(cart);
+    return success(this.factory.parseCart(this.context, cart));
   }
 
   @Reactionary({
@@ -196,7 +205,7 @@ export class FakeCartProvider extends CartProvider {
   })
   public override applyCouponCode(
     payload: CartMutationApplyCoupon
-  ): Promise<Result<Cart>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     throw new Error('Method not implemented.');
   }
 
@@ -206,7 +215,7 @@ export class FakeCartProvider extends CartProvider {
   })
   public override removeCouponCode(
     payload: CartMutationRemoveCoupon
-  ): Promise<Result<Cart>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     throw new Error('Method not implemented.');
   }
 
@@ -216,7 +225,7 @@ export class FakeCartProvider extends CartProvider {
   })
   public override changeCurrency(
     payload: CartMutationChangeCurrency
-  ): Promise<Result<Cart>> {
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     throw new Error('Method not implemented.');
   }
 

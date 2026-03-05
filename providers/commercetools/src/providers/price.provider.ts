@@ -2,42 +2,46 @@ import {
   CustomerPriceQuerySchema,
   ListPriceQuerySchema,
   PriceProvider,
+  type PriceFactory,
+  type PriceFactoryOutput,
+  type PriceFactoryWithOutput,
   PriceSchema,
   Reactionary,
   success,
 } from '@reactionary/core';
 import type {
   RequestContext,
-  Price,
   Cache,
-  Currency,
   CustomerPriceQuery,
   ListPriceQuery,
-  PriceIdentifier,
-  MonetaryAmount,
   Result,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
-  Price as CTPrice,
   ProductVariant as CTProductVariant,
 } from '@commercetools/platform-sdk';
 import type { CommercetoolsAPI } from '../core/client.js';
+import type { CommercetoolsPriceFactory } from '../factories/price/price.factory.js';
 
-export class CommercetoolsPriceProvider extends PriceProvider {
+export class CommercetoolsPriceProvider<
+  TFactory extends PriceFactory = CommercetoolsPriceFactory,
+> extends PriceProvider<PriceFactoryOutput<TFactory>> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: PriceFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: PriceFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   @Reactionary({
@@ -46,7 +50,7 @@ export class CommercetoolsPriceProvider extends PriceProvider {
   })
   public override async getCustomerPrice(
     payload: CustomerPriceQuery
-  ): Promise<Result<Price>> {
+  ): Promise<Result<PriceFactoryOutput<TFactory>>> {
     const client = await this.getClient();
     let priceChannelId;
     if (this.config.customerPriceChannelKey) {
@@ -76,14 +80,14 @@ export class CommercetoolsPriceProvider extends PriceProvider {
       (x) => x.sku === payload.variant.sku
     );
 
-    return success(this.parseSingle(sku, { includeDiscounts: true }));
+    return success(this.factory.parsePrice(this.context, sku, { includeDiscounts: true }));
   }
 
   @Reactionary({
     inputSchema: ListPriceQuerySchema,
     outputSchema: PriceSchema,
   })
-  public override async getListPrice(payload: ListPriceQuery): Promise<Result<Price>> {
+  public override async getListPrice(payload: ListPriceQuery): Promise<Result<PriceFactoryOutput<TFactory>>> {
     const client = await this.getClient();
     let priceChannelId;
     if (this.config.listPriceChannelKey) {
@@ -112,7 +116,7 @@ export class CommercetoolsPriceProvider extends PriceProvider {
       (x) => x.sku === payload.variant.sku
     );
 
-    return success(this.parseSingle(sku));
+    return success(this.factory.parsePrice(this.context, sku));
   }
 
   protected async getClient() {
@@ -120,48 +124,30 @@ export class CommercetoolsPriceProvider extends PriceProvider {
     return client.withProjectKey({ projectKey: this.config.projectKey });
   }
 
-  protected parseSingle(
-    _body: unknown,
-    options = { includeDiscounts: false }
-  ): Price {
-    const body = _body as CTProductVariant;
-    const price = body.price as CTPrice | undefined;
+  protected async getChannels() {
+    const adminClient = await this.commercetools.getAdminClient();
 
-    if (!price) {
-      return this.createEmptyPriceResult(body.sku!);
-    }
+    const offerPriceChannelPromise = adminClient
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .channels()
+      .withKey({ key: 'Offer Price' })
+      .get()
+      .execute();
+    const listPriceChannelPromise = adminClient
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .channels()
+      .withKey({ key: 'List Price' })
+      .get()
+      .execute();
 
-    let unitPrice = {
-      value: price.value.centAmount / 100,
-      currency: price.value.currencyCode as Currency,
-    } satisfies MonetaryAmount;
+    const [offerChannel, listChannel] = await Promise.all([
+      offerPriceChannelPromise,
+      listPriceChannelPromise,
+    ]);
 
-    let isOnSale = false;
-    if (options.includeDiscounts) {
-      const discountedPrice = price.discounted?.value || price.value;
-      if (price.discounted) {
-        isOnSale = true;
-      }
-      unitPrice = {
-        value: discountedPrice.centAmount / 100,
-        currency: price.value.currencyCode as Currency,
-      } satisfies MonetaryAmount;
-    }
-
-    const identifier = {
-      variant: {
-        sku: body.sku!,
-      },
-    } satisfies PriceIdentifier;
-
-    const result = {
-      identifier,
-      tieredPrices: [],
-      unitPrice,
-      onSale: isOnSale,
-    } satisfies Price;
-
-    return result;
+    return {
+      offer: offerChannel.body.id,
+      list: listChannel.body.id,
+    };
   }
-
 }

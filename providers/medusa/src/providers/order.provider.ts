@@ -17,6 +17,9 @@ import type {
   OrderInventoryStatus,
   PaymentMethodIdentifier,
   PaymentInstruction,
+  OrderFactory,
+  OrderFactoryOutput,
+  OrderFactoryWithOutput,
 } from '@reactionary/core';
 import {
   OrderProvider,
@@ -33,27 +36,35 @@ import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import { handleProviderError } from '../utils/medusa-helpers.js';
 import type { StoreOrder, StoreOrderLineItem, StorePaymentCollection } from '@medusajs/types';
 import { parseMedusaItemPrice, parseMedusaCostBreakdown } from '../utils/medusa-helpers.js'
+import type { MedusaOrderFactory } from '../factories/order/order.factory.js';
 const debug = createDebug('reactionary:medusa:order');
 
-export class MedusaOrderProvider extends OrderProvider {
+export class MedusaOrderProvider<
+  TFactory extends OrderFactory = MedusaOrderFactory,
+> extends OrderProvider<OrderFactoryOutput<TFactory>> {
   protected config: MedusaConfiguration;
+  protected factory: OrderFactoryWithOutput<TFactory>;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public medusaApi: MedusaAPI
+    public medusaApi: MedusaAPI,
+    factory: OrderFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
+    this.factory = factory;
   }
 
   @Reactionary({
     inputSchema: OrderQueryByIdSchema,
     outputSchema: OrderSchema,
   })
-  public async getById(payload: OrderQueryById): Promise<Result<Order, NotFoundError>> {
+  public async getById(
+    payload: OrderQueryById,
+  ): Promise<Result<OrderFactoryOutput<TFactory>, NotFoundError>> {
     debug('getById', payload);
 
     const medusa = await this.medusaApi.getClient();
@@ -175,7 +186,7 @@ export class MedusaOrderProvider extends OrderProvider {
 
 
 
-  protected parseSingle(body: StoreOrder): Order {
+  protected parseSingle(body: StoreOrder): OrderFactoryOutput<TFactory> {
 
     const identifier = { key: body.id };
     const userId: IdentityIdentifier = {
@@ -213,7 +224,7 @@ export class MedusaOrderProvider extends OrderProvider {
       return this.parsePaymentInstruction(pc, body);
     }) || [];
 
-    return {
+    const result = {
       identifier,
       userId,
       items,
@@ -222,5 +233,6 @@ export class MedusaOrderProvider extends OrderProvider {
       inventoryStatus,
       paymentInstructions
     } satisfies Order;
+    return this.factory.parseOrder(this.context, result);
   }
 }

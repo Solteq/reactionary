@@ -7,6 +7,11 @@ import {
   success,
 } from '@reactionary/core';
 import type {
+  ProductAssociationsFactory,
+  ProductAssociationsFactoryOutput,
+  ProductAssociationsFactoryWithOutput,
+} from '@reactionary/core';
+import type {
   ProductVariantIdentifier,
   ProductIdentifier,
   ProductAssociation,
@@ -22,20 +27,26 @@ import type {
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type { MedusaAPI } from '../core/client.js';
 import type { StoreProduct, StoreProductVariant } from '@medusajs/types';
+import type { MedusaProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
 
-export class MedusaProductAssociationsProvider extends ProductAssociationsProvider {
+export class MedusaProductAssociationsProvider<
+  TFactory extends ProductAssociationsFactory = MedusaProductAssociationsFactory,
+> extends ProductAssociationsProvider<ProductAssociationsFactoryOutput<TFactory>> {
   protected config: MedusaConfiguration;
   protected medusa: MedusaAPI;
+  protected factory: ProductAssociationsFactoryWithOutput<TFactory>;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    medusa: MedusaAPI
+    medusa: MedusaAPI,
+    factory: ProductAssociationsFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
     this.medusa = medusa;
+    this.factory = factory;
   }
 
   protected async fetchAssociatedProductsFor(productKey: ProductIdentifier, maxNumberOfAssociations: number, attributeName: string): Promise<ProductSearchResultItem[]> {
@@ -87,7 +98,7 @@ export class MedusaProductAssociationsProvider extends ProductAssociationsProvid
   })
   public override async getAccessories(
     query: ProductAssociationsGetAccessoriesQuery
-  ): Promise<Result<ProductAssociation[]>> {
+  ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
     const associatedProducts = await this.fetchAssociatedProductsFor(query.forProduct, query.numberOfAccessories || 4, 'reactionaryaccessories');
 
     const result: ProductAssociation[] = associatedProducts.map(product => ({
@@ -98,7 +109,7 @@ export class MedusaProductAssociationsProvider extends ProductAssociationsProvid
       product,
     } satisfies ProductAssociation));
 
-    return success(result);
+    return success(result.map((x) => this.factory.parseAssociation(this.context, x)));
   }
 
   @Reactionary({
@@ -109,7 +120,7 @@ export class MedusaProductAssociationsProvider extends ProductAssociationsProvid
   })
   public override async getSpareparts(
     query: ProductAssociationsGetSparepartsQuery
-  ): Promise<Result<ProductAssociation[]>> {
+  ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
     const associatedProducts = await this.fetchAssociatedProductsFor(query.forProduct, query.numberOfSpareparts || 4, 'reactionaryspareparts');
 
     const result: ProductAssociation[] = associatedProducts.map(product => ({
@@ -120,7 +131,7 @@ export class MedusaProductAssociationsProvider extends ProductAssociationsProvid
       product,
     } satisfies ProductAssociation));
 
-    return success(result);
+    return success(result.map((x) => this.factory.parseAssociation(this.context, x)));
   }
 
   @Reactionary({
@@ -131,7 +142,7 @@ export class MedusaProductAssociationsProvider extends ProductAssociationsProvid
   })
   public override async getReplacements(
     query: ProductAssociationsGetReplacementsQuery
-  ): Promise<Result<ProductAssociation[]>> {
+  ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
     const associatedProducts = await this.fetchAssociatedProductsFor(query.forProduct, query.numberOfReplacements || 4, 'reactionaryreplacements');
 
     const result: ProductAssociation[] = associatedProducts.map(product => ({
@@ -142,7 +153,7 @@ export class MedusaProductAssociationsProvider extends ProductAssociationsProvid
       product,
     } satisfies ProductAssociation));
 
-    return success(result);
+    return success(result.map((x) => this.factory.parseAssociation(this.context, x)));
   }
 
   protected parseSingle(_body: StoreProduct): ProductSearchResultItem {

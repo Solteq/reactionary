@@ -1,9 +1,10 @@
 import 'dotenv/config';
 import type { RequestContext } from '@reactionary/core';
-import { NoOpCache, createInitialRequestContext } from '@reactionary/core';
+import { NoOpCache, ProfileSchema, createInitialRequestContext } from '@reactionary/core';
 import { getFakerTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { FakeProfileProvider } from '../providers/profile.provider.js';
+import { FakeProfileFactory } from '../factories/index.js';
 
 describe('Fake Profile Provider', () => {
   let provider: FakeProfileProvider;
@@ -14,7 +15,8 @@ describe('Fake Profile Provider', () => {
     provider = new FakeProfileProvider(
       getFakerTestConfiguration(),
       new NoOpCache(),
-      reqCtx
+      reqCtx,
+      new FakeProfileFactory(ProfileSchema),
     );
   });
 

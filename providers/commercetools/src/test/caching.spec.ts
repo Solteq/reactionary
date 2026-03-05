@@ -4,12 +4,16 @@ import { getCommercetoolsTestConfiguration } from './test-utils.js';
 import {
   createInitialRequestContext,
   MemoryCache,
+  ProductSchema,
+  ProductSearchResultSchema,
   type ProductIdentifier,
   type ProductSearchQueryByTerm,
 } from '@reactionary/core';
 import { CommercetoolsProductProvider } from '../providers/product.provider.js';
 import { CommercetoolsAPI } from '../core/client.js';
 import { CommercetoolsSearchProvider } from '../providers/product-search.provider.js';
+import { CommercetoolsProductFactory } from '../factories/product/product.factory.js';
+import { CommercetoolsProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 
 describe('Caching', () => {
   it('should cache repeat look-ups for products', async () => {
@@ -17,7 +21,13 @@ describe('Caching', () => {
     const context = createInitialRequestContext();
     const cache = new MemoryCache();
     const client = new CommercetoolsAPI(config, context);
-    const provider = new CommercetoolsProductProvider(config, cache, context, client);
+    const provider = new CommercetoolsProductProvider(
+      cache,
+      context,
+      config,
+      client,
+      new CommercetoolsProductFactory(ProductSchema)
+    );
 
     const identifier = {
         key: 'product_10959528'
@@ -49,7 +59,13 @@ describe('Caching', () => {
     const context = createInitialRequestContext();
     const cache = new MemoryCache();
     const client = new CommercetoolsAPI(config, context);
-    const provider = new CommercetoolsSearchProvider(config, cache, context, client);
+    const provider = new CommercetoolsSearchProvider(
+      config,
+      cache,
+      context,
+      client,
+      new CommercetoolsProductSearchFactory(ProductSearchResultSchema),
+    );
 
     const query = {
       search: {

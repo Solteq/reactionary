@@ -29,21 +29,35 @@ import {
   CheckoutMutationFinalizeCheckoutSchema,
   success,
   type CheckoutIdentifier,
+  type CheckoutFactory,
+  type CheckoutFactoryCheckoutOutput,
+  type CheckoutFactoryPaymentMethodOutput,
+  type CheckoutFactoryShippingMethodOutput,
+  type CheckoutFactoryWithOutput,
   PaymentMethodSchema,
   ShippingMethodSchema,
 } from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
 import * as z from 'zod';
+import type { FakeCheckoutFactory } from '../factories/checkout/checkout.factory.js';
 
-export class FakeCheckoutProvider extends CheckoutProvider {
+export class FakeCheckoutProvider<
+  TFactory extends CheckoutFactory = FakeCheckoutFactory,
+> extends CheckoutProvider<
+  CheckoutFactoryCheckoutOutput<TFactory>,
+  CheckoutFactoryShippingMethodOutput<TFactory>,
+  CheckoutFactoryPaymentMethodOutput<TFactory>
+> {
   protected config: FakeConfiguration;
   protected generator: Faker;
+  protected factory: CheckoutFactoryWithOutput<TFactory>;
 
   constructor(
     config: FakeConfiguration,
     cache: Cache,
-    context: RequestContext
+    context: RequestContext,
+    factory: CheckoutFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
@@ -53,6 +67,7 @@ export class FakeCheckoutProvider extends CheckoutProvider {
       locale: [en, base],
       seed: config.seeds.product,
     });
+    this.factory = factory;
   }
 
   @Reactionary({
@@ -61,10 +76,10 @@ export class FakeCheckoutProvider extends CheckoutProvider {
   })
   public override async initiateCheckoutForCart(
     payload: CheckoutMutationInitiateCheckout
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const checkout = this.composeBaseCheckout(payload.cart.identifier);
 
-    return success(checkout);
+    return success(this.factory.parseCheckout(this.context, checkout));
   }
 
   @Reactionary({
@@ -73,10 +88,10 @@ export class FakeCheckoutProvider extends CheckoutProvider {
   })
   public override async getById(
     payload: CheckoutQueryById
-  ): Promise<Result<Checkout, NotFoundError>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>, NotFoundError>> {
     const checkout = this.composeBaseCheckout(payload.identifier);
 
-    return success(checkout);
+    return success(this.factory.parseCheckout(this.context, checkout));
   }
 
   @Reactionary({
@@ -85,10 +100,10 @@ export class FakeCheckoutProvider extends CheckoutProvider {
   })
   public override async setShippingAddress(
     payload: CheckoutMutationSetShippingAddress
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const checkout = this.composeBaseCheckout(payload.checkout);
 
-    return success(checkout);
+    return success(this.factory.parseCheckout(this.context, checkout));
   }
 
   @Reactionary({
@@ -97,7 +112,7 @@ export class FakeCheckoutProvider extends CheckoutProvider {
   })
   public override async getAvailableShippingMethods(
     payload: CheckoutQueryForAvailableShippingMethods
-  ): Promise<Result<ShippingMethod[]>> {
+  ): Promise<Result<CheckoutFactoryShippingMethodOutput<TFactory>[]>> {
     const methods = [
       {
         name: 'Fake',
@@ -114,7 +129,9 @@ export class FakeCheckoutProvider extends CheckoutProvider {
       },
     ] satisfies Array<ShippingMethod>;
 
-    return success(methods);
+    return success(
+      methods.map((method) => this.factory.parseShippingMethod(this.context, method)),
+    );
   }
 
   @Reactionary({
@@ -123,7 +140,7 @@ export class FakeCheckoutProvider extends CheckoutProvider {
   })
   public override async getAvailablePaymentMethods(
     payload: CheckoutQueryForAvailablePaymentMethods
-  ): Promise<Result<PaymentMethod[]>> {
+  ): Promise<Result<CheckoutFactoryPaymentMethodOutput<TFactory>[]>> {
     const methods = [
       {
         description: 'A fake payment method for paying at some point',
@@ -136,7 +153,9 @@ export class FakeCheckoutProvider extends CheckoutProvider {
       },
     ] satisfies Array<PaymentMethod>;
 
-    return success(methods);
+    return success(
+      methods.map((method) => this.factory.parsePaymentMethod(this.context, method)),
+    );
   }
 
   @Reactionary({
@@ -145,10 +164,10 @@ export class FakeCheckoutProvider extends CheckoutProvider {
   })
   public override async addPaymentInstruction(
     payload: CheckoutMutationAddPaymentInstruction
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const checkout = this.composeBaseCheckout(payload.checkout);
 
-    return success(checkout);
+    return success(this.factory.parseCheckout(this.context, checkout));
   }
 
   @Reactionary({
@@ -157,10 +176,10 @@ export class FakeCheckoutProvider extends CheckoutProvider {
   })
   public override async removePaymentInstruction(
     payload: CheckoutMutationRemovePaymentInstruction
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const checkout = this.composeBaseCheckout(payload.checkout);
 
-    return success(checkout);
+    return success(this.factory.parseCheckout(this.context, checkout));
   }
 
   @Reactionary({
@@ -169,10 +188,10 @@ export class FakeCheckoutProvider extends CheckoutProvider {
   })
   public override async setShippingInstruction(
     payload: CheckoutMutationSetShippingInstruction
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const checkout = this.composeBaseCheckout(payload.checkout);
 
-    return success(checkout);
+    return success(this.factory.parseCheckout(this.context, checkout));
   }
 
   @Reactionary({
@@ -181,10 +200,10 @@ export class FakeCheckoutProvider extends CheckoutProvider {
   })
   public override async finalizeCheckout(
     payload: CheckoutMutationFinalizeCheckout
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const checkout = this.composeBaseCheckout(payload.checkout);
 
-    return success(checkout);
+    return success(this.factory.parseCheckout(this.context, checkout));
   }
 
   protected composeBaseCheckout(identifier?: CheckoutIdentifier) {

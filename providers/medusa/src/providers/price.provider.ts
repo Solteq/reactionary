@@ -11,6 +11,9 @@ import {
   type CustomerPriceQuery,
   type ListPriceQuery,
   type Price,
+  type PriceFactory,
+  type PriceFactoryOutput,
+  type PriceFactoryWithOutput,
   type RequestContext,
   type PriceIdentifier,
   type MonetaryAmount,
@@ -20,27 +23,35 @@ import createDebug from 'debug';
 import type * as z from 'zod';
 import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
+import type { MedusaPriceFactory } from '../factories/price/price.factory.js';
 
 const debug = createDebug('reactionary:medusa:price');
 
-export class MedusaPriceProvider extends PriceProvider {
+export class MedusaPriceProvider<
+  TFactory extends PriceFactory = MedusaPriceFactory,
+> extends PriceProvider<PriceFactoryOutput<TFactory>> {
   protected config: MedusaConfiguration;
+  protected factory: PriceFactoryWithOutput<TFactory>;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public medusaApi: MedusaAPI
+    public medusaApi: MedusaAPI,
+    factory: PriceFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
+    this.factory = factory;
   }
 
   @Reactionary({
     inputSchema: ListPriceQuerySchema,
     outputSchema: PriceSchema,
   })
-  public override async getListPrice(payload: ListPriceQuery): Promise<Result<Price>> {
+  public override async getListPrice(
+    payload: ListPriceQuery,
+  ): Promise<Result<PriceFactoryOutput<TFactory>>> {
     const result = await this.getBySKU(payload, 'list');
 
     return success(result);
@@ -50,14 +61,19 @@ export class MedusaPriceProvider extends PriceProvider {
     inputSchema: CustomerPriceQuerySchema,
     outputSchema: PriceSchema,
   })
-  public override async getCustomerPrice(payload: CustomerPriceQuery): Promise<Result<Price>> {
+  public override async getCustomerPrice(
+    payload: CustomerPriceQuery,
+  ): Promise<Result<PriceFactoryOutput<TFactory>>> {
     const result = await this.getBySKU(payload, 'customer');
 
     return success(result);
   }
 
 
-  protected async getBySKU(payload: ListPriceQuery | CustomerPriceQuery, mode: 'list' | 'customer' ): Promise<Price> {
+  protected async getBySKU(
+    payload: ListPriceQuery | CustomerPriceQuery,
+    mode: 'list' | 'customer',
+  ): Promise<PriceFactoryOutput<TFactory>> {
     const sku = payload.variant.sku;
 
     if (debug.enabled) {
@@ -98,7 +114,10 @@ export class MedusaPriceProvider extends PriceProvider {
     }
   }
 
-  protected parseSingle(variant: StoreProductVariant, mode: 'list' | 'customer'): Price {
+  protected parseSingle(
+    variant: StoreProductVariant,
+    mode: 'list' | 'customer',
+  ): PriceFactoryOutput<TFactory> {
     const identifier = {
       variant: {
         sku: variant.sku || '',
@@ -139,7 +158,7 @@ export class MedusaPriceProvider extends PriceProvider {
       onSale: isOnSale,
     } satisfies Price;
 
-    return result;
+    return this.factory.parsePrice(this.context, result);
   }
 
 
