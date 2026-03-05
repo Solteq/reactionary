@@ -36,23 +36,7 @@ export class MeilisearchSearchProvider extends ProductSearchProvider {
     this.config = config;
   }
 
-  @Reactionary({
-    inputSchema: ProductSearchQueryByTermSchema,
-    outputSchema: ProductSearchResultSchema,
-    cache: true,
-    cacheTimeToLiveInSeconds: 300,
-    currencyDependentCaching: false,
-    localeDependentCaching: true
-  })
-  public override async queryByTerm(
-    payload: ProductSearchQueryByTerm
-  ): Promise<Result<ProductSearchResult>> {
-    const client = new MeiliSearch({
-      host: this.config.apiUrl,
-      apiKey: this.config.apiKey,
-    });
-
-    const index = client.index(this.config.indexName);
+  protected queryByTermPayload(payload: ProductSearchQueryByTerm) {
 
     const facetsThatAreNotCategory = payload.search.facets.filter(x => x.facet.key !== 'categories');
     const categoryFacet = payload.search.facets.find(x => x.facet.key === 'categories') || payload.search.categoryFilter;
@@ -88,8 +72,29 @@ export class MeilisearchSearchProvider extends ProductSearchProvider {
         embedder: this.config.useAIEmbedding
       };
     }
+    return searchOptions;
+  }
 
-    const remote = await index.search<MeilisearchNativeRecord>(payload.search.term, searchOptions);
+  @Reactionary({
+    inputSchema: ProductSearchQueryByTermSchema,
+    outputSchema: ProductSearchResultSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true
+  })
+  public override async queryByTerm(
+    payload: ProductSearchQueryByTerm
+  ): Promise<Result<ProductSearchResult>> {
+    const client = new MeiliSearch({
+      host: this.config.apiUrl,
+      apiKey: this.config.apiKey,
+    });
+
+    const index = client.index(this.config.indexName);
+
+
+    const remote = await index.search<MeilisearchNativeRecord>(payload.search.term, this.queryByTermPayload(payload) as SearchParams);
 
     const result = this.parsePaginatedResult(remote, payload) as MeilisearchProductSearchResult;
 

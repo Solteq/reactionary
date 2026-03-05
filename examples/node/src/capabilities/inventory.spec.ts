@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 
-describe.each([PrimaryProvider.COMMERCETOOLS])('Inventory Capability', (provider) => {
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Inventory Capability', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {

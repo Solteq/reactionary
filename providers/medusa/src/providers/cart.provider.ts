@@ -16,6 +16,7 @@ import type {
   ItemCostBreakdown,
   NotFoundError,
   ProductVariantIdentifier,
+  Promotion,
   RequestContext,
   Result,
 } from '@reactionary/core';
@@ -31,10 +32,10 @@ import {
   CartProvider,
   CartQueryByIdSchema,
   CartSchema,
+  error,
   ProductVariantIdentifierSchema,
   Reactionary,
   success,
-  error,
 } from '@reactionary/core';
 
 import createDebug from 'debug';
@@ -47,8 +48,7 @@ import {
   parseMedusaCostBreakdown,
   parseMedusaItemPrice,
 } from '../utils/medusa-helpers.js';
-import type MedusaTypes = require('@medusajs/types');
-import type StoreCartPromotion = require('@medusajs/types');
+import type MedusaTypes from '@medusajs/types';
 
 const debug = createDebug('reactionary:medusa:cart');
 
@@ -87,7 +87,7 @@ export class MedusaCartProvider extends CartProvider {
         debug('Fetching cart by ID:', medusaId.key);
       }
 
-      const cartResponse = await client.store.cart.retrieve(medusaId.key);
+      const cartResponse = await client.store.cart.retrieve(medusaId.key, { fields: this.includedFields });
 
       if (debug.enabled) {
         debug('Received cart response:', cartResponse);
@@ -109,6 +109,21 @@ export class MedusaCartProvider extends CartProvider {
         identifier: payload,
       });
     }
+  }
+
+
+  /**
+   * Extension point for the `add` operation to control the payload sent to Medusa when adding an item to the cart. By default, it only includes the variant ID and quantity, but you can override it to include more fields as needed.
+   *
+   * @param payload
+   * @param variantId
+   * @returns
+   */
+  protected addPayload(payload: CartMutationItemAdd, variantId: string): MedusaTypes.StoreAddCartLineItem {
+    return  {
+      variant_id: variantId,
+      quantity: payload.quantity,
+    };
   }
 
   @Reactionary({
@@ -148,13 +163,11 @@ export class MedusaCartProvider extends CartProvider {
 
       const response = await client.store.cart.createLineItem(
         medusaId.key,
-        {
-          variant_id: variantId,
-          quantity: payload.quantity,
-        },
+        this.addPayload(payload, variantId),
         {
           fields: this.includedFields,
         }
+
       );
 
       if (debug.enabled) {
@@ -200,6 +213,18 @@ export class MedusaCartProvider extends CartProvider {
     }
   }
 
+  /**
+   * Extension point for the `changeQuantity` operation to control the payload sent to Medusa when changing the quantity of an item in the cart. By default, it only includes the new quantity, but you can override it to include more fields as needed.
+   * @param payload
+   * @returns
+   */
+  protected changeQuantityPayload(payload: CartMutationItemQuantityChange): MedusaTypes.StoreUpdateCartLineItem {
+    return {
+      quantity: payload.quantity,
+    };
+  }
+
+
   @Reactionary({
     inputSchema: CartMutationItemQuantityChangeSchema,
     outputSchema: CartSchema,
@@ -222,9 +247,7 @@ export class MedusaCartProvider extends CartProvider {
       const response = await client.store.cart.updateLineItem(
         medusaId.key,
         payload.item.key,
-        {
-          quantity: payload.quantity,
-        },
+        this.changeQuantityPayload(payload),
         {
           fields: this.includedFields,
         }
@@ -272,7 +295,7 @@ export class MedusaCartProvider extends CartProvider {
         identifier: undefined,
       });
     } catch (err) {
-      debug('Failed to get active cart ID:', error);
+      debug('Failed to get active cart ID:', err);
 
       return error<NotFoundError>({
         type: 'NotFound',
@@ -282,8 +305,8 @@ export class MedusaCartProvider extends CartProvider {
   }
 
   @Reactionary({
+    cache: false,
     inputSchema: CartMutationDeleteCartSchema,
-    outputSchema: CartSchema,
   })
   public override async deleteCart(
     payload: CartMutationDeleteCart
@@ -319,6 +342,18 @@ export class MedusaCartProvider extends CartProvider {
     }
   }
 
+
+  /**
+   * Extension point to apply a coupon code to the cart. By default, it only includes the coupon code, but you can override it to include more fields as needed.
+   * @param payload
+   * @returns
+   */
+  protected applyCouponCodePayload(payload: CartMutationApplyCoupon): MedusaTypes.StoreCartAddPromotion {
+    return {
+      promo_codes: [payload.couponCode],
+    };
+  }
+
   @Reactionary({
     inputSchema: CartMutationApplyCouponSchema,
     outputSchema: CartSchema,
@@ -330,16 +365,27 @@ export class MedusaCartProvider extends CartProvider {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
 
-      const response = await client.store.cart.update(
-        medusaId.key,
+
+      const response = await client.client.fetch<MedusaTypes.StoreCartResponse>(
+        `/store/carts/${medusaId.key}/promotions`,
         {
-          promo_codes: [payload.couponCode],
-        },
+          method: "POST",
+          body: this.applyCouponCodePayload(payload),
+          query: {
+            fields: this.includedFields,
+          }
+        }
+      );
+
+/** When PR: https://github.com/medusajs/medusa/pull/14850 gets merged, revert to the below
+      const response = await client.store.cart.addPromotionCodes(
+        medusaId.key,
+        this.applyCouponCodePayload(payload),
         {
           fields: this.includedFields,
         }
       );
-
+ */
       if (response.cart) {
         return success(this.parseSingle(response.cart));
       }
@@ -348,6 +394,18 @@ export class MedusaCartProvider extends CartProvider {
     } catch (error) {
       handleProviderError('apply coupon code', error);
     }
+  }
+
+  /**
+   * Extension point to remove a coupon code from the cart. By default, it only includes the coupon code to be removed, but you can override it to include more fields as needed.
+   * @param payload
+   * @returns
+   */
+  protected removeCouponCodePayload(payload: CartMutationRemoveCoupon): MedusaTypes.StoreCartRemovePromotion {
+    return {
+      promo_codes: [payload.couponCode],
+
+    };
   }
 
   @Reactionary({
@@ -361,37 +419,47 @@ export class MedusaCartProvider extends CartProvider {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
 
-      // Get current cart to find the discount to remove
-      const cartResponse = await client.store.cart.retrieve(medusaId.key);
-
-      if (cartResponse.cart?.promotions) {
-        const manualDiscounts = cartResponse.cart.promotions.filter(
-          (x) => !x.is_automatic && x.code
-        );
-
-        const remainingCodes = (manualDiscounts
-          .filter((x) => x.code !== payload.couponCode)
-          .map((promotion: MedusaTypes.StoreCartPromotion) => promotion.code) ||
-          []) as string[];
-        const response = await client.store.cart.update(
-          medusaId.key,
-          {
-            promo_codes: remainingCodes || [],
-          },
-          {
+      const response = await client.client.fetch<MedusaTypes.StoreCartResponse>(
+        `/store/carts/${medusaId.key}/promotions`,
+        {
+          method: "DELETE",
+          body: this.removeCouponCodePayload(payload),
+          query: {
             fields: this.includedFields,
           }
-        );
-
-        if (response.cart) {
-          return success(this.parseSingle(response.cart));
         }
-      }
+      );
 
+      /*
+
+      const response = await client.store.cart.removePromotionCodes(
+        medusaId.key,
+        this.removeCouponCodePayload(payload),
+        {
+          fields: this.includedFields,
+        }
+      );
+      */
+
+      if (response.cart) {
+        return success(this.parseSingle(response.cart));
+      }
       throw new Error('Failed to remove coupon code');
     } catch (error) {
       handleProviderError('remove coupon code', error);
     }
+  }
+
+  /**
+   * Extension point to control the payload sent to Medusa when changing the currency of the cart. By default, it only includes the new region ID, but you can override it to include more fields as needed.
+   * @param payload
+   * @param newRegionId
+   * @returns
+   */
+  protected changeCurrencyPayload(payload: CartMutationChangeCurrency, newRegionId: string): MedusaTypes.StoreUpdateCart {
+    return {
+      region_id: newRegionId,
+    };
   }
 
   @Reactionary({
@@ -404,35 +472,22 @@ export class MedusaCartProvider extends CartProvider {
     try {
       const client = await this.getClient();
 
-      // Get current cart
-      const currentCartResponse = await client.store.cart.retrieve(
-        payload.cart.key
-      );
-      client.store.cart.update(
+      const newRegionId = (await this.medusaApi.getActiveRegion()).id;
+      const updatedCartResponse = await client.store.cart.update(
         payload.cart.key,
-        {
-          region_id: (await this.medusaApi.getActiveRegion()).id,
-        },
+        this.changeCurrencyPayload(payload, newRegionId),
         {
           fields: this.includedFields,
         }
       );
-      if (!currentCartResponse.cart) {
-        throw new Error('Cart not found');
-      }
 
-      // Get the new cart
-      const newCartResponse = await client.store.cart.retrieve(
-        payload.cart.key
-      );
-
-      if (newCartResponse.cart) {
+      if (updatedCartResponse.cart) {
         // Update session to use new cart
         this.medusaApi.setSessionData({
-          activeCartId: newCartResponse.cart.id,
+          activeCartId: updatedCartResponse.cart.id,
         });
 
-        return success(this.parseSingle(newCartResponse.cart));
+        return success(this.parseSingle(updatedCartResponse.cart));
       }
 
       throw new Error('Failed to change currency');
@@ -441,18 +496,28 @@ export class MedusaCartProvider extends CartProvider {
     }
   }
 
+  /**
+   * Extension point to control the payload sent to Medusa when creating a cart. By default, it only includes the currency code, but you can override it to include more fields as needed.
+   * @param currency
+   * @returns
+   */
+  protected createCartPayload(currency?: string): MedusaTypes.StoreCreateCart {
+    return {
+        currency_code: (
+            currency ||
+            this.context.languageContext.currencyCode ||
+            ''
+        ).toLowerCase(),
+    };
+  }
+
+
   protected async createCart(currency?: string): Promise<CartIdentifier> {
     try {
       const client = await this.getClient();
 
       const response = await client.store.cart.create(
-        {
-          currency_code: (
-            currency ||
-            this.context.languageContext.currencyCode ||
-            ''
-          ).toLowerCase(),
-        },
+        this.createCartPayload(currency),
         {
           fields: this.includedFields,
         }
@@ -514,6 +579,7 @@ export class MedusaCartProvider extends CartProvider {
     remoteItem: MedusaTypes.StoreCartLineItem,
     currency: Currency
   ): CartItem {
+
     const item: CartItem = {
       identifier: {
         key: remoteItem.id,
@@ -559,12 +625,35 @@ export class MedusaCartProvider extends CartProvider {
       items.push(this.parseCartItem(remoteItem, price.grandTotal.currency));
     }
 
+
+    const appliedPromotions = [];
+    if (remote.promotions) {
+      for (const promo of remote.promotions) {
+
+        const promotionName = promo.code;
+        let promoDescription = '';
+        if (promo.application_method?.type === 'percentage') {
+          promoDescription = `-${promo.application_method.value}%`;
+        }
+        if (promo.application_method?.type === 'fixed') {
+          promoDescription = `-${promo.application_method.value} ${price.grandTotal.currency}`;
+        }
+        appliedPromotions.push({
+          code: promo.code || '',
+          isCouponCode: promo.is_automatic ? false : true,
+          name: promotionName || promoDescription,
+          description: promoDescription
+        } satisfies Promotion);
+      }
+    }
+
     const result = {
       identifier,
       name,
       description,
       price,
       items,
+      appliedPromotions,
       userId: {
         userId: '???',
       },

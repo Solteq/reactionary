@@ -2,6 +2,10 @@ import 'dotenv/config';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 
+const testData = {
+  sku: '0766623301831'
+}
+
 describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Identity Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
@@ -24,7 +28,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Identity
       {
         quantity: 1,
         variant: {
-          sku: '0766623301831'
+          sku: testData.sku
         },
       }
     );

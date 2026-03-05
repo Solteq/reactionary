@@ -24,7 +24,7 @@ const testData = {
   breadCrumb: ['2833', '225'],
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (provider) => {
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
@@ -37,7 +37,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
     });
 
     if (!result.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(result.error));
     }
 
     expect(result.value.items.length).toBeGreaterThan(0);
@@ -55,23 +55,26 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
     });
 
     if (!result.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(result.error));
     }
 
     expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.items[0].identifier.key).toBe(
-      testData.childCategoriesOfFirstTopcategory[0].key
-    );
-    expect(result.value.items[0].name).toBe(
-      testData.childCategoriesOfFirstTopcategory[0].name
+    expect(result.value.items).toEqual(
+
+        expect.arrayContaining([
+          expect.objectContaining({
+            identifier: { key: testData.childCategoriesOfFirstTopcategory[0].key },
+            name: testData.childCategoriesOfFirstTopcategory[0].name,
+          }),
+
+          expect.objectContaining({
+            identifier: { key: testData.childCategoriesOfFirstTopcategory[1].key },
+            name: testData.childCategoriesOfFirstTopcategory[1].name,
+          }),
+
+        ])
     );
 
-    expect(result.value.items[1].identifier.key).toBe(
-      testData.childCategoriesOfFirstTopcategory[1].key
-    );
-    expect(result.value.items[1].name).toBe(
-      testData.childCategoriesOfFirstTopcategory[1].name
-    );
   });
 
   it('should be able to get child categories for a category, paged', async () => {
@@ -79,22 +82,18 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
       parentId: { key: testData.topCategories[0].key },
       paginationOptions: { pageSize: 1, pageNumber: 1 },
     });
-    
+
     if (!result.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(result.error));
     }
 
     expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.items[0].identifier.key).toBe(
-      testData.childCategoriesOfFirstTopcategory[0].key
-    );
-    expect(result.value.items[0].name).toBe(
-      testData.childCategoriesOfFirstTopcategory[0].name
-    );
     expect(result.value.totalCount).toBe(3);
     expect(result.value.totalPages).toBe(3);
     expect(result.value.pageSize).toBe(1);
     expect(result.value.pageNumber).toBe(1);
+
+    const idFrom1 = result.value.items[0].identifier.key;
 
     result = await client.category.findChildCategories({
       parentId: { key: testData.topCategories[0].key },
@@ -102,20 +101,16 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
     });
 
     if (!result.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(result.error)  );
     }
 
     expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.items[0].identifier.key).toBe(
-      testData.childCategoriesOfFirstTopcategory[1].key
-    );
-    expect(result.value.items[0].name).toBe(
-      testData.childCategoriesOfFirstTopcategory[1].name
-    );
     expect(result.value.totalCount).toBe(3);
     expect(result.value.totalPages).toBe(3);
     expect(result.value.pageSize).toBe(1);
     expect(result.value.pageNumber).toBe(2);
+
+    expect(result.value.items[0].identifier.key).not.toBe(idFrom1);
   });
 
   it('can load all breadcrumbs for a category', async () => {
@@ -138,7 +133,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
     const result = await client.category.getBySlug({
       slug: testData.topCategories[0].slug!,
     });
-    
+
     if (!result.success) {
       assert.fail();
     }
@@ -154,7 +149,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
 
   it('returns NotFound if looking for slug that does not exist', async () => {
     const result = await client.category.getBySlug({ slug: 'non-existent-slug' });
-    
+
     if (result.success) {
       assert.fail();
     }
@@ -183,7 +178,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Category Capability - %s', (prov
     const result = await client.category.getById({
       id: { key: 'non-existent-category' },
     });
-    
+
     if (result.success) {
       assert.fail();
     }

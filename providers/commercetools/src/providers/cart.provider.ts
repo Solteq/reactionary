@@ -35,6 +35,7 @@ import type {
   CostBreakDown,
   Result,
   NotFoundError,
+  Promotion,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type {
@@ -49,7 +50,7 @@ import type { CommercetoolsAPI } from '../core/client.js';
 export class CommercetoolsCartProvider extends CartProvider {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
-
+  protected expandedCartFields = ['discountCodes[*].discountCode'];
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
@@ -71,7 +72,12 @@ export class CommercetoolsCartProvider extends CartProvider {
     const ctId = payload.cart as CommercetoolsCartIdentifier;
 
     try {
-      const remote = await client.carts.withId({ ID: ctId.key }).get().execute();
+      const remote = await client.carts.withId({ ID: ctId.key }).get(
+        {
+          queryArgs: {
+             expand: this.expandedCartFields
+          }
+        }).execute();
 
       return success(this.parseSingle(remote.body));
     } catch(err) {
@@ -92,6 +98,8 @@ export class CommercetoolsCartProvider extends CartProvider {
       cartIdentifier = await this.createCart();
     }
 
+    const channelId = await this.commercetools.resolveChannelIdByRole('Primary');
+
     const result = await this.applyActions(cartIdentifier, [
       {
         action: 'addLineItem',
@@ -100,7 +108,7 @@ export class CommercetoolsCartProvider extends CartProvider {
         // FIXME: This should be dynamic, probably as part of the context...
         distributionChannel: {
           typeId: 'channel',
-          key: 'OnlineFfmChannel',
+          id: channelId,
         },
       },
       {
@@ -184,7 +192,6 @@ export class CommercetoolsCartProvider extends CartProvider {
 
   @Reactionary({
     inputSchema: CartMutationDeleteCartSchema,
-    outputSchema: CartSchema,
   })
   public override async deleteCart(
     payload: CartMutationDeleteCart
@@ -234,11 +241,28 @@ export class CommercetoolsCartProvider extends CartProvider {
   public override async removeCouponCode(
     payload: CartMutationRemoveCoupon
   ): Promise<Result<Cart>> {
+
+    const client = await this.getClient();
+    const currentCart = await client.carts
+      .withId({ ID: payload.cart.key })
+      .get({
+        queryArgs: {
+          expand: this.expandedCartFields
+        }
+      })
+      .execute();
+
+    const discountCodeReference = currentCart.body.discountCodes?.find(dc => dc.discountCode.obj?.code === payload.couponCode)?.discountCode;
+
+    if (!discountCodeReference) {
+      // Coupon code is not applied to the cart, so we can just return the cart as is.
+      return success(this.parseSingle(currentCart.body));
+    }
     const result = await this.applyActions(payload.cart, [
       {
         action: 'removeDiscountCode',
         discountCode: {
-          id: payload.couponCode,
+          id: discountCodeReference.id,
           typeId: 'discount-code',
         },
       },
@@ -319,6 +343,9 @@ export class CommercetoolsCartProvider extends CartProvider {
           country: this.context.taxJurisdiction.countryCode || 'US',
           locale: this.context.languageContext.locale,
         },
+        queryArgs: {
+            expand: this.expandedCartFields
+        }
       })
       .execute();
 
@@ -343,6 +370,9 @@ export class CommercetoolsCartProvider extends CartProvider {
             version: ctId.version,
             actions,
           },
+          queryArgs: {
+              expand: this.expandedCartFields
+          }
         })
         .execute();
 
@@ -378,7 +408,19 @@ export class CommercetoolsCartProvider extends CartProvider {
   protected parseCartItem(remoteItem: LineItem): CartItem {
     const unitPrice = remoteItem.price.value.centAmount;
     const totalPrice = remoteItem.totalPrice.centAmount || 0;
-    const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
+    let itemDiscount = 0;
+
+    // look, discounts are weird in commercetools.... i think the .price.discount only applies for embedded prices maybe?
+
+    if (remoteItem.discountedPricePerQuantity && remoteItem.discountedPricePerQuantity.length > 0) {
+        itemDiscount = remoteItem.discountedPricePerQuantity.reduce((sum, discPrQty) => {
+          return sum + discPrQty.quantity * discPrQty.discountedPrice?.includedDiscounts?.
+              reduce((sum, discount) => sum + discount.discountedAmount.centAmount, 0) || 0
+        }, 0);
+    }
+
+    const totalDiscount = (remoteItem.price.discounted?.value.centAmount || 0) + itemDiscount;
+
     const unitDiscount = totalDiscount / remoteItem.quantity;
     const currency =
       remoteItem.price.value.currencyCode.toUpperCase() as Currency;
@@ -423,12 +465,23 @@ export class CommercetoolsCartProvider extends CartProvider {
       version: remote.version || 0,
     } satisfies CommercetoolsCartIdentifier;
 
+
+    const items = new Array<CartItem>();
+    for (const remoteItem of remote.lineItems) {
+      const item = this.parseCartItem(remoteItem);
+
+      items.push(item);
+    }
+
+
     const grandTotal = remote.totalPrice.centAmount || 0;
     const shippingTotal = remote.shippingInfo?.price.centAmount || 0;
     const productTotal = grandTotal - shippingTotal;
     const taxTotal = remote.taxedPrice?.totalTax?.centAmount || 0;
+
+    // i think this is missing some elements still?
     const discountTotal =
-      remote.discountOnTotalPrice?.discountedAmount.centAmount || 0;
+      (remote.discountOnTotalPrice?.discountedAmount.centAmount || 0) + items.reduce((sum, item) => sum + (item.price.totalDiscount.value * 100 || 0), 0);
     const surchargeTotal = 0;
     const currency = remote.totalPrice.currencyCode as Currency;
 
@@ -459,12 +512,23 @@ export class CommercetoolsCartProvider extends CartProvider {
       },
     } satisfies CostBreakDown;
 
-    const items = new Array<CartItem>();
-    for (const remoteItem of remote.lineItems) {
-      const item = this.parseCartItem(remoteItem);
 
-      items.push(item);
+    const localeString = this.context.languageContext.locale || 'en'
+    const appliedPromotions = [];
+    if (remote.discountCodes) {
+      for (const promo of remote.discountCodes) {
+        appliedPromotions.push({
+          code: promo.discountCode.obj?.code || '',
+          isCouponCode: true,
+          name: promo.discountCode.obj?.name?.[localeString] || '',
+          description: promo.discountCode.obj?.description?.[localeString] || '',
+        } satisfies Promotion);
+      }
     }
+
+    // if we want to include the nice name and description of the non-coupon promotions, we have to do some extra work to fetch the referenced promotions and include them here,
+    // as the max expand level is 3, and the information is at level 5.
+    // For now, we will just include the coupon codes, as that is the most common use case.
 
     const cart = {
       identifier,
@@ -474,6 +538,7 @@ export class CommercetoolsCartProvider extends CartProvider {
       name: remote.custom?.fields['name'] || '',
       description: remote.custom?.fields['description'] || '',
       price,
+      appliedPromotions,
       items,
     } satisfies Cart;
 

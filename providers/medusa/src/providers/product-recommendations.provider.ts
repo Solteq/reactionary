@@ -1,4 +1,4 @@
-import type { StoreProduct, StoreProductVariant } from '@medusajs/types';
+import type { StoreCollection, StoreProduct, StoreProductVariant } from '@medusajs/types';
 import {
   error,
   ImageSchema,
@@ -42,6 +42,14 @@ export class MedusaProductRecommendationsProvider extends ProductRecommendations
     this.medusaApi = medusaApi;
   }
 
+
+  protected getCollectionPayload(query: ProductRecommendationsByCollectionQuery, collection: StoreCollection) {
+    return {
+        collection_id: [collection.id],
+        limit: query.numberOfRecommendations,
+        fields: '+variants.id,+variants.sku,+external_id',
+      }
+  }
   /**
    * Get product recommendations from a Medusa collection
    *
@@ -82,11 +90,7 @@ export class MedusaProductRecommendationsProvider extends ProductRecommendations
       }
 
       // Fetch products from the collection
-      const productsResponse = await client.store.product.list({
-        collection_id: [collection.id],
-        limit: query.numberOfRecommendations,
-        fields: '+variants.id,+variants.sku,+external_id',
-      });
+      const productsResponse = await client.store.product.list(this.getCollectionPayload(query, collection));
 
       if (debug.enabled) {
         debug(`Found ${productsResponse.products.length} products in collection`);

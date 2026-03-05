@@ -2,13 +2,14 @@ import 'dotenv/config';
 import { createClient, PrimaryProvider } from '../utils.js';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { ProductSearchQueryByTermSchema, type ProductSearchQueryByTerm } from '@reactionary/core';
+import { de } from '@faker-js/faker';
 
 const testData = {
   skuWithoutTiers: '0766623301831',
   skuWithTiers: '0766623360203',
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider) => {
+describe.each([ PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Cart Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
@@ -37,7 +38,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
       });
 
       if (!cart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(cart.error));
       }
 
       expect(cart.value.identifier.key).toBeDefined();
@@ -61,9 +62,8 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
         },
         quantity: 1,
       });
-      
       if (!cart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(cart.error));
       }
 
       const updatedCart = await client.cart.add({
@@ -75,7 +75,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
       });
 
       if (!updatedCart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(updatedCart.error) );
       }
 
       expect(updatedCart.value.items.length).toBe(2);
@@ -94,7 +94,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
       });
 
       if (!cart.success) {
-        assert.fail();
+        assert.fail (JSON.stringify(cart.error) );
       }
 
       const updatedCart = await client.cart.changeQuantity({
@@ -104,7 +104,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
       });
 
       if (!updatedCart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(updatedCart.error));
       }
 
       expect(updatedCart.value.items.length).toBe(1);
@@ -127,7 +127,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
       });
 
       if (!cart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(cart.error));
       }
 
       const updatedCart = await client.cart.remove({
@@ -136,13 +136,15 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
       });
 
       if (!updatedCart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(updatedCart.error));
       }
 
       expect(updatedCart.value.items.length).toBe(0);
     });
 
     it('should be able to delete a cart', async () => {
+
+
       const cart = await client.cart.add({
         variant: {
           sku: testData.skuWithoutTiers,
@@ -151,22 +153,38 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
       });
 
       if (!cart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(cart.error)  );
       }
 
       expect(cart.value.items.length).toBe(1);
       expect(cart.value.identifier.key).toBeTruthy();
 
-      await client.cart.deleteCart({
+      const deleteCartResponse = await client.cart.deleteCart({
         cart: cart.value.identifier,
       });
+
+      if (!deleteCartResponse.success) {
+        assert.fail(JSON.stringify(deleteCartResponse.error));
+      }
+
 
       const originalCart = await client.cart.getById({
         cart: cart.value.identifier,
       });
 
+
+      if (provider === PrimaryProvider.MEDUSA) {
+        // medusa can't delete a cart, so we just empty it.
+        if (!originalCart.success) {
+          assert.fail(JSON.stringify(originalCart.error));
+        }
+
+        expect(originalCart.value.items.length).toBe(0);
+        return;
+      }
+
       if (originalCart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(originalCart.value));
       }
       expect(originalCart.error.type).toBe('NotFound');
     });
@@ -180,7 +198,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
       });
 
       if (!cart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(cart.error));
       }
 
       expect(cart.value.items[0].variant).toBeDefined();
@@ -190,7 +208,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
       });
 
       if (!product.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(product.error));
       }
 
       expect(product).toBeTruthy();
@@ -200,6 +218,71 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
         );
       }
     });
+
+    it('can apply a coupon code to a cart', async () => {
+      const cart = await client.cart.add({
+        variant: {
+          sku: testData.skuWithoutTiers,
+        },
+        quantity: 1,
+      });
+
+      if (!cart.success) {
+        assert.fail(JSON.stringify(cart.error));
+      }
+      expect(cart.value.price.totalDiscount.value).toBe(0);
+
+      const updatedCart = await client.cart.applyCouponCode({
+        cart: cart.value.identifier,
+        couponCode: 'TESTCODE1',
+      });
+
+      if (!updatedCart.success) {
+        assert.fail(JSON.stringify(updatedCart.error));
+      }
+
+      expect(updatedCart.value.price.grandTotal.value).toBeLessThan(cart.value.price.grandTotal.value);
+      expect(updatedCart.value.price.totalDiscount.value).toBeGreaterThan(0);
+
+      expect(updatedCart.value.appliedPromotions.find(promo => promo.code === 'TESTCODE1' && promo.isCouponCode === true)).toBeTruthy();
+
+    });
+
+    it('can remove a coupon code from a cart', async () => {
+      const cart = await client.cart.add({
+        variant: {
+          sku: testData.skuWithoutTiers,
+        },
+        quantity: 1,
+      });
+
+      if (!cart.success) {
+        assert.fail(JSON.stringify(cart.error));
+      }
+      const updatedCart = await client.cart.applyCouponCode({
+        cart: cart.value.identifier,
+        couponCode: 'TESTCODE1',
+      });
+
+      if (!updatedCart.success) {
+        assert.fail(JSON.stringify(updatedCart.error));
+      }
+
+      expect(updatedCart.value.price.grandTotal.value).toBeLessThan(cart.value.price.grandTotal.value);
+
+      const removedCouponCart = await client.cart.removeCouponCode({
+        cart: cart.value.identifier,
+        couponCode: 'TESTCODE1',
+      });
+
+      if (!removedCouponCart.success) {
+        assert.fail(JSON.stringify(removedCouponCart.error));
+      }
+
+      expect(removedCouponCart.value.price.grandTotal.value).toBeGreaterThan(updatedCart.value.price.grandTotal.value);
+      expect(removedCouponCart.value.price.grandTotal.value).toBe(cart.value.price.grandTotal.value);
+    });
+
 
     it('should be able to add an 50 items to a cart in less than 30 seconds', async () => {
       const searchResult = await client.productSearch.queryByTerm(
@@ -217,7 +300,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart Capability - %s', (provider
       );
 
       if (!searchResult.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(searchResult.error)  );
       }
 
       let cartIdentifier = undefined;

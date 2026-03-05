@@ -79,6 +79,14 @@ export class MedusaProfileProvider extends ProfileProvider {
     return success(model);
   }
 
+  protected updatePayload(payload: ProfileMutationUpdate) {
+    const updateData: any = {};
+    if (payload.phone !== undefined) {
+      updateData.phone = payload.phone;
+    }
+    return updateData;
+  }
+
   @Reactionary({
     inputSchema: ProfileMutationUpdateSchema,
     outputSchema: ProfileSchema,
@@ -98,12 +106,14 @@ export class MedusaProfileProvider extends ProfileProvider {
 
     const customer = customerResponse.customer;
 
-    const updatedResponse = await client.store.customer.update({
-      phone: payload.phone ?? customer.phone,
-    }, { fields: this.includedFields.join(',') });
+    const updatedResponse = await client.store.customer.update(this.updatePayload(payload), { fields: this.includedFields.join(',') });
 
     const model = this.parseSingle(updatedResponse.customer);
     return success(model);
+  }
+
+  protected addShippingAddressPayload(payload: ProfileMutationAddShippingAddress) {
+    return this.createMedusaAddress(payload.address);
   }
 
   @Reactionary({
@@ -115,7 +125,6 @@ export class MedusaProfileProvider extends ProfileProvider {
 
     const client = await this.medusaApi.getClient();
 
-    const medusaAddress = this.createMedusaAddress(payload.address);
 
     // check if any address with the same nickName exists
     const customer = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
@@ -133,7 +142,7 @@ export class MedusaProfileProvider extends ProfileProvider {
       });
     }
 
-    const response = await client.store.customer.createAddress(medusaAddress, { fields: this.includedFields.join(',') });
+    const response = await client.store.customer.createAddress(this.addShippingAddressPayload(payload), { fields: this.includedFields.join(',') });
     if (!response.customer) {
       return error<InvalidInputError>({
         type: 'InvalidInput',
@@ -143,6 +152,10 @@ export class MedusaProfileProvider extends ProfileProvider {
 
     const model = this.parseSingle(response.customer);
     return success(model);
+  }
+
+  protected updateShippingAddressPayload(payload: ProfileMutationUpdateShippingAddress) {
+    return this.createMedusaAddress(payload.address);
   }
 
   @Reactionary({
@@ -162,8 +175,6 @@ export class MedusaProfileProvider extends ProfileProvider {
       });
     }
 
-    const medusaAddress = this.createMedusaAddress(payload.address);
-
     const existingAddress = customer.customer.addresses.find(addr => addr.address_name === payload.address.identifier.nickName);
     if (!existingAddress) {
       return error<NotFoundError>({
@@ -172,7 +183,7 @@ export class MedusaProfileProvider extends ProfileProvider {
       });
     }
 
-    const response = await client.store.customer.updateAddress(existingAddress.id, medusaAddress , { fields: this.includedFields.join(',') });
+    const response = await client.store.customer.updateAddress(existingAddress.id, this.updateShippingAddressPayload(payload), { fields: this.includedFields.join(',') });
     if (!response.customer) {
       return error<InvalidInputError>({
         type: 'InvalidInput',
@@ -226,6 +237,12 @@ export class MedusaProfileProvider extends ProfileProvider {
   }
 
 
+  protected makeShippingAddressDefaultPayload(payload: ProfileMutationMakeShippingAddressDefault) {
+   return  {
+      is_default_shipping: true
+    }
+  }
+
   @Reactionary({
     inputSchema: ProfileMutationMakeShippingAddressDefaultSchema,
     outputSchema: ProfileSchema,
@@ -251,13 +268,21 @@ export class MedusaProfileProvider extends ProfileProvider {
       });
     }
 
-    const response = await client.store.customer.updateAddress(existingAddress.id, {
-      is_default_shipping: true
-    }, { fields: this.includedFields.join(',') }
+    const response = await client.store.customer.updateAddress(
+      existingAddress.id,
+      this.makeShippingAddressDefaultPayload(payload),
+      { fields: this.includedFields.join(',') }
     );
 
     const model = this.parseSingle(response.customer!);
     return success(model);
+  }
+
+
+  protected setBillingAddressPayload(payload: ProfileMutationSetBillingAddress) {
+    const newAddr = this.createMedusaAddress(payload.address);
+    newAddr.is_default_billing = true;
+    return newAddr;
   }
 
   @Reactionary({
@@ -289,9 +314,9 @@ export class MedusaProfileProvider extends ProfileProvider {
     }
 
 
-    const newAddr = this.createMedusaAddress(payload.address);
-    newAddr.is_default_billing = true;
 
+
+    const newAddr = this.setBillingAddressPayload(payload);
     // two scenarios: Either we already have a billing addres, in which case we update it, or we dont and we need to create it.
     const existingBillingAddress = customer.addresses.find(addr => addr.is_default_billing);
     if (existingBillingAddress) {

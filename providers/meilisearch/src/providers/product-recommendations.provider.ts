@@ -9,7 +9,7 @@ import {
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
 } from '@reactionary/core';
-import { MeiliSearch, type Hits, type RecordAny, type SearchParams, type SearchResponse } from 'meilisearch';
+import { MeiliSearch, type Hits, type RecordAny, type SearchParams, type SearchResponse, type SearchSimilarDocumentsParams } from 'meilisearch';
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
 import type { MeilisearchNativeRecord, MeilisearchNativeVariant } from '../schema/index.js';
 
@@ -32,6 +32,14 @@ export class MeilisearchProductRecommendationsProvider extends ProductRecommenda
     this.config = config;
   }
 
+  protected getSimilarProductsRecommendationsPayload(query: ProductRecommendationAlgorithmSimilarProductsQuery): SearchSimilarDocumentsParams {
+    return {
+        id: query.sourceProduct.key,
+        limit: query.numberOfRecommendations,
+        embedder: this.config.useAIEmbedding,
+      }
+  }
+
   /**
    * Get similar product recommendations
    * Uses semantic search to find visually or data-wise similar products
@@ -52,16 +60,7 @@ export class MeilisearchProductRecommendationsProvider extends ProductRecommenda
     }
 
     try {
-      const searchOptions: SearchParams = {
-        limit: query.numberOfRecommendations,
-      };
-
-      const response = await index.searchSimilarDocuments<MeilisearchNativeRecord>({
-        id: query.sourceProduct.key,
-        limit: query.numberOfRecommendations,
-        embedder: this.config.useAIEmbedding,
-      });
-
+      const response = await index.searchSimilarDocuments<MeilisearchNativeRecord>(this.getSimilarProductsRecommendationsPayload(query));
 
       return this.parseRecommendations(response, 'similar');
     } catch (error) {

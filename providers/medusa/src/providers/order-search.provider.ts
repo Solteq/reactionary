@@ -44,14 +44,9 @@ export class MedusaOrderSearchProvider extends OrderSearchProvider {
 
   }
 
-  @Reactionary({
-    inputSchema: OrderSearchQueryByTermSchema,
-    outputSchema: OrderSearchResultSchema,
-  })
-  public async queryByTerm(payload: OrderSearchQueryByTerm): Promise<Result<OrderSearchResult>> {
-    debug('queryByTerm', payload);
+  protected queryByTermPayload(payload: OrderSearchQueryByTerm): any {
+    const filters: any = {};
 
-    const medusa = await this.medusaApi.getClient();
 
     if (payload.search.term) {
       debug('Searching orders by term is not supported in Medusa');
@@ -67,10 +62,12 @@ export class MedusaOrderSearchProvider extends OrderSearchProvider {
     if (payload.search.endDate) {
       debug('Searching orders by end date is not supported in Medusa');
     }
+
     /*
     if (payload.search.user && payload.search.user.userId) {
       debug('Searching orders by customer ID is not supported in Medusa');
     } */
+
     const statusFilter: MedusaOrderStatus[] = (payload.search.orderStatus ?? []).map((status) => {
       let retStatus: MedusaOrderStatus = 'draft';
       if (status === 'AwaitingPayment') {
@@ -88,15 +85,29 @@ export class MedusaOrderSearchProvider extends OrderSearchProvider {
       return retStatus;
     });
 
-
-    const response = await medusa.store.order.list({
+    return {
       status: statusFilter,
       limit: payload.search.paginationOptions.pageSize,
       offset:
         (payload.search.paginationOptions.pageNumber - 1) *
         payload.search.paginationOptions.pageSize,
 
-    });
+    }
+  }
+
+  @Reactionary({
+    inputSchema: OrderSearchQueryByTermSchema,
+    outputSchema: OrderSearchResultSchema,
+  })
+  public async queryByTerm(payload: OrderSearchQueryByTerm): Promise<Result<OrderSearchResult>> {
+    debug('queryByTerm', payload);
+
+    const medusa = await this.medusaApi.getClient();
+
+
+
+
+    const response = await medusa.store.order.list(this.queryByTermPayload(payload));
 
     const result = this.parsePaginatedResult(response, payload) as OrderSearchResult;
     if (debug.enabled) {

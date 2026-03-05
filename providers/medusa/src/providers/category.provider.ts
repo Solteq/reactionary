@@ -93,6 +93,14 @@ export class MedusaCategoryProvider extends CategoryProvider {
     return success(this.parseSingle(candidate));
   }
 
+  protected getBySlugPayload(payload: CategoryQueryBySlug) {
+    return {
+      handle: payload.slug,
+      limit: 1,
+      offset: 0,
+    }
+  }
+
   @Reactionary({
     inputSchema: CategoryQueryBySlugSchema,
     outputSchema: CategorySchema.nullable(),
@@ -102,11 +110,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
   ): Promise<Result<Category, NotFoundError>> {
     const sdk = await this.medusaApi.getClient();
 
-    const categoryResult = await sdk.store.category.list({
-      handle: payload.slug,
-      limit: 1,
-      offset: 0,
-    });
+    const categoryResult = await sdk.store.category.list(this.getBySlugPayload(payload));
     if (categoryResult.count === 0) {
       return error<NotFoundError>({
         type: 'NotFound',
@@ -146,6 +150,17 @@ export class MedusaCategoryProvider extends CategoryProvider {
     return success(results);
   }
 
+
+  protected findChildCategoriesPayload(payload: CategoryQueryForChildCategories, actualParent: StoreProductCategory) {
+    return {
+      fields: '+metadata,+parent_category.metadata',
+      parent_category_id: actualParent.id,
+      limit: payload.paginationOptions.pageSize,
+      offset:
+        (payload.paginationOptions.pageNumber - 1) *
+        payload.paginationOptions.pageSize,
+    }
+  }
   @Reactionary({
     inputSchema: CategoryQueryForChildCategoriesSchema,
     outputSchema: CategoryPaginatedResultSchema,
@@ -155,24 +170,28 @@ export class MedusaCategoryProvider extends CategoryProvider {
   ) {
     const sdk = await this.medusaApi.getClient();
 
-    const actualParentId = await this.resolveCategoryIdByExternalId(
+    const actualParent = await this.resolveCategoryIdByExternalId(
       payload.parentId.key
     );
-    if (!actualParentId) {
+    if (!actualParent) {
       throw new Error('Parent category not found ' + payload.parentId.key);
     }
 
-    const response = await sdk.store.category.list({
-      fields: '+metadata,+parent_category.metadata',
-      parent_category_id: actualParentId.id,
+    const response = await sdk.store.category.list(this.findChildCategoriesPayload(payload, actualParent));
+
+    const result = this.parsePaginatedResult(response);
+    return success(result);
+  }
+
+  protected findTopCategoriesPayload(payload: CategoryQueryForTopCategories) {
+    return {
+      fields: '+metadata',
+      parent_category_id: 'null',
       limit: payload.paginationOptions.pageSize,
       offset:
         (payload.paginationOptions.pageNumber - 1) *
         payload.paginationOptions.pageSize,
-    });
-
-    const result = this.parsePaginatedResult(response);
-    return success(result);
+    }
   }
 
   @Reactionary({
@@ -184,17 +203,9 @@ export class MedusaCategoryProvider extends CategoryProvider {
   ) {
     const sdk = await this.medusaApi.getClient();
 
-    const response = await sdk.store.category.list({
-      fields: '+metadata',
-      parent_category_id: 'null',
-      limit: payload.paginationOptions.pageSize,
-      offset:
-        (payload.paginationOptions.pageNumber - 1) *
-        payload.paginationOptions.pageSize,
-    });
+    const response = await sdk.store.category.list(this.findTopCategoriesPayload(payload));
 
     const result = this.parsePaginatedResult(response);
-
     return success(result);
   }
 
@@ -246,3 +257,4 @@ export class MedusaCategoryProvider extends CategoryProvider {
     return result;
   }
 }
+

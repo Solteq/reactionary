@@ -12,7 +12,7 @@ const testData = {
   skuWithTiers: '0766623360203',
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS])(
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
   'Checkout Capability - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
@@ -46,7 +46,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         const checkout = await client.checkout.initiateCheckoutForCart({
           cart: cart,
           billingAddress: {
-            countryCode: 'US',
+            countryCode: 'DK',
             firstName: 'John',
             lastName: 'Doe',
             streetAddress: '123 Main St',
@@ -80,7 +80,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
           const cc = await client.checkout.initiateCheckoutForCart({
             cart: cart,
             billingAddress: {
-              countryCode: 'US',
+              countryCode: 'DK',
               firstName: 'John',
               lastName: 'Doe',
               streetAddress: '123 Main St',
@@ -114,7 +114,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
 
           expect(paymentMethods.value.length).toBeGreaterThan(0);
           expect(
-            paymentMethods.value.find((x) => x.identifier.method === 'stripe')
+            paymentMethods.value.find((x) => x.identifier.method === 'stripe' || x.identifier.method.includes('stripe'))
           ).toBeDefined();
         });
 
@@ -306,7 +306,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
           const r = await client.checkout.getAvailablePaymentMethods({
             checkout: checkout.identifier,
           });
-          
+
           if (!r.success) {
             assert.fail();
           }

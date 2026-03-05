@@ -37,14 +37,7 @@ export class AlgoliaProductSearchProvider extends ProductSearchProvider {
     this.config = config;
   }
 
-  @Reactionary({
-    inputSchema: ProductSearchQueryByTermSchema,
-    outputSchema: ProductSearchResultSchema
-  })
-  public override async queryByTerm(
-    payload: ProductSearchQueryByTerm
-  ): Promise<Result<ProductSearchResult>> {
-    const client = algoliasearch(this.config.appId, this.config.apiKey);
+  protected queryByTermPayload(payload: ProductSearchQueryByTerm) {
 
     const facetsThatAreNotCategory = payload.search.facets.filter(x => x.facet.key !== 'categories');
     const categoryFacet = payload.search.facets.find(x => x.facet.key === 'categories') || payload.search.categoryFilter;
@@ -60,11 +53,7 @@ export class AlgoliaProductSearchProvider extends ProductSearchProvider {
     if (categoryFacet) {
       finalFilters.push(`categories:"${categoryFacet.key}"`);
     }
-
-
-    const remote = await client.search<AlgoliaNativeRecord>({
-      requests: [
-        {
+    return {
           indexName: this.config.indexName,
           query: payload.search.term,
           page: payload.search.paginationOptions.pageNumber - 1,
@@ -75,7 +64,23 @@ export class AlgoliaProductSearchProvider extends ProductSearchProvider {
           facetFilters: finalFacetFilters,
           filters: (finalFilters || [])
             .join(' AND '),
-        },
+        };
+  }
+
+  @Reactionary({
+    inputSchema: ProductSearchQueryByTermSchema,
+    outputSchema: ProductSearchResultSchema
+  })
+  public override async queryByTerm(
+    payload: ProductSearchQueryByTerm
+  ): Promise<Result<ProductSearchResult>> {
+    const client = algoliasearch(this.config.appId, this.config.apiKey);
+
+
+
+    const remote = await client.search<AlgoliaNativeRecord>({
+      requests: [
+        this.queryByTermPayload(payload)
       ],
     });
 
