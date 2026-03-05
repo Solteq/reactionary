@@ -9,6 +9,7 @@ import { MedusaProductProvider } from '../providers/product.provider.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
 import { MedusaAPI } from '../index.js';
+import { MedusaProductFactory } from '../factories/product/product.factory.js';
 
 const testData = {
   product: {
@@ -33,7 +34,8 @@ describe('Medusa Product Provider', () => {
       getMedusaTestConfiguration(),
       new NoOpCache(),
       reqCtx,
-      client
+      client,
+      new MedusaProductFactory(ProductSchema),
     );
   });
 

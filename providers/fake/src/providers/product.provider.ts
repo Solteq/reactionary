@@ -1,36 +1,41 @@
 import {
-  type ProductQueryById,
-  type ProductQueryBySlug,
-  type RequestContext,
-  type Cache as ReactinaryCache,
-  ProductProvider,
-  Reactionary,
-  type ProductQueryBySKU,
-  type Product,
-  ProductQueryByIdSchema,
-  ProductSchema,
-  ProductQueryBySlugSchema,
-  ProductQueryBySKUSchema,
-  type Result,
-  error,
-  success,
+  type Cache,
   type NotFoundError,
+  type ProductFactory,
+  type ProductFactoryOutput,
+  type ProductFactoryWithOutput,
+  type ProductQueryById,
+  ProductQueryByIdSchema,
+  type ProductQueryBySKU,
+  ProductQueryBySKUSchema,
+  type ProductQueryBySlug,
+  ProductQueryBySlugSchema,
+  ProductProvider,
+  ProductSchema,
+  type RequestContext,
+  type Result,
+  Reactionary,
+  success,
 } from '@reactionary/core';
-import type * as z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
+import type { FakeProductFactory } from '../factories/product/product.factory.js';
 
-export class FakeProductProvider extends ProductProvider {
+export class FakeProductProvider<
+  TFactory extends ProductFactory = FakeProductFactory,
+> extends ProductProvider<ProductFactoryOutput<TFactory>> {
   protected config: FakeConfiguration;
+  protected factory: ProductFactoryWithOutput<TFactory>;
 
   constructor(
     config: FakeConfiguration,
-    cache: ReactinaryCache,
-    context: RequestContext
+    cache: Cache,
+    context: RequestContext,
+    factory: ProductFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
-
     this.config = config;
+    this.factory = factory;
   }
 
   @Reactionary({
@@ -42,9 +47,9 @@ export class FakeProductProvider extends ProductProvider {
     localeDependentCaching: true,
   })
   public override async getById(
-    payload: ProductQueryById
-  ): Promise<Result<Product>> {
-    return success(this.parseSingle(payload.identifier.key));
+    payload: ProductQueryById,
+  ): Promise<Result<ProductFactoryOutput<TFactory>>> {
+    return success(this.composeSingle(payload.identifier.key));
   }
 
   @Reactionary({
@@ -52,9 +57,9 @@ export class FakeProductProvider extends ProductProvider {
     outputSchema: ProductSchema,
   })
   public override async getBySlug(
-    payload: ProductQueryBySlug
-  ): Promise<Result<Product, NotFoundError>> {
-    return success(this.parseSingle(payload.slug));
+    payload: ProductQueryBySlug,
+  ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
+    return success(this.composeSingle(payload.slug));
   }
 
   @Reactionary({
@@ -62,26 +67,23 @@ export class FakeProductProvider extends ProductProvider {
     outputSchema: ProductSchema,
   })
   public override async getBySKU(
-    payload: ProductQueryBySKU
-  ): Promise<Result<Product>> {
-    return success(this.parseSingle(payload.variant.sku));
+    payload: ProductQueryBySKU,
+  ): Promise<Result<ProductFactoryOutput<TFactory>>> {
+    return success(this.composeSingle(payload.variant.sku));
   }
 
-  protected parseSingle(body: string): Product {
+  protected composeSingle(body: string): ProductFactoryOutput<TFactory> {
     const generator = new Faker({
       seed: 42,
       locale: [en, base],
     });
 
-    const key = body;
-
-    // Merge the generated data into the model
     const result = {
       identifier: {
-        key: key,
+        key: body,
       },
       name: generator.commerce.productName(),
-      slug: key,
+      slug: body,
       brand: '',
       longDescription: '',
       mainVariant: {
@@ -103,8 +105,8 @@ export class FakeProductProvider extends ProductProvider {
       published: true,
       sharedAttributes: [],
       variants: [],
-    } satisfies Product;
+    };
 
-    return result;
+    return this.factory.parseProduct(this.context, result);
   }
 }

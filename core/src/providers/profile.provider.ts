@@ -5,7 +5,7 @@ import type { ProfileQuerySelf as ProfileQueryById } from '../schemas/queries/in
 import type { Result } from '../schemas/result.js';
 import { BaseProvider } from './base.provider.js';
 
-export abstract class ProfileProvider extends BaseProvider {
+export abstract class ProfileProvider<TProfile extends Profile = Profile> extends BaseProvider {
 
   /**
    * Returns the profile of the currently authenticated (registered) user.
@@ -13,7 +13,7 @@ export abstract class ProfileProvider extends BaseProvider {
    * Usecase: Fetch the profile of the logged-in user for display in header, or account settings.
    * @param payload
    */
-  public abstract getById(payload: ProfileQueryById): Promise<Result<Profile, NotFoundError>>;
+  public abstract getById(payload: ProfileQueryById): Promise<Result<TProfile, NotFoundError>>;
 
   /**
    * Updates the base profile information of the currently authenticated (registered) user.
@@ -26,7 +26,7 @@ export abstract class ProfileProvider extends BaseProvider {
    * Usecase: Update the user's name, email, or phone number.
    * @param payload
    */
-  public abstract update(payload: ProfileMutationUpdate): Promise<Result<Profile, NotFoundError>>;
+  public abstract update(payload: ProfileMutationUpdate): Promise<Result<TProfile, NotFoundError>>;
 
   /**
    * Creates a new shipping address for the currently authenticated (registered) user.
@@ -36,7 +36,7 @@ export abstract class ProfileProvider extends BaseProvider {
    * done at checkout should be considered local to that session, unless the addressbook is empty.
    * @param payload
    */
-  public abstract addShippingAddress(payload: ProfileMutationAddShippingAddress): Promise<Result<Profile, NotFoundError>>;
+  public abstract addShippingAddress(payload: ProfileMutationAddShippingAddress): Promise<Result<TProfile, NotFoundError>>;
 
   /**
    * Updates an existing shipping address for the currently authenticated (registered) user.
@@ -45,7 +45,7 @@ export abstract class ProfileProvider extends BaseProvider {
    * done at checkout should be considered local to that session/order, unless the addressbook is empty.
    * @param payload
    */
-  public abstract updateShippingAddress(payload: ProfileMutationUpdateShippingAddress): Promise<Result<Profile, NotFoundError>>;
+  public abstract updateShippingAddress(payload: ProfileMutationUpdateShippingAddress): Promise<Result<TProfile, NotFoundError>>;
 
   /**
    * Removes an existing shipping address for the currently authenticated (registered) user.
@@ -55,7 +55,7 @@ export abstract class ProfileProvider extends BaseProvider {
    * Usecase: User deletes a shipping address from their profile.
    * @param payload
    */
-  public abstract removeShippingAddress(payload: ProfileMutationRemoveShippingAddress): Promise<Result<Profile, NotFoundError>>;
+  public abstract removeShippingAddress(payload: ProfileMutationRemoveShippingAddress): Promise<Result<TProfile, NotFoundError>>;
 
   /**
    * Configures an existing shipping address as the default shipping address for the currently authenticated (registered) user.
@@ -63,7 +63,7 @@ export abstract class ProfileProvider extends BaseProvider {
    * Usecase: User selects a default shipping address in their profile.
    * @param payload
    */
-  public abstract makeShippingAddressDefault(payload: ProfileMutationMakeShippingAddressDefault): Promise<Result<Profile, NotFoundError>>;
+  public abstract makeShippingAddressDefault(payload: ProfileMutationMakeShippingAddressDefault): Promise<Result<TProfile, NotFoundError>>;
 
   /**
    * Sets the current/active billing address for the currently authenticated (registered) user.
@@ -74,7 +74,7 @@ export abstract class ProfileProvider extends BaseProvider {
    * entity being billed, and as such it makes sense to have a single authoritative billing address.
    * @param payload
    */
-  public abstract setBillingAddress(payload: ProfileMutationSetBillingAddress): Promise<Result<Profile, NotFoundError>>;
+  public abstract setBillingAddress(payload: ProfileMutationSetBillingAddress): Promise<Result<TProfile, NotFoundError>>;
 
   protected override getResourceName(): string {
     return 'profile';

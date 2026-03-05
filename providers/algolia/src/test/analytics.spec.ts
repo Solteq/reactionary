@@ -3,6 +3,8 @@ import { AlgoliaAnalyticsProvider } from '../providers/analytics.provider.js';
 import { createInitialRequestContext, NoOpCache } from '@reactionary/core';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import { AlgoliaProductSearchProvider } from '../providers/product-search.provider.js';
+import { AlgoliaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
+import { AlgoliaProductSearchResultSchema } from '../schema/search.schema.js';
 
 describe('Analytics event tracking', async () => {
   const config = {
@@ -13,7 +15,13 @@ describe('Analytics event tracking', async () => {
   const cache = new NoOpCache();
   const context = createInitialRequestContext();
 
-  const search = new AlgoliaProductSearchProvider(cache, context, config);
+  const searchFactory = new AlgoliaProductSearchFactory(AlgoliaProductSearchResultSchema);
+  const search = new AlgoliaProductSearchProvider<typeof searchFactory>(
+    cache,
+    context,
+    config,
+    searchFactory,
+  );
   const analytics = new AlgoliaAnalyticsProvider(cache, context, config);
   const searchResult = await search.queryByTerm({
     search: {

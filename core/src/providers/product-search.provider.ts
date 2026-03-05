@@ -1,15 +1,21 @@
-import type { Category, FacetIdentifier, FacetValueIdentifier, Result } from '../index.js';
-import type { ProductSearchResult, ProductSearchResultFacet, ProductSearchResultFacetValue, ProductSearchResultItemVariant } from '../schemas/models/product-search.model.js';
-import type { ProductSearchQueryByTerm, ProductSearchQueryCreateNavigationFilter } from '../schemas/queries/product-search.query.js';
+import type { Category, FacetValueIdentifier, Result } from '../index.js';
+import type { ProductSearchResult } from '../schemas/models/product-search.model.js';
+import type {
+  ProductSearchQueryByTerm,
+  ProductSearchQueryCreateNavigationFilter,
+} from '../schemas/queries/product-search.query.js';
 import { BaseProvider } from './base.provider.js';
 
-export abstract class ProductSearchProvider extends BaseProvider {
+export abstract class ProductSearchProvider<
+  TProductSearchResult extends ProductSearchResult = ProductSearchResult,
+> extends BaseProvider {
   protected override getResourceName(): string {
     return 'product-search';
   }
 
-public abstract queryByTerm(payload: ProductSearchQueryByTerm): Promise<Result<ProductSearchResult>>;
-
+  public abstract queryByTerm(
+    payload: ProductSearchQueryByTerm,
+  ): Promise<Result<TProductSearchResult>>;
 
   /**
    * Since each platform has it own way of representing categories and their hierarchy, we leave it to the platform to tell us how to get from a
@@ -29,7 +35,9 @@ public abstract queryByTerm(payload: ProductSearchQueryByTerm): Promise<Result<P
    *
    * @param categoryPath
    */
-  public abstract createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<Result<FacetValueIdentifier>>;
+  public abstract createCategoryNavigationFilter(
+    payload: ProductSearchQueryCreateNavigationFilter,
+  ): Promise<Result<FacetValueIdentifier>>;
 
   /**
    * Parses a facet value from the search response.
@@ -37,25 +45,4 @@ public abstract queryByTerm(payload: ProductSearchQueryByTerm): Promise<Result<P
    * @param label The label for the facet value.
    * @param count The count for the facet value.
    */
-  protected abstract parseFacetValue(facetValueIdentifier: FacetValueIdentifier,  label: string, count: number) : ProductSearchResultFacetValue;
-
-  /**
-   * Parses a facet from the search response.
-   * @param facetIdentifier The identifier for the facet.
-   * @param facetValue The value for the facet.
-   *
-   * Usecase: Override this to customize the parsing of facets.
-   */
-  protected abstract parseFacet(facetIdentifier: FacetIdentifier,  facetValue: unknown) : ProductSearchResultFacet;
-
-  /**
-   * Parses a product variant from the search response.
-   * @param variant The variant data from the search response.
-   * @param product The product data from the search response.
-   *
-   * Usecase: Override this to customize the parsing of product variants.
-   */
-  protected abstract parseVariant(variant: unknown, product: unknown): ProductSearchResultItemVariant;
 }
-
-

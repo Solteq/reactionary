@@ -1,8 +1,18 @@
 
-import { NoOpCache, createInitialRequestContext, unwrapValue, type Cart, type CartMutationItemAdd, type RequestContext } from '@reactionary/core';
+import {
+  CartIdentifierSchema,
+  CartSchema,
+  NoOpCache,
+  createInitialRequestContext,
+  unwrapValue,
+  type Cart,
+  type CartMutationItemAdd,
+  type RequestContext,
+} from '@reactionary/core';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { MedusaAPI } from '../core/client.js';
 import { MedusaCartProvider } from '../providers/cart.provider.js';
+import { MedusaCartFactory } from '../factories/cart/cart.factory.js';
 import { getMedusaTestConfiguration } from './test-utils.js';
 
 
@@ -19,7 +29,13 @@ describe('Medusa Cart Provider', () => {
   beforeEach( () => {
     reqCtx = createInitialRequestContext();
     const client = new MedusaAPI(getMedusaTestConfiguration(), reqCtx);
-    provider = new MedusaCartProvider(getMedusaTestConfiguration(), new NoOpCache(), reqCtx, client);
+    provider = new MedusaCartProvider(
+      getMedusaTestConfiguration(),
+      new NoOpCache(),
+      reqCtx,
+      client,
+      new MedusaCartFactory(CartSchema, CartIdentifierSchema),
+    );
   });
 
   describe('anonymous sessions', () => {

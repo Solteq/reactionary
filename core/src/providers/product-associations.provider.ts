@@ -9,7 +9,9 @@ import type { ProductAssociation } from '../schemas/models/product-associations.
  * accessories, spareparts, and replacements. These associations are typically used to provide recommendations to customers on the product detail page, but can also be used in other contexts such as the cart or post-purchase, but
  * do not carry any personalization concept to them.
  */
-export abstract class ProductAssociationsProvider extends BaseProvider {
+export abstract class ProductAssociationsProvider<
+  TProductAssociation extends ProductAssociation = ProductAssociation,
+> extends BaseProvider {
 
   /**
    * Returns a list of product identifiers which are accessories to the given product.
@@ -23,7 +25,7 @@ export abstract class ProductAssociationsProvider extends BaseProvider {
    *
    * TODO:  This should be a PaginatedResult
    */
-  public abstract getAccessories(query: ProductAssociationsGetAccessoriesQuery): Promise<Result<ProductAssociation[]>>;
+  public abstract getAccessories(query: ProductAssociationsGetAccessoriesQuery): Promise<Result<TProductAssociation[]>>;
 
   /**
    * Returns a list of product identifiers which are spareparts to the given product.
@@ -34,7 +36,7 @@ export abstract class ProductAssociationsProvider extends BaseProvider {
    *
    * TODO:  This should be a PaginatedResult
    */
-  public abstract getSpareparts(query: ProductAssociationsGetSparepartsQuery): Promise<Result<ProductAssociation[]>>;
+  public abstract getSpareparts(query: ProductAssociationsGetSparepartsQuery): Promise<Result<TProductAssociation[]>>;
 
 
   /**
@@ -43,7 +45,7 @@ export abstract class ProductAssociationsProvider extends BaseProvider {
    * TODO:  This should be a PaginatedResult
    * @param query
    */
-  public abstract getReplacements(query: ProductAssociationsGetReplacementsQuery): Promise<Result<ProductAssociation[]>>;
+  public abstract getReplacements(query: ProductAssociationsGetReplacementsQuery): Promise<Result<TProductAssociation[]>>;
 
 
   getResourceName(): string {

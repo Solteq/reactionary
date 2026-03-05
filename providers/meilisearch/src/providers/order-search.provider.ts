@@ -19,9 +19,13 @@ import {
   AddressIdentifierSchema,
   type AddressIdentifier,
   type OrderInventoryStatus,
+  type OrderSearchFactory,
+  type OrderSearchFactoryOutput,
+  type OrderSearchFactoryWithOutput,
 } from '@reactionary/core';
 import { MeiliSearch, type SearchParams, type SearchResponse } from 'meilisearch';
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
+import type { MeilisearchOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
 
 interface MeilisearchNativeOrderAddress {
   address1: string;
@@ -44,12 +48,21 @@ interface MeilisearchNativeOrderRecord {
   currency: string;
 }
 
-export class MeilisearchOrderSearchProvider extends OrderSearchProvider {
+export class MeilisearchOrderSearchProvider<
+  TFactory extends OrderSearchFactory = MeilisearchOrderSearchFactory,
+> extends OrderSearchProvider<OrderSearchFactoryOutput<TFactory>> {
   protected config: MeilisearchConfiguration;
+  protected factory: OrderSearchFactoryWithOutput<TFactory>;
 
-  constructor(config: MeilisearchConfiguration, cache: Cache, context: RequestContext) {
+  constructor(
+    config: MeilisearchConfiguration,
+    cache: Cache,
+    context: RequestContext,
+    factory: OrderSearchFactoryWithOutput<TFactory>,
+  ) {
     super(cache, context);
     this.config = config;
+    this.factory = factory;
   }
 
   protected queryByTermPayload(payload: OrderSearchQueryByTerm): SearchParams {
@@ -100,7 +113,9 @@ export class MeilisearchOrderSearchProvider extends OrderSearchProvider {
     inputSchema: OrderSearchQueryByTermSchema,
     outputSchema: OrderSearchResultSchema,
   })
-  public async queryByTerm(payload: OrderSearchQueryByTerm): Promise<Result<OrderSearchResult>> {
+  public async queryByTerm(
+    payload: OrderSearchQueryByTerm,
+  ): Promise<Result<OrderSearchFactoryOutput<TFactory>>> {
     const client = new MeiliSearch({
       host: this.config.apiUrl,
       apiKey: this.config.apiKey,
@@ -114,9 +129,9 @@ export class MeilisearchOrderSearchProvider extends OrderSearchProvider {
       this.queryByTermPayload(payload)
     );
 
-    const result = this.parsePaginatedResult(remote, payload) as OrderSearchResult;
+    const result = this.parsePaginatedResult(remote, payload);
 
-    return success(result);
+    return success(this.factory.parseOrderSearchResult(this.context, result, payload));
   }
 
   protected mapOrderStatus(status: OrderStatus): string {

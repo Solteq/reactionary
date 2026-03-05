@@ -4,7 +4,7 @@ import type { ProductQueryById, ProductQueryBySKU, ProductQueryBySlug } from '..
 import type { Result } from '../schemas/result.js';
 import type { NotFoundError } from '../schemas/index.js';
 
-export abstract class ProductProvider extends BaseProvider {
+export abstract class ProductProvider<TProduct extends Product = Product> extends BaseProvider {
 
 
   /**
@@ -17,7 +17,7 @@ export abstract class ProductProvider extends BaseProvider {
    * Marketing will TYPICALLY recommend products, and in some cases maybe HeroVariants of a product.
    * In that case, you would need to resolve the product to its hero variant first, and then get the SKU from there.
    */
-  public abstract getById(payload: ProductQueryById): Promise<Result<Product>>;
+  public abstract getById(payload: ProductQueryById): Promise<Result<TProduct>>;
 
 
   /**
@@ -27,7 +27,7 @@ export abstract class ProductProvider extends BaseProvider {
    *
    * Usecase: You are rendering a product detail page, and you need to fetch the product by its slug.
    */
-  public abstract getBySlug(payload: ProductQueryBySlug): Promise<Result<Product, NotFoundError>>;
+  public abstract getBySlug(payload: ProductQueryBySlug): Promise<Result<TProduct, NotFoundError>>;
 
 
   /**
@@ -39,9 +39,9 @@ export abstract class ProductProvider extends BaseProvider {
    * and you need to fetch the product details for that SKU. You will get the a Product back, with the variant matching the SKU set as heroSku.
    * It might also be used on a quick-order page, or product recommendations from external system.
    */
-  public abstract getBySKU(payload: ProductQueryBySKU): Promise<Result<Product>>;
+  public abstract getBySKU(payload: ProductQueryBySKU): Promise<Result<TProduct>>;
 
-  protected createEmptyProduct(id: string): Product {
+  protected createEmptyProduct(id: string): TProduct {
     // FIXME: We can probably get rid of this once we switch to errors as values, as we shouldn't even
     // be materializing an empty product...
     const product = {
@@ -73,7 +73,7 @@ export abstract class ProductProvider extends BaseProvider {
       variants: [],
     } satisfies Product;
 
-    return product;
+    return product as unknown as TProduct;
   }
 
   /**

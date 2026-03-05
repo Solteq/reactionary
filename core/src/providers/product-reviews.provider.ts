@@ -8,7 +8,11 @@ import { type ProductRatingIdentifier } from '../schemas/models/identifiers.mode
  * Reviews contain ratings along with textual feedback, author information, and verification status.
  * This provider also handles aggregated rating summaries for products.
  */
-export abstract class ProductReviewsProvider extends BaseProvider {
+export abstract class ProductReviewsProvider<
+  TProductRatingSummary extends ProductRatingSummary = ProductRatingSummary,
+  TProductReviewPaginatedResult extends ProductReviewPaginatedResult = ProductReviewPaginatedResult,
+  TProductReview extends ProductReview = ProductReview,
+> extends BaseProvider {
   /**
    * Get the rating summary for a product, including average rating and distribution.
    *
@@ -17,7 +21,7 @@ export abstract class ProductReviewsProvider extends BaseProvider {
    */
   public abstract getRatingSummary(
     query: ProductReviewsGetRatingSummaryQuery
-  ): Promise<Result<ProductRatingSummary>>;
+  ): Promise<Result<TProductRatingSummary>>;
 
   /**
    * Get a paginated list of reviews for a product.
@@ -27,7 +31,7 @@ export abstract class ProductReviewsProvider extends BaseProvider {
    */
   public abstract findReviews(
     query: ProductReviewsListQuery
-  ): Promise<Result<ProductReviewPaginatedResult>>;
+  ): Promise<Result<TProductReviewPaginatedResult>>;
   /**
    * Submit a review for a product.
    *
@@ -36,7 +40,7 @@ export abstract class ProductReviewsProvider extends BaseProvider {
    */
   public abstract submitReview(
     mutation: ProductReviewMutationSubmit
-  ): Promise<Result<ProductReview>>;
+  ): Promise<Result<TProductReview>>;
 
 
   protected createEmptyProductRatingSummary(key: ProductRatingIdentifier): ProductRatingSummary {

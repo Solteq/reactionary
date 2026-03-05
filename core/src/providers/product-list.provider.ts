@@ -13,7 +13,12 @@ import { BaseProvider } from "./base.provider.js";
  *
  * Some systems might only support single entries of each type, but the general case is to support multiples.
  */
-export abstract class ProductListProvider extends BaseProvider {
+export abstract class ProductListProvider<
+  TProductList extends ProductList = ProductList,
+  TProductListItem extends ProductListItem = ProductListItem,
+  TProductListPaginatedResult extends ProductListPaginatedResult = ProductListPaginatedResult,
+  TProductListItemPaginatedResult extends ProductListItemPaginatedResult = ProductListItemPaginatedResult,
+> extends BaseProvider {
 
   protected getResourceName(): string {
     return 'product-lists';
@@ -24,7 +29,7 @@ export abstract class ProductListProvider extends BaseProvider {
    * you might have stored the identifier from an earlier session or looked it up previously.
    * @param payload
    */
-  public abstract getById(payload: ProductListQueryById): Promise<Result<ProductList>>;
+  public abstract getById(payload: ProductListQueryById): Promise<Result<TProductList>>;
 
 
   /**
@@ -33,7 +38,7 @@ export abstract class ProductListProvider extends BaseProvider {
    *
    * @param query
    */
-  public abstract queryLists(query: ProductListQuery): Promise<Result<ProductListPaginatedResult>>;
+  public abstract queryLists(query: ProductListQuery): Promise<Result<TProductListPaginatedResult>>;
 
 
   /**
@@ -44,14 +49,14 @@ export abstract class ProductListProvider extends BaseProvider {
    * which the customer can then add the product to.
    * @param mutation
    */
-  public abstract addList(mutation: ProductListMutationCreate): Promise<Result<ProductList>>;
+  public abstract addList(mutation: ProductListMutationCreate): Promise<Result<TProductList>>;
 
   /**
    *
    * Usecase: update name of list, or other metadata related to the list, such as "this is my summer wishlist", or "this is my favorite list for cameras".
    * @param mutation
    */
-  public abstract updateList(mutation: ProductListMutationUpdate): Promise<Result<ProductList>>;
+  public abstract updateList(mutation: ProductListMutationUpdate): Promise<Result<TProductList>>;
 
   /**
    * Usecase: customer wants to delete a list, such as "delete my summer wishlist", including all the product list items
@@ -63,13 +68,13 @@ export abstract class ProductListProvider extends BaseProvider {
    * Usecase: in the frontend you want to show a list of the products in the customers wishlist.
    * @param query
    */
-  public abstract queryListItems(query: ProductListItemsQuery): Promise<Result<ProductListItemPaginatedResult>>;
+  public abstract queryListItems(query: ProductListItemsQuery): Promise<Result<TProductListItemPaginatedResult>>;
 
   /**
    * Usecase: Add a new product-variant to a list
    * @param mutation
    */
-  public abstract addItem(mutation: ProductListItemMutationCreate): Promise<Result<ProductListItem>>;
+  public abstract addItem(mutation: ProductListItemMutationCreate): Promise<Result<TProductListItem>>;
 
   /**
    * Usecase: Remove a product-variant from a list.
@@ -81,6 +86,6 @@ export abstract class ProductListProvider extends BaseProvider {
    * Usecase: Update the quantity of a product-variant in a list.
    * @param mutation
    */
-  public abstract updateItem(mutation: ProductListItemMutationUpdate): Promise<Result<ProductListItem>>;
+  public abstract updateItem(mutation: ProductListItemMutationUpdate): Promise<Result<TProductListItem>>;
 
 }

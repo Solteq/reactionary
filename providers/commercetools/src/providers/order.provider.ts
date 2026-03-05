@@ -1,39 +1,37 @@
 import type {
   RequestContext,
   Cache,
-  Order,
+  OrderFactory,
+  OrderFactoryOutput,
+  OrderFactoryWithOutput,
   OrderQueryById,
-  Currency,
-  OrderIdentifier,
-  CostBreakDown,
-  OrderStatus,
-  OrderItem,
-  ProductVariantIdentifier,
-  ItemCostBreakdown,
   Result,
   NotFoundError,
 } from '@reactionary/core';
 import { OrderProvider, OrderQueryByIdSchema, OrderSchema, Reactionary, success, error } from '@reactionary/core';
-import type * as z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { Order as CTOrder } from '@commercetools/platform-sdk';
-import { type CommercetoolsOrderIdentifier } from '../schema/commercetools.schema.js';
 import type { CommercetoolsAPI } from '../core/client.js';
+import type { CommercetoolsOrderFactory } from '../factories/order/order.factory.js';
 
-export class CommercetoolsOrderProvider extends OrderProvider {
+export class CommercetoolsOrderProvider<
+  TFactory extends OrderFactory = CommercetoolsOrderFactory,
+> extends OrderProvider<OrderFactoryOutput<TFactory>> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: OrderFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: OrderFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   protected async getClient() {
@@ -48,7 +46,7 @@ export class CommercetoolsOrderProvider extends OrderProvider {
     inputSchema: OrderQueryByIdSchema,
     outputSchema: OrderSchema,
   })
-  public override async getById(payload: OrderQueryById): Promise<Result<Order, NotFoundError>> {
+  public override async getById(payload: OrderQueryById): Promise<Result<OrderFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
 
     try {
@@ -57,7 +55,7 @@ export class CommercetoolsOrderProvider extends OrderProvider {
         .get()
         .execute();
 
-      return success(this.parseSingle(remote.body));
+      return success(this.factory.parseOrder(this.context, remote.body));
     } catch (e) {
       return error<NotFoundError>({
         type: 'NotFound',
@@ -66,133 +64,4 @@ export class CommercetoolsOrderProvider extends OrderProvider {
     }
   }
 
-  protected parseSingle(_body: unknown): Order {
-    const remote = _body as CTOrder;
-
-    const identifier = {
-      key: remote.id,
-      version: remote.version || 0,
-    } satisfies CommercetoolsOrderIdentifier;
-
-    const name = remote.custom?.fields['name'] || '';
-    const description = remote.custom?.fields['description'] || '';
-
-    const grandTotal = remote.totalPrice.centAmount || 0;
-    const shippingTotal = remote.shippingInfo?.price.centAmount || 0;
-    const productTotal = grandTotal - shippingTotal;
-    const taxTotal = remote.taxedPrice?.totalTax?.centAmount || 0;
-    const discountTotal =
-      remote.discountOnTotalPrice?.discountedAmount.centAmount || 0;
-    const surchargeTotal = 0;
-    const currency = remote.totalPrice.currencyCode as Currency;
-
-    const price = {
-      totalTax: {
-        value: taxTotal / 100,
-        currency,
-      },
-      totalDiscount: {
-        value: discountTotal / 100,
-        currency,
-      },
-      totalSurcharge: {
-        value: surchargeTotal / 100,
-        currency,
-      },
-      totalShipping: {
-        value: shippingTotal / 100,
-        currency: remote.shippingInfo?.price.currencyCode as Currency,
-      },
-      totalProductPrice: {
-        value: productTotal / 100,
-        currency,
-      },
-      grandTotal: {
-        value: grandTotal / 100,
-        currency,
-      },
-    } satisfies CostBreakDown;
-
-    let orderStatus: OrderStatus = 'AwaitingPayment';
-    if (remote.paymentState === 'Pending' && remote.orderState === 'Open') {
-      orderStatus = 'AwaitingPayment';
-    } else if (
-      remote.paymentState === 'Paid' &&
-      remote.orderState === 'Confirmed'
-    ) {
-      orderStatus = 'ReleasedToFulfillment';
-    }
-    if (remote.shipmentState === 'Ready' && remote.orderState === 'Confirmed') {
-      orderStatus = 'ReleasedToFulfillment';
-    }
-    if (
-      (remote.shipmentState === 'Shipped' ||
-        remote.shipmentState === 'Delivered') &&
-      remote.orderState === 'Completed'
-    ) {
-      orderStatus = 'Shipped';
-    }
-
-    const items = new Array<OrderItem>();
-    for (const remoteItem of remote.lineItems) {
-      const identifier = {
-        key: remoteItem.id
-      } satisfies OrderIdentifier;
-
-      const variant = {
-        sku: remoteItem.variant.sku || ''
-      } satisfies ProductVariantIdentifier;
-      const quantity = remoteItem.quantity;
-
-      const unitPrice = remoteItem.price.value.centAmount;
-      const totalPrice = remoteItem.totalPrice.centAmount || 0;
-      const totalDiscount = remoteItem.price.discounted?.value.centAmount || 0;
-      const unitDiscount = totalDiscount / remoteItem.quantity;
-
-      const price = {
-        unitPrice: {
-          value: unitPrice / 100,
-          currency,
-        },
-        unitDiscount: {
-          value: unitDiscount / 100,
-          currency,
-        },
-        totalPrice: {
-          value: (totalPrice || 0) / 100,
-          currency,
-        },
-        totalDiscount: {
-          value: totalDiscount / 100,
-          currency,
-        },
-      } satisfies ItemCostBreakdown;
-
-      const item = {
-        identifier,
-        inventoryStatus: 'NotAllocated',
-        price,
-        quantity,
-        variant
-      } satisfies OrderItem;
-
-      items.push(item);
-    }
-
-    const result = {
-      identifier,
-      name,
-      description,
-      price,
-      items,
-      inventoryStatus: 'NotAllocated',
-      paymentInstructions: [],
-      userId: {
-        userId: ''
-      },
-      orderStatus
-    } satisfies Order;
-
-    return result;
-  }
 }

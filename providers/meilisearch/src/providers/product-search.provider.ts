@@ -6,6 +6,9 @@ import {
   FacetValueIdentifierSchema,
   ImageSchema,
   ProductSearchProvider,
+  type ProductSearchFactory,
+  type ProductSearchFactoryOutput,
+  type ProductSearchFactoryWithOutput,
   type ProductSearchQueryByTerm,
   ProductSearchQueryByTermSchema,
   type ProductSearchQueryCreateNavigationFilter,
@@ -25,15 +28,25 @@ import {
 } from '@reactionary/core';
 import { MeiliSearch, type SearchParams, type SearchResponse } from 'meilisearch';
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
-import type { MeilisearchNativeRecord, MeilisearchNativeVariant, MeilisearchProductSearchResult } from '../schema/search.schema.js';
+import type { MeilisearchNativeRecord, MeilisearchNativeVariant } from '../schema/search.schema.js';
+import type { MeilisearchProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 
 
-export class MeilisearchSearchProvider extends ProductSearchProvider {
+export class MeilisearchSearchProvider<
+  TFactory extends ProductSearchFactory = MeilisearchProductSearchFactory,
+> extends ProductSearchProvider<ProductSearchFactoryOutput<TFactory>> {
   protected config: MeilisearchConfiguration;
+  protected factory: ProductSearchFactoryWithOutput<TFactory>;
 
-  constructor(config: MeilisearchConfiguration, cache: Cache, context: RequestContext) {
+  constructor(
+    config: MeilisearchConfiguration,
+    cache: Cache,
+    context: RequestContext,
+    factory: ProductSearchFactoryWithOutput<TFactory>,
+  ) {
     super(cache, context);
     this.config = config;
+    this.factory = factory;
   }
 
   protected queryByTermPayload(payload: ProductSearchQueryByTerm) {
@@ -85,7 +98,7 @@ export class MeilisearchSearchProvider extends ProductSearchProvider {
   })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
-  ): Promise<Result<ProductSearchResult>> {
+  ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
     const client = new MeiliSearch({
       host: this.config.apiUrl,
       apiKey: this.config.apiKey,
@@ -96,7 +109,7 @@ export class MeilisearchSearchProvider extends ProductSearchProvider {
 
     const remote = await index.search<MeilisearchNativeRecord>(payload.search.term, this.queryByTermPayload(payload) as SearchParams);
 
-    const result = this.parsePaginatedResult(remote, payload) as MeilisearchProductSearchResult;
+    const result = this.parsePaginatedResult(remote, payload);
 
     // mark selected facets as active
     for (const selectedFacet of payload.search.facets) {
@@ -109,7 +122,7 @@ export class MeilisearchSearchProvider extends ProductSearchProvider {
       }
     }
 
-    return success(result);
+    return success(this.factory.parseSearchResult(this.context, result, payload));
   }
 
   public override async createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<Result<FacetValueIdentifier>> {
@@ -136,7 +149,10 @@ export class MeilisearchSearchProvider extends ProductSearchProvider {
     return product;
   }
 
-  protected override parseVariant(variant: MeilisearchNativeVariant, product: MeilisearchNativeRecord): ProductSearchResultItemVariant {
+  protected parseVariant(
+    variant: MeilisearchNativeVariant,
+    product: MeilisearchNativeRecord,
+  ): ProductSearchResultItemVariant {
     const result = ProductSearchResultItemVariantSchema.parse({
       variant: {
         sku: variant.sku

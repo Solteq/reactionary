@@ -24,6 +24,9 @@ import {
   ProfileMutationSetBillingAddressSchema,
   success,
   type Address,
+  type ProfileFactory,
+  type ProfileFactoryOutput,
+  type ProfileFactoryWithOutput,
   ProfileQueryByIdSchema,
   error
 } from '@reactionary/core';
@@ -31,6 +34,7 @@ import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type { MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';
 import type { StoreCreateCustomerAddress, StoreCustomer, StoreCustomerAddress } from '@medusajs/types';
+import type { MedusaProfileFactory } from '../factories/profile/profile.factory.js';
 
 const debug = createDebug('reactionary:medusa:profile');
 /**
@@ -43,26 +47,33 @@ const debug = createDebug('reactionary:medusa:profile');
  * - handle guest user scenarios (if applicable).
  * - improve error handling and edge cases.
  */
-export class MedusaProfileProvider extends ProfileProvider {
+export class MedusaProfileProvider<
+  TFactory extends ProfileFactory = MedusaProfileFactory,
+> extends ProfileProvider<ProfileFactoryOutput<TFactory>> {
   protected config: MedusaConfiguration;
   protected includedFields = ['+metadata.*'];
+  protected factory: ProfileFactoryWithOutput<TFactory>;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public medusaApi: MedusaAPI
+    public medusaApi: MedusaAPI,
+    factory: ProfileFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
+    this.factory = factory;
   }
 
   @Reactionary({
     inputSchema: ProfileQueryByIdSchema,
     outputSchema: ProfileSchema,
   })
-  public async getById(payload: ProfileQueryById): Promise<Result<Profile, NotFoundError>> {
+  public async getById(
+    payload: ProfileQueryById,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     debug('getById', payload);
 
     const client = await this.medusaApi.getClient();
@@ -91,7 +102,9 @@ export class MedusaProfileProvider extends ProfileProvider {
     inputSchema: ProfileMutationUpdateSchema,
     outputSchema: ProfileSchema,
   })
-  public async update(payload: ProfileMutationUpdate): Promise<Result<Profile, NotFoundError>> {
+  public async update(
+    payload: ProfileMutationUpdate,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     debug('update', payload);
 
     const client = await this.medusaApi.getClient();
@@ -120,7 +133,9 @@ export class MedusaProfileProvider extends ProfileProvider {
     inputSchema: ProfileMutationAddShippingAddressSchema,
     outputSchema: ProfileSchema,
   })
-  public async addShippingAddress(payload: ProfileMutationAddShippingAddress): Promise<Result<Profile, NotFoundError>> {
+  public async addShippingAddress(
+    payload: ProfileMutationAddShippingAddress,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     debug('addShippingAddress', payload);
 
     const client = await this.medusaApi.getClient();
@@ -162,7 +177,9 @@ export class MedusaProfileProvider extends ProfileProvider {
     inputSchema: ProfileMutationUpdateShippingAddressSchema,
     outputSchema: ProfileSchema,
   })
-  public async updateShippingAddress(payload: ProfileMutationUpdateShippingAddress): Promise<Result<Profile, NotFoundError>> {
+  public async updateShippingAddress(
+    payload: ProfileMutationUpdateShippingAddress,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     debug('updateShippingAddress', payload);
 
     const client = await this.medusaApi.getClient();
@@ -203,7 +220,9 @@ export class MedusaProfileProvider extends ProfileProvider {
     inputSchema: ProfileMutationRemoveShippingAddressSchema,
     outputSchema: ProfileSchema,
   })
-  public async removeShippingAddress(payload: ProfileMutationRemoveShippingAddress): Promise<Result<Profile, NotFoundError>> {
+  public async removeShippingAddress(
+    payload: ProfileMutationRemoveShippingAddress,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     debug('removeShippingAddress', payload);
     const client = await this.medusaApi.getClient();
 
@@ -247,7 +266,9 @@ export class MedusaProfileProvider extends ProfileProvider {
     inputSchema: ProfileMutationMakeShippingAddressDefaultSchema,
     outputSchema: ProfileSchema,
   })
-  public async makeShippingAddressDefault(payload: ProfileMutationMakeShippingAddressDefault): Promise<Result<Profile, NotFoundError>> {
+  public async makeShippingAddressDefault(
+    payload: ProfileMutationMakeShippingAddressDefault,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     debug('makeShippingAddressDefault', payload);
 
     const client = await this.medusaApi.getClient();
@@ -289,7 +310,9 @@ export class MedusaProfileProvider extends ProfileProvider {
     inputSchema: ProfileMutationSetBillingAddressSchema,
     outputSchema: ProfileSchema,
   })
-  public async setBillingAddress(payload: ProfileMutationSetBillingAddress): Promise<Result<Profile, NotFoundError>> {
+  public async setBillingAddress(
+    payload: ProfileMutationSetBillingAddress,
+  ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     debug('setBillingAddress', payload);
 
 
@@ -361,7 +384,7 @@ export class MedusaProfileProvider extends ProfileProvider {
     }
   }
 
-  protected parseSingle(customer: StoreCustomer): Profile {
+  protected parseSingle(customer: StoreCustomer): ProfileFactoryOutput<TFactory> {
     const email = customer.email;
     const emailVerified = customer.metadata?.['email_verified'] === 'true';
 
@@ -386,7 +409,7 @@ export class MedusaProfileProvider extends ProfileProvider {
 
     alternateShippingAddresses.push(...addresses.filter(x => ! (x.is_default_billing || x.is_default_shipping)).map( addr => this.parseAddress(addr)));
 
-    return {
+    const result = {
       identifier: {
         userId: customer.id,
       },
@@ -400,6 +423,7 @@ export class MedusaProfileProvider extends ProfileProvider {
       createdAt: new Date(customer.created_at || '').toISOString(),
       updatedAt: new Date(customer.updated_at || '').toISOString()
     } satisfies Profile;
+    return this.factory.parseProfile(this.context, result);
   }
 
 

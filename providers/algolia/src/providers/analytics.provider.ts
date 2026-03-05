@@ -48,7 +48,7 @@ export class AlgoliaAnalyticsProvider extends AnalyticsProvider {
           .key,
       } satisfies AddedToCartObjectIDsAfterSearch;
 
-      const response = await this.client.pushEvents({
+      await this.client.pushEvents({
         events: [algoliaEvent],
       });
     }
@@ -69,7 +69,7 @@ export class AlgoliaAnalyticsProvider extends AnalyticsProvider {
           .key,
       } satisfies ClickedObjectIDsAfterSearch;
 
-      const response = await this.client.pushEvents({
+      await this.client.pushEvents({
         events: [algoliaEvent],
       });
     }
@@ -87,7 +87,7 @@ export class AlgoliaAnalyticsProvider extends AnalyticsProvider {
         userToken: this.context.session.identityContext.personalizationKey,
       } satisfies ViewedObjectIDs;
 
-      const response = await this.client.pushEvents({
+      await this.client.pushEvents({
         events: [algoliaEvent],
       });
     }
@@ -107,7 +107,7 @@ export class AlgoliaAnalyticsProvider extends AnalyticsProvider {
       userToken: this.context.session.identityContext.personalizationKey,
     } satisfies PurchasedObjectIDs;
 
-    const response = await this.client.pushEvents({
+    await this.client.pushEvents({
       events: [algoliaEvent],
     });
   }

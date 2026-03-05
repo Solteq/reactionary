@@ -9,6 +9,7 @@ import {
 } from '@reactionary/core';
 import { getMedusaTestConfiguration } from './test-utils.js';
 import { MedusaAPI } from '../core/client.js';
+import { MedusaPriceFactory } from '../factories/price/price.factory.js';
 
 const testData = {
   skuWithoutTiers: '8712581327934',
@@ -25,7 +26,13 @@ describe('Medusa Price Provider', () => {
     const config = getMedusaTestConfiguration();
     const client = new MedusaAPI(config, reqCtx);
 
-    provider = new MedusaPriceProvider(config, new NoOpCache(), reqCtx, client);
+    provider = new MedusaPriceProvider(
+      config,
+      new NoOpCache(),
+      reqCtx,
+      client,
+      new MedusaPriceFactory(PriceSchema),
+    );
   });
 
   it('should be able to get prices for a product without tiers', async () => {

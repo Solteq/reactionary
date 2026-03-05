@@ -12,6 +12,11 @@ import type {
   CheckoutMutationRemovePaymentInstruction,
   CheckoutMutationSetShippingAddress,
   CheckoutMutationSetShippingInstruction,
+  CheckoutFactory,
+  CheckoutFactoryCheckoutOutput,
+  CheckoutFactoryPaymentMethodOutput,
+  CheckoutFactoryShippingMethodOutput,
+  CheckoutFactoryWithOutput,
   CheckoutQueryById,
   CheckoutQueryForAvailablePaymentMethods,
   CheckoutQueryForAvailableShippingMethods,
@@ -57,6 +62,7 @@ import {
   type MedusaCartIdentifier,
   type MedusaOrderIdentifier
 } from '../schema/medusa.schema.js';
+import type { MedusaCheckoutFactory } from '../factories/checkout/checkout.factory.js';
 const debug = createDebug('reactionary:medusa:checkout');
 
 export class CheckoutNotReadyForFinalizationError extends Error {
@@ -74,8 +80,15 @@ export class CheckoutNotReadyForFinalizationError extends Error {
   }
 }
 
-export class MedusaCheckoutProvider extends CheckoutProvider {
+export class MedusaCheckoutProvider<
+  TFactory extends CheckoutFactory = MedusaCheckoutFactory,
+> extends CheckoutProvider<
+  CheckoutFactoryCheckoutOutput<TFactory>,
+  CheckoutFactoryShippingMethodOutput<TFactory>,
+  CheckoutFactoryPaymentMethodOutput<TFactory>
+> {
   protected config: MedusaConfiguration;
+  protected factory: CheckoutFactoryWithOutput<TFactory>;
 
   /**
    * This controls which fields are always included when fetching a cart
@@ -91,10 +104,12 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public medusaApi: MedusaAPI
+    public medusaApi: MedusaAPI,
+    factory: CheckoutFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
+    this.factory = factory;
   }
 
   protected initiateCheckoutForCartPayload(payload: CheckoutMutationInitiateCheckout): StoreUpdateCart {
@@ -118,7 +133,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async initiateCheckoutForCart(
     payload: CheckoutMutationInitiateCheckout
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const client = await this.medusaApi.getClient();
     // we should eventually copy the cart.... but for now we just continue with the existing one.
     if (debug.enabled) {
@@ -144,7 +159,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async getById(
     payload: CheckoutQueryById
-  ): Promise<Result<Checkout, NotFoundError>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>, NotFoundError>> {
     const client = await this.medusaApi.getClient();
     const response = await client.store.cart.retrieve(payload.identifier.key, {
       fields: this.includedFields,
@@ -165,7 +180,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async setShippingAddress(
     payload: CheckoutMutationSetShippingAddress
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const client = await this.medusaApi.getClient();
 
     const response = await client.store.cart.update(
@@ -191,7 +206,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async getAvailableShippingMethods(
     payload: CheckoutQueryForAvailableShippingMethods
-  ): Promise<Result<ShippingMethod[]>> {
+  ): Promise<Result<CheckoutFactoryShippingMethodOutput<TFactory>[]>> {
     const client = await this.medusaApi.getClient();
 
     if (debug.enabled) {
@@ -229,7 +244,9 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
         shippingMethods
       );
     }
-    return success(shippingMethods);
+    return success(
+      shippingMethods.map((x) => this.factory.parseShippingMethod(this.context, x)),
+    );
   }
 
   protected getAvailablePaymentMethodsPayload(payload: CheckoutQueryForAvailablePaymentMethods, regionId: string) {
@@ -244,7 +261,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async getAvailablePaymentMethods(
     payload: CheckoutQueryForAvailablePaymentMethods
-  ): Promise<Result<PaymentMethod[]>> {
+  ): Promise<Result<CheckoutFactoryPaymentMethodOutput<TFactory>[]>> {
     const client = await this.medusaApi.getClient();
 
     if (debug.enabled) {
@@ -286,7 +303,9 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       );
     }
 
-    return success(paymentMethods);
+    return success(
+      paymentMethods.map((x) => this.factory.parsePaymentMethod(this.context, x)),
+    );
   }
 
 
@@ -307,7 +326,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async addPaymentInstruction(
     payload: CheckoutMutationAddPaymentInstruction
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const client = await this.medusaApi.getClient();
 
     if (debug.enabled) {
@@ -347,7 +366,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override removePaymentInstruction(
     payload: CheckoutMutationRemovePaymentInstruction
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     throw new Error('Method not implemented.');
   }
 
@@ -368,7 +387,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async setShippingInstruction(
     payload: CheckoutMutationSetShippingInstruction
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const client = await this.medusaApi.getClient();
     const medusaId = payload.checkout as MedusaCartIdentifier;
     try {
@@ -412,7 +431,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
   })
   public override async finalizeCheckout(
     payload: CheckoutMutationFinalizeCheckout
-  ): Promise<Result<Checkout>> {
+  ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const checkout = await this.getById({ identifier: payload.checkout });
     if (!checkout.success || !checkout.value.readyForFinalization) {
       throw new CheckoutNotReadyForFinalizationError(payload.checkout);
@@ -432,9 +451,15 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
           order_display_id: response.order?.display_id ? +'' : '',
         },
       });
-      return this.getById({
+      const refreshedCheckout = await this.getById({
         identifier: payload.checkout,
-      }) as Promise<Result<Checkout>>;
+      });
+
+      if (!refreshedCheckout.success) {
+        throw new Error(`Unable to reload checkout ${payload.checkout.key} after completion`);
+      }
+
+      return success(refreshedCheckout.value);
     }
 
     throw new Error('Something failed during order creation');
@@ -534,7 +559,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
    * @param remote
    * @returns
    */
-  protected parseSingle(remote: StoreCart): Checkout {
+  protected parseSingle(remote: StoreCart): CheckoutFactoryCheckoutOutput<TFactory> {
     const identifier = {
       key: remote.id,
       //        region_id: remote.region_id,
@@ -668,6 +693,6 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       shippingInstruction
     };
 
-    return result;
+    return this.factory.parseCheckout(this.context, result);
   }
 }

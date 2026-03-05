@@ -1,4 +1,24 @@
-import type { Cache, Image, NotFoundError, Product, ProductAttribute, ProductAttributeIdentifier, ProductAttributeValueIdentifier, ProductOptionIdentifier, ProductOptionValueIdentifier, ProductQueryById, ProductQueryBySKU, ProductQueryBySlug, ProductVariant, ProductVariantOption, RequestContext, Result } from '@reactionary/core';
+import type {
+  Cache,
+  Image,
+  NotFoundError,
+  Product,
+  ProductAttribute,
+  ProductAttributeIdentifier,
+  ProductAttributeValueIdentifier,
+  ProductFactory,
+  ProductFactoryOutput,
+  ProductFactoryWithOutput,
+  ProductOptionIdentifier,
+  ProductOptionValueIdentifier,
+  ProductQueryById,
+  ProductQueryBySKU,
+  ProductQueryBySlug,
+  ProductVariant,
+  ProductVariantOption,
+  RequestContext,
+  Result,
+} from '@reactionary/core';
 import {
   CategoryIdentifierSchema,
   ProductIdentifierSchema,
@@ -16,16 +36,27 @@ import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 import type { StoreProduct, StoreProductImage, StoreProductVariant } from '@medusajs/types';
+import type { MedusaProductFactory } from '../factories/product/product.factory.js';
 
 const debug = createDebug('reactionary:medusa:product');
 
-export class MedusaProductProvider extends ProductProvider {
+export class MedusaProductProvider<
+  TFactory extends ProductFactory = MedusaProductFactory,
+> extends ProductProvider<ProductFactoryOutput<TFactory>> {
   protected config: MedusaConfiguration;
-  protected alwaysIncludedFields = ["+metadata.*","+categories.metadata.*","+external_id"]
+  protected alwaysIncludedFields = ["+metadata.*","+categories.metadata.*","+external_id"];
+  protected factory: ProductFactoryWithOutput<TFactory>;
 
-  constructor(config: MedusaConfiguration, cache: Cache, context: RequestContext, public medusaApi: MedusaAPI) {
+  constructor(
+    config: MedusaConfiguration,
+    cache: Cache,
+    context: RequestContext,
+    public medusaApi: MedusaAPI,
+    factory: ProductFactoryWithOutput<TFactory>,
+  ) {
   super(cache, context);
    this.config = config;
+   this.factory = factory;
   }
 
   protected getByIdPayload(payload: ProductQueryById) {
@@ -45,7 +76,9 @@ export class MedusaProductProvider extends ProductProvider {
     currencyDependentCaching: false,
     localeDependentCaching: true
   })
-  public override async getById(payload: ProductQueryById): Promise<Result<Product>> {
+  public override async getById(
+    payload: ProductQueryById,
+  ): Promise<Result<ProductFactoryOutput<TFactory>>> {
     const client = await this.medusaApi.getClient();
     if (debug.enabled) {
       debug(`Fetching product by ID: ${payload.identifier.key}`);
@@ -81,7 +114,9 @@ export class MedusaProductProvider extends ProductProvider {
     currencyDependentCaching: false,
     localeDependentCaching: true
   })
-  public override async getBySlug(payload: ProductQueryBySlug): Promise<Result<Product, NotFoundError>> {
+  public override async getBySlug(
+    payload: ProductQueryBySlug,
+  ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.medusaApi.getClient();
     if (debug.enabled) {
       debug(`Fetching product by slug: ${payload.slug}`);
@@ -111,7 +146,9 @@ export class MedusaProductProvider extends ProductProvider {
     currencyDependentCaching: false,
     localeDependentCaching: true
   })
-  public override async getBySKU(payload: ProductQueryBySKU): Promise<Result<Product>> {
+  public override async getBySKU(
+    payload: ProductQueryBySKU,
+  ): Promise<Result<ProductFactoryOutput<TFactory>>> {
     if (debug.enabled) {
       debug(`Fetching product by SKU: ${Array.isArray(payload) ? payload.join(', ') : payload}`);
     }
@@ -129,7 +166,7 @@ export class MedusaProductProvider extends ProductProvider {
     return success(this.parseSingle(product));
   }
 
-  protected parseSingle(_body: StoreProduct): Product {
+  protected parseSingle(_body: StoreProduct): ProductFactoryOutput<TFactory> {
     const identifier = ProductIdentifierSchema.parse({ key: _body.external_id || _body.id });
     const name = _body.title;
     const slug = _body.handle;
@@ -171,7 +208,7 @@ export class MedusaProductProvider extends ProductProvider {
       variants: otherVariants,
     } satisfies Product;
 
-    return result;
+    return this.factory.parseProduct(this.context, result);
   }
 
   protected parseVariant(variant: StoreProductVariant, product: StoreProduct) {
@@ -275,4 +312,3 @@ export class MedusaProductProvider extends ProductProvider {
     return sharedAttributes;
   }
 }
-

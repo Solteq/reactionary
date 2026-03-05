@@ -1,6 +1,12 @@
 import type { MyShoppingListAddLineItemAction, MyShoppingListDraft, MyShoppingListUpdate, MyShoppingListUpdateAction, ShoppingList, ShoppingListLineItem } from '@commercetools/platform-sdk';
 import type {
   Cache,
+  ProductListFactory,
+  ProductListFactoryItemOutput,
+  ProductListFactoryItemPaginatedOutput,
+  ProductListFactoryListOutput,
+  ProductListFactoryListPaginatedOutput,
+  ProductListFactoryWithOutput,
   NotFoundError,
   ProductList,
   ProductListIdentifier,
@@ -8,12 +14,10 @@ import type {
   ProductListItemMutationCreate,
   ProductListItemMutationDelete,
   ProductListItemMutationUpdate,
-  ProductListItemPaginatedResult,
   ProductListItemsQuery,
   ProductListMutationCreate,
   ProductListMutationDelete,
   ProductListMutationUpdate,
-  ProductListPaginatedResult,
   ProductListQuery,
   ProductListQueryById,
   ProductListType,
@@ -42,20 +46,31 @@ import {
 } from '@reactionary/core';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
+import type { CommercetoolsProductListFactory } from '../factories/product-list/product-list.factory.js';
 
-export class CommercetoolsProductListProvider extends ProductListProvider {
+export class CommercetoolsProductListProvider<
+  TFactory extends ProductListFactory = CommercetoolsProductListFactory,
+> extends ProductListProvider<
+  ProductListFactoryListOutput<TFactory>,
+  ProductListFactoryItemOutput<TFactory>,
+  ProductListFactoryListPaginatedOutput<TFactory>,
+  ProductListFactoryItemPaginatedOutput<TFactory>
+> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: ProductListFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: ProductListFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   protected async getClient() {
@@ -71,7 +86,7 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
     inputSchema: ProductListQueryByIdSchema,
     outputSchema: ProductListSchema
   })
-  public override async getById(payload: ProductListQueryById): Promise<Result<ProductList>> {
+  public override async getById(payload: ProductListQueryById): Promise<Result<ProductListFactoryListOutput<TFactory>>> {
     try {
       const client = await this.getClient();
       const response = await client.shoppingLists()
@@ -79,7 +94,7 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
         .get()
         .execute();
 
-      return success(this.parseSingle(response.body));
+      return success(this.factory.parseProductList(this.context, this.parseSingle(response.body)));
     } catch(err: any) {
       if (err.statusCode === 404) {
         return error<NotFoundError>({
@@ -101,17 +116,17 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
     inputSchema: ProductListQuerySchema,
     outputSchema: ProductListPaginatedResultsSchema
   })
-  public override async queryLists(payload: ProductListQuery): Promise<Result<ProductListPaginatedResult>> {
+  public override async queryLists(payload: ProductListQuery): Promise<Result<ProductListFactoryListPaginatedOutput<TFactory>>> {
 
     if (this.context.session.identityContext?.identity?.type !== 'Registered') {
-      return success({
+      return success(this.factory.parseProductListPaginatedResult(this.context, {
         items: [],
         pageNumber: 1,
         pageSize: payload.search.paginationOptions.pageSize,
         totalCount: 0,
         totalPages: 0,
         identifier: payload.search,
-      });
+      }));
     }
 
     const client = await this.getClient();
@@ -125,14 +140,14 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
       }
     }).execute();
 
-    return success({
+    return success(this.factory.parseProductListPaginatedResult(this.context, {
       items: response.body.results.map(list => this.parseSingle(list)),
       pageNumber: payload.search.paginationOptions.pageNumber,
       pageSize: payload.search.paginationOptions.pageSize,
       totalCount: response.body.total || 0,
       totalPages: Math.ceil((response.body.total || 0) / payload.search.paginationOptions.pageSize),
       identifier: payload.search,
-    });
+    }));
 
   }
 
@@ -141,7 +156,7 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
     inputSchema: ProductListMutationCreateSchema,
     outputSchema: ProductListSchema
   })
-  public override async addList(mutation: ProductListMutationCreate): Promise<Result<ProductList>> {
+  public override async addList(mutation: ProductListMutationCreate): Promise<Result<ProductListFactoryListOutput<TFactory>>> {
     const client = await this.getClient();
     const localeString = this.getLocaleString();
 
@@ -174,7 +189,7 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
       body: draft
     }).execute();
 
-    return success(this.parseSingle(response.body));
+    return success(this.factory.parseProductList(this.context, this.parseSingle(response.body)));
   }
 
   @Reactionary({
@@ -182,7 +197,7 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
     inputSchema: ProductListMutationUpdateSchema,
     outputSchema: ProductListSchema
   })
-  public override async updateList(mutation: ProductListMutationUpdate): Promise<Result<ProductList>> {
+  public override async updateList(mutation: ProductListMutationUpdate): Promise<Result<ProductListFactoryListOutput<TFactory>>> {
     const client = await this.getClient();
     const actions: MyShoppingListUpdateAction[] = [];
     const localeString = this.getLocaleString()
@@ -234,7 +249,7 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
       .post({ body: update })
       .execute();
 
-    return success(this.parseSingle(response.body));
+    return success(this.factory.parseProductList(this.context, this.parseSingle(response.body)));
   }
 
   @Reactionary({
@@ -270,7 +285,7 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
     inputSchema: ProductListItemQuerySchema,
     outputSchema: ProductListItemPaginatedResultsSchema
   })
-  public override async queryListItems(query: ProductListItemsQuery): Promise<Result<ProductListItemPaginatedResult>> {
+  public override async queryListItems(query: ProductListItemsQuery): Promise<Result<ProductListFactoryItemPaginatedOutput<TFactory>>> {
     const client = await this.getClient();
 
     const response = await client.shoppingLists()
@@ -282,14 +297,14 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
 
     const items = response.body.lineItems.map(lineItem => this.parseProductListItem(query.search.list, lineItem ));
 
-    return success({
+    return success(this.factory.parseProductListItemPaginatedResult(this.context, {
       items: items.slice((query.search.paginationOptions.pageNumber - 1) * query.search.paginationOptions.pageSize, query.search.paginationOptions.pageNumber * query.search.paginationOptions.pageSize),
       identifier: query.search,
       pageNumber: query.search.paginationOptions.pageNumber,
       pageSize: query.search.paginationOptions.pageSize,
       totalCount: items.length,
       totalPages: Math.ceil(items.length / query.search.paginationOptions.pageSize),
-    });
+    }));
   }
 
   @Reactionary({
@@ -297,7 +312,7 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
     inputSchema: ProductListItemMutationCreateSchema,
     outputSchema: ProductListItemSchema
   })
-  public override async addItem(mutation: ProductListItemMutationCreate): Promise<Result<ProductListItem>> {
+  public override async addItem(mutation: ProductListItemMutationCreate): Promise<Result<ProductListFactoryItemOutput<TFactory>>> {
     const client = await this.getClient();
 
     const lineItemDraft: MyShoppingListAddLineItemAction = {
@@ -331,7 +346,7 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
         throw new Error('The added line item is not the last item in the list, cannot reliably determine the identifier of the added item');
       }
 
-    return success(this.parseProductListItem(mutation.list, lastItem  ));
+    return success(this.factory.parseProductListItem(this.context, this.parseProductListItem(mutation.list, lastItem)));
   }
 
   @Reactionary({
@@ -363,7 +378,7 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
     inputSchema: ProductListItemMutationUpdateSchema,
     outputSchema: ProductListItemSchema
   })
-  public override async updateItem(mutation: ProductListItemMutationUpdate): Promise<Result<ProductListItem>> {
+  public override async updateItem(mutation: ProductListItemMutationUpdate): Promise<Result<ProductListFactoryItemOutput<TFactory>>> {
     const client = await this.getClient();
 
     const actions: MyShoppingListUpdateAction[] = [];
@@ -408,7 +423,7 @@ export class CommercetoolsProductListProvider extends ProductListProvider {
       throw new Error('Failed to find the updated line item in response');
     }
 
-    return success(this.parseProductListItem(mutation.listItem.list, updatedLineItem));
+    return success(this.factory.parseProductListItem(this.context, this.parseProductListItem(mutation.listItem.list, updatedLineItem)));
   }
 
   /**

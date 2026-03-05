@@ -1,32 +1,37 @@
 import type {
-  Inventory,
+  InventoryFactory,
+  InventoryFactoryOutput,
+  InventoryFactoryWithOutput,
   RequestContext,
   Cache,
   InventoryQueryBySKU,
-  InventoryIdentifier,
-  InventoryStatus,
   Result,
   NotFoundError,
 } from '@reactionary/core';
 import { InventoryProvider, InventoryQueryBySKUSchema, InventorySchema, Reactionary, success, error } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { InventoryEntry } from '@commercetools/platform-sdk';
 import type { CommercetoolsAPI } from '../core/client.js';
+import type { CommercetoolsInventoryFactory } from '../factories/inventory/inventory.factory.js';
 
-export class CommercetoolsInventoryProvider extends InventoryProvider {
+export class CommercetoolsInventoryProvider<
+  TFactory extends InventoryFactory = CommercetoolsInventoryFactory,
+> extends InventoryProvider<InventoryFactoryOutput<TFactory>> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: InventoryFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: InventoryFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   protected async getClient() {
@@ -42,7 +47,7 @@ export class CommercetoolsInventoryProvider extends InventoryProvider {
     inputSchema: InventoryQueryBySKUSchema,
     outputSchema: InventorySchema,
   })
-  public override async getBySKU(payload: InventoryQueryBySKU): Promise<Result<Inventory, NotFoundError>> {
+  public override async getBySKU(payload: InventoryQueryBySKU): Promise<Result<InventoryFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
 
     try {
@@ -65,7 +70,7 @@ export class CommercetoolsInventoryProvider extends InventoryProvider {
 
       const result = remote.body.results[0];
 
-      const model = this.parseSingle(result);
+      const model = this.factory.parseInventory(this.context, result);
 
 
       return success(model);
@@ -78,27 +83,4 @@ export class CommercetoolsInventoryProvider extends InventoryProvider {
     }
   }
 
-  protected parseSingle(body: InventoryEntry): Inventory {
-    const identifier = {
-      variant: { sku: body.sku || '' },
-      fulfillmentCenter: {
-        key: body.supplyChannel?.obj?.key || '',
-      },
-    } satisfies InventoryIdentifier;
-
-    const quantity = body.availableQuantity || 0;
-    let status: InventoryStatus = 'outOfStock';
-
-    if (quantity > 0) {
-      status = 'inStock';
-    }
-
-    const result = {
-      identifier,
-      quantity,
-      status,
-    } satisfies Inventory;
-
-    return result;
-  }
 }

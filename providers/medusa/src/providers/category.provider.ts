@@ -2,7 +2,15 @@ import type {
   StoreProductCategory,
   StoreProductCategoryListResponse,
 } from '@medusajs/types';
-import type { Category, Cache, CategoryPaginatedResult } from '@reactionary/core';
+import type {
+  Category,
+  Cache,
+  CategoryFactory,
+  CategoryFactoryCategoryOutput,
+  CategoryFactoryPaginatedOutput,
+  CategoryFactoryWithOutput,
+  CategoryPaginatedResult,
+} from '@reactionary/core';
 import {
   CategoryIdentifierSchema,
   CategoryProvider,
@@ -28,18 +36,27 @@ import {
 } from '@reactionary/core';
 import type { MedusaAPI, MedusaConfiguration } from '../index.js';
 import * as z from 'zod';
+import type { MedusaCategoryFactory } from '../factories/category/category.factory.js';
 
-export class MedusaCategoryProvider extends CategoryProvider {
+export class MedusaCategoryProvider<
+  TFactory extends CategoryFactory = MedusaCategoryFactory,
+> extends CategoryProvider<
+  CategoryFactoryCategoryOutput<TFactory>,
+  CategoryFactoryPaginatedOutput<TFactory>
+> {
   protected config: MedusaConfiguration;
+  protected factory: CategoryFactoryWithOutput<TFactory>;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
-    public medusaApi: MedusaAPI
+    public medusaApi: MedusaAPI,
+    factory: CategoryFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
+    this.factory = factory;
   }
 
   protected async resolveCategoryIdByExternalId(
@@ -82,7 +99,9 @@ export class MedusaCategoryProvider extends CategoryProvider {
     inputSchema: CategoryQueryByIdSchema,
     outputSchema: CategorySchema,
   })
-  public override async getById(payload: CategoryQueryById): Promise<Result<Category, NotFoundError>> {
+  public override async getById(
+    payload: CategoryQueryById,
+  ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
     const candidate = await this.resolveCategoryIdByExternalId(payload.id.key);
     if (!candidate) {
       return error<NotFoundError>({
@@ -107,7 +126,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
   })
   public override async getBySlug(
     payload: CategoryQueryBySlug
-  ): Promise<Result<Category, NotFoundError>> {
+  ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
     const sdk = await this.medusaApi.getClient();
 
     const categoryResult = await sdk.store.category.list(this.getBySlugPayload(payload));
@@ -126,7 +145,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
   })
   public override async getBreadcrumbPathToCategory(
     payload: CategoryQueryForBreadcrumb
-  ): Promise<Result<Category[]>> {
+  ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>[]>> {
     const actualCategoryId = await this.resolveCategoryIdByExternalId(
       payload.id.key
     );
@@ -140,7 +159,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
       include_ancestors_tree: true,
     });
 
-    let results = new Array<Category>();
+    let results = new Array<CategoryFactoryCategoryOutput<TFactory>>();
     let current: StoreProductCategory | null = path.product_category;
     while (current) {
       results.push(this.parseSingle(current));
@@ -209,7 +228,7 @@ export class MedusaCategoryProvider extends CategoryProvider {
     return success(result);
   }
 
-  protected parseSingle(_body: StoreProductCategory): Category {
+  protected parseSingle(_body: StoreProductCategory): CategoryFactoryCategoryOutput<TFactory> {
     const identifier = CategoryIdentifierSchema.parse({
       key: _body.metadata?.['external_id'] || '',
     });
@@ -230,12 +249,12 @@ export class MedusaCategoryProvider extends CategoryProvider {
       images: [],
     } satisfies Category;
 
-    return result;
+    return this.factory.parseCategory(this.context, result);
   }
 
   protected parsePaginatedResult(
     body: StoreProductCategoryListResponse
-  ) {
+  ): CategoryFactoryPaginatedOutput<TFactory> {
     const items = body.product_categories.map((x) => this.parseSingle(x));
 
     const totalPages = Math.ceil(
@@ -254,7 +273,6 @@ export class MedusaCategoryProvider extends CategoryProvider {
       items: items,
     } satisfies CategoryPaginatedResult;
 
-    return result;
+    return this.factory.parseCategoryPaginatedResult(this.context, result);
   }
 }
-

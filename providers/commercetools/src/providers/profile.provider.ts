@@ -1,5 +1,7 @@
 import type {
-  Profile,
+  ProfileFactory,
+  ProfileFactoryOutput,
+  ProfileFactoryWithOutput,
   ProfileMutationAddShippingAddress,
   ProfileMutationMakeShippingAddressDefault,
   ProfileMutationRemoveShippingAddress,
@@ -10,8 +12,8 @@ import type {
   Result,
   NotFoundError,
   InvalidInputError,
+  ProfileMutationUpdateShippingAddress,
   Address,
-  ProfileMutationUpdateShippingAddress
 } from '@reactionary/core';
 import {
   ProfileMutationUpdateSchema,
@@ -27,23 +29,29 @@ import {
 import type * as z from 'zod';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { Cache } from '@reactionary/core';
-import type { Customer, MyCustomerUpdateAction, Address as CTAddress } from '@commercetools/platform-sdk';
+import type { MyCustomerUpdateAction, Address as CTAddress } from '@commercetools/platform-sdk';
 import type { CommercetoolsAPI } from '../core/client.js';
+import type { CommercetoolsProfileFactory } from '../factories/profile/profile.factory.js';
 
-export class CommercetoolsProfileProvider extends ProfileProvider {
+export class CommercetoolsProfileProvider<
+  TFactory extends ProfileFactory = CommercetoolsProfileFactory,
+> extends ProfileProvider<ProfileFactoryOutput<TFactory>> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: ProfileFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: ProfileFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   protected async getClient() {
@@ -51,7 +59,7 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
     return client.withProjectKey({ projectKey: this.config.projectKey });
   }
 
-  public override async getById(payload: ProfileQuerySelf): Promise<Result<Profile, NotFoundError>> {
+  public override async getById(payload: ProfileQuerySelf): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
 
     const remote = await client.me().get().execute();
@@ -63,7 +71,7 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
       });
     }
 
-    const model = this.parseSingle(remote.body);
+    const model = this.factory.parseProfile(this.context, remote.body);
     return success(model);
   }
 
@@ -73,7 +81,7 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
     inputSchema: ProfileMutationAddShippingAddressSchema,
     outputSchema: ProfileSchema,
   })
-  public override async addShippingAddress(payload: ProfileMutationAddShippingAddress): Promise<Result<Profile, NotFoundError>> {
+  public override async addShippingAddress(payload: ProfileMutationAddShippingAddress): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
 
     const remote = await client.me().get().execute();
@@ -101,11 +109,11 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
       })
       .execute();
     customer = updateResponse.body;
-    const model = this.parseSingle(customer);
+    const model = this.factory.parseProfile(this.context, customer);
     return success(model);
   }
 
-  public override async updateShippingAddress(payload: ProfileMutationUpdateShippingAddress): Promise<Result<Profile, NotFoundError>> {
+  public override async updateShippingAddress(payload: ProfileMutationUpdateShippingAddress): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
 
     const remote = await client.me().get().execute();
@@ -144,7 +152,7 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
       })
       .execute();
     customer = updateResponse.body;
-    const model = this.parseSingle(customer);
+    const model = this.factory.parseProfile(this.context, customer);
     return success(model);
   }
 
@@ -152,7 +160,7 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
     inputSchema: ProfileMutationRemoveShippingAddressSchema,
     outputSchema: ProfileSchema,
   })
-  public override async removeShippingAddress(payload: ProfileMutationRemoveShippingAddress): Promise<Result<Profile, NotFoundError>> {
+  public override async removeShippingAddress(payload: ProfileMutationRemoveShippingAddress): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
 
     const remote = await client.me().get().execute();
@@ -207,13 +215,13 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
       .execute();
     customer = updateResponse.body;
 
-    const model = this.parseSingle(customer);
+    const model = this.factory.parseProfile(this.context, customer);
     return success(model);
   }
 
 
 
-  public override async makeShippingAddressDefault(payload: ProfileMutationMakeShippingAddressDefault): Promise<Result<Profile, NotFoundError>> {
+  public override async makeShippingAddressDefault(payload: ProfileMutationMakeShippingAddressDefault): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
 
     const remote = await client.me().get().execute();
@@ -257,7 +265,7 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
       })
       .execute();
     customer = updateResponse.body;
-    const model = this.parseSingle(customer);
+    const model = this.factory.parseProfile(this.context, customer);
     return success(model);
   }
 
@@ -266,7 +274,7 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
     inputSchema: ProfileMutationSetBillingAddressSchema,
     outputSchema: ProfileSchema,
   })
-  public override async setBillingAddress(payload: ProfileMutationSetBillingAddress): Promise<Result<Profile, NotFoundError>> {
+  public override async setBillingAddress(payload: ProfileMutationSetBillingAddress): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
 
     const remote = await client.me().get().execute();
@@ -311,7 +319,7 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
         .execute();
       customer = updateResponse.body;
     }
-    const model = this.parseSingle(customer);
+    const model = this.factory.parseProfile(this.context, customer);
     return success(model);
   }
 
@@ -319,7 +327,7 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
     inputSchema: ProfileMutationUpdateSchema,
     outputSchema: ProfileSchema,
   })
-  public override async update(payload: ProfileMutationUpdate): Promise<Result<Profile, NotFoundError>> {
+  public override async update(payload: ProfileMutationUpdate): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
 
     const remote = await client.me().get().execute();
@@ -381,63 +389,9 @@ export class CommercetoolsProfileProvider extends ProfileProvider {
         .execute();
       customer = updateResponse.body;
     }
-    const model = this.parseSingle(customer);
+    const model = this.factory.parseProfile(this.context, customer);
     return success(model);
 
-  }
-
-  protected parseAddress(address: CTAddress): Address {
-    const result = {
-      identifier: {
-        nickName: address.key || '',
-      },
-      firstName: address.firstName || '',
-      lastName: address.lastName || '',
-      streetAddress: address.streetName || '',
-      streetNumber: address.streetNumber || '',
-      city: address.city || '',
-      region: address.region || '',
-      postalCode: address.postalCode || '',
-      countryCode: address.country,
-    } satisfies Address;
-
-    return result;
-  }
-
-  protected parseSingle(body: Customer): Profile {
-    const email = body.email;
-    const emailVerified = body.isEmailVerified;
-    let defaultCTBillingAddress = body.addresses.find(addr => addr.id === body.defaultBillingAddressId);
-    const phone = defaultCTBillingAddress?.phone ?? '';
-
-
-    // if we only have the phone number on the billing address, we dont really have a billing address, so we ignore it
-    if (this.isIncompleteAddress(defaultCTBillingAddress)) {
-      defaultCTBillingAddress = undefined;
-    }
-
-    const defaultCTShippingAddress = body.addresses.find(addr => addr.id === body.defaultShippingAddressId);
-
-    const alternateShippingAddresses = body.addresses.filter(x => x.id !== body.defaultBillingAddressId && x.id !== body.defaultShippingAddressId).map(addr => this.parseAddress(addr));
-    const billingAddress = defaultCTBillingAddress ? this.parseAddress(defaultCTBillingAddress) : undefined;
-    const shippingAddress = defaultCTShippingAddress ? this.parseAddress(defaultCTShippingAddress) : undefined;
-
-    const result = {
-      identifier: {
-        userId: body.id
-      },
-      email,
-      emailVerified,
-      alternateShippingAddresses,
-      billingAddress: billingAddress,
-      shippingAddress: shippingAddress,
-      createdAt: body.createdAt,
-      phone,
-      phoneVerified: false,
-      updatedAt: body.lastModifiedAt
-    } satisfies Profile;
-
-    return result;
   }
 
   protected createCTAddressDraft( address: Address): CTAddress {

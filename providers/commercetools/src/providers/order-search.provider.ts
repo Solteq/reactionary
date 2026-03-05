@@ -1,45 +1,46 @@
 import type {
   RequestContext,
   Cache,
+  OrderSearchFactory,
+  OrderSearchFactoryOutput,
+  OrderSearchFactoryWithOutput,
   OrderSearchQueryByTerm,
-  OrderSearchResult,
   Result,
-  OrderSearchIdentifier,
-  MonetaryAmount,
-  Currency,
-  IdentityIdentifier,
-  Address,
-  OrderStatus,
 } from '@reactionary/core';
 import {
   OrderSearchProvider,
   OrderSearchQueryByTermSchema,
   OrderSearchResultSchema,
-  type OrderSearchResultItem,
   Reactionary,
   success,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { CommercetoolsAPI } from '../core/client.js';
 import createDebug from 'debug';
-import type { Order as CTOrder, OrderPagedSearchResponse , Address as CTAddress, OrderPagedQueryResponse} from '@commercetools/platform-sdk';
+import type { OrderPagedQueryResponse } from '@commercetools/platform-sdk';
+import type { CommercetoolsOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
 
 const debug = createDebug('reactionary:commercetools:order-search');
 
-export class CommercetoolsOrderSearchProvider extends OrderSearchProvider {
+export class CommercetoolsOrderSearchProvider<
+  TFactory extends OrderSearchFactory = CommercetoolsOrderSearchFactory,
+> extends OrderSearchProvider<OrderSearchFactoryOutput<TFactory>> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: OrderSearchFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: OrderSearchFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   protected async getClient() {
@@ -54,7 +55,7 @@ export class CommercetoolsOrderSearchProvider extends OrderSearchProvider {
     inputSchema: OrderSearchQueryByTermSchema,
     outputSchema: OrderSearchResultSchema,
   })
-  public async queryByTerm(payload: OrderSearchQueryByTerm): Promise<Result<OrderSearchResult>> {
+  public async queryByTerm(payload: OrderSearchQueryByTerm): Promise<Result<OrderSearchFactoryOutput<TFactory>>> {
     debug('queryByTerm', payload);
 
     const client = await this.getClient();
@@ -116,10 +117,11 @@ export class CommercetoolsOrderSearchProvider extends OrderSearchProvider {
     }).execute();
 
     const responseBody = response.body;
-    const result = this.parsePaginatedResult(
+    const result = this.factory.parseOrderSearchResult(
+      this.context,
       responseBody,
       payload
-    ) as OrderSearchResult;
+    );
 
     if (debug.enabled) {
       debug(
@@ -129,101 +131,5 @@ export class CommercetoolsOrderSearchProvider extends OrderSearchProvider {
 
     return success(result);
   }
-
-  protected parseAddress(remote: CTAddress) {
-    return {
-      countryCode: remote.country || '',
-      firstName: remote.firstName || '',
-      lastName: remote.lastName || '',
-      streetAddress: remote.streetName || '',
-      streetNumber: remote.streetNumber || '',
-      postalCode: remote.postalCode || '',
-      city: remote.city || '',
-      identifier: {
-        nickName: '',
-      },
-      region: '',
-    } satisfies Address;
-  }
-
-
-  protected parseSingle(body: CTOrder) {
-    const identifier = { key: body.id };
-    const userId: IdentityIdentifier = {
-      userId: body.customerId || body.anonymousId || '',
-    };
-    const customerName = `${body.billingAddress?.firstName} ${body.billingAddress?.lastName}`;
-    const shippingAddress = this.parseAddress(body.shippingAddress!);
-    const orderDate = body.createdAt;
-   let orderStatus: OrderStatus = 'AwaitingPayment';
-    if (body.paymentState === 'Pending' && body.orderState === 'Open') {
-      orderStatus = 'AwaitingPayment';
-    } else if (
-      body.paymentState === 'Paid' &&
-      body.orderState === 'Confirmed'
-    ) {
-      orderStatus = 'ReleasedToFulfillment';
-    }
-    if (body.shipmentState === 'Ready' && body.orderState === 'Confirmed') {
-      orderStatus = 'ReleasedToFulfillment';
-    }
-    if (
-      (body.shipmentState === 'Shipped' ||
-        body.shipmentState === 'Delivered') &&
-      body.orderState === 'Completed'
-    ) {
-      orderStatus = 'Shipped';
-    }
-    let inventoryStatus: OrderSearchResultItem['inventoryStatus'];
-
-    if (orderStatus === 'Shipped') {
-      inventoryStatus = 'Allocated'
-    } else {
-      inventoryStatus = 'NotAllocated'
-    }
-
-    const totalAmount: MonetaryAmount = {
-      currency: body.totalPrice ? body.totalPrice.currencyCode as Currency : this.context.languageContext.currencyCode,
-      value: body.totalPrice ? body.totalPrice.centAmount / 100 : 0
-    };
-
-    const order = {
-      identifier,
-      userId,
-      customerName,
-      shippingAddress,
-      orderDate,
-      orderStatus,
-      inventoryStatus,
-      totalAmount
-    } satisfies OrderSearchResultItem;
-
-    return order;
-  }
-
-  protected parsePaginatedResult(
-    body: OrderPagedQueryResponse,
-    query: OrderSearchQueryByTerm
-  ) {
-    const identifier = {
-      ...query.search,
-    } satisfies OrderSearchIdentifier;
-
-    const orders: OrderSearchResultItem[] = body.results.map((o) => {
-      return this.parseSingle(o);
-    })
-
-    const result = {
-      identifier,
-      pageNumber: (Math.ceil(body.offset / body.limit) || 0) + 1,
-      pageSize: body.limit,
-      totalCount: body.total || 0,
-      totalPages: Math.ceil((body.total || 0) / body.limit || 0) + 1,
-      items: orders,
-    } satisfies OrderSearchResult;
-
-    return result;
-  }
-
 
 }

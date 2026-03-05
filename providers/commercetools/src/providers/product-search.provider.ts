@@ -1,43 +1,24 @@
 import type {
-  ProductSearchFacetResult as CTProductSearchFacetResult,
-  ProductSearchFacetResultBucket as CTProductSearchFacetResultBucket,
-  ProductVariant as CTProductVariant,
-  ProductPagedSearchResponse,
-  ProductProjection,
   ProductSearchFacetExpression,
 } from '@commercetools/platform-sdk';
 import type {
   Cache,
   FacetIdentifier,
   FacetValueIdentifier,
-  ProductOptionIdentifier,
+  ProductSearchFactory,
+  ProductSearchFactoryOutput,
+  ProductSearchFactoryWithOutput,
   ProductSearchQueryByTerm,
   ProductSearchQueryCreateNavigationFilter,
-  ProductSearchResult,
-  ProductSearchResultFacet,
-  ProductSearchResultFacetValue,
-  ProductSearchResultItem,
-  ProductSearchResultItemVariant,
-  ProductVariantIdentifier,
-  ProductVariantOption,
   RequestContext,
   Result,
-  SearchIdentifier,
 } from '@reactionary/core';
 import {
-  FacetIdentifierSchema,
   FacetValueIdentifierSchema,
-  ImageSchema,
-  ProductOptionIdentifierSchema,
   ProductSearchProvider,
   ProductSearchQueryByTermSchema,
   ProductSearchQueryCreateNavigationFilterSchema,
-  ProductSearchResultFacetSchema,
-  ProductSearchResultFacetValueSchema,
-  ProductSearchResultItemVariantSchema,
   ProductSearchResultSchema,
-  ProductVariantIdentifierSchema,
-  ProductVariantOptionSchema,
   Reactionary,
   success,
 } from '@reactionary/core';
@@ -46,23 +27,29 @@ import type { CommercetoolsConfiguration } from '../schema/configuration.schema.
 import createDebug from 'debug';
 import type { CommercetoolsAPI } from '../core/client.js';
 import { CommercetoolsCategoryLookupSchema, CommercetoolsResolveCategoryQueryByKeySchema, type CommercetoolsCategoryLookup, type CommercetoolsResolveCategoryQueryById, type CommercetoolsResolveCategoryQueryByKey } from '../schema/commercetools.schema.js';
+import type { CommercetoolsProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 
 const debug = createDebug('reactionary:commercetools:search');
 
-export class CommercetoolsSearchProvider extends ProductSearchProvider {
+export class CommercetoolsSearchProvider<
+  TFactory extends ProductSearchFactory = CommercetoolsProductSearchFactory,
+> extends ProductSearchProvider<ProductSearchFactoryOutput<TFactory>> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: ProductSearchFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: ProductSearchFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   protected async getClient() {
@@ -275,7 +262,7 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
   })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
-  ): Promise<Result<ProductSearchResult>> {
+  ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
     const client = await this.getClient();
 
     const facetsToReturn = await this.getFacetsToReturn(payload);
@@ -327,10 +314,11 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
       .execute();
 
     const responseBody = response.body;
-    const result = this.parsePaginatedResult(
+    const result = this.factory.parseSearchResult(
+      this.context,
       responseBody,
-      payload
-    ) as ProductSearchResult;
+      payload,
+    );
 
 
     // ok, we have to patch up the categories facet to have the category keys instead of ids
@@ -358,7 +346,7 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
     return success(result);
   }
 
-  protected async patchCategoryFacetValues(result: ProductSearchResult) {
+  protected async patchCategoryFacetValues(result: ProductSearchFactoryOutput<TFactory>) {
     const categoryFacet = result.facets.find(
       (f) => f.identifier.key === 'categories'
     );
@@ -384,145 +372,4 @@ export class CommercetoolsSearchProvider extends ProductSearchProvider {
   }
 
 
-  protected parseSingle(body: ProductProjection) {
-    const identifier = { key: body.id };
-    const name = body.name[this.context.languageContext.locale] || body.id;
-    const slug = body.slug?.[this.context.languageContext.locale] || body.id;
-    const variants = [body.masterVariant, ...body.variants].map((variant) =>
-      this.parseVariant(variant, body)
-    );
-
-    const product = {
-      identifier,
-      name,
-      slug,
-      variants,
-    } satisfies ProductSearchResultItem;
-
-    return product;
-  }
-
-  protected parsePaginatedResult(
-    body: ProductPagedSearchResponse,
-    query: ProductSearchQueryByTerm
-  ) {
-    const identifier = {
-      ...query.search,
-    } satisfies SearchIdentifier;
-
-    const products: ProductSearchResultItem[] = body.results.map((p) =>
-      this.parseSingle(p.productProjection!)
-    );
-    const facets: ProductSearchResultFacet[] = [];
-
-    for (const facet of body.facets) {
-      const facetIdentifier = FacetIdentifierSchema.parse({
-        key: facet.name,
-      } satisfies Partial<FacetIdentifier>);
-
-      const candidateFacet = this.parseFacet(facetIdentifier, facet);
-      if (candidateFacet.values.length > 0) {
-        facets.push(candidateFacet);
-      }
-    }
-
-    const result = {
-      identifier,
-      pageNumber: (Math.ceil(body.offset / body.limit) || 0) + 1,
-      pageSize: body.limit,
-      totalCount: body.total || 0,
-      totalPages: Math.ceil((body.total || 0) / body.limit || 0) + 1,
-      items: products,
-      facets,
-    } satisfies ProductSearchResult;
-
-    return result;
-  }
-
-  /**
-   * See version 0.0.81 for ProductProjection based facet parsing
-   * @param facetIdentifier
-   * @param facetValue
-   * @returns
-   */
-  protected parseFacet(
-    facetIdentifier: FacetIdentifier,
-    facet: CTProductSearchFacetResult
-  ): ProductSearchResultFacet {
-    const result: ProductSearchResultFacet =
-      ProductSearchResultFacetSchema.parse({
-        identifier: facetIdentifier,
-        name: facet.name,
-        values: [],
-      });
-
-    const distinctFacet = facet as CTProductSearchFacetResultBucket;
-    if (distinctFacet) {
-      distinctFacet.buckets.forEach((bucket) => {
-        const facetValueIdentifier = FacetValueIdentifierSchema.parse({
-          facet: facetIdentifier,
-          key: bucket.key,
-        } satisfies Partial<FacetValueIdentifier>);
-
-        result.values.push(
-          this.parseFacetValue(facetValueIdentifier, bucket.key, bucket.count)
-        );
-      });
-    }
-
-    return result;
-  }
-
-  protected parseFacetValue(
-    facetValueIdentifier: FacetValueIdentifier,
-    label: string,
-    count: number
-  ): ProductSearchResultFacetValue {
-
-    return ProductSearchResultFacetValueSchema.parse({
-      identifier: facetValueIdentifier,
-      name: label,
-      count: count,
-      active: false,
-    } satisfies Partial<ProductSearchResultFacetValue>);
-  }
-
-  protected parseVariant(
-    variant: CTProductVariant,
-    product: ProductProjection
-  ): ProductSearchResultItemVariant {
-    const sourceImage = variant.images?.[0];
-
-    const img = ImageSchema.parse({
-      sourceUrl: sourceImage?.url || '',
-      height: sourceImage?.dimensions.h || undefined,
-      width: sourceImage?.dimensions.w || undefined,
-      altText:
-        sourceImage?.label ||
-        product.name[this.context.languageContext.locale] ||
-        undefined,
-    });
-
-    const mappedOptions =
-      variant.attributes
-        ?.filter((x) => x.name === 'Color')
-        .map((opt) =>
-          ProductVariantOptionSchema.parse({
-            identifier: ProductOptionIdentifierSchema.parse({
-              key: opt.name,
-            } satisfies Partial<ProductOptionIdentifier>),
-            name: opt.value || '',
-          } satisfies Partial<ProductVariantOption>)
-        ) || [];
-
-    const mappedOption = mappedOptions?.[0];
-
-    return ProductSearchResultItemVariantSchema.parse({
-      variant: ProductVariantIdentifierSchema.parse({
-        sku: variant.sku || '',
-      } satisfies ProductVariantIdentifier),
-      image: img,
-      options: mappedOption,
-    } satisfies Partial<ProductSearchResultItemVariant>);
-  }
 }

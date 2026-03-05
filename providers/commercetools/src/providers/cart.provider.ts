@@ -1,6 +1,9 @@
 import {
   CartIdentifierSchema,
-  CartItemSchema,
+  type CartFactory,
+  type CartFactoryCartOutput,
+  type CartFactoryIdentifierOutput,
+  type CartFactoryWithOutput,
   CartMutationApplyCouponSchema,
   CartMutationChangeCurrencySchema,
   CartMutationDeleteCartSchema,
@@ -18,72 +21,75 @@ import {
   assertSuccess,
 } from '@reactionary/core';
 import type {
-  CartItem,
   CartMutationItemAdd,
   CartMutationItemQuantityChange,
   CartMutationItemRemove,
   CartQueryById,
-  CartIdentifier,
   CartMutationApplyCoupon,
   CartMutationDeleteCart,
   CartMutationRemoveCoupon,
   CartMutationChangeCurrency,
   RequestContext,
-  Cart,
-  Currency,
+  CartIdentifier,
   Cache,
-  CostBreakDown,
   Result,
   NotFoundError,
   Promotion,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type {
-  Cart as CTCart,
-  LineItem,
-  MyCartUpdateAction,
-} from '@commercetools/platform-sdk';
+import type { MyCartUpdateAction } from '@commercetools/platform-sdk';
 import type { CommercetoolsCartIdentifier } from '../schema/commercetools.schema.js';
 import { CommercetoolsCartIdentifierSchema } from '../schema/commercetools.schema.js';
 import type { CommercetoolsAPI } from '../core/client.js';
+import type { CommercetoolsCartFactory } from '../factories/cart/cart.factory.js';
 
-export class CommercetoolsCartProvider extends CartProvider {
+export class CommercetoolsCartProvider<
+  TFactory extends CartFactory = CommercetoolsCartFactory,
+> extends CartProvider<CartFactoryCartOutput<TFactory>, CartIdentifier> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
   protected expandedCartFields = ['discountCodes[*].discountCode'];
+  protected factory: CartFactoryWithOutput<TFactory>;
+
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: CartFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
 
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   @Reactionary({
     inputSchema: CartQueryByIdSchema,
     outputSchema: CartSchema,
   })
-  public override async getById(payload: CartQueryById): Promise<Result<Cart, NotFoundError>> {
+  public override async getById(
+    payload: CartQueryById,
+  ): Promise<Result<CartFactoryCartOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
     const ctId = payload.cart as CommercetoolsCartIdentifier;
 
     try {
-      const remote = await client.carts.withId({ ID: ctId.key }).get(
-        {
+      const remote = await client.carts
+        .withId({ ID: ctId.key })
+        .get({
           queryArgs: {
-             expand: this.expandedCartFields
-          }
-        }).execute();
+            expand: this.expandedCartFields,
+          },
+        })
+        .execute();
 
-      return success(this.parseSingle(remote.body));
-    } catch(err) {
+      return success(this.factory.parseCart(this.context, remote.body));
+    } catch (err) {
       return error<NotFoundError>({
         type: 'NotFound',
-        identifier: ctId
+        identifier: ctId,
       });
     }
   }
@@ -92,13 +98,16 @@ export class CommercetoolsCartProvider extends CartProvider {
     inputSchema: CartMutationItemAddSchema,
     outputSchema: CartSchema,
   })
-  public override async add(payload: CartMutationItemAdd): Promise<Result<Cart>> {
+  public override async add(
+    payload: CartMutationItemAdd,
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     let cartIdentifier = payload.cart;
     if (!cartIdentifier) {
       cartIdentifier = await this.createCart();
     }
 
-    const channelId = await this.commercetools.resolveChannelIdByRole('Primary');
+    const channelId =
+      await this.commercetools.resolveChannelIdByRole('Primary');
 
     const result = await this.applyActions(cartIdentifier, [
       {
@@ -123,7 +132,9 @@ export class CommercetoolsCartProvider extends CartProvider {
     inputSchema: CartMutationItemRemoveSchema,
     outputSchema: CartSchema,
   })
-  public override async remove(payload: CartMutationItemRemove): Promise<Result<Cart>> {
+  public override async remove(
+    payload: CartMutationItemRemove,
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     const result = await this.applyActions(payload.cart, [
       {
         action: 'removeLineItem',
@@ -142,8 +153,8 @@ export class CommercetoolsCartProvider extends CartProvider {
     outputSchema: CartSchema,
   })
   public override async changeQuantity(
-    payload: CartMutationItemQuantityChange
-  ): Promise<Result<Cart>> {
+    payload: CartMutationItemQuantityChange,
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     if (payload.quantity === 0) {
       // Changing quantity to 0 is not allowed. Use the remove call instead. This is done to avoid accidental removal of item.
       // Calls with quantity 0 will just be ignored.
@@ -172,11 +183,13 @@ export class CommercetoolsCartProvider extends CartProvider {
   @Reactionary({
     outputSchema: CartIdentifierSchema,
   })
-  public override async getActiveCartId(): Promise<Result<CartIdentifier, NotFoundError>> {
+  public override async getActiveCartId(): Promise<
+    Result<CartIdentifier, NotFoundError>
+  > {
     const client = await this.getClient();
     try {
       const carts = await client.activeCart.get().execute();
-      const result = await CommercetoolsCartIdentifierSchema.parse({
+      const result = this.factory.parseCartIdentifier(this.context, {
         key: carts.body.id,
         version: carts.body.version || 0,
       });
@@ -185,8 +198,8 @@ export class CommercetoolsCartProvider extends CartProvider {
     } catch (e: any) {
       return error<NotFoundError>({
         type: 'NotFound',
-        identifier: {}
-      })
+        identifier: {},
+      });
     }
   }
 
@@ -194,7 +207,7 @@ export class CommercetoolsCartProvider extends CartProvider {
     inputSchema: CartMutationDeleteCartSchema,
   })
   public override async deleteCart(
-    payload: CartMutationDeleteCart
+    payload: CartMutationDeleteCart,
   ): Promise<Result<void>> {
     const client = await this.getClient();
     if (payload.cart.key) {
@@ -218,9 +231,9 @@ export class CommercetoolsCartProvider extends CartProvider {
     inputSchema: CartMutationApplyCouponSchema,
     outputSchema: CartSchema,
   })
-  public override async  applyCouponCode(
-    payload: CartMutationApplyCoupon
-  ): Promise<Result<Cart>> {
+  public override async applyCouponCode(
+    payload: CartMutationApplyCoupon,
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     const result = await this.applyActions(payload.cart, [
       {
         action: 'addDiscountCode',
@@ -239,24 +252,25 @@ export class CommercetoolsCartProvider extends CartProvider {
     outputSchema: CartSchema,
   })
   public override async removeCouponCode(
-    payload: CartMutationRemoveCoupon
-  ): Promise<Result<Cart>> {
-
+    payload: CartMutationRemoveCoupon,
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     const client = await this.getClient();
     const currentCart = await client.carts
       .withId({ ID: payload.cart.key })
       .get({
         queryArgs: {
-          expand: this.expandedCartFields
-        }
+          expand: this.expandedCartFields,
+        },
       })
       .execute();
 
-    const discountCodeReference = currentCart.body.discountCodes?.find(dc => dc.discountCode.obj?.code === payload.couponCode)?.discountCode;
+    const discountCodeReference = currentCart.body.discountCodes?.find(
+      (dc) => dc.discountCode.obj?.code === payload.couponCode,
+    )?.discountCode;
 
     if (!discountCodeReference) {
       // Coupon code is not applied to the cart, so we can just return the cart as is.
-      return success(this.parseSingle(currentCart.body));
+      return success(this.factory.parseCart(this.context, currentCart.body));
     }
     const result = await this.applyActions(payload.cart, [
       {
@@ -279,8 +293,8 @@ export class CommercetoolsCartProvider extends CartProvider {
     outputSchema: CartSchema,
   })
   public override async changeCurrency(
-    payload: CartMutationChangeCurrency
-  ): Promise<Result<Cart>> {
+    payload: CartMutationChangeCurrency,
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     // ok, to do this we have to actually build a new cart, copy over all the items, and then delete the old cart.
     // because Commercetools does not support changing currency of an existing cart.
 
@@ -310,7 +324,7 @@ export class CommercetoolsCartProvider extends CartProvider {
         action: 'addLineItem',
         sku: item.variant.sku || '',
         quantity: item.quantity,
-      })
+      }),
     );
 
     const response = await this.applyActions(newCartId, [
@@ -344,12 +358,12 @@ export class CommercetoolsCartProvider extends CartProvider {
           locale: this.context.languageContext.locale,
         },
         queryArgs: {
-            expand: this.expandedCartFields
-        }
+          expand: this.expandedCartFields,
+        },
       })
       .execute();
 
-    return CommercetoolsCartIdentifierSchema.parse({
+    return this.factory.parseCartIdentifier(this.context, {
       key: response.body.id,
       version: response.body.version || 0,
     });
@@ -357,8 +371,8 @@ export class CommercetoolsCartProvider extends CartProvider {
 
   protected async applyActions(
     cart: CartIdentifier,
-    actions: MyCartUpdateAction[]
-  ): Promise<Cart> {
+    actions: MyCartUpdateAction[],
+  ): Promise<CartFactoryCartOutput<TFactory>> {
     const client = await this.getClient();
     const ctId = cart as CommercetoolsCartIdentifier;
 
@@ -371,15 +385,15 @@ export class CommercetoolsCartProvider extends CartProvider {
             actions,
           },
           queryArgs: {
-              expand: this.expandedCartFields
-          }
+            expand: this.expandedCartFields,
+          },
         })
         .execute();
 
       if (response.error) {
         console.error(response.error);
       }
-      return this.parseSingle(response.body);
+      return this.factory.parseCart(this.context, response.body);
     } catch (e: any) {
       console.error('Error applying actions to cart:', e);
       throw e;
@@ -403,145 +417,5 @@ export class CommercetoolsCartProvider extends CartProvider {
       activeCart: clientWithProject.me().activeCart(),
       orders: clientWithProject.me().orders(),
     };
-  }
-
-  protected parseCartItem(remoteItem: LineItem): CartItem {
-    const unitPrice = remoteItem.price.value.centAmount;
-    const totalPrice = remoteItem.totalPrice.centAmount || 0;
-    let itemDiscount = 0;
-
-    // look, discounts are weird in commercetools.... i think the .price.discount only applies for embedded prices maybe?
-
-    if (remoteItem.discountedPricePerQuantity && remoteItem.discountedPricePerQuantity.length > 0) {
-        itemDiscount = remoteItem.discountedPricePerQuantity.reduce((sum, discPrQty) => {
-          return sum + discPrQty.quantity * discPrQty.discountedPrice?.includedDiscounts?.
-              reduce((sum, discount) => sum + discount.discountedAmount.centAmount, 0) || 0
-        }, 0);
-    }
-
-    const totalDiscount = (remoteItem.price.discounted?.value.centAmount || 0) + itemDiscount;
-
-    const unitDiscount = totalDiscount / remoteItem.quantity;
-    const currency =
-      remoteItem.price.value.currencyCode.toUpperCase() as Currency;
-
-    const item = {
-      identifier: {
-        key: remoteItem.id,
-      },
-      product: {
-        key: remoteItem.productId,
-      },
-      variant: {
-        sku: remoteItem.variant.sku || '',
-      },
-      quantity: remoteItem.quantity,
-      price: {
-        unitPrice: {
-          value: unitPrice / 100,
-          currency,
-        },
-        unitDiscount: {
-          value: unitDiscount / 100,
-          currency,
-        },
-        totalPrice: {
-          value: (totalPrice || 0) / 100,
-          currency,
-        },
-        totalDiscount: {
-          value: totalDiscount / 100,
-          currency,
-        },
-      },
-    } satisfies CartItem;
-
-    return CartItemSchema.parse(item);
-  }
-
-  protected parseSingle(remote: CTCart): Cart {
-    const identifier = {
-      key: remote.id,
-      version: remote.version || 0,
-    } satisfies CommercetoolsCartIdentifier;
-
-
-    const items = new Array<CartItem>();
-    for (const remoteItem of remote.lineItems) {
-      const item = this.parseCartItem(remoteItem);
-
-      items.push(item);
-    }
-
-
-    const grandTotal = remote.totalPrice.centAmount || 0;
-    const shippingTotal = remote.shippingInfo?.price.centAmount || 0;
-    const productTotal = grandTotal - shippingTotal;
-    const taxTotal = remote.taxedPrice?.totalTax?.centAmount || 0;
-
-    // i think this is missing some elements still?
-    const discountTotal =
-      (remote.discountOnTotalPrice?.discountedAmount.centAmount || 0) + items.reduce((sum, item) => sum + (item.price.totalDiscount.value * 100 || 0), 0);
-    const surchargeTotal = 0;
-    const currency = remote.totalPrice.currencyCode as Currency;
-
-    const price = {
-      totalTax: {
-        value: taxTotal / 100,
-        currency,
-      },
-      totalDiscount: {
-        value: discountTotal / 100,
-        currency,
-      },
-      totalSurcharge: {
-        value: surchargeTotal / 100,
-        currency,
-      },
-      totalShipping: {
-        value: shippingTotal / 100,
-        currency,
-      },
-      totalProductPrice: {
-        value: productTotal / 100,
-        currency,
-      },
-      grandTotal: {
-        value: grandTotal / 100,
-        currency,
-      },
-    } satisfies CostBreakDown;
-
-
-    const localeString = this.context.languageContext.locale || 'en'
-    const appliedPromotions = [];
-    if (remote.discountCodes) {
-      for (const promo of remote.discountCodes) {
-        appliedPromotions.push({
-          code: promo.discountCode.obj?.code || '',
-          isCouponCode: true,
-          name: promo.discountCode.obj?.name?.[localeString] || '',
-          description: promo.discountCode.obj?.description?.[localeString] || '',
-        } satisfies Promotion);
-      }
-    }
-
-    // if we want to include the nice name and description of the non-coupon promotions, we have to do some extra work to fetch the referenced promotions and include them here,
-    // as the max expand level is 3, and the information is at level 5.
-    // For now, we will just include the coupon codes, as that is the most common use case.
-
-    const cart = {
-      identifier,
-      userId: {
-        userId: '???',
-      },
-      name: remote.custom?.fields['name'] || '',
-      description: remote.custom?.fields['description'] || '',
-      price,
-      appliedPromotions,
-      items,
-    } satisfies Cart;
-
-    return cart;
   }
 }
