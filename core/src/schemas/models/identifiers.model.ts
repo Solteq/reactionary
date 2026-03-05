@@ -140,8 +140,8 @@ export const ProductSearchIdentifierSchema = z.looseObject({
   term: z.string().meta({ description: 'The search term used to find products.' }),
   facets: z.array(FacetValueIdentifierSchema).meta({ description: 'The facets applied to filter the search results.' }),
   filters: z.array(z.string()).meta({ description: 'Additional filters applied to the search results.' }),
-  paginationOptions: PaginationOptionsSchema.describe('Pagination options for the search results.'),
-  categoryFilter: FacetValueIdentifierSchema.optional().describe('An optional category filter applied to the search results.'),
+  paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
+  categoryFilter: FacetValueIdentifierSchema.optional().meta({ description: 'An optional category filter applied to the search results.' }),
 });
 
 /**
@@ -151,17 +151,17 @@ export const OrderSearchIdentifierSchema = z.looseObject({
   term: z.string().meta({ description: 'The search term used to find orders. Not all providers may support term-based search for orders.' }),
   partNumber: z.array(z.string()).optional().meta({ description: 'An optional list part number to filter orders by specific products. Will be ANDed together.' }),
   orderStatus: z.array(OrderStatusSchema).optional().meta({ description: 'An optional list of order statuses to filter the search results.' }),
-  user: IdentityIdentifierSchema.optional().describe('An optional user ID to filter orders by specific users. Mostly for b2b usecases with hierachial order access.'),
+  user: IdentityIdentifierSchema.optional().meta({ description: 'An optional user ID to filter orders by specific users. Mostly for b2b usecases with hierachial order access.' }),
   startDate: z.string().optional().meta({ description: 'An optional start date to filter orders from a specific date onwards. ISO8601' }),
   endDate: z.string().optional().meta({ description: 'An optional end date to filter orders up to a specific date. ISO8601' }),
   filters: z.array(z.string()).meta({ description: 'Additional filters applied to the search results.' }),
-  paginationOptions: PaginationOptionsSchema.describe('Pagination options for the search results.'),
+  paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
 });
 
 
 export const ProductListSearchIdentifierSchema = z.looseObject({
   listType: ProductListTypeSchema.meta({ description: 'The type of product list, e.g., "wishlist" or "favorites".' }),
-  paginationOptions: PaginationOptionsSchema.describe('Pagination options for the search results.'),
+  paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
 });
 
 
@@ -171,8 +171,8 @@ export const ProductListIdentifierSchema = z.looseObject({
 });
 
 export const ProductListItemSearchIdentifierSchema = z.looseObject({
-  list: ProductListIdentifierSchema.describe('The identifier for the product list to query. The provider should return the items in the list that match this identifier. For example, if the identifier is a customer ID, the provider should return the items in the customer\'s wishlist. If the identifier is a session ID, the provider should return the items in the customer\'s current shopping cart. If the identifier is a product ID, the provider should return the items in the product\'s related products list.'),
-  paginationOptions: PaginationOptionsSchema.describe('Pagination options for the search results.'),
+  list: ProductListIdentifierSchema.meta({ description: 'The identifier for the product list to query. The provider should return the items in the list that match this identifier. For example, if the identifier is a customer ID, the provider should return the items in the customer\'s wishlist. If the identifier is a session ID, the provider should return the items in the customer\'s current shopping cart. If the identifier is a product ID, the provider should return the items in the product\'s related products list.' }),
+  paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
 });
 
 export const ProductListItemIdentifierSchema = z.looseObject({
@@ -180,7 +180,9 @@ export const ProductListItemIdentifierSchema = z.looseObject({
   list: ProductListIdentifierSchema,
 });
 
-
+export const PromotionIdentifierSchema = z.looseObject({
+    key: z.string().meta({ description: 'The unique identifier for the promotion.' }),
+});
 
 
 
@@ -232,6 +234,7 @@ export type ProductListItemIdentifier = InferType<typeof ProductListItemIdentifi
 export type ProductListSearchIdentifier = InferType<typeof ProductListSearchIdentifierSchema>;
 export type ProductListItemSearchIdentifier = InferType<typeof ProductListItemSearchIdentifierSchema>;
 export type ProductListType = InferType<typeof ProductListTypeSchema>;
+export type PromotionIdentifier = InferType<typeof PromotionIdentifierSchema>;
 
 export type IdentifierType =
   | ProductIdentifier
@@ -268,5 +271,6 @@ export type IdentifierType =
   | ProductListIdentifier
   | ProductListItemIdentifier
   | ProductListSearchIdentifier
+  | PromotionIdentifier
 
   ;

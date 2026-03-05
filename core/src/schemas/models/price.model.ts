@@ -21,8 +21,17 @@ export const PriceSchema = BaseModelSchema.extend({
     tieredPrices: z.array(TieredPriceSchema)
 });
 
+export const PromotionSchema = z.looseObject({
+    code: z.string().default('').meta({ description: 'The code for the promotion, if applicable. This can be used to indicate the coupon code used for a promotion, for example.' }),
+    isCouponCode: z.boolean().default(false).meta({ description: 'Indicates whether the promotion is a coupon code that the user added himself.' }),
+    name: z.string().default('').meta({ description: 'The name of the promotion.' }),
+    description: z.string().default('').meta({ description: 'A description of the promotion.' }),
+    amount: MonetaryAmountSchema.optional().meta({ description: 'The amount of the promotion, if applicable/available from the source system. This can be used to indicate the discount amount for a promotion, for example.' })  ,
+});
+
 
 
 export type MonetaryAmount = InferType<typeof MonetaryAmountSchema>;
 export type Price = InferType<typeof PriceSchema>;
+export type Promotion = InferType<typeof PromotionSchema>;
 export type TieredPrice = InferType<typeof TieredPriceSchema>;
