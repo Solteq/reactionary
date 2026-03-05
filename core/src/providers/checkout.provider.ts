@@ -5,7 +5,11 @@ import type { CheckoutQueryById, CheckoutQueryForAvailablePaymentMethods, Checko
 import type { Result } from "../schemas/result.js";
 import type { NotFoundError } from "../schemas/index.js";
 
-export abstract class CheckoutProvider extends BaseProvider {
+export abstract class CheckoutProvider<
+  TCheckout extends Checkout = Checkout,
+  TShippingMethod extends ShippingMethod = ShippingMethod,
+  TPaymentMethod extends PaymentMethod = PaymentMethod,
+> extends BaseProvider {
 
   /**
    * This starts a new checkout session for the given cart. The checkout might duplicate the cart, or just reference it, depending on implementation, but changes to the cart,
@@ -17,7 +21,7 @@ export abstract class CheckoutProvider extends BaseProvider {
    * @param billingAddress the billing/shipping address to start with. This affects available shipping methods, and may be required by some payment providers.
    * @param reqCtx
    */
-  public abstract initiateCheckoutForCart(payload: CheckoutMutationInitiateCheckout): Promise<Result<Checkout>>;
+  public abstract initiateCheckoutForCart(payload: CheckoutMutationInitiateCheckout): Promise<Result<TCheckout>>;
 
 
   /**
@@ -27,7 +31,7 @@ export abstract class CheckoutProvider extends BaseProvider {
    * @param payload
    * @param reqCtx
    */
-  public abstract getById(payload:  CheckoutQueryById): Promise<Result<Checkout, NotFoundError>>;
+  public abstract getById(payload:  CheckoutQueryById): Promise<Result<TCheckout, NotFoundError>>;
 
   /**
    * Updates the shipping address for the checkout and recalculates the shipping methods and totals.
@@ -37,7 +41,7 @@ export abstract class CheckoutProvider extends BaseProvider {
    * NOTE: Unsure this is really needed.
    * @param shippingAddress The updated shipping address. Note: This may also be the billing address, if your store does not differentiate.
    */
-  public abstract setShippingAddress(payload: CheckoutMutationSetShippingAddress): Promise<Result<Checkout>>;
+  public abstract setShippingAddress(payload: CheckoutMutationSetShippingAddress): Promise<Result<TCheckout>>;
 
   /**
    * Returns all available shipping methods for the given checkout. This will typically depend on the shipping address, and possibly also the items in the checkout.
@@ -47,7 +51,7 @@ export abstract class CheckoutProvider extends BaseProvider {
    * @param checkoutId The checkout you want to get shipping methods for.
    * @param reqCtx
    */
-  public abstract getAvailableShippingMethods(payload: CheckoutQueryForAvailableShippingMethods): Promise<Result<ShippingMethod[]>>;
+  public abstract getAvailableShippingMethods(payload: CheckoutQueryForAvailableShippingMethods): Promise<Result<TShippingMethod[]>>;
 
   /**
    * Returns all available payment methods for the given checkout. This will typically depend mostly on the billing address and jurisdiction.
@@ -57,7 +61,7 @@ export abstract class CheckoutProvider extends BaseProvider {
    * @param checkoutId The checkout you want to get payment methods for.
    * @param reqCtx
    */
-  public abstract getAvailablePaymentMethods(payload: CheckoutQueryForAvailablePaymentMethods): Promise<Result<PaymentMethod[]>>;
+  public abstract getAvailablePaymentMethods(payload: CheckoutQueryForAvailablePaymentMethods): Promise<Result<TPaymentMethod[]>>;
 
 
   /**
@@ -65,7 +69,7 @@ export abstract class CheckoutProvider extends BaseProvider {
    *
    * Usecase: User has chosen a payment method, and you need to start the payment process.
    */
-  public abstract addPaymentInstruction(payload: CheckoutMutationAddPaymentInstruction): Promise<Result<Checkout>>;
+  public abstract addPaymentInstruction(payload: CheckoutMutationAddPaymentInstruction): Promise<Result<TCheckout>>;
 
   /**
    * Removes a payment instruction from the checkout. This will typically void the payment intent in the payment provider, and remove the payment instruction from the checkout.
@@ -73,7 +77,7 @@ export abstract class CheckoutProvider extends BaseProvider {
    * Usecase: User has decided to change payment method, or has cancelled the payment process.
    * @param paymentInstructionId
    */
-  public abstract removePaymentInstruction(payload: CheckoutMutationRemovePaymentInstruction): Promise<Result<Checkout>>;
+  public abstract removePaymentInstruction(payload: CheckoutMutationRemovePaymentInstruction): Promise<Result<TCheckout>>;
 
 
 
@@ -87,7 +91,7 @@ export abstract class CheckoutProvider extends BaseProvider {
    * @param shippingMethodId
    * @param pickupPoint
    */
-  public abstract setShippingInstruction(payload: CheckoutMutationSetShippingInstruction): Promise<Result<Checkout>>;
+  public abstract setShippingInstruction(payload: CheckoutMutationSetShippingInstruction): Promise<Result<TCheckout>>;
 
   /**
    * Finalizes the checkout process. This typically involves creating an order from the checkout and processing payment.
@@ -97,7 +101,7 @@ export abstract class CheckoutProvider extends BaseProvider {
    * @param payload
    * @param reqCtx
    */
-  public abstract finalizeCheckout(payload: CheckoutMutationFinalizeCheckout): Promise<Result<Checkout>>;
+  public abstract finalizeCheckout(payload: CheckoutMutationFinalizeCheckout): Promise<Result<TCheckout>>;
 
 
   public override getResourceName(): string {

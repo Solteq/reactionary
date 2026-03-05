@@ -1,47 +1,45 @@
 import {
+  type ProductAssociationsFactory,
+  type ProductAssociationsFactoryOutput,
+  type ProductAssociationsFactoryWithOutput,
   ProductAssociationsProvider,
   Reactionary,
-  ImageSchema,
-  ProductVariantOptionSchema,
-  ProductOptionIdentifierSchema,
-  ProductSearchResultItemVariantSchema,
-  ProductVariantIdentifierSchema,
   success,
   error,
 } from '@reactionary/core';
 import type {
-  ProductVariantIdentifier,
   ProductIdentifier,
-  ProductAssociation,
-  ProductSearchResultItem,
-  ProductSearchResultItemVariant,
   ProductAssociationsGetAccessoriesQuery,
   ProductAssociationsGetSparepartsQuery,
   ProductAssociationsGetReplacementsQuery,
   Result,
   RequestContext,
   Cache,
-  ProductOptionIdentifier,
-  ProductVariantOption,
   NotFoundError,
 } from '@reactionary/core';
-import type { ProductProjection, ProductVariant as CTProductVariant } from '@commercetools/platform-sdk';
+import type { ProductProjection } from '@commercetools/platform-sdk';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { CommercetoolsAPI } from '../core/client.js';
+import type { CommercetoolsProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
 
-export class CommercetoolsProductAssociationsProvider extends ProductAssociationsProvider {
+export class CommercetoolsProductAssociationsProvider<
+  TFactory extends ProductAssociationsFactory = CommercetoolsProductAssociationsFactory,
+> extends ProductAssociationsProvider<ProductAssociationsFactoryOutput<TFactory>> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
+  protected factory: ProductAssociationsFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
-    commercetools: CommercetoolsAPI
+    commercetools: CommercetoolsAPI,
+    factory: ProductAssociationsFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
     this.commercetools = commercetools;
+    this.factory = factory;
   }
 
   protected async getClient() {
@@ -49,7 +47,7 @@ export class CommercetoolsProductAssociationsProvider extends ProductAssociation
     return client.withProjectKey({ projectKey: this.config.projectKey });
   }
 
-  protected async fetchAssociatedProductsFor(productKey: ProductIdentifier, maxNumberOfAssociations: number, attributeName: string): Promise<ProductSearchResultItem[]> {
+  protected async fetchAssociatedProductsFor(productKey: ProductIdentifier, maxNumberOfAssociations: number, attributeName: string): Promise<ProductProjection[]> {
       const client = await this.getClient();
 
       const product = await client
@@ -74,7 +72,7 @@ export class CommercetoolsProductAssociationsProvider extends ProductAssociation
         if (!associationsAttr) {
           return [];
         }
-        const associatedProductSearchItems: ProductSearchResultItem[] = [];
+        const associatedProductSearchItems: ProductProjection[] = [];
 
         // look up each associated product,
         const allAssociatedProductPromises = (associationsAttr.value as string[]).map(async (associatedProductId) => {
@@ -90,32 +88,10 @@ export class CommercetoolsProductAssociationsProvider extends ProductAssociation
         const associatedProductsResults = await Promise.all(allAssociatedProductPromises);
         const validAssociatedProductsResults = associatedProductsResults.filter(result => !!result).slice(0, maxNumberOfAssociations);
         for (const associatedProductResult of validAssociatedProductsResults) {
-          const resultItem = this.parseSingle(associatedProductResult.body);
-          if (resultItem) {
-            associatedProductSearchItems.push(resultItem);
-          }
+          associatedProductSearchItems.push(associatedProductResult.body);
         }
         return associatedProductSearchItems;
     }
-
-
-  protected parseSingle(body: ProductProjection) {
-    const identifier = { key: body.id };
-    const name = body.name[this.context.languageContext.locale] || body.id;
-    const slug = body.slug?.[this.context.languageContext.locale] || body.id;
-    const variants = [body.masterVariant, ...body.variants].map((variant) =>
-      this.parseVariant(variant, body)
-    );
-
-    const product = {
-      identifier,
-      name,
-      slug,
-      variants,
-    } satisfies ProductSearchResultItem;
-
-    return product;
-  }
 
 
   @Reactionary({
@@ -126,17 +102,17 @@ export class CommercetoolsProductAssociationsProvider extends ProductAssociation
   })
   public override async getAccessories(
     query: ProductAssociationsGetAccessoriesQuery
-  ): Promise<Result<ProductAssociation[]>> {
+  ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
 
     const associatedProducts = await this.fetchAssociatedProductsFor(query.forProduct, query.numberOfAccessories || 4, 'reactionaryaccessories');
 
-    const result: ProductAssociation[] = associatedProducts.map(product => ({
-      associationIdentifier: {
-        key: `${query.forProduct.key}-accessory-${product.identifier.key}`
-      },
-      associationReturnType: 'productSearchResultItem',
-      product,
-    } satisfies ProductAssociation));
+    const result = associatedProducts.map((product) =>
+      this.factory.parseAssociation(this.context, {
+        sourceProductKey: query.forProduct.key,
+        relation: 'accessory',
+        product,
+      }),
+    );
 
     return success(result);
   }
@@ -149,16 +125,16 @@ export class CommercetoolsProductAssociationsProvider extends ProductAssociation
   })
   public override async getSpareparts(
     query: ProductAssociationsGetSparepartsQuery
-  ): Promise<Result<ProductAssociation[]>> {
+  ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
     const associatedProducts = await this.fetchAssociatedProductsFor(query.forProduct, query.numberOfSpareparts || 4, 'reactionaryspareparts');
 
-    const result: ProductAssociation[] = associatedProducts.map(product => ({
-      associationIdentifier: {
-        key: `${query.forProduct.key}-sparepart-${product.identifier.key}`
-      },
-      associationReturnType: 'productSearchResultItem',
-      product,
-    } satisfies ProductAssociation));
+    const result = associatedProducts.map((product) =>
+      this.factory.parseAssociation(this.context, {
+        sourceProductKey: query.forProduct.key,
+        relation: 'sparepart',
+        product,
+      }),
+    );
 
     return success(result);
   }
@@ -171,59 +147,18 @@ export class CommercetoolsProductAssociationsProvider extends ProductAssociation
   })
   public override async getReplacements(
     query: ProductAssociationsGetReplacementsQuery
-  ): Promise<Result<ProductAssociation[]>> {
+  ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
     const associatedProducts = await this.fetchAssociatedProductsFor(query.forProduct, query.numberOfReplacements || 4, 'reactionaryreplacements');
 
-    const result: ProductAssociation[] = associatedProducts.map(product => ({
-      associationIdentifier: {
-        key: `${query.forProduct.key}-replacement-${product.identifier.key}`
-      },
-      associationReturnType: 'productSearchResultItem',
-      product,
-    } satisfies ProductAssociation));
+    const result = associatedProducts.map((product) =>
+      this.factory.parseAssociation(this.context, {
+        sourceProductKey: query.forProduct.key,
+        relation: 'replacement',
+        product,
+      }),
+    );
 
     return success(result);
   }
 
-
-
-
-  protected parseVariant(
-    variant: CTProductVariant,
-    product: ProductProjection
-  ): ProductSearchResultItemVariant {
-    const sourceImage = variant.images?.[0];
-
-    const img = ImageSchema.parse({
-      sourceUrl: sourceImage?.url || '',
-      height: sourceImage?.dimensions.h || undefined,
-      width: sourceImage?.dimensions.w || undefined,
-      altText:
-        sourceImage?.label ||
-        product.name[this.context.languageContext.locale] ||
-        undefined,
-    });
-
-    const mappedOptions =
-      variant.attributes
-        ?.filter((x) => x.name === 'Color')
-        .map((opt) =>
-          ProductVariantOptionSchema.parse({
-            identifier: ProductOptionIdentifierSchema.parse({
-              key: opt.name,
-            } satisfies Partial<ProductOptionIdentifier>),
-            name: opt.value || '',
-          } satisfies Partial<ProductVariantOption>)
-        ) || [];
-
-    const mappedOption = mappedOptions?.[0];
-
-    return ProductSearchResultItemVariantSchema.parse({
-      variant: ProductVariantIdentifierSchema.parse({
-        sku: variant.sku || '',
-      } satisfies ProductVariantIdentifier),
-      image: img,
-      options: mappedOption,
-    } satisfies Partial<ProductSearchResultItemVariant>);
-  }
 }

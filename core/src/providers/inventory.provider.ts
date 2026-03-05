@@ -5,20 +5,20 @@ import type { InventoryQueryBySKU } from '../schemas/queries/inventory.query.js'
 import type { Result } from '../schemas/result.js';
 import { BaseProvider } from './base.provider.js';
 
-export abstract class InventoryProvider extends BaseProvider {
-  public abstract getBySKU(payload: InventoryQueryBySKU): Promise<Result<Inventory, NotFoundError>>;
+export abstract class InventoryProvider<TInventory extends Inventory = Inventory> extends BaseProvider {
+  public abstract getBySKU(payload: InventoryQueryBySKU): Promise<Result<TInventory, NotFoundError>>;
 
   protected override getResourceName(): string {
     return 'inventory';
   }
 
-  protected createEmptyInventory(key: InventoryIdentifier): Inventory {
+  protected createEmptyInventory(key: InventoryIdentifier): TInventory {
     const inventory = {
         identifier: key,
         quantity: 0,
         status: 'outOfStock'
     } satisfies Inventory;
 
-    return inventory;
+    return inventory as unknown as TInventory;
   }
 }

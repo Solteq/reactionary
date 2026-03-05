@@ -133,7 +133,7 @@ export function createClient(provider: PrimaryProvider) {
       builder = builder.withCapability(
         withCommercetoolsCapabilities(getCommercetoolsTestConfiguration(), {
           cart: true,
-          product: true,
+          product: { enabled: true },
           category: true,
           checkout: true,
           identity: true,
