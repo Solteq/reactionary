@@ -52,17 +52,7 @@ export class MeilisearchOrderSearchProvider extends OrderSearchProvider {
     this.config = config;
   }
 
-  @Reactionary({
-    inputSchema: OrderSearchQueryByTermSchema,
-    outputSchema: OrderSearchResultSchema,
-  })
-  public async queryByTerm(payload: OrderSearchQueryByTerm): Promise<Result<OrderSearchResult>> {
-    const client = new MeiliSearch({
-      host: this.config.apiUrl,
-      apiKey: this.config.apiKey,
-    });
-
-    const index = client.index(this.config.orderIndexName);
+  protected queryByTermPayload(payload: OrderSearchQueryByTerm): SearchParams {
 
     const filters: string[] = [];
 
@@ -103,10 +93,25 @@ export class MeilisearchOrderSearchProvider extends OrderSearchProvider {
       filter: filters.length > 0 ? filters.join(' AND ') : undefined,
       sort: ['orderDateTimestamp:desc'],
     };
+    return searchOptions
+  }
+
+  @Reactionary({
+    inputSchema: OrderSearchQueryByTermSchema,
+    outputSchema: OrderSearchResultSchema,
+  })
+  public async queryByTerm(payload: OrderSearchQueryByTerm): Promise<Result<OrderSearchResult>> {
+    const client = new MeiliSearch({
+      host: this.config.apiUrl,
+      apiKey: this.config.apiKey,
+    });
+
+    const index = client.index(this.config.orderIndexName);
+
 
     const remote = await index.search<MeilisearchNativeOrderRecord>(
       payload.search.term || '',
-      searchOptions
+      this.queryByTermPayload(payload)
     );
 
     const result = this.parsePaginatedResult(remote, payload) as OrderSearchResult;

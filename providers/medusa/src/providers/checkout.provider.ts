@@ -1,4 +1,4 @@
-import type { StoreCart, StoreCartAddress, StoreCartLineItem } from '@medusajs/types';
+import type { StoreAddCartShippingMethods, StoreCart, StoreCartAddress, StoreCartLineItem, StoreInitializePaymentSession, StoreUpdateCart } from '@medusajs/types';
 import type {
   Address,
   AddressIdentifier,
@@ -97,6 +97,21 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     this.config = config;
   }
 
+  protected initiateCheckoutForCartPayload(payload: CheckoutMutationInitiateCheckout): StoreUpdateCart {
+    return {
+        billing_address: payload.billingAddress
+          ? this.mapAddressToStoreAddress(payload.billingAddress)
+          : undefined,
+        shipping_address: payload.billingAddress
+          ? this.mapAddressToStoreAddress(payload.billingAddress)
+          : undefined,
+        email: payload.notificationEmail,
+        metadata: {
+          sms_notification: payload.notificationPhone,
+        },
+      }
+  }
+
   @Reactionary({
     inputSchema: CheckoutMutationInitiateCheckoutSchema,
     outputSchema: CheckoutSchema,
@@ -114,18 +129,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     // zero out existing checkout data?
     const response = await client.store.cart.update(
       payload.cart.identifier.key,
-      {
-        billing_address: payload.billingAddress
-          ? this.mapAddressToStoreAddress(payload.billingAddress)
-          : undefined,
-        shipping_address: payload.billingAddress
-          ? this.mapAddressToStoreAddress(payload.billingAddress)
-          : undefined,
-        email: payload.notificationEmail,
-        metadata: {
-          sms_notification: payload.notificationPhone,
-        },
-      },
+      this.initiateCheckoutForCartPayload(payload),
       {
         fields: this.includedFields,
       }
@@ -148,6 +152,13 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     return success(this.parseSingle(response.cart));
   }
 
+
+  protected setShippingAddressPayload(payload: CheckoutMutationSetShippingAddress): StoreUpdateCart {
+    return {
+      shipping_address: this.mapAddressToStoreAddress(payload.shippingAddress),
+    }
+  }
+
   @Reactionary({
     inputSchema: CheckoutMutationSetShippingAddressSchema,
     outputSchema: CheckoutSchema,
@@ -159,16 +170,19 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
 
     const response = await client.store.cart.update(
       payload.checkout.key,
-      {
-        shipping_address: this.mapAddressToStoreAddress(
-          payload.shippingAddress
-        ),
-      },
+      this.setShippingAddressPayload(payload),
       {
         fields: this.includedFields,
-      }
+      },
     );
     return success(this.parseSingle(response.cart));
+  }
+
+
+  protected getAvailableShippingMethodsPayload(payload: CheckoutQueryForAvailableShippingMethods) {
+    return {
+      cart_id: payload.checkout.key,
+    }
   }
 
   @Reactionary({
@@ -187,9 +201,9 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     }
 
     const shippingMethodResponse =
-      await client.store.fulfillment.listCartOptions({
-        cart_id: payload.checkout.key,
-      });
+      await client.store.fulfillment.listCartOptions(
+        this.getAvailableShippingMethodsPayload(payload)
+      );
 
     const shippingMethods: ShippingMethod[] = [];
 
@@ -218,6 +232,12 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     return success(shippingMethods);
   }
 
+  protected getAvailablePaymentMethodsPayload(payload: CheckoutQueryForAvailablePaymentMethods, regionId: string) {
+    return {
+      region_id: regionId,
+    }
+  }
+
   @Reactionary({
     inputSchema: CheckoutQueryForAvailablePaymentMethodsSchema,
     outputSchema: z.array(PaymentMethodSchema),
@@ -234,10 +254,12 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     }
     const checkout = await client.store.cart.retrieve(payload.checkout.key);
     const paymentMethodResponse =
-      await client.store.payment.listPaymentProviders({
-        region_id:
-          checkout.cart.region_id || (await this.medusaApi.getActiveRegion()).id,
-      });
+      await client.store.payment.listPaymentProviders(
+        this.getAvailablePaymentMethodsPayload(
+          payload,
+          checkout.cart.region_id || (await this.medusaApi.getActiveRegion()).id
+        )
+      );
 
     const paymentMethods: PaymentMethod[] = [];
 
@@ -267,6 +289,18 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     return success(paymentMethods);
   }
 
+
+  protected addPaymentInstructionPayload(payload: CheckoutMutationAddPaymentInstruction): StoreInitializePaymentSession {
+    return {
+          provider_id: payload.paymentInstruction.paymentMethod.method,
+          data: payload.paymentInstruction.protocolData.reduce((acc, curr) => {
+            acc[curr.key] = curr.value;
+            return acc;
+          }, {} as Record<string, string>),
+        };
+  }
+
+
   @Reactionary({
     inputSchema: CheckoutMutationAddPaymentInstructionSchema,
     outputSchema: CheckoutSchema,
@@ -287,13 +321,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       );
 
       const paymentSessionResponse =
-        await client.store.payment.initiatePaymentSession(cartResponse.cart, {
-          provider_id: payload.paymentInstruction.paymentMethod.method,
-          data: payload.paymentInstruction.protocolData.reduce((acc, curr) => {
-            acc[curr.key] = curr.value;
-            return acc;
-          }, {} as Record<string, string>),
-        });
+        await client.store.payment.initiatePaymentSession(cartResponse.cart, this.addPaymentInstructionPayload(payload));
 
       const updatedCartResponse = await client.store.cart.retrieve(
         payload.checkout.key,
@@ -323,6 +351,17 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     throw new Error('Method not implemented.');
   }
 
+  protected setShippingInstructionPayload(payload: CheckoutMutationSetShippingInstruction): StoreAddCartShippingMethods {
+    return {
+          option_id: payload.shippingInstruction.shippingMethod.key,
+          data: {
+            consent_for_unattended_delivery:
+              payload.shippingInstruction.consentForUnattendedDelivery + '',
+            instructions: payload.shippingInstruction.instructions || '',
+          },
+        };
+  }
+
   @Reactionary({
     inputSchema: CheckoutMutationSetShippingInstructionSchema,
     outputSchema: CheckoutSchema,
@@ -335,14 +374,7 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
     try {
       // Set shipping method
       if (payload.shippingInstruction.shippingMethod) {
-        await client.store.cart.addShippingMethod(medusaId.key, {
-          option_id: payload.shippingInstruction.shippingMethod.key,
-          data: {
-            consent_for_unattended_delivery:
-              payload.shippingInstruction.consentForUnattendedDelivery + '',
-            instructions: payload.shippingInstruction.instructions || '',
-          },
-        });
+        await client.store.cart.addShippingMethod(medusaId.key, this.setShippingInstructionPayload(payload));
       }
 
       // for now, we store a backup of the shipping instruction in metadata
@@ -369,6 +401,11 @@ export class MedusaCheckoutProvider extends CheckoutProvider {
       handleProviderError('set shipping method', error);
     }
   }
+
+
+
+
+
   @Reactionary({
     inputSchema: CheckoutMutationFinalizeCheckoutSchema,
     outputSchema: CheckoutSchema,

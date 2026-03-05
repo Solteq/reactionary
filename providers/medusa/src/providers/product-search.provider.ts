@@ -88,6 +88,22 @@ export class MedusaSearchProvider extends ProductSearchProvider {
     return candidate || null;
   }
 
+
+  protected queryByTermPayload(payload: ProductSearchQueryByTerm, categoryIdToFind: string | null): any {
+
+    const finalSearch = (payload.search.term || '').trim().replace('*', '');
+
+    return {
+      q: finalSearch,
+      ...(categoryIdToFind ? { category_id: categoryIdToFind } : {}),
+      limit: payload.search.paginationOptions.pageSize,
+      fields: '+metadata.*,+external_id',
+      offset:
+        (payload.search.paginationOptions.pageNumber - 1) *
+        payload.search.paginationOptions.pageSize,
+    }
+  }
+
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
     outputSchema: ProductSearchResultSchema,
@@ -121,16 +137,9 @@ export class MedusaSearchProvider extends ProductSearchProvider {
         );
       }
     }
-    const finalSearch = (payload.search.term || '').trim().replace('*', '');
-    const response = await client.store.product.list({
-      q: finalSearch,
-      ...(categoryIdToFind ? { category_id: categoryIdToFind } : {}),
-      limit: payload.search.paginationOptions.pageSize,
-      fields: '+metadata.*,+external_id',
-      offset:
-        (payload.search.paginationOptions.pageNumber - 1) *
-        payload.search.paginationOptions.pageSize,
-    });
+
+
+    const response = await client.store.product.list(this.queryByTermPayload(payload, categoryIdToFind));
 
     const result = this.parsePaginatedResult(response) as ProductSearchResult;
     if (debug.enabled) {

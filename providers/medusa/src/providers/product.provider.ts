@@ -28,6 +28,15 @@ export class MedusaProductProvider extends ProductProvider {
    this.config = config;
   }
 
+  protected getByIdPayload(payload: ProductQueryById) {
+    return {
+      external_id: payload.identifier.key,
+      limit: 1,
+      offset: 0,
+      fields: this.alwaysIncludedFields.join(','),
+    }
+  }
+
   @Reactionary({
     inputSchema: ProductQueryByIdSchema,
     outputSchema: ProductSchema,
@@ -42,12 +51,7 @@ export class MedusaProductProvider extends ProductProvider {
       debug(`Fetching product by ID: ${payload.identifier.key}`);
     }
     const response = await client.store.product.list(
-      {
-        external_id: payload.identifier.key,
-        limit: 1,
-        offset: 0,
-        fields: this.alwaysIncludedFields.join(','),
-      },
+      this.getByIdPayload(payload)
     );
 
     if (response.count === 0) {
@@ -58,6 +62,15 @@ export class MedusaProductProvider extends ProductProvider {
     }
     return success(this.parseSingle(response.products[0]));
   }
+
+  protected getBySlugPayload(payload: ProductQueryBySlug) {
+    return {
+      handle: payload.slug,
+      limit: 1,
+      offset: 0,
+      fields: this.alwaysIncludedFields.join(','),
+    }
+   }
 
 
   @Reactionary({
@@ -74,12 +87,7 @@ export class MedusaProductProvider extends ProductProvider {
       debug(`Fetching product by slug: ${payload.slug}`);
     }
 
-    const response = await client.store.product.list({
-      handle: payload.slug,
-      limit: 1,
-      offset: 0,
-      fields: this.alwaysIncludedFields.join(','),
-    });
+    const response = await client.store.product.list(this.getBySlugPayload(payload));
 
     if (debug.enabled) {
       debug(`Found ${response.count} products for slug: ${payload.slug}`);

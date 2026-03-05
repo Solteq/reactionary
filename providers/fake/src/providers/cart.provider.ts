@@ -274,6 +274,7 @@ export class FakeCartProvider extends CartProvider {
           currency: 'XXX',
         },
       },
+      appliedPromotions: [],
       userId: {
         userId: '',
       },
