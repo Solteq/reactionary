@@ -48,7 +48,7 @@ import {
   parseMedusaCostBreakdown,
   parseMedusaItemPrice,
 } from '../utils/medusa-helpers.js';
-import type MedusaTypes from '@medusajs/types';
+import type { StoreAddCartLineItem, StoreCart, StoreCartAddPromotion, StoreCartLineItem, StoreCartRemovePromotion, StoreCartResponse, StoreCreateCart, StoreProduct, StoreUpdateCart, StoreUpdateCartLineItem } from '@medusajs/types';
 
 const debug = createDebug('reactionary:medusa:cart');
 
@@ -119,7 +119,7 @@ export class MedusaCartProvider extends CartProvider {
    * @param variantId
    * @returns
    */
-  protected addPayload(payload: CartMutationItemAdd, variantId: string): MedusaTypes.StoreAddCartLineItem {
+  protected addPayload(payload: CartMutationItemAdd, variantId: string): StoreAddCartLineItem {
     return  {
       variant_id: variantId,
       quantity: payload.quantity,
@@ -218,7 +218,7 @@ export class MedusaCartProvider extends CartProvider {
    * @param payload
    * @returns
    */
-  protected changeQuantityPayload(payload: CartMutationItemQuantityChange): MedusaTypes.StoreUpdateCartLineItem {
+  protected changeQuantityPayload(payload: CartMutationItemQuantityChange): StoreUpdateCartLineItem {
     return {
       quantity: payload.quantity,
     };
@@ -348,7 +348,7 @@ export class MedusaCartProvider extends CartProvider {
    * @param payload
    * @returns
    */
-  protected applyCouponCodePayload(payload: CartMutationApplyCoupon): MedusaTypes.StoreCartAddPromotion {
+  protected applyCouponCodePayload(payload: CartMutationApplyCoupon): StoreCartAddPromotion {
     return {
       promo_codes: [payload.couponCode],
     };
@@ -366,7 +366,7 @@ export class MedusaCartProvider extends CartProvider {
       const medusaId = payload.cart as MedusaCartIdentifier;
 
 
-      const response = await client.client.fetch<MedusaTypes.StoreCartResponse>(
+      const response = await client.client.fetch<StoreCartResponse>(
         `/store/carts/${medusaId.key}/promotions`,
         {
           method: "POST",
@@ -401,7 +401,7 @@ export class MedusaCartProvider extends CartProvider {
    * @param payload
    * @returns
    */
-  protected removeCouponCodePayload(payload: CartMutationRemoveCoupon): MedusaTypes.StoreCartRemovePromotion {
+  protected removeCouponCodePayload(payload: CartMutationRemoveCoupon): StoreCartRemovePromotion {
     return {
       promo_codes: [payload.couponCode],
 
@@ -419,7 +419,7 @@ export class MedusaCartProvider extends CartProvider {
       const client = await this.getClient();
       const medusaId = payload.cart as MedusaCartIdentifier;
 
-      const response = await client.client.fetch<MedusaTypes.StoreCartResponse>(
+      const response = await client.client.fetch<StoreCartResponse>(
         `/store/carts/${medusaId.key}/promotions`,
         {
           method: "DELETE",
@@ -456,7 +456,7 @@ export class MedusaCartProvider extends CartProvider {
    * @param newRegionId
    * @returns
    */
-  protected changeCurrencyPayload(payload: CartMutationChangeCurrency, newRegionId: string): MedusaTypes.StoreUpdateCart {
+  protected changeCurrencyPayload(payload: CartMutationChangeCurrency, newRegionId: string): StoreUpdateCart {
     return {
       region_id: newRegionId,
     };
@@ -501,7 +501,7 @@ export class MedusaCartProvider extends CartProvider {
    * @param currency
    * @returns
    */
-  protected createCartPayload(currency?: string): MedusaTypes.StoreCreateCart {
+  protected createCartPayload(currency?: string): StoreCreateCart {
     return {
         currency_code: (
             currency ||
@@ -554,7 +554,7 @@ export class MedusaCartProvider extends CartProvider {
    * @returns
    */
   protected parseItemPrice(
-    remoteItem: MedusaTypes.StoreCartLineItem,
+    remoteItem: StoreCartLineItem,
     currency: Currency
   ): ItemCostBreakdown {
     return parseMedusaItemPrice(remoteItem, currency);
@@ -565,7 +565,7 @@ export class MedusaCartProvider extends CartProvider {
    * @param remote
    * @returns
    */
-  protected parseCostBreakdown(remote: MedusaTypes.StoreCart): CostBreakDown {
+  protected parseCostBreakdown(remote: StoreCart): CostBreakDown {
     return parseMedusaCostBreakdown(remote);
   }
 
@@ -576,7 +576,7 @@ export class MedusaCartProvider extends CartProvider {
    * @returns
    */
   protected parseCartItem(
-    remoteItem: MedusaTypes.StoreCartLineItem,
+    remoteItem: StoreCartLineItem,
     currency: Currency
   ): CartItem {
 
@@ -601,7 +601,7 @@ export class MedusaCartProvider extends CartProvider {
    * @param remote
    * @returns
    */
-  protected parseSingle(remote: MedusaTypes.StoreCart): Cart {
+  protected parseSingle(remote: StoreCart): Cart {
     const identifier = MedusaCartIdentifierSchema.parse({
       key: remote.id,
       region_id: remote.region_id,

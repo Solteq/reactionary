@@ -2,7 +2,6 @@ import 'dotenv/config';
 import { createClient, PrimaryProvider } from '../utils.js';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { ProductSearchQueryByTermSchema, type ProductSearchQueryByTerm } from '@reactionary/core';
-import { de } from '@faker-js/faker';
 
 const testData = {
   skuWithoutTiers: '0766623301831',
