@@ -99,20 +99,20 @@ export function createClient(provider: PrimaryProvider) {
     if (provider === PrimaryProvider.MEDUSA) {
       builder = builder.withCapability(
         withMedusaCapabilities( getMedusaTestConfiguration(), {
-          cart: true,
-          product: true,
-          category: true,
-          checkout: true,
-          identity: true,
-          inventory: true,
-          order: true,
-          price: true,
-          productSearch: true,
-          productRecommendations: true,
-          productAssociations: true,
-          orderSearch: true,
-          store: true,
-          profile: true,
+          cart: { enabled: true },
+          product: { enabled: true },
+          category: { enabled: true },
+          checkout: { enabled: true },
+          identity: { enabled: true },
+          inventory: { enabled: true },
+          order: { enabled: true },
+          price: { enabled: true },
+          productSearch: { enabled: true },
+          productRecommendations: { enabled: true },
+          productAssociations: { enabled: true },
+          orderSearch: { enabled: true },
+          store: { enabled: true },
+          profile: { enabled: true },
         })
       );
     }
@@ -120,11 +120,11 @@ export function createClient(provider: PrimaryProvider) {
     if (provider === PrimaryProvider.FAKE) {
       builder = builder.withCapability(
         withFakeCapabilities( getFakeConfiguration() , {
-          price: true,
-          inventory: true,
-          product: true,
-          productReviews: true,
-          productAssociations: true,
+          price: { enabled: true },
+          inventory: { enabled: true },
+          product: { enabled: true },
+          productReviews: { enabled: true },
+          productAssociations: { enabled: true },
         }
       ))
     }
@@ -132,21 +132,21 @@ export function createClient(provider: PrimaryProvider) {
     if (provider === PrimaryProvider.COMMERCETOOLS) {
       builder = builder.withCapability(
         withCommercetoolsCapabilities(getCommercetoolsTestConfiguration(), {
-          cart: true,
+          cart: { enabled: true },
           product: { enabled: true },
-          category: true,
-          checkout: true,
-          identity: true,
-          inventory: true,
-          order: true,
-          price: true,
-          productSearch: true,
-          productAssociations: true,
-          productReviews: true,
-          productList: true,
-          orderSearch: true,
-          store: true,
-          profile: true,
+          category: { enabled: true },
+          checkout: { enabled: true },
+          identity: { enabled: true },
+          inventory: { enabled: true },
+          order: { enabled: true },
+          price: { enabled: true },
+          productSearch: { enabled: true },
+          productAssociations: { enabled: true },
+          productReviews: { enabled: true },
+          productList: { enabled: true },
+          orderSearch: { enabled: true },
+          store: { enabled: true },
+          profile: { enabled: true },
         })
       );
     }
@@ -155,8 +155,8 @@ export function createClient(provider: PrimaryProvider) {
   if (provider === PrimaryProvider.ALGOLIA) {
     builder = builder.withCapability(
       withAlgoliaCapabilities(getAlgoliaTestConfiguration(), {
-        productSearch: true,
-        productRecommendations: true,
+        productSearch: { enabled: true },
+        productRecommendations: { enabled: true },
       })
     );
   }
@@ -164,15 +164,15 @@ export function createClient(provider: PrimaryProvider) {
   if (provider === PrimaryProvider.MEILISEARCH) {
     builder = builder.withCapability(
       withMeilisearchCapabilities(getMeilisearchTestConfiguration(), {
-        productSearch: true,
-        orderSearch: true,
-        productRecommendations: true,
+        productSearch: { enabled: true },
+        orderSearch: { enabled: true },
+        productRecommendations: { enabled: true },
       }),
     );
     builder = builder.withCapability(
       withMedusaCapabilities(getMedusaTestConfiguration(), {
-        cart: true,
-        identity: true,
+        cart: { enabled: true },
+        identity: { enabled: true },
       })
     );
   }

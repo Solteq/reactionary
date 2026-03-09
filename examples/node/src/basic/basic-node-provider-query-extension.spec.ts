@@ -9,6 +9,7 @@ import {
   ProductSchema
 } from '@reactionary/core';
 import {
+  FakeProductFactory,
   FakeProductProvider,
   withFakeCapabilities,
 } from '@reactionary/provider-fake';
@@ -60,7 +61,8 @@ describe('basic node provider extension (models)', () => {
             search: 1
           }},
           cache,
-          context
+          context,
+          new FakeProductFactory(ProductSchema)
         ),
       };
 
@@ -83,7 +85,11 @@ describe('basic node provider extension (models)', () => {
             search: 1
           }
         },
-        { productSearch: true, product: false, identity: false }
+        {
+          productSearch: { enabled: true },
+          product: { enabled: false },
+          identity: { enabled: false },
+        }
       )
     )
     .withCapability(withExtendedCapabilities())

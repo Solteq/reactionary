@@ -29,7 +29,11 @@ describe('basic node setup', () => {
               search: 1,
             },
           },
-          { productSearch: true, product: true, identity: false }
+          {
+            productSearch: { enabled: true },
+            product: { enabled: true },
+            identity: { enabled: false },
+          }
         )
       )
       .withCache(new NoOpCache())
