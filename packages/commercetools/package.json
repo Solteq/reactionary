@@ -6,7 +6,12 @@
   "types": "./src/index.d.ts",
   "dependencies": {
     "vitest": "^4.0.9",
-    "@nx/vite": "22.4.5"
+    "@nx/vite": "22.4.5",
+    "@reactionary/core": "0.0.1",
+    "zod": "4.1.9",
+    "@commercetools/ts-client": "^4.9.1",
+    "@commercetools/platform-sdk": "^8.25.0",
+    "debug": "^4.4.3"
   },
   "sideEffects": false
 }
