@@ -12,7 +12,7 @@ import {
   FakeProductFactory,
   FakeProductProvider,
   withFakeCapabilities,
-} from '@reactionary/provider-fake';
+} from '@reactionary/fake';
 import * as z from 'zod';
 import { describe, expect, it } from 'vitest';
 
