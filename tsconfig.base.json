@@ -16,7 +16,6 @@
     "baseUrl": ".",
     "paths": {
       "@reactionary/examples-node": ["examples/node/src/index.ts"],
-      "@reactionary/otel": ["otel/src/index.ts"],
       "@reactionary/commercetools": ["packages/commercetools/src/index.ts"],
       "@reactionary/core": ["packages/core/src/index.ts"],
       "@reactionary/algolia": ["packages/algolia/src/index.ts"],
