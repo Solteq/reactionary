@@ -59,6 +59,11 @@ export class MeilisearchProductRecommendationsCapability extends ProductRecommen
       return [];
     }
 
+    if (this.context.isBot && !this.config.useRecommendationsForBots) {
+      console.warn('Bot traffic detected. Recommendations are disabled for bots in configuration to save on API costs. Returning empty recommendations.');
+      return [];
+    }
+
     try {
       const response = await index.searchSimilarDocuments<MeilisearchNativeRecord>(this.getSimilarProductsRecommendationsPayload(query));
 

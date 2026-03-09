@@ -75,6 +75,12 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
   ): Promise<ProductRecommendation[]> {
 
     try {
+      if( this.context.isBot && !this.config.useRecommendationsForBots) {
+        console.warn('Bot traffic detected. Recommendations are disabled for bots in configuration to save on API costs. Returning empty recommendations.');
+        return [];
+      }
+
+
       // Note: Algolia's Recommend API requires setting up AI Recommend models
       // This implementation uses the getRecommendations method from the recommend client
       const response = await this.client.getRecommendations({
@@ -112,6 +118,12 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
   ): Promise<ProductRecommendation[]> {
 
     try {
+
+      if( this.context.isBot && !this.config.useRecommendationsForBots) {
+        console.warn('Bot traffic detected. Recommendations are disabled for bots in configuration to save on API costs. Returning empty recommendations.');
+        return [];
+      }
+
       const response = await this.client.getRecommendations({
         requests: [
           {
@@ -146,6 +158,11 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
   ): Promise<ProductRecommendation[]> {
 
     try {
+      if( this.context.isBot && !this.config.useRecommendationsForBots) {
+        console.warn('Bot traffic detected. Recommendations are disabled for bots in configuration to save on API costs. Returning empty recommendations.');
+        return [];
+      }
+
       const response = await this.client.getRecommendations({
         requests: [
           {
@@ -179,6 +196,11 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
     query: ProductRecommendationAlgorithmTrendingInCategoryQuery
   ): Promise<ProductRecommendation[]> {
     try {
+      if( this.context.isBot && !this.config.useRecommendationsForBots) {
+        console.warn('Bot traffic detected. Recommendations are disabled for bots in configuration to save on API costs. Returning empty recommendations.');
+        return [];
+      }
+
       const response = await this.client.getRecommendations({
         requests: [
           {
