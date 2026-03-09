@@ -144,18 +144,8 @@ Vendors:  Commercetools
   - Add to Shopping List
 
 
+
 ### Roadmap to V0.7
-Usecase: As a B2B user i want to shop using my own prices
-Vendors:  Commercetools, Medusa
-
-- PDP / PLP
-  - [ ] External Pricing
-  - [ ] Customer specific pricing
-  - [ ] Organizational/Entitlement Context. Choose to shop private or for company?
-  - [ ] Multi currency/Multi lingual
-
-
-### Roadmap to V0.8
 Usecase: As a B2B user i want to see my organization data
 Vendors:  Commercetools, Medusa
 
@@ -165,6 +155,19 @@ Vendors:  Commercetools, Medusa
   - [ ] Edit organization address book (if admin) 
 - Account 
   - [ ] Self management of users and roles
+
+
+### Roadmap to V0.8
+Usecase: As a B2B user i want to shop using my own prices
+Vendors:  Commercetools, Medusa
+
+- PDP / PLP
+  - [ ] External Pricing / Pushed prices
+  - [ ] Customer specific pricing
+  - [ ] Organizational/Entitlement Context. Choose to shop private or for company?
+  - [ ] Multi currency/Multi lingual
+
+
 
 
 ### Roadmap to V0.9
