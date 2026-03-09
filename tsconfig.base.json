@@ -4,16 +4,15 @@
     "rootDir": ".",
     "sourceMap": true,
     "declaration": false,
-    "moduleResolution": "node",
-    "emitDecoratorMetadata": true,
+    "moduleResolution": "nodenext",
     "experimentalDecorators": true,
     "importHelpers": true,
-    "target": "es2015",
-    "module": "esnext",
-    "lib": ["es2020", "dom"],
+    "target": "es2022",
+    "module": "nodenext",
+    "lib": ["es2022"],
     "skipLibCheck": true,
-    "skipDefaultLibCheck": true,
     "baseUrl": ".",
+    "verbatimModuleSyntax": true,
     "paths": {
       "@reactionary/examples-node": ["examples/node/src/index.ts"],
       "@reactionary/commercetools": ["packages/commercetools/src/index.ts"],
@@ -26,7 +25,6 @@
       "@reactionary/medusa": ["packages/medusa/src/index.ts"],
       "@reactionary/meilisearch": ["packages/meilisearch/src/index.ts"]
     },
-    "verbatimModuleSyntax": true
   },
   "exclude": ["node_modules", "tmp"]
 }
