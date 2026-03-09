@@ -146,33 +146,45 @@ Vendors:  Commercetools
 
 ### Roadmap to V0.7
 Usecase: As a B2B user i want to shop using my own prices
-Vendors:  Commercetools
+Vendors:  Commercetools, Medusa
 
 - PDP / PLP
-  - External Pricing
-  - Organizational/Entitlement Context
-  - Multi currency/Multi lingual
+  - [ ] External Pricing
+  - [ ] Customer specific pricing
+  - [ ] Organizational/Entitlement Context. Choose to shop private or for company?
+  - [ ] Multi currency/Multi lingual
 
 
 ### Roadmap to V0.8
 Usecase: As a B2B user i want to see my organization data
-Vendors:  Commercetools
+Vendors:  Commercetools, Medusa
 
-- Account - My Organization(s) 
-- Account - Self management of users and roles
+- Account 
+  - [ ] My Organization(s)
+  - [ ] Edit organization data (if admin)
+  - [ ] Edit organization address book (if admin) 
+- Account 
+  - [ ] Self management of users and roles
 
 
 ### Roadmap to V0.9
 Usecase: As a B2B user i want have multiple carts and requisition lists
 Vendors:  Commercetools
 
-- Account - My Open Carts
+- Header
+   - [ ] Pick active cart
+- Account 
+   - [ ] My Open Carts
+   - [ ] My Requisition Lists (private)
+   - [ ] My Orgs Requisition Lists (everyones public lists)
 
 ### Roadmap to V1.0
 Usecase: As a B2B user i want to see other peoples carts and orders
 Vendors:  Commercetools
 
-- Account - Organizational Order History
+- Account 
+   - [ ] Organizational Order History
+   - [ ] Pick someone elses cart (from someone else)
 
 
 
@@ -181,8 +193,7 @@ Vendors:  Commercetools
 
 
 
-
-### Roadmap V0.x
+### Roadmap V1.x
 - Additional vendors
   - AthosCommerce (Klevu)
   - ShopifyPlus
