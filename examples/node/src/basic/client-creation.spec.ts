@@ -21,7 +21,7 @@ describe('client creation', () => {
               search: 1,
             },
           },
-          { product: true }
+          { product: { enabled: true } }
         )
       )
       .withCapability(
@@ -34,14 +34,14 @@ describe('client creation', () => {
          projectKey: '',
          scopes: [],
          facetFieldsForSearch: []
-        }, { cart: true })
+        }, { cart: { enabled: true } })
       )
       .withCapability(
         withAlgoliaCapabilities({
             apiKey: '',
             appId: '',
             indexName: ''
-        }, { productSearch: true })
+        }, { productSearch: { enabled: true } })
       )
       .withCache(new NoOpCache())
       .build();

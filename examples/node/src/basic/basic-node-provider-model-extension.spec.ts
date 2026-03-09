@@ -7,6 +7,7 @@ import {
   ProductSchema
 } from '@reactionary/core';
 import {
+  FakeProductFactory,
   FakeProductProvider,
   withFakeCapabilities,
 } from '@reactionary/provider-fake';
@@ -23,9 +24,9 @@ describe('basic node provider extension (models)', () => {
   type ExtendedProduct = z.infer<typeof ExtendedProductModel>;
 
   class ExtendedProductProvider extends FakeProductProvider {
-    protected override parseSingle(body: string): ExtendedProduct {
+    protected override composeSingle(body: string): ExtendedProduct {
       const result = {
-        ...super.parseSingle(body),
+        ...super.composeSingle(body),
         gtin: 'gtin-1234'
       } satisfies ExtendedProduct;
 
@@ -44,7 +45,8 @@ describe('basic node provider extension (models)', () => {
             search: 1
           } },
           cache,
-          context
+          context,
+          new FakeProductFactory(ExtendedProductModel)
         ),
       };
 
@@ -66,7 +68,11 @@ describe('basic node provider extension (models)', () => {
             search: 1
           }
         },
-        { productSearch: true, product: false, identity: false }
+        {
+          productSearch: { enabled: true },
+          product: { enabled: false },
+          identity: { enabled: false },
+        }
       )
     )
     .withCapability(withExtendedCapabilities())
