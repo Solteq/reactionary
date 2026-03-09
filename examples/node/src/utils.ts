@@ -3,13 +3,13 @@ import {
   ClientBuilder,
   NoOpCache,
 } from '@reactionary/core';
-import type { CommercetoolsConfiguration } from '@reactionary/provider-commercetools';
-import { withCommercetoolsCapabilities } from '@reactionary/provider-commercetools';
-import { withAlgoliaCapabilities } from '@reactionary/provider-algolia';
-import { withMedusaCapabilities } from '@reactionary/provider-medusa';
-import { withMeilisearchCapabilities } from '@reactionary/provider-meilisearch';
-import { withFakeCapabilities } from '@reactionary/provider-fake';
-import type { FakeConfiguration } from '@reactionary/provider-fake';
+import type { CommercetoolsConfiguration } from '@reactionary/commercetools';
+import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
+import { withAlgoliaCapabilities } from "@reactionary/algolia";
+import { withMedusaCapabilities } from '@reactionary/medusa';
+import { withMeilisearchCapabilities } from '@reactionary/meilisearch';
+import { withFakeCapabilities } from '@reactionary/fake';
+import type { FakeConfiguration } from '@reactionary/fake';
 
 export function getAlgoliaTestConfiguration() {
   return {

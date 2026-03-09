@@ -1,0 +1,17 @@
+{
+  "name": "@reactionary/medusa",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./src/index.d.ts",
+  "dependencies": {
+    "@medusajs/js-sdk": "^2.13.3",
+    "@reactionary/core": "0.0.1",
+    "debug": "^4.4.3",
+    "@medusajs/types": "^2.13.3",
+    "zod": "4.1.9",
+    "vitest": "^4.0.9",
+    "@nx/vite": "22.4.5"
+  },
+  "sideEffects": false
+}

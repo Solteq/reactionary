@@ -10,7 +10,7 @@ import {
   FakeProductFactory,
   FakeProductProvider,
   withFakeCapabilities,
-} from '@reactionary/provider-fake';
+} from '@reactionary/fake';
 import { createInitialRequestContext } from '@reactionary/core'
 import * as z from 'zod';
 import { describe, expect, it } from 'vitest';

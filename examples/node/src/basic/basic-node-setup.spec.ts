@@ -6,7 +6,7 @@ import {
   type Client,
   type RequestContext,
 } from '@reactionary/core';
-import { withFakeCapabilities } from '@reactionary/provider-fake';
+import { withFakeCapabilities } from '@reactionary/fake';
 import { assert, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 describe('basic node setup', () => {
