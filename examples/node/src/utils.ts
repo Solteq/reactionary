@@ -16,6 +16,7 @@ export function getAlgoliaTestConfiguration() {
     apiKey: process.env['ALGOLIA_API_KEY'] || '',
     appId: process.env['ALGOLIA_APP_ID'] || '',
     indexName: process.env['ALGOLIA_INDEX'] || '',
+    useRecommendationsForBots: process.env['ALGOLIA_USE_RECOMMENDATIONS_FOR_BOTS'] === 'true',
   };
 }
 
@@ -26,6 +27,7 @@ export function getMeilisearchTestConfiguration() {
     indexName: process.env['MEILISEARCH_INDEX'] || '',
     useAIEmbedding: process.env['MEILISEARCH_USE_AI_EMBEDDING'] || undefined,
     orderIndexName: process.env['MEILISEARCH_ORDER_INDEX'] || 'order',
+    useRecommendationsForBots: process.env['MEILISEARCH_USE_RECOMMENDATIONS_FOR_BOTS'] === 'true',
   };
 }
 

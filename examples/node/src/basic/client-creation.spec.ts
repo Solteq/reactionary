@@ -40,7 +40,8 @@ describe('client creation', () => {
         withAlgoliaCapabilities({
             apiKey: '',
             appId: '',
-            indexName: ''
+            indexName: '',
+            useRecommendationsForBots: false,
         }, { productSearch: { enabled: true } })
       )
       .withCache(new NoOpCache())
