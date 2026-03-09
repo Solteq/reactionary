@@ -306,7 +306,7 @@ export class CommercetoolsAPI {
     });
 
 
-    const body = await response.json();
+    const body: any = await response.json();
     if (!body) {
       return AnonymousIdentitySchema.parse({});
     }
@@ -368,7 +368,7 @@ export class CommercetoolsAPI {
       }
     );
 
-    const result = await response.json();
+    const result: any = await response.json();
 
     this.tokenCache.set({
       expirationTime:
