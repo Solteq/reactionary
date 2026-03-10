@@ -15,10 +15,11 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import type { CommercetoolsCartIdentifier, CommercetoolsCartIdentifierSchema } from '../../schema/commercetools.schema.js';
 
 export class CommercetoolsCartFactory<
   TCartSchema extends AnyCartSchema = typeof CartSchema,
-  TCartIdentifierSchema extends AnyCartIdentifierSchema = typeof CartIdentifierSchema,
+  TCartIdentifierSchema extends AnyCartIdentifierSchema = typeof CommercetoolsCartIdentifierSchema,
 > implements CartFactory<TCartSchema, TCartIdentifierSchema>
 {
   public readonly cartSchema: TCartSchema;
@@ -31,11 +32,12 @@ export class CommercetoolsCartFactory<
 
   public parseCartIdentifier(
     _context: RequestContext,
-    data: { key?: string },
+    data: { key?: string, version?: number },
   ): z.output<TCartIdentifierSchema> {
     return this.cartIdentifierSchema.parse({
       key: data.key || '',
-    } satisfies Partial<CartIdentifier>);
+      version: data.version || 0
+    } satisfies CommercetoolsCartIdentifier);
   }
 
   public parseCart(
@@ -44,6 +46,7 @@ export class CommercetoolsCartFactory<
   ): z.output<TCartSchema> {
     const identifier = this.parseCartIdentifier(context, {
       key: data.id,
+      version: data.version
     });
 
     const grandTotal = data.totalPrice.centAmount || 0;
