@@ -106,8 +106,7 @@ export class CommercetoolsCartCapability<
       cartIdentifier = await this.createCart();
     }
 
-    const channelId =
-      await this.commercetools.resolveChannelIdByRole('Primary');
+    const channelId = await this.commercetools.resolveChannelIdByRole('Primary');
 
     const result = await this.applyActions(cartIdentifier, [
       {
