@@ -1,7 +1,9 @@
 import type { Cart as CTCart, LineItem } from '@commercetools/platform-sdk';
 import type {
   CartIdentifierSchema,
-  CartSchema} from '@reactionary/core';
+  CartSchema,
+  Promotion,
+} from '@reactionary/core';
 import {
   CartItemSchema,
   type AnyCartIdentifierSchema,
@@ -15,28 +17,35 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
-import type { CommercetoolsCartIdentifier, CommercetoolsCartIdentifierSchema } from '../../schema/commercetools.schema.js';
+import type {
+  CommercetoolsCartIdentifier,
+  CommercetoolsCartIdentifierSchema,
+} from '../../schema/commercetools.schema.js';
 
 export class CommercetoolsCartFactory<
   TCartSchema extends AnyCartSchema = typeof CartSchema,
-  TCartIdentifierSchema extends AnyCartIdentifierSchema = typeof CommercetoolsCartIdentifierSchema,
+  TCartIdentifierSchema extends
+    AnyCartIdentifierSchema = typeof CommercetoolsCartIdentifierSchema,
 > implements CartFactory<TCartSchema, TCartIdentifierSchema>
 {
   public readonly cartSchema: TCartSchema;
   public readonly cartIdentifierSchema: TCartIdentifierSchema;
 
-  constructor(cartSchema: TCartSchema, cartIdentifierSchema: TCartIdentifierSchema) {
+  constructor(
+    cartSchema: TCartSchema,
+    cartIdentifierSchema: TCartIdentifierSchema,
+  ) {
     this.cartSchema = cartSchema;
     this.cartIdentifierSchema = cartIdentifierSchema;
   }
 
   public parseCartIdentifier(
     _context: RequestContext,
-    data: { key?: string, version?: number },
+    data: { key?: string; version?: number },
   ): z.output<TCartIdentifierSchema> {
     return this.cartIdentifierSchema.parse({
       key: data.key || '',
-      version: data.version || 0
+      version: data.version || 0,
     } satisfies CommercetoolsCartIdentifier);
   }
 
@@ -46,14 +55,24 @@ export class CommercetoolsCartFactory<
   ): z.output<TCartSchema> {
     const identifier = this.parseCartIdentifier(context, {
       key: data.id,
-      version: data.version
+      version: data.version,
     });
+
+    const items: CartItem[] = [];
+    for (const lineItem of data.lineItems) {
+      items.push(this.parseCartItem(lineItem));
+    }
 
     const grandTotal = data.totalPrice.centAmount || 0;
     const shippingTotal = data.shippingInfo?.price.centAmount || 0;
     const productTotal = grandTotal - shippingTotal;
     const taxTotal = data.taxedPrice?.totalTax?.centAmount || 0;
-    const discountTotal = data.discountOnTotalPrice?.discountedAmount.centAmount || 0;
+    const discountTotal =
+      (data.discountOnTotalPrice?.discountedAmount.centAmount || 0) +
+      items.reduce(
+        (sum, item) => sum + (item.price.totalDiscount.value * 100 || 0),
+        0,
+      );
     const surchargeTotal = 0;
     const currency = data.totalPrice.currencyCode as Currency;
 
@@ -84,9 +103,18 @@ export class CommercetoolsCartFactory<
       },
     } satisfies CostBreakDown;
 
-    const items: CartItem[] = [];
-    for (const lineItem of data.lineItems) {
-      items.push(this.parseCartItem(lineItem));
+    const localeString = context.languageContext.locale || 'en';
+    const appliedPromotions = [];
+    if (data.discountCodes) {
+      for (const promo of data.discountCodes) {
+        appliedPromotions.push({
+          code: promo.discountCode.obj?.code || '',
+          isCouponCode: true,
+          name: promo.discountCode.obj?.name?.[localeString] || '',
+          description:
+            promo.discountCode.obj?.description?.[localeString] || '',
+        } satisfies Promotion);
+      }
     }
 
     const result = {
@@ -98,7 +126,7 @@ export class CommercetoolsCartFactory<
       description: data.custom?.fields['description'] || '',
       price,
       items,
-      appliedPromotions: [],
+      appliedPromotions,
     } satisfies Cart;
 
     return this.cartSchema.parse(result);
@@ -107,9 +135,33 @@ export class CommercetoolsCartFactory<
   protected parseCartItem(lineItem: LineItem): CartItem {
     const unitPrice = lineItem.price.value.centAmount;
     const totalPrice = lineItem.totalPrice.centAmount || 0;
-    const totalDiscount = lineItem.price.discounted?.value.centAmount || 0;
+    let itemDiscount = 0;
+
+    // look, discounts are weird in commercetools.... i think the .price.discount only applies for embedded prices maybe?
+    if (
+      lineItem.discountedPricePerQuantity &&
+      lineItem.discountedPricePerQuantity.length > 0
+    ) {
+      itemDiscount = lineItem.discountedPricePerQuantity.reduce(
+        (sum, discPrQty) => {
+          return (
+            sum +
+              discPrQty.quantity *
+                discPrQty.discountedPrice?.includedDiscounts?.reduce(
+                  (sum, discount) => sum + discount.discountedAmount.centAmount,
+                  0,
+                ) || 0
+          );
+        },
+        0,
+      );
+    }
+
+    const totalDiscount =
+      (lineItem.price.discounted?.value.centAmount || 0) + itemDiscount;
     const unitDiscount = totalDiscount / lineItem.quantity;
-    const currency = lineItem.price.value.currencyCode.toUpperCase() as Currency;
+    const currency =
+      lineItem.price.value.currencyCode.toUpperCase() as Currency;
 
     return CartItemSchema.parse({
       identifier: {
