@@ -39,6 +39,7 @@
     }
   },
   "release": {
+    "projects": ["packages/*"],
     "projectsRelationship": "fixed",
     "git": {
       "commit": false,
