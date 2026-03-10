@@ -9,7 +9,7 @@ import type {
   PriceFactory,
   ProductAssociationsFactory,
   ProductFactory,
-  ProductRecommendationsProvider,
+  ProductRecommendationsCapability,
   ProductSearchFactory,
   ProfileFactory,
 } from '@reactionary/core';
@@ -25,19 +25,19 @@ import type { MedusaProductAssociationsFactory } from '../factories/product-asso
 import type { MedusaProductFactory } from '../factories/product/product.factory.js';
 import type { MedusaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import type { MedusaProfileFactory } from '../factories/profile/profile.factory.js';
-import type { MedusaCartProvider } from '../providers/cart.provider.js';
-import type { MedusaCategoryProvider } from '../providers/category.provider.js';
-import type { MedusaCheckoutProvider } from '../providers/checkout.provider.js';
-import type { MedusaInventoryProvider } from '../providers/inventory.provider.js';
-import type { MedusaOrderProvider } from '../providers/order.provider.js';
-import type { MedusaOrderSearchProvider } from '../providers/order-search.provider.js';
-import type { MedusaPriceProvider } from '../providers/price.provider.js';
-import type { MedusaProductAssociationsProvider } from '../providers/product-associations.provider.js';
-import type { MedusaProductProvider } from '../providers/product.provider.js';
-import type { MedusaSearchProvider } from '../providers/product-search.provider.js';
-import type { MedusaProfileProvider } from '../providers/profile.provider.js';
-import type { MedusaProductRecommendationsProvider } from '../providers/product-recommendations.provider.js';
-import type { MedusaIdentityProvider } from '../providers/identity.provider.js';
+import type { MedusaCartCapability } from '../capabilities/cart.capability.js';
+import type { MedusaCategoryCapability } from '../capabilities/category.capability.js';
+import type { MedusaCheckoutCapability } from '../capabilities/checkout.capability.js';
+import type { MedusaInventoryCapability } from '../capabilities/inventory.capability.js';
+import type { MedusaOrderCapability } from '../capabilities/order.capability.js';
+import type { MedusaOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import type { MedusaPriceCapability } from '../capabilities/price.capability.js';
+import type { MedusaProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import type { MedusaProductCapability } from '../capabilities/product.capability.js';
+import type { MedusaProductSearchCapability } from '../capabilities/product-search.capability.js';
+import type { MedusaProfileCapability } from '../capabilities/profile.capability.js';
+import type { MedusaProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
+import type { MedusaIdentityCapability } from '../capabilities/identity.capability.js';
 
 type OverridableCapabilityKey =
   | 'product'
@@ -70,12 +70,12 @@ type ExtractCapabilityFactory<TCapability, TContract, TDefaultFactory> =
       : TDefaultFactory
     : TDefaultFactory;
 
-type ExtractCapabilityProvider<TCapability, TDefaultProvider> =
-  TCapability extends { enabled: true; provider?: infer TProviderFactory }
-    ? TProviderFactory extends (...args: unknown[]) => infer TProvider
-      ? TProvider
-      : TDefaultProvider
-    : TDefaultProvider;
+type ExtractCapabilityImplementation<TCapability, TDefaultCapability> =
+  TCapability extends { enabled: true; capability?: infer TCapabilityFactory }
+    ? TCapabilityFactory extends (...args: unknown[]) => infer TResolvedCapability
+      ? TResolvedCapability
+      : TDefaultCapability
+    : TDefaultCapability;
 
 type FactoryContractMap = {
   product: ProductFactory;
@@ -113,28 +113,28 @@ type ResolvedFactoryMap<T extends MedusaCapabilities> = {
   >;
 };
 
-type DefaultProviderMap<T extends MedusaCapabilities> = {
-  product: MedusaProductProvider<ResolvedFactoryMap<T>['product']>;
-  productSearch: MedusaSearchProvider<ResolvedFactoryMap<T>['productSearch']>;
-  cart: MedusaCartProvider<ResolvedFactoryMap<T>['cart']>;
-  checkout: MedusaCheckoutProvider<ResolvedFactoryMap<T>['checkout']>;
-  category: MedusaCategoryProvider<ResolvedFactoryMap<T>['category']>;
-  price: MedusaPriceProvider<ResolvedFactoryMap<T>['price']>;
-  order: MedusaOrderProvider<ResolvedFactoryMap<T>['order']>;
-  orderSearch: MedusaOrderSearchProvider<ResolvedFactoryMap<T>['orderSearch']>;
-  inventory: MedusaInventoryProvider<ResolvedFactoryMap<T>['inventory']>;
-  profile: MedusaProfileProvider<ResolvedFactoryMap<T>['profile']>;
-  productAssociations: MedusaProductAssociationsProvider<
+type DefaultCapabilityMap<T extends MedusaCapabilities> = {
+  product: MedusaProductCapability<ResolvedFactoryMap<T>['product']>;
+  productSearch: MedusaProductSearchCapability<ResolvedFactoryMap<T>['productSearch']>;
+  cart: MedusaCartCapability<ResolvedFactoryMap<T>['cart']>;
+  checkout: MedusaCheckoutCapability<ResolvedFactoryMap<T>['checkout']>;
+  category: MedusaCategoryCapability<ResolvedFactoryMap<T>['category']>;
+  price: MedusaPriceCapability<ResolvedFactoryMap<T>['price']>;
+  order: MedusaOrderCapability<ResolvedFactoryMap<T>['order']>;
+  orderSearch: MedusaOrderSearchCapability<ResolvedFactoryMap<T>['orderSearch']>;
+  inventory: MedusaInventoryCapability<ResolvedFactoryMap<T>['inventory']>;
+  profile: MedusaProfileCapability<ResolvedFactoryMap<T>['profile']>;
+  productAssociations: MedusaProductAssociationsCapability<
     ResolvedFactoryMap<T>['productAssociations']
   >;
-  identity: MedusaIdentityProvider;
-  productRecommendations: MedusaProductRecommendationsProvider;
+  identity: MedusaIdentityCapability;
+  productRecommendations: MedusaProductRecommendationsCapability;
 };
 
-type CapabilityProviderTypeMap<T extends MedusaCapabilities> = {
-  [K in OverridableCapabilityKey | 'productRecommendations' | 'identity']: ExtractCapabilityProvider<
+type CapabilityImplementationMap<T extends MedusaCapabilities> = {
+  [K in OverridableCapabilityKey | 'productRecommendations' | 'identity']: ExtractCapabilityImplementation<
     T[K],
-    DefaultProviderMap<T>[K]
+    DefaultCapabilityMap<T>[K]
   >;
 };
 
@@ -143,7 +143,7 @@ type EnabledCapabilityOverrideMap<T extends MedusaCapabilities> = {
     enabled: true;
   }
     ? K
-    : never]: CapabilityProviderTypeMap<T>[K];
+    : never]: CapabilityImplementationMap<T>[K];
 };
 
 export type MedusaClientFromCapabilities<T extends MedusaCapabilities> = Omit<
@@ -152,33 +152,33 @@ export type MedusaClientFromCapabilities<T extends MedusaCapabilities> = Omit<
 > &
   EnabledCapabilityOverrideMap<T>;
 
-export function resolveCapabilityProvider<TFactory, TProvider, TProviderArgs>(
+export function resolveCapabilityWithFactory<TFactory, TResolvedCapability, TCapabilityArgs>(
   capability:
     | {
         factory?: TFactory;
-        provider?: (args: TProviderArgs) => TProvider;
+        capability?: (args: TCapabilityArgs) => TResolvedCapability;
       }
     | undefined,
   defaults: {
     factory: TFactory;
-    provider: (args: TProviderArgs) => TProvider;
+    capability: (args: TCapabilityArgs) => TResolvedCapability;
   },
-  buildProviderArgs: (factory: TFactory) => TProviderArgs,
-): TProvider {
+  buildCapabilityArgs: (factory: TFactory) => TCapabilityArgs,
+): TResolvedCapability {
   const factory = capability?.factory ?? defaults.factory;
-  const provider = capability?.provider ?? defaults.provider;
-  return provider(buildProviderArgs(factory));
+  const capabilityFactory = capability?.capability ?? defaults.capability;
+  return capabilityFactory(buildCapabilityArgs(factory));
 }
 
-export function resolveProviderOnlyCapability<TProvider, TProviderArgs>(
+export function resolveDirectCapability<TResolvedCapability, TCapabilityArgs>(
   capability:
     | {
-        provider?: (args: TProviderArgs) => TProvider;
+        capability?: (args: TCapabilityArgs) => TResolvedCapability;
       }
     | undefined,
-  defaultProvider: (args: TProviderArgs) => TProvider,
-  args: TProviderArgs,
-): TProvider {
-  const provider = capability?.provider ?? defaultProvider;
-  return provider(args);
+  defaultCapability: (args: TCapabilityArgs) => TResolvedCapability,
+  args: TCapabilityArgs,
+): TResolvedCapability {
+  const capabilityFactory = capability?.capability ?? defaultCapability;
+  return capabilityFactory(args);
 }

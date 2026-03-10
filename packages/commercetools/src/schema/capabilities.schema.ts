@@ -2,50 +2,50 @@ import type {
   Cache,
   CartFactory,
   CartFactoryWithOutput,
-  CartProvider,
+  CartCapability,
   CategoryFactory,
   CategoryFactoryWithOutput,
-  CategoryProvider,
+  CategoryCapability,
   CheckoutFactory,
   CheckoutFactoryWithOutput,
-  CheckoutProvider,
+  CheckoutCapability,
   IdentityFactory,
   IdentityFactoryWithOutput,
-  IdentityProvider,
+  IdentityCapability,
   InventoryFactory,
   InventoryFactoryWithOutput,
-  InventoryProvider,
+  InventoryCapability,
   OrderFactory,
   OrderFactoryWithOutput,
-  OrderProvider,
+  OrderCapability,
   OrderSearchFactory,
   OrderSearchFactoryWithOutput,
-  OrderSearchProvider,
+  OrderSearchCapability,
   PriceFactory,
   PriceFactoryWithOutput,
-  PriceProvider,
+  PriceCapability,
   ProductAssociationsFactory,
   ProductAssociationsFactoryWithOutput,
-  ProductAssociationsProvider,
+  ProductAssociationsCapability,
   ProductFactory,
   ProductFactoryWithOutput,
   ProductListFactory,
   ProductListFactoryWithOutput,
-  ProductListProvider,
-  ProductProvider,
+  ProductListCapability,
+  ProductCapability,
   ProductReviewsFactory,
   ProductReviewsFactoryWithOutput,
-  ProductReviewsProvider,
+  ProductReviewsCapability,
   ProductSearchFactory,
   ProductSearchFactoryWithOutput,
-  ProductSearchProvider,
+  ProductSearchCapability,
   ProfileFactory,
   ProfileFactoryWithOutput,
-  ProfileProvider,
+  ProfileCapability,
   RequestContext,
   StoreFactory,
   StoreFactoryWithOutput,
-  StoreProvider,
+  StoreCapability,
 } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
 import type { CommercetoolsAPI } from '../core/client.js';
@@ -59,7 +59,7 @@ const EnabledCapabilitySchema = z.looseObject({
 const OverridableCapabilitySchema = z.looseObject({
   enabled: z.boolean(),
   factory: z.unknown().optional(),
-  provider: z.unknown().optional(),
+  capability: z.unknown().optional(),
 });
 
 export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
@@ -98,7 +98,7 @@ export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
   })
   .partial();
 
-export interface CommercetoolsCapabilityProviderFactoryArgs<TFactory> {
+export interface CommercetoolsCapabilityFactoryArgs<TFactory> {
   cache: Cache;
   context: RequestContext;
   config: CommercetoolsConfiguration;
@@ -106,131 +106,131 @@ export interface CommercetoolsCapabilityProviderFactoryArgs<TFactory> {
   factory: TFactory;
 }
 
-export interface CommercetoolsCapabilityConfig<TFactory, TProvider> {
+export interface CommercetoolsCapabilityConfig<TFactory, TCapability> {
   factory?: TFactory;
-  provider?: (args: CommercetoolsCapabilityProviderFactoryArgs<TFactory>) => TProvider;
+  capability?: (args: CommercetoolsCapabilityFactoryArgs<TFactory>) => TCapability;
 }
 
-type EnabledCapabilityConfig<TFactory, TProvider> = {
+type EnabledCapabilityConfig<TFactory, TCapability> = {
   enabled: boolean;
-} & CommercetoolsCapabilityConfig<TFactory, TProvider>;
+} & CommercetoolsCapabilityConfig<TFactory, TCapability>;
 
 export type CommercetoolsProductCapabilityConfig<
   TFactory extends ProductFactory = ProductFactory,
-  TProvider extends ProductProvider = ProductProvider,
-> = CommercetoolsCapabilityConfig<ProductFactoryWithOutput<TFactory>, TProvider>;
+  TCapability extends ProductCapability = ProductCapability,
+> = CommercetoolsCapabilityConfig<ProductFactoryWithOutput<TFactory>, TCapability>;
 
 export type CommercetoolsCheckoutCapabilityConfig<
   TFactory extends CheckoutFactory = CheckoutFactory,
-  TProvider extends CheckoutProvider = CheckoutProvider,
-> = CommercetoolsCapabilityConfig<CheckoutFactoryWithOutput<TFactory>, TProvider>;
+  TCapability extends CheckoutCapability = CheckoutCapability,
+> = CommercetoolsCapabilityConfig<CheckoutFactoryWithOutput<TFactory>, TCapability>;
 
 export type CommercetoolsProductSearchCapabilityConfig = CommercetoolsCapabilityConfig<
   ProductSearchFactoryWithOutput<ProductSearchFactory>,
-  ProductSearchProvider
+  ProductSearchCapability
 >;
 export type CommercetoolsProductAssociationsCapabilityConfig = CommercetoolsCapabilityConfig<
   ProductAssociationsFactoryWithOutput<ProductAssociationsFactory>,
-  ProductAssociationsProvider
+  ProductAssociationsCapability
 >;
 export type CommercetoolsProductReviewsCapabilityConfig = CommercetoolsCapabilityConfig<
   ProductReviewsFactoryWithOutput<ProductReviewsFactory>,
-  ProductReviewsProvider
+  ProductReviewsCapability
 >;
 export type CommercetoolsProductListCapabilityConfig = CommercetoolsCapabilityConfig<
   ProductListFactoryWithOutput<ProductListFactory>,
-  ProductListProvider
+  ProductListCapability
 >;
 export type CommercetoolsIdentityCapabilityConfig = CommercetoolsCapabilityConfig<
   IdentityFactoryWithOutput<IdentityFactory>,
-  IdentityProvider
+  IdentityCapability
 >;
 export type CommercetoolsCartCapabilityConfig = CommercetoolsCapabilityConfig<
   CartFactoryWithOutput<CartFactory>,
-  CartProvider
+  CartCapability
 >;
 export type CommercetoolsInventoryCapabilityConfig = CommercetoolsCapabilityConfig<
   InventoryFactoryWithOutput<InventoryFactory>,
-  InventoryProvider
+  InventoryCapability
 >;
 export type CommercetoolsPriceCapabilityConfig = CommercetoolsCapabilityConfig<
   PriceFactoryWithOutput<PriceFactory>,
-  PriceProvider
+  PriceCapability
 >;
 export type CommercetoolsCategoryCapabilityConfig = CommercetoolsCapabilityConfig<
   CategoryFactoryWithOutput<CategoryFactory>,
-  CategoryProvider
+  CategoryCapability
 >;
 export type CommercetoolsStoreCapabilityConfig = CommercetoolsCapabilityConfig<
   StoreFactoryWithOutput<StoreFactory>,
-  StoreProvider
+  StoreCapability
 >;
 export type CommercetoolsProfileCapabilityConfig = CommercetoolsCapabilityConfig<
   ProfileFactoryWithOutput<ProfileFactory>,
-  ProfileProvider
+  ProfileCapability
 >;
 export type CommercetoolsOrderCapabilityConfig = CommercetoolsCapabilityConfig<
   OrderFactoryWithOutput<OrderFactory>,
-  OrderProvider
+  OrderCapability
 >;
 export type CommercetoolsOrderSearchCapabilityConfig = CommercetoolsCapabilityConfig<
   OrderSearchFactoryWithOutput<OrderSearchFactory>,
-  OrderSearchProvider
+  OrderSearchCapability
 >;
 
 export type CommercetoolsCapabilityConfigMap<
   TProductFactory extends ProductFactory = ProductFactory,
-  TProductProvider extends ProductProvider = ProductProvider,
+  TProductCapability extends ProductCapability = ProductCapability,
   TCheckoutFactory extends CheckoutFactory = CheckoutFactory,
-  TCheckoutProvider extends CheckoutProvider = CheckoutProvider,
+  TCheckoutCapability extends CheckoutCapability = CheckoutCapability,
 > = {
   product: EnabledCapabilityConfig<
     ProductFactoryWithOutput<TProductFactory>,
-    TProductProvider
+    TProductCapability
   >;
   checkout: EnabledCapabilityConfig<
     CheckoutFactoryWithOutput<TCheckoutFactory>,
-    TCheckoutProvider
+    TCheckoutCapability
   >;
   productSearch: EnabledCapabilityConfig<
     ProductSearchFactoryWithOutput<ProductSearchFactory>,
-    ProductSearchProvider
+    ProductSearchCapability
   >;
   productAssociations: EnabledCapabilityConfig<
     ProductAssociationsFactoryWithOutput<ProductAssociationsFactory>,
-    ProductAssociationsProvider
+    ProductAssociationsCapability
   >;
   productReviews: EnabledCapabilityConfig<
     ProductReviewsFactoryWithOutput<ProductReviewsFactory>,
-    ProductReviewsProvider
+    ProductReviewsCapability
   >;
   productList: EnabledCapabilityConfig<
     ProductListFactoryWithOutput<ProductListFactory>,
-    ProductListProvider
+    ProductListCapability
   >;
   identity: EnabledCapabilityConfig<
     IdentityFactoryWithOutput<IdentityFactory>,
-    IdentityProvider
+    IdentityCapability
   >;
-  cart: EnabledCapabilityConfig<CartFactoryWithOutput<CartFactory>, CartProvider>;
+  cart: EnabledCapabilityConfig<CartFactoryWithOutput<CartFactory>, CartCapability>;
   inventory: EnabledCapabilityConfig<
     InventoryFactoryWithOutput<InventoryFactory>,
-    InventoryProvider
+    InventoryCapability
   >;
-  price: EnabledCapabilityConfig<PriceFactoryWithOutput<PriceFactory>, PriceProvider>;
+  price: EnabledCapabilityConfig<PriceFactoryWithOutput<PriceFactory>, PriceCapability>;
   category: EnabledCapabilityConfig<
     CategoryFactoryWithOutput<CategoryFactory>,
-    CategoryProvider
+    CategoryCapability
   >;
-  store: EnabledCapabilityConfig<StoreFactoryWithOutput<StoreFactory>, StoreProvider>;
+  store: EnabledCapabilityConfig<StoreFactoryWithOutput<StoreFactory>, StoreCapability>;
   profile: EnabledCapabilityConfig<
     ProfileFactoryWithOutput<ProfileFactory>,
-    ProfileProvider
+    ProfileCapability
   >;
-  order: EnabledCapabilityConfig<OrderFactoryWithOutput<OrderFactory>, OrderProvider>;
+  order: EnabledCapabilityConfig<OrderFactoryWithOutput<OrderFactory>, OrderCapability>;
   orderSearch: EnabledCapabilityConfig<
     OrderSearchFactoryWithOutput<OrderSearchFactory>,
-    OrderSearchProvider
+    OrderSearchCapability
   >;
 };
 
@@ -238,23 +238,23 @@ type CommercetoolsCapabilitiesBase = z.infer<typeof CommercetoolsCapabilitiesSch
 
 export type CommercetoolsCapabilities<
   TProductFactory extends ProductFactory = ProductFactory,
-  TProductProvider extends ProductProvider = ProductProvider,
+  TProductCapability extends ProductCapability = ProductCapability,
   TCheckoutFactory extends CheckoutFactory = CheckoutFactory,
-  TCheckoutProvider extends CheckoutProvider = CheckoutProvider,
+  TCheckoutCapability extends CheckoutCapability = CheckoutCapability,
 > = Omit<
   CommercetoolsCapabilitiesBase,
   keyof CommercetoolsCapabilityConfigMap<
     TProductFactory,
-    TProductProvider,
+    TProductCapability,
     TCheckoutFactory,
-    TCheckoutProvider
+    TCheckoutCapability
   >
 > &
   Partial<
     CommercetoolsCapabilityConfigMap<
       TProductFactory,
-      TProductProvider,
+      TProductCapability,
       TCheckoutFactory,
-      TCheckoutProvider
+      TCheckoutCapability
     >
   >;

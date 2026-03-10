@@ -48,21 +48,21 @@ import { CommercetoolsProductReviewsFactory } from '../factories/product-reviews
 import { CommercetoolsProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { CommercetoolsProfileFactory } from '../factories/profile/profile.factory.js';
 import { CommercetoolsStoreFactory } from '../factories/store/store.factory.js';
-import { CommercetoolsCartProvider } from '../providers/cart.provider.js';
-import { CommercetoolsCategoryProvider } from '../providers/category.provider.js';
-import { CommercetoolsCheckoutProvider } from '../providers/checkout.provider.js';
-import { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
-import { CommercetoolsInventoryProvider } from '../providers/inventory.provider.js';
-import { CommercetoolsOrderProvider } from '../providers/order.provider.js';
-import { CommercetoolsOrderSearchProvider } from '../providers/order-search.provider.js';
-import { CommercetoolsPriceProvider } from '../providers/price.provider.js';
-import { CommercetoolsProductAssociationsProvider } from '../providers/product-associations.provider.js';
-import { CommercetoolsProductListProvider } from '../providers/product-list.provider.js';
-import { CommercetoolsProductProvider } from '../providers/product.provider.js';
-import { CommercetoolsProductReviewsProvider } from '../providers/product-reviews.provider.js';
-import { CommercetoolsSearchProvider } from '../providers/product-search.provider.js';
-import { CommercetoolsProfileProvider } from '../providers/profile.provider.js';
-import { CommercetoolsStoreProvider } from '../providers/store.provider.js';
+import { CommercetoolsCartCapability } from '../capabilities/cart.capability.js';
+import { CommercetoolsCategoryCapability } from '../capabilities/category.capability.js';
+import { CommercetoolsCheckoutCapability } from '../capabilities/checkout.capability.js';
+import { CommercetoolsIdentityCapability } from '../capabilities/identity.capability.js';
+import { CommercetoolsInventoryCapability } from '../capabilities/inventory.capability.js';
+import { CommercetoolsOrderCapability } from '../capabilities/order.capability.js';
+import { CommercetoolsOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import { CommercetoolsPriceCapability } from '../capabilities/price.capability.js';
+import { CommercetoolsProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import { CommercetoolsProductListCapability } from '../capabilities/product-list.capability.js';
+import { CommercetoolsProductCapability } from '../capabilities/product.capability.js';
+import { CommercetoolsProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
+import { CommercetoolsProductSearchCapability } from '../capabilities/product-search.capability.js';
+import { CommercetoolsProfileCapability } from '../capabilities/profile.capability.js';
+import { CommercetoolsStoreCapability } from '../capabilities/store.capability.js';
 
 export const capabilityKeys = [
   'product',
@@ -84,7 +84,7 @@ export const capabilityKeys = [
 
 export type OverridableCapabilityKey = (typeof capabilityKeys)[number];
 
-type ProviderArgs<TFactory> = {
+type CapabilityArgs<TFactory> = {
   cache: Cache;
   context: RequestContext;
   config: CommercetoolsConfiguration;
@@ -98,10 +98,10 @@ export type CapabilityDescriptor = {
   isEnabled: (caps: ParsedCapabilities) => boolean | undefined;
   getOverride: (caps: CommercetoolsCapabilities) => {
     factory?: any;
-    provider?: (args: any) => any;
+    capability?: (args: any) => any;
   } | undefined;
   createDefaultFactory: () => any;
-  createDefaultProvider: (args: any) => any;
+  createDefaultCapability: (args: any) => any;
 };
 
 export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityDescriptor> = {
@@ -109,8 +109,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     isEnabled: (caps) => caps.product?.enabled,
     getOverride: (caps) => caps.product,
     createDefaultFactory: () => new CommercetoolsProductFactory(ProductSchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsProductProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsProductCapability(
         args.cache,
         args.context,
         args.config,
@@ -122,8 +122,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     isEnabled: (caps) => caps.profile?.enabled,
     getOverride: (caps) => caps.profile,
     createDefaultFactory: () => new CommercetoolsProfileFactory(ProfileSchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsProfileProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsProfileCapability(
         args.config,
         args.cache,
         args.context,
@@ -136,8 +136,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     getOverride: (caps) => caps.productSearch,
     createDefaultFactory: () =>
       new CommercetoolsProductSearchFactory(ProductSearchResultSchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsSearchProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsProductSearchCapability(
         args.config,
         args.cache,
         args.context,
@@ -150,8 +150,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     getOverride: (caps) => caps.productAssociations,
     createDefaultFactory: () =>
       new CommercetoolsProductAssociationsFactory(ProductAssociationSchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsProductAssociationsProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsProductAssociationsCapability(
         args.config,
         args.cache,
         args.context,
@@ -169,8 +169,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
         ProductListPaginatedResultsSchema,
         ProductListItemPaginatedResultsSchema,
       ),
-    createDefaultProvider: (args) =>
-      new CommercetoolsProductListProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsProductListCapability(
         args.config,
         args.cache,
         args.context,
@@ -187,8 +187,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
         ProductReviewSchema,
         ProductReviewPaginatedResultSchema,
       ),
-    createDefaultProvider: (args) =>
-      new CommercetoolsProductReviewsProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsProductReviewsCapability(
         args.config,
         args.cache,
         args.context,
@@ -200,8 +200,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     isEnabled: (caps) => caps.identity?.enabled,
     getOverride: (caps) => caps.identity,
     createDefaultFactory: () => new CommercetoolsIdentityFactory(IdentitySchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsIdentityProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsIdentityCapability(
         args.config,
         args.cache,
         args.context,
@@ -214,8 +214,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     getOverride: (caps) => caps.cart,
     createDefaultFactory: () =>
       new CommercetoolsCartFactory(CartSchema, CartIdentifierSchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsCartProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsCartCapability(
         args.config,
         args.cache,
         args.context,
@@ -227,8 +227,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     isEnabled: (caps) => caps.inventory?.enabled,
     getOverride: (caps) => caps.inventory,
     createDefaultFactory: () => new CommercetoolsInventoryFactory(InventorySchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsInventoryProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsInventoryCapability(
         args.config,
         args.cache,
         args.context,
@@ -240,8 +240,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     isEnabled: (caps) => caps.price?.enabled,
     getOverride: (caps) => caps.price,
     createDefaultFactory: () => new CommercetoolsPriceFactory(PriceSchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsPriceProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsPriceCapability(
         args.config,
         args.cache,
         args.context,
@@ -254,8 +254,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     getOverride: (caps) => caps.category,
     createDefaultFactory: () =>
       new CommercetoolsCategoryFactory(CategorySchema, CategoryPaginatedResultSchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsCategoryProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsCategoryCapability(
         args.config,
         args.cache,
         args.context,
@@ -272,8 +272,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
         ShippingMethodSchema,
         PaymentMethodSchema,
       ),
-    createDefaultProvider: (args) =>
-      new CommercetoolsCheckoutProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsCheckoutCapability(
         args.config,
         args.cache,
         args.context,
@@ -285,8 +285,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     isEnabled: (caps) => caps.store?.enabled,
     getOverride: (caps) => caps.store,
     createDefaultFactory: () => new CommercetoolsStoreFactory(StoreSchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsStoreProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsStoreCapability(
         args.config,
         args.cache,
         args.context,
@@ -298,8 +298,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     isEnabled: (caps) => caps.order?.enabled,
     getOverride: (caps) => caps.order,
     createDefaultFactory: () => new CommercetoolsOrderFactory(OrderSchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsOrderProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsOrderCapability(
         args.config,
         args.cache,
         args.context,
@@ -312,8 +312,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     getOverride: (caps) => caps.orderSearch,
     createDefaultFactory: () =>
       new CommercetoolsOrderSearchFactory(OrderSearchResultSchema),
-    createDefaultProvider: (args) =>
-      new CommercetoolsOrderSearchProvider(
+    createDefaultCapability: (args) =>
+      new CommercetoolsOrderSearchCapability(
         args.config,
         args.cache,
         args.context,

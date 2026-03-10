@@ -19,19 +19,19 @@ import {
   ProfileSchema,
   ShippingMethodSchema,
 } from '@reactionary/core';
-import { MedusaCartProvider } from '../providers/cart.provider.js';
-import { MedusaCategoryProvider } from '../providers/category.provider.js';
-import { MedusaCheckoutProvider } from '../providers/checkout.provider.js';
-import { MedusaIdentityProvider } from '../providers/identity.provider.js';
-import { MedusaInventoryProvider } from '../providers/inventory.provider.js';
-import { MedusaOrderSearchProvider } from '../providers/order-search.provider.js';
-import { MedusaOrderProvider } from '../providers/order.provider.js';
-import { MedusaPriceProvider } from '../providers/price.provider.js';
-import { MedusaSearchProvider } from '../providers/product-search.provider.js';
-import { MedusaProductRecommendationsProvider } from '../providers/product-recommendations.provider.js';
-import { MedusaProductProvider } from '../providers/product.provider.js';
-import { MedusaProductAssociationsProvider } from '../providers/product-associations.provider.js';
-import { MedusaProfileProvider } from '../providers/profile.provider.js';
+import { MedusaCartCapability } from '../capabilities/cart.capability.js';
+import { MedusaCategoryCapability } from '../capabilities/category.capability.js';
+import { MedusaCheckoutCapability } from '../capabilities/checkout.capability.js';
+import { MedusaIdentityCapability } from '../capabilities/identity.capability.js';
+import { MedusaInventoryCapability } from '../capabilities/inventory.capability.js';
+import { MedusaOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import { MedusaOrderCapability } from '../capabilities/order.capability.js';
+import { MedusaPriceCapability } from '../capabilities/price.capability.js';
+import { MedusaProductSearchCapability } from '../capabilities/product-search.capability.js';
+import { MedusaProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
+import { MedusaProductCapability } from '../capabilities/product.capability.js';
+import { MedusaProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import { MedusaProfileCapability } from '../capabilities/profile.capability.js';
 import {
   MedusaCapabilitiesSchema,
   type MedusaCapabilities,
@@ -56,8 +56,8 @@ import {
 } from '../factories/index.js';
 import {
   type MedusaClientFromCapabilities,
-  resolveCapabilityProvider,
-  resolveProviderOnlyCapability,
+  resolveCapabilityWithFactory,
+  resolveDirectCapability,
 } from './initialize.types.js';
 
 export function withMedusaCapabilities<T extends MedusaCapabilities>(
@@ -74,7 +74,7 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
     const caps = MedusaCapabilitiesSchema.parse(capabilities);
     const medusaApi = new MedusaAPI(config, context);
 
-    const buildProviderArgs = <TFactory,>(factory: TFactory) => ({
+    const buildCapabilityArgs = <TFactory,>(factory: TFactory) => ({
       cache,
       context,
       config,
@@ -83,12 +83,12 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
     });
 
     if (caps.product?.enabled) {
-      client.product = resolveCapabilityProvider(
+      client.product = resolveCapabilityWithFactory(
         capabilities.product,
         {
           factory: new MedusaProductFactory(ProductSchema),
-          provider: (args) =>
-            new MedusaProductProvider(
+          capability: (args) =>
+            new MedusaProductCapability(
               args.config,
               args.cache,
               args.context,
@@ -96,17 +96,17 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.productSearch?.enabled) {
-      client.productSearch = resolveCapabilityProvider(
+      client.productSearch = resolveCapabilityWithFactory(
         capabilities.productSearch,
         {
           factory: new MedusaProductSearchFactory(ProductSearchResultSchema),
-          provider: (args) =>
-            new MedusaSearchProvider(
+          capability: (args) =>
+            new MedusaProductSearchCapability(
               args.config,
               args.cache,
               args.context,
@@ -114,20 +114,20 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.category?.enabled) {
-      client.category = resolveCapabilityProvider(
+      client.category = resolveCapabilityWithFactory(
         capabilities.category,
         {
           factory: new MedusaCategoryFactory(
             CategorySchema,
             CategoryPaginatedResultSchema,
           ),
-          provider: (args) =>
-            new MedusaCategoryProvider(
+          capability: (args) =>
+            new MedusaCategoryCapability(
               args.config,
               args.cache,
               args.context,
@@ -135,12 +135,12 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.checkout?.enabled) {
-      client.checkout = resolveCapabilityProvider(
+      client.checkout = resolveCapabilityWithFactory(
         capabilities.checkout,
         {
           factory: new MedusaCheckoutFactory(
@@ -148,8 +148,8 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
             ShippingMethodSchema,
             PaymentMethodSchema,
           ),
-          provider: (args) =>
-            new MedusaCheckoutProvider(
+          capability: (args) =>
+            new MedusaCheckoutCapability(
               args.config,
               args.cache,
               args.context,
@@ -157,15 +157,15 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.productRecommendations?.enabled) {
-      client.productRecommendations = resolveProviderOnlyCapability(
+      client.productRecommendations = resolveDirectCapability(
         capabilities.productRecommendations,
         (args) =>
-          new MedusaProductRecommendationsProvider(
+          new MedusaProductRecommendationsCapability(
             args.config,
             args.cache,
             args.context,
@@ -181,12 +181,12 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
     }
 
     if (caps.cart?.enabled) {
-      client.cart = resolveCapabilityProvider(
+      client.cart = resolveCapabilityWithFactory(
         capabilities.cart,
         {
           factory: new MedusaCartFactory(CartSchema, CartIdentifierSchema),
-          provider: (args) =>
-            new MedusaCartProvider(
+          capability: (args) =>
+            new MedusaCartCapability(
               args.config,
               args.cache,
               args.context,
@@ -194,17 +194,17 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.price?.enabled) {
-      client.price = resolveCapabilityProvider(
+      client.price = resolveCapabilityWithFactory(
         capabilities.price,
         {
           factory: new MedusaPriceFactory(PriceSchema),
-          provider: (args) =>
-            new MedusaPriceProvider(
+          capability: (args) =>
+            new MedusaPriceCapability(
               args.config,
               args.cache,
               args.context,
@@ -212,17 +212,17 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.inventory?.enabled) {
-      client.inventory = resolveCapabilityProvider(
+      client.inventory = resolveCapabilityWithFactory(
         capabilities.inventory,
         {
           factory: new MedusaInventoryFactory(InventorySchema),
-          provider: (args) =>
-            new MedusaInventoryProvider(
+          capability: (args) =>
+            new MedusaInventoryCapability(
               args.config,
               args.cache,
               args.context,
@@ -230,15 +230,15 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.identity?.enabled) {
-      client.identity = resolveProviderOnlyCapability(
+      client.identity = resolveDirectCapability(
         capabilities.identity,
         (args) =>
-          new MedusaIdentityProvider(
+          new MedusaIdentityCapability(
             args.config,
             args.cache,
             args.context,
@@ -254,12 +254,12 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
     }
 
     if (caps.profile?.enabled) {
-      client.profile = resolveCapabilityProvider(
+      client.profile = resolveCapabilityWithFactory(
         capabilities.profile,
         {
           factory: new MedusaProfileFactory(ProfileSchema),
-          provider: (args) =>
-            new MedusaProfileProvider(
+          capability: (args) =>
+            new MedusaProfileCapability(
               args.config,
               args.cache,
               args.context,
@@ -267,17 +267,17 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.order?.enabled) {
-      client.order = resolveCapabilityProvider(
+      client.order = resolveCapabilityWithFactory(
         capabilities.order,
         {
           factory: new MedusaOrderFactory(OrderSchema),
-          provider: (args) =>
-            new MedusaOrderProvider(
+          capability: (args) =>
+            new MedusaOrderCapability(
               args.config,
               args.cache,
               args.context,
@@ -285,17 +285,17 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.orderSearch?.enabled) {
-      client.orderSearch = resolveCapabilityProvider(
+      client.orderSearch = resolveCapabilityWithFactory(
         capabilities.orderSearch,
         {
           factory: new MedusaOrderSearchFactory(OrderSearchResultSchema),
-          provider: (args) =>
-            new MedusaOrderSearchProvider(
+          capability: (args) =>
+            new MedusaOrderSearchCapability(
               args.config,
               args.cache,
               args.context,
@@ -303,17 +303,17 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.productAssociations?.enabled) {
-      client.productAssociations = resolveCapabilityProvider(
+      client.productAssociations = resolveCapabilityWithFactory(
         capabilities.productAssociations,
         {
           factory: new MedusaProductAssociationsFactory(ProductAssociationSchema),
-          provider: (args) =>
-            new MedusaProductAssociationsProvider(
+          capability: (args) =>
+            new MedusaProductAssociationsCapability(
               args.config,
               args.cache,
               args.context,
@@ -321,7 +321,7 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 

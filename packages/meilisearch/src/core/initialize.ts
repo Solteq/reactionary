@@ -1,8 +1,8 @@
 import type { Cache, RequestContext } from '@reactionary/core';
 import { OrderSearchResultSchema, ProductSearchResultSchema } from '@reactionary/core';
-import { MeilisearchSearchProvider } from '../providers/product-search.provider.js';
-import { MeilisearchProductRecommendationsProvider } from '../providers/product-recommendations.provider.js';
-import { MeilisearchOrderSearchProvider } from '../providers/order-search.provider.js';
+import { MeilisearchProductSearchCapability } from '../capabilities/product-search.capability.js';
+import { MeilisearchProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
+import { MeilisearchOrderSearchCapability } from '../capabilities/order-search.capability.js';
 import {
   MeilisearchCapabilitiesSchema,
   type MeilisearchCapabilities,
@@ -12,8 +12,8 @@ import { MeilisearchOrderSearchFactory } from '../factories/order-search/order-s
 import { MeilisearchProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import {
   type MeilisearchClientFromCapabilities,
-  resolveCapabilityProvider,
-  resolveProviderOnlyCapability,
+  resolveCapabilityWithFactory,
+  resolveDirectCapability,
 } from './initialize.types.js';
 
 export function withMeilisearchCapabilities<T extends MeilisearchCapabilities>(
@@ -29,12 +29,12 @@ export function withMeilisearchCapabilities<T extends MeilisearchCapabilities>(
     const caps = MeilisearchCapabilitiesSchema.parse(capabilities);
 
     if (caps.productSearch?.enabled) {
-      client.productSearch = resolveCapabilityProvider(
+      client.productSearch = resolveCapabilityWithFactory(
         capabilities.productSearch,
         {
           factory: new MeilisearchProductSearchFactory(ProductSearchResultSchema),
-          provider: (args) =>
-            new MeilisearchSearchProvider(
+          capability: (args) =>
+            new MeilisearchProductSearchCapability(
               args.config,
               args.cache,
               args.context,
@@ -51,12 +51,12 @@ export function withMeilisearchCapabilities<T extends MeilisearchCapabilities>(
     }
 
     if (caps.orderSearch?.enabled) {
-      client.orderSearch = resolveCapabilityProvider(
+      client.orderSearch = resolveCapabilityWithFactory(
         capabilities.orderSearch,
         {
           factory: new MeilisearchOrderSearchFactory(OrderSearchResultSchema),
-          provider: (args) =>
-            new MeilisearchOrderSearchProvider(
+          capability: (args) =>
+            new MeilisearchOrderSearchCapability(
               args.config,
               args.cache,
               args.context,
@@ -73,10 +73,10 @@ export function withMeilisearchCapabilities<T extends MeilisearchCapabilities>(
     }
 
     if (caps.productRecommendations?.enabled) {
-      client.productRecommendations = resolveProviderOnlyCapability(
+      client.productRecommendations = resolveDirectCapability(
         capabilities.productRecommendations,
         (args) =>
-          new MeilisearchProductRecommendationsProvider(
+          new MeilisearchProductRecommendationsCapability(
             args.config,
             args.cache,
             args.context,

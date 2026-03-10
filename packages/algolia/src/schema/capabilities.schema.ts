@@ -1,10 +1,10 @@
 import type {
-  AnalyticsProvider,
+  AnalyticsCapability,
   Cache,
-  ProductRecommendationsProvider,
+  ProductRecommendationsCapability,
   ProductSearchFactory,
   ProductSearchFactoryWithOutput,
-  ProductSearchProvider,
+  ProductSearchCapability,
   RequestContext,
 } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
@@ -14,12 +14,12 @@ import * as z from 'zod';
 const ProductSearchCapabilitySchema = z.looseObject({
   enabled: z.boolean(),
   factory: z.unknown().optional(),
-  provider: z.unknown().optional(),
+  capability: z.unknown().optional(),
 });
 
-const ProviderCapabilitySchema = z.looseObject({
+const CapabilityOverrideSchema = z.looseObject({
   enabled: z.boolean(),
-  provider: z.unknown().optional(),
+  capability: z.unknown().optional(),
 });
 
 export const AlgoliaCapabilitiesSchema = CapabilitiesSchema.pick({
@@ -29,56 +29,56 @@ export const AlgoliaCapabilitiesSchema = CapabilitiesSchema.pick({
 })
   .extend({
     productSearch: ProductSearchCapabilitySchema.optional(),
-    analytics: ProviderCapabilitySchema.optional(),
-    productRecommendations: ProviderCapabilitySchema.optional(),
+    analytics: CapabilityOverrideSchema.optional(),
+    productRecommendations: CapabilityOverrideSchema.optional(),
   })
   .partial();
 
-export interface AlgoliaProviderFactoryArgs {
+export interface AlgoliaCapabilityFactoryArgs {
   cache: Cache;
   context: RequestContext;
   config: AlgoliaConfiguration;
 }
 
-export interface AlgoliaProductSearchProviderFactoryArgs<
+export interface AlgoliaProductSearchCapabilityFactoryArgs<
   TFactory extends ProductSearchFactory = ProductSearchFactory,
-> extends AlgoliaProviderFactoryArgs {
+> extends AlgoliaCapabilityFactoryArgs {
   factory: ProductSearchFactoryWithOutput<TFactory>;
 }
 
 export interface AlgoliaProductSearchCapabilityConfig<
   TFactory extends ProductSearchFactory = ProductSearchFactory,
-  TProvider extends ProductSearchProvider = ProductSearchProvider,
+  TCapability extends ProductSearchCapability = ProductSearchCapability,
 > {
   enabled: boolean;
   factory?: ProductSearchFactoryWithOutput<TFactory>;
-  provider?: (args: AlgoliaProductSearchProviderFactoryArgs<TFactory>) => TProvider;
+  capability?: (args: AlgoliaProductSearchCapabilityFactoryArgs<TFactory>) => TCapability;
 }
 
 export interface AlgoliaAnalyticsCapabilityConfig<
-  TProvider extends AnalyticsProvider = AnalyticsProvider,
+  TCapability extends AnalyticsCapability = AnalyticsCapability,
 > {
   enabled: boolean;
-  provider?: (args: AlgoliaProviderFactoryArgs) => TProvider;
+  capability?: (args: AlgoliaCapabilityFactoryArgs) => TCapability;
 }
 
 export interface AlgoliaProductRecommendationsCapabilityConfig<
-  TProvider extends ProductRecommendationsProvider = ProductRecommendationsProvider,
+  TCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
 > {
   enabled: boolean;
-  provider?: (args: AlgoliaProviderFactoryArgs) => TProvider;
+  capability?: (args: AlgoliaCapabilityFactoryArgs) => TCapability;
 }
 
 export type AlgoliaCapabilities<
   TProductSearchFactory extends ProductSearchFactory = ProductSearchFactory,
-  TProductSearchProvider extends ProductSearchProvider = ProductSearchProvider,
-  TAnalyticsProvider extends AnalyticsProvider = AnalyticsProvider,
-  TProductRecommendationsProvider extends ProductRecommendationsProvider = ProductRecommendationsProvider,
+  TProductSearchCapability extends ProductSearchCapability = ProductSearchCapability,
+  TAnalyticsCapability extends AnalyticsCapability = AnalyticsCapability,
+  TProductRecommendationsCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
 > = {
   productSearch?: AlgoliaProductSearchCapabilityConfig<
     TProductSearchFactory,
-    TProductSearchProvider
+    TProductSearchCapability
   >;
-  analytics?: AlgoliaAnalyticsCapabilityConfig<TAnalyticsProvider>;
-  productRecommendations?: AlgoliaProductRecommendationsCapabilityConfig<TProductRecommendationsProvider>;
+  analytics?: AlgoliaAnalyticsCapabilityConfig<TAnalyticsCapability>;
+  productRecommendations?: AlgoliaProductRecommendationsCapabilityConfig<TProductRecommendationsCapability>;
 };

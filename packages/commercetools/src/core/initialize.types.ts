@@ -33,21 +33,21 @@ import type { CommercetoolsProductReviewsFactory } from '../factories/product-re
 import type { CommercetoolsProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import type { CommercetoolsProfileFactory } from '../factories/profile/profile.factory.js';
 import type { CommercetoolsStoreFactory } from '../factories/store/store.factory.js';
-import type { CommercetoolsCartProvider } from '../providers/cart.provider.js';
-import type { CommercetoolsCategoryProvider } from '../providers/category.provider.js';
-import type { CommercetoolsCheckoutProvider } from '../providers/checkout.provider.js';
-import type { CommercetoolsIdentityProvider } from '../providers/identity.provider.js';
-import type { CommercetoolsInventoryProvider } from '../providers/inventory.provider.js';
-import type { CommercetoolsOrderSearchProvider } from '../providers/order-search.provider.js';
-import type { CommercetoolsOrderProvider } from '../providers/order.provider.js';
-import type { CommercetoolsPriceProvider } from '../providers/price.provider.js';
-import type { CommercetoolsProductAssociationsProvider } from '../providers/product-associations.provider.js';
-import type { CommercetoolsProductListProvider } from '../providers/product-list.provider.js';
-import type { CommercetoolsProductProvider } from '../providers/product.provider.js';
-import type { CommercetoolsProductReviewsProvider } from '../providers/product-reviews.provider.js';
-import type { CommercetoolsSearchProvider } from '../providers/product-search.provider.js';
-import type { CommercetoolsProfileProvider } from '../providers/profile.provider.js';
-import type { CommercetoolsStoreProvider } from '../providers/store.provider.js';
+import type { CommercetoolsCartCapability } from '../capabilities/cart.capability.js';
+import type { CommercetoolsCategoryCapability } from '../capabilities/category.capability.js';
+import type { CommercetoolsCheckoutCapability } from '../capabilities/checkout.capability.js';
+import type { CommercetoolsIdentityCapability } from '../capabilities/identity.capability.js';
+import type { CommercetoolsInventoryCapability } from '../capabilities/inventory.capability.js';
+import type { CommercetoolsOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import type { CommercetoolsOrderCapability } from '../capabilities/order.capability.js';
+import type { CommercetoolsPriceCapability } from '../capabilities/price.capability.js';
+import type { CommercetoolsProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import type { CommercetoolsProductListCapability } from '../capabilities/product-list.capability.js';
+import type { CommercetoolsProductCapability } from '../capabilities/product.capability.js';
+import type { CommercetoolsProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
+import type { CommercetoolsProductSearchCapability } from '../capabilities/product-search.capability.js';
+import type { CommercetoolsProfileCapability } from '../capabilities/profile.capability.js';
+import type { CommercetoolsStoreCapability } from '../capabilities/store.capability.js';
 
 type EnabledCapability<TCapability> =
   TCapability extends { enabled: true } ? true : false;
@@ -64,12 +64,12 @@ type ExtractCapabilityFactory<TCapability, TContract, TDefaultFactory> =
       : TDefaultFactory
     : TDefaultFactory;
 
-type ExtractCapabilityProvider<TCapability, TDefaultProvider> =
-  TCapability extends { enabled: true; provider?: infer TProviderFactory }
-    ? TProviderFactory extends (...args: any[]) => infer TProvider
-      ? TProvider
-      : TDefaultProvider
-    : TDefaultProvider;
+type ExtractCapabilityImplementation<TCapability, TDefaultCapability> =
+  TCapability extends { enabled: true; capability?: infer TCapabilityFactory }
+    ? TCapabilityFactory extends (...args: any[]) => infer TResolvedCapability
+      ? TResolvedCapability
+      : TDefaultCapability
+    : TDefaultCapability;
 
 type FactoryContractMap = {
   product: ProductFactory;
@@ -115,35 +115,35 @@ type ResolvedFactoryMap<T extends CommercetoolsCapabilities> = {
   >;
 };
 
-type DefaultProviderMap<T extends CommercetoolsCapabilities> = {
-  product: CommercetoolsProductProvider<ResolvedFactoryMap<T>['product']>;
-  productSearch: CommercetoolsSearchProvider<ResolvedFactoryMap<T>['productSearch']>;
-  productAssociations: CommercetoolsProductAssociationsProvider<
+type DefaultCapabilityMap<T extends CommercetoolsCapabilities> = {
+  product: CommercetoolsProductCapability<ResolvedFactoryMap<T>['product']>;
+  productSearch: CommercetoolsProductSearchCapability<ResolvedFactoryMap<T>['productSearch']>;
+  productAssociations: CommercetoolsProductAssociationsCapability<
     ResolvedFactoryMap<T>['productAssociations']
   >;
-  productReviews: CommercetoolsProductReviewsProvider<
+  productReviews: CommercetoolsProductReviewsCapability<
     ResolvedFactoryMap<T>['productReviews']
   >;
-  productList: CommercetoolsProductListProvider<ResolvedFactoryMap<T>['productList']>;
-  identity: CommercetoolsIdentityProvider<ResolvedFactoryMap<T>['identity']>;
-  cart: CommercetoolsCartProvider<ResolvedFactoryMap<T>['cart']>;
-  checkout: CommercetoolsCheckoutProvider<ResolvedFactoryMap<T>['checkout']>;
-  order: CommercetoolsOrderProvider<ResolvedFactoryMap<T>['order']>;
-  orderSearch: CommercetoolsOrderSearchProvider<ResolvedFactoryMap<T>['orderSearch']>;
-  inventory: CommercetoolsInventoryProvider<ResolvedFactoryMap<T>['inventory']>;
-  price: CommercetoolsPriceProvider<ResolvedFactoryMap<T>['price']>;
-  category: CommercetoolsCategoryProvider<ResolvedFactoryMap<T>['category']>;
-  store: CommercetoolsStoreProvider<ResolvedFactoryMap<T>['store']>;
-  profile: CommercetoolsProfileProvider<ResolvedFactoryMap<T>['profile']>;
+  productList: CommercetoolsProductListCapability<ResolvedFactoryMap<T>['productList']>;
+  identity: CommercetoolsIdentityCapability<ResolvedFactoryMap<T>['identity']>;
+  cart: CommercetoolsCartCapability<ResolvedFactoryMap<T>['cart']>;
+  checkout: CommercetoolsCheckoutCapability<ResolvedFactoryMap<T>['checkout']>;
+  order: CommercetoolsOrderCapability<ResolvedFactoryMap<T>['order']>;
+  orderSearch: CommercetoolsOrderSearchCapability<ResolvedFactoryMap<T>['orderSearch']>;
+  inventory: CommercetoolsInventoryCapability<ResolvedFactoryMap<T>['inventory']>;
+  price: CommercetoolsPriceCapability<ResolvedFactoryMap<T>['price']>;
+  category: CommercetoolsCategoryCapability<ResolvedFactoryMap<T>['category']>;
+  store: CommercetoolsStoreCapability<ResolvedFactoryMap<T>['store']>;
+  profile: CommercetoolsProfileCapability<ResolvedFactoryMap<T>['profile']>;
 };
 
-type CapabilityProviderTypeMap<T extends CommercetoolsCapabilities> = {
-  [K in OverridableCapabilityKey]: ExtractCapabilityProvider<T[K], DefaultProviderMap<T>[K]>;
+type CapabilityImplementationMap<T extends CommercetoolsCapabilities> = {
+  [K in OverridableCapabilityKey]: ExtractCapabilityImplementation<T[K], DefaultCapabilityMap<T>[K]>;
 };
 
 type EnabledCapabilityOverrideMap<T extends CommercetoolsCapabilities> = {
   [K in OverridableCapabilityKey as T[K] extends { enabled: true } ? K : never]:
-    CapabilityProviderTypeMap<T>[K];
+    CapabilityImplementationMap<T>[K];
 };
 
 export type CommercetoolsClientFromCapabilities<
@@ -154,21 +154,21 @@ export type CommercetoolsClientFromCapabilities<
 > &
   EnabledCapabilityOverrideMap<T>;
 
-export function resolveCapabilityProvider<TFactory, TProvider, TProviderArgs>(
+export function resolveCapabilityWithFactory<TFactory, TResolvedCapability, TCapabilityArgs>(
   capability:
     | {
         factory?: TFactory;
-        provider?: (args: TProviderArgs) => TProvider;
+        capability?: (args: TCapabilityArgs) => TResolvedCapability;
       }
     | undefined,
   defaults: {
     factory: TFactory;
-    provider: (args: TProviderArgs) => TProvider;
+    capability: (args: TCapabilityArgs) => TResolvedCapability;
   },
-  buildProviderArgs: (factory: TFactory) => TProviderArgs,
-): TProvider {
+  buildCapabilityArgs: (factory: TFactory) => TCapabilityArgs,
+): TResolvedCapability {
   const factory = capability?.factory ?? defaults.factory;
-  const provider = capability?.provider ?? defaults.provider;
+  const capabilityFactory = capability?.capability ?? defaults.capability;
 
-  return provider(buildProviderArgs(factory));
+  return capabilityFactory(buildCapabilityArgs(factory));
 }

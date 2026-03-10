@@ -8,7 +8,7 @@ import {
   unwrapValue,
 } from "@reactionary/core";
 import { withCommercetoolsCapabilities } from "../../core/initialize.js";
-import { CommercetoolsCheckoutProvider } from "../../providers/checkout.provider.js";
+import { CommercetoolsCheckoutCapability } from "../../capabilities/checkout.capability.js";
 import { assertNotAny, assertType } from "../product/utils.example.js";
 import { CommercetoolsCheckoutFactory } from "./checkout.factory.js";
 import * as z from "zod";
@@ -44,7 +44,7 @@ class ExtendedCommercetoolsCheckoutFactory extends CommercetoolsCheckoutFactory<
   }
 }
 
-class ExtendedCommercetoolsCheckoutProvider extends CommercetoolsCheckoutProvider<ExtendedCommercetoolsCheckoutFactory> {
+class ExtendedCommercetoolsCheckoutCapability extends CommercetoolsCheckoutCapability<ExtendedCommercetoolsCheckoutFactory> {
   public async getByIdOrThrow(payload: CheckoutQueryById): Promise<ExtendedCheckout> {
     const result = await this.getById(payload);
     return unwrapValue(result);
@@ -57,8 +57,8 @@ const capabilityFactory = withCommercetoolsCapabilities(config, {
   checkout: {
     enabled: true,
     factory: extendedFactory,
-    provider: ({ cache, context, config, commercetoolsApi }) =>
-      new ExtendedCommercetoolsCheckoutProvider(
+    capability: ({ cache, context, config, commercetoolsApi }) =>
+      new ExtendedCommercetoolsCheckoutCapability(
         config,
         cache,
         context,

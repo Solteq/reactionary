@@ -4,10 +4,10 @@ import {
   type GoogleAnalyticsCapabilities,
 } from '../schema/capabilities.schema.js';
 import type { GoogleAnalyticsConfiguration } from '../schema/configuration.schema.js';
-import { GoogleAnalyticsAnalyticsProvider } from '../providers/analytics.provider.js';
+import { GoogleAnalyticsAnalyticsCapability } from '../capabilities/analytics.capability.js';
 import {
   type GoogleAnalyticsClientFromCapabilities,
-  resolveProviderOnlyCapability,
+  resolveDirectCapability,
 } from './initialize.types.js';
 
 export function withGoogleAnalyticsCapabilities<
@@ -22,9 +22,9 @@ export function withGoogleAnalyticsCapabilities<
     const caps = GoogleAnalyticsCapabilitiesSchema.parse(capabilities);
 
     if (caps.analytics?.enabled) {
-      client.analytics = resolveProviderOnlyCapability(
+      client.analytics = resolveDirectCapability(
         capabilities.analytics,
-        (args) => new GoogleAnalyticsAnalyticsProvider(args.cache, args.context, args.config),
+        (args) => new GoogleAnalyticsAnalyticsCapability(args.cache, args.context, args.config),
         {
           cache,
           context,

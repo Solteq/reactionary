@@ -1,0 +1,41 @@
+import 'dotenv/config';
+
+import type { RequestContext } from '@reactionary/core';
+import { createInitialRequestContext, MemoryCache, ProductSchema } from '@reactionary/core';
+import { getFakerTestConfiguration } from './test-utils.js';
+import { FakeProductCapability } from '../capabilities/index.js';
+import { FakeProductFactory } from '../factories/index.js';
+import { describe, expect, it, beforeEach, assert } from 'vitest';
+
+describe('Fake Product Provider', () => {
+  let provider: FakeProductCapability;
+  let reqCtx: RequestContext;
+
+  beforeEach( () => {
+    reqCtx = createInitialRequestContext();
+    provider = new FakeProductCapability(
+      getFakerTestConfiguration(),
+      new MemoryCache(),
+      reqCtx,
+      new FakeProductFactory(ProductSchema),
+    );
+  })
+
+  it('should cache repeat product lookups by id', async () => {
+    const first = await provider.getById({ identifier: { key : '1234' }});
+
+    if (!first.success) {
+      assert.fail();
+    }
+
+    expect(first.meta.cache.hit).toBe(false);
+
+    const second = await provider.getById({ identifier: { key : '1234' }});
+    
+    if (!second.success) {
+      assert.fail();
+    }
+
+    expect(second.meta.cache.hit).toBe(true);
+  });
+});

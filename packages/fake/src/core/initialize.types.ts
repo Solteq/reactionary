@@ -30,20 +30,20 @@ import type { FakeProductReviewsFactory } from '../factories/product-reviews/pro
 import type { FakeProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import type { FakeProfileFactory } from '../factories/profile/profile.factory.js';
 import type { FakeStoreFactory } from '../factories/store/store.factory.js';
-import type { FakeCartProvider } from '../providers/cart.provider.js';
-import type { FakeCategoryProvider } from '../providers/category.provider.js';
-import type { FakeCheckoutProvider } from '../providers/checkout.provider.js';
-import type { FakeIdentityProvider } from '../providers/identity.provider.js';
-import type { FakeInventoryProvider } from '../providers/inventory.provider.js';
-import type { FakeOrderProvider } from '../providers/order.provider.js';
-import type { FakeOrderSearchProvider } from '../providers/order-search.provider.js';
-import type { FakePriceProvider } from '../providers/price.provider.js';
-import type { FakeProductAssociationsProvider } from '../providers/product-associations.provider.js';
-import type { FakeProductProvider } from '../providers/product.provider.js';
-import type { FakeProductReviewsProvider } from '../providers/product-reviews.provider.js';
-import type { FakeSearchProvider } from '../providers/product-search.provider.js';
-import type { FakeProfileProvider } from '../providers/profile.provider.js';
-import type { FakeStoreProvider } from '../providers/store.provider.js';
+import type { FakeCartCapability } from '../capabilities/cart.capability.js';
+import type { FakeCategoryCapability } from '../capabilities/category.capability.js';
+import type { FakeCheckoutCapability } from '../capabilities/checkout.capability.js';
+import type { FakeIdentityCapability } from '../capabilities/identity.capability.js';
+import type { FakeInventoryCapability } from '../capabilities/inventory.capability.js';
+import type { FakeOrderCapability } from '../capabilities/order.capability.js';
+import type { FakeOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import type { FakePriceCapability } from '../capabilities/price.capability.js';
+import type { FakeProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import type { FakeProductCapability } from '../capabilities/product.capability.js';
+import type { FakeProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
+import type { FakeProductSearchCapability } from '../capabilities/product-search.capability.js';
+import type { FakeProfileCapability } from '../capabilities/profile.capability.js';
+import type { FakeStoreCapability } from '../capabilities/store.capability.js';
 
 type FakeCapabilityKey = keyof FakeCapabilities;
 
@@ -61,12 +61,12 @@ type ExtractCapabilityFactory<TCapability, TContract, TDefaultFactory> =
       : TDefaultFactory
     : TDefaultFactory;
 
-type ExtractCapabilityProvider<TCapability, TDefaultProvider> =
-  TCapability extends { enabled: true; provider?: infer TProviderFactory }
-    ? TProviderFactory extends (...args: unknown[]) => infer TProvider
-      ? TProvider
-      : TDefaultProvider
-    : TDefaultProvider;
+type ExtractCapabilityImplementation<TCapability, TDefaultCapability> =
+  TCapability extends { enabled: true; capability?: infer TCapabilityFactory }
+    ? TCapabilityFactory extends (...args: unknown[]) => infer TResolvedCapability
+      ? TResolvedCapability
+      : TDefaultCapability
+    : TDefaultCapability;
 
 type FactoryContractMap = {
   product: ProductFactory;
@@ -110,32 +110,32 @@ type ResolvedFactoryMap<T extends FakeCapabilities> = {
   >;
 };
 
-type DefaultProviderMap<T extends FakeCapabilities> = {
-  product: FakeProductProvider<ResolvedFactoryMap<T>['product']>;
-  productSearch: FakeSearchProvider<ResolvedFactoryMap<T>['productSearch']>;
-  identity: FakeIdentityProvider<ResolvedFactoryMap<T>['identity']>;
-  category: FakeCategoryProvider<ResolvedFactoryMap<T>['category']>;
-  cart: FakeCartProvider<ResolvedFactoryMap<T>['cart']>;
-  inventory: FakeInventoryProvider<ResolvedFactoryMap<T>['inventory']>;
-  store: FakeStoreProvider<ResolvedFactoryMap<T>['store']>;
-  price: FakePriceProvider<ResolvedFactoryMap<T>['price']>;
-  checkout: FakeCheckoutProvider<ResolvedFactoryMap<T>['checkout']>;
-  order: FakeOrderProvider<ResolvedFactoryMap<T>['order']>;
-  orderSearch: FakeOrderSearchProvider<ResolvedFactoryMap<T>['orderSearch']>;
-  profile: FakeProfileProvider<ResolvedFactoryMap<T>['profile']>;
-  productReviews: FakeProductReviewsProvider<ResolvedFactoryMap<T>['productReviews']>;
-  productAssociations: FakeProductAssociationsProvider<
+type DefaultCapabilityMap<T extends FakeCapabilities> = {
+  product: FakeProductCapability<ResolvedFactoryMap<T>['product']>;
+  productSearch: FakeProductSearchCapability<ResolvedFactoryMap<T>['productSearch']>;
+  identity: FakeIdentityCapability<ResolvedFactoryMap<T>['identity']>;
+  category: FakeCategoryCapability<ResolvedFactoryMap<T>['category']>;
+  cart: FakeCartCapability<ResolvedFactoryMap<T>['cart']>;
+  inventory: FakeInventoryCapability<ResolvedFactoryMap<T>['inventory']>;
+  store: FakeStoreCapability<ResolvedFactoryMap<T>['store']>;
+  price: FakePriceCapability<ResolvedFactoryMap<T>['price']>;
+  checkout: FakeCheckoutCapability<ResolvedFactoryMap<T>['checkout']>;
+  order: FakeOrderCapability<ResolvedFactoryMap<T>['order']>;
+  orderSearch: FakeOrderSearchCapability<ResolvedFactoryMap<T>['orderSearch']>;
+  profile: FakeProfileCapability<ResolvedFactoryMap<T>['profile']>;
+  productReviews: FakeProductReviewsCapability<ResolvedFactoryMap<T>['productReviews']>;
+  productAssociations: FakeProductAssociationsCapability<
     ResolvedFactoryMap<T>['productAssociations']
   >;
 };
 
-type CapabilityProviderTypeMap<T extends FakeCapabilities> = {
-  [K in FakeCapabilityKey]: ExtractCapabilityProvider<T[K], DefaultProviderMap<T>[K]>;
+type CapabilityImplementationMap<T extends FakeCapabilities> = {
+  [K in FakeCapabilityKey]: ExtractCapabilityImplementation<T[K], DefaultCapabilityMap<T>[K]>;
 };
 
 type EnabledCapabilityOverrideMap<T extends FakeCapabilities> = {
   [K in FakeCapabilityKey as T[K] extends { enabled: true } ? K : never]:
-    CapabilityProviderTypeMap<T>[K];
+    CapabilityImplementationMap<T>[K];
 };
 
 export type FakeClientFromCapabilities<T extends FakeCapabilities> = Omit<
@@ -144,21 +144,21 @@ export type FakeClientFromCapabilities<T extends FakeCapabilities> = Omit<
 > &
   EnabledCapabilityOverrideMap<T>;
 
-export function resolveCapabilityProvider<TFactory, TProvider, TProviderArgs>(
+export function resolveCapabilityWithFactory<TFactory, TResolvedCapability, TCapabilityArgs>(
   capability:
     | {
         factory?: TFactory;
-        provider?: (args: TProviderArgs) => TProvider;
+        capability?: (args: TCapabilityArgs) => TResolvedCapability;
       }
     | undefined,
   defaults: {
     factory: TFactory;
-    provider: (args: TProviderArgs) => TProvider;
+    capability: (args: TCapabilityArgs) => TResolvedCapability;
   },
-  buildProviderArgs: (factory: TFactory) => TProviderArgs,
-): TProvider {
+  buildCapabilityArgs: (factory: TFactory) => TCapabilityArgs,
+): TResolvedCapability {
   const factory = capability?.factory ?? defaults.factory;
-  const provider = capability?.provider ?? defaults.provider;
+  const capabilityFactory = capability?.capability ?? defaults.capability;
 
-  return provider(buildProviderArgs(factory));
+  return capabilityFactory(buildCapabilityArgs(factory));
 }

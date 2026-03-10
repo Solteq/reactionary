@@ -1,35 +1,35 @@
-import type { ProductProvider } from "../providers/product.provider.js";
-import type { ProductSearchProvider } from "../providers/product-search.provider.js";
-import type { IdentityProvider } from '../providers/identity.provider.js';
-import type { CartProvider } from "../providers/cart.provider.js";
-import type { PriceProvider } from "../providers/price.provider.js";
-import type { InventoryProvider } from "../providers/inventory.provider.js";
+import type { ProductCapability } from "../capabilities/product.capability.js";
+import type { ProductSearchCapability } from "../capabilities/product-search.capability.js";
+import type { IdentityCapability } from '../capabilities/identity.capability.js';
+import type { CartCapability } from "../capabilities/cart.capability.js";
+import type { PriceCapability } from "../capabilities/price.capability.js";
+import type { InventoryCapability } from "../capabilities/inventory.capability.js";
 import type { Cache } from "../cache/cache.interface.js";
-import type { CategoryProvider } from "../providers/category.provider.js";
-import type { AnalyticsProvider, CheckoutProvider, OrderProvider, ProductListProvider, ProfileProvider, StoreProvider } from "../providers/index.js";
-import type { OrderSearchProvider } from "../providers/order-search.provider.js";
-import type { ProductRecommendationsProvider } from "../providers/product-recommendations.provider.js";
-import type { ProductAssociationsProvider } from "../providers/product-associations.provider.js";
-import type { ProductReviewsProvider } from "../providers/product-reviews.provider.js";
+import type { CategoryCapability } from "../capabilities/category.capability.js";
+import type { AnalyticsCapability, CheckoutCapability, OrderCapability, ProductListCapability, ProfileCapability, StoreCapability } from "../capabilities/index.js";
+import type { OrderSearchCapability } from "../capabilities/order-search.capability.js";
+import type { ProductRecommendationsCapability } from "../capabilities/product-recommendations.capability.js";
+import type { ProductAssociationsCapability } from "../capabilities/product-associations.capability.js";
+import type { ProductReviewsCapability } from "../capabilities/product-reviews.capability.js";
 
 export interface Client {
-    product: ProductProvider,
-    productSearch: ProductSearchProvider,
-    productRecommendations: ProductRecommendationsProvider,
-    productAssociations: ProductAssociationsProvider,
-    productReviews: ProductReviewsProvider,
-    productList: ProductListProvider,
-    identity: IdentityProvider,
+    product: ProductCapability,
+    productSearch: ProductSearchCapability,
+    productRecommendations: ProductRecommendationsCapability,
+    productAssociations: ProductAssociationsCapability,
+    productReviews: ProductReviewsCapability,
+    productList: ProductListCapability,
+    identity: IdentityCapability,
     cache: Cache,
-    cart: CartProvider,
-    checkout: CheckoutProvider,
-    analytics: AnalyticsProvider,
-    price: PriceProvider,
-    inventory: InventoryProvider,
-    category: CategoryProvider,
-    profile: ProfileProvider,
-    store: StoreProvider,
-    order: OrderProvider,
-    orderSearch: OrderSearchProvider,
+    cart: CartCapability,
+    checkout: CheckoutCapability,
+    analytics: AnalyticsCapability,
+    price: PriceCapability,
+    inventory: InventoryCapability,
+    category: CategoryCapability,
+    profile: ProfileCapability,
+    store: StoreCapability,
+    order: OrderCapability,
+    orderSearch: OrderSearchCapability,
 }
 

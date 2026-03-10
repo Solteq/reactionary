@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { Capabilities, ClientFromCapabilities } from "../schemas/capabilities.schema.js";
 import type { Cache } from '../cache/cache.interface.js';
 import type { RequestContext } from "../schemas/session.schema.js";
-import { AnalyticsProvider } from "../providers/analytics.provider.js";
+import { AnalyticsCapability } from "../capabilities/analytics.capability.js";
 import type { AnalyticsMutation } from "../schemas/index.js";
 import { NoOpCache } from "../cache/noop-cache.js";
 import { createInitialRequestContext } from "../initialization.js";
 import { ClientBuilder } from "../client/client-builder.js";
 import type { Client } from "../client/client.js";
-import { ProductProvider } from "../providers/product.provider.js";
+import { ProductCapability } from "../capabilities/product.capability.js";
 
-export class MockAnalyticsProvider extends AnalyticsProvider {
+export class MockAnalyticsCapability extends AnalyticsCapability {
     public events: Array<AnalyticsMutation> = [];
 
     public override async track(event: AnalyticsMutation): Promise<void> {
@@ -38,12 +38,12 @@ describe('Client Builder', () => {
     const cache = new NoOpCache();
     const context = createInitialRequestContext();
     const builder = new ClientBuilder(context);
-    const analyticsProvider = new MockAnalyticsProvider(cache, context);
-    const secondaryAnalyticsProvider = new MockAnalyticsProvider(cache, context);
+    const analyticsCapability = new MockAnalyticsCapability(cache, context);
+    const secondaryAnalyticsCapability = new MockAnalyticsCapability(cache, context);
     const client = builder
         .withCache(cache)
-        .withCapability(withMockCapabilities({ analytics: analyticsProvider }))
-        .withCapability(withMockCapabilities({ analytics: secondaryAnalyticsProvider }))
+        .withCapability(withMockCapabilities({ analytics: analyticsCapability }))
+        .withCapability(withMockCapabilities({ analytics: secondaryAnalyticsCapability }))
         .build();
 
     const track = await client.analytics.track({
@@ -53,24 +53,24 @@ describe('Client Builder', () => {
         }
     });
 
-    expect(analyticsProvider.events.length).toBe(1);
-    expect(analyticsProvider.events[0].event).toBe('product-details-view');
-    expect(secondaryAnalyticsProvider.events.length).toBe(1);
-    expect(secondaryAnalyticsProvider.events[0].event).toBe('product-details-view');
+    expect(analyticsCapability.events.length).toBe(1);
+    expect(analyticsCapability.events[0].event).toBe('product-details-view');
+    expect(secondaryAnalyticsCapability.events.length).toBe(1);
+    expect(secondaryAnalyticsCapability.events[0].event).toBe('product-details-view');
   });
 
   it('supports capability factories with args object signature', () => {
     const cache = new NoOpCache();
     const context = createInitialRequestContext();
     const builder = new ClientBuilder(context);
-    const analyticsProvider = new MockAnalyticsProvider(cache, context);
+    const analyticsCapability = new MockAnalyticsCapability(cache, context);
 
     const client = builder
       .withCache(cache)
       .withCapability(({ cache: sharedCache, context: sharedContext }) => {
         expect(sharedCache).toBe(cache);
         expect(sharedContext).toBe(context);
-        return { analytics: analyticsProvider };
+        return { analytics: analyticsCapability };
       })
       .build();
 
@@ -82,7 +82,7 @@ describe('Client Builder', () => {
     const context = createInitialRequestContext();
     const builder = new ClientBuilder(context);
 
-    class TestProductProvider extends ProductProvider {
+    class TestProductCapability extends ProductCapability {
       public override async getById(): Promise<any> {
         throw new Error('not implemented');
       }
@@ -98,8 +98,8 @@ describe('Client Builder', () => {
       builder
         .withCache(cache)
         .withCollisionStrategy('throw')
-        .withCapability(() => ({ product: new TestProductProvider(cache, context) }))
-        .withCapability(() => ({ product: new TestProductProvider(cache, context) }))
+        .withCapability(() => ({ product: new TestProductCapability(cache, context) }))
+        .withCapability(() => ({ product: new TestProductCapability(cache, context) }))
         .build(),
     ).toThrow(/Capability collision detected for "product"/);
   });
@@ -109,7 +109,7 @@ describe('Client Builder', () => {
     const context = createInitialRequestContext();
     const builder = new ClientBuilder(context);
 
-    class TestProductProvider extends ProductProvider {
+    class TestProductCapability extends ProductCapability {
       public name: string;
       constructor(cache: Cache, context: RequestContext, name: string) {
         super(cache, context);
@@ -126,8 +126,8 @@ describe('Client Builder', () => {
       }
     }
 
-    const first = new TestProductProvider(cache, context, 'first');
-    const second = new TestProductProvider(cache, context, 'second');
+    const first = new TestProductCapability(cache, context, 'first');
+    const second = new TestProductCapability(cache, context, 'second');
 
     const client = builder
       .withCache(cache)
@@ -136,6 +136,6 @@ describe('Client Builder', () => {
       .withCapability(() => ({ product: second }))
       .build();
 
-    expect((client.product as TestProductProvider).name).toBe('first');
+    expect((client.product as TestProductCapability).name).toBe('first');
   });
 });
