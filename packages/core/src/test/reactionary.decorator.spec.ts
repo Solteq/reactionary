@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { BaseProvider } from '../providers/base.provider.js';
+import { BaseCapability } from '../capabilities/base.capability.js';
 import type { RequestContext } from '../schemas/session.schema.js';
 import type { Cache } from '../cache/cache.interface.js';
 import {
@@ -18,11 +18,11 @@ import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { hrTimeToMilliseconds } from '@opentelemetry/core';
 
-export function createTestableProvider(
+export function createTestableCapability(
   decoratorOptions: Partial<ReactionaryDecoratorOptions>,
   fn?: any
 ) {
-  class TestableProvider extends BaseProvider {
+  class TestableCapability extends BaseCapability {
     constructor(
       public override cache: Cache,
       public override context: RequestContext
@@ -53,36 +53,36 @@ export function createTestableProvider(
     }
 
     public getResourceName(): string {
-      return 'TestableProvider';
+      return 'TestableCapability';
     }
   }
 
   const cache = new MemoryCache();
   const context = createInitialRequestContext();
 
-  return new TestableProvider(cache, context);
+  return new TestableCapability(cache, context);
 }
 
 describe('@Reactionary decorator', () => {
   describe('Input validation', () => {
     it('should reject invalid input with a failure', async () => {
-      const provider = createTestableProvider({
+      const capability = createTestableCapability({
         cache: false,
         inputSchema: z.string(),
       });
 
-      const result = await provider.decoratedFunction(42);
+      const result = await capability.decoratedFunction(42);
 
       expect(result.success).toBe(false);
     });
 
     it('should allow valid input through with a success', async () => {
-      const provider = createTestableProvider({
+      const capability = createTestableCapability({
         cache: false,
         inputSchema: z.string(),
       });
 
-      const result = await provider.decoratedFunction('42');
+      const result = await capability.decoratedFunction('42');
 
       expect(result.success).toBe(true);
     });
@@ -90,7 +90,7 @@ describe('@Reactionary decorator', () => {
 
   describe('Output validation', () => {
     it('should reject invalid output with a failure', async () => {
-      const provider = createTestableProvider(
+      const capability = createTestableCapability(
         {
           cache: false,
           outputSchema: z.string(),
@@ -100,13 +100,13 @@ describe('@Reactionary decorator', () => {
         }
       );
 
-      const result = await provider.decoratedFunction();
+      const result = await capability.decoratedFunction();
 
       expect(result.success).toBe(false);
     });
 
     it('should allow valid output with a success', async () => {
-      const provider = createTestableProvider(
+      const capability = createTestableCapability(
         {
           cache: false,
           outputSchema: z.string(),
@@ -116,7 +116,7 @@ describe('@Reactionary decorator', () => {
         }
       );
 
-      const result = await provider.decoratedFunction();
+      const result = await capability.decoratedFunction();
 
       expect(result.success).toBe(true);
     });
@@ -124,11 +124,11 @@ describe('@Reactionary decorator', () => {
 
   describe('Error handling', () => {
     it('will wrap errors thrown by the provider in a GenericError', async () => {
-      const provider = createTestableProvider({}, function () {
+      const capability = createTestableCapability({}, function () {
         throw new Error('42');
       });
 
-      const result = await provider.decoratedFunction();
+      const result = await capability.decoratedFunction();
 
       if (result.success) {
         assert.fail();
@@ -157,14 +157,14 @@ describe('@Reactionary decorator', () => {
     });
 
     it('records a timed span for entering the decorated function', async () => {
-      const provider = createTestableProvider({
+      const capability = createTestableCapability({
         cache: false,
       }, async function() { 
         await new Promise(resolve => setTimeout(resolve, 200));
 
         return "42";
       });
-      const result = await provider.decoratedFunction();
+      const result = await capability.decoratedFunction();
       const spans = exporter.getFinishedSpans();
 
       expect(spans.length).toBe(1);
@@ -176,20 +176,20 @@ describe('@Reactionary decorator', () => {
 
       console.log('unset expected: ', status);
 
-      expect(name).toBe('TestableProvider.decoratedFunction');
+      expect(name).toBe('TestableCapability.decoratedFunction');
       expect(duration).toBeGreaterThanOrEqual(200);
       expect(duration).toBeLessThanOrEqual(300);
       expect(status.code).toBe(SpanStatusCode.UNSET);
     });
 
     it('records exceptions as events and marks the span as an error', async () => {
-      const provider = createTestableProvider({
+      const capability = createTestableCapability({
         cache: false,
       }, async function() { 
         throw new Error('42');
       });
 
-      const result = await provider.decoratedFunction();
+      const result = await capability.decoratedFunction();
       const spans = exporter.getFinishedSpans();
 
       expect(spans.length).toBe(1);
@@ -198,17 +198,17 @@ describe('@Reactionary decorator', () => {
       const name = span.name;
       const status = span.status;
 
-      expect(name).toBe('TestableProvider.decoratedFunction');
+      expect(name).toBe('TestableCapability.decoratedFunction');
       expect(status.code).toBe(SpanStatusCode.ERROR);
     });
   });
 
   describe('Caching', () => {
     it('should not cache repeat lookups if the decorator is set to uncached', async () => {
-      const provider = createTestableProvider({
+      const capability = createTestableCapability({
         cache: false,
       });
-      const result = await provider.decoratedFunction();
+      const result = await capability.decoratedFunction();
 
       if (!result.success) {
         assert.fail();
@@ -216,7 +216,7 @@ describe('@Reactionary decorator', () => {
 
       expect(result.meta.cache.hit).toBe(false);
 
-      const secondResult = await provider.decoratedFunction();
+      const secondResult = await capability.decoratedFunction();
 
       if (!secondResult.success) {
         assert.fail();
@@ -226,10 +226,10 @@ describe('@Reactionary decorator', () => {
     });
 
     it('should cache repeat lookups if the decorator is set to cached', async () => {
-      const provider = createTestableProvider({
+      const capability = createTestableCapability({
         cache: true,
       });
-      const result = await provider.decoratedFunction();
+      const result = await capability.decoratedFunction();
 
       if (!result.success) {
         assert.fail();
@@ -237,7 +237,7 @@ describe('@Reactionary decorator', () => {
 
       expect(result.meta.cache.hit).toBe(false);
 
-      const secondResult = await provider.decoratedFunction();
+      const secondResult = await capability.decoratedFunction();
 
       if (!secondResult.success) {
         assert.fail();

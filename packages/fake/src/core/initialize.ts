@@ -21,25 +21,25 @@ import {
   ShippingMethodSchema as CoreShippingMethodSchema,
   StoreSchema as CoreStoreSchema,
 } from '@reactionary/core';
-import { FakeProductProvider } from '../providers/product.provider.js';
-import { FakeSearchProvider } from '../providers/product-search.provider.js';
+import { FakeProductCapability } from '../capabilities/product.capability.js';
+import { FakeProductSearchCapability } from '../capabilities/product-search.capability.js';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import type { FakeCapabilities } from '../schema/capabilities.schema.js';
 import { FakeCapabilitiesSchema } from '../schema/capabilities.schema.js';
-import { FakeCategoryProvider } from '../providers/category.provider.js';
+import { FakeCategoryCapability } from '../capabilities/category.capability.js';
 import {
-  FakeCartProvider,
-  FakeIdentityProvider,
-  FakeInventoryProvider,
-  FakePriceProvider,
-  FakeStoreProvider,
-} from '../providers/index.js';
-import { FakeCheckoutProvider } from '../providers/checkout.provider.js';
-import { FakeOrderSearchProvider } from '../providers/order-search.provider.js';
-import { FakeOrderProvider } from '../providers/order.provider.js';
-import { FakeProfileProvider } from '../providers/profile.provider.js';
-import { FakeProductReviewsProvider } from '../providers/product-reviews.provider.js';
-import { FakeProductAssociationsProvider } from '../providers/product-associations.provider.js';
+  FakeCartCapability,
+  FakeIdentityCapability,
+  FakeInventoryCapability,
+  FakePriceCapability,
+  FakeStoreCapability,
+} from '../capabilities/index.js';
+import { FakeCheckoutCapability } from '../capabilities/checkout.capability.js';
+import { FakeOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import { FakeOrderCapability } from '../capabilities/order.capability.js';
+import { FakeProfileCapability } from '../capabilities/profile.capability.js';
+import { FakeProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
+import { FakeProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import {
   FakeCartFactory,
   FakeCategoryFactory,
@@ -58,7 +58,7 @@ import {
 } from '../factories/index.js';
 import {
   type FakeClientFromCapabilities,
-  resolveCapabilityProvider,
+  resolveCapabilityWithFactory,
 } from './initialize.types.js';
 
 export function withFakeCapabilities<T extends FakeCapabilities>(
@@ -73,7 +73,7 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
     const client: any = {};
     const caps = FakeCapabilitiesSchema.parse(capabilities);
 
-    const buildProviderArgs = <TFactory,>(factory: TFactory) => ({
+    const buildCapabilityArgs = <TFactory,>(factory: TFactory) => ({
       cache,
       context,
       config: configuration,
@@ -81,106 +81,106 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
     });
 
     if (caps.product?.enabled) {
-      client.product = resolveCapabilityProvider(
+      client.product = resolveCapabilityWithFactory(
         capabilities.product,
         {
           factory: new FakeProductFactory(CoreProductSchema),
-          provider: (args) =>
-            new FakeProductProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakeProductCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.productSearch?.enabled) {
-      client.productSearch = resolveCapabilityProvider(
+      client.productSearch = resolveCapabilityWithFactory(
         capabilities.productSearch,
         {
           factory: new FakeProductSearchFactory(CoreProductSearchResultSchema),
-          provider: (args) =>
-            new FakeSearchProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakeProductSearchCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.category?.enabled) {
-      client.category = resolveCapabilityProvider(
+      client.category = resolveCapabilityWithFactory(
         capabilities.category,
         {
           factory: new FakeCategoryFactory(
             CoreCategorySchema,
             CoreCategoryPaginatedResultSchema,
           ),
-          provider: (args) =>
-            new FakeCategoryProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakeCategoryCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.cart?.enabled) {
-      client.cart = resolveCapabilityProvider(
+      client.cart = resolveCapabilityWithFactory(
         capabilities.cart,
         {
           factory: new FakeCartFactory(CoreCartSchema, CoreCartIdentifierSchema),
-          provider: (args) =>
-            new FakeCartProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakeCartCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.inventory?.enabled) {
-      client.inventory = resolveCapabilityProvider(
+      client.inventory = resolveCapabilityWithFactory(
         capabilities.inventory,
         {
           factory: new FakeInventoryFactory(CoreInventorySchema),
-          provider: (args) =>
-            new FakeInventoryProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakeInventoryCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.store?.enabled) {
-      client.store = resolveCapabilityProvider(
+      client.store = resolveCapabilityWithFactory(
         capabilities.store,
         {
           factory: new FakeStoreFactory(CoreStoreSchema),
-          provider: (args) =>
-            new FakeStoreProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakeStoreCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.price?.enabled) {
-      client.price = resolveCapabilityProvider(
+      client.price = resolveCapabilityWithFactory(
         capabilities.price,
         {
           factory: new FakePriceFactory(CorePriceSchema),
-          provider: (args) =>
-            new FakePriceProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakePriceCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.identity?.enabled) {
-      client.identity = resolveCapabilityProvider(
+      client.identity = resolveCapabilityWithFactory(
         capabilities.identity,
         {
           factory: new FakeIdentityFactory(CoreIdentitySchema),
-          provider: (args) =>
-            new FakeIdentityProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakeIdentityCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.checkout?.enabled) {
-      client.checkout = resolveCapabilityProvider(
+      client.checkout = resolveCapabilityWithFactory(
         capabilities.checkout,
         {
           factory: new FakeCheckoutFactory(
@@ -188,51 +188,51 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
             CoreShippingMethodSchema,
             CorePaymentMethodSchema,
           ),
-          provider: (args) =>
-            new FakeCheckoutProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakeCheckoutCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.orderSearch?.enabled) {
-      client.orderSearch = resolveCapabilityProvider(
+      client.orderSearch = resolveCapabilityWithFactory(
         capabilities.orderSearch,
         {
           factory: new FakeOrderSearchFactory(CoreOrderSearchResultSchema),
-          provider: (args) =>
-            new FakeOrderSearchProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakeOrderSearchCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.order?.enabled) {
-      client.order = resolveCapabilityProvider(
+      client.order = resolveCapabilityWithFactory(
         capabilities.order,
         {
           factory: new FakeOrderFactory(CoreOrderSchema),
-          provider: (args) =>
-            new FakeOrderProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakeOrderCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.profile?.enabled) {
-      client.profile = resolveCapabilityProvider(
+      client.profile = resolveCapabilityWithFactory(
         capabilities.profile,
         {
           factory: new FakeProfileFactory(CoreProfileSchema),
-          provider: (args) =>
-            new FakeProfileProvider(args.config, args.cache, args.context, args.factory),
+          capability: (args) =>
+            new FakeProfileCapability(args.config, args.cache, args.context, args.factory),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.productReviews?.enabled) {
-      client.productReviews = resolveCapabilityProvider(
+      client.productReviews = resolveCapabilityWithFactory(
         capabilities.productReviews,
         {
           factory: new FakeProductReviewsFactory(
@@ -240,32 +240,32 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
             CoreProductReviewSchema,
             CoreProductReviewPaginatedResultSchema,
           ),
-          provider: (args) =>
-            new FakeProductReviewsProvider(
+          capability: (args) =>
+            new FakeProductReviewsCapability(
               args.config,
               args.cache,
               args.context,
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 
     if (caps.productAssociations?.enabled) {
-      client.productAssociations = resolveCapabilityProvider(
+      client.productAssociations = resolveCapabilityWithFactory(
         capabilities.productAssociations,
         {
           factory: new FakeProductAssociationsFactory(CoreProductAssociationSchema),
-          provider: (args) =>
-            new FakeProductAssociationsProvider(
+          capability: (args) =>
+            new FakeProductAssociationsCapability(
               args.config,
               args.cache,
               args.context,
               args.factory,
             ),
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 

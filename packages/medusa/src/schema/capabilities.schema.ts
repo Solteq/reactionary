@@ -1,39 +1,39 @@
 import type {
   CartFactory,
   CartFactoryWithOutput,
-  CartProvider,
+  CartCapability,
   CategoryFactory,
   CategoryFactoryWithOutput,
-  CategoryProvider,
+  CategoryCapability,
   CheckoutFactory,
   CheckoutFactoryWithOutput,
-  CheckoutProvider,
-  IdentityProvider,
+  CheckoutCapability,
+  IdentityCapability,
   InventoryFactory,
   InventoryFactoryWithOutput,
-  InventoryProvider,
+  InventoryCapability,
   OrderFactory,
   OrderFactoryWithOutput,
-  OrderProvider,
+  OrderCapability,
   OrderSearchFactory,
   OrderSearchFactoryWithOutput,
-  OrderSearchProvider,
+  OrderSearchCapability,
   PriceFactory,
   PriceFactoryWithOutput,
-  PriceProvider,
+  PriceCapability,
   ProductAssociationsFactory,
   ProductAssociationsFactoryWithOutput,
-  ProductAssociationsProvider,
+  ProductAssociationsCapability,
   ProductFactory,
   ProductFactoryWithOutput,
-  ProductProvider,
-  ProductRecommendationsProvider,
+  ProductCapability,
+  ProductRecommendationsCapability,
   ProductSearchFactory,
   ProductSearchFactoryWithOutput,
-  ProductSearchProvider,
+  ProductSearchCapability,
   ProfileFactory,
   ProfileFactoryWithOutput,
-  ProfileProvider,
+  ProfileCapability,
   RequestContext,
   Cache,
 } from '@reactionary/core';
@@ -45,12 +45,12 @@ import * as z from 'zod';
 const OverridableCapabilitySchema = z.looseObject({
   enabled: z.boolean(),
   factory: z.unknown().optional(),
-  provider: z.unknown().optional(),
+  capability: z.unknown().optional(),
 });
 
-const ProviderCapabilitySchema = z.looseObject({
+const DirectCapabilitySchema = z.looseObject({
   enabled: z.boolean(),
-  provider: z.unknown().optional(),
+  capability: z.unknown().optional(),
 });
 
 export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
@@ -78,154 +78,154 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     order: OverridableCapabilitySchema.optional(),
     orderSearch: OverridableCapabilitySchema.optional(),
     inventory: OverridableCapabilitySchema.optional(),
-    identity: ProviderCapabilitySchema.optional(),
+    identity: DirectCapabilitySchema.optional(),
     profile: OverridableCapabilitySchema.optional(),
     productAssociations: OverridableCapabilitySchema.optional(),
-    productRecommendations: ProviderCapabilitySchema.optional(),
+    productRecommendations: DirectCapabilitySchema.optional(),
   })
   .partial();
 
-export interface MedusaProviderFactoryArgs {
+export interface MedusaCapabilityFactoryArgs {
   cache: Cache;
   context: RequestContext;
   config: MedusaConfiguration;
   medusaApi: MedusaAPI;
 }
 
-export interface MedusaFactoryProviderArgs<TFactory>
-  extends MedusaProviderFactoryArgs {
+export interface MedusaFactoryCapabilityArgs<TFactory>
+  extends MedusaCapabilityFactoryArgs {
   factory: TFactory;
 }
 
-export interface MedusaCapabilityConfig<TFactory, TProvider> {
+export interface MedusaCapabilityConfig<TFactory, TCapability> {
   enabled: boolean;
   factory?: TFactory;
-  provider?: (args: MedusaFactoryProviderArgs<TFactory>) => TProvider;
+  capability?: (args: MedusaFactoryCapabilityArgs<TFactory>) => TCapability;
 }
 
-export interface MedusaProviderOnlyCapabilityConfig<TProvider> {
+export interface MedusaDirectCapabilityConfig<TCapability> {
   enabled: boolean;
-  provider?: (args: MedusaProviderFactoryArgs) => TProvider;
+  capability?: (args: MedusaCapabilityFactoryArgs) => TCapability;
 }
 
 export type MedusaProductCapabilityConfig = MedusaCapabilityConfig<
   ProductFactoryWithOutput<ProductFactory>,
-  ProductProvider
+  ProductCapability
 >;
 
 export type MedusaProductSearchCapabilityConfig = MedusaCapabilityConfig<
   ProductSearchFactoryWithOutput<ProductSearchFactory>,
-  ProductSearchProvider
+  ProductSearchCapability
 >;
 
 export type MedusaCartCapabilityConfig = MedusaCapabilityConfig<
   CartFactoryWithOutput<CartFactory>,
-  CartProvider
+  CartCapability
 >;
 
 export type MedusaCheckoutCapabilityConfig = MedusaCapabilityConfig<
   CheckoutFactoryWithOutput<CheckoutFactory>,
-  CheckoutProvider
+  CheckoutCapability
 >;
 
 export type MedusaCategoryCapabilityConfig = MedusaCapabilityConfig<
   CategoryFactoryWithOutput<CategoryFactory>,
-  CategoryProvider
+  CategoryCapability
 >;
 
 export type MedusaPriceCapabilityConfig = MedusaCapabilityConfig<
   PriceFactoryWithOutput<PriceFactory>,
-  PriceProvider
+  PriceCapability
 >;
 
 export type MedusaOrderCapabilityConfig = MedusaCapabilityConfig<
   OrderFactoryWithOutput<OrderFactory>,
-  OrderProvider
+  OrderCapability
 >;
 
 export type MedusaOrderSearchCapabilityConfig = MedusaCapabilityConfig<
   OrderSearchFactoryWithOutput<OrderSearchFactory>,
-  OrderSearchProvider
+  OrderSearchCapability
 >;
 
 export type MedusaInventoryCapabilityConfig = MedusaCapabilityConfig<
   InventoryFactoryWithOutput<InventoryFactory>,
-  InventoryProvider
+  InventoryCapability
 >;
 
 export type MedusaIdentityCapabilityConfig =
-  MedusaProviderOnlyCapabilityConfig<IdentityProvider>;
+  MedusaDirectCapabilityConfig<IdentityCapability>;
 
 export type MedusaProfileCapabilityConfig = MedusaCapabilityConfig<
   ProfileFactoryWithOutput<ProfileFactory>,
-  ProfileProvider
+  ProfileCapability
 >;
 
 export type MedusaProductAssociationsCapabilityConfig = MedusaCapabilityConfig<
   ProductAssociationsFactoryWithOutput<ProductAssociationsFactory>,
-  ProductAssociationsProvider
+  ProductAssociationsCapability
 >;
 
 export type MedusaProductRecommendationsCapabilityConfig =
-  MedusaProviderOnlyCapabilityConfig<ProductRecommendationsProvider>;
+  MedusaDirectCapabilityConfig<ProductRecommendationsCapability>;
 
 export type MedusaCapabilities<
   TProductFactory extends ProductFactory = ProductFactory,
-  TProductProvider extends ProductProvider = ProductProvider,
+  TProductCapability extends ProductCapability = ProductCapability,
   TProductSearchFactory extends ProductSearchFactory = ProductSearchFactory,
-  TProductSearchProvider extends ProductSearchProvider = ProductSearchProvider,
+  TProductSearchCapability extends ProductSearchCapability = ProductSearchCapability,
   TCartFactory extends CartFactory = CartFactory,
-  TCartProvider extends CartProvider = CartProvider,
+  TCartCapability extends CartCapability = CartCapability,
   TCheckoutFactory extends CheckoutFactory = CheckoutFactory,
-  TCheckoutProvider extends CheckoutProvider = CheckoutProvider,
+  TCheckoutCapability extends CheckoutCapability = CheckoutCapability,
   TCategoryFactory extends CategoryFactory = CategoryFactory,
-  TCategoryProvider extends CategoryProvider = CategoryProvider,
+  TCategoryCapability extends CategoryCapability = CategoryCapability,
   TPriceFactory extends PriceFactory = PriceFactory,
-  TPriceProvider extends PriceProvider = PriceProvider,
+  TPriceCapability extends PriceCapability = PriceCapability,
   TOrderFactory extends OrderFactory = OrderFactory,
-  TOrderProvider extends OrderProvider = OrderProvider,
+  TOrderCapability extends OrderCapability = OrderCapability,
   TOrderSearchFactory extends OrderSearchFactory = OrderSearchFactory,
-  TOrderSearchProvider extends OrderSearchProvider = OrderSearchProvider,
+  TOrderSearchCapability extends OrderSearchCapability = OrderSearchCapability,
   TInventoryFactory extends InventoryFactory = InventoryFactory,
-  TInventoryProvider extends InventoryProvider = InventoryProvider,
-  TIdentityProvider extends IdentityProvider = IdentityProvider,
+  TInventoryCapability extends InventoryCapability = InventoryCapability,
+  TIdentityCapability extends IdentityCapability = IdentityCapability,
   TProfileFactory extends ProfileFactory = ProfileFactory,
-  TProfileProvider extends ProfileProvider = ProfileProvider,
+  TProfileCapability extends ProfileCapability = ProfileCapability,
   TProductAssociationsFactory extends ProductAssociationsFactory = ProductAssociationsFactory,
-  TProductAssociationsProvider extends ProductAssociationsProvider = ProductAssociationsProvider,
-  TProductRecommendationsProvider extends ProductRecommendationsProvider = ProductRecommendationsProvider,
+  TProductAssociationsCapability extends ProductAssociationsCapability = ProductAssociationsCapability,
+  TProductRecommendationsCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
 > = {
-  product?: MedusaCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductProvider>;
+  product?: MedusaCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MedusaCapabilityConfig<
     ProductSearchFactoryWithOutput<TProductSearchFactory>,
-    TProductSearchProvider
+    TProductSearchCapability
   >;
-  cart?: MedusaCapabilityConfig<CartFactoryWithOutput<TCartFactory>, TCartProvider>;
+  cart?: MedusaCapabilityConfig<CartFactoryWithOutput<TCartFactory>, TCartCapability>;
   checkout?: MedusaCapabilityConfig<
     CheckoutFactoryWithOutput<TCheckoutFactory>,
-    TCheckoutProvider
+    TCheckoutCapability
   >;
   category?: MedusaCapabilityConfig<
     CategoryFactoryWithOutput<TCategoryFactory>,
-    TCategoryProvider
+    TCategoryCapability
   >;
-  price?: MedusaCapabilityConfig<PriceFactoryWithOutput<TPriceFactory>, TPriceProvider>;
-  order?: MedusaCapabilityConfig<OrderFactoryWithOutput<TOrderFactory>, TOrderProvider>;
+  price?: MedusaCapabilityConfig<PriceFactoryWithOutput<TPriceFactory>, TPriceCapability>;
+  order?: MedusaCapabilityConfig<OrderFactoryWithOutput<TOrderFactory>, TOrderCapability>;
   orderSearch?: MedusaCapabilityConfig<
     OrderSearchFactoryWithOutput<TOrderSearchFactory>,
-    TOrderSearchProvider
+    TOrderSearchCapability
   >;
   inventory?: MedusaCapabilityConfig<
     InventoryFactoryWithOutput<TInventoryFactory>,
-    TInventoryProvider
+    TInventoryCapability
   >;
-  identity?: MedusaProviderOnlyCapabilityConfig<TIdentityProvider>;
-  profile?: MedusaCapabilityConfig<ProfileFactoryWithOutput<TProfileFactory>, TProfileProvider>;
+  identity?: MedusaDirectCapabilityConfig<TIdentityCapability>;
+  profile?: MedusaCapabilityConfig<ProfileFactoryWithOutput<TProfileFactory>, TProfileCapability>;
   productAssociations?: MedusaCapabilityConfig<
     ProductAssociationsFactoryWithOutput<TProductAssociationsFactory>,
-    TProductAssociationsProvider
+    TProductAssociationsCapability
   >;
-  productRecommendations?: MedusaProviderOnlyCapabilityConfig<TProductRecommendationsProvider>;
+  productRecommendations?: MedusaDirectCapabilityConfig<TProductRecommendationsCapability>;
 };
 
 export type ParsedMedusaCapabilities = z.infer<typeof MedusaCapabilitiesSchema>;

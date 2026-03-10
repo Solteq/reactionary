@@ -75,7 +75,7 @@ export function parseMedusaItemPrice(
 }
 
 /**
- * Handles provider errors with consistent formatting
+ * Handles capability implementation errors with consistent formatting
  */
 export function handleProviderError(action: string, error: unknown): never {
   if (debug.enabled) {

@@ -1,12 +1,12 @@
 import type { Cache } from '../cache/cache.interface.js';
 import { NoOpCache } from '../cache/noop-cache.js';
 import type { Client } from './client.js';
-import { MulticastAnalyticsProvider, type AnalyticsProvider } from '../providers/analytics.provider.js';
+import { MulticastAnalyticsCapability, type AnalyticsCapability } from '../capabilities/analytics.capability.js';
 import {
   RequestContextSchema,
   type RequestContext,
 } from '../schemas/session.schema.js';
-import { MulticastProductRecommendationsProvider, type ProductRecommendationsProvider } from '../providers/product-recommendations.provider.js';
+import { MulticastProductRecommendationsCapability, type ProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 
 export interface ClientBuilderFactoryArgs {
   cache: Cache;
@@ -71,28 +71,27 @@ export class ClientBuilder<TClient = Client> {
       throw new Error('Invalid context: ' + validatedContext.error);
     }
 
-    const mergedAnalytics: AnalyticsProvider[] = [];
-
-    const mergedProductRecommendationsProviders: ProductRecommendationsProvider[] = [];
+    const mergedAnalytics: AnalyticsCapability[] = [];
+    const mergedProductRecommendations: ProductRecommendationsCapability[] = [];
 
     for (const factory of this.factories) {
-      const provider = this.resolveFactory(factory, sharedCache, this.context);
-      client = this.mergeProviders(client, provider as Partial<TClient>);
+      const capability = this.resolveFactory(factory, sharedCache, this.context);
+      client = this.mergeCapabilities(client, capability as Partial<TClient>);
 
-      if (provider.analytics) {
-        mergedAnalytics.push(provider.analytics);
+      if (capability.analytics) {
+        mergedAnalytics.push(capability.analytics);
       }
 
-      if (provider.productRecommendations) {
-        mergedProductRecommendationsProviders.push(provider.productRecommendations);
+      if (capability.productRecommendations) {
+        mergedProductRecommendations.push(capability.productRecommendations);
       }
     }
 
     // Add cache to complete the client
     const completeClient = {
       ...client,
-      analytics: new MulticastAnalyticsProvider(sharedCache, this.context, mergedAnalytics),
-      productRecommendations: new MulticastProductRecommendationsProvider(sharedCache, this.context, mergedProductRecommendationsProviders),
+      analytics: new MulticastAnalyticsCapability(sharedCache, this.context, mergedAnalytics),
+      productRecommendations: new MulticastProductRecommendationsCapability(sharedCache, this.context, mergedProductRecommendations),
       cache: sharedCache,
     } as TClient & { cache: Cache };
 
@@ -110,7 +109,7 @@ export class ClientBuilder<TClient = Client> {
     return (factory as (cache: Cache, context: RequestContext) => TNew)(cache, context);
   }
 
-  private mergeProviders(
+  private mergeCapabilities(
     target: TClient,
     source: Partial<TClient>,
   ): TClient {

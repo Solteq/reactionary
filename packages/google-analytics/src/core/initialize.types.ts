@@ -1,6 +1,6 @@
 import type { ClientFromCapabilities } from '@reactionary/core';
 import type { GoogleAnalyticsCapabilities } from '../schema/capabilities.schema.js';
-import type { GoogleAnalyticsAnalyticsProvider } from '../providers/analytics.provider.js';
+import type { GoogleAnalyticsAnalyticsCapability } from '../capabilities/analytics.capability.js';
 
 type EnabledCapability<TCapability> =
   TCapability extends { enabled: true } ? true : false;
@@ -10,38 +10,38 @@ type NormalizeConfiguredCapabilities<T extends GoogleAnalyticsCapabilities> =
     analytics?: EnabledCapability<T['analytics']>;
   };
 
-type ExtractCapabilityProvider<TCapability, TDefaultProvider> =
-  TCapability extends { enabled: true; provider?: infer TProviderFactory }
-    ? TProviderFactory extends (...args: unknown[]) => infer TProvider
-      ? TProvider
-      : TDefaultProvider
-    : TDefaultProvider;
+type ExtractCapabilityImplementation<TCapability, TDefaultCapability> =
+  TCapability extends { enabled: true; capability?: infer TCapabilityFactory }
+    ? TCapabilityFactory extends (...args: unknown[]) => infer TResolvedCapability
+      ? TResolvedCapability
+      : TDefaultCapability
+    : TDefaultCapability;
 
 type CapabilityOverride<
   TCapability,
   TKey extends string,
-  TProvider,
+  TResolvedCapability,
 > = TCapability extends { enabled: true }
-  ? { [K in TKey]: TProvider }
+  ? { [K in TKey]: TResolvedCapability }
   : Record<never, never>;
 
-type AnalyticsProviderFor<T extends GoogleAnalyticsCapabilities> =
-  ExtractCapabilityProvider<T['analytics'], GoogleAnalyticsAnalyticsProvider>;
+type AnalyticsCapabilityFor<T extends GoogleAnalyticsCapabilities> =
+  ExtractCapabilityImplementation<T['analytics'], GoogleAnalyticsAnalyticsCapability>;
 
 export type GoogleAnalyticsClientFromCapabilities<
   T extends GoogleAnalyticsCapabilities,
 > = Omit<ClientFromCapabilities<NormalizeConfiguredCapabilities<T>>, 'analytics'> &
-  CapabilityOverride<T['analytics'], 'analytics', AnalyticsProviderFor<T>>;
+  CapabilityOverride<T['analytics'], 'analytics', AnalyticsCapabilityFor<T>>;
 
-export function resolveProviderOnlyCapability<TProvider, TProviderArgs>(
+export function resolveDirectCapability<TResolvedCapability, TCapabilityArgs>(
   capability:
     | {
-        provider?: (args: TProviderArgs) => TProvider;
+        capability?: (args: TCapabilityArgs) => TResolvedCapability;
       }
     | undefined,
-  defaultProvider: (args: TProviderArgs) => TProvider,
-  args: TProviderArgs,
-): TProvider {
-  const provider = capability?.provider ?? defaultProvider;
-  return provider(args);
+  defaultCapability: (args: TCapabilityArgs) => TResolvedCapability,
+  args: TCapabilityArgs,
+): TResolvedCapability {
+  const capabilityFactory = capability?.capability ?? defaultCapability;
+  return capabilityFactory(args);
 }

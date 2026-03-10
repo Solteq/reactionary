@@ -9,9 +9,9 @@ import {
   type ProductIdentifier,
   type ProductSearchQueryByTerm,
 } from '@reactionary/core';
-import { CommercetoolsProductProvider } from '../providers/product.provider.js';
+import { CommercetoolsProductCapability } from '../capabilities/product.capability.js';
 import { CommercetoolsAPI } from '../core/client.js';
-import { CommercetoolsSearchProvider } from '../providers/product-search.provider.js';
+import { CommercetoolsProductSearchCapability } from '../capabilities/product-search.capability.js';
 import { CommercetoolsProductFactory } from '../factories/product/product.factory.js';
 import { CommercetoolsProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 
@@ -21,7 +21,7 @@ describe('Caching', () => {
     const context = createInitialRequestContext();
     const cache = new MemoryCache();
     const client = new CommercetoolsAPI(config, context);
-    const provider = new CommercetoolsProductProvider(
+    const capability = new CommercetoolsProductCapability(
       cache,
       context,
       config,
@@ -33,7 +33,7 @@ describe('Caching', () => {
         key: 'product_10959528'
     } satisfies ProductIdentifier;
 
-    const uncached = await provider.getById({
+    const uncached = await capability.getById({
         identifier
     });
 
@@ -43,7 +43,7 @@ describe('Caching', () => {
 
     expect(uncached.meta.cache.hit).toBe(false);
 
-    const cached = await provider.getById({
+    const cached = await capability.getById({
         identifier
     });
 
@@ -59,7 +59,7 @@ describe('Caching', () => {
     const context = createInitialRequestContext();
     const cache = new MemoryCache();
     const client = new CommercetoolsAPI(config, context);
-    const provider = new CommercetoolsSearchProvider(
+    const capability = new CommercetoolsProductSearchCapability(
       config,
       cache,
       context,
@@ -79,7 +79,7 @@ describe('Caching', () => {
       }
     } satisfies ProductSearchQueryByTerm;
 
-    const uncached = await provider.queryByTerm(query);
+    const uncached = await capability.queryByTerm(query);
 
     if (!uncached.success) {
       assert.fail();
@@ -87,7 +87,7 @@ describe('Caching', () => {
 
     expect(uncached.meta.cache.hit).toBe(false);
 
-    const cached = await provider.queryByTerm(query);
+    const cached = await capability.queryByTerm(query);
 
     if (!cached.success) {
       assert.fail();

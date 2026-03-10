@@ -4,9 +4,9 @@ import type {
 } from '@reactionary/core';
 import type { AlgoliaCapabilities } from '../schema/capabilities.schema.js';
 import type { AlgoliaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
-import type { AlgoliaAnalyticsProvider } from '../providers/analytics.provider.js';
-import type { AlgoliaProductRecommendationsProvider } from '../providers/product-recommendations.provider.js';
-import type { AlgoliaProductSearchProvider } from '../providers/product-search.provider.js';
+import type { AlgoliaAnalyticsCapability } from '../capabilities/analytics.capability.js';
+import type { AlgoliaProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
+import type { AlgoliaProductSearchCapability } from '../capabilities/product-search.capability.js';
 
 type EnabledCapability<TCapability> =
   TCapability extends { enabled: true } ? true : false;
@@ -25,19 +25,19 @@ type ExtractCapabilityFactory<TCapability, TContract, TDefaultFactory> =
       : TDefaultFactory
     : TDefaultFactory;
 
-type ExtractCapabilityProvider<TCapability, TDefaultProvider> =
-  TCapability extends { enabled: true; provider?: infer TProviderFactory }
-    ? TProviderFactory extends (...args: unknown[]) => infer TProvider
-      ? TProvider
-      : TDefaultProvider
-    : TDefaultProvider;
+type ExtractCapabilityImplementation<TCapability, TDefaultCapability> =
+  TCapability extends { enabled: true; capability?: infer TCapabilityFactory }
+    ? TCapabilityFactory extends (...args: unknown[]) => infer TResolvedCapability
+      ? TResolvedCapability
+      : TDefaultCapability
+    : TDefaultCapability;
 
 type CapabilityOverride<
   TCapability,
   TKey extends string,
-  TProvider,
+  TResolvedCapability,
 > = TCapability extends { enabled: true }
-  ? { [K in TKey]: TProvider }
+  ? { [K in TKey]: TResolvedCapability }
   : Record<never, never>;
 
 type ProductSearchFactoryFor<T extends AlgoliaCapabilities> =
@@ -47,61 +47,61 @@ type ProductSearchFactoryFor<T extends AlgoliaCapabilities> =
     AlgoliaProductSearchFactory
   >;
 
-type ProductSearchProviderFor<T extends AlgoliaCapabilities> =
-  ExtractCapabilityProvider<
+type ProductSearchCapabilityFor<T extends AlgoliaCapabilities> =
+  ExtractCapabilityImplementation<
     T['productSearch'],
-    AlgoliaProductSearchProvider<ProductSearchFactoryFor<T>>
+    AlgoliaProductSearchCapability<ProductSearchFactoryFor<T>>
   >;
 
-type AnalyticsProviderFor<T extends AlgoliaCapabilities> =
-  ExtractCapabilityProvider<T['analytics'], AlgoliaAnalyticsProvider>;
+type AnalyticsCapabilityFor<T extends AlgoliaCapabilities> =
+  ExtractCapabilityImplementation<T['analytics'], AlgoliaAnalyticsCapability>;
 
-type ProductRecommendationsProviderFor<T extends AlgoliaCapabilities> =
-  ExtractCapabilityProvider<
+type ProductRecommendationsCapabilityFor<T extends AlgoliaCapabilities> =
+  ExtractCapabilityImplementation<
     T['productRecommendations'],
-    AlgoliaProductRecommendationsProvider
+    AlgoliaProductRecommendationsCapability
   >;
 
 export type AlgoliaClientFromCapabilities<T extends AlgoliaCapabilities> = Omit<
   ClientFromCapabilities<NormalizeConfiguredCapabilities<T>>,
   'productSearch' | 'analytics' | 'productRecommendations'
 > &
-  CapabilityOverride<T['productSearch'], 'productSearch', ProductSearchProviderFor<T>> &
-  CapabilityOverride<T['analytics'], 'analytics', AnalyticsProviderFor<T>> &
+  CapabilityOverride<T['productSearch'], 'productSearch', ProductSearchCapabilityFor<T>> &
+  CapabilityOverride<T['analytics'], 'analytics', AnalyticsCapabilityFor<T>> &
   CapabilityOverride<
     T['productRecommendations'],
     'productRecommendations',
-    ProductRecommendationsProviderFor<T>
+    ProductRecommendationsCapabilityFor<T>
   >;
 
-export function resolveCapabilityProvider<TFactory, TProvider, TProviderArgs>(
+export function resolveCapabilityWithFactory<TFactory, TResolvedCapability, TCapabilityArgs>(
   capability:
     | {
         factory?: TFactory;
-        provider?: (args: TProviderArgs) => TProvider;
+        capability?: (args: TCapabilityArgs) => TResolvedCapability;
       }
     | undefined,
   defaults: {
     factory: TFactory;
-    provider: (args: TProviderArgs) => TProvider;
+    capability: (args: TCapabilityArgs) => TResolvedCapability;
   },
-  buildProviderArgs: (factory: TFactory) => TProviderArgs,
-): TProvider {
+  buildCapabilityArgs: (factory: TFactory) => TCapabilityArgs,
+): TResolvedCapability {
   const factory = capability?.factory ?? defaults.factory;
-  const provider = capability?.provider ?? defaults.provider;
+  const capabilityFactory = capability?.capability ?? defaults.capability;
 
-  return provider(buildProviderArgs(factory));
+  return capabilityFactory(buildCapabilityArgs(factory));
 }
 
-export function resolveProviderOnlyCapability<TProvider, TProviderArgs>(
+export function resolveDirectCapability<TResolvedCapability, TCapabilityArgs>(
   capability:
     | {
-        provider?: (args: TProviderArgs) => TProvider;
+        capability?: (args: TCapabilityArgs) => TResolvedCapability;
       }
     | undefined,
-  defaultProvider: (args: TProviderArgs) => TProvider,
-  args: TProviderArgs,
-): TProvider {
-  const provider = capability?.provider ?? defaultProvider;
-  return provider(args);
+  defaultCapability: (args: TCapabilityArgs) => TResolvedCapability,
+  args: TCapabilityArgs,
+): TResolvedCapability {
+  const capabilityFactory = capability?.capability ?? defaultCapability;
+  return capabilityFactory(args);
 }

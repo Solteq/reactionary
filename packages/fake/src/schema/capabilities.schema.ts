@@ -2,47 +2,47 @@ import type {
   Cache,
   CartFactory,
   CartFactoryWithOutput,
-  CartProvider,
+  CartCapability,
   CategoryFactory,
   CategoryFactoryWithOutput,
-  CategoryProvider,
+  CategoryCapability,
   CheckoutFactory,
   CheckoutFactoryWithOutput,
-  CheckoutProvider,
+  CheckoutCapability,
   IdentityFactory,
   IdentityFactoryWithOutput,
-  IdentityProvider,
+  IdentityCapability,
   InventoryFactory,
   InventoryFactoryWithOutput,
-  InventoryProvider,
+  InventoryCapability,
   OrderFactory,
   OrderFactoryWithOutput,
-  OrderProvider,
+  OrderCapability,
   OrderSearchFactory,
   OrderSearchFactoryWithOutput,
-  OrderSearchProvider,
+  OrderSearchCapability,
   PriceFactory,
   PriceFactoryWithOutput,
-  PriceProvider,
+  PriceCapability,
   ProductAssociationsFactory,
   ProductAssociationsFactoryWithOutput,
-  ProductAssociationsProvider,
+  ProductAssociationsCapability,
   ProductFactory,
   ProductFactoryWithOutput,
-  ProductProvider,
+  ProductCapability,
   ProductReviewsFactory,
   ProductReviewsFactoryWithOutput,
-  ProductReviewsProvider,
+  ProductReviewsCapability,
   ProductSearchFactory,
   ProductSearchFactoryWithOutput,
-  ProductSearchProvider,
+  ProductSearchCapability,
   ProfileFactory,
   ProfileFactoryWithOutput,
-  ProfileProvider,
+  ProfileCapability,
   RequestContext,
   StoreFactory,
   StoreFactoryWithOutput,
-  StoreProvider,
+  StoreCapability,
 } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
 import type { FakeConfiguration } from './configuration.schema.js';
@@ -51,7 +51,7 @@ import * as z from 'zod';
 const OverridableCapabilitySchema = z.looseObject({
   enabled: z.boolean(),
   factory: z.unknown().optional(),
-  provider: z.unknown().optional(),
+  capability: z.unknown().optional(),
 });
 
 export const FakeCapabilitiesSchema = CapabilitiesSchema.pick({
@@ -88,74 +88,74 @@ export const FakeCapabilitiesSchema = CapabilitiesSchema.pick({
   })
   .partial();
 
-export interface FakeCapabilityProviderFactoryArgs<TFactory> {
+export interface FakeCapabilityFactoryArgs<TFactory> {
   cache: Cache;
   context: RequestContext;
   config: FakeConfiguration;
   factory: TFactory;
 }
 
-export interface FakeCapabilityConfig<TFactory, TProvider> {
+export interface FakeCapabilityConfig<TFactory, TCapability> {
   enabled: boolean;
   factory?: TFactory;
-  provider?: (args: FakeCapabilityProviderFactoryArgs<TFactory>) => TProvider;
+  capability?: (args: FakeCapabilityFactoryArgs<TFactory>) => TCapability;
 }
 
 export type FakeProductCapabilityConfig = FakeCapabilityConfig<
   ProductFactoryWithOutput<ProductFactory>,
-  ProductProvider
+  ProductCapability
 >;
 export type FakeProductSearchCapabilityConfig = FakeCapabilityConfig<
   ProductSearchFactoryWithOutput<ProductSearchFactory>,
-  ProductSearchProvider
+  ProductSearchCapability
 >;
 export type FakeIdentityCapabilityConfig = FakeCapabilityConfig<
   IdentityFactoryWithOutput<IdentityFactory>,
-  IdentityProvider
+  IdentityCapability
 >;
 export type FakeCategoryCapabilityConfig = FakeCapabilityConfig<
   CategoryFactoryWithOutput<CategoryFactory>,
-  CategoryProvider
+  CategoryCapability
 >;
 export type FakeCartCapabilityConfig = FakeCapabilityConfig<
   CartFactoryWithOutput<CartFactory>,
-  CartProvider
+  CartCapability
 >;
 export type FakeInventoryCapabilityConfig = FakeCapabilityConfig<
   InventoryFactoryWithOutput<InventoryFactory>,
-  InventoryProvider
+  InventoryCapability
 >;
 export type FakeStoreCapabilityConfig = FakeCapabilityConfig<
   StoreFactoryWithOutput<StoreFactory>,
-  StoreProvider
+  StoreCapability
 >;
 export type FakePriceCapabilityConfig = FakeCapabilityConfig<
   PriceFactoryWithOutput<PriceFactory>,
-  PriceProvider
+  PriceCapability
 >;
 export type FakeCheckoutCapabilityConfig = FakeCapabilityConfig<
   CheckoutFactoryWithOutput<CheckoutFactory>,
-  CheckoutProvider
+  CheckoutCapability
 >;
 export type FakeOrderCapabilityConfig = FakeCapabilityConfig<
   OrderFactoryWithOutput<OrderFactory>,
-  OrderProvider
+  OrderCapability
 >;
 export type FakeOrderSearchCapabilityConfig = FakeCapabilityConfig<
   OrderSearchFactoryWithOutput<OrderSearchFactory>,
-  OrderSearchProvider
+  OrderSearchCapability
 >;
 export type FakeProfileCapabilityConfig = FakeCapabilityConfig<
   ProfileFactoryWithOutput<ProfileFactory>,
-  ProfileProvider
+  ProfileCapability
 >;
 export type FakeProductReviewsCapabilityConfig = FakeCapabilityConfig<
   ProductReviewsFactoryWithOutput<ProductReviewsFactory>,
-  ProductReviewsProvider
+  ProductReviewsCapability
 >;
 export type FakeProductAssociationsCapabilityConfig = FakeCapabilityConfig<
   ProductAssociationsFactoryWithOutput<ProductAssociationsFactory>,
-  ProductAssociationsProvider
+  ProductAssociationsCapability
 >;
 
 export type FakeCapabilities = {

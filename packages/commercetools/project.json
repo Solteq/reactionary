@@ -21,7 +21,7 @@
         "tsConfig": "packages/commercetools/tsconfig.lib.json",
         "assets": ["packages/commercetools/*.md"],
         "format": ["esm"],
-        "bundle": true
+        "bundle": false
       }
     },
     "nx-release-publish": {

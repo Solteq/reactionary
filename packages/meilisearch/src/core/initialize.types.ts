@@ -6,9 +6,9 @@ import type {
 import type { MeilisearchCapabilities } from '../schema/capabilities.schema.js';
 import type { MeilisearchOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
 import type { MeilisearchProductSearchFactory } from '../factories/product-search/product-search.factory.js';
-import type { MeilisearchOrderSearchProvider } from '../providers/order-search.provider.js';
-import type { MeilisearchProductRecommendationsProvider } from '../providers/product-recommendations.provider.js';
-import type { MeilisearchSearchProvider } from '../providers/product-search.provider.js';
+import type { MeilisearchOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import type { MeilisearchProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
+import type { MeilisearchProductSearchCapability } from '../capabilities/product-search.capability.js';
 
 type EnabledCapability<TCapability> =
   TCapability extends { enabled: true } ? true : false;
@@ -27,19 +27,19 @@ type ExtractCapabilityFactory<TCapability, TContract, TDefaultFactory> =
       : TDefaultFactory
     : TDefaultFactory;
 
-type ExtractCapabilityProvider<TCapability, TDefaultProvider> =
-  TCapability extends { enabled: true; provider?: infer TProviderFactory }
-    ? TProviderFactory extends (...args: unknown[]) => infer TProvider
-      ? TProvider
-      : TDefaultProvider
-    : TDefaultProvider;
+type ExtractCapabilityImplementation<TCapability, TDefaultCapability> =
+  TCapability extends { enabled: true; capability?: infer TCapabilityFactory }
+    ? TCapabilityFactory extends (...args: unknown[]) => infer TResolvedCapability
+      ? TResolvedCapability
+      : TDefaultCapability
+    : TDefaultCapability;
 
 type CapabilityOverride<
   TCapability,
   TKey extends string,
-  TProvider,
+  TResolvedCapability,
 > = TCapability extends { enabled: true }
-  ? { [K in TKey]: TProvider }
+  ? { [K in TKey]: TResolvedCapability }
   : Record<never, never>;
 
 type ProductSearchFactoryFor<T extends MeilisearchCapabilities> =
@@ -56,64 +56,64 @@ type OrderSearchFactoryFor<T extends MeilisearchCapabilities> =
     MeilisearchOrderSearchFactory
   >;
 
-type ProductSearchProviderFor<T extends MeilisearchCapabilities> =
-  ExtractCapabilityProvider<
+type ProductSearchCapabilityFor<T extends MeilisearchCapabilities> =
+  ExtractCapabilityImplementation<
     T['productSearch'],
-    MeilisearchSearchProvider<ProductSearchFactoryFor<T>>
+    MeilisearchProductSearchCapability<ProductSearchFactoryFor<T>>
   >;
 
-type OrderSearchProviderFor<T extends MeilisearchCapabilities> =
-  ExtractCapabilityProvider<
+type OrderSearchCapabilityFor<T extends MeilisearchCapabilities> =
+  ExtractCapabilityImplementation<
     T['orderSearch'],
-    MeilisearchOrderSearchProvider<OrderSearchFactoryFor<T>>
+    MeilisearchOrderSearchCapability<OrderSearchFactoryFor<T>>
   >;
 
-type ProductRecommendationsProviderFor<T extends MeilisearchCapabilities> =
-  ExtractCapabilityProvider<
+type ProductRecommendationsCapabilityFor<T extends MeilisearchCapabilities> =
+  ExtractCapabilityImplementation<
     T['productRecommendations'],
-    MeilisearchProductRecommendationsProvider
+    MeilisearchProductRecommendationsCapability
   >;
 
 export type MeilisearchClientFromCapabilities<T extends MeilisearchCapabilities> = Omit<
   ClientFromCapabilities<NormalizeConfiguredCapabilities<T>>,
   'productSearch' | 'orderSearch' | 'productRecommendations'
 > &
-  CapabilityOverride<T['productSearch'], 'productSearch', ProductSearchProviderFor<T>> &
-  CapabilityOverride<T['orderSearch'], 'orderSearch', OrderSearchProviderFor<T>> &
+  CapabilityOverride<T['productSearch'], 'productSearch', ProductSearchCapabilityFor<T>> &
+  CapabilityOverride<T['orderSearch'], 'orderSearch', OrderSearchCapabilityFor<T>> &
   CapabilityOverride<
     T['productRecommendations'],
     'productRecommendations',
-    ProductRecommendationsProviderFor<T>
+    ProductRecommendationsCapabilityFor<T>
   >;
 
-export function resolveCapabilityProvider<TFactory, TProvider, TProviderArgs>(
+export function resolveCapabilityWithFactory<TFactory, TResolvedCapability, TCapabilityArgs>(
   capability:
     | {
         factory?: TFactory;
-        provider?: (args: TProviderArgs) => TProvider;
+        capability?: (args: TCapabilityArgs) => TResolvedCapability;
       }
     | undefined,
   defaults: {
     factory: TFactory;
-    provider: (args: TProviderArgs) => TProvider;
+    capability: (args: TCapabilityArgs) => TResolvedCapability;
   },
-  buildProviderArgs: (factory: TFactory) => TProviderArgs,
-): TProvider {
+  buildCapabilityArgs: (factory: TFactory) => TCapabilityArgs,
+): TResolvedCapability {
   const factory = capability?.factory ?? defaults.factory;
-  const provider = capability?.provider ?? defaults.provider;
+  const capabilityFactory = capability?.capability ?? defaults.capability;
 
-  return provider(buildProviderArgs(factory));
+  return capabilityFactory(buildCapabilityArgs(factory));
 }
 
-export function resolveProviderOnlyCapability<TProvider, TProviderArgs>(
+export function resolveDirectCapability<TResolvedCapability, TCapabilityArgs>(
   capability:
     | {
-        provider?: (args: TProviderArgs) => TProvider;
+        capability?: (args: TCapabilityArgs) => TResolvedCapability;
       }
     | undefined,
-  defaultProvider: (args: TProviderArgs) => TProvider,
-  args: TProviderArgs,
-): TProvider {
-  const provider = capability?.provider ?? defaultProvider;
-  return provider(args);
+  defaultCapability: (args: TCapabilityArgs) => TResolvedCapability,
+  args: TCapabilityArgs,
+): TResolvedCapability {
+  const capabilityFactory = capability?.capability ?? defaultCapability;
+  return capabilityFactory(args);
 }

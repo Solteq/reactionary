@@ -1,0 +1,161 @@
+import {
+  type Identity,
+  type IdentityMutationLogin,
+  type IdentityMutationLogout,
+  type IdentityMutationRegister,
+  type IdentityQuerySelf,
+  type RequestContext,
+  type Cache,
+  IdentityCapability,
+  Reactionary,
+  IdentityQuerySelfSchema,
+  IdentitySchema,
+  IdentityMutationRegisterSchema,
+  IdentityMutationLoginSchema,
+  IdentityMutationLogoutSchema,
+  type AnonymousIdentity,
+  type RegisteredIdentity,
+  type Result,
+  success,
+} from '@reactionary/core';
+import type { MedusaConfiguration } from '../schema/configuration.schema.js';
+import type { MedusaAPI } from '../core/client.js';
+import createDebug from 'debug';
+
+const debug = createDebug('reactionary:medusa:identity');
+
+export class MedusaIdentityCapability extends IdentityCapability {
+  protected config: MedusaConfiguration;
+  protected medusaApi: MedusaAPI;
+
+  constructor(
+    config: MedusaConfiguration,
+    cache: Cache,
+    context: RequestContext,
+    medusaApi: MedusaAPI,
+  ) {
+    super(cache, context);
+
+    this.config = config;
+    this.medusaApi = medusaApi;
+  }
+
+  protected createAnonymousIdentity(): AnonymousIdentity {
+    return {
+      type: 'Anonymous',
+    };
+  }
+
+  @Reactionary({
+    inputSchema: IdentityQuerySelfSchema,
+    outputSchema: IdentitySchema,
+  })
+  public override async getSelf(
+    _payload: IdentityQuerySelf
+  ): Promise<Result<Identity>> {
+    try {
+      const medusaClient = await this.medusaApi.getClient();
+      const token = await medusaClient.client.getToken();
+
+      if (!token) {
+        debug('No active session token found, returning anonymous identity');
+        const identity = this.createAnonymousIdentity();
+        this.updateIdentityContext(identity);
+
+        return success(identity);
+      }
+
+      // Try to fetch customer details to verify authentication
+      const customerResponse = await medusaClient.store.customer.retrieve();
+
+      if (customerResponse.customer) {
+        debug('Customer authenticated:', customerResponse.customer.email);
+
+        const identity = {
+          id: {
+            userId: customerResponse.customer.id,
+          },
+          type: 'Registered',
+        } satisfies RegisteredIdentity;
+
+        this.updateIdentityContext(identity);
+
+        return success(identity);
+      }
+
+      const identity = this.createAnonymousIdentity();
+      this.updateIdentityContext(identity);
+
+      return success(identity);
+    } catch (error) {
+      debug('getSelf failed, returning anonymous identity:', error);
+
+      const identity = this.createAnonymousIdentity();
+      this.updateIdentityContext(identity);
+
+      return success(identity);
+    }
+  }
+
+  @Reactionary({
+    inputSchema: IdentityMutationLoginSchema,
+    outputSchema: IdentitySchema,
+  })
+  public override async login(
+    payload: IdentityMutationLogin
+  ): Promise<Result<Identity>> {
+    debug('Attempting login for user:', payload.username);
+    const identity = (await this.medusaApi.login(
+      payload.username,
+      payload.password,
+      this.context
+    )) satisfies Identity;
+
+    this.updateIdentityContext(identity);
+
+    return success(identity);
+  }
+
+  @Reactionary({
+    inputSchema: IdentityMutationLogoutSchema,
+    outputSchema: IdentitySchema,
+  })
+  public override async logout(
+    _payload: IdentityMutationLogout
+  ): Promise<Result<Identity>> {
+    debug('Logging out user');
+    const identity = await this.medusaApi.logout(this.context);
+
+    this.updateIdentityContext(identity);
+
+    return success(identity);
+  }
+
+  @Reactionary({
+    inputSchema: IdentityMutationRegisterSchema,
+    outputSchema: IdentitySchema,
+  })
+  public override async register(
+    payload: IdentityMutationRegister
+  ): Promise<Result<Identity>> {
+    debug('Registering new user:', payload.username);
+
+    // Extract first and last name from username or use defaults
+    // In a real implementation, you might want to add firstName/lastName to the schema
+    const nameParts = payload.username.split('.');
+    const firstName = nameParts[0] || 'User';
+    const lastName = nameParts.slice(1).join(' ') || 'Account';
+
+    const identity = await this.medusaApi.register(
+      payload.username, // Using username as email
+      payload.password,
+      firstName,
+      lastName,
+      this.context
+    );
+
+    this.updateIdentityContext(identity);
+
+    return success(identity);
+  }
+}

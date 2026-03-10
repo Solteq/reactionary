@@ -1,0 +1,59 @@
+import type { Price, Result } from '../schemas/index.js';
+import type {
+  CustomerPriceQuery,
+  ListPriceQuery,
+} from '../schemas/queries/price.query.js';
+import { BaseCapability } from './base.capability.js';
+
+export abstract class PriceCapability<TPrice extends Price = Price> extends BaseCapability {
+  /**
+   * Get a list price price by SKU. This is the most general, undiscounted price and is typically
+   * used as the "before" price in most ecommerce setups.
+   *
+   * Usecase: You are rendering a product page, and you need to show the price for a SKU.
+   * @param payload The SKU to query
+   * @param session The session information
+   */
+  public abstract getListPrice(payload: ListPriceQuery): Promise<Result<TPrice>>;
+
+  /**
+   * Get a customer-specific price by SKU.
+   *
+   * No
+   *
+   * Usecase: You are rendering a product page, and you need to show the price for a SKU.
+   * @param payload The SKU to query
+   * @param session The session information
+   */
+  public abstract getCustomerPrice(payload: CustomerPriceQuery): Promise<Result<TPrice>>;
+
+  /**
+   * Utility function to create an empty price result, with a value of -1.
+   * This is used when no price is found for a given SKU + currency combination.
+   * You should check for meta.placeholder to see if this is a real price or a placeholder.
+   * @param sku
+   * @param currency
+   * @returns
+   */
+  protected createEmptyPriceResult(sku: string): TPrice {
+    const price = {
+      identifier: {
+        variant: {
+          sku,
+        },
+      },
+      tieredPrices: [],
+      unitPrice: {
+        value: -1,
+        currency: this.context.languageContext.currencyCode,
+      },
+      onSale: false,
+    } satisfies Price;
+
+    return price as unknown as TPrice;
+  }
+
+  protected override getResourceName(): string {
+    return 'price';
+  }
+}

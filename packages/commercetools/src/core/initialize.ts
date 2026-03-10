@@ -14,7 +14,7 @@ import {
 } from './capability-descriptors.js';
 import {
   type CommercetoolsClientFromCapabilities,
-  resolveCapabilityProvider,
+  resolveCapabilityWithFactory,
 } from './initialize.types.js';
 
 export function withCommercetoolsCapabilities<
@@ -29,7 +29,7 @@ export function withCommercetoolsCapabilities<
     const caps = CommercetoolsCapabilitiesSchema.parse(capabilities);
     const commercetoolsApi = new CommercetoolsAPI(config, context);
 
-    const buildProviderArgs = <TFactory,>(factory: TFactory) => ({
+    const buildCapabilityArgs = <TFactory,>(factory: TFactory) => ({
       cache,
       context,
       config,
@@ -43,13 +43,13 @@ export function withCommercetoolsCapabilities<
         continue;
       }
 
-      client[key] = resolveCapabilityProvider(
+      client[key] = resolveCapabilityWithFactory(
         descriptor.getOverride(capabilities),
         {
           factory: descriptor.createDefaultFactory(),
-          provider: descriptor.createDefaultProvider,
+          capability: descriptor.createDefaultCapability,
         },
-        buildProviderArgs,
+        buildCapabilityArgs,
       );
     }
 

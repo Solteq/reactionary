@@ -1,0 +1,314 @@
+import type {
+  Cache,
+  Image,
+  NotFoundError,
+  Product,
+  ProductAttribute,
+  ProductAttributeIdentifier,
+  ProductAttributeValueIdentifier,
+  ProductFactory,
+  ProductFactoryOutput,
+  ProductFactoryWithOutput,
+  ProductOptionIdentifier,
+  ProductOptionValueIdentifier,
+  ProductQueryById,
+  ProductQueryBySKU,
+  ProductQueryBySlug,
+  ProductVariant,
+  ProductVariantOption,
+  RequestContext,
+  Result,
+} from '@reactionary/core';
+import {
+  CategoryIdentifierSchema,
+  ProductIdentifierSchema,
+  ProductCapability,
+  ProductQueryByIdSchema,
+  ProductQueryBySKUSchema,
+  ProductQueryBySlugSchema,
+  ProductSchema,
+  Reactionary,
+  success,
+  error,
+} from '@reactionary/core';
+import createDebug from 'debug';
+import type { MedusaAPI } from '../core/client.js';
+import type { MedusaConfiguration } from '../schema/configuration.schema.js';
+
+import type { StoreProduct, StoreProductImage, StoreProductVariant } from '@medusajs/types';
+import type { MedusaProductFactory } from '../factories/product/product.factory.js';
+
+const debug = createDebug('reactionary:medusa:product');
+
+export class MedusaProductCapability<
+  TFactory extends ProductFactory = MedusaProductFactory,
+> extends ProductCapability<ProductFactoryOutput<TFactory>> {
+  protected config: MedusaConfiguration;
+  protected alwaysIncludedFields = ["+metadata.*","+categories.metadata.*","+external_id"];
+  protected factory: ProductFactoryWithOutput<TFactory>;
+
+  constructor(
+    config: MedusaConfiguration,
+    cache: Cache,
+    context: RequestContext,
+    public medusaApi: MedusaAPI,
+    factory: ProductFactoryWithOutput<TFactory>,
+  ) {
+  super(cache, context);
+   this.config = config;
+   this.factory = factory;
+  }
+
+  protected getByIdPayload(payload: ProductQueryById) {
+    return {
+      external_id: payload.identifier.key,
+      limit: 1,
+      offset: 0,
+      fields: this.alwaysIncludedFields.join(','),
+    }
+  }
+
+  @Reactionary({
+    inputSchema: ProductQueryByIdSchema,
+    outputSchema: ProductSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true
+  })
+  public override async getById(
+    payload: ProductQueryById,
+  ): Promise<Result<ProductFactoryOutput<TFactory>>> {
+    const client = await this.medusaApi.getClient();
+    if (debug.enabled) {
+      debug(`Fetching product by ID: ${payload.identifier.key}`);
+    }
+    const response = await client.store.product.list(
+      this.getByIdPayload(payload)
+    );
+
+    if (response.count === 0) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload
+      });
+    }
+    return success(this.parseSingle(response.products[0]));
+  }
+
+  protected getBySlugPayload(payload: ProductQueryBySlug) {
+    return {
+      handle: payload.slug,
+      limit: 1,
+      offset: 0,
+      fields: this.alwaysIncludedFields.join(','),
+    }
+   }
+
+
+  @Reactionary({
+    inputSchema: ProductQueryBySlugSchema,
+    outputSchema: ProductSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true
+  })
+  public override async getBySlug(
+    payload: ProductQueryBySlug,
+  ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
+    const client = await this.medusaApi.getClient();
+    if (debug.enabled) {
+      debug(`Fetching product by slug: ${payload.slug}`);
+    }
+
+    const response = await client.store.product.list(this.getBySlugPayload(payload));
+
+    if (debug.enabled) {
+      debug(`Found ${response.count} products for slug: ${payload.slug}`);
+    }
+
+    if (response.count === 0) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload
+      });
+    }
+    return success(this.parseSingle(response.products[0]));
+  }
+
+
+  @Reactionary({
+    inputSchema: ProductQueryBySKUSchema,
+    outputSchema: ProductSchema,
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true
+  })
+  public override async getBySKU(
+    payload: ProductQueryBySKU,
+  ): Promise<Result<ProductFactoryOutput<TFactory>>> {
+    if (debug.enabled) {
+      debug(`Fetching product by SKU: ${Array.isArray(payload) ? payload.join(', ') : payload}`);
+    }
+    const sku = payload.variant.sku;
+    const product = await this.medusaApi.resolveProductForSKU(sku);
+
+    const variant = product.variants?.find((v) => v.sku === sku);
+    if (!variant) {
+      throw new Error(`Variant with SKU ${sku} not found`);
+    }
+    // move the hero variant to the top of the list for easier parsing later
+    product.variants = product.variants?.filter((v) => v.sku === sku).concat(product.variants?.filter((v) => v.sku !== sku)) || [];
+
+    // For simplicity, return the first matched product
+    return success(this.parseSingle(product));
+  }
+
+  protected parseSingle(_body: StoreProduct): ProductFactoryOutput<TFactory> {
+    const identifier = ProductIdentifierSchema.parse({ key: _body.external_id || _body.id });
+    const name = _body.title;
+    const slug = _body.handle;
+    const description = _body.description || '' || _body.subtitle || '';
+    const parentCategories = [];
+    parentCategories.push(
+      ...
+      _body.categories?.map( (cat) => cat.metadata?.['external_id'] ).map( (id) => CategoryIdentifierSchema.parse({ key: id || '' }) ) || []
+    )
+    const sharedAttributes = this.parseAttributes(_body);
+
+    if (!_body.variants) {
+      debug('Product has no variants', _body);
+      throw new Error('Product has no variants ' + _body.external_id);
+    }
+    const mainVariant = this.parseVariant(_body.variants[0], _body);
+
+
+    const otherVariants = [];
+    if (_body.variants.length > 1) {
+      otherVariants.push(
+        ..._body.variants.slice(1).map( (variant) => this.parseVariant(variant, _body) )
+      );
+    }
+
+    const result = {
+      brand: '',
+      description,
+      identifier,
+      longDescription: '',
+      mainVariant,
+      manufacturer: '',
+      name,
+      options: [],
+      parentCategories,
+      published: true,
+      sharedAttributes,
+      slug,
+      variants: otherVariants,
+    } satisfies Product;
+
+    return this.factory.parseProduct(this.context, result);
+  }
+
+  protected parseVariant(variant: StoreProductVariant, product: StoreProduct) {
+
+
+    const options = (variant.options ?? []).map( (option) => {
+
+      const optionId: ProductOptionIdentifier = { key: option.option_id || '' };
+      const title = option.option?.title || '?';
+      const valueIdentifier: ProductOptionValueIdentifier = { key: option.option_id || '', option: optionId };
+      const value = option.value || '';
+
+      const result: ProductVariantOption = {
+        identifier: optionId,
+        name: title,
+        value: {
+          identifier: valueIdentifier,
+          label: value,
+        },
+      }
+      return result;
+    });
+
+
+    const result: ProductVariant = {
+      identifier: {
+        sku: variant.sku || '',
+      },
+      name: variant.title || product.title,
+      upc: variant.upc || '',
+      ean: variant.ean || '',
+
+      images: (product.images || []).map((img: StoreProductImage) => {
+        return {
+          sourceUrl: img.url,
+          altText: variant.title || product.title || '',
+        } satisfies Image;
+      }),
+      options: options,
+      gtin: variant.ean ||  '',
+      barcode: variant.ean || ''
+    };
+
+    return result;
+  }
+
+  protected createSynthAttribute(key: string, name: string, value: string ): ProductAttribute {
+    const attributeIdentifier: ProductAttributeIdentifier = { key };
+    const valueIdentifier: ProductAttributeValueIdentifier = { key: `${key}-${value}`};
+
+    const attribute: ProductAttribute = {
+      identifier: { key },
+      name,
+      group: '',
+      values: [
+        {
+          identifier: valueIdentifier,
+          label: String(value),
+          value: value,
+        }
+      ]
+    };
+    return attribute;
+  }
+
+  protected parseAttributes(_body: StoreProduct): Array<ProductAttribute> {
+    const sharedAttributes = [];
+
+    if (_body.origin_country) {
+      sharedAttributes.push(this.createSynthAttribute('origin_country', 'Origin Country', _body.origin_country));
+    }
+
+    if (_body.height) {
+      sharedAttributes.push(this.createSynthAttribute('height', 'Height', String(_body.height)));
+    }
+
+    if (_body.weight) {
+      sharedAttributes.push(this.createSynthAttribute('weight', 'Weight', String(_body.weight)));
+    }
+
+    if (_body.length) {
+      sharedAttributes.push(this.createSynthAttribute('length', 'Length', String(_body.length)));
+    }
+
+    if (_body.width) {
+      sharedAttributes.push(this.createSynthAttribute('width', 'Width', String(_body.width)));
+    }
+
+    if (_body.material) {
+      sharedAttributes.push(this.createSynthAttribute('material', 'Material', _body.material));
+    }
+    if (_body.metadata) {
+      const keysToExclude = ['reactionaryaccessories', 'reactionaryreplacements', 'reactionaryspareparts'];
+      for (const [key, value] of Object.entries(_body.metadata)) {
+        if (keysToExclude.includes(key)) {
+          continue;
+        }
+        sharedAttributes.push(this.createSynthAttribute(key, key, String(value)));
+      }
+    }
+    return sharedAttributes;
+  }
+}

@@ -1,15 +1,15 @@
 import type { Cache, RequestContext } from '@reactionary/core';
-import { AlgoliaProductSearchProvider } from '../providers/product-search.provider.js';
+import { AlgoliaProductSearchCapability } from '../capabilities/product-search.capability.js';
 import type { AlgoliaCapabilities } from '../schema/capabilities.schema.js';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
-import { AlgoliaAnalyticsProvider } from '../providers/analytics.provider.js';
-import { AlgoliaProductRecommendationsProvider } from '../providers/product-recommendations.provider.js';
+import { AlgoliaAnalyticsCapability } from '../capabilities/analytics.capability.js';
+import { AlgoliaProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import { AlgoliaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { AlgoliaProductSearchResultSchema } from '../schema/search.schema.js';
 import {
   type AlgoliaClientFromCapabilities,
-  resolveCapabilityProvider,
-  resolveProviderOnlyCapability,
+  resolveCapabilityWithFactory,
+  resolveDirectCapability,
 } from './initialize.types.js';
 
 export function withAlgoliaCapabilities<T extends AlgoliaCapabilities>(
@@ -27,12 +27,12 @@ export function withAlgoliaCapabilities<T extends AlgoliaCapabilities>(
       const defaultFactory = new AlgoliaProductSearchFactory(
         AlgoliaProductSearchResultSchema,
       );
-      client.productSearch = resolveCapabilityProvider(
+      client.productSearch = resolveCapabilityWithFactory(
         capabilities.productSearch,
         {
           factory: defaultFactory,
-          provider: (args) =>
-            new AlgoliaProductSearchProvider(
+          capability: (args) =>
+            new AlgoliaProductSearchCapability(
               args.cache,
               args.context,
               args.config,
@@ -49,9 +49,9 @@ export function withAlgoliaCapabilities<T extends AlgoliaCapabilities>(
     }
 
     if (capabilities.analytics?.enabled) {
-      client.analytics = resolveProviderOnlyCapability(
+      client.analytics = resolveDirectCapability(
         capabilities.analytics,
-        (args) => new AlgoliaAnalyticsProvider(args.cache, args.context, args.config),
+        (args) => new AlgoliaAnalyticsCapability(args.cache, args.context, args.config),
         {
           cache,
           context,
@@ -61,10 +61,10 @@ export function withAlgoliaCapabilities<T extends AlgoliaCapabilities>(
     }
 
     if (capabilities.productRecommendations?.enabled) {
-      client.productRecommendations = resolveProviderOnlyCapability(
+      client.productRecommendations = resolveDirectCapability(
         capabilities.productRecommendations,
         (args) =>
-          new AlgoliaProductRecommendationsProvider(
+          new AlgoliaProductRecommendationsCapability(
             args.config,
             args.cache,
             args.context,

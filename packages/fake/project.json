@@ -21,7 +21,7 @@
         "tsConfig": "packages/fake/tsconfig.lib.json",
         "assets": ["packages/fake/*.md"],
         "format": ["esm"],
-        "bundle": true
+        "bundle": false
       }
     },
     "nx-release-publish": {

@@ -1,11 +1,11 @@
-import type { AnalyticsProvider, Cache, RequestContext } from '@reactionary/core';
+import type { AnalyticsCapability, Cache, RequestContext } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
 import type { GoogleAnalyticsConfiguration } from './configuration.schema.js';
 import * as z from 'zod';
 
 const AnalyticsCapabilitySchema = z.looseObject({
   enabled: z.boolean(),
-  provider: z.unknown().optional(),
+  capability: z.unknown().optional(),
 });
 
 export const GoogleAnalyticsCapabilitiesSchema = CapabilitiesSchema.pick({
@@ -16,21 +16,21 @@ export const GoogleAnalyticsCapabilitiesSchema = CapabilitiesSchema.pick({
   })
   .partial();
 
-export interface GoogleAnalyticsProviderFactoryArgs {
+export interface GoogleAnalyticsCapabilityFactoryArgs {
   cache: Cache;
   context: RequestContext;
   config: GoogleAnalyticsConfiguration;
 }
 
 export interface GoogleAnalyticsAnalyticsCapabilityConfig<
-  TProvider extends AnalyticsProvider = AnalyticsProvider,
+  TCapability extends AnalyticsCapability = AnalyticsCapability,
 > {
   enabled: boolean;
-  provider?: (args: GoogleAnalyticsProviderFactoryArgs) => TProvider;
+  capability?: (args: GoogleAnalyticsCapabilityFactoryArgs) => TCapability;
 }
 
 export type GoogleAnalyticsCapabilities<
-  TAnalyticsProvider extends AnalyticsProvider = AnalyticsProvider,
+  TAnalyticsCapability extends AnalyticsCapability = AnalyticsCapability,
 > = {
-  analytics?: GoogleAnalyticsAnalyticsCapabilityConfig<TAnalyticsProvider>;
+  analytics?: GoogleAnalyticsAnalyticsCapabilityConfig<TAnalyticsCapability>;
 };

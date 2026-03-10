@@ -1,0 +1,47 @@
+import 'dotenv/config';
+import type { RequestContext } from '@reactionary/core';
+import {
+  NoOpCache,
+  OrderSearchResultSchema,
+  createInitialRequestContext,
+} from '@reactionary/core';
+import { getFakerTestConfiguration } from './test-utils.js';
+import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
+import { FakeOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import { FakeOrderSearchFactory } from '../factories/index.js';
+
+describe('Fake Order Search Provider', () => {
+  let provider: FakeOrderSearchCapability;
+  let reqCtx: RequestContext;
+
+  beforeEach(() => {
+    reqCtx = createInitialRequestContext();
+    provider = new FakeOrderSearchCapability(
+      getFakerTestConfiguration(),
+      new NoOpCache(),
+      reqCtx,
+      new FakeOrderSearchFactory(OrderSearchResultSchema),
+    );
+  });
+
+  describe('should have operations return structurally valid data', () => {
+    it('for queryByTerm', async () => {
+      const result = await provider.queryByTerm({
+        search: {
+          term: '1234',
+          filters: [],
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 12,
+          },
+        },
+      });
+
+      if (!result.success) {
+        assert.fail();
+      }
+
+      expect(result.value.identifier).toBeDefined();
+    });
+  });
+});

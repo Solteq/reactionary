@@ -1,7 +1,7 @@
 import type { Tracer } from '@opentelemetry/api';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import * as z from 'zod';
-import type { BaseProvider } from '../providers/index.js';
+import type { BaseCapability } from '../capabilities/index.js';
 import { getReactionaryMeter } from '../metrics/metrics.js';
 import { error, success, type Result } from '../schemas/result.js';
 import type {
@@ -18,7 +18,7 @@ export function getTracer(): Tracer {
 }
 
 /**
- * The options associated with annotating a provider function and marking
+ * The options associated with annotating a capability function and marking
  * it as a reactionary entrypoint to be called
  */
 export class ReactionaryDecoratorOptions {
@@ -59,13 +59,13 @@ export class ReactionaryDecoratorOptions {
 }
 
 /**
- * Decorator for provider functions to provide functionality such as caching, tracing and type-checked
+ * Decorator for capability functions to provide functionality such as caching, tracing and type-checked
  * assertion through Zod. It should only be used with publically accessible queries or mutations on
- * providers.
+ * capabilities.
  */
 export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
   return function (
-    target: BaseProvider,
+    target: BaseCapability,
     propertyKey: string | symbol,
     descriptor: PropertyDescriptor
   ): PropertyDescriptor {
@@ -82,11 +82,11 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
 
     if (!original) {
       throw new Error(
-        '@Reactionary decorator may only be applied to methods on classes extending BaseProvider.'
+        '@Reactionary decorator may only be applied to methods on classes extending BaseCapability.'
       );
     }
 
-    descriptor.value = async function (this: BaseProvider, ...args: any[]) {
+    descriptor.value = async function (this: BaseCapability, ...args: any[]) {
       return traceSpan(scope, async () => {
         meter.requestInProgress.add(1, attributes);
         try {

@@ -2,11 +2,11 @@ import type {
   Cache,
   OrderSearchFactory,
   OrderSearchFactoryWithOutput,
-  OrderSearchProvider,
-  ProductRecommendationsProvider,
+  OrderSearchCapability,
+  ProductRecommendationsCapability,
   ProductSearchFactory,
   ProductSearchFactoryWithOutput,
-  ProductSearchProvider,
+  ProductSearchCapability,
   RequestContext,
 } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
@@ -16,12 +16,12 @@ import * as z from 'zod';
 const SearchCapabilitySchema = z.looseObject({
   enabled: z.boolean(),
   factory: z.unknown().optional(),
-  provider: z.unknown().optional(),
+  capability: z.unknown().optional(),
 });
 
-const ProviderCapabilitySchema = z.looseObject({
+const DirectCapabilitySchema = z.looseObject({
   enabled: z.boolean(),
-  provider: z.unknown().optional(),
+  capability: z.unknown().optional(),
 });
 
 export const MeilisearchCapabilitiesSchema = CapabilitiesSchema.pick({
@@ -32,67 +32,67 @@ export const MeilisearchCapabilitiesSchema = CapabilitiesSchema.pick({
   .extend({
     productSearch: SearchCapabilitySchema.optional(),
     orderSearch: SearchCapabilitySchema.optional(),
-    productRecommendations: ProviderCapabilitySchema.optional(),
+    productRecommendations: DirectCapabilitySchema.optional(),
   })
   .partial();
 
-export interface MeilisearchProviderFactoryArgs {
+export interface MeilisearchCapabilityFactoryArgs {
   cache: Cache;
   context: RequestContext;
   config: MeilisearchConfiguration;
 }
 
-export interface MeilisearchSearchProviderFactoryArgs<
+export interface MeilisearchProductSearchCapabilityFactoryArgs<
   TFactory extends ProductSearchFactory = ProductSearchFactory,
-> extends MeilisearchProviderFactoryArgs {
+> extends MeilisearchCapabilityFactoryArgs {
   factory: ProductSearchFactoryWithOutput<TFactory>;
 }
 
-export interface MeilisearchOrderSearchProviderFactoryArgs<
+export interface MeilisearchOrderSearchCapabilityFactoryArgs<
   TFactory extends OrderSearchFactory = OrderSearchFactory,
-> extends MeilisearchProviderFactoryArgs {
+> extends MeilisearchCapabilityFactoryArgs {
   factory: OrderSearchFactoryWithOutput<TFactory>;
 }
 
 export interface MeilisearchProductSearchCapabilityConfig<
   TFactory extends ProductSearchFactory = ProductSearchFactory,
-  TProvider extends ProductSearchProvider = ProductSearchProvider,
+  TCapability extends ProductSearchCapability = ProductSearchCapability,
 > {
   enabled: boolean;
   factory?: ProductSearchFactoryWithOutput<TFactory>;
-  provider?: (args: MeilisearchSearchProviderFactoryArgs<TFactory>) => TProvider;
+  capability?: (args: MeilisearchProductSearchCapabilityFactoryArgs<TFactory>) => TCapability;
 }
 
 export interface MeilisearchOrderSearchCapabilityConfig<
   TFactory extends OrderSearchFactory = OrderSearchFactory,
-  TProvider extends OrderSearchProvider = OrderSearchProvider,
+  TCapability extends OrderSearchCapability = OrderSearchCapability,
 > {
   enabled: boolean;
   factory?: OrderSearchFactoryWithOutput<TFactory>;
-  provider?: (args: MeilisearchOrderSearchProviderFactoryArgs<TFactory>) => TProvider;
+  capability?: (args: MeilisearchOrderSearchCapabilityFactoryArgs<TFactory>) => TCapability;
 }
 
 export interface MeilisearchProductRecommendationsCapabilityConfig<
-  TProvider extends ProductRecommendationsProvider = ProductRecommendationsProvider,
+  TCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
 > {
   enabled: boolean;
-  provider?: (args: MeilisearchProviderFactoryArgs) => TProvider;
+  capability?: (args: MeilisearchCapabilityFactoryArgs) => TCapability;
 }
 
 export type MeilisearchCapabilities<
   TProductSearchFactory extends ProductSearchFactory = ProductSearchFactory,
-  TProductSearchProvider extends ProductSearchProvider = ProductSearchProvider,
+  TProductSearchCapability extends ProductSearchCapability = ProductSearchCapability,
   TOrderSearchFactory extends OrderSearchFactory = OrderSearchFactory,
-  TOrderSearchProvider extends OrderSearchProvider = OrderSearchProvider,
-  TProductRecommendationsProvider extends ProductRecommendationsProvider = ProductRecommendationsProvider,
+  TOrderSearchCapability extends OrderSearchCapability = OrderSearchCapability,
+  TProductRecommendationsCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
 > = {
   productSearch?: MeilisearchProductSearchCapabilityConfig<
     TProductSearchFactory,
-    TProductSearchProvider
+    TProductSearchCapability
   >;
   orderSearch?: MeilisearchOrderSearchCapabilityConfig<
     TOrderSearchFactory,
-    TOrderSearchProvider
+    TOrderSearchCapability
   >;
-  productRecommendations?: MeilisearchProductRecommendationsCapabilityConfig<TProductRecommendationsProvider>;
+  productRecommendations?: MeilisearchProductRecommendationsCapabilityConfig<TProductRecommendationsCapability>;
 };
