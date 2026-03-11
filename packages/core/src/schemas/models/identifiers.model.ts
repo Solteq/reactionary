@@ -184,7 +184,19 @@ export const PromotionIdentifierSchema = z.looseObject({
     key: z.string().meta({ description: 'The unique identifier for the promotion.' }),
 });
 
+/**
+ * The structural top level legal entity
+ */
+export const OrganizationalEntityIdentifierSchema = z.looseObject({
+  /**
+   * VAT identifier, used for tax-calculation purposes
+   */
+    taxIdentifier: z.string().meta({ description: 'The unique identifier for the organizational entity. Could technically also be the DUNS identifier' }),
+});
 
+export const OrganizationalEntityRegistrationStatusIdentifierSchema = z.looseObject({
+    requestIdentifier: z.string().meta({ description: 'The unique identifier for the organizational entity registration request.' }),
+});
 
 export type OrderSearchIdentifier = InferType<typeof OrderSearchIdentifierSchema>;
 export type ProductIdentifier = InferType<typeof ProductIdentifierSchema>;
@@ -214,7 +226,8 @@ export type PaymentInstructionIdentifier = InferType<
 >;
 export type OrderIdentifier = InferType<typeof OrderIdentifierSchema>;
 export type OrderItemIdentifier = InferType<typeof OrderItemIdentifierSchema>;
-
+export type OrganizationalEntityIdentifier = InferType<typeof OrganizationalEntityIdentifierSchema>;
+export type OrganizationalEntityRegistrationStatusIdentifier = InferType<typeof OrganizationalEntityRegistrationStatusIdentifierSchema>;
 
 
 export type CheckoutIdentifier = InferType<typeof CheckoutIdentifierSchema>;
@@ -257,6 +270,8 @@ export type IdentifierType =
   | PaymentInstructionIdentifier
   | OrderIdentifier
   | OrderItemIdentifier
+  | OrganizationalEntityIdentifier
+  | OrganizationalEntityRegistrationStatusIdentifier
   | CheckoutIdentifier
   | CheckoutItemIdentifier
   | StoreIdentifier

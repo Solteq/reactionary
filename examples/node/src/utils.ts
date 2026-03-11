@@ -2,6 +2,7 @@ import {
   createInitialRequestContext,
   ClientBuilder,
   NoOpCache,
+  ProductSearchResultItemSchema,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '@reactionary/commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
@@ -117,6 +118,11 @@ export function createClient(provider: PrimaryProvider) {
           profile: { enabled: true },
         })
       );
+
+      builder = builder.withCapability(multicastProviders( {
+        anayltics: true,
+        productRecommendations: true, (ProductAssociationIdOnlySchema,  ProductSearchResultItemSchema, ExndedAlgoliaSearchItem )
+      }))
     }
 
     if (provider === PrimaryProvider.FAKE) {

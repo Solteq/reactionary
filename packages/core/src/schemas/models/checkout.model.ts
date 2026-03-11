@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { BaseModelSchema } from './base.model.js';
+import { BaseModelSchema, PointOfContactSchema } from './base.model.js';
 import { CartIdentifierSchema, CheckoutIdentifierSchema, CheckoutItemIdentifierSchema, OrderIdentifierSchema, ProductVariantIdentifierSchema } from './identifiers.model.js';
 import { CostBreakDownSchema, ItemCostBreakdownSchema } from './cost.model.js';
 import { AddressSchema } from './profile.model.js';
@@ -41,6 +41,7 @@ export const CheckoutSchema = BaseModelSchema.extend({
     name: z.string().default(''),
     description: z.string().default(''),
 
+    pointOfContact: PointOfContactSchema,
 
     billingAddress: AddressSchema.optional().nullable(),
 

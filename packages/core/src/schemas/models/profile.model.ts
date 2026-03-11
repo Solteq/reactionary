@@ -15,6 +15,7 @@ export const AddressSchema = BaseModelSchema.extend({
     countryCode: z.string(),
 });
 
+
 export const ProfileSchema = BaseModelSchema.extend({
     identifier: IdentityIdentifierSchema,
     email: z.email(),

@@ -37,6 +37,21 @@ export const ImageSchema = z.looseObject({
     height: z.number().optional().meta({ description: 'Height of the original image, in pixels, if known' }),
 });
 
+/**
+ * This is a generic schema for holding an email  and an optional phone both values.
+ */
+
+
+export const PointOfContactSchema = z.looseObject({
+  email: z.email().meta({ description: 'The contact email for the point of contact'}),
+  phone: z.string().optional().meta({ description: 'The contact phone number for the point of contact.' }),
+});
+
+
+
+
 export type Image = InferType<typeof ImageSchema>;
 export type PaginationOptions = InferType<typeof PaginationOptionsSchema>;
 export type BaseModel = InferType<typeof BaseModelSchema>;
+export type PointOfContact = InferType<typeof PointOfContactSchema>;
+
