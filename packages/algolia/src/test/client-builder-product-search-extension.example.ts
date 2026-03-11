@@ -49,6 +49,7 @@ const config = {
   appId: 'ALGOLIA_APP_ID',
   apiKey: 'ALGOLIA_API_KEY',
   indexName: 'ALGOLIA_INDEX',
+  useRecommendationsForBots: false,
 } satisfies AlgoliaConfiguration;
 
 const client = new ClientBuilder(createInitialRequestContext())
