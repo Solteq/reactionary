@@ -6,7 +6,7 @@ const testData = {
   skuWithoutTiers: '4049699458101',
 };
 
-// FIXME: Currently broken in terms of actually looking up anything...
+
 describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.FAKE, PrimaryProvider.MEDUSA])(
   'Price Capability - %s',
   (provider) => {

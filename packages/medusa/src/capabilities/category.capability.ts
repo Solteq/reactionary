@@ -1,42 +1,37 @@
 import type {
-  StoreProductCategory,
-  StoreProductCategoryListResponse,
+  StoreProductCategory
 } from '@medusajs/types';
 import type {
-  Category,
   Cache,
   CategoryFactory,
   CategoryFactoryCategoryOutput,
   CategoryFactoryPaginatedOutput,
-  CategoryFactoryWithOutput,
-  CategoryPaginatedResult,
+  CategoryFactoryWithOutput
 } from '@reactionary/core';
 import {
-  CategoryIdentifierSchema,
   CategoryCapability,
-  CategorySchema,
+  CategoryPaginatedResultSchema,
   CategoryQueryByIdSchema,
   CategoryQueryBySlugSchema,
   CategoryQueryForBreadcrumbSchema,
   CategoryQueryForChildCategoriesSchema,
   CategoryQueryForTopCategoriesSchema,
-  createPaginatedResponseSchema,
+  CategorySchema,
+  error,
   Reactionary,
   success,
-  error,
-  type Result,
-  type NotFoundError,
   type CategoryQueryById,
   type CategoryQueryBySlug,
   type CategoryQueryForBreadcrumb,
   type CategoryQueryForChildCategories,
   type CategoryQueryForTopCategories,
+  type NotFoundError,
   type RequestContext,
-  CategoryPaginatedResultSchema,
+  type Result
 } from '@reactionary/core';
-import type { MedusaAPI, MedusaConfiguration } from '../index.js';
 import * as z from 'zod';
 import type { MedusaCategoryFactory } from '../factories/category/category.factory.js';
+import type { MedusaAPI, MedusaConfiguration } from '../index.js';
 
 export class MedusaCategoryCapability<
   TFactory extends CategoryFactory = MedusaCategoryFactory,
@@ -60,7 +55,7 @@ export class MedusaCategoryCapability<
   }
 
   protected async resolveCategoryIdByExternalId(
-    externalId: string
+    externalId: string,
   ): Promise<StoreProductCategory | null> {
     const sdk = await this.medusaApi.getClient();
     let offset = 0;
@@ -69,7 +64,6 @@ export class MedusaCategoryCapability<
     while (true) {
       try {
         const categoryResult = await sdk.store.category.list({
-
           offset,
           limit,
         });
@@ -79,7 +73,7 @@ export class MedusaCategoryCapability<
         }
 
         candidate = categoryResult.product_categories.find(
-          (cat) => cat.metadata?.['external_id'] === externalId
+          (cat) => cat.metadata?.['external_id'] === externalId,
         );
         if (candidate) {
           break;
@@ -87,7 +81,7 @@ export class MedusaCategoryCapability<
         offset += limit;
       } catch (error) {
         throw new Error(
-          'Category not found ' + externalId + ' due to error: ' + error
+          'Category not found ' + externalId + ' due to error: ' + error,
         );
         break;
       }
@@ -106,10 +100,10 @@ export class MedusaCategoryCapability<
     if (!candidate) {
       return error<NotFoundError>({
         type: 'NotFound',
-        identifier: payload
-      })
+        identifier: payload,
+      });
     }
-    return success(this.parseSingle(candidate));
+    return success(this.factory.parseCategory(this.context, candidate));
   }
 
   protected getBySlugPayload(payload: CategoryQueryBySlug) {
@@ -117,7 +111,7 @@ export class MedusaCategoryCapability<
       handle: payload.slug,
       limit: 1,
       offset: 0,
-    }
+    };
   }
 
   @Reactionary({
@@ -125,18 +119,25 @@ export class MedusaCategoryCapability<
     outputSchema: CategorySchema.nullable(),
   })
   public override async getBySlug(
-    payload: CategoryQueryBySlug
+    payload: CategoryQueryBySlug,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
     const sdk = await this.medusaApi.getClient();
 
-    const categoryResult = await sdk.store.category.list(this.getBySlugPayload(payload));
+    const categoryResult = await sdk.store.category.list(
+      this.getBySlugPayload(payload),
+    );
     if (categoryResult.count === 0) {
       return error<NotFoundError>({
         type: 'NotFound',
-        identifier: payload
+        identifier: payload,
       });
     }
-    return success(this.parseSingle(categoryResult.product_categories[0]));
+    return success(
+      this.factory.parseCategory(
+        this.context,
+        categoryResult.product_categories[0],
+      ),
+    );
   }
 
   @Reactionary({
@@ -144,10 +145,10 @@ export class MedusaCategoryCapability<
     outputSchema: z.array(CategorySchema),
   })
   public override async getBreadcrumbPathToCategory(
-    payload: CategoryQueryForBreadcrumb
+    payload: CategoryQueryForBreadcrumb,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>[]>> {
     const actualCategoryId = await this.resolveCategoryIdByExternalId(
-      payload.id.key
+      payload.id.key,
     );
     if (!actualCategoryId) {
       throw new Error('Category not found ' + payload.id.key);
@@ -162,15 +163,17 @@ export class MedusaCategoryCapability<
     let results = new Array<CategoryFactoryCategoryOutput<TFactory>>();
     let current: StoreProductCategory | null = path.product_category;
     while (current) {
-      results.push(this.parseSingle(current));
+      results.push(this.factory.parseCategory(this.context, current));
       current = current.parent_category;
     }
     results = results.reverse();
     return success(results);
   }
 
-
-  protected findChildCategoriesPayload(payload: CategoryQueryForChildCategories, actualParent: StoreProductCategory) {
+  protected findChildCategoriesPayload(
+    payload: CategoryQueryForChildCategories,
+    actualParent: StoreProductCategory,
+  ) {
     return {
       fields: '+metadata,+parent_category.metadata',
       parent_category_id: actualParent.id,
@@ -178,27 +181,32 @@ export class MedusaCategoryCapability<
       offset:
         (payload.paginationOptions.pageNumber - 1) *
         payload.paginationOptions.pageSize,
-    }
+    };
   }
   @Reactionary({
     inputSchema: CategoryQueryForChildCategoriesSchema,
     outputSchema: CategoryPaginatedResultSchema,
   })
   public override async findChildCategories(
-    payload: CategoryQueryForChildCategories
+    payload: CategoryQueryForChildCategories,
   ) {
     const sdk = await this.medusaApi.getClient();
 
     const actualParent = await this.resolveCategoryIdByExternalId(
-      payload.parentId.key
+      payload.parentId.key,
     );
     if (!actualParent) {
       throw new Error('Parent category not found ' + payload.parentId.key);
     }
 
-    const response = await sdk.store.category.list(this.findChildCategoriesPayload(payload, actualParent));
+    const response = await sdk.store.category.list(
+      this.findChildCategoriesPayload(payload, actualParent),
+    );
 
-    const result = this.parsePaginatedResult(response);
+    const result = this.factory.parseCategoryPaginatedResult(
+      this.context,
+      response,
+    );
     return success(result);
   }
 
@@ -210,7 +218,7 @@ export class MedusaCategoryCapability<
       offset:
         (payload.paginationOptions.pageNumber - 1) *
         payload.paginationOptions.pageSize,
-    }
+    };
   }
 
   @Reactionary({
@@ -218,61 +226,18 @@ export class MedusaCategoryCapability<
     outputSchema: CategoryPaginatedResultSchema,
   })
   public override async findTopCategories(
-    payload: CategoryQueryForTopCategories
+    payload: CategoryQueryForTopCategories,
   ) {
     const sdk = await this.medusaApi.getClient();
 
-    const response = await sdk.store.category.list(this.findTopCategoriesPayload(payload));
-
-    const result = this.parsePaginatedResult(response);
-    return success(result);
-  }
-
-  protected parseSingle(_body: StoreProductCategory): CategoryFactoryCategoryOutput<TFactory> {
-    const identifier = CategoryIdentifierSchema.parse({
-      key: _body.metadata?.['external_id'] || '',
-    });
-
-    const name = _body.name;
-    const slug = _body.handle;
-    const text = _body.description || _body.name || '';
-    const parentCategory = _body.parent_category_id
-      ? { key: _body.parent_category?.metadata?.['external_id'] + '' || '' }
-      : undefined;
-
-    const result = {
-      identifier,
-      name,
-      slug,
-      text,
-      parentCategory,
-      images: [],
-    } satisfies Category;
-
-    return this.factory.parseCategory(this.context, result);
-  }
-
-  protected parsePaginatedResult(
-    body: StoreProductCategoryListResponse
-  ): CategoryFactoryPaginatedOutput<TFactory> {
-    const items = body.product_categories.map((x) => this.parseSingle(x));
-
-    const totalPages = Math.ceil(
-      (body.count ?? 0) / Math.max(body.product_categories.length, 1)
+    const response = await sdk.store.category.list(
+      this.findTopCategoriesPayload(payload),
     );
-    const pageNumber =
-      body.count === 0
-        ? 1
-        : Math.floor(body.offset / body.product_categories.length) + 1;
 
-    const result = {
-      pageNumber: pageNumber,
-      pageSize: Math.max(body.product_categories.length, 1),
-      totalCount: body.count,
-      totalPages: totalPages,
-      items: items,
-    } satisfies CategoryPaginatedResult;
-
-    return this.factory.parseCategoryPaginatedResult(this.context, result);
+    const result = this.factory.parseCategoryPaginatedResult(
+      this.context,
+      response,
+    );
+    return success(result);
   }
 }

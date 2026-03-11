@@ -1,40 +1,40 @@
+import type { StoreCreateCustomerAddress } from '@medusajs/types';
 import type {
-  InvalidInputError} from '@reactionary/core';
+  InvalidInputError
+} from '@reactionary/core';
 import {
-  type Profile,
-  type ProfileMutationAddShippingAddress,
-  type ProfileMutationMakeShippingAddressDefault,
-  type ProfileMutationRemoveShippingAddress,
-  type ProfileMutationSetBillingAddress,
-  type ProfileMutationUpdate,
-  type ProfileMutationUpdateShippingAddress,
-  type ProfileQuerySelf as ProfileQueryById,
-  type RequestContext,
+  type Address,
   type Cache,
-  type Result,
   type NotFoundError,
   ProfileCapability,
-  Reactionary,
-  ProfileSchema,
-  ProfileMutationUpdateSchema,
-  ProfileMutationAddShippingAddressSchema,
-  ProfileMutationUpdateShippingAddressSchema,
-  ProfileMutationRemoveShippingAddressSchema,
-  ProfileMutationMakeShippingAddressDefaultSchema,
-  ProfileMutationSetBillingAddressSchema,
-  success,
-  type Address,
   type ProfileFactory,
   type ProfileFactoryOutput,
   type ProfileFactoryWithOutput,
+  type ProfileMutationAddShippingAddress,
+  ProfileMutationAddShippingAddressSchema,
+  type ProfileMutationMakeShippingAddressDefault,
+  ProfileMutationMakeShippingAddressDefaultSchema,
+  type ProfileMutationRemoveShippingAddress,
+  ProfileMutationRemoveShippingAddressSchema,
+  type ProfileMutationSetBillingAddress,
+  ProfileMutationSetBillingAddressSchema,
+  type ProfileMutationUpdate,
+  ProfileMutationUpdateSchema,
+  type ProfileMutationUpdateShippingAddress,
+  ProfileMutationUpdateShippingAddressSchema,
+  type ProfileQuerySelf as ProfileQueryById,
   ProfileQueryByIdSchema,
-  error
+  ProfileSchema,
+  Reactionary,
+  type RequestContext,
+  type Result,
+  error,
+  success
 } from '@reactionary/core';
-import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import type { MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';
-import type { StoreCreateCustomerAddress, StoreCustomer, StoreCustomerAddress } from '@medusajs/types';
+import type { MedusaAPI } from '../core/client.js';
 import type { MedusaProfileFactory } from '../factories/profile/profile.factory.js';
+import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 const debug = createDebug('reactionary:medusa:profile');
 /**
@@ -86,7 +86,7 @@ export class MedusaProfileCapability<
       });
     }
 
-    const model = this.parseSingle(customerResponse.customer);
+    const model = this.factory.parseProfile(this.context, customerResponse.customer);
     return success(model);
   }
 
@@ -121,7 +121,7 @@ export class MedusaProfileCapability<
 
     const updatedResponse = await client.store.customer.update(this.updatePayload(payload), { fields: this.includedFields.join(',') });
 
-    const model = this.parseSingle(updatedResponse.customer);
+    const model = this.factory.parseProfile(this.context, updatedResponse.customer!);
     return success(model);
   }
 
@@ -165,7 +165,7 @@ export class MedusaProfileCapability<
       });
     }
 
-    const model = this.parseSingle(response.customer);
+    const model = this.factory.parseProfile(this.context, response.customer!);
     return success(model);
   }
 
@@ -208,7 +208,7 @@ export class MedusaProfileCapability<
       })
     }
 
-    const model = this.parseSingle(response.customer);
+    const model = this.factory.parseProfile(this.context, response.customer!);
     return success(model);
   }
 
@@ -251,7 +251,7 @@ export class MedusaProfileCapability<
 
     const customerAfterDelete = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
 
-    const model = this.parseSingle(customerAfterDelete.customer!);
+    const model = this.factory.parseProfile(this.context, customerAfterDelete.customer!);
     return success(model);
   }
 
@@ -295,7 +295,7 @@ export class MedusaProfileCapability<
       { fields: this.includedFields.join(',') }
     );
 
-    const model = this.parseSingle(response.customer!);
+    const model = this.factory.parseProfile(this.context, response.customer!);
     return success(model);
   }
 
@@ -350,7 +350,7 @@ export class MedusaProfileCapability<
       customer = createAddressResponse.customer;
     }
 
-    const model = this.parseSingle(customer);
+    const model = this.factory.parseProfile(this.context, customer);
     return success(model);
   }
 
@@ -367,65 +367,4 @@ export class MedusaProfileCapability<
       country_code: address.countryCode,
     } satisfies StoreCreateCustomerAddress;
   }
-
-  protected parseAddress(address: StoreCustomerAddress): Address {
-    return {
-      identifier: {
-        nickName: address.address_name || '',
-      },
-      firstName: address.first_name || '',
-      lastName: address.last_name || '',
-      streetAddress: address.address_1 || '',
-      streetNumber: address.address_2 || '',
-      city: address.city || '',
-      region: address.province || '',
-      postalCode: address.postal_code || '',
-      countryCode: address.country_code || '',
-    }
-  }
-
-  protected parseSingle(customer: StoreCustomer): ProfileFactoryOutput<TFactory> {
-    const email = customer.email;
-    const emailVerified = customer.metadata?.['email_verified'] === 'true';
-
-    const phone = customer.phone || '';
-    const phoneVerified = customer.metadata?.['phone_verified'] === 'true';
-
-    const addresses = customer.addresses || [];
-    let billingAddress: Address | undefined = undefined;
-    let shippingAddress: Address | undefined = undefined;
-
-    const existingBillingAddress = customer.addresses.find(addr => addr.is_default_billing);
-    if (existingBillingAddress) {
-      billingAddress = this.parseAddress(existingBillingAddress);
-    }
-
-    const existingShippingAddress = customer.addresses.find(addr => addr.is_default_shipping);
-    if (existingShippingAddress) {
-      shippingAddress = this.parseAddress(existingShippingAddress);
-    }
-
-    const alternateShippingAddresses: Address[] = [];
-
-    alternateShippingAddresses.push(...addresses.filter(x => ! (x.is_default_billing || x.is_default_shipping)).map( addr => this.parseAddress(addr)));
-
-    const result = {
-      identifier: {
-        userId: customer.id,
-      },
-      email,
-      emailVerified,
-      phone,
-      phoneVerified,
-      billingAddress: billingAddress,
-      shippingAddress: shippingAddress,
-      alternateShippingAddresses: alternateShippingAddresses,
-      createdAt: new Date(customer.created_at || '').toISOString(),
-      updatedAt: new Date(customer.updated_at || '').toISOString()
-    } satisfies Profile;
-    return this.factory.parseProfile(this.context, result);
-  }
-
-
-
 }

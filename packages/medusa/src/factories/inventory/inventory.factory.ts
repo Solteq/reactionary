@@ -1,10 +1,20 @@
 import type {
   AnyInventorySchema,
+  Inventory,
   InventoryFactory,
+  InventoryIdentifier,
   InventorySchema,
+  InventoryStatus,
   RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
+
+export interface MedusaInventoryParseInput {
+  sku: string;
+  fulfillmentCenterKey: string;
+  quantity: number;
+  inventoryItemId: string;
+}
 
 export class MedusaInventoryFactory<
   TInventorySchema extends AnyInventorySchema = typeof InventorySchema,
@@ -18,8 +28,30 @@ export class MedusaInventoryFactory<
 
   public parseInventory(
     _context: RequestContext,
-    data: unknown,
+    data: MedusaInventoryParseInput,
   ): z.output<TInventorySchema> {
-    return this.inventorySchema.parse(data);
+    const { sku, fulfillmentCenterKey, quantity } = data;
+
+    const identifier = {
+      variant: {
+        sku,
+      },
+      fulfillmentCenter: {
+        key: fulfillmentCenterKey,
+      },
+    } satisfies InventoryIdentifier;
+
+    let status: InventoryStatus = 'outOfStock';
+    if (quantity > 0) {
+      status = 'inStock';
+    }
+
+    const result = {
+      identifier,
+      quantity,
+      status,
+    } satisfies Inventory;
+
+    return this.inventorySchema.parse(result);
   }
 }

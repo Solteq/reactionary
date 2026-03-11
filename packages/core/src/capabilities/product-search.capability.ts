@@ -39,10 +39,4 @@ export abstract class ProductSearchCapability<
     payload: ProductSearchQueryCreateNavigationFilter,
   ): Promise<Result<FacetValueIdentifier>>;
 
-  /**
-   * Parses a facet value from the search response.
-   * @param facetValueIdentifier The identifier for the facet value.
-   * @param label The label for the facet value.
-   * @param count The count for the facet value.
-   */
 }
