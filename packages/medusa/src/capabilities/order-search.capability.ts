@@ -1,35 +1,24 @@
+import type { OrderStatus as MedusaOrderStatus } from '@medusajs/types';
 import type {
-  RequestContext,
   Cache,
-  OrderSearchQueryByTerm,
-  OrderSearchResult,
-  Result,
-  OrderStatus,
-  Address,
-  IdentityIdentifier,
-  MonetaryAmount,
-  Currency,
-  OrderSearchResultItem,
-  OrderSearchIdentifier,
-  AddressIdentifier,
-  OrderInventoryStatus,
   OrderSearchFactory,
   OrderSearchFactoryOutput,
   OrderSearchFactoryWithOutput,
+  OrderSearchQueryByTerm,
+  RequestContext,
+  Result
 } from '@reactionary/core';
 import {
-  AddressIdentifierSchema,
   OrderSearchCapability,
   OrderSearchQueryByTermSchema,
   OrderSearchResultSchema,
   Reactionary,
-  success,
+  success
 } from '@reactionary/core';
-import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import type { MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';
-import type { OrderStatus as MedusaOrderStatus, StoreOrder, StoreOrderAddress,  StoreOrderListResponse } from '@medusajs/types';
+import type { MedusaAPI } from '../core/client.js';
 import type { MedusaOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
+import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 const debug = createDebug('reactionary:medusa:order-search');
 
@@ -120,105 +109,18 @@ export class MedusaOrderSearchCapability<
 
     const response = await medusa.store.order.list(this.queryByTermPayload(payload));
 
-    const result = this.parsePaginatedResult(response, payload);
+    const result = this.factory.parseOrderSearchResult(this.context, response, payload);
     if (debug.enabled) {
       debug(
         `Search for term "${payload.search.term}" returned ${response.orders.length} orders (page ${payload.search.paginationOptions.pageNumber} of ${result.totalPages})`
       );
     }
 
-    return success(this.factory.parseOrderSearchResult(this.context, result, payload));
-  }
-
-  protected composeAddressFromStoreAddress(storeAddress: StoreOrderAddress): Address {
-    return {
-      identifier: AddressIdentifierSchema.parse({
-        nickName: storeAddress.id,
-      } satisfies AddressIdentifier),
-      firstName: storeAddress.first_name || '',
-      lastName: storeAddress.last_name || '',
-      streetAddress: storeAddress.address_1 || '',
-      streetNumber: storeAddress.address_2 || '',
-      city: storeAddress.city || '',
-      postalCode: storeAddress.postal_code || '',
-      countryCode: storeAddress.country_code || '',
-      region: '',
-    };
+    return success(result);
   }
 
 
 
-  protected parseSingle(body: StoreOrder) {
-    const identifier = { key: body.id };
-    const userId: IdentityIdentifier = {
-      userId: body.customer_id || '',
-    };
-    const customerName = `${body.billing_address?.first_name} ${body.billing_address?.last_name}`;
-    const shippingAddress = this.composeAddressFromStoreAddress(body.shipping_address!);
-    const orderDate = new Date(body.created_at).toISOString();
-
-    let orderStatus: OrderStatus = 'AwaitingPayment'
-    if (body.status === 'draft') {
-      orderStatus = 'AwaitingPayment';
-    }
-    if (body.status === 'pending') {
-      orderStatus = 'ReleasedToFulfillment';
-    }
-    if (body.status === 'completed') {
-      orderStatus = 'Shipped';
-    }
-    if (body.status === 'canceled') {
-      orderStatus = 'Cancelled';
-    }
-    let inventoryStatus: OrderInventoryStatus = 'NotAllocated'
-    // Medusa does not have direct mapping for inventory status on orders
-    // This is a placeholder logic and may need to be adjusted based on actual requirements
-    if(body.fulfillment_status === "fulfilled") {
-      inventoryStatus = 'Allocated';
-    }
-
-    const totalAmount: MonetaryAmount = {
-      currency: body.currency_code.toUpperCase() as Currency,
-      value: body.total ? body.total : 0
-    };
-
-    const order = {
-      identifier,
-      userId,
-      customerName,
-      shippingAddress,
-      orderDate,
-      orderStatus,
-      inventoryStatus,
-      totalAmount
-    } satisfies OrderSearchResultItem;
-
-    return order;
-  }
-
-  protected parsePaginatedResult(
-    body: StoreOrderListResponse,
-    query: OrderSearchQueryByTerm
-  ) {
-    const identifier = {
-      ...query.search,
-    } satisfies OrderSearchIdentifier;
-
-    const orders: OrderSearchResultItem[] = body.orders.map((o) => {
-      return this.parseSingle(o);
-    })
-
-    const result = {
-      identifier,
-      pageNumber: (Math.ceil(body.offset / body.limit) || 0) + 1,
-      pageSize: body.limit,
-      totalCount: body.count,
-      totalPages: Math.ceil(body.count / body.limit || 0) + 1,
-      items: orders,
-    } satisfies OrderSearchResult;
-
-    return result;
-  }
 
 
 }

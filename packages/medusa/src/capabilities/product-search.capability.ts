@@ -1,46 +1,28 @@
+import type {
+  StoreProductCategory
+} from '@medusajs/types';
 import {
+  FacetIdentifierSchema,
+  FacetValueIdentifierSchema,
   ProductSearchCapability,
   ProductSearchQueryByTermSchema,
+  ProductSearchResultSchema,
+  Reactionary,
+  success,
   type Cache,
-  type RequestContext,
-  type ProductSearchQueryByTerm,
-  type ProductSearchResult,
-  type ProductSearchResultItem,
-  ImageSchema,
-  ProductVariantIdentifierSchema,
-  type ProductVariantIdentifier,
-  ProductVariantOptionSchema,
-  type ProductVariantOption,
-  ProductOptionIdentifierSchema,
-  type ProductOptionIdentifier,
-  ProductSearchResultItemVariantSchema,
-  type ProductSearchResultItemVariant,
-  type FacetIdentifier,
   type FacetValueIdentifier,
   type ProductSearchFactory,
   type ProductSearchFactoryOutput,
   type ProductSearchFactoryWithOutput,
-  type ProductSearchResultFacet,
-  type ProductSearchResultFacetValue,
-  Reactionary,
-  ProductSearchResultSchema,
+  type ProductSearchQueryByTerm,
   type ProductSearchQueryCreateNavigationFilter,
-  FacetValueIdentifierSchema,
-  FacetIdentifierSchema,
-  type Result,
-  success,
+  type RequestContext,
+  type Result
 } from '@reactionary/core';
 import createDebug from 'debug';
-import type * as z from 'zod';
-import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type { MedusaAPI } from '../core/client.js';
-import type {
-  StoreProduct,
-  StoreProductCategory,
-  StoreProductListResponse,
-  StoreProductVariant,
-} from '@medusajs/types';
 import type { MedusaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
+import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 const debug = createDebug('reactionary:medusa:search');
 
@@ -113,6 +95,21 @@ export class MedusaProductSearchCapability<
     }
   }
 
+  public override async createCategoryNavigationFilter(
+    payload: ProductSearchQueryCreateNavigationFilter
+  ): Promise<Result<FacetValueIdentifier>> {
+    const facetIdentifier = FacetIdentifierSchema.parse({
+      key: 'categories',
+    });
+    const facetValueIdentifier = FacetValueIdentifierSchema.parse({
+      facet: facetIdentifier,
+      key: payload.categoryPath[payload.categoryPath.length - 1].identifier.key,
+    });
+
+    return success(facetValueIdentifier);
+  }
+
+
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
     outputSchema: ProductSearchResultSchema,
@@ -150,92 +147,14 @@ export class MedusaProductSearchCapability<
 
     const response = await client.store.product.list(this.queryByTermPayload(payload, categoryIdToFind));
 
-    const result = this.parsePaginatedResult(response, payload);
+    const result = this.factory.parseSearchResult(this.context, response, payload);
     if (debug.enabled) {
       debug(
         `Search for term "${payload.search.term}" returned ${response.products.length} products (page ${payload.search.paginationOptions.pageNumber} of ${result.totalPages})`
       );
     }
 
-    return success(this.factory.parseSearchResult(this.context, result, payload));
-  }
-
-  protected parsePaginatedResult(
-    remote: StoreProductListResponse,
-    query: ProductSearchQueryByTerm,
-  ) {
-    // Parse facets
-    // no facets available from Medusa at the moment
-
-    const products: ProductSearchResultItem[] = remote.products.map((p) =>
-      this.parseSingle(p)
-    );
-
-    const result = {
-      identifier: {
-        ...query.search,
-      },
-      pageNumber: (Math.ceil(remote.offset / remote.limit) || 0) + 1,
-      pageSize: remote.limit,
-      totalCount: remote.count,
-      totalPages: Math.ceil(remote.count / remote.limit || 0) + 1,
-      items: products,
-      facets: [],
-    } satisfies ProductSearchResult;
-
-    (result as ProductSearchResult).facets = [];
-    return result;
-  }
-
-  protected parseSingle(_body: StoreProduct): ProductSearchResultItem {
-    const heroVariant = _body.variants?.[0];
-    const identifier = { key: _body.external_id || _body.id };
-    const slug = _body.handle;
-    const name = heroVariant?.title || _body.title;
-    const variants = [];
-    if (heroVariant) {
-      variants.push(this.parseVariant(heroVariant, _body));
-    }
-
-    const result = {
-      identifier,
-      name,
-      slug,
-      variants,
-    } satisfies ProductSearchResultItem;
-
-    return result;
-  }
-
-  protected parseVariant(
-    variant: StoreProductVariant,
-    product: StoreProduct
-  ): ProductSearchResultItemVariant {
-    const img = ImageSchema.parse({
-      sourceUrl: product.images?.[0].url ?? '',
-      altText: product.title || undefined,
-    });
-
-    return ProductSearchResultItemVariantSchema.parse({
-      variant: ProductVariantIdentifierSchema.parse({
-        sku: variant.sku || '',
-      } satisfies ProductVariantIdentifier),
-      image: img,
-    } satisfies Partial<ProductSearchResultItemVariant>);
-  }
-
-  public override async createCategoryNavigationFilter(
-    payload: ProductSearchQueryCreateNavigationFilter
-  ): Promise<Result<FacetValueIdentifier>> {
-    const facetIdentifier = FacetIdentifierSchema.parse({
-      key: 'categories',
-    });
-    const facetValueIdentifier = FacetValueIdentifierSchema.parse({
-      facet: facetIdentifier,
-      key: payload.categoryPath[payload.categoryPath.length - 1].identifier.key,
-    });
-
-    return success(facetValueIdentifier);
+    return success(result);
   }
 
 }

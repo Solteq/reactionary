@@ -1,29 +1,23 @@
-import type { StoreProductVariant } from '@medusajs/types';
 import {
-  PriceCapability,
-  PriceSchema,
   CustomerPriceQuerySchema,
   ListPriceQuerySchema,
+  PriceCapability,
+  PriceSchema,
   Reactionary,
   success,
   type Cache,
-  type Currency,
   type CustomerPriceQuery,
   type ListPriceQuery,
-  type Price,
   type PriceFactory,
   type PriceFactoryOutput,
   type PriceFactoryWithOutput,
   type RequestContext,
-  type PriceIdentifier,
-  type MonetaryAmount,
   type Result
 } from '@reactionary/core';
 import createDebug from 'debug';
-import type * as z from 'zod';
 import type { MedusaAPI } from '../core/client.js';
-import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type { MedusaPriceFactory } from '../factories/price/price.factory.js';
+import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 const debug = createDebug('reactionary:medusa:price');
 
@@ -103,7 +97,7 @@ export class MedusaPriceCapability<
       }
 
       // For simplicity, return the first matched product
-      return this.parseSingle(variant, mode);
+      return this.factory.parsePrice(this.context, { variant, mode });
     } catch (error) {
       if (debug.enabled) {
         debug(
@@ -112,57 +106,5 @@ export class MedusaPriceCapability<
       }
       return this.createEmptyPriceResult(sku);
     }
-  }
-
-  protected parseSingle(
-    variant: StoreProductVariant,
-    mode: 'list' | 'customer',
-  ): PriceFactoryOutput<TFactory> {
-    const identifier = {
-      variant: {
-        sku: variant.sku || '',
-      },
-    } satisfies PriceIdentifier;
-
-    // In Medusa v2, calculated_price contains the final price for the variant
-    // based on the region, currency, and any applicable price lists
-    const calculatedPrice = variant.calculated_price;
-    let unitPrice;
-    let isOnSale = false;
-    if (calculatedPrice) {
-
-
-      const priceToUse = mode === 'customer' ? calculatedPrice.calculated_amount : calculatedPrice.original_amount;
-
-      if (mode === 'customer') {
-        isOnSale = calculatedPrice.calculated_price?.price_list_type === 'sale'
-      }
-
-      unitPrice = {
-        value: priceToUse || 0,
-        currency: (calculatedPrice.currency_code?.toUpperCase() ||
-          this.context.languageContext.currencyCode) as Currency,
-      } satisfies MonetaryAmount;
-    } else {
-      // Fallback to empty price if no calculated price available
-      unitPrice = {
-        value: -1,
-        currency: this.context.languageContext.currencyCode as Currency,
-      } satisfies MonetaryAmount;
-    }
-
-    const result = {
-      identifier,
-      tieredPrices: [],
-      unitPrice,
-      onSale: isOnSale,
-    } satisfies Price;
-
-    return this.factory.parsePrice(this.context, result);
-  }
-
-
-  protected override getResourceName(): string {
-    return 'price';
   }
 }

@@ -1,46 +1,38 @@
-import type { StoreAddCartShippingMethods, StoreCart, StoreCartAddress, StoreCartLineItem, StoreInitializePaymentSession, StoreUpdateCart } from '@medusajs/types';
+import type { StoreAddCartShippingMethods, StoreInitializePaymentSession, StoreUpdateCart } from '@medusajs/types';
 import type {
   Address,
-  AddressIdentifier,
   Cache,
-  Checkout,
+  CheckoutFactory,
+  CheckoutFactoryCheckoutOutput,
+  CheckoutFactoryPaymentMethodOutput,
+  CheckoutFactoryShippingMethodOutput,
+  CheckoutFactoryWithOutput,
   CheckoutIdentifier,
-  CheckoutItem,
   CheckoutMutationAddPaymentInstruction,
   CheckoutMutationFinalizeCheckout,
   CheckoutMutationInitiateCheckout,
   CheckoutMutationRemovePaymentInstruction,
   CheckoutMutationSetShippingAddress,
   CheckoutMutationSetShippingInstruction,
-  CheckoutFactory,
-  CheckoutFactoryCheckoutOutput,
-  CheckoutFactoryPaymentMethodOutput,
-  CheckoutFactoryShippingMethodOutput,
-  CheckoutFactoryWithOutput,
   CheckoutQueryById,
   CheckoutQueryForAvailablePaymentMethods,
   CheckoutQueryForAvailableShippingMethods,
-  CostBreakDown,
   Currency,
-  ItemCostBreakdown,
   MonetaryAmount,
-  PaymentInstruction,
+  NotFoundError,
   PaymentMethod,
-  PaymentMethodIdentifier,
   RequestContext,
-  ShippingMethod,
   Result,
-  NotFoundError
+  ShippingMethod
 } from '@reactionary/core';
 import {
-  AddressIdentifierSchema,
+  CheckoutCapability,
   CheckoutMutationAddPaymentInstructionSchema,
   CheckoutMutationFinalizeCheckoutSchema,
   CheckoutMutationInitiateCheckoutSchema,
   CheckoutMutationRemovePaymentInstructionSchema,
   CheckoutMutationSetShippingAddressSchema,
   CheckoutMutationSetShippingInstructionSchema,
-  CheckoutCapability,
   CheckoutQueryByIdSchema,
   CheckoutQueryForAvailablePaymentMethodsSchema,
   CheckoutQueryForAvailableShippingMethodsSchema,
@@ -50,19 +42,17 @@ import {
   Reactionary,
   ShippingMethodIdentifierSchema,
   ShippingMethodSchema,
-  success,
-  error
+  success
 } from '@reactionary/core';
 import createDebug from 'debug';
 import * as z from 'zod';
 import type { MedusaAPI } from '../core/client.js';
-import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import { handleProviderError,  parseMedusaCostBreakdown, parseMedusaItemPrice } from '../utils/medusa-helpers.js';
-import {
-  type MedusaCartIdentifier,
-  type MedusaOrderIdentifier
-} from '../schema/medusa.schema.js';
 import type { MedusaCheckoutFactory } from '../factories/checkout/checkout.factory.js';
+import type { MedusaConfiguration } from '../schema/configuration.schema.js';
+import {
+  type MedusaCartIdentifier
+} from '../schema/medusa.schema.js';
+import { handleProviderError } from '../utils/medusa-helpers.js';
 const debug = createDebug('reactionary:medusa:checkout');
 
 export class CheckoutNotReadyForFinalizationError extends Error {
@@ -150,7 +140,7 @@ export class MedusaCheckoutCapability<
       }
     );
 
-    return success(this.parseSingle(response.cart));
+    return success(this.factory.parseCheckout(this.context, response.cart));
   }
 
   @Reactionary({
@@ -164,7 +154,7 @@ export class MedusaCheckoutCapability<
     const response = await client.store.cart.retrieve(payload.identifier.key, {
       fields: this.includedFields,
     });
-    return success(this.parseSingle(response.cart));
+    return success(this.factory.parseCheckout(this.context, response.cart));
   }
 
 
@@ -190,7 +180,7 @@ export class MedusaCheckoutCapability<
         fields: this.includedFields,
       },
     );
-    return success(this.parseSingle(response.cart));
+    return success(this.factory.parseCheckout(this.context, response.cart));
   }
 
 
@@ -220,22 +210,10 @@ export class MedusaCheckoutCapability<
         this.getAvailableShippingMethodsPayload(payload)
       );
 
-    const shippingMethods: ShippingMethod[] = [];
+    const shippingMethods = [];
 
     for (const sm of shippingMethodResponse.shipping_options) {
-      shippingMethods.push(
-        ShippingMethodSchema.parse({
-          identifier: ShippingMethodIdentifierSchema.parse({ key: sm.id }),
-          name: sm.name,
-          description: sm.type.description || '',
-          price: MonetaryAmountSchema.parse({
-            value: sm.calculated_price.calculated_amount || 0,
-            currency:
-              sm.calculated_price.currency_code?.toUpperCase() as Currency,
-          } satisfies MonetaryAmount),
-          deliveryTime: '',
-        } satisfies ShippingMethod)
-      );
+      shippingMethods.push(this.factory.parseShippingMethod(this.context, sm));
     }
 
     if (debug.enabled) {
@@ -245,7 +223,7 @@ export class MedusaCheckoutCapability<
       );
     }
     return success(
-      shippingMethods.map((x) => this.factory.parseShippingMethod(this.context, x)),
+      shippingMethods
     );
   }
 
@@ -278,22 +256,12 @@ export class MedusaCheckoutCapability<
         )
       );
 
-    const paymentMethods: PaymentMethod[] = [];
+    const paymentMethods = [];
 
     for (const pm of paymentMethodResponse.payment_providers) {
-      paymentMethods.push(
-        {
-          identifier: {
-            method: pm.id,
-            name: pm.id,
-            paymentProcessor: pm.id,
-          },
-          logo: undefined,
-          description: pm.id,
-          isPunchOut: true,
-        }
+      const payMethod = this.factory.parsePaymentMethod(this.context, pm);
 
-      );
+      paymentMethods.push(payMethod);
     }
 
     if (debug.enabled) {
@@ -303,9 +271,7 @@ export class MedusaCheckoutCapability<
       );
     }
 
-    return success(
-      paymentMethods.map((x) => this.factory.parsePaymentMethod(this.context, x)),
-    );
+    return success(paymentMethods);
   }
 
 
@@ -349,7 +315,7 @@ export class MedusaCheckoutCapability<
         }
       );
 
-      return success(this.parseSingle(updatedCartResponse.cart));
+      return success(this.factory.parseCheckout(this.context, updatedCartResponse.cart));
     } catch (error) {
       debug('Failed to add payment instruction: {0}', [error]);
       throw new Error(
@@ -412,7 +378,7 @@ export class MedusaCheckoutCapability<
       });
 
       if (response.cart) {
-        return success(this.parseSingle(response.cart));
+          return success(this.factory.parseCheckout(this.context, response.cart));
       }
 
       throw new Error('Failed to set shipping method');
@@ -448,7 +414,7 @@ export class MedusaCheckoutCapability<
       await client.store.cart.update(medusaId.key, {
         metadata: {
           order_id: response.order.id,
-          order_display_id: response.order?.display_id ? +'' : '',
+          order_display_id: response.order?.display_id ? response.order.display_id + '' : '',
         },
       });
       const refreshedCheckout = await this.getById({
@@ -482,217 +448,5 @@ export class MedusaCheckoutCapability<
     };
   }
 
-  /**
-   * Extension point to control the parsing of an address from a store cart address
-   * @param storeAddress
-   * @returns
-   */
-  protected composeAddressFromStoreAddress(storeAddress: StoreCartAddress): Address {
-    return {
-      identifier: AddressIdentifierSchema.parse({
-        nickName: storeAddress.id,
-      } satisfies AddressIdentifier),
-      firstName: storeAddress.first_name || '',
-      lastName: storeAddress.last_name || '',
-      streetAddress: storeAddress.address_1 || '',
-      streetNumber: storeAddress.address_2 || '',
-      city: storeAddress.city || '',
-      postalCode: storeAddress.postal_code || '',
-      countryCode: storeAddress.country_code || '',
-      region: '',
-    };
-  }
 
-  /**
-   * Extension point to control the parsing of a single cart item price
-   * @param remoteItem
-   * @param currency
-   * @returns
-   */
-  protected parseItemPrice(
-    remoteItem: StoreCartLineItem,
-    currency: Currency
-  ): ItemCostBreakdown {
-    return parseMedusaItemPrice(remoteItem, currency);
-  }
-
-  /**
-   * Extension point to control the parsing of the cost breakdown of a cart
-   * @param remote
-   * @returns
-   */
-  protected parseCostBreakdown(remote: StoreCart): CostBreakDown {
-    return parseMedusaCostBreakdown(remote);
-  }
-
-
-  /**
-   * Extension point to control the parsing of a single checkout item
-   * @param remoteItem
-   * @param currency
-   * @returns
-   */
-  protected parseCheckoutItem(
-    remoteItem: StoreCartLineItem,
-    currency: Currency
-  ): CheckoutItem {
-    const unitPrice = remoteItem.unit_price || 0;
-    const totalPrice = unitPrice * remoteItem.quantity || 0;
-    const discountTotal = remoteItem.discount_total || 0;
-
-    const item: CheckoutItem = {
-      identifier: {
-        key: remoteItem.id,
-      },
-      variant: {
-        sku: remoteItem.variant_sku || '',
-      },
-      quantity: remoteItem.quantity || 1,
-
-      price:  this.parseItemPrice(remoteItem,currency),
-    };
-    return item;
-  }
-
-  /**
-   * Extension point to control the parsing of the Checkout object
-   * @param remote
-   * @returns
-   */
-  protected parseSingle(remote: StoreCart): CheckoutFactoryCheckoutOutput<TFactory> {
-    const identifier = {
-      key: remote.id,
-      //        region_id: remote.region_id,
-    };
-
-    const name = '' + (remote.metadata?.['name'] || '');
-    const description = '' + (remote.metadata?.['description'] || '');
-
-    const price = this.parseCostBreakdown(remote);
-
-    // Parse checkout items
-    const items = new Array<CheckoutItem>();
-    for (const remoteItem of remote.items || []) {
-      items.push(this.parseCheckoutItem(remoteItem, price.grandTotal.currency));
-    }
-
-    const billingAddress = remote.billing_address
-      ? this.composeAddressFromStoreAddress(remote.billing_address)
-      : undefined;
-    const shippingAddress = remote.shipping_address
-      ? this.composeAddressFromStoreAddress(remote.shipping_address)
-      : undefined;
-
-    const backupUnattendedDelivery =
-      remote.metadata?.['consent_for_unattended_delivery'] !== undefined
-        ? remote.metadata?.['consent_for_unattended_delivery'] === 'true'
-        : undefined;
-    const backupInstructions =
-      remote.metadata?.['instructions'] !== undefined
-        ? remote.metadata?.['instructions'] + ''
-        : undefined;
-    const backupPickupPoint =
-      remote.metadata?.['pickup_point'] !== undefined
-        ? remote.metadata?.['pickup_point'] + ''
-        : undefined;
-
-    let shippingInstruction;
-    remote.shipping_methods?.forEach((sm) => {
-      let pickupPoint = '';
-      let instructions = '';
-      let consentForUnattendedDelivery = false;
-      if (sm.data) {
-        pickupPoint = sm.data['pickup_point'] + '' || '';
-        instructions = sm.data['instructions'] + '' || '';
-        consentForUnattendedDelivery =
-          sm.data['consent_for_unattended_delivery'] === 'true';
-      }
-
-      if (!pickupPoint) {
-        pickupPoint = backupPickupPoint || '';
-      }
-      if (!instructions) {
-        instructions = backupInstructions || '';
-      }
-      if (!consentForUnattendedDelivery) {
-        consentForUnattendedDelivery = backupUnattendedDelivery || false;
-      }
-
-      // currently Medusa only supports one shipping method per cart
-      shippingInstruction = {
-        shippingMethod: { key: sm.shipping_option_id },
-        consentForUnattendedDelivery,
-        instructions,
-        pickupPoint,
-      };
-    });
-
-    const paymentInstructions = new Array<PaymentInstruction>();
-    for (const remotePayment of remote.payment_collection?.payment_sessions ||
-      []) {
-      if (
-        remotePayment.status === 'canceled' ||
-        remotePayment.status === 'error'
-      ) {
-        console.warn(
-          `Skipping payment session ${remotePayment.id} with status ${remotePayment.status}`
-        );
-        continue;
-      }
-      const paymentMethodIdentifier: PaymentMethodIdentifier = {
-        method: remotePayment.provider_id,
-        name: remotePayment.provider_id,
-        paymentProcessor: remotePayment.provider_id,
-      };
-
-      paymentInstructions.push({
-          identifier: {
-            key: remotePayment.id,
-          },
-          amount: {
-            value: remotePayment.amount,
-            currency: remotePayment.currency_code?.toUpperCase() as Currency,
-          },
-          paymentMethod: paymentMethodIdentifier,
-          protocolData: remotePayment.data
-            ? Object.entries(remotePayment.data).map(([key, value]) => ({
-                key,
-                value: String(value),
-              }))
-            : [],
-          status: 'pending',
-        }
-      );
-    }
-
-    const originalCartReference: MedusaCartIdentifier = {
-      key: remote.id,
-      region: remote.region_id,
-    };
-
-    let resultingOrder: MedusaOrderIdentifier | undefined = undefined;
-    if (remote.metadata?.['order_id']) {
-      resultingOrder = {
-        key: remote.metadata?.['order_id'] + '' || '',
-        display_id: Number(remote.metadata?.['order_display_id'] + '' || '0'),
-      };
-    }
-
-    const result: Checkout = {
-      identifier,
-      name,
-      description,
-      price,
-      items,
-      originalCartReference,
-      paymentInstructions,
-      readyForFinalization: false,
-      billingAddress,
-      resultingOrder,
-      shippingAddress,
-      shippingInstruction
-    };
-
-    return this.factory.parseCheckout(this.context, result);
-  }
 }

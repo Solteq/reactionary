@@ -66,9 +66,12 @@ describe.each([PrimaryProvider.MEDUSA, PrimaryProvider.COMMERCETOOLS])(
         assert.fail();
       }
 
-      expect(updatedProfile.value.email).toBe(
-        `martin.rogne+test-${time}-a@solteq.com`
-      );
+      // MEDUSA does not support changing the email of a user.....
+      if (provider !== PrimaryProvider.MEDUSA) {
+        expect(updatedProfile.value.email).toBe(
+          `martin.rogne+test-${time}-a@solteq.com`
+        );
+      }
       expect(updatedProfile.value.phone).toBe('+4712345678');
       expect(updatedProfile.value.billingAddress).toBeUndefined();
     });

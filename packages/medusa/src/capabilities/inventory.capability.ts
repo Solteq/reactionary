@@ -1,26 +1,23 @@
 import {
-  type Inventory,
-  type InventoryQueryBySKU,
-  type RequestContext,
   type Cache,
   InventoryCapability,
-  InventorySchema,
-  InventoryQueryBySKUSchema,
-  Reactionary,
-  type InventoryIdentifier,
   type InventoryFactory,
   type InventoryFactoryOutput,
   type InventoryFactoryWithOutput,
-  type InventoryStatus,
+  type InventoryQueryBySKU,
+  InventoryQueryBySKUSchema,
+  InventorySchema,
   type NotFoundError,
+  Reactionary,
+  type RequestContext,
   type Result,
   success,
+  error
 } from '@reactionary/core';
-import type * as z from 'zod';
-import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import { MedusaAdminAPI, type MedusaAPI } from '../core/client.js';
 import createDebug from 'debug';
+import { MedusaAdminAPI, type MedusaAPI } from '../core/client.js';
 import type { MedusaInventoryFactory } from '../factories/inventory/inventory.factory.js';
+import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 const debug = createDebug('reactionary:medusa:inventory');
 
@@ -70,7 +67,7 @@ export class MedusaInventoryCapability<
         if (debug.enabled) {
           debug(`No inventory items found for SKU: ${sku}`);
         }
-        return success(this.createEmptyInventoryResult(sku, fulfillmentCenterKey));
+        return error<NotFoundError>({ type: 'NotFound', identifier: payload.variant });
       }
 
       const inventoryItem = inventoryResponse.inventory_items[0];
@@ -105,83 +102,22 @@ export class MedusaInventoryCapability<
         if (debug.enabled) {
           debug(`No stock location found with name: ${fulfillmentCenterKey}`);
         }
-        return success(this.createEmptyInventoryResult(sku, fulfillmentCenterKey));
+        return error<NotFoundError>({ type: 'NotFound', identifier: payload.fulfilmentCenter });
       }
 
-      return success(this.parseSingle({
+      return success(this.factory.parseInventory(this.context, {
         sku: payload.variant.sku,
         fulfillmentCenterKey,
         quantity,
         inventoryItemId: inventoryItem.id,
       }));
 
-    } catch (error) {
+    } catch (err) {
       if (debug.enabled) {
-        debug(`Error fetching inventory for SKU: ${sku}`, error);
+        debug(`Error fetching inventory for SKU: ${sku}`, err);
       }
-      return success(this.createEmptyInventoryResult(sku, fulfillmentCenterKey));
+      return error<NotFoundError>({ type: 'NotFound', identifier: payload.variant });
     }
   }
 
-  protected parseSingle(_body: unknown): InventoryFactoryOutput<TFactory> {
-    const { sku, fulfillmentCenterKey, quantity } = _body as {
-      sku: string;
-      fulfillmentCenterKey: string;
-      quantity: number;
-      inventoryItemId: string;
-    };
-
-    const identifier = {
-      variant: {
-        sku,
-      },
-      fulfillmentCenter: {
-        key: fulfillmentCenterKey,
-      },
-    } satisfies InventoryIdentifier;
-
-    let status: InventoryStatus = 'outOfStock';
-    if (quantity > 0) {
-      status = 'inStock';
-    }
-
-    const result = {
-      identifier,
-      quantity,
-      status
-    } satisfies Inventory;
-
-    return this.factory.parseInventory(this.context, result);
-  }
-
-  /**
-   * Utility function to create an empty inventory result.
-   * This is used when no inventory is found for a given SKU + fulfillment center combination.
-   * @param sku
-   * @param fulfillmentCenterKey
-   * @returns
-   */
-  protected createEmptyInventoryResult(
-    sku: string,
-    fulfillmentCenterKey: string,
-  ): InventoryFactoryOutput<TFactory> {
-    const identifier = {
-      variant: { sku },
-      fulfillmentCenter: { key: fulfillmentCenterKey },
-    } satisfies InventoryIdentifier;
-
-    const quantity = 0;
-    const status = 'outOfStock';
-    const result = {
-      identifier,
-      quantity,
-      status
-    } satisfies Inventory;
-
-    return this.factory.parseInventory(this.context, result);
-  }
-
-  protected override getResourceName(): string {
-    return 'inventory';
-  }
 }

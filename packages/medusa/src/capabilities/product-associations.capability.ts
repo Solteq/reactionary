@@ -1,33 +1,23 @@
-import {
-  ProductAssociationsCapability,
-  Reactionary,
-  ImageSchema,
-  ProductSearchResultItemVariantSchema,
-  ProductVariantIdentifierSchema,
-  success,
-} from '@reactionary/core';
 import type {
+  Cache,
   ProductAssociationsFactory,
   ProductAssociationsFactoryOutput,
   ProductAssociationsFactoryWithOutput,
-} from '@reactionary/core';
-import type {
-  ProductVariantIdentifier,
-  ProductIdentifier,
-  ProductAssociation,
-  ProductSearchResultItem,
-  ProductSearchResultItemVariant,
   ProductAssociationsGetAccessoriesQuery,
-  ProductAssociationsGetSparepartsQuery,
   ProductAssociationsGetReplacementsQuery,
-  Result,
+  ProductAssociationsGetSparepartsQuery,
+  ProductIdentifier,
   RequestContext,
-  Cache,
+  Result,
 } from '@reactionary/core';
-import type { MedusaConfiguration } from '../schema/configuration.schema.js';
+import {
+  ProductAssociationsCapability,
+  Reactionary,
+  success
+} from '@reactionary/core';
 import type { MedusaAPI } from '../core/client.js';
-import type { StoreProduct, StoreProductVariant } from '@medusajs/types';
 import type { MedusaProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
+import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 export class MedusaProductAssociationsCapability<
   TFactory extends ProductAssociationsFactory = MedusaProductAssociationsFactory,
@@ -49,7 +39,7 @@ export class MedusaProductAssociationsCapability<
     this.factory = factory;
   }
 
-  protected async fetchAssociatedProductsFor(productKey: ProductIdentifier, maxNumberOfAssociations: number, attributeName: string): Promise<ProductSearchResultItem[]> {
+  protected async fetchAssociatedProductsFor(productKey: ProductIdentifier, maxNumberOfAssociations: number, attributeName: string) {
     const client = await this.medusa.getClient();
 
     // First, get the main product to check for associations in metadata
@@ -86,7 +76,7 @@ export class MedusaProductAssociationsCapability<
       limit: maxNumberOfAssociations,
     });
 
-    return associatedProductsResponse.products.map(product => this.parseSingle(product));
+    return associatedProductsResponse.products || [];
   }
 
 
@@ -101,15 +91,14 @@ export class MedusaProductAssociationsCapability<
   ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
     const associatedProducts = await this.fetchAssociatedProductsFor(query.forProduct, query.numberOfAccessories || 4, 'reactionaryaccessories');
 
-    const result: ProductAssociation[] = associatedProducts.map(product => ({
-      associationIdentifier: {
-        key: `${query.forProduct.key}-accessory-${product.identifier.key}`
-      },
-      associationReturnType: 'productSearchResultItem',
+    const result = associatedProducts.map(product => this.factory.parseAssociation(this.context, {
       product,
-    } satisfies ProductAssociation));
+      identifier: {
+        key: `${query.forProduct.key}-accessory-${product.external_id}`
+      },
+    }));
 
-    return success(result.map((x) => this.factory.parseAssociation(this.context, x)));
+    return success(result);
   }
 
   @Reactionary({
@@ -123,15 +112,14 @@ export class MedusaProductAssociationsCapability<
   ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
     const associatedProducts = await this.fetchAssociatedProductsFor(query.forProduct, query.numberOfSpareparts || 4, 'reactionaryspareparts');
 
-    const result: ProductAssociation[] = associatedProducts.map(product => ({
-      associationIdentifier: {
-        key: `${query.forProduct.key}-sparepart-${product.identifier.key}`
-      },
-      associationReturnType: 'productSearchResultItem',
+    const result = associatedProducts.map(product => this.factory.parseAssociation(this.context, {
       product,
-    } satisfies ProductAssociation));
+      identifier: {
+        key: `${query.forProduct.key}-sparepart-${product.external_id}`
+      },
+    }));
 
-    return success(result.map((x) => this.factory.parseAssociation(this.context, x)));
+    return success(result);
   }
 
   @Reactionary({
@@ -145,53 +133,14 @@ export class MedusaProductAssociationsCapability<
   ): Promise<Result<ProductAssociationsFactoryOutput<TFactory>[]>> {
     const associatedProducts = await this.fetchAssociatedProductsFor(query.forProduct, query.numberOfReplacements || 4, 'reactionaryreplacements');
 
-    const result: ProductAssociation[] = associatedProducts.map(product => ({
-      associationIdentifier: {
-        key: `${query.forProduct.key}-replacement-${product.identifier.key}`
-      },
-      associationReturnType: 'productSearchResultItem',
+    const result = associatedProducts.map(product => this.factory.parseAssociation(this.context, {
       product,
-    } satisfies ProductAssociation));
+      identifier: {
+        key: `${query.forProduct.key}-replacement-${product.external_id}`
+      },
+    }));
 
-    return success(result.map((x) => this.factory.parseAssociation(this.context, x)));
-  }
-
-  protected parseSingle(_body: StoreProduct): ProductSearchResultItem {
-    const heroVariant = _body.variants?.[0];
-    const identifier = { key: _body.external_id || _body.id};
-    const slug = _body.handle;
-    const name = heroVariant?.title || _body.title;
-    const variants = [];
-    if (heroVariant) {
-      variants.push(this.parseVariant(heroVariant, _body));
-    }
-
-    const result = {
-      identifier,
-      name,
-      slug,
-      variants,
-    } satisfies ProductSearchResultItem;
-
-    return result;
-  }
-
-
-  protected parseVariant(
-    variant: StoreProductVariant,
-    product: StoreProduct
-  ): ProductSearchResultItemVariant {
-    const img = ImageSchema.parse({
-      sourceUrl: product.images?.[0].url ?? '',
-      altText: product.title || undefined,
-    });
-
-    return ProductSearchResultItemVariantSchema.parse({
-      variant: ProductVariantIdentifierSchema.parse({
-        sku: variant.sku || '',
-      } satisfies ProductVariantIdentifier),
-      image: img,
-    } satisfies Partial<ProductSearchResultItemVariant>);
+    return success(result);
   }
 
 }

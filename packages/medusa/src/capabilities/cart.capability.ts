@@ -107,7 +107,7 @@ export class MedusaCartCapability<
       }
 
       if (cartResponse.cart) {
-        return success(this.parseSingle(cartResponse.cart));
+        return success(this.factory.parseCart(this.context, cartResponse.cart));
       }
 
       return error<NotFoundError>({
@@ -188,7 +188,7 @@ export class MedusaCartCapability<
       }
 
       if (response.cart) {
-        return success(this.parseSingle(response.cart));
+        return success(this.factory.parseCart(this.context, response.cart));
       }
 
       throw new Error('Failed to add item to cart');
@@ -217,7 +217,7 @@ export class MedusaCartCapability<
       );
 
       if (response.parent) {
-        return success(this.parseSingle(response.parent));
+        return success(this.factory.parseCart(this.context, response.parent));
       }
 
       throw new Error('Failed to remove item from cart');
@@ -267,7 +267,7 @@ export class MedusaCartCapability<
       );
 
       if (response.cart) {
-        return success(this.parseSingle(response.cart));
+        return success(this.factory.parseCart(this.context, response.cart));
       }
 
       throw new Error('Failed to change item quantity');
@@ -398,7 +398,7 @@ export class MedusaCartCapability<
       );
  */
       if (response.cart) {
-        return success(this.parseSingle(response.cart));
+        return success(this.factory.parseCart(this.context, response.cart));
       }
 
       throw new Error('Failed to apply coupon code');
@@ -453,7 +453,7 @@ export class MedusaCartCapability<
       */
 
       if (response.cart) {
-        return success(this.parseSingle(response.cart));
+        return success(this.factory.parseCart(this.context, response.cart));
       }
       throw new Error('Failed to remove coupon code');
     } catch (error) {
@@ -498,7 +498,7 @@ export class MedusaCartCapability<
           activeCartId: updatedCartResponse.cart.id,
         });
 
-        return success(this.parseSingle(updatedCartResponse.cart));
+        return success(this.factory.parseCart(this.context, updatedCartResponse.cart));
       }
 
       throw new Error('Failed to change currency');
@@ -560,118 +560,4 @@ export class MedusaCartCapability<
     return this.medusaApi.getClient();
   }
 
-  /**
-   * Extension point to control the parsing of a single cart item price
-   * @param remoteItem
-   * @param currency
-   * @returns
-   */
-  protected parseItemPrice(
-    remoteItem: StoreCartLineItem,
-    currency: Currency
-  ): ItemCostBreakdown {
-    return parseMedusaItemPrice(remoteItem, currency);
-  }
-
-  /**
-   * Extension point to control the parsing of the cost breakdown of a cart
-   * @param remote
-   * @returns
-   */
-  protected parseCostBreakdown(remote: StoreCart): CostBreakDown {
-    return parseMedusaCostBreakdown(remote);
-  }
-
-  /**
-   * Extension point to control the parsing of a single cart item
-   * @param remoteItem
-   * @param currency
-   * @returns
-   */
-  protected parseCartItem(
-    remoteItem: StoreCartLineItem,
-    currency: Currency
-  ): CartItem {
-
-    const item: CartItem = {
-      identifier: {
-        key: remoteItem.id,
-      },
-      product: {
-        key: remoteItem.product_id || '',
-      },
-      variant: ProductVariantIdentifierSchema.parse({
-        sku: remoteItem.variant_sku || '',
-      } satisfies ProductVariantIdentifier),
-      quantity: remoteItem.quantity || 1,
-      price: parseMedusaItemPrice(remoteItem, currency),
-    };
-    return item;
-  }
-
-  /**
-   * Extension point to control the parsing of a single cart
-   * @param remote
-   * @returns
-   */
-  protected parseSingle(remote: StoreCart): CartFactoryCartOutput<TFactory> {
-    const identifier = MedusaCartIdentifierSchema.parse({
-      key: remote.id,
-      region_id: remote.region_id,
-    } satisfies MedusaCartIdentifier);
-
-    const name = '' + (remote.metadata?.['name'] || '');
-    const description = '' + (remote.metadata?.['description'] || '');
-
-    const price = this.parseCostBreakdown(remote);
-
-    // Parse cart items
-    const items = new Array<CartItem>();
-
-    const allItems = remote.items || [];
-    allItems.sort((a, b) =>
-      a.created_at && b.created_at
-        ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        : 0
-    );
-    for (const remoteItem of allItems) {
-      items.push(this.parseCartItem(remoteItem, price.grandTotal.currency));
-    }
-
-
-    const appliedPromotions = [];
-    if (remote.promotions) {
-      for (const promo of remote.promotions) {
-
-        const promotionName = promo.code;
-        let promoDescription = '';
-        if (promo.application_method?.type === 'percentage') {
-          promoDescription = `-${promo.application_method.value}%`;
-        }
-        if (promo.application_method?.type === 'fixed') {
-          promoDescription = `-${promo.application_method.value} ${price.grandTotal.currency}`;
-        }
-        appliedPromotions.push({
-          code: promo.code || '',
-          isCouponCode: promo.is_automatic ? false : true,
-          name: promotionName || promoDescription,
-          description: promoDescription
-        } satisfies Promotion);
-      }
-    }
-
-    const result = {
-      identifier,
-      name,
-      description,
-      price,
-      items,
-      appliedPromotions,
-      userId: {
-        userId: '???',
-      },
-    } satisfies Cart;
-
-    return this.factory.parseCart(this.context, result);
-  }
 }
