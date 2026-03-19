@@ -137,6 +137,14 @@ class Magento {
         );
       },
     },
+    category: {
+      getById: async (categoryId: string) => {
+        return this.rest.request<any>('GET', `/V1/categories/${encodeURIComponent(categoryId)}`);
+      },
+      list: async (params: URLSearchParams) => {
+        return this.rest.request<any>('GET', `/V1/categories/list?${params.toString()}`);
+      },
+    },
   };
 }
 
