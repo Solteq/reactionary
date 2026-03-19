@@ -184,7 +184,7 @@ export class CommercetoolsEmployeeCapability<
         if (payload.search.lastName && !assocLastName.startsWith(payload.search.lastName.toLowerCase())) {
           return false;
         }
-        if (payload.search.role && assocRole !== payload.search.role) {
+        if (payload.search.role && assocRole !== this.factory.mapRole(payload.search.role)) {
           return false;
         }
         return true;

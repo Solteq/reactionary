@@ -45,7 +45,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
   'Employee Invitations - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
-    let company: Company | null;
     let companyIdentifier: CompanyIdentifier;
     let testOrg: ReturnType<typeof testData.requestTemplate>;
     let adminUsername = '';
@@ -113,7 +112,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
 
     beforeEach(async () => {
       client = createClient(provider);
-      company = null;
 
       const time = Date.now().toString();
       testOrg = testData.requestTemplate(time);
@@ -156,7 +154,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       if (!orgResponse.success) {
         assert.fail(JSON.stringify(orgResponse.error));
       }
-      company = orgResponse.value;
     }, 15000);
 
     it('should allow inviting a new employee to the company', async () => {

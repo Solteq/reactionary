@@ -37,23 +37,23 @@ export abstract class AnalyticsCapability extends BaseCapability {
     }
   }
 
-  protected async processProductSummaryView(event: AnalyticsMutationProductSummaryViewEvent) {
+  protected async processProductSummaryView(_event: AnalyticsMutationProductSummaryViewEvent) {
     // Default is no-op
   }
 
-  protected async processProductSummaryClick(event: AnalyticsMutationProductSummaryClickEvent) {
+  protected async processProductSummaryClick(_event: AnalyticsMutationProductSummaryClickEvent) {
     // Default is no-op
   }
 
-  protected async processProductDetailsView(event: AnalyticsMutationProductDetailsViewEvent) {
+  protected async processProductDetailsView(_event: AnalyticsMutationProductDetailsViewEvent) {
     // Default is no-op
   }
 
-  protected async processProductAddToCart(event: AnalyticsMutationProductAddToCartEvent) {
+  protected async processProductAddToCart(_event: AnalyticsMutationProductAddToCartEvent) {
     // Default is no-op
   }
 
-  protected async processPurchase(event: AnalyticsMutationPurchaseEvent) {
+  protected async processPurchase(_event: AnalyticsMutationPurchaseEvent) {
     // Default is no-op
   }
 }

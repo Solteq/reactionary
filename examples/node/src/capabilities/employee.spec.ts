@@ -47,7 +47,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
   'Employees - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
-    let company: Company | null;
     let companyIdentifier: CompanyIdentifier;
     let testOrg: ReturnType<typeof testData.requestTemplate>;
     let adminUsername = '';
@@ -143,7 +142,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
 
     beforeEach(async () => {
       client = createClient(provider);
-      company = null;
 
       const time = Date.now().toString();
       testOrg = testData.requestTemplate(time);
@@ -186,7 +184,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       if (!orgResponse.success) {
         assert.fail(JSON.stringify(orgResponse.error));
       }
-      company = orgResponse.value;
     }, 15000);
 
     describe('Roles', () => {

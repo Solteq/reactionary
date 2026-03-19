@@ -1,4 +1,4 @@
-import type { CompanyDraft, MyCompanyDraft } from '@commercetools/platform-sdk';
+import type { MyCompanyDraft } from '@commercetools/platform-sdk';
 import type {
   Cache,
   CompanyRegistrationFactory,
@@ -152,7 +152,7 @@ export class CommercetoolsCompanyRegistrationCapability<
       .withId({ ID: payload.requestIdentifier.key })
       .get()
       .execute().catch((error) => {
-        if (error?.code === "404") {
+        if (error?.statusCode === 404) {
           return null;
         }
         throw error;

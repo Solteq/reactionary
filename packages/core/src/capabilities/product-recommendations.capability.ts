@@ -47,35 +47,35 @@ export abstract class ProductRecommendationsCapability extends BaseCapability {
     return success([]);
   }
 
-  public async getCollection(query: ProductRecommendationsByCollectionQuery): Promise<Result<ProductRecommendation[]>> {
+  public async getCollection(_query: ProductRecommendationsByCollectionQuery): Promise<Result<ProductRecommendation[]>> {
     return success([]);
   }
 
-  protected async getFrequentlyBoughtTogetherRecommendations(query: ProductRecommendationAlgorithmFrequentlyBoughtTogetherQuery): Promise<ProductRecommendation[]> {
+  protected async getFrequentlyBoughtTogetherRecommendations(_query: ProductRecommendationAlgorithmFrequentlyBoughtTogetherQuery): Promise<ProductRecommendation[]> {
      return [];
   }
 
-  protected async getSimilarProductsRecommendations(query: ProductRecommendationAlgorithmSimilarProductsQuery): Promise<ProductRecommendation[]> {
+  protected async getSimilarProductsRecommendations(_query: ProductRecommendationAlgorithmSimilarProductsQuery): Promise<ProductRecommendation[]> {
     return [];
   }
 
-  protected async getTrendingInCategoryRecommendations(query: ProductRecommendationAlgorithmTrendingInCategoryQuery): Promise<ProductRecommendation[]> {
+  protected async getTrendingInCategoryRecommendations(_query: ProductRecommendationAlgorithmTrendingInCategoryQuery): Promise<ProductRecommendation[]> {
     return [];
   }
 
-  protected async getRelatedProductsRecommendations(query: ProductRecommendationAlgorithmRelatedProductsQuery): Promise<ProductRecommendation[]> {
+  protected async getRelatedProductsRecommendations(_query: ProductRecommendationAlgorithmRelatedProductsQuery): Promise<ProductRecommendation[]> {
     return [];
   }
 
-  protected async getPopularProductsRecommendations(query: ProductRecommendationAlgorithmPopuplarProductsQuery): Promise<ProductRecommendation[]> {
+  protected async getPopularProductsRecommendations(_query: ProductRecommendationAlgorithmPopuplarProductsQuery): Promise<ProductRecommendation[]> {
     return [];
   }
 
-  protected async getTopPicksProductsRecommendations(query: ProductRecommendationAlgorithmTopPicksProductsQuery): Promise<ProductRecommendation[]> {
+  protected async getTopPicksProductsRecommendations(_query: ProductRecommendationAlgorithmTopPicksProductsQuery): Promise<ProductRecommendation[]> {
     return [];
   }
 
-  protected async getAlsoViewedProductsRecommendations(query: ProductRecommendationAlgorithmAlsoViewedProductsQuery): Promise<ProductRecommendation[]> {
+  protected async getAlsoViewedProductsRecommendations(_query: ProductRecommendationAlgorithmAlsoViewedProductsQuery): Promise<ProductRecommendation[]> {
     return [];
   }
 

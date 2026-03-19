@@ -1,7 +1,6 @@
 import * as z from "zod";
+import { ProductIdentifierSchema } from "../models/identifiers.model.js";
 import { BaseQuerySchema } from "./base.query.js";
-import { ProductIdentifierSchema, ProductVariantIdentifierSchema } from "../models/identifiers.model.js";
-import { CartItemSchema } from "../models/cart.model.js";
 
 export const ProductAssociationsGetAccessoriesQuerySchema = BaseQuerySchema.extend({
   forProduct: ProductIdentifierSchema.describe('The product identifier for which to get accessory recommendations. The provider should return recommendations that are relevant to this product, e.g., products that are frequently bought together, products that are similar in style or category, or products that are popular among users with similar preferences.'),
