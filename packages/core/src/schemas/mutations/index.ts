@@ -9,3 +9,7 @@ export * from './product-reviews.mutation.js';
 export * from './profile.mutation.js';
 export * from './search.mutation.js';
 export * from './checkout.mutation.js';
+export * from './company-registration.mutation.js';
+export * from './employee.mutation.js';
+export * from './employee-invitation.mutation.js';
+export * from './company.mutation.js';

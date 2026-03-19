@@ -46,10 +46,18 @@ import type {
   StoreFactory,
   StoreFactoryWithOutput,
   StoreCapability,
+  CompanyRegistrationCapability,
+  CompanyCapability,
+  EmployeeCapability,
+  EmployeeInvitationCapability,
 } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { CommercetoolsConfiguration } from './configuration.schema.js';
+import type { CommercetoolsCompanyRegistrationFactory } from '../factories/company-registration/company-registration.factory.js';
+import type { CommercetoolsCompanyFactory } from '../factories/company/company.factory.js';
+import type { CommercetoolsEmployeeFactory } from '../factories/employee/employee.factory.js';
+import type { CommercetoolsEmployeeInvitationFactory } from '../factories/employee-invitation/employee-invitation.factory.js';
 import * as z from 'zod';
 
 const EnabledCapabilitySchema = z.looseObject({
@@ -93,6 +101,10 @@ export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
     category: EnabledCapabilitySchema.optional(),
     store: EnabledCapabilitySchema.optional(),
     profile: EnabledCapabilitySchema.optional(),
+    companyRegistration: EnabledCapabilitySchema.optional(),
+    company: EnabledCapabilitySchema.optional(),
+    employee: EnabledCapabilitySchema.optional(),
+    employeeInvitation: EnabledCapabilitySchema.optional(),
     product: OverridableCapabilitySchema.optional(),
     checkout: OverridableCapabilitySchema.optional(),
   })
@@ -177,6 +189,18 @@ export type CommercetoolsOrderSearchCapabilityConfig = CommercetoolsCapabilityCo
   OrderSearchFactoryWithOutput<OrderSearchFactory>,
   OrderSearchCapability
 >;
+export type CommercetoolsCompanyRegistrationCapabilityConfig = CommercetoolsCapabilityConfig<
+  CommercetoolsCompanyRegistrationFactory,
+  CompanyRegistrationCapability
+>;
+export type CommercetoolsCompanyCapabilityConfig = CommercetoolsCapabilityConfig<
+  CommercetoolsCompanyFactory,
+  CompanyCapability
+>;
+export type CommercetoolsEmployeeCapabilityConfig = CommercetoolsCapabilityConfig<
+  CommercetoolsEmployeeFactory,
+  EmployeeCapability
+>;
 
 export type CommercetoolsCapabilityConfigMap<
   TProductFactory extends ProductFactory = ProductFactory,
@@ -231,6 +255,22 @@ export type CommercetoolsCapabilityConfigMap<
   orderSearch: EnabledCapabilityConfig<
     OrderSearchFactoryWithOutput<OrderSearchFactory>,
     OrderSearchCapability
+  >;
+  companyRegistration: EnabledCapabilityConfig<
+    CommercetoolsCompanyRegistrationFactory,
+    CompanyRegistrationCapability
+  >;
+  company: EnabledCapabilityConfig<
+    CommercetoolsCompanyFactory,
+    CompanyCapability
+  >;
+  employee: EnabledCapabilityConfig<
+    CommercetoolsEmployeeFactory,
+    EmployeeCapability
+  >;
+  employeeInvitation: EnabledCapabilityConfig<
+    CommercetoolsEmployeeInvitationFactory,
+    EmployeeInvitationCapability
   >;
 };
 

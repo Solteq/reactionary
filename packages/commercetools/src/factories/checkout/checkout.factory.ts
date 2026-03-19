@@ -8,6 +8,7 @@ import type {
 import type {
   CheckoutSchema,
   PaymentMethodSchema,
+  PointOfContact,
   ShippingMethodSchema} from '@reactionary/core';
 import {
   CheckoutItemSchema,
@@ -130,6 +131,11 @@ export class CommercetoolsCheckoutFactory<
       items.push(this.parseCheckoutItem(lineItem));
     }
 
+    const pointOfContact = {
+      email: data.billingAddress?.email || '',
+      phone: data.billingAddress?.phone,
+    } satisfies PointOfContact
+
     const shippingInstruction = this.parseShippingInstruction(data);
     const readyForFinalization = this.isReadyForFinalization(
       price,
@@ -151,6 +157,7 @@ export class CommercetoolsCheckoutFactory<
       paymentInstructions,
       items,
       price,
+      pointOfContact,
     } satisfies Checkout;
 
     return this.checkoutSchema.parse(result);

@@ -8,7 +8,7 @@ import {
 } from '@reactionary/core';
 import {
   FakeProductFactory,
-  FakeProductProvider,
+  FakeProductCapability,
   withFakeCapabilities,
 } from '@reactionary/fake';
 import { createInitialRequestContext } from '@reactionary/core'
@@ -23,7 +23,7 @@ describe('basic node provider extension (models)', () => {
   });
   type ExtendedProduct = z.infer<typeof ExtendedProductModel>;
 
-  class ExtendedProductProvider extends FakeProductProvider {
+  class ExtendedProductProvider extends FakeProductCapability {
     protected override composeSingle(body: string): ExtendedProduct {
       const result = {
         ...super.composeSingle(body),

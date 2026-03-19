@@ -16,3 +16,7 @@ export * from './product-list.capability.js'
 export * from './store.capability.js';
 export * from './order.capability.js'
 export * from './order-search.capability.js'
+export * from './company-registration.capability.js'
+export * from './employee.capability.js'
+export * from './employee-invitation.capability.js'
+export * from './company.capability.js';

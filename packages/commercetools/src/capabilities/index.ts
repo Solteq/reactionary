@@ -13,3 +13,6 @@ export * from './product-search.capability.js';
 export * from './store.capability.js';
 export * from './order.capability.js';
 export * from './checkout.capability.js';
+export * from './company-registration.capability.js';
+export * from './company.capability.js';
+export * from './employee.capability.js';

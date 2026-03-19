@@ -82,7 +82,11 @@ export function getCommercetoolsTestConfiguration() {
 
       },
     ],
-    facetFieldsForSearch: (process.env['CTP_FACET_FIELDS_FOR_SEARCH'] || '').split(',') || ['category.id' ]
+    facetFieldsForSearch: (process.env['CTP_FACET_FIELDS_FOR_SEARCH'] || '').split(',') || ['category.id' ],
+    adminClientId: process.env['CTP_ADMIN_CLIENT_ID'] || undefined,
+    adminClientSecret: process.env['CTP_ADMIN_CLIENT_SECRET'] || undefined,
+    listPriceChannelKey: process.env['CTP_LIST_PRICE_CHANNEL_KEY'] || undefined,
+    customerPriceChannelKey: process.env['CTP_CUSTOMER_PRICE_CHANNEL_KEY'] || undefined,
   } satisfies CommercetoolsConfiguration;
 }
 
@@ -118,11 +122,6 @@ export function createClient(provider: PrimaryProvider) {
           profile: { enabled: true },
         })
       );
-
-      builder = builder.withCapability(multicastProviders( {
-        anayltics: true,
-        productRecommendations: true, (ProductAssociationIdOnlySchema,  ProductSearchResultItemSchema, ExndedAlgoliaSearchItem )
-      }))
     }
 
     if (provider === PrimaryProvider.FAKE) {
@@ -153,6 +152,10 @@ export function createClient(provider: PrimaryProvider) {
           productReviews: { enabled: true },
           productList: { enabled: true },
           orderSearch: { enabled: true },
+          companyRegistration: { enabled: true },
+          company: { enabled: true },
+          employee: { enabled: true },
+          employeeInvitation: { enabled: true },
           store: { enabled: true },
           profile: { enabled: true },
         })

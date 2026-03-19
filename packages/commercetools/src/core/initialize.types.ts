@@ -33,6 +33,10 @@ import type { CommercetoolsProductReviewsFactory } from '../factories/product-re
 import type { CommercetoolsProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import type { CommercetoolsProfileFactory } from '../factories/profile/profile.factory.js';
 import type { CommercetoolsStoreFactory } from '../factories/store/store.factory.js';
+import type { CommercetoolsCompanyRegistrationFactory } from '../factories/company-registration/company-registration.factory.js';
+import type { CommercetoolsCompanyFactory } from '../factories/company/company.factory.js';
+import type { CommercetoolsEmployeeFactory } from '../factories/employee/employee.factory.js';
+import type { CommercetoolsEmployeeInvitationFactory } from '../factories/employee-invitation/employee-invitation.factory.js';
 import type { CommercetoolsCartCapability } from '../capabilities/cart.capability.js';
 import type { CommercetoolsCategoryCapability } from '../capabilities/category.capability.js';
 import type { CommercetoolsCheckoutCapability } from '../capabilities/checkout.capability.js';
@@ -48,6 +52,10 @@ import type { CommercetoolsProductReviewsCapability } from '../capabilities/prod
 import type { CommercetoolsProductSearchCapability } from '../capabilities/product-search.capability.js';
 import type { CommercetoolsProfileCapability } from '../capabilities/profile.capability.js';
 import type { CommercetoolsStoreCapability } from '../capabilities/store.capability.js';
+import type { CommercetoolsCompanyRegistrationCapability } from '../capabilities/company-registration.capability.js';
+import type { CommercetoolsCompanyCapability } from '../capabilities/company.capability.js';
+import type { CommercetoolsEmployeeCapability } from '../capabilities/employee.capability.js';
+import type { CommercetoolsEmployeeInvitationCapability } from '../capabilities/employee-invitation.capability.js';
 
 type EnabledCapability<TCapability> =
   TCapability extends { enabled: true } ? true : false;
@@ -87,6 +95,10 @@ type FactoryContractMap = {
   category: CategoryFactory;
   store: StoreFactory;
   profile: ProfileFactory;
+  companyRegistration: CommercetoolsCompanyRegistrationFactory;
+  company: CommercetoolsCompanyFactory;
+  employee: CommercetoolsEmployeeFactory;
+  employeeInvitation: CommercetoolsEmployeeInvitationFactory;
 };
 
 type DefaultFactoryMap = {
@@ -105,6 +117,10 @@ type DefaultFactoryMap = {
   category: CommercetoolsCategoryFactory;
   store: CommercetoolsStoreFactory;
   profile: CommercetoolsProfileFactory;
+  companyRegistration: CommercetoolsCompanyRegistrationFactory;
+  company: CommercetoolsCompanyFactory;
+  employee: CommercetoolsEmployeeFactory;
+  employeeInvitation: CommercetoolsEmployeeInvitationFactory;
 };
 
 type ResolvedFactoryMap<T extends CommercetoolsCapabilities> = {
@@ -135,6 +151,10 @@ type DefaultCapabilityMap<T extends CommercetoolsCapabilities> = {
   category: CommercetoolsCategoryCapability<ResolvedFactoryMap<T>['category']>;
   store: CommercetoolsStoreCapability<ResolvedFactoryMap<T>['store']>;
   profile: CommercetoolsProfileCapability<ResolvedFactoryMap<T>['profile']>;
+  companyRegistration: CommercetoolsCompanyRegistrationCapability;
+  company: CommercetoolsCompanyCapability;
+  employee: CommercetoolsEmployeeCapability;
+  employeeInvitation: CommercetoolsEmployeeInvitationCapability;
 };
 
 type CapabilityImplementationMap<T extends CommercetoolsCapabilities> = {

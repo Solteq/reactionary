@@ -22,4 +22,7 @@ export * from './order-search.model.js'
 export * from './product-recommendations.model.js';
 export * from './product-associations.model.js';
 export * from './product-list.model.js';
-export * from './organizational-entity.model.js';
+export * from './company.model.js';
+export * from './company-registration.model.js';
+export * from './employee.model.js';
+export * from './employee-invitation.model.js';
