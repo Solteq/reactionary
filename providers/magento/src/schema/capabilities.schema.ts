@@ -7,6 +7,7 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
   category: true,
   inventory: true,
   price: true,
+  identity: true,
 }).partial();
 
 export type MagentoCapabilities = z.infer<typeof MagentoCapabilitiesSchema>;
