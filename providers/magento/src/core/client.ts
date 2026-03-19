@@ -145,6 +145,14 @@ class Magento {
         return this.rest.request<any>('GET', `/V1/categories/list?${params.toString()}`);
       },
     },
+    inventory: {
+      getStockStatus: async (sku: string) => {
+        return this.rest.request<any>('GET', `/V1/stockStatuses/${encodeURIComponent(sku)}`);
+      },
+      getSourceItems: async (params: URLSearchParams) => {
+        return this.rest.request<any>('GET', `/V1/inventory/source-items?${params.toString()}`);
+      },
+    },
   };
 }
 
