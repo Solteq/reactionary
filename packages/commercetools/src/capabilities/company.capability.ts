@@ -375,7 +375,7 @@ protected async getBusinessUnit(key: string): Promise<BusinessUnit | null> {
   protected listCompaniesPayload(
     payload: CompanyQueryList,
   ) {
-      const offset = payload.search.paginationOptions.pageNumber -1 * payload.search.paginationOptions.pageSize;
+      const offset = (payload.search.paginationOptions.pageNumber - 1) * payload.search.paginationOptions.pageSize;
       const limit = payload.search.paginationOptions.pageSize;
       return {
           limit: limit,

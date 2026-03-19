@@ -1,4 +1,4 @@
-import { BaseModelSchema, CartIdentifierSchema, CategoryIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema, EmployeeInvitationSchema } from "@reactionary/core";
+import { BaseModelSchema, CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema, EmployeeInvitationSchema } from "@reactionary/core";
 import * as z from "zod";
 
 export const CommercetoolsCartIdentifierSchema = CartIdentifierSchema.extend({

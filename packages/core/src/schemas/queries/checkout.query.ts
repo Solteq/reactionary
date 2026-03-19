@@ -1,7 +1,6 @@
-import type * as z from 'zod';
-import { BaseQuerySchema } from './base.query.js';
-import { CheckoutIdentifierSchema } from '../models/identifiers.model.js';
 import type { InferType } from '../../zod-utils.js';
+import { CheckoutIdentifierSchema } from '../models/identifiers.model.js';
+import { BaseQuerySchema } from './base.query.js';
 
 export const CheckoutQueryByIdSchema = BaseQuerySchema.extend({
     identifier: CheckoutIdentifierSchema

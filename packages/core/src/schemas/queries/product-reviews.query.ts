@@ -1,7 +1,6 @@
-import * as z from 'zod';
-import { BaseQuerySchema } from './base.query.js';
-import { PaginationOptionsSchema, ProductIdentifierSchema } from '../models/index.js';
 import type { InferType } from '../../zod-utils.js';
+import { PaginationOptionsSchema, ProductIdentifierSchema } from '../models/index.js';
+import { BaseQuerySchema } from './base.query.js';
 
 export const ProductReviewsListQuerySchema = BaseQuerySchema.extend({
   product: ProductIdentifierSchema.meta({ description: 'The product to list reviews for.' }),
