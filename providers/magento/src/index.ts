@@ -8,3 +8,4 @@ export * from './providers/category.provider.js';
 export * from './providers/inventory.provider.js';
 export * from './providers/price.provider.js';
 export * from './providers/identity.provider.js';
+export * from './providers/cart.provider.js';

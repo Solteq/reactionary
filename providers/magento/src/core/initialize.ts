@@ -11,6 +11,7 @@ import { MagentoCategoryProvider } from "../providers/category.provider.js";
 import { MagentoInventoryProvider } from "../providers/inventory.provider.js";
 import { MagentoPriceProvider } from "../providers/price.provider.js";
 import { MagentoIdentityProvider } from "../providers/identity.provider.js";
+import { MagentoCartProvider } from "../providers/cart.provider.js";
 import { MagentoClient } from "./client.js";
 
 export function withMagentoCapabilities<T extends MagentoCapabilities>(
@@ -46,6 +47,10 @@ export function withMagentoCapabilities<T extends MagentoCapabilities>(
 
     if (caps.identity) {
       client.identity = new MagentoIdentityProvider(configuration, cache, context, magentoClient);
+    }
+
+    if (caps.cart) {
+      client.cart = new MagentoCartProvider(configuration, cache, context, magentoClient);
     }
 
     return client;
