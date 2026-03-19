@@ -306,7 +306,14 @@ export class CommercetoolsProfileCapability<
         address: this.createCTAddressDraft( payload.address)
       });
     }
-
+    updateActions.push({
+      action: 'setFirstName',
+      firstName: payload.address.firstName
+    },
+    {
+      action: 'setLastName',
+      lastName: payload.address.lastName
+    });
     if (updateActions.length > 0) {
       const updateResponse = await client
         .me()

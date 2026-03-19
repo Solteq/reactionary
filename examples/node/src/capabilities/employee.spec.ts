@@ -8,6 +8,8 @@ import type {
   CompanyRegistrationRequest,
   RegisteredIdentity,
   Result,
+  Cache,
+  Client,
 } from '@reactionary/core';
 
 const testData = {
@@ -51,6 +53,18 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
     let adminUsername = '';
     const adminPassword = 'password1235!';
 
+    async function getCurrentUserId(client: Client & { cache: Cache; }) {
+      const employee = await client.identity.getSelf({});
+      if (!employee.success) {
+        assert.fail(JSON.stringify(employee.error));
+      }
+      if (employee.value.type !== 'Registered') {
+        assert.fail('Expected a Registered identity');
+      }
+      return employee.value.id;
+    }
+
+
     async function registerUserAndAssert(username: string, password: string): Promise<RegisteredIdentity> {
       const identity = await client.identity.register({
         username,
@@ -64,6 +78,25 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       if (identity.value.type !== 'Registered') {
         assert.fail('Expected a Registered identity');
       }
+
+        await client.profile.setBillingAddress({
+        address: {
+          countryCode: 'DK',
+          city: 'Copenhagen',
+          streetAddress: 'Test Street',
+          streetNumber: '1',
+          postalCode: '1999',
+          firstName: 'Test',
+          lastName: 'User ' + username,
+          identifier: {
+            nickName: 'default-user-billing-address'
+          },
+          region: ''
+        },
+        identifier: identity.value.id
+      })
+
+
 
       return identity.value;
     }
@@ -165,12 +198,13 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         if (!accepted.success) {
           assert.fail(JSON.stringify(accepted.error));
         }
+        const employeeId = await getCurrentUserId(client);
 
         await client.identity.logout({});
         await loginAdmin();
         const assigned = await client.employee.assignRole({
           company: companyIdentifier,
-          employeeIdentifier: accepted.value.identifier,
+          employeeIdentifier: employeeId,
           role: 'manager',
         });
 
@@ -179,6 +213,8 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         }
 
         expect(assigned.value.role).toBe('manager');
+        expect(assigned.value.firstName).toBeDefined();
+        expect(assigned.value.lastName).toBeDefined();
       }, 20000);
 
       it('allows admin to unassign a role from an employee', async () => {
@@ -189,13 +225,14 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         if (!accepted.success) {
           assert.fail(JSON.stringify(accepted.error));
         }
+        const employeeId = await getCurrentUserId(client);
 
         await client.identity.logout({});
         await loginAdmin();
 
         const unassigned = await client.employee.unassignRole({
           company: companyIdentifier,
-          employeeIdentifier: accepted.value.identifier,
+          employeeIdentifier: employeeId,
           role: 'admin',
         });
 
@@ -214,13 +251,14 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         if (!accepted.success) {
           assert.fail(JSON.stringify(accepted.error));
         }
+        const employeeId = await getCurrentUserId(client);
 
         await client.identity.logout({});
         await loginAdmin();
 
         const removed = await client.employee.removeEmployee({
           company: companyIdentifier,
-          employeeIdentifier: accepted.value.identifier,
+          employeeIdentifier: employeeId,
         });
         if (!removed.success) {
           assert.fail(JSON.stringify(removed.error));
@@ -232,6 +270,40 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         });
         expect(lookup.success).toBe(false);
       }, 20000);
+
+
+      it('allows listing employees in an organization', async () => {
+        const inviteeEmail = testData.employeeEmail(Date.now().toString());
+        const invite = await inviteEmployee(inviteeEmail, 'manager');
+
+        const accepted = await registerAndAcceptInvitation(invite, inviteeEmail);
+        if (!accepted.success) {
+          assert.fail(JSON.stringify(accepted.error));
+        }
+
+        await client.identity.logout({});
+        await loginAdmin();
+
+        const listResult = await client.employee.listEmployees({
+          search: {
+            organization: companyIdentifier,
+            paginationOptions: {
+              pageNumber: 1,
+              pageSize: 10
+            }
+          },
+        });
+        if (!listResult.success) {
+          assert.fail(JSON.stringify(listResult.error));
+        }
+
+        const found = listResult.value.items.find((item) => item.email === inviteeEmail);
+        expect(found).toBeDefined();
+        expect(found?.email).toBe(inviteeEmail);
+        expect(found?.firstName).toBeTruthy();
+        expect(found?.lastName).toBeTruthy();
+      }, 20000);
     });
   },
 );
+
