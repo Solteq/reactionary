@@ -119,10 +119,14 @@ class Magento {
   };
 
   public store = {
-    me: async () => {
-      return this.rest.request<any>('GET', '/V1/customers/me');
+    customer: {
+      register: async (customer: any, password?: string) => {
+        return this.rest.request<any>('POST', '/V1/customers', { customer, password });
+      },
+      me: async () => {
+        return this.rest.request<any>('GET', '/V1/customers/me');
+      },
     },
-
     product: {
       getBySKU: async (sku: string) => {
         return this.rest.request<any>(
@@ -231,7 +235,12 @@ export class MagentoClient {
 
   async getMe() {
     const client = await this.getClient();
-    return client.store.me();
+    return client.store.customer.me();
+  }
+
+  async register(customer: any, password?: string) {
+    const client = await this.getClient();
+    return client.store.customer.register(customer, password);
   }
 
   async getProductBySKU(sku: string) {
