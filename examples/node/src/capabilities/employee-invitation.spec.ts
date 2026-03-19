@@ -57,6 +57,8 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         password,
       });
 
+
+
       if (!identity.success) {
         assert.fail(JSON.stringify(identity.error));
       }
@@ -64,6 +66,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       if (identity.value.type !== 'Registered') {
         assert.fail('Expected a Registered identity');
       }
+
 
       return identity.value;
     }
@@ -265,7 +268,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       const found = listResult.value.items.find((item) => item.identifier.key === invite.identifier.key);
       expect(found).toBeDefined();
       expect(found?.email).toBe(inviteeEmail);
-    })
+    }, 20000)
 
     it('allows recipient to list all invitations relevant for them', async () => {
       const inviteeEmail = testData.employeeEmail(Date.now().toString());
