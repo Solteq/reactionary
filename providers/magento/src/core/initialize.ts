@@ -6,6 +6,7 @@ import type {
 import { MagentoCapabilitiesSchema, type MagentoCapabilities } from "../schema/capabilities.schema.js";
 import { MagentoConfigurationSchema, type MagentoConfiguration } from "../schema/configuration.schema.js";
 import { MagentoProductProvider } from "../providers/product.provider.js";
+import { MagentoSearchProvider } from "../providers/product-search.provider.js";
 import { MagentoClient } from "./client.js";
 
 export function withMagentoCapabilities<T extends MagentoCapabilities>(
@@ -23,6 +24,9 @@ export function withMagentoCapabilities<T extends MagentoCapabilities>(
       client.product = new MagentoProductProvider(configuration, cache, context, magentoClient);
     }
 
+    if (caps.productSearch) {
+      client.productSearch = new MagentoSearchProvider(configuration, cache, context, magentoClient);
+    }
 
     return client;
   };
