@@ -1,0 +1,52 @@
+name: manual release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+  id-token: write
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: 'pnpm'
+          registry-url: https://registry.npmjs.org/
+
+      - run: pnpm install
+
+      - run: |
+          git config --global user.email "martin.rogne@solteq.com"
+          git config --global user.name "Martin Rogne"
+          pnpm exec nx release ${{ github.event.inputs.version_bump }} --yes -- --no-agents
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
+          NPM_CONFIG_PROVENANCE: false
+          NPM_CONFIG_ACCESS: public
