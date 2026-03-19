@@ -207,10 +207,18 @@ export class MagentoCartProvider extends CartProvider {
         outputSchema: CartSchema,
     })
     public override async applyCouponCode(
-        _payload: CartMutationApplyCoupon
+        payload: CartMutationApplyCoupon
     ): Promise<Result<Cart>> {
+        try {
+            const magentoId = payload.cart as MagentoCartIdentifier;
+            await this.magentoApi.applyCoupon(magentoId.key, payload.couponCode);
 
-        throw new Error('Coupon application not implemented for Magento');
+            const cartResponse = await this.getCartWithTotals(magentoId.key);
+            return success(this.parseSingle(cartResponse, magentoId.key));
+        } catch (err) {
+            debug('Failed to apply coupon:', err);
+            throw err;
+        }
     }
 
     @Reactionary({
@@ -218,9 +226,18 @@ export class MagentoCartProvider extends CartProvider {
         outputSchema: CartSchema,
     })
     public override async removeCouponCode(
-        _payload: CartMutationRemoveCoupon
+        payload: CartMutationRemoveCoupon
     ): Promise<Result<Cart>> {
-        throw new Error('Coupon removal not implemented for Magento');
+        try {
+            const magentoId = payload.cart as MagentoCartIdentifier;
+            await this.magentoApi.removeCoupon(magentoId.key);
+
+            const cartResponse = await this.getCartWithTotals(magentoId.key);
+            return success(this.parseSingle(cartResponse, magentoId.key));
+        } catch (err) {
+            debug('Failed to remove coupon:', err);
+            throw err;
+        }
     }
 
     @Reactionary({
