@@ -243,7 +243,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         expect(unassigned.value.role).toBe('employee');
       }, 50000);
 
-      it('allows admin to remove an employee from the organization', async () => {
+      it('allows admin to remove an employee from the company', async () => {
         const inviteeEmail = testData.employeeEmail(Date.now().toString());
         const invite = await inviteEmployee(inviteeEmail, 'manager');
 
@@ -265,14 +265,14 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
         }
 
         const lookup = await client.employee.getByEmail({
-          organization: companyIdentifier,
+          company: companyIdentifier,
           email: inviteeEmail,
         });
         expect(lookup.success).toBe(false);
       }, 20000);
 
 
-      it('allows listing employees in an organization', async () => {
+      it('allows listing employees in an company', async () => {
         const inviteeEmail = testData.employeeEmail(Date.now().toString());
         const invite = await inviteEmployee(inviteeEmail, 'manager');
 
@@ -286,7 +286,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
 
         const listResult = await client.employee.listEmployees({
           search: {
-            organization: companyIdentifier,
+            company: companyIdentifier,
             paginationOptions: {
               pageNumber: 1,
               pageSize: 10

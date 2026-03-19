@@ -10,7 +10,7 @@ export const CompanyRegistrationRequestSchema = z.object({
   name: z.string(),
   pointOfContact: PointOfContactSchema,
   status: CompanyRegistrationRequestApprovalStatusSchema,
-  comment: z.string().optional().meta({ description: 'An optional comment from the admin reviewing the organizational entity registration. This can be used to provide feedback to the user about why their registration was denied or what they need to do to get approved.' }),
+  comment: z.string().optional().meta({ description: 'An optional comment from the admin reviewing the company registration. This can be used to provide feedback to the user about why their registration was denied or what they need to do to get approved.' }),
 });
 
 export type CompanyRegistrationRequest = InferType<typeof CompanyRegistrationRequestSchema>;

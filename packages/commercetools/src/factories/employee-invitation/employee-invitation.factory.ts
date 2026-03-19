@@ -13,13 +13,13 @@ import {
   EmployeeInvitationSchema,
   EmployeeIssuedInvitationSchema,
 } from '@reactionary/core';
-import type { CommercetoolsOrganizationEntityInviteCustomObject } from '../../schema/commercetools.schema.js';
+import type { CommercetoolsEmployeeInviteCustomObject } from '../../schema/commercetools.schema.js';
 
 export const COMMERCERTOOLS_CUSTOM_OBJECT_CONTAINER_EMPLOYEE_INVITATIONS = 'reactionary-employee-invitation';
 export const COMMERCERTOOLS_CUSTOM_OBJECT_CONTAINER_EMPLOYEE_INVITATIONS_INDEX = 'reactionary-employee-invitation-index';
 
 export type CommercetoolsEmployeeInvitationFactoryIssuedInvitationInput = {
-  invite: CommercetoolsOrganizationEntityInviteCustomObject;
+  invite: CommercetoolsEmployeeInviteCustomObject;
   securityToken: string;
 };
 
@@ -30,7 +30,7 @@ export class CommercetoolsEmployeeInvitationFactory implements EmployeeInvitatio
 
   public parseEmployeeInvitation(
     context: RequestContext,
-    data: CommercetoolsOrganizationEntityInviteCustomObject,
+    data: CommercetoolsEmployeeInviteCustomObject,
     payload?: EmployeeInvitationMutationInviteEmployee,
   ): EmployeeInvitation {
     void context;
@@ -40,7 +40,7 @@ export class CommercetoolsEmployeeInvitationFactory implements EmployeeInvitatio
       identifier: {
         key: data.key,
       },
-      organization: data.value.organization,
+      company: data.value.company,
       status: data.value.status,
       email: data.value.email,
       role: data.value.role,
@@ -66,7 +66,7 @@ export class CommercetoolsEmployeeInvitationFactory implements EmployeeInvitatio
 
   public parseEmployeeInvitationPaginatedList(
     context: RequestContext,
-    data: CommercetoolsOrganizationEntityInviteCustomObject[],
+    data: CommercetoolsEmployeeInviteCustomObject[],
     query: EmployeeInvitationQueryList,
   ): EmployeeInvitationPaginatedList {
     const totalPages = query.search.paginationOptions.pageSize > 0

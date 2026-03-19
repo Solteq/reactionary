@@ -6,12 +6,12 @@ export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', '
 export const ProductListTypeSchema = z.enum(['favorite','wish','requisition','shopping']).meta({ description: 'The type of product list, e.g., "wish" or "favorite".' });
 export const EmployeeRoleSchema = z.enum(['admin', 'manager', 'employee']);
 /**
- * Status of an organization/company/business/volunteer organization in the system. This can be used to determine if the organization is active and allowed to perform certain actions, or if it is pending approval or blocked due to violations of terms of service or other issues.
+ * Status of an employee invitation in the system. This can be used to determine if the invitation is active and allowed to perform certain actions, or if it is pending approval or blocked due to violations of terms of service or other issues.
  */
 export const EmployeeInvitationStatusSchema = z.enum(['invited', 'accepted', 'revoked', 'rejected']);
 
 /**
- * Status of an organization/company/business/volunteer organization in the system. This can be used to determine if the organization is active and allowed to perform certain actions, or if it is pending approval or blocked due to violations of terms of service or other issues.
+ * Status of a company in the system. This can be used to determine if the company is active and allowed to perform certain actions, or if it is pending approval or blocked due to violations of terms of service or other issues.
  */
 export const CompanyRegistrationRequestApprovalStatusSchema = z.enum(['pending', 'approved', 'denied']);
 
@@ -204,20 +204,20 @@ export const CompanyIdentifierSchema = z.looseObject({
   /**
    * VAT identifier, used for tax-calculation purposes
    */
-    taxIdentifier: z.string().meta({ description: 'The unique identifier for the organizational entity. Could technically also be the DUNS identifier' }),
+    taxIdentifier: z.string().meta({ description: 'The unique identifier for the company. Could technically also be the DUNS identifier' }),
 });
 
 export const CompanyRegistrationRequestIdentifierSchema = z.looseObject({
-    key: z.string().meta({ description: 'The unique identifier for the organizational entity registration request.' }),
+    key: z.string().meta({ description: 'The unique identifier for the company registration request.' }),
 });
 
 export const EmployeeInvitationIdentifierSchema = z.looseObject({
-    key: z.string().meta({ description: 'The unique identifier for the organizational entity employee invitation.' }),
+    key: z.string().meta({ description: 'The unique identifier for the company employee invitation.' }),
 });
 
 export const EmployeeIdentifierSchema = z.looseObject({
   user: IdentityIdentifierSchema,
-  organization: CompanyIdentifierSchema,
+  company: CompanyIdentifierSchema,
 });
 
 export const CompanySearchIdentifierSchema = z.looseObject({
@@ -225,13 +225,13 @@ export const CompanySearchIdentifierSchema = z.looseObject({
 });
 
 export const EmployeeInvitationSearchIdentifierSchema = z.looseObject({
-  organization: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the organization to search employee invitations within.' }),
+  company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search employee invitations within.' }),
   email: z.email().optional().meta({ description: 'The email of the invited employee to search for.' }),
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
 });
 
 export const EmployeeSearchIdentifierSchema = z.looseObject({
-  organization: CompanyIdentifierSchema.meta({ description: 'The identifier for the organization to search employees within.' }),
+  company: CompanyIdentifierSchema.meta({ description: 'The identifier for the company to search employees within.' }),
   email: z.email().optional().meta({ description: 'The email of the employee to search for.' }),
   firstName: z.string().optional().meta({ description: 'The first name of the employee to search for.' }),
   lastName: z.string().optional().meta({ description: 'The last name of the employee to search for.' }),

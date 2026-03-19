@@ -27,7 +27,7 @@ export const CommercetoolsCategoryLookupSchema = BaseModelSchema.extend({
 });
 
 
-export const CommercetoolsOrganizationEntityInviteCustomObjectValueSchema = EmployeeInvitationSchema.omit({ identifier: true }).extend({
+export const CommercetoolsEmployeeInviteCustomObjectValueSchema = EmployeeInvitationSchema.omit({ identifier: true }).extend({
   tokenHash: z.string(),
   invitedBy: z.string(),
   invitedDate: z.string(),
@@ -37,9 +37,9 @@ export const CommercetoolsOrganizationEntityInviteCustomObjectValueSchema = Empl
   lastUpdatedDate: z.string(),
 });
 
-export const CommercetoolsOrganizationEntityInviteCustomObjectSchema = z.looseObject({
+export const CommercetoolsEmployeeInviteCustomObjectSchema = z.looseObject({
   key: z.string().meta({ description: 'The unique identifier for the employee invitation.' }),
-  value: CommercetoolsOrganizationEntityInviteCustomObjectValueSchema,
+  value: CommercetoolsEmployeeInviteCustomObjectValueSchema,
   container: z.string().meta({ description: 'The container for the custom object. This is used to group related custom objects together and can be used as a namespace to avoid key collisions.' }),
   version: z.number().default(0),
 });
@@ -50,5 +50,5 @@ export type CommercetoolsOrderIdentifier = z.infer<typeof CommercetoolsOrderIden
 export type CommercetoolsResolveCategoryQueryByKey = z.infer<typeof CommercetoolsResolveCategoryQueryByKeySchema>;
 export type CommercetoolsResolveCategoryQueryById = z.infer<typeof CommercetoolsResolveCategoryQueryByIdSchema>;
 export type CommercetoolsCategoryLookup = z.infer<typeof CommercetoolsCategoryLookupSchema>;
-export type CommercetoolsOrganizationEntityInviteCustomObject = z.infer<typeof CommercetoolsOrganizationEntityInviteCustomObjectSchema>;
-export type CommercetoolsOrganizationEntityInviteCustomObjectValue = z.infer<typeof CommercetoolsOrganizationEntityInviteCustomObjectValueSchema>;
+export type CommercetoolsEmployeeInviteCustomObject = z.infer<typeof CommercetoolsEmployeeInviteCustomObjectSchema>;
+export type CommercetoolsEmployeeInviteCustomObjectValue = z.infer<typeof CommercetoolsEmployeeInviteCustomObjectValueSchema>;

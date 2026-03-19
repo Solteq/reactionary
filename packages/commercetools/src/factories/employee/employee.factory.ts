@@ -17,7 +17,7 @@ import {
 import type * as z from 'zod';
 
 type ParseEmployeeInput = {
-  organization: CompanyIdentifier;
+  company: CompanyIdentifier;
   associate: Associate;
 };
 
@@ -48,7 +48,7 @@ export class CommercetoolsEmployeeFactory<
   ): z.output<TEmployeeSchema> {
     const result = {
       identifier: { userId: input.associate.customer.id },
-      organization: input.organization,
+      company: input.company,
       firstName: input.associate.customer.obj?.firstName,
       lastName: input.associate.customer.obj?.lastName,
       email: input.associate.customer.obj?.email || '',
@@ -72,7 +72,7 @@ export class CommercetoolsEmployeeFactory<
       totalCount: data.totalCount,
       totalPages,
       items: data.items.map((associate) => this.parseEmployee(context, {
-        organization: query.search.organization,
+        company: query.search.company,
         associate: associate,
       })),
     } satisfies EmployeePaginatedList;

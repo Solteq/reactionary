@@ -372,7 +372,7 @@ protected async getBusinessUnit(key: string): Promise<BusinessUnit | null> {
     );
   }
 
-  protected listOrganizationsPayload(
+  protected listCompaniesPayload(
     payload: CompanyQueryList,
   ) {
       const offset = payload.search.paginationOptions.pageNumber -1 * payload.search.paginationOptions.pageSize;
@@ -388,14 +388,14 @@ protected async getBusinessUnit(key: string): Promise<BusinessUnit | null> {
     inputSchema: CompanyQueryListSchema,
     outputSchema: CompanyPaginatedListSchema,
   })
-  public override async listOrganizations(
+  public override async listCompanies(
     payload: CompanyQueryList,
   ): Promise<Result<CompanyPaginatedList>> {
     const client = await this.getClient();
     const response = await client
       .businessUnits()
       .get({
-        queryArgs: this.listOrganizationsPayload(payload)
+        queryArgs: this.listCompaniesPayload(payload)
       })
       .execute();
 

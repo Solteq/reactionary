@@ -8,7 +8,7 @@ import { EmployeeInvitationIdentifierSchema, EmployeeInvitationSearchIdentifierS
  **/
 export const EmployeeInvitationSchema = z.looseObject({
   identifier: EmployeeInvitationIdentifierSchema,
-  organization: CompanyIdentifierSchema,
+  company: CompanyIdentifierSchema,
   status: EmployeeInvitationStatusSchema.meta({ description: 'The status of the invitation. This can be used to determine if the invitation is still pending, if it has been accepted by the employee, if it has been revoked by an admin, or if it has been rejected by the employee.' }),
   email: z.email().meta({ description: 'The email of the invited employee. This is the email that the invitation was sent to, and that the employee will use to accept the invitation and create their account.' }),
   role: EmployeeRoleSchema.meta({ description: 'The role that the invited employee will have in the company. This can be used to determine what permissions and access the employee will have once they accept the invitation.' }),

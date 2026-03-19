@@ -54,7 +54,7 @@ export class CommercetoolsCompanyRegistrationCapability<
    * @param payload
    * @returns
    */
-  protected registerOrganizationlEntityPayload(payload: CompanyRegistrationMutationRegister) {
+  protected requestRegistrationPayload(payload: CompanyRegistrationMutationRegister) {
     const draft: MyCompanyDraft = {
       unitType: 'Company',
       key: payload.taxIdentifier,
@@ -122,7 +122,7 @@ export class CommercetoolsCompanyRegistrationCapability<
     }
 
 
-    const draft = this.registerOrganizationlEntityPayload(payload);
+    const draft = this.requestRegistrationPayload(payload);
     const response = await client
       .businessUnits()
       .post({ body: draft })

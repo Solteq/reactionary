@@ -153,7 +153,7 @@ export class CommercetoolsEmployeeCapability<
   ): Promise<Result<EmployeePaginatedList>> {
 
 
-    const businessUnit = await this.getBusinessUnit(payload.search.organization.taxIdentifier);
+    const businessUnit = await this.getBusinessUnit(payload.search.company.taxIdentifier);
     if (!businessUnit) {
       return success(
         this.factory.parseEmployeePaginatedList(
@@ -214,11 +214,11 @@ export class CommercetoolsEmployeeCapability<
   public override async getByEmail(
     payload: EmployeeQueryByEmail,
   ): Promise<Result<Employee>> {
-    const businessUnit = await this.getBusinessUnit(payload.organization.taxIdentifier);
+    const businessUnit = await this.getBusinessUnit(payload.company.taxIdentifier);
     if (!businessUnit) {
       return error<NotFoundError>({
         type: 'NotFound',
-        identifier: payload.organization,
+        identifier: payload.company,
       });
     }
 
@@ -231,7 +231,7 @@ export class CommercetoolsEmployeeCapability<
     }
 
     return success(this.factory.parseEmployee(this.context, {
-      organization: payload.organization,
+      company: payload.company,
       associate: customer,
     }));
   }
@@ -309,7 +309,7 @@ export class CommercetoolsEmployeeCapability<
       });
     }
 
-    return success(this.factory.parseEmployee(this.context, { organization: payload.company, associate: customersById }));
+    return success(this.factory.parseEmployee(this.context, { company: payload.company, associate: customersById }));
   }
 
   /**
@@ -390,7 +390,7 @@ export class CommercetoolsEmployeeCapability<
       });
     }
 
-    return success(this.factory.parseEmployee(this.context, { organization: payload.company, associate: updatedAssociate }));
+    return success(this.factory.parseEmployee(this.context, { company: payload.company, associate: updatedAssociate }));
   }
 
 
