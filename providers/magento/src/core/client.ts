@@ -206,6 +206,18 @@ class Magento {
         }
         return this.rest.request<any>('DELETE', `/V1/guest-carts/${cartId}/items/${itemId}`);
       },
+      applyCoupon: async (cartId: string | null, couponCode: string, customerToken?: string | null) => {
+        if (customerToken) {
+          return this.rest.request<any>('PUT', `/V1/carts/mine/coupons/${encodeURIComponent(couponCode)}`);
+        }
+        return this.rest.request<any>('PUT', `/V1/guest-carts/${cartId}/coupons/${encodeURIComponent(couponCode)}`);
+      },
+      removeCoupon: async (cartId: string | null, customerToken?: string | null) => {
+        if (customerToken) {
+          return this.rest.request<any>('DELETE', '/V1/carts/mine/coupons');
+        }
+        return this.rest.request<any>('DELETE', `/V1/guest-carts/${cartId}/coupons`);
+      },
     },
   };
 }
@@ -336,5 +348,17 @@ export class MagentoClient {
     const client = await this.getClient();
     const customerToken = await this.tokenStore.getItem('customerToken');
     return client.store.cart.removeItem(cartId, itemId, customerToken);
+  }
+
+  async applyCoupon(cartId: string | null, couponCode: string) {
+    const client = await this.getClient();
+    const customerToken = await this.tokenStore.getItem('customerToken');
+    return client.store.cart.applyCoupon(cartId, couponCode, customerToken);
+  }
+
+  async removeCoupon(cartId: string | null) {
+    const client = await this.getClient();
+    const customerToken = await this.tokenStore.getItem('customerToken');
+    return client.store.cart.removeCoupon(cartId, customerToken);
   }
 }
