@@ -11,6 +11,7 @@
     "module": "nodenext",
     "lib": ["es2022"],
     "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "verbatimModuleSyntax": true,
     "paths": {

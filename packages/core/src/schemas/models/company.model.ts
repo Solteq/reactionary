@@ -1,15 +1,16 @@
 import * as z from 'zod';
-import { OrganizationalEntityIdentifierSchema, OrganizationalEntityRegistrationStatusIdentifierSchema } from './identifiers.model.js';
-import { ImageSchema, PointOfContactSchema } from './base.model.js';
+import { CompanyIdentifierSchema, CompanySearchIdentifierSchema, EmployeeSearchIdentifierSchema } from './identifiers.model.js';
+import { createPaginatedResponseSchema, ImageSchema, PointOfContactSchema } from './base.model.js';
 import { AddressSchema } from './profile.model.js';
 import type { InferType } from '../../zod-utils.js';
+import { EmployeeSchema } from './employee.model.js';
 
 /**
  * Status of an organization/company/business/volunteer organization in the system. This can be used to determine if the organization is active and allowed to perform certain actions, or if it is pending approval or blocked due to violations of terms of service or other issues.
  */
-export const OrganizationalEntityStatusSchema = z.enum(['pending', 'approved', 'blocked']);
-export const OrganizationalEntitySchema = z.looseObject({
-  identifier: OrganizationalEntityIdentifierSchema,
+export const CompanyStatusSchema = z.enum(['active', 'blocked']);
+export const CompanySchema = z.looseObject({
+  identifier: CompanyIdentifierSchema,
 
   /**
    * DUN and Bradstreet identifier. Useful for doing automated credit checks
@@ -27,10 +28,10 @@ export const OrganizationalEntitySchema = z.looseObject({
 
   /**
    * future
-  parentOrganizationalEntity: OrganizationalEntityIdentifierSchema.optional(),
-  childOrganizationalEntities: z.array(OrganizationalEntityIdentifierSchema).optional()
+  parentCompany: CompanyIdentifierSchema.optional(),
+  childOrganizationalEntities: z.array(CompanyIdentifierSchema).optional()
    */
-  status: OrganizationalEntityStatusSchema.default('pending').meta({ description: 'The current status of the organization in the system. This can be used to determine if the organization is active and allowed to perform certain actions, or if it is pending approval or blocked due to violations of terms of service or other issues.' }),
+  status: CompanyStatusSchema.default('blocked').meta({ description: 'The current status of the organization in the system. This can be used to determine if the organization is active and allowed to perform certain actions, or if it is pending approval or blocked due to violations of terms of service or other issues.' }),
 
   /**
    * The legal contact point for this organizational entity. Might not be someone with an actual profile on the site.
@@ -65,20 +66,14 @@ export const OrganizationalEntitySchema = z.looseObject({
    * Can admin users manage the address book of the organizational entity, adding and removing shipping addresses as needed?
    */
   isSelfManagementOfShippingAddressesAllowed: z.boolean().default(false).meta({ description: 'Whether the organizational entity allows users to manage their own shipping addresses in an address book. If false, the user must contact support to add or update shipping addresses.' }),
-
-
-
 });
 
 
-export const OrganizationalEntityRegistrationStatusSchema = z.object({
-  identifier: OrganizationalEntityRegistrationStatusIdentifierSchema,
-  organizationalEntityIdentifier: OrganizationalEntityIdentifierSchema,
-  name: z.string(),
-  pointOfContact: PointOfContactSchema,
-  status: z.enum(['pending', 'denied', 'approved']),
-  comment: z.string().optional().meta({ description: 'An optional comment from the admin reviewing the organizational entity registration. This can be used to provide feedback to the user about why their registration was denied or what they need to do to get approved.' }),
+export const CompanyPaginatedListSchema = createPaginatedResponseSchema(CompanySchema).extend({
+    identifier: CompanySearchIdentifierSchema
 });
 
-export type OrganizationalEntity = InferType<typeof OrganizationalEntitySchema>;
-export type OrganizationalEntityRegistrationStatus = InferType<typeof OrganizationalEntityRegistrationStatusSchema>;
+
+export type CompanyPaginatedList = InferType<typeof CompanyPaginatedListSchema>;
+
+export type Company = InferType<typeof CompanySchema>;

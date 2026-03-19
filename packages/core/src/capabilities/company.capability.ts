@@ -1,12 +1,14 @@
-import type { NotFoundError } from "../index.js";
-import type { OrganizationalEntity, OrganizationalEntityRegistrationStatus } from "../schemas/models/organizational-entity.model.js";
+import type { NotFoundError } from "../schemas/index.js";
+import type { Company, CompanyPaginatedList } from "../schemas/models/company.model.js";
+import type { CompanyMutationAddShippingAddress, CompanyMutationMakeShippingAddressDefault, CompanyMutationRemoveShippingAddress, CompanyMutationUpdateShippingAddress } from "../schemas/mutations/index.js";
+import type { CompanyQueryById, CompanyQueryList } from "../schemas/queries/index.js";
 import type { Result } from "../schemas/result.js";
 import { BaseCapability } from "./base.capability.js";
 
-export abstract class OrganizationalEntityProvider extends BaseCapability {
+export abstract class CompanyCapability extends BaseCapability {
 
   protected override getResourceName(): string {
-    return 'organizational-entity';
+    return 'company';
   }
 
   /**
@@ -16,24 +18,16 @@ export abstract class OrganizationalEntityProvider extends BaseCapability {
    *
    * @param payload
    */
-  public abstract getById( payload: OrganizationalEntityQueryById ): Promise<Result<OrganizationalEntity>>;
-
-  /**
-   * Usecase:
-   * If site supports self-registration of organizational entities, this method can be used to register a new organizational entity. Depending on backend, it might require
-   * additional offline steps (email verification, manual approval, etc) before the organizational entity can be used to log in and access organizational-entity-specific features.
-   * @param payload
-   */
-  public abstract registerOrganizationalEntity( payload: OrganizationalEntityMutationRegister ): Promise<Result<OrganizationalEntityRegistrationStatus>>;
+  public abstract getById( payload: CompanyQueryById ): Promise<Result<Company>>;
 
 
   /**
-   * Usecase: After registration, if it takes a while (say, if it requires manual approval), the storefront can present the customer with a url with the
-   * registration request identifier in it, to allow the customer to check periodically the status of their organizational entity registration, and show appropriate messages (e.g. "your registration is pending approval", "your registration was denied, contact support for more info", etc)
+   * A list of organizations you are allowed to interact with. This is useful for users that are associated with multiple organizations, such as consultants or employees of multiple companies.
+   *
+   * Usecase: Consultant logs in and needs to select which organization they want to work with. Or a user that is an employee of multiple companies needs to switch between them.
    * @param payload
    */
-  public abstract checkOrganizationalEntityRegistrationStatus( payload: OrganizationalEntityQueryCheckRegistrationStatus ): Promise<Result<OrganizationalEntityRegistrationStatus>>;
-
+  public abstract listOrganizations(payload: CompanyQueryList): Promise<Result<CompanyPaginatedList>>;
 
   /**
    * Updates the base information of the organizational entity.
@@ -45,7 +39,7 @@ export abstract class OrganizationalEntityProvider extends BaseCapability {
    * WHAT we'd typically allow them to change on their own. Most of the time, this kind of thing comes from the customer-master
    *
    * @param payload
-  public abstract update(payload: OrganizationalEntityMutationUpdate): Promise<Result<OrganizationEntity, NotFoundError>>;
+  public abstract update(payload: CompanyMutationUpdate): Promise<Result<OrganizationEntity, NotFoundError>>;
    */
 
   /**
@@ -56,7 +50,7 @@ export abstract class OrganizationalEntityProvider extends BaseCapability {
    * done at checkout should be considered local to that session, unless the addressbook is empty.
    * @param payload
    */
-  public abstract addShippingAddress(payload: OrganizationalEntityMutationAddShippingAddress): Promise<Result<OrganizationEntity, NotFoundError>>;
+  public abstract addShippingAddress(payload: CompanyMutationAddShippingAddress): Promise<Result<Company, NotFoundError>>;
 
   /**
    * Updates an existing shipping address for the organizational entity (if allowed by backend).
@@ -64,7 +58,7 @@ export abstract class OrganizationalEntityProvider extends BaseCapability {
    * Usecase: User edits shipping address on organizational tab in my-account page. Either the default one, or one of the alternates
    * @param payload
    */
-  public abstract updateShippingAddress(payload: OrganizationalEntityMutationUpdateShippingAddress): Promise<Result<OrganizationEntity, NotFoundError>>;
+  public abstract updateShippingAddress(payload: CompanyMutationUpdateShippingAddress): Promise<Result<Company, NotFoundError>>;
 
   /**
    * Removes an existing shipping address for the organizational entity (if allowed by backend).
@@ -73,7 +67,7 @@ export abstract class OrganizationalEntityProvider extends BaseCapability {
    * Usecase: User deletes a shipping address from their business profile.
    * @param payload
    */
-  public abstract removeShippingAddress(payload: OrganizationalEntityMutationRemoveShippingAddress): Promise<Result<OrganizationEntity, NotFoundError>>;
+  public abstract removeShippingAddress(payload: CompanyMutationRemoveShippingAddress): Promise<Result<Company, NotFoundError>>;
 
   /**
    * Configures an existing shipping address as the default shipping address for the organizational entity (if allowed by backend).
@@ -81,7 +75,7 @@ export abstract class OrganizationalEntityProvider extends BaseCapability {
    * Usecase: User selects a default shipping address in their business profile.
    * @param payload
    */
-  public abstract makeShippingAddressDefault(payload: OrganizationalEntityMutationMakeShippingAddressDefault): Promise<Result<OrganizationEntity, NotFoundError>>;
+  public abstract makeShippingAddressDefault(payload: CompanyMutationMakeShippingAddressDefault): Promise<Result<Company, NotFoundError>>;
 
   /**
    * Sets the current/active billing address for the organizational entity
@@ -93,7 +87,7 @@ export abstract class OrganizationalEntityProvider extends BaseCapability {
    * @param payload
    *
    * NOTE: We are not exposing this for now, as we expect the billing address to be managed from the ERP side
-  public abstract setBillingAddress(payload: OrganizationalEntityMutationSetBillingAddress): Promise<Result<OrganizationEntity, NotFoundError>>;
+  public abstract setBillingAddress(payload: CompanyMutationSetBillingAddress): Promise<Result<OrganizationEntity, NotFoundError>>;
    */
 
 
@@ -102,13 +96,16 @@ export abstract class OrganizationalEntityProvider extends BaseCapability {
    * The storefront can then check if the returned organization has an empty name or other fields to determine if it is a valid organization or a fallback.
    * @param id
    */
-  protected createEmptyOrganizationalEntity(id: string): OrganizationalEntity {
+  protected createEmptyCompany(id: string): Company {
     const organization = {
       identifier: {
         taxIdentifier: id
       },
       name: "",
-      status: "pending",
+      dunsIdentifier: undefined,
+      tinIdentifier: undefined,
+      logo: undefined,
+      status: 'blocked',
       pointOfContact: {
         email: "",
         phone: undefined
@@ -129,6 +126,7 @@ export abstract class OrganizationalEntityProvider extends BaseCapability {
       alternateShippingAddresses: [],
       isCustomAddressesAllowed: false,
       isSelfManagementOfShippingAddressesAllowed: false
-    } satisfies OrganizationalEntity;
+    } satisfies Company;
     return organization;
   }
+}

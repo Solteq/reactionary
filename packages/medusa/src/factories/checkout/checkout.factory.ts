@@ -25,6 +25,7 @@ import {
   type PaymentInstruction,
   type PaymentMethodIdentifier,
   type PaymentMethodSchema,
+  type PointOfContact,
   type RequestContext,
   type ShippingMethod,
   type ShippingMethodSchema,
@@ -256,6 +257,11 @@ export class MedusaCheckoutFactory<
       region: data.region_id,
     };
 
+    const pointOfContact = {
+      email: data.email || '',
+      phone: data.metadata?.['sms_notification'] as string ?? undefined,
+    } satisfies PointOfContact;
+
     let resultingOrder: MedusaOrderIdentifier | undefined = undefined;
     if (data.metadata?.['order_id']) {
       resultingOrder = {
@@ -277,7 +283,8 @@ export class MedusaCheckoutFactory<
       resultingOrder,
       shippingAddress,
       shippingInstruction,
-    };
+      pointOfContact,
+    } satisfies Checkout;
 
     return this.checkoutSchema.parse(result);
   }

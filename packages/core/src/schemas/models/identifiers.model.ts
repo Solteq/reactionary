@@ -4,6 +4,19 @@ import type { InferType } from '../../zod-utils.js';
 export const OrderStatusSchema = z.enum(['AwaitingPayment', 'ReleasedToFulfillment', 'Shipped', 'Cancelled']).meta({ description: 'The current status of the order.' });
 export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', 'Backordered', 'Preordered']).meta({ description: 'The inventory release status of the order.' });
 export const ProductListTypeSchema = z.enum(['favorite','wish','requisition','shopping']).meta({ description: 'The type of product list, e.g., "wish" or "favorite".' });
+export const EmployeeRoleSchema = z.enum(['admin', 'manager', 'employee']);
+/**
+ * Status of an organization/company/business/volunteer organization in the system. This can be used to determine if the organization is active and allowed to perform certain actions, or if it is pending approval or blocked due to violations of terms of service or other issues.
+ */
+export const EmployeeInvitationStatusSchema = z.enum(['invited', 'accepted', 'revoked', 'rejected']);
+
+/**
+ * Status of an organization/company/business/volunteer organization in the system. This can be used to determine if the organization is active and allowed to perform certain actions, or if it is pending approval or blocked due to violations of terms of service or other issues.
+ */
+export const CompanyRegistrationRequestApprovalStatusSchema = z.enum(['pending', 'approved', 'denied']);
+
+
+
 
 export const FacetIdentifierSchema = z.looseObject({
   key: z.string(),
@@ -187,16 +200,45 @@ export const PromotionIdentifierSchema = z.looseObject({
 /**
  * The structural top level legal entity
  */
-export const OrganizationalEntityIdentifierSchema = z.looseObject({
+export const CompanyIdentifierSchema = z.looseObject({
   /**
    * VAT identifier, used for tax-calculation purposes
    */
     taxIdentifier: z.string().meta({ description: 'The unique identifier for the organizational entity. Could technically also be the DUNS identifier' }),
 });
 
-export const OrganizationalEntityRegistrationStatusIdentifierSchema = z.looseObject({
-    requestIdentifier: z.string().meta({ description: 'The unique identifier for the organizational entity registration request.' }),
+export const CompanyRegistrationRequestIdentifierSchema = z.looseObject({
+    key: z.string().meta({ description: 'The unique identifier for the organizational entity registration request.' }),
 });
+
+export const EmployeeInvitationIdentifierSchema = z.looseObject({
+    key: z.string().meta({ description: 'The unique identifier for the organizational entity employee invitation.' }),
+});
+
+export const EmployeeIdentifierSchema = z.looseObject({
+  user: IdentityIdentifierSchema,
+  organization: CompanyIdentifierSchema,
+});
+
+export const CompanySearchIdentifierSchema = z.looseObject({
+  paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
+});
+
+export const EmployeeInvitationSearchIdentifierSchema = z.looseObject({
+  organization: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the organization to search employee invitations within.' }),
+  email: z.email().optional().meta({ description: 'The email of the invited employee to search for.' }),
+  paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
+});
+
+export const EmployeeSearchIdentifierSchema = z.looseObject({
+  organization: CompanyIdentifierSchema.meta({ description: 'The identifier for the organization to search employees within.' }),
+  email: z.email().optional().meta({ description: 'The email of the employee to search for.' }),
+  firstName: z.string().optional().meta({ description: 'The first name of the employee to search for.' }),
+  lastName: z.string().optional().meta({ description: 'The last name of the employee to search for.' }),
+  role: EmployeeRoleSchema.optional().meta({ description: 'The role of the employee to search for.' }),
+  paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
+});
+
 
 export type OrderSearchIdentifier = InferType<typeof OrderSearchIdentifierSchema>;
 export type ProductIdentifier = InferType<typeof ProductIdentifierSchema>;
@@ -226,8 +268,8 @@ export type PaymentInstructionIdentifier = InferType<
 >;
 export type OrderIdentifier = InferType<typeof OrderIdentifierSchema>;
 export type OrderItemIdentifier = InferType<typeof OrderItemIdentifierSchema>;
-export type OrganizationalEntityIdentifier = InferType<typeof OrganizationalEntityIdentifierSchema>;
-export type OrganizationalEntityRegistrationStatusIdentifier = InferType<typeof OrganizationalEntityRegistrationStatusIdentifierSchema>;
+export type CompanyIdentifier = InferType<typeof CompanyIdentifierSchema>;
+export type CompanyRegistrationRequestIdentifier = InferType<typeof CompanyRegistrationRequestIdentifierSchema>;
 
 
 export type CheckoutIdentifier = InferType<typeof CheckoutIdentifierSchema>;
@@ -249,6 +291,15 @@ export type ProductListItemSearchIdentifier = InferType<typeof ProductListItemSe
 export type ProductListType = InferType<typeof ProductListTypeSchema>;
 export type PromotionIdentifier = InferType<typeof PromotionIdentifierSchema>;
 
+
+export type EmployeeRole = InferType<typeof EmployeeRoleSchema>;
+export type EmployeeInvitationStatus = InferType<typeof EmployeeInvitationStatusSchema>;
+export type CompanyRegistrationRequestApprovalStatus = InferType<typeof CompanyRegistrationRequestApprovalStatusSchema>;
+export type EmployeeIdentifier = InferType<typeof EmployeeIdentifierSchema>;
+export type EmployeeSearchIdentifier = InferType<typeof EmployeeSearchIdentifierSchema>;
+export type EmployeeInvitationIdentifier = InferType<typeof EmployeeInvitationIdentifierSchema>;
+export type EmployeeInvitationSearchIdentifier = InferType<typeof EmployeeInvitationSearchIdentifierSchema>;
+export type CompanySearchIdentifier = InferType<typeof CompanySearchIdentifierSchema>;
 export type IdentifierType =
   | ProductIdentifier
   | ProductVariantIdentifier
@@ -270,8 +321,8 @@ export type IdentifierType =
   | PaymentInstructionIdentifier
   | OrderIdentifier
   | OrderItemIdentifier
-  | OrganizationalEntityIdentifier
-  | OrganizationalEntityRegistrationStatusIdentifier
+  | CompanyIdentifier
+  | CompanyRegistrationRequestIdentifier
   | CheckoutIdentifier
   | CheckoutItemIdentifier
   | StoreIdentifier

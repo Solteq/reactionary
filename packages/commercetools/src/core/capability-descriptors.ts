@@ -4,6 +4,10 @@ import {
   CategoryPaginatedResultSchema,
   CategorySchema,
   CheckoutSchema,
+  CompanySchema,
+  CompanyPaginatedListSchema,
+  EmployeeSchema,
+  EmployeePaginatedListSchema,
   IdentitySchema,
   InventorySchema,
   OrderSearchResultSchema,
@@ -48,6 +52,7 @@ import { CommercetoolsProductReviewsFactory } from '../factories/product-reviews
 import { CommercetoolsProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { CommercetoolsProfileFactory } from '../factories/profile/profile.factory.js';
 import { CommercetoolsStoreFactory } from '../factories/store/store.factory.js';
+import { CommercetoolsCompanyRegistrationFactory } from '../factories/company-registration/company-registration.factory.js';
 import { CommercetoolsCartCapability } from '../capabilities/cart.capability.js';
 import { CommercetoolsCategoryCapability } from '../capabilities/category.capability.js';
 import { CommercetoolsCheckoutCapability } from '../capabilities/checkout.capability.js';
@@ -63,6 +68,13 @@ import { CommercetoolsProductReviewsCapability } from '../capabilities/product-r
 import { CommercetoolsProductSearchCapability } from '../capabilities/product-search.capability.js';
 import { CommercetoolsProfileCapability } from '../capabilities/profile.capability.js';
 import { CommercetoolsStoreCapability } from '../capabilities/store.capability.js';
+import { CommercetoolsCompanyRegistrationCapability } from '../capabilities/company-registration.capability.js';
+import { CommercetoolsCompanyCapability } from '../capabilities/company.capability.js';
+import { CommercetoolsCompanyFactory } from '../factories/company/company.factory.js';
+import { CommercetoolsEmployeeFactory } from '../factories/employee/employee.factory.js';
+import { CommercetoolsEmployeeCapability } from '../capabilities/employee.capability.js';
+import { CommercetoolsEmployeeInvitationCapability } from '../capabilities/employee-invitation.capability.js';
+import { CommercetoolsEmployeeInvitationFactory } from '../factories/employee-invitation/employee-invitation.factory.js';
 
 export const capabilityKeys = [
   'product',
@@ -80,6 +92,10 @@ export const capabilityKeys = [
   'store',
   'order',
   'orderSearch',
+  'companyRegistration',
+  'company',
+  'employee',
+  'employeeInvitation',
 ] as const;
 
 export type OverridableCapabilityKey = (typeof capabilityKeys)[number];
@@ -314,6 +330,62 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
       new CommercetoolsOrderSearchFactory(OrderSearchResultSchema),
     createDefaultCapability: (args) =>
       new CommercetoolsOrderSearchCapability(
+        args.config,
+        args.cache,
+        args.context,
+        args.commercetoolsApi,
+        args.factory,
+      ),
+  },
+  companyRegistration: {
+    isEnabled: (caps) => caps.companyRegistration?.enabled,
+    getOverride: (caps) => caps.companyRegistration,
+    createDefaultFactory: () =>
+      new CommercetoolsCompanyRegistrationFactory(),
+    createDefaultCapability: (args) =>
+      new CommercetoolsCompanyRegistrationCapability(
+        args.config,
+        args.cache,
+        args.context,
+        args.commercetoolsApi,
+        args.factory,
+      ),
+  },
+  company: {
+    isEnabled: (caps) => caps.company?.enabled,
+    getOverride: (caps) => caps.company,
+    createDefaultFactory: () =>
+      new CommercetoolsCompanyFactory(CompanySchema, CompanyPaginatedListSchema),
+    createDefaultCapability: (args) =>
+      new CommercetoolsCompanyCapability(
+        args.config,
+        args.cache,
+        args.context,
+        args.commercetoolsApi,
+        args.factory,
+      ),
+  },
+  employee: {
+    isEnabled: (caps) => caps.employee?.enabled,
+    getOverride: (caps) => caps.employee,
+    createDefaultFactory: () =>
+      new CommercetoolsEmployeeFactory(EmployeeSchema, EmployeePaginatedListSchema),
+    createDefaultCapability: (args) =>
+      new CommercetoolsEmployeeCapability(
+        args.config,
+        args.cache,
+        args.context,
+        args.commercetoolsApi,
+        args.factory,
+      ),
+  },
+  employeeInvitation: {
+    isEnabled: (caps) => caps.employeeInvitation?.enabled,
+    getOverride: (caps) => caps.employeeInvitation,
+    createDefaultFactory: () =>
+      new CommercetoolsEmployeeInvitationFactory(),
+    createDefaultCapability: (args) =>
+      new CommercetoolsEmployeeInvitationCapability(
         args.config,
         args.cache,
         args.context,

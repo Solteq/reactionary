@@ -154,8 +154,8 @@ export class CommercetoolsAPI {
     let builder = this.createBaseClientBuilder();
     builder = builder.withAnonymousSessionFlow({
       credentials: {
-        clientId: this.config.clientId,
-        clientSecret: this.config.clientSecret,
+        clientId: this.config.adminClientId || this.config.clientId,
+        clientSecret: this.config.adminClientSecret || this.config.clientSecret,
       },
       host: this.config.authUrl,
       projectKey: this.config.projectKey,

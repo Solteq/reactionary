@@ -10,7 +10,7 @@ import {
 } from '@reactionary/core';
 import {
   FakeProductFactory,
-  FakeProductProvider,
+  FakeProductCapability,
   withFakeCapabilities,
 } from '@reactionary/fake';
 import * as z from 'zod';
@@ -21,7 +21,7 @@ describe('basic node provider extension (models)', () => {
     gtin: z.string().default('gtin-default'),
   });
 
-  class ExtendedProductProvider extends FakeProductProvider {
+  class ExtendedProductProvider extends FakeProductCapability {
 
     public async getByCustom(_custom: string): Promise<Product> {
       // Lets say we called somewhere...

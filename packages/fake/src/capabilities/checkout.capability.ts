@@ -269,6 +269,10 @@ export class FakeCheckoutCapability<
         },
       },
       readyForFinalization: false,
+      pointOfContact: {
+        email: this.generator.internet.email(),
+        phone: this.generator.phone.number(),
+      },
     } satisfies Checkout;
 
     return checkout;
