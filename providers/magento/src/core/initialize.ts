@@ -9,6 +9,7 @@ import { MagentoProductProvider } from "../providers/product.provider.js";
 import { MagentoSearchProvider } from "../providers/product-search.provider.js";
 import { MagentoCategoryProvider } from "../providers/category.provider.js";
 import { MagentoInventoryProvider } from "../providers/inventory.provider.js";
+import { MagentoPriceProvider } from "../providers/price.provider.js";
 import { MagentoClient } from "./client.js";
 
 export function withMagentoCapabilities<T extends MagentoCapabilities>(
@@ -36,6 +37,10 @@ export function withMagentoCapabilities<T extends MagentoCapabilities>(
 
     if (caps.inventory) {
       client.inventory = new MagentoInventoryProvider(configuration, cache, context, magentoClient);
+    }
+
+    if (caps.price) {
+      client.price = new MagentoPriceProvider(configuration, cache, context, magentoClient);
     }
 
     return client;
