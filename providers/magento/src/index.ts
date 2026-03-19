@@ -3,3 +3,4 @@ export * from './schema/capabilities.schema.js';
 export * from './core/initialize.js';
 export * from './core/client.js';
 export * from './providers/product.provider.js';
+export * from './providers/product-search.provider.js';

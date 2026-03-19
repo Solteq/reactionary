@@ -130,6 +130,12 @@ class Magento {
           `/V1/products/${encodeURIComponent(sku)}`
         );
       },
+      search: async (params: URLSearchParams) => {
+        return this.rest.request<any>(
+          'GET',
+          `/V1/products?${params.toString()}`
+        );
+      },
     },
   };
 }
