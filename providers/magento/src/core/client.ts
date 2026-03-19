@@ -157,6 +157,56 @@ class Magento {
         return this.rest.request<any>('GET', `/V1/inventory/source-items?${params.toString()}`);
       },
     },
+    cart: {
+      create: async (customerToken?: string | null) => {
+        if (customerToken) {
+          const res = await this.rest.request<any>('POST', '/V1/carts/mine');
+          return typeof res === 'string' ? res.replace(/^"|"$/g, '') : String(res);
+        }
+        const res = await this.rest.request<string>('POST', '/V1/guest-carts');
+        return res.replace(/^"|"$/g, '');
+      },
+      get: async (cartId?: string | null, customerToken?: string | null) => {
+        if (customerToken) {
+          return this.rest.request<any>('GET', '/V1/carts/mine');
+        }
+        return this.rest.request<any>('GET', `/V1/guest-carts/${cartId}`);
+      },
+      getTotals: async (cartId?: string | null, customerToken?: string | null) => {
+        if (customerToken) {
+          return this.rest.request<any>('GET', '/V1/carts/mine/totals');
+        }
+        return this.rest.request<any>('GET', `/V1/guest-carts/${cartId}/totals`);
+      },
+      addItem: async (cartId: string | null, item: any, customerToken?: string | null) => {
+        const id = (cartId && !isNaN(Number(cartId))) ? Number(cartId) : cartId;
+        if (customerToken) {
+          return this.rest.request<any>('POST', '/V1/carts/mine/items', {
+            cartItem: { ...item, quote_id: id }
+          });
+        }
+        return this.rest.request<any>('POST', `/V1/guest-carts/${cartId}/items`, {
+          cartItem: { ...item, quote_id: id, quoteId: id }
+        });
+      },
+      updateItem: async (cartId: string | null, itemId: number, item: any, customerToken?: string | null) => {
+        const id = (cartId && !isNaN(Number(cartId))) ? Number(cartId) : cartId;
+        if (customerToken) {
+          return this.rest.request<any>('PUT', `/V1/carts/mine/items/${itemId}`, {
+            cartItem: { ...item, item_id: itemId, quote_id: id }
+          });
+        }
+        return this.rest.request<any>('PUT', `/V1/guest-carts/${cartId}/items/${itemId}`, {
+          cartItem: { ...item, item_id: itemId, quote_id: id, quoteId: id }
+        });
+      },
+      removeItem: async (cartId: string | null, itemId: number, customerToken?: string | null) => {
+        if (customerToken) {
+          return this.rest.request<any>('DELETE', `/V1/carts/mine/items/${itemId}`);
+        }
+        return this.rest.request<any>('DELETE', `/V1/guest-carts/${cartId}/items/${itemId}`);
+      },
+    },
   };
 }
 
@@ -250,5 +300,41 @@ export class MagentoClient {
 
   async resolveProductForSKU(sku: string) {
     return this.getProductBySKU(sku);
+  }
+
+  async createCart() {
+    const client = await this.getClient();
+    const customerToken = await this.tokenStore.getItem('customerToken');
+    return client.store.cart.create(customerToken);
+  }
+
+  async getCart(cartId?: string | null) {
+    const client = await this.getClient();
+    const customerToken = await this.tokenStore.getItem('customerToken');
+    return client.store.cart.get(cartId, customerToken);
+  }
+
+  async getCartTotals(cartId?: string | null) {
+    const client = await this.getClient();
+    const customerToken = await this.tokenStore.getItem('customerToken');
+    return client.store.cart.getTotals(cartId, customerToken);
+  }
+
+  async addItemToCart(cartId: string | null, item: any) {
+    const client = await this.getClient();
+    const customerToken = await this.tokenStore.getItem('customerToken');
+    return client.store.cart.addItem(cartId, item, customerToken);
+  }
+
+  async updateCartItem(cartId: string | null, itemId: number, item: any) {
+    const client = await this.getClient();
+    const customerToken = await this.tokenStore.getItem('customerToken');
+    return client.store.cart.updateItem(cartId, itemId, item, customerToken);
+  }
+
+  async removeCartItem(cartId: string | null, itemId: number) {
+    const client = await this.getClient();
+    const customerToken = await this.tokenStore.getItem('customerToken');
+    return client.store.cart.removeItem(cartId, itemId, customerToken);
   }
 }
