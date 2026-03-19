@@ -13,8 +13,8 @@ export abstract class CompanyCapability extends BaseCapability {
 
   /**
    *
-   * Usecase: Fetch organization info such as name, default contact person, etc, based on the organization identifier in the request context.
-   * This can be used to render organization-specific information in the storefront
+   * Usecase: Fetch company info such as name, default contact person, etc, based on the company identifier in the request context.
+   * This can be used to render company-specific information in the storefront
    *
    * @param payload
    */
@@ -22,24 +22,24 @@ export abstract class CompanyCapability extends BaseCapability {
 
 
   /**
-   * A list of organizations you are allowed to interact with. This is useful for users that are associated with multiple organizations, such as consultants or employees of multiple companies.
+   * A list of companies you are allowed to interact with. This is useful for users that are associated with multiple companies, such as consultants or employees of multiple companies.
    *
-   * Usecase: Consultant logs in and needs to select which organization they want to work with. Or a user that is an employee of multiple companies needs to switch between them.
+   * Usecase: Consultant logs in and needs to select which company they want to work with. Or a user that is an employee of multiple companies needs to switch between them.
    * @param payload
    */
-  public abstract listOrganizations(payload: CompanyQueryList): Promise<Result<CompanyPaginatedList>>;
+  public abstract listCompanies(payload: CompanyQueryList): Promise<Result<CompanyPaginatedList>>;
 
   /**
-   * Updates the base information of the organizational entity.
+   * Updates the base information of the company.
    * Typically, there is not alot that the user can change himself, if the data is governed from ERP
    *
    * Usecase: Update the user's name, email, or phone number.
    *
-   * NOTE: For now, we are not exposing an update method for organizational entities, as its not super clear
+   * NOTE: For now, we are not exposing an update method for companies, as its not super clear
    * WHAT we'd typically allow them to change on their own. Most of the time, this kind of thing comes from the customer-master
    *
    * @param payload
-  public abstract update(payload: CompanyMutationUpdate): Promise<Result<OrganizationEntity, NotFoundError>>;
+  public abstract update(payload: CompanyMutationUpdate): Promise<Result<Company, NotFoundError>>;
    */
 
   /**
@@ -53,15 +53,15 @@ export abstract class CompanyCapability extends BaseCapability {
   public abstract addShippingAddress(payload: CompanyMutationAddShippingAddress): Promise<Result<Company, NotFoundError>>;
 
   /**
-   * Updates an existing shipping address for the organizational entity (if allowed by backend).
+   * Updates an existing shipping address for the company (if allowed by backend).
    *
-   * Usecase: User edits shipping address on organizational tab in my-account page. Either the default one, or one of the alternates
+   * Usecase: User edits shipping address on company tab in my-account page. Either the default one, or one of the alternates
    * @param payload
    */
   public abstract updateShippingAddress(payload: CompanyMutationUpdateShippingAddress): Promise<Result<Company, NotFoundError>>;
 
   /**
-   * Removes an existing shipping address for the organizational entity (if allowed by backend).
+   * Removes an existing shipping address for the company (if allowed by backend).
    * If the removed address was the default shipping address, the default shipping address is set to a random other address.
    *
    * Usecase: User deletes a shipping address from their business profile.
@@ -70,7 +70,7 @@ export abstract class CompanyCapability extends BaseCapability {
   public abstract removeShippingAddress(payload: CompanyMutationRemoveShippingAddress): Promise<Result<Company, NotFoundError>>;
 
   /**
-   * Configures an existing shipping address as the default shipping address for the organizational entity (if allowed by backend).
+   * Configures an existing shipping address as the default shipping address for the company (if allowed by backend).
    *
    * Usecase: User selects a default shipping address in their business profile.
    * @param payload
@@ -78,7 +78,7 @@ export abstract class CompanyCapability extends BaseCapability {
   public abstract makeShippingAddressDefault(payload: CompanyMutationMakeShippingAddressDefault): Promise<Result<Company, NotFoundError>>;
 
   /**
-   * Sets the current/active billing address for the organizational entity
+   * Sets the current/active billing address for the company
    *
    * Usecase: User sets or updates their billing address in their business profile
    *
@@ -87,17 +87,17 @@ export abstract class CompanyCapability extends BaseCapability {
    * @param payload
    *
    * NOTE: We are not exposing this for now, as we expect the billing address to be managed from the ERP side
-  public abstract setBillingAddress(payload: CompanyMutationSetBillingAddress): Promise<Result<OrganizationEntity, NotFoundError>>;
+  public abstract setBillingAddress(payload: CompanyMutationSetBillingAddress): Promise<Result<Company, NotFoundError>>;
    */
 
 
   /**
-   * Create an empty organization object with the given id. This can be used as a fallback when organization is not found, to avoid returning null and causing errors in the storefront.
-   * The storefront can then check if the returned organization has an empty name or other fields to determine if it is a valid organization or a fallback.
+   * Create an empty company object with the given id. This can be used as a fallback when company is not found, to avoid returning null and causing errors in the storefront.
+   * The storefront can then check if the returned company has an empty name or other fields to determine if it is a valid company or a fallback.
    * @param id
    */
   protected createEmptyCompany(id: string): Company {
-    const organization = {
+    const company = {
       identifier: {
         taxIdentifier: id
       },
@@ -127,6 +127,6 @@ export abstract class CompanyCapability extends BaseCapability {
       isCustomAddressesAllowed: false,
       isSelfManagementOfShippingAddressesAllowed: false
     } satisfies Company;
-    return organization;
+    return company;
   }
 }

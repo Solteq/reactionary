@@ -150,11 +150,14 @@ Usecase: As a B2B user i want to see my organization data
 Vendors:  Commercetools, Medusa
 
 - Account 
-  - [ ] My Organization(s)
-  - [ ] Edit organization data (if admin)
-  - [ ] Edit organization address book (if admin) 
+  - [X] My Organization(s)
+  - [X] Edit organization data (if admin)
+  - [X] Edit organization address book (if admin) 
 - Account 
-  - [ ] Self management of users and roles
+  - [X] Self management of users and roles
+  - [X] Manage invites for users
+  - [X] Accept/Revoke invites
+  - [X] Self-registration of company
 
 
 ### Roadmap to V0.8

@@ -10,7 +10,7 @@ import { MonetaryAmountSchema } from './price.model.js';
  **/
 export const EmployeeSchema = z.looseObject({
   identifier: IdentityIdentifierSchema,
-  organization: CompanyIdentifierSchema,
+  company: CompanyIdentifierSchema,
   firstName: z.string().optional().meta({ description: 'The first name of the employee. This is the human readable name that will be displayed in the UI.' }),
   lastName: z.string().optional().meta({ description: 'The last name of the employee. This is the human readable name that will be displayed in the UI.' }),
   email: z.email().meta({ description: 'The email of the employee. This is the email that the employee uses to log in and access the storefront.' }),

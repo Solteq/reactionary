@@ -11,7 +11,7 @@ export const EmployeeQueryListSchema = BaseQuerySchema.extend({
 });
 
 export const EmployeeQueryByEmailSchema = BaseQuerySchema.extend({
-  organization: CompanyIdentifierSchema,
+  company: CompanyIdentifierSchema,
   email: z.email().meta({
     description:
       'The email of the employee to fetch. This can be used to fetch a specific employee by their email address, which is often a unique identifier for users in the system.',

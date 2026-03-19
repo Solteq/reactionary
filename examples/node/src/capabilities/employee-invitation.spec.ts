@@ -159,7 +159,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       company = orgResponse.value;
     }, 15000);
 
-    it('should allow inviting a new employee to the organization', async () => {
+    it('should allow inviting a new employee to the company', async () => {
       const inviteeEmail = testData.employeeEmail(Date.now().toString());
       const invite = await inviteEmployee(inviteeEmail, 'manager');
 
@@ -179,12 +179,12 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       }
 
       expect(accepted.value.email).toBe(inviteeEmail);
-      expect(accepted.value.organization.taxIdentifier).toBe(companyIdentifier.taxIdentifier);
+      expect(accepted.value.company.taxIdentifier).toBe(companyIdentifier.taxIdentifier);
 
       await client.identity.logout({});
       await loginAdmin();
       const lookup = await client.employee.getByEmail({
-        organization: companyIdentifier,
+        company: companyIdentifier,
         email: inviteeEmail,
       });
       if (!lookup.success) {
@@ -247,13 +247,13 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       expect(accepted.success).toBe(false);
     }, 20000);
 
-    it('allows admin to list all invitations for the organization', async () => {
+    it('allows admin to list all invitations for the company', async () => {
       const inviteeEmail = testData.employeeEmail(Date.now().toString());
       const invite = await inviteEmployee(inviteeEmail, 'manager');
 
       const listResult = await client.employeeInvitation.listInvitations({
         search: {
-          organization: companyIdentifier,
+          company: companyIdentifier,
           paginationOptions: {
             pageNumber: 1,
             pageSize: 20,

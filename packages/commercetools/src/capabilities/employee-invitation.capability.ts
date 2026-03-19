@@ -43,7 +43,7 @@ import {
   COMMERCERTOOLS_CUSTOM_OBJECT_CONTAINER_EMPLOYEE_INVITATIONS_INDEX,
   type CommercetoolsEmployeeInvitationFactory,
 } from '../factories/employee-invitation/employee-invitation.factory.js';
-import type { CommercetoolsOrganizationEntityInviteCustomObject, CommercetoolsOrganizationEntityInviteCustomObjectValue } from '../schema/commercetools.schema.js';
+import type { CommercetoolsEmployeeInviteCustomObject, CommercetoolsEmployeeInviteCustomObjectValue } from '../schema/commercetools.schema.js';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 
 export class CommercetoolsEmployeeInvitationCapability<
@@ -160,11 +160,11 @@ export class CommercetoolsEmployeeInvitationCapability<
     return this.addInvitationToEntityIndex(adminClient, this.makeKeyFromEmail(email), invitationId);
   }
 
-  protected async addInvitationToOrganizationalIndex(adminClient: ByProjectKeyRequestBuilder, companyIdentifier: CompanyIdentifier, invitationId: string): Promise<void> {
+  protected async addInvitationToCompanyIndex(adminClient: ByProjectKeyRequestBuilder, companyIdentifier: CompanyIdentifier, invitationId: string): Promise<void> {
     return this.addInvitationToEntityIndex(adminClient, this.makeKeyFromCompanyIdentifier(companyIdentifier), invitationId);
   }
 
-  protected async updateInvitationStatus(adminClient: ByProjectKeyRequestBuilder, invitationKey: string, invitation: CommercetoolsOrganizationEntityInviteCustomObject, newStatus: EmployeeInvitationStatus): Promise<void> {
+  protected async updateInvitationStatus(adminClient: ByProjectKeyRequestBuilder, invitationKey: string, invitation: CommercetoolsEmployeeInviteCustomObject, newStatus: EmployeeInvitationStatus): Promise<void> {
     if (!invitation) {
       throw new Error(`Invitation with key ${invitationKey} not found`);
     }
@@ -189,7 +189,7 @@ export class CommercetoolsEmployeeInvitationCapability<
     }).execute();
   }
 
-  protected async fetchInvitations(adminClient: ByProjectKeyRequestBuilder, indexKey: string, onlyActive: boolean, paginationOptions?: PaginationOptions): Promise<CommercetoolsOrganizationEntityInviteCustomObject[]> {
+  protected async fetchInvitations(adminClient: ByProjectKeyRequestBuilder, indexKey: string, onlyActive: boolean, paginationOptions?: PaginationOptions): Promise<CommercetoolsEmployeeInviteCustomObject[]> {
     const result = [];
     let allInviteIds = await this.fetchInvitationIdsByKey(adminClient, indexKey);
     if (paginationOptions) {
@@ -205,7 +205,7 @@ export class CommercetoolsEmployeeInvitationCapability<
         throw error;
       })
 
-      const invitation = invitationResponse?.body as CommercetoolsOrganizationEntityInviteCustomObject | undefined;
+      const invitation = invitationResponse?.body as CommercetoolsEmployeeInviteCustomObject | undefined;
       if (!invitation) {
         continue;
       }
@@ -222,15 +222,15 @@ export class CommercetoolsEmployeeInvitationCapability<
     return result;
   }
 
-  protected async fetchAllInvitationsForOrganization(adminClient: ByProjectKeyRequestBuilder, companyIdentifier: CompanyIdentifier, onlyActive: boolean, paginationOptions?: PaginationOptions): Promise<CommercetoolsOrganizationEntityInviteCustomObject[]> {
+  protected async fetchAllInvitationsForCompany(adminClient: ByProjectKeyRequestBuilder, companyIdentifier: CompanyIdentifier, onlyActive: boolean, paginationOptions?: PaginationOptions): Promise<CommercetoolsEmployeeInviteCustomObject[]> {
       return this.fetchInvitations(adminClient, this.makeKeyFromCompanyIdentifier(companyIdentifier), onlyActive, paginationOptions);
   }
 
-  protected async fetchAllInvitationsForUser(adminClient: ByProjectKeyRequestBuilder, userEmail: string, onlyActive: boolean, paginationOptions?: PaginationOptions): Promise<CommercetoolsOrganizationEntityInviteCustomObject[]> {
+  protected async fetchAllInvitationsForUser(adminClient: ByProjectKeyRequestBuilder, userEmail: string, onlyActive: boolean, paginationOptions?: PaginationOptions): Promise<CommercetoolsEmployeeInviteCustomObject[]> {
     return this.fetchInvitations(adminClient, this.makeKeyFromEmail(userEmail), onlyActive, paginationOptions);
   }
 
-  protected async fetchInvitationByKey(adminClient: ByProjectKeyRequestBuilder, invitationKey: string): Promise<CommercetoolsOrganizationEntityInviteCustomObject | null> {
+  protected async fetchInvitationByKey(adminClient: ByProjectKeyRequestBuilder, invitationKey: string): Promise<CommercetoolsEmployeeInviteCustomObject | null> {
     const inviteResponse = await adminClient.customObjects().withContainerAndKey({ container: COMMERCERTOOLS_CUSTOM_OBJECT_CONTAINER_EMPLOYEE_INVITATIONS, key: invitationKey }).get().execute().catch((error) => {
       if (error?.statusCode === 404) {
         return null;
@@ -242,7 +242,7 @@ export class CommercetoolsEmployeeInvitationCapability<
       return null;
     }
 
-    return inviteResponse.body as unknown as CommercetoolsOrganizationEntityInviteCustomObject;
+    return inviteResponse.body as unknown as CommercetoolsEmployeeInviteCustomObject;
   }
 
   protected inviteEmployeePayload(
@@ -264,13 +264,13 @@ export class CommercetoolsEmployeeInvitationCapability<
         status: 'invited',
         email: payload.email,
         role: payload.role,
-        organization: payload.company,
+        company: payload.company,
         validUntil: (new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)).toISOString(),
         invitedBy: '' + currentUser,
         invitedDate: new Date().toISOString(),
         lastUpdatedBy: '' + currentUser,
         lastUpdatedDate: new Date().toISOString()
-      } satisfies CommercetoolsOrganizationEntityInviteCustomObjectValue,
+      } satisfies CommercetoolsEmployeeInviteCustomObjectValue,
     }
   }
 
@@ -313,9 +313,9 @@ export class CommercetoolsEmployeeInvitationCapability<
     }).execute();
 
     await this.addInvitationToEmailIndex(adminClient, payload.email, addInviteResponse.body.key);
-    await this.addInvitationToOrganizationalIndex(adminClient, payload.company, addInviteResponse.body.key);
+    await this.addInvitationToCompanyIndex(adminClient, payload.company, addInviteResponse.body.key);
 
-    const invite = addInviteResponse.body as unknown as CommercetoolsOrganizationEntityInviteCustomObject;
+    const invite = addInviteResponse.body as unknown as CommercetoolsEmployeeInviteCustomObject;
     return success(this.factory.parseEmployeeIssuedInvitation(this.context, { invite: invite, securityToken: rawToken }, payload));
   }
 
@@ -372,7 +372,7 @@ export class CommercetoolsEmployeeInvitationCapability<
       });
     }
 
-    const businessUnit = await adminClient.businessUnits().withKey({ key: invitation.value.organization.taxIdentifier }).get().execute().catch((error) => {
+    const businessUnit = await adminClient.businessUnits().withKey({ key: invitation.value.company.taxIdentifier }).get().execute().catch((error) => {
       if (error?.statusCode === 404) {
         return null;
       }
@@ -382,12 +382,12 @@ export class CommercetoolsEmployeeInvitationCapability<
     if (!businessUnit) {
       return error<NotFoundError>({
         type: 'NotFound',
-        identifier: invitation.value.organization,
+        identifier: invitation.value.company,
       });
     }
 
     const associateId = this.context.session.identityContext.identity.id.userId;
-    await adminClient.businessUnits().withKey({ key: invitation.value.organization.taxIdentifier }).post({
+    await adminClient.businessUnits().withKey({ key: invitation.value.company.taxIdentifier }).post({
       body: {
         version: businessUnit.body.version,
         actions: [
@@ -477,8 +477,8 @@ export class CommercetoolsEmployeeInvitationCapability<
       const invitations = await this.fetchAllInvitationsForUser(adminClient, payload.search.email, false, payload.search.paginationOptions);
       return success(this.factory.parseEmployeeInvitationPaginatedList(this.context, invitations, payload));
     }
-    if (payload.search.organization) {
-      const invitations = await this.fetchAllInvitationsForOrganization(adminClient, payload.search.organization, false, payload.search.paginationOptions);
+    if (payload.search.company) {
+      const invitations = await this.fetchAllInvitationsForCompany(adminClient, payload.search.company, false, payload.search.paginationOptions);
       return success(this.factory.parseEmployeeInvitationPaginatedList(this.context, invitations, payload));
     }
 
