@@ -1,15 +1,16 @@
 import * as z from 'zod';
 import { BaseMutationSchema } from './base.mutation.js';
-import { CartIdentifierSchema, CartItemIdentifierSchema, PaymentMethodIdentifierSchema, ShippingMethodIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
+import { CartIdentifierSchema, CartItemIdentifierSchema, PaymentMethodIdentifierSchema, ShippingMethodIdentifierSchema, ProductVariantIdentifierSchema, CompanyIdentifierSchema } from '../models/identifiers.model.js';
 import { AddressSchema } from '../models/profile.model.js';
 import { CurrencySchema } from '../models/currency.model.js';
 import { MonetaryAmountSchema } from '../models/price.model.js';
 import type { InferType } from '../../zod-utils.js';
 
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
-    cart: CartIdentifierSchema.optional(),
+    cart: CartIdentifierSchema,
     variant: ProductVariantIdentifierSchema,
-    quantity: z.number()
+    customPrice: MonetaryAmountSchema.optional().describe('An optional custom price for the cart item. If not provided, the default price of the product variant will be used. This is mostly used in B2B scenarios where pricing is looked up from ERP or other service'),
+    quantity: z.number().min(1).default(1).meta({ description: 'The quantity of the item to add to the cart. Must be at least 1.' }),
 });
 
 export const CartMutationItemRemoveSchema = BaseMutationSchema.extend({
@@ -20,7 +21,8 @@ export const CartMutationItemRemoveSchema = BaseMutationSchema.extend({
 export const CartMutationItemQuantityChangeSchema = BaseMutationSchema.extend({
     cart: CartIdentifierSchema,
     item: CartItemIdentifierSchema,
-    quantity: z.number()
+    customPrice: MonetaryAmountSchema.optional().describe('An optional custom price for the cart item. If not provided, the default price of the product variant will be used. This is mostly used in B2B scenarios where pricing is looked up from ERP or other service'),
+    quantity: z.number().min(1).meta({ description: 'The new quantity for the cart item. Must be at least 1. If you want to remove the item from the cart, use the CartMutationItemRemove mutation instead.' }),
 });
 
 export const CartMutationDeleteCartSchema = BaseMutationSchema.extend({
@@ -69,6 +71,16 @@ export const CartMutationChangeCurrencySchema = BaseMutationSchema.extend({
     newCurrency: CurrencySchema.describe('The new currency to set for the cart.')
 });
 
+export const CartMutationCreateCartSchema = BaseMutationSchema.extend({
+    company: CompanyIdentifierSchema.optional().meta({ description: 'The company identifier for the new cart. This can be used to associate the cart with a specific company, which can be useful for B2B use cases.' }),
+    name: z.string().optional().meta({ description: 'The name for the new cart. This can be used to give the cart a human readable name that can be displayed in the UI.' }),
+});
+
+export const CartMutationRenameCartSchema = BaseMutationSchema.extend({
+    cart: CartIdentifierSchema.required(),
+    newName: z.string().meta({ description: 'The new name for the cart.' }),
+});
+
 export type CartMutationChangeCurrency = InferType<typeof CartMutationChangeCurrencySchema>;
 export type CartMutationAddPaymentMethod = InferType<typeof CartMutationAddPaymentMethodSchema>;
 export type CartMutationRemovePaymentMethod = InferType<typeof CartMutationRemovePaymentMethodSchema>;
@@ -81,3 +93,5 @@ export type CartMutationSetShippingInfo = InferType<typeof CartMutationSetShippi
 export type CartMutationSetBillingAddress = InferType<typeof CartMutationSetBillingAddressSchema>;
 export type CartMutationApplyCoupon = InferType<typeof CartMutationApplyCouponSchema>;
 export type CartMutationRemoveCoupon = InferType<typeof CartMutationRemoveCouponSchema>;
+export type CartMutationCreateCart = InferType<typeof CartMutationCreateCartSchema>;
+export type CartMutationRenameCart = InferType<typeof CartMutationRenameCartSchema>;

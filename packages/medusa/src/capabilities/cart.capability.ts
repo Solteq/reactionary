@@ -1,30 +1,29 @@
 import type {
   Cache,
-  Cart,
-  CartIdentifier,
-  CartItem,
   CartFactory,
   CartFactoryCartOutput,
   CartFactoryIdentifierOutput,
   CartFactoryWithOutput,
   CartMutationApplyCoupon,
   CartMutationChangeCurrency,
+  CartMutationCreateCart,
   CartMutationDeleteCart,
   CartMutationItemAdd,
   CartMutationItemQuantityChange,
   CartMutationItemRemove,
   CartMutationRemoveCoupon,
+  CartMutationRenameCart,
+  CartPaginatedSearchResult,
   CartQueryById,
-  CostBreakDown,
-  Currency,
-  ItemCostBreakdown,
+  CartQueryList,
+  CompanyIdentifier,
+  InvalidInputError,
   NotFoundError,
-  ProductVariantIdentifier,
-  Promotion,
   RequestContext,
-  Result,
+  Result
 } from '@reactionary/core';
 import {
+  CartCapability,
   CartIdentifierSchema,
   CartMutationApplyCouponSchema,
   CartMutationChangeCurrencySchema,
@@ -33,27 +32,24 @@ import {
   CartMutationItemQuantityChangeSchema,
   CartMutationItemRemoveSchema,
   CartMutationRemoveCouponSchema,
-  CartCapability,
+  CartMutationRenameCartSchema,
   CartQueryByIdSchema,
   CartSchema,
   error,
-  ProductVariantIdentifierSchema,
   Reactionary,
-  success,
+  success
 } from '@reactionary/core';
 
+import type { StoreCart} from '@medusajs/types';
+import { type StoreAddCartLineItem, type StoreCartAddPromotion, type StoreCartRemovePromotion, type StoreCartResponse, type StoreCreateCart, type StoreUpdateCart, type StoreUpdateCartLineItem } from '@medusajs/types';
 import createDebug from 'debug';
 import type { MedusaAPI } from '../core/client.js';
+import type { MedusaCartFactory } from '../factories/cart/cart.factory.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type { MedusaCartIdentifier } from '../schema/medusa.schema.js';
-import { MedusaCartIdentifierSchema } from '../schema/medusa.schema.js';
 import {
-  handleProviderError,
-  parseMedusaCostBreakdown,
-  parseMedusaItemPrice,
+  handleProviderError
 } from '../utils/medusa-helpers.js';
-import type { StoreAddCartLineItem, StoreCart, StoreCartAddPromotion, StoreCartLineItem, StoreCartRemovePromotion, StoreCartResponse, StoreCreateCart, StoreProduct, StoreUpdateCart, StoreUpdateCartLineItem } from '@medusajs/types';
-import type { MedusaCartFactory } from '../factories/cart/cart.factory.js';
 
 const debug = createDebug('reactionary:medusa:cart');
 
@@ -83,6 +79,32 @@ export class MedusaCartCapability<
     super(cache, context);
     this.config = config;
     this.factory = factory;
+  }
+
+  public override async listCarts(payload: CartQueryList): Promise<Result<CartPaginatedSearchResult>> {
+    const client = await this.getClient();
+
+    const sessionData = this.medusaApi.getSessionData();
+    let cartCollection = payload.search.company ? sessionData.allOwnedCarts?.[payload.search.company.taxIdentifier] : sessionData.allOwnedCarts?.['_me']
+
+    const totalCount = cartCollection ? cartCollection.length : 0;
+    if (cartCollection) {
+      cartCollection = cartCollection.slice((payload.search.paginationOptions.pageNumber - 1) * payload.search.paginationOptions.pageSize, payload.search.paginationOptions.pageNumber * payload.search.paginationOptions.pageSize);
+    } else {
+      cartCollection = [];
+    }
+
+    const shortFields = ['id', 'customerId', 'updated_at', 'metadata.*', '+items.id'].join(',');
+
+    const allPromises = cartCollection.map((cartIdentifier) => client.store.cart.retrieve(cartIdentifier.key, { fields: this.includedFields }));
+    const responses = await Promise.all(allPromises);
+    const carts = responses.map((response) => response.cart).filter((cart): cart is StoreCart => !!cart);
+
+    return success(this.factory.parseCartPaginatedSearchResult(this.context,
+      {
+        items: carts,
+        totalCount: totalCount
+      }, payload));
   }
 
   @Reactionary({
@@ -149,9 +171,12 @@ export class MedusaCartCapability<
     try {
       const client = await this.getClient();
 
-      let cartIdentifier = payload.cart;
+      const cartIdentifier = payload.cart;
       if (!cartIdentifier) {
-        cartIdentifier = await this.createCart();
+        return error<InvalidInputError>({
+          type: 'InvalidInput',
+          error: 'Cart identifier is required to add item to cart',
+        });
       }
 
       const medusaId = cartIdentifier as MedusaCartIdentifier;
@@ -194,6 +219,131 @@ export class MedusaCartCapability<
       throw new Error('Failed to add item to cart');
     } catch (error) {
       handleProviderError('add item to cart', error);
+    }
+  }
+
+
+  @Reactionary({
+    inputSchema: CartMutationRenameCartSchema,
+    outputSchema: CartSchema,
+  })
+  public override async renameCart(
+    payload: CartMutationRenameCart
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
+
+    const client = await this.getClient();
+    const medusaId = payload.cart as MedusaCartIdentifier;
+
+    // Medusa doesn't have a rename cart endpoint, so we have to use metadata to store the name, and update it using the update cart endpoint.
+
+    // Get the current cart data to preserve existing metadata
+    const cartResponse = await client.store.cart.retrieve(medusaId.key, { fields: ['metadata.*'].join(',') });
+    if (!cartResponse.cart) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.cart,
+      });
+    }
+
+    const currentMetadata = cartResponse.cart.metadata || {};
+
+    // Update the name in metadata
+    const updatedMetadata = {
+      ...currentMetadata,
+      name: payload.newName,
+    };
+
+    // Update the cart with the new metadata
+    const response = await client.store.cart.update(
+      medusaId.key,
+      {
+        metadata: updatedMetadata,
+      },
+      {
+        fields: this.includedFields,
+      }
+    );
+
+    if (response.cart) {
+      return success(this.factory.parseCart(this.context, response.cart));
+    }
+
+    throw new Error('Failed to rename cart');
+  }
+
+  /**
+   * Extension point to control the payload sent to Medusa when creating a cart. By default, it only includes the currency code, but you can override it to include more fields as needed.
+   * @param currency
+   * @returns
+   */
+  protected createCartPayload(payload: CartMutationCreateCart): StoreCreateCart {
+    return {
+        currency_code: (
+            this.context.languageContext.currencyCode ||
+            'EUR'
+        ).toLowerCase(),
+        locale: this.context.languageContext.locale || 'en',
+        metadata: {
+          name: payload.name,
+        }
+    };
+  }
+
+
+  protected addCartToOwnedList(cartIdentifier: MedusaCartIdentifier, companyId?: CompanyIdentifier) {
+    const sessionData = this.medusaApi.getSessionData();
+    const companyIdToUse = companyId ? companyId.taxIdentifier : '_me';
+    if (sessionData.allOwnedCarts) {
+      sessionData.allOwnedCarts[companyIdToUse] = [
+        ...(sessionData.allOwnedCarts[companyIdToUse] || []),
+        cartIdentifier,
+      ];
+    } else {
+      sessionData.allOwnedCarts = {
+        [companyIdToUse]: [cartIdentifier],
+      };
+    }
+    this.medusaApi.setSessionData(sessionData);
+  }
+
+  protected removeCartFromOwnedList(cartIdentifier: MedusaCartIdentifier, company?: CompanyIdentifier) {
+    const sessionData = this.medusaApi.getSessionData();
+    const companyIdToUse = company ? company.taxIdentifier : '_me';
+    if (sessionData.allOwnedCarts && sessionData.allOwnedCarts[companyIdToUse]) {
+      sessionData.allOwnedCarts[companyIdToUse] = sessionData.allOwnedCarts[companyIdToUse].filter(
+        (c) => c.key !== cartIdentifier.key
+      );
+      this.medusaApi.setSessionData(sessionData);
+    }
+  }
+
+
+  public override async createCart(
+    payload: CartMutationCreateCart
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
+    try {
+      const client = await this.getClient();
+
+      const response = await client.store.cart.create(
+        this.createCartPayload(payload),
+        {
+          fields: this.includedFields,
+        }
+      );
+
+      if (response.cart) {
+        this.addCartToOwnedList(this.factory.parseCartIdentifier(this.context, response.cart), payload.company);
+        // Store cart ID in session
+        this.medusaApi.setSessionData({
+          activeCartId: this.factory.parseCartIdentifier(this.context, response.cart),
+        });
+
+        return success(this.factory.parseCart(this.context, response.cart));
+      }
+
+      throw new Error('Failed to create cart');
+    } catch (error) {
+      handleProviderError('create cart', error);
     }
   }
 
@@ -285,19 +435,28 @@ export class MedusaCartCapability<
     try {
       const client = await this.getClient();
       const sessionData = this.medusaApi.getSessionData();
-      // Check if customer has an active cart in session storage or create new one
-      const activeCartId = sessionData.activeCartId;
 
-      if (activeCartId) {
-        try {
-          await client.store.cart.retrieve(activeCartId);
-          return success(this.factory.parseCartIdentifier(this.context, {
-            key: activeCartId,
-            region_id: (await this.medusaApi.getActiveRegion()).id,
-          }));
-        } catch {
-          // Cart doesn't exist, create new one
+      let activeCartId = sessionData.activeCartId;
+      if (!activeCartId && sessionData  && sessionData.allOwnedCarts) {
+        if (sessionData.allOwnedCarts['_me']) {
+          activeCartId = sessionData.allOwnedCarts['_me'][0] || '';
         }
+      }
+      if (activeCartId) {
+        // check if it still exists
+        const response = await client.store.cart.retrieve(activeCartId.key, { fields: 'id,region' });
+        if (!response.cart) {
+          // if it doesn't exist, remove it from session and return not found
+          delete sessionData.activeCartId;
+          this.medusaApi.setSessionData({
+            activeCartId: undefined,
+          });
+          return error<NotFoundError>({
+            type: 'NotFound',
+            identifier: activeCartId,
+          });
+        }
+        return success(this.factory.parseCartIdentifier(this.context, response.cart!));
       }
 
       // For guest users or if no active cart exists, return empty identifier
@@ -495,7 +654,7 @@ export class MedusaCartCapability<
       if (updatedCartResponse.cart) {
         // Update session to use new cart
         this.medusaApi.setSessionData({
-          activeCartId: updatedCartResponse.cart.id,
+          activeCartId: this.factory.parseCartIdentifier(this.context, updatedCartResponse),
         });
 
         return success(this.factory.parseCart(this.context, updatedCartResponse.cart));
@@ -504,55 +663,6 @@ export class MedusaCartCapability<
       throw new Error('Failed to change currency');
     } catch (error) {
       handleProviderError('change currency', error);
-    }
-  }
-
-  /**
-   * Extension point to control the payload sent to Medusa when creating a cart. By default, it only includes the currency code, but you can override it to include more fields as needed.
-   * @param currency
-   * @returns
-   */
-  protected createCartPayload(currency?: string): StoreCreateCart {
-    return {
-        currency_code: (
-            currency ||
-            this.context.languageContext.currencyCode ||
-            ''
-        ).toLowerCase(),
-    };
-  }
-
-
-  protected async createCart(
-    currency?: string,
-  ): Promise<CartFactoryIdentifierOutput<TFactory>> {
-    try {
-      const client = await this.getClient();
-
-      const response = await client.store.cart.create(
-        this.createCartPayload(currency),
-        {
-          fields: this.includedFields,
-        }
-      );
-
-      if (response.cart) {
-        const cartIdentifier = this.factory.parseCartIdentifier(this.context, {
-          key: response.cart.id,
-          region_id: response.cart.region_id,
-        });
-
-        // Store cart ID in session
-        this.medusaApi.setSessionData({
-          activeCartId: cartIdentifier.key,
-        });
-
-        return cartIdentifier;
-      }
-
-      throw new Error('Failed to create cart');
-    } catch (error) {
-      handleProviderError('create cart', error);
     }
   }
 

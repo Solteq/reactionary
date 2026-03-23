@@ -2,14 +2,18 @@ import type {
   Cart,
   CartFactory,
   CartFactoryCartOutput,
+  CartFactoryIdentifierOutput,
   CartFactoryWithOutput,
   CartQueryById,
+  CartQueryList,
+  CartPaginatedSearchResult,
   CartMutationItemAdd,
   CartMutationItemRemove,
   CartMutationItemQuantityChange,
+  CartMutationCreateCart,
+  CartMutationRenameCart,
   RequestContext,
   Cache,
-  CartIdentifier,
   CartMutationApplyCoupon,
   CartMutationChangeCurrency,
   CartMutationDeleteCart,
@@ -26,6 +30,7 @@ import {
   CartMutationItemQuantityChangeSchema,
   CartMutationItemRemoveSchema,
   CartMutationRemoveCouponSchema,
+  CartMutationRenameCartSchema,
   CartCapability,
   CartQueryByIdSchema,
   CartSchema,
@@ -40,7 +45,10 @@ import type { FakeCartFactory } from '../factories/cart/cart.factory.js';
 
 export class FakeCartCapability<
   TFactory extends CartFactory = FakeCartFactory,
-> extends CartCapability<CartFactoryCartOutput<TFactory>, CartIdentifier> {
+> extends CartCapability<
+  CartFactoryCartOutput<TFactory>,
+  CartFactoryIdentifierOutput<TFactory>
+> {
   protected config: FakeConfiguration;
   protected factory: CartFactoryWithOutput<TFactory>;
   private carts: Map<string, Cart> = new Map();
@@ -184,10 +192,41 @@ export class FakeCartCapability<
     return success(this.factory.parseCart(this.context, cart));
   }
 
+  public override async listCarts(
+    _payload: CartQueryList,
+  ): Promise<Result<CartPaginatedSearchResult>> {
+    return success(this.factory.parseCartPaginatedSearchResult(this.context, {
+      pageNumber: 0,
+      pageSize: 0,
+      totalCount: 0,
+      totalPages: 0,
+      items: [],
+      identifier: _payload.search
+    } satisfies CartPaginatedSearchResult, _payload));
+  }
+
+  public override async createCart(
+    _payload: CartMutationCreateCart,
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
+    // TODO: Implement createCart for fake provider
+    throw new Error('createCart is not yet implemented for fake provider');
+  }
+
+  @Reactionary({
+    inputSchema: CartMutationRenameCartSchema,
+    outputSchema: CartSchema,
+  })
+  public override async renameCart(
+    _payload: CartMutationRenameCart,
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
+    // TODO: Implement renameCart for fake provider
+    throw new Error('renameCart is not yet implemented for fake provider');
+  }
+
   @Reactionary({
     outputSchema: CartIdentifierSchema,
   })
-  public override getActiveCartId(): Promise<Result<CartIdentifier, NotFoundError>> {
+  public override getActiveCartId(): Promise<Result<CartFactoryIdentifierOutput<TFactory>, NotFoundError>> {
     throw new Error('Method not implemented.');
   }
 

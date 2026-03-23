@@ -1,8 +1,17 @@
-import type { Cart as CTCart, LineItem } from '@commercetools/platform-sdk';
 import type {
-  CartIdentifierSchema,
+  CartPagedQueryResponse,
+  Cart as CTCart,
+  LineItem,
+} from '@commercetools/platform-sdk';
+import type {
+  AnyCartPaginatedSearchResult,
+  CartPaginatedSearchResult,
+  CartPaginatedSearchResultSchema,
+  CartQueryList,
   CartSchema,
-  Promotion,
+  CartSearchResultItem,
+  CompanyIdentifier,
+  Promotion
 } from '@reactionary/core';
 import {
   CartItemSchema,
@@ -10,11 +19,10 @@ import {
   type AnyCartSchema,
   type Cart,
   type CartFactory,
-  type CartIdentifier,
   type CartItem,
   type CostBreakDown,
   type Currency,
-  type RequestContext,
+  type RequestContext
 } from '@reactionary/core';
 import type * as z from 'zod';
 import type {
@@ -26,37 +34,99 @@ export class CommercetoolsCartFactory<
   TCartSchema extends AnyCartSchema = typeof CartSchema,
   TCartIdentifierSchema extends
     AnyCartIdentifierSchema = typeof CommercetoolsCartIdentifierSchema,
-> implements CartFactory<TCartSchema, TCartIdentifierSchema>
+  TCartPaginatedSearchResult extends
+    AnyCartPaginatedSearchResult = typeof CartPaginatedSearchResultSchema,
+> implements
+    CartFactory<TCartSchema, TCartIdentifierSchema, TCartPaginatedSearchResult>
 {
   public readonly cartSchema: TCartSchema;
   public readonly cartIdentifierSchema: TCartIdentifierSchema;
+  public readonly cartPaginatedSearchResultSchema: TCartPaginatedSearchResult;
 
   constructor(
     cartSchema: TCartSchema,
     cartIdentifierSchema: TCartIdentifierSchema,
+    cartPaginatedSearchResultSchema: TCartPaginatedSearchResult,
   ) {
     this.cartSchema = cartSchema;
     this.cartIdentifierSchema = cartIdentifierSchema;
+    this.cartPaginatedSearchResultSchema = cartPaginatedSearchResultSchema;
+  }
+
+  public parseCartPaginatedSearchResult(
+    _context: RequestContext,
+    data: CartPagedQueryResponse,
+    _query: CartQueryList,
+  ): z.output<TCartPaginatedSearchResult> {
+    const result = {
+      pageNumber: _query.search.paginationOptions.pageNumber,
+      pageSize: _query.search.paginationOptions.pageSize,
+      totalCount: data.total || 0,
+      totalPages: Math.ceil(
+        (data.total || 0) / _query.search.paginationOptions.pageSize,
+      ),
+      items: data.results.map((cart) =>
+        this.parseCartSearchResultItem(_context, cart),
+      ),
+
+      identifier: _query.search,
+    } satisfies CartPaginatedSearchResult;
+
+    return this.cartPaginatedSearchResultSchema.parse(result);
   }
 
   public parseCartIdentifier(
     _context: RequestContext,
-    data: { key?: string; version?: number },
+    data: CTCart,
   ): z.output<TCartIdentifierSchema> {
     return this.cartIdentifierSchema.parse({
-      key: data.key || '',
+      key: data.id || '',
       version: data.version || 0,
+      company: data.businessUnit ? { taxIdentifier: data.businessUnit.key } : undefined,
     } satisfies CommercetoolsCartIdentifier);
+  }
+
+  public parseCartSearchResultItem(
+    context: RequestContext,
+    data: CTCart,
+  ): CartSearchResultItem {
+    const identifier = this.parseCartIdentifier(context, data);
+
+    const numItems = data.lineItems.length;
+    const lastModifiedDate = data.lastModifiedAt;
+    let company: CompanyIdentifier | undefined;
+    if (data.businessUnit) {
+      company = {
+        taxIdentifier: data.businessUnit.key,
+      };
+    }
+
+    const result = {
+      identifier,
+      userId: {
+        userId: data.customerId || data.anonymousId || '???',
+      },
+      company: company,
+      name: data.custom?.fields['name'] || '',
+      numItems,
+      lastModifiedDate,
+    } satisfies CartSearchResultItem;
+
+    return result;
   }
 
   public parseCart(
     context: RequestContext,
     data: CTCart,
   ): z.output<TCartSchema> {
-    const identifier = this.parseCartIdentifier(context, {
-      key: data.id,
-      version: data.version,
-    });
+    const identifier = this.parseCartIdentifier(context, data);
+
+    let company: CompanyIdentifier | undefined;
+    if (data.businessUnit) {
+      company = {
+        taxIdentifier: data.businessUnit.key,
+      };
+    }
 
     const items: CartItem[] = [];
     for (const lineItem of data.lineItems) {
@@ -122,6 +192,7 @@ export class CommercetoolsCartFactory<
       userId: {
         userId: '???',
       },
+      company: company,
       name: data.custom?.fields['name'] || '',
       description: data.custom?.fields['description'] || '',
       price,

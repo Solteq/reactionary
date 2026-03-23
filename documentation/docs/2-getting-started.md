@@ -190,32 +190,20 @@ Let us assume the page we are rendering wants to include some minicart informati
 ```ts
 // first, check if we have a cart id registered on the session
 let cartId = mySession.activeCartId;
+let numItemsInCart = mySession.numItemsInCart;
 
 // if not, lets see if the system might have it for us
 if (!cartId) {
-  cartIdResponse = await client.cart.getActiveCartId();
-  if (cartIdResponse.success) {
-    cartId = cartIdResponse.value;
+  cartListResponse = await client.cart.listCarts(payload: { paginationOptions: { pageNumber:1, pageSize: 1 }});
+  if (cartListResponse.success) {
+    activeCartId = cartListResponse.value.items[0].identifier;
+    numItemsInCart = cartListResponse.value.items[0].numItems;
   } else {
     // we dont really care why it couldn't load.  We just reset to a safe value
     cartId = '';
+    numItemsInCart = 0;
   }
-  
 }
-
-// no? then lets just zero it out, and start over.
-if (!cartId) {
-  cartId = '';
-}
-const cartResponse = await client.cart.getById(cartId);
-
-let totalSum = 0;
-if (cartResponse.success) {
-  // store it for future reference
-  mySession.activeCartId = cartResponse.value.identifier.key;
-  totalSum = cartResponse.value.price.grandTotal.value;
-} 
-
 ```
 
 
@@ -224,6 +212,6 @@ if (cartResponse.success) {
 ## Design decisions
 We want Reactionary to be as unintrusive to the frontend frameworks best practice for state management. So we do not try to offer too many convenience methods that might slow down the site unnecessarily.
 
-This is why we don't offer a `cart.getActiveCart()`, because in some situations identifying the active cart id, might require an extra call for each operation.
+This is why we don't offer a `cart.getActiveCart()`, or `cart.getActiveCartId()` because in some situations identifying the active cart id, might require an extra call for each operation. Also, when dealing with B2B scenarios, we don't really want to enforce a single-company-at-a-time semantic. Meaning the `getActiveCart` familiy of calls are not fully deterministic
 
 

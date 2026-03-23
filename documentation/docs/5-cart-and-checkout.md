@@ -1,7 +1,64 @@
 # Dealing with carts and checkouts
 
+## Carts
+In Reactionary, you can have many concurrent carts. They can be a mix of b2b and b2c carts. The storefront is responsible for the lifecycles of each cart.
 
-# Design decision
+### Getting active cart
+There isn't really a concept of an active cart. Many sites will probably be happy with just picking the most recently changed cart for this kind of semantic, but conceptually you can have 3 carts equally open.
+
+To get the list of carts, and maybe the active cart for a context (b2c) do
+
+```ts
+const listResponse = await client.cart.listCarts(payload: { paginationOptions: { pageNumber: 1, pageSize: 10 }});
+
+if (!listResponse.success) {
+  return Response(500, 'unable to receive list of carts')
+}
+
+if (listResponse.value.items.length > 0) {
+  activeCartId = listResponse.value.items[0].identifier;
+} 
+```
+You would not create a dummy/placeholder cart at this point. Wait to do that, until the customer actually interacts with the cart, ie try to add something to it.
+
+### Adding to cart
+When adding to cart, you want to first be sure you have a cart to add something to.
+As we want to allow you to have multiple carts open and accessible at one time, you have to explicitly create the cart. 
+As a guest user, you can only create b2c carts. As a registered user, you can, if the site permits, and you have the rights, create b2b carts as well.
+
+```ts
+
+// assume, that we are an addToCart server side function called from the PDP
+const variantIdentifier = formData['variantId']
+const qty = Number(formData['qty'])
+
+if (!activeCartId) {
+  const createCartResponse = await client.cart.createCart({
+    name: 'Optional name'  // can be skipped. 
+  });
+
+  if (!createCartResponse.success) {
+    return Response(500, 'Unable to create cart');
+  }
+  activeCartId = createCartResponse.value.identifier;
+}
+
+const addToCartResponse = await client.cart.add({
+   cart: cartIdentifier,
+   variant: variantIdentifer,
+   quantity: 1,
+})
+
+if (!addToCartResponse.success) {
+  return Response(500, `Unable to add ${variantIdentifier.sku} to cart` )
+}
+```
+
+
+
+
+
+## Design decision
 It was decided to adopt a pattern where the cart is not the thing that you check out. Rather the cart is the data entity responsible for recording your product selections, and calculating your price.
 
 When you want to start the checkout process, you create a new checkout session, based on your cart, at which point the cart is considered read-only.
@@ -11,7 +68,7 @@ While we have seen examples of cart pages where you can change quantity, remove 
 This means, you can have all the upsell stuff on the "review cart page", but once you decide to "go to checkout", the focus is "Where, and how are you paying".
 
 
-# Initiating checkout
+## Initiating checkout
 The checkout takes as input a cart, any billing address you might have from being logged in, and returns a different object.
 
 ```ts

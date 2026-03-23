@@ -59,6 +59,20 @@ export class MedusaIdentityCapability extends IdentityCapability {
 
       if (!token) {
         debug('No active session token found, returning anonymous identity');
+
+        if (this.medusaApi.getSessionData().activeCartId) {
+          // apparently we have a cart, so we should return a guest identity
+          debug('Active cart found in session without token, treating as guest session');
+          const identity = {
+            type: 'Guest',
+            id: {
+              userId: 'guest'
+            }
+          } satisfies Identity;
+          this.updateIdentityContext(identity);
+          return success(identity);
+        }
+
         const identity = this.createAnonymousIdentity();
         this.updateIdentityContext(identity);
 

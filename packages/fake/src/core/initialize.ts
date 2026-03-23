@@ -1,6 +1,7 @@
 import type { Cache as ReactinaryCache, RequestContext } from '@reactionary/core';
 import {
   CartIdentifierSchema as CoreCartIdentifierSchema,
+  CartPaginatedSearchResultSchema as CoreCartPaginatedSearchResultSchema,
   CartSchema as CoreCartSchema,
   CategoryPaginatedResultSchema as CoreCategoryPaginatedResultSchema,
   CategorySchema as CoreCategorySchema,
@@ -123,7 +124,11 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
       client.cart = resolveCapabilityWithFactory(
         capabilities.cart,
         {
-          factory: new FakeCartFactory(CoreCartSchema, CoreCartIdentifierSchema),
+          factory: new FakeCartFactory(
+            CoreCartSchema,
+            CoreCartIdentifierSchema,
+            CoreCartPaginatedSearchResultSchema,
+          ),
           capability: (args) =>
             new FakeCartCapability(args.config, args.cache, args.context, args.factory),
         },

@@ -2,6 +2,7 @@ import { ClientBuilder } from '@commercetools/ts-client';
 import {
   createApiBuilderFromCtpClient,
   type ApiRoot,
+  type ByProjectKeyBusinessUnitsKeyByKeyAssociatesByAssociateIdRequestBuilder,
 } from '@commercetools/platform-sdk';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import { randomUUID } from 'crypto';
@@ -9,6 +10,7 @@ import {
   AnonymousIdentitySchema,
   RegisteredIdentitySchema,
   type AnonymousIdentity,
+  type CompanyIdentifier,
   type GuestIdentity,
   type RegisteredIdentity,
   type RequestContext,
@@ -16,11 +18,13 @@ import {
 import * as crypto from 'crypto';
 import createDebug from 'debug';
 import { RequestContextTokenCache } from './token-cache.js';
-import { CommercetoolsSessionSchema, type CommercetoolsSession } from '../schema/session.schema.js';
+import {
+  CommercetoolsSessionSchema,
+  type CommercetoolsSession,
+} from '../schema/session.schema.js';
 const debug = createDebug('reactionary:commercetools');
 
 export const PROVIDER_SESSION_KEY = 'COMMERCETOOLS_PROVIDER';
-
 
 export class CommercetoolsAPI {
   protected config: CommercetoolsConfiguration;
@@ -29,10 +33,14 @@ export class CommercetoolsAPI {
   protected client: Promise<ApiRoot> | undefined;
   protected adminClient: Promise<ApiRoot> | undefined;
 
+
   constructor(config: CommercetoolsConfiguration, context: RequestContext) {
     this.config = config;
     this.context = context;
-    this.tokenCache = new RequestContextTokenCache(this.context, PROVIDER_SESSION_KEY);
+    this.tokenCache = new RequestContextTokenCache(
+      this.context,
+      PROVIDER_SESSION_KEY,
+    );
   }
 
   public async getClient() {
@@ -41,6 +49,23 @@ export class CommercetoolsAPI {
     }
 
     return this.client;
+  }
+
+  public async getClientForCompany(company: { taxIdentifier: string }) {
+    if (this.context.session.identityContext.identity.type !== 'Registered') {
+      throw new Error('Only registered identities can have company clients');
+    }
+
+    const companyClient = (await this.getAdminClient())
+      .withProjectKey({ projectKey: this.config.projectKey })
+      .asAssociate()
+      .withAssociateIdValue({
+        associateId: this.context.session.identityContext.identity.id.userId,
+      })
+      .inBusinessUnitKeyWithBusinessUnitKeyValue({
+        businessUnitKey: company.taxIdentifier,
+      });
+    return companyClient;
   }
 
   public async getAdminClient() {
@@ -53,12 +78,14 @@ export class CommercetoolsAPI {
 
   public getSessionData(): CommercetoolsSession {
     return this.context.session[PROVIDER_SESSION_KEY]
-      ? this.context.session[PROVIDER_SESSION_KEY] as CommercetoolsSession
+      ? (this.context.session[PROVIDER_SESSION_KEY] as CommercetoolsSession)
       : CommercetoolsSessionSchema.parse({});
   }
 
   public setSessionData(sessionData: Partial<CommercetoolsSession>): void {
-    const existingData = this.context.session[PROVIDER_SESSION_KEY] as Partial<CommercetoolsSession>;
+    const existingData = this.context.session[
+      PROVIDER_SESSION_KEY
+    ] as Partial<CommercetoolsSession>;
 
     this.context.session[PROVIDER_SESSION_KEY] = {
       ...existingData,
@@ -94,7 +121,7 @@ export class CommercetoolsAPI {
     const channel = response.body;
     this.setSessionData({
       cacheKey: channel.id,
-    })
+    });
     if (debug.enabled) {
       debug(`Resolved channel ${key} from API and cached it`);
     }
@@ -127,7 +154,7 @@ export class CommercetoolsAPI {
         queryArgs: {
           where: `roles contains any (:role)`,
           'var.role': role,
-        }
+        },
       })
       .execute();
 
@@ -147,8 +174,6 @@ export class CommercetoolsAPI {
 
     return channel.id;
   }
-
-
 
   protected async createAdminClient() {
     let builder = this.createBaseClientBuilder();
@@ -202,7 +227,7 @@ export class CommercetoolsAPI {
       });
 
     const registrationClient = createApiBuilderFromCtpClient(
-      registrationBuilder.build()
+      registrationBuilder.build(),
     );
 
     const registration = await registrationClient
@@ -223,7 +248,7 @@ export class CommercetoolsAPI {
   }
 
   public async login(username: string, password: string) {
-  const loginBuilder = this.createBaseClientBuilder().withPasswordFlow({
+    const loginBuilder = this.createBaseClientBuilder().withPasswordFlow({
       host: this.config.authUrl,
       projectKey: this.config.projectKey,
       credentials: {
@@ -264,11 +289,15 @@ export class CommercetoolsAPI {
   }
 
   public async logout() {
-    await this.tokenCache.set({ token: '', refreshToken: '', expirationTime: 0 });
+    await this.tokenCache.set({
+      token: '',
+      refreshToken: '',
+      expirationTime: 0,
+    });
 
     // TODO: We could do token revocation here, if we wanted to. The above simply whacks the session.
     const identity = {
-      type: 'Anonymous'
+      type: 'Anonymous',
     } satisfies AnonymousIdentity;
     return identity;
   }
@@ -281,7 +310,7 @@ export class CommercetoolsAPI {
 
     if (!session || !session.token) {
       const identity = {
-        type: 'Anonymous'
+        type: 'Anonymous',
       } satisfies AnonymousIdentity;
 
       return identity;
@@ -290,7 +319,7 @@ export class CommercetoolsAPI {
     const authHeader =
       'Basic ' +
       Buffer.from(
-        `${this.config.clientId}:${this.config.clientSecret}`
+        `${this.config.clientId}:${this.config.clientSecret}`,
       ).toString('base64');
     const introspectionUrl = `${this.config.authUrl}/oauth/introspect`;
 
@@ -304,7 +333,6 @@ export class CommercetoolsAPI {
         token: session.token,
       }),
     });
-
 
     const body: any = await response.json();
     if (!body) {
@@ -350,7 +378,7 @@ export class CommercetoolsAPI {
 
   protected async becomeGuest() {
     const credentials = Buffer.from(
-      `${this.config.clientId}:${this.config.clientSecret}`
+      `${this.config.clientId}:${this.config.clientSecret}`,
     ).toString('base64');
 
     // FIXME: Missing scope-down from .env scopes list
@@ -365,7 +393,7 @@ export class CommercetoolsAPI {
         body: new URLSearchParams({
           grant_type: 'client_credentials',
         }),
-      }
+      },
     );
 
     const result: any = await response.json();
@@ -391,7 +419,7 @@ export class CommercetoolsAPI {
           // we might as well just deal with it here.....
 
           console.log(
-            `Concurrent modification error, retry with version ${version}`
+            `Concurrent modification error, retry with version ${version}`,
           );
           const body = request.body as Record<string, any>;
           body['version'] = version;

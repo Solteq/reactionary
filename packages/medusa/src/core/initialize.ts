@@ -4,6 +4,7 @@ import type {
 } from '@reactionary/core';
 import {
   CartIdentifierSchema,
+  CartPaginatedSearchResultSchema,
   CartSchema,
   CategoryPaginatedResultSchema,
   CategorySchema,
@@ -184,7 +185,11 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
       client.cart = resolveCapabilityWithFactory(
         capabilities.cart,
         {
-          factory: new MedusaCartFactory(CartSchema, CartIdentifierSchema),
+          factory: new MedusaCartFactory(
+            CartSchema,
+            CartIdentifierSchema,
+            CartPaginatedSearchResultSchema
+          ),
           capability: (args) =>
             new MedusaCartCapability(
               args.config,

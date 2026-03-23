@@ -1,5 +1,5 @@
 import { BaseQuerySchema } from './base.query.js';
-import { CartIdentifierSchema } from '../models/identifiers.model.js';
+import { CartIdentifierSchema, CartSearchIdentifierSchema } from '../models/identifiers.model.js';
 import type { InferType } from '../../zod-utils.js';
 
 export const CartQueryByIdSchema = BaseQuerySchema.extend({
@@ -7,3 +7,11 @@ export const CartQueryByIdSchema = BaseQuerySchema.extend({
 });
 
 export type CartQueryById = InferType<typeof CartQueryByIdSchema>;
+
+
+
+export const CartsQueryListSchema = BaseQuerySchema.extend({
+  search: CartSearchIdentifierSchema
+});
+
+export type CartQueryList = InferType<typeof CartsQueryListSchema>;

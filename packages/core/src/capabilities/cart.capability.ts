@@ -1,8 +1,8 @@
 import type { NotFoundError } from "../schemas/index.js";
-import type { Cart } from "../schemas/models/cart.model.js";
+import type { Cart, CartPaginatedSearchResult } from "../schemas/models/cart.model.js";
 import type { CartIdentifier } from "../schemas/models/identifiers.model.js";
-import type { CartMutationApplyCoupon, CartMutationChangeCurrency, CartMutationDeleteCart, CartMutationItemAdd, CartMutationItemQuantityChange, CartMutationItemRemove, CartMutationRemoveCoupon } from "../schemas/mutations/cart.mutation.js";
-import type { CartQueryById } from "../schemas/queries/cart.query.js";
+import type { CartMutationApplyCoupon, CartMutationChangeCurrency, CartMutationCreateCart, CartMutationDeleteCart, CartMutationItemAdd, CartMutationItemQuantityChange, CartMutationItemRemove, CartMutationRemoveCoupon, CartMutationRenameCart } from "../schemas/mutations/cart.mutation.js";
+import type { CartQueryById, CartQueryList } from "../schemas/queries/cart.query.js";
 import type { Result } from "../schemas/result.js";
 import { BaseCapability } from "./base.capability.js";
 
@@ -29,6 +29,8 @@ export abstract class CartCapability<
    *
    * Usecase: Most common usecase during site load, or after login. You want to get the active cart for the user, so you can display it in the minicart.
    * @param session
+   *
+   * @deprecated This method is deprecated, because it assumes that there is only one active cart per user. This might not be the case in the future, when we support multiple carts per user. Use the listCarts method instead, and get the active cart from the list.
    */
   public abstract getActiveCartId(): Promise<Result<TCartIdentifier, NotFoundError>>;
 
@@ -66,6 +68,25 @@ export abstract class CartCapability<
 
 
   /**
+   * Usecase:
+   * Get all carts for the user. This is needed if you want to support multiple carts per user, and show a cart switcher in the UI, or something like that. If you only support one cart per user, this can just return the active cart.
+   *
+   * @param payload
+   */
+  public abstract listCarts(payload : CartQueryList): Promise<Result<CartPaginatedSearchResult>>;
+
+  /**
+   * Usecase:
+   * User is adding something to cart, but no cart exists yet. You want to create a new cart and add the item to it in one step, instead of having to call createCart first, and then add.
+   *
+   * Usecase:
+   * You might want to create a new cart, so you have mulitple carts open
+   * @param payload
+   */
+  public abstract createCart(payload: CartMutationCreateCart): Promise<Result<TCart>>;
+
+
+  /**
    * Deletes the entire cart.
    *
    * Usecase: User wants to empty the cart or something is wrong with the current cart, and you want to clear it out and start fresh.
@@ -73,6 +94,15 @@ export abstract class CartCapability<
    * @param session
    */
   public abstract deleteCart(payload: CartMutationDeleteCart): Promise<Result<void>>;
+
+
+  /**
+   * Usecase:
+   * User wants to rename the cart after creation, to make it easier to identify in a list of multiple carts.
+   */
+  public abstract renameCart(payload: CartMutationRenameCart): Promise<Result<TCart>>;
+
+
 
   /**
    * Applies a coupon code to the cart. Returns the updated and recalculated cart.

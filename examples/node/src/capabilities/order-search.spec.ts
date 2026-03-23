@@ -38,7 +38,12 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
     });
 
     it('can be called by guest users', async () => {
+      const cart = await client.cart.createCart({});
+      if (!cart.success) {
+        assert.fail(JSON.stringify(cart.error));
+      }
       const updatedCart = await client.cart.add({
+        cart: cart.value.identifier,
         quantity: 1,
         variant: {
           sku: testData.sku,

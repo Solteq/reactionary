@@ -1,9 +1,28 @@
+import type { BusinessUnitResourceIdentifier, CartDraft, CustomFieldsDraft, MyCartUpdateAction } from '@commercetools/platform-sdk';
+import type {
+  Cache,
+  CartIdentifier,
+  CartMutationApplyCoupon,
+  CartMutationChangeCurrency,
+  CartMutationCreateCart,
+  CartMutationDeleteCart,
+  CartMutationItemAdd,
+  CartMutationItemQuantityChange,
+  CartMutationItemRemove,
+  CartMutationRemoveCoupon,
+  CartMutationRenameCart,
+  CartPaginatedSearchResult,
+  CartQueryById,
+  CartQueryList,
+  CompanyIdentifier,
+  NotFoundError,
+  RequestContext,
+  Result,
+  InvalidInputError} from '@reactionary/core';
 import {
+  assertSuccess,
+  CartCapability,
   CartIdentifierSchema,
-  type CartFactory,
-  type CartFactoryCartOutput,
-  type CartFactoryIdentifierOutput,
-  type CartFactoryWithOutput,
   CartMutationApplyCouponSchema,
   CartMutationChangeCurrencySchema,
   CartMutationDeleteCartSchema,
@@ -11,37 +30,19 @@ import {
   CartMutationItemQuantityChangeSchema,
   CartMutationItemRemoveSchema,
   CartMutationRemoveCouponSchema,
-  CartCapability,
   CartQueryByIdSchema,
   CartSchema,
+  error,
   Reactionary,
   success,
-  error,
-  unwrapValue,
-  assertSuccess,
+  type CartFactory,
+  type CartFactoryCartOutput,
+  type CartFactoryWithOutput
 } from '@reactionary/core';
-import type {
-  CartMutationItemAdd,
-  CartMutationItemQuantityChange,
-  CartMutationItemRemove,
-  CartQueryById,
-  CartMutationApplyCoupon,
-  CartMutationDeleteCart,
-  CartMutationRemoveCoupon,
-  CartMutationChangeCurrency,
-  RequestContext,
-  CartIdentifier,
-  Cache,
-  Result,
-  NotFoundError,
-  Promotion,
-} from '@reactionary/core';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { MyCartUpdateAction } from '@commercetools/platform-sdk';
-import type { CommercetoolsCartIdentifier } from '../schema/commercetools.schema.js';
-import { CommercetoolsCartIdentifierSchema } from '../schema/commercetools.schema.js';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { CommercetoolsCartFactory } from '../factories/cart/cart.factory.js';
+import type { CommercetoolsCartIdentifier } from '../schema/commercetools.schema.js';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 
 export class CommercetoolsCartCapability<
   TFactory extends CartFactory = CommercetoolsCartFactory,
@@ -65,6 +66,78 @@ export class CommercetoolsCartCapability<
     this.factory = factory;
   }
 
+  public override async  listCarts(payload: CartQueryList): Promise<Result<CartPaginatedSearchResult>> {
+    const cartsClient = (await this.getClient(payload.search.company)).carts;
+
+    const response = await cartsClient.get({
+      queryArgs: {
+        limit: payload.search.paginationOptions.pageSize,
+        offset: (payload.search.paginationOptions.pageNumber - 1) * payload.search.paginationOptions.pageSize,
+      },
+    }).execute();
+
+    return success(this.factory.parseCartPaginatedSearchResult(this.context, response.body, payload));
+  }
+
+  public override async renameCart(payload: CartMutationRenameCart): Promise<Result<CartFactoryCartOutput<TFactory>>> {
+    const actionResult = await this.applyActions(payload.cart, [
+      {
+        action: 'setCustomField',
+        name: 'name',
+        value: payload.newName,
+      },
+    ]);
+    return success(actionResult);
+  }
+
+  protected createCartPayload(payload: CartMutationCreateCart): CartDraft {
+
+    let businessUnitReference: BusinessUnitResourceIdentifier | undefined = undefined;
+    if (payload.company) {
+      businessUnitReference = {
+        typeId: 'business-unit',
+        key: payload.company.taxIdentifier,
+      };
+    }
+
+    const customFields: CustomFieldsDraft = {
+      type: {
+        typeId: 'type',
+        key: 'reactionaryCart',
+      },
+      fields: {
+        name: payload.name,
+      },
+    };
+
+
+    const body =  {
+        currency:  this.context.languageContext.currencyCode || 'EUR',
+        country:  this.context.taxJurisdiction.countryCode || 'DK',
+        locale: this.context.languageContext.locale,
+        businessUnit: businessUnitReference,
+        custom: customFields,
+      };
+
+    return body;
+  }
+
+  public override async createCart(payload: CartMutationCreateCart): Promise<Result<CartFactoryCartOutput<TFactory>>> {
+    const cartsClient = (await this.getClient(payload.company)).carts;
+    const response = await cartsClient.post({
+        body: this.createCartPayload(payload),
+        queryArgs: {
+          expand: this.expandedCartFields,
+        },
+      })
+      .execute();
+
+
+
+    return success(this.factory.parseCart(this.context, response.body));
+  }
+
+
   @Reactionary({
     inputSchema: CartQueryByIdSchema,
     outputSchema: CartSchema,
@@ -72,7 +145,8 @@ export class CommercetoolsCartCapability<
   public override async getById(
     payload: CartQueryById,
   ): Promise<Result<CartFactoryCartOutput<TFactory>, NotFoundError>> {
-    const client = await this.getClient();
+    const company = await this.getCompanyForCart(payload.cart);
+    const client = await this.getClient(company);
     const ctId = payload.cart as CommercetoolsCartIdentifier;
 
     try {
@@ -101,9 +175,12 @@ export class CommercetoolsCartCapability<
   public override async add(
     payload: CartMutationItemAdd,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    let cartIdentifier = payload.cart;
+    const cartIdentifier = payload.cart;
     if (!cartIdentifier) {
-      cartIdentifier = await this.createCart();
+      return error<InvalidInputError>({
+        type: 'InvalidInput',
+        error: 'Cart identifier is required to add item to cart. If you want to create a new cart, you can call the createCart mutation first.',
+      });
     }
 
     const channelId = await this.commercetools.resolveChannelIdByRole('Primary');
@@ -187,11 +264,18 @@ export class CommercetoolsCartCapability<
   > {
     const client = await this.getClient();
     try {
-      const carts = await client.activeCart.get().execute();
-      const result = this.factory.parseCartIdentifier(this.context, {
-        key: carts.body.id,
-        version: carts.body.version || 0,
-      });
+      const carts = await client.carts.get({ queryArgs: {
+        sort: 'lastModifiedAt desc',
+        limit: 1,
+      }}).execute();
+
+      if (carts.body.results.length === 0) {
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: {},
+        });
+      }
+      const result = this.factory.parseCartIdentifier(this.context, carts.body.results[0]);
 
       return success(result);
     } catch (e: any) {
@@ -208,7 +292,8 @@ export class CommercetoolsCartCapability<
   public override async deleteCart(
     payload: CartMutationDeleteCart,
   ): Promise<Result<void>> {
-    const client = await this.getClient();
+    const company = await this.getCompanyForCart(payload.cart);
+    const client = await this.getClient(company);
     if (payload.cart.key) {
       const ctId = payload.cart as CommercetoolsCartIdentifier;
 
@@ -233,6 +318,7 @@ export class CommercetoolsCartCapability<
   public override async applyCouponCode(
     payload: CartMutationApplyCoupon,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
+
     const result = await this.applyActions(payload.cart, [
       {
         action: 'addDiscountCode',
@@ -253,7 +339,9 @@ export class CommercetoolsCartCapability<
   public override async removeCouponCode(
     payload: CartMutationRemoveCoupon,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    const client = await this.getClient();
+
+    const company = await this.getCompanyForCart(payload.cart);
+    const client = await this.getClient(company);
     const currentCart = await client.carts
       .withId({ ID: payload.cart.key })
       .get({
@@ -298,8 +386,8 @@ export class CommercetoolsCartCapability<
     // because Commercetools does not support changing currency of an existing cart.
 
     // This is obviously not ideal, but it is what it is.
-
-    const client = await this.getClient();
+    const company = await this.getCompanyForCart(payload.cart);
+    const client = await this.getClient(company);
     const currentCart = await client.carts
       .withId({ ID: payload.cart.key })
       .get()
@@ -309,14 +397,18 @@ export class CommercetoolsCartCapability<
         body: {
           currency: payload.newCurrency,
           locale: this.context.languageContext.locale,
+          country: currentCart.body.country,
+          ...(company && {
+            businessUnit: {
+              typeId: 'business-unit',
+              key: company.taxIdentifier,
+            },
+          }),
         },
       })
       .execute();
 
-    const newCartId = CommercetoolsCartIdentifierSchema.parse({
-      key: newCart.body.id,
-      version: newCart.body.version || 0,
-    });
+    const newCartId = this.factory.parseCartIdentifier(this.context, newCart.body);
 
     const cartItemAdds: MyCartUpdateAction[] = currentCart.body.lineItems.map(
       (item) => ({
@@ -347,32 +439,37 @@ export class CommercetoolsCartCapability<
     return success(response);
   }
 
-  protected async createCart(): Promise<CartIdentifier> {
-    const client = await this.getClient();
-    const response = await client.carts
-      .post({
-        body: {
-          currency: this.context.languageContext.currencyCode || 'USD',
-          country: this.context.taxJurisdiction.countryCode || 'US',
-          locale: this.context.languageContext.locale,
-        },
-        queryArgs: {
-          expand: this.expandedCartFields,
-        },
-      })
-      .execute();
+  protected async getCompanyForCart(cart: CartIdentifier): Promise<CompanyIdentifier | undefined> {
 
-    return this.factory.parseCartIdentifier(this.context, {
-      key: response.body.id,
-      version: response.body.version || 0,
-    });
+    if ('version' in cart && 'company' in cart) {
+      return cart.company as CompanyIdentifier | undefined;
+    }
+
+    const client = await this.getClient();
+    try {
+      const cartResponse = await client.carts.withId({ ID: cart.key }).get().execute();
+
+      if (cartResponse.body.businessUnit) {
+        return {
+          taxIdentifier: cartResponse.body.businessUnit.key,
+        };
+      }
+
+      return undefined;
+    } catch (e) {
+      console.error('Error fetching cart for company information:', e);
+      return undefined;
+    }
   }
 
   protected async applyActions(
     cart: CartIdentifier,
     actions: MyCartUpdateAction[],
   ): Promise<CartFactoryCartOutput<TFactory>> {
-    const client = await this.getClient();
+
+    const company =  await this.getCompanyForCart(cart);
+
+    const client = await this.getClient(company);
     const ctId = cart as CommercetoolsCartIdentifier;
 
     try {
@@ -404,17 +501,18 @@ export class CommercetoolsCartCapability<
    * For now, any Query or Mutation will require an upgrade to Guest mode.
    * In the future, maybe we can delay this upgrade until we actually need it.
    */
-  protected async getClient() {
-    const client = await this.commercetools.getClient();
+  protected async getClient(companyIdentifier?: CompanyIdentifier) {
 
-    const clientWithProject = client.withProjectKey({
-      projectKey: this.config.projectKey,
-    });
+    let client;
+    if (companyIdentifier) {
+      client = await this.commercetools.getClientForCompany(companyIdentifier);
+    } else {
+      client = (await this.commercetools.getClient()).withProjectKey({ projectKey: this.config.projectKey }).me();
+    }
 
     return {
-      carts: clientWithProject.me().carts(),
-      activeCart: clientWithProject.me().activeCart(),
-      orders: clientWithProject.me().orders(),
+      carts: client.carts(),
+      orders: client.orders(),
     };
   }
 }

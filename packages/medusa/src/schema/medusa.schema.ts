@@ -1,4 +1,4 @@
-import { CartIdentifierSchema, OrderIdentifierSchema } from '@reactionary/core';
+import { CartIdentifierSchema, OrderIdentifierSchema, type InferType } from '@reactionary/core';
 import * as z from 'zod';
 
 export const MedusaCartIdentifierSchema = CartIdentifierSchema.extend({
@@ -16,7 +16,8 @@ export const MedusaRegionSchema = z.looseObject({
 });
 
 export const MedusaSessionSchema = z.looseObject({
-  activeCartId: z.string().optional(),
+  activeCartId: MedusaCartIdentifierSchema.optional(),
+  allOwnedCarts: z.record(z.string(), z.array(MedusaCartIdentifierSchema)).optional(),
   token: z.string().optional(),
   expires: z.string().optional(),
   allRegions: z.array(MedusaRegionSchema).optional(),
@@ -24,7 +25,7 @@ export const MedusaSessionSchema = z.looseObject({
 });
 
 
-export type MedusaCartIdentifier = z.infer<typeof MedusaCartIdentifierSchema>;
+export type MedusaCartIdentifier = InferType<typeof MedusaCartIdentifierSchema>;
 export type MedusaOrderIdentifier = z.infer<typeof MedusaOrderIdentifierSchema>;
 
 export type MedusaSession = z.infer<typeof MedusaSessionSchema>;

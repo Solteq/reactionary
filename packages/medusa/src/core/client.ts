@@ -3,6 +3,7 @@ import { Admin, Auth, Client, type Config, Store } from '@medusajs/js-sdk';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
   AnonymousIdentitySchema,
+  GuestIdentitySchema,
   Reactionary,
   RegisteredIdentitySchema,
   type AnonymousIdentity,

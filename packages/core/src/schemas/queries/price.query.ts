@@ -1,6 +1,6 @@
 import type * as z from 'zod';
 import { BaseQuerySchema } from './base.query.js';
-import { ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
+import { CompanyIdentifierSchema, ProductVariantIdentifierSchema } from '../models/identifiers.model.js';
 import type { InferType } from '../../zod-utils.js';
 
 export const ListPriceQuerySchema = BaseQuerySchema.extend({
@@ -8,7 +8,8 @@ export const ListPriceQuerySchema = BaseQuerySchema.extend({
 });
 
 export const CustomerPriceQuerySchema = BaseQuerySchema.extend({
-    variant: ProductVariantIdentifierSchema
+    variant: ProductVariantIdentifierSchema,
+    company: CompanyIdentifierSchema.optional()
 });
 
 export type ListPriceQuery = InferType<typeof ListPriceQuerySchema>;
