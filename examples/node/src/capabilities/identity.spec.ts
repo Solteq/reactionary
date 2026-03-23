@@ -24,19 +24,16 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Identity
   });
 
   it('should automatically upgrade to guest the moment an operation is performed', async () => {
-    const updatedCart = await client.cart.add(
-      {
-        quantity: 1,
-        variant: {
-          sku: testData.sku
-        },
-      }
-    );
+    const updatedCart = await client.cart.createCart({});
+
+    if (!updatedCart.success) {
+      assert.fail(JSON.stringify(updatedCart.error));
+    }
 
     const identity = await client.identity.getSelf({});
 
     if (!identity.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(identity.error));
     }
 
     expect(identity.value.type).toBe('Guest');

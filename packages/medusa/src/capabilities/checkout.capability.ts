@@ -411,7 +411,7 @@ export class MedusaCheckoutCapability<
 
     if (response.type === 'order') {
       // lets persist this on the carts metadata for future reference
-      await client.store.cart.update(medusaId.key, {
+      const updatedCart = await client.store.cart.update(medusaId.key, {
         metadata: {
           order_id: response.order.id,
           order_display_id: response.order?.display_id ? response.order.display_id + '' : '',
@@ -420,6 +420,20 @@ export class MedusaCheckoutCapability<
       const refreshedCheckout = await this.getById({
         identifier: payload.checkout,
       });
+
+      const sessionData = this.medusaApi.getSessionData();
+      const cartCollectionKey = '_me';
+      if (sessionData.allOwnedCarts?.[cartCollectionKey]) {
+        const updatedCollection = sessionData.allOwnedCarts[cartCollectionKey].filter(x => x.key !== updatedCart.cart.id);
+
+        this.medusaApi.setSessionData({
+          allOwnedCarts: {
+            ...sessionData.allOwnedCarts,
+            [cartCollectionKey]: updatedCollection,
+          },
+          activeCartId: updatedCollection.length > 0 ? updatedCollection[0] : undefined,
+        });
+      }
 
       if (!refreshedCheckout.success) {
         throw new Error(`Unable to reload checkout ${payload.checkout.key} after completion`);

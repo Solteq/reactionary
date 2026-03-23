@@ -149,13 +149,28 @@ export const ProductReviewIdentifierSchema = z.looseObject({
   key: z.string().meta({ description: 'The unique identifier for the product review.' }),
 });
 
+/**
+ * The structural top level legal entity
+ */
+export const CompanyIdentifierSchema = z.looseObject({
+  /**
+   * VAT identifier, used for tax-calculation purposes
+   */
+    taxIdentifier: z.string().meta({ description: 'The unique identifier for the company. Could technically also be the DUNS identifier' }),
+});
+
+
 export const ProductSearchIdentifierSchema = z.looseObject({
   term: z.string().meta({ description: 'The search term used to find products.' }),
   facets: z.array(FacetValueIdentifierSchema).meta({ description: 'The facets applied to filter the search results.' }),
   filters: z.array(z.string()).meta({ description: 'Additional filters applied to the search results.' }),
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
   categoryFilter: FacetValueIdentifierSchema.optional().meta({ description: 'An optional category filter applied to the search results.' }),
+  company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search products within. This can be used to filter products by specific companies, which can be useful for B2B use cases.' }),
 });
+
+
+
 
 /**
  * Bar
@@ -165,6 +180,7 @@ export const OrderSearchIdentifierSchema = z.looseObject({
   partNumber: z.array(z.string()).optional().meta({ description: 'An optional list part number to filter orders by specific products. Will be ANDed together.' }),
   orderStatus: z.array(OrderStatusSchema).optional().meta({ description: 'An optional list of order statuses to filter the search results.' }),
   user: IdentityIdentifierSchema.optional().meta({ description: 'An optional user ID to filter orders by specific users. Mostly for b2b usecases with hierachial order access.' }),
+  company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search orders within. This can be used to filter orders by specific companies, which can be useful for B2B use cases.' }),
   startDate: z.string().optional().meta({ description: 'An optional start date to filter orders from a specific date onwards. ISO8601' }),
   endDate: z.string().optional().meta({ description: 'An optional end date to filter orders up to a specific date. ISO8601' }),
   filters: z.array(z.string()).meta({ description: 'Additional filters applied to the search results.' }),
@@ -174,6 +190,7 @@ export const OrderSearchIdentifierSchema = z.looseObject({
 
 export const ProductListSearchIdentifierSchema = z.looseObject({
   listType: ProductListTypeSchema.meta({ description: 'The type of product list, e.g., "wishlist" or "favorites".' }),
+  company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search product lists within. This can be used to filter product lists by specific companies, which can be useful for B2B use cases.' }),
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
 });
 
@@ -197,15 +214,6 @@ export const PromotionIdentifierSchema = z.looseObject({
     key: z.string().meta({ description: 'The unique identifier for the promotion.' }),
 });
 
-/**
- * The structural top level legal entity
- */
-export const CompanyIdentifierSchema = z.looseObject({
-  /**
-   * VAT identifier, used for tax-calculation purposes
-   */
-    taxIdentifier: z.string().meta({ description: 'The unique identifier for the company. Could technically also be the DUNS identifier' }),
-});
 
 export const CompanyRegistrationRequestIdentifierSchema = z.looseObject({
     key: z.string().meta({ description: 'The unique identifier for the company registration request.' }),
@@ -240,6 +248,14 @@ export const EmployeeSearchIdentifierSchema = z.looseObject({
 });
 
 
+export const CartSearchIdentifierSchema = z.looseObject({
+  company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search carts within. This can be used to filter carts by specific companies, which can be useful for B2B use cases.' }),
+  paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
+});
+
+
+
+export type CartSearchIdentifier = InferType<typeof CartSearchIdentifierSchema>;
 export type OrderSearchIdentifier = InferType<typeof OrderSearchIdentifierSchema>;
 export type ProductIdentifier = InferType<typeof ProductIdentifierSchema>;
 export type ProductVariantIdentifier = InferType<typeof ProductVariantIdentifierSchema>;

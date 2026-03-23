@@ -167,7 +167,7 @@ Vendors:  Commercetools, Medusa
 - PDP / PLP
   - [ ] External Pricing / Pushed prices
   - [ ] Customer specific pricing
-  - [ ] Organizational/Entitlement Context. Choose to shop private or for company?
+  - [X] Organizational/Entitlement Context. Choose to shop private or for company?
   - [ ] Multi currency/Multi lingual
 
 
@@ -180,8 +180,9 @@ Vendors:  Commercetools
 - Header
    - [ ] Pick active cart
 - Account 
-   - [ ] My Open Carts
-   - [ ] My Requisition Lists (private)
+   - [X] My Open Carts
+   - [X] My Orgs Carts
+   - [X] My Requisition Lists (private)
    - [ ] My Orgs Requisition Lists (everyones public lists)
 
 ### Roadmap to V1.0

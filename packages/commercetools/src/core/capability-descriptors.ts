@@ -29,6 +29,7 @@ import {
   StoreSchema,
   type Cache,
   type RequestContext,
+  CartPaginatedSearchResultSchema,
 } from '@reactionary/core';
 import type * as z from 'zod';
 import {
@@ -229,7 +230,7 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
     isEnabled: (caps) => caps.cart?.enabled,
     getOverride: (caps) => caps.cart,
     createDefaultFactory: () =>
-      new CommercetoolsCartFactory(CartSchema, CartIdentifierSchema),
+      new CommercetoolsCartFactory(CartSchema, CartIdentifierSchema, CartPaginatedSearchResultSchema),
     createDefaultCapability: (args) =>
       new CommercetoolsCartCapability(
         args.config,

@@ -1,7 +1,7 @@
 import * as z from 'zod';
 import type { InferType } from '../../zod-utils.js';
 import { ImageSchema } from '../models/base.model.js';
-import { ProductListIdentifierSchema, ProductListItemIdentifierSchema } from '../models/identifiers.model.js';
+import { CompanyIdentifierSchema, ProductListIdentifierSchema, ProductListItemIdentifierSchema } from '../models/identifiers.model.js';
 import { ProductListItemSchema, ProductListSchema } from '../models/product-list.model.js';
 import { BaseMutationSchema } from './base.mutation.js';
 
@@ -9,6 +9,7 @@ export const ProductListCreateSchema = ProductListSchema.omit({ identifier: true
 
 export const ProductListMutationCreateSchema = BaseMutationSchema.extend({
     list: ProductListCreateSchema.describe('The details of the product list to create, including its name, description, type, and any associated image.'),
+    company: CompanyIdentifierSchema.optional().describe('The identifier for the company to create the product list within. This can be used to associate the list with a specific company, which can be useful for B2B use cases. If not provided, the list will be created in a default or global context.'),
 });
 
 export const ProductListMutationDeleteSchema = BaseMutationSchema.extend({

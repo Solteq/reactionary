@@ -254,8 +254,8 @@ export class MedusaCheckoutFactory<
 
     const originalCartReference: MedusaCartIdentifier = {
       key: data.id,
-      region: data.region_id,
-    };
+      region_id: data.region_id,
+    } satisfies MedusaCartIdentifier;
 
     const pointOfContact = {
       email: data.email || '',
@@ -267,7 +267,7 @@ export class MedusaCheckoutFactory<
       resultingOrder = {
         key: data.metadata?.['order_id'] + '' || '',
         display_id: Number(data.metadata?.['order_display_id'] + '' || '0'),
-      };
+      } satisfies MedusaOrderIdentifier;
     }
 
     const result: Checkout = {

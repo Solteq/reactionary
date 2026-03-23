@@ -1,13 +1,15 @@
-import { BaseModelSchema, CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema, EmployeeInvitationSchema } from "@reactionary/core";
+import { BaseModelSchema, CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema, EmployeeInvitationSchema, CompanyIdentifierSchema } from "@reactionary/core";
 import * as z from "zod";
 
 export const CommercetoolsCartIdentifierSchema = CartIdentifierSchema.extend({
-    version: z.number().default(0)
+    version: z.number().default(0),
+    company: CompanyIdentifierSchema.optional(),
 });
 
 
 export const CommercetoolsOrderIdentifierSchema = OrderIdentifierSchema.extend({
-    version: z.number().default(0)
+    version: z.number().default(0),
+    company: CompanyIdentifierSchema.optional(),
 });
 
 export const CommercetoolsCheckoutIdentifierSchema = CheckoutIdentifierSchema.extend({
