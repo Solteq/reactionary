@@ -178,7 +178,7 @@ Usecase: As a B2B user i want have multiple carts and requisition lists
 Vendors:  Commercetools
 
 - Header
-   - [ ] Pick active cart
+   - [X] Pick active cart
 - Account 
    - [X] My Open Carts
    - [X] My Orgs Carts

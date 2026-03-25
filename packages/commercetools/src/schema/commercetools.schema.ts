@@ -1,4 +1,4 @@
-import { BaseModelSchema, CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema, EmployeeInvitationSchema, CompanyIdentifierSchema } from "@reactionary/core";
+import { BaseModelSchema, CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema, EmployeeInvitationSchema, CompanyIdentifierSchema, MonetaryAmountSchema } from "@reactionary/core";
 import * as z from "zod";
 
 export const CommercetoolsCartIdentifierSchema = CartIdentifierSchema.extend({
@@ -6,6 +6,9 @@ export const CommercetoolsCartIdentifierSchema = CartIdentifierSchema.extend({
     company: CompanyIdentifierSchema.optional(),
 });
 
+export const CommercetoolsCartItemIdentfiierSchema = CartIdentifierSchema.extend({
+    originalPrice: MonetaryAmountSchema.optional().meta({ description: 'The original price of the cart item. Used in case backend set the pricemode to external price, and we have to provide this value when updating quantity. This is mostly an optimization.' }),
+});
 
 export const CommercetoolsOrderIdentifierSchema = OrderIdentifierSchema.extend({
     version: z.number().default(0),
@@ -27,6 +30,7 @@ export const CommercetoolsCategoryLookupSchema = BaseModelSchema.extend({
     key: z.string().optional(),
     name: z.record(z.string(), z.string()),
 });
+
 
 
 export const CommercetoolsEmployeeInviteCustomObjectValueSchema = EmployeeInvitationSchema.omit({ identifier: true }).extend({
@@ -54,3 +58,4 @@ export type CommercetoolsResolveCategoryQueryById = z.infer<typeof Commercetools
 export type CommercetoolsCategoryLookup = z.infer<typeof CommercetoolsCategoryLookupSchema>;
 export type CommercetoolsEmployeeInviteCustomObject = z.infer<typeof CommercetoolsEmployeeInviteCustomObjectSchema>;
 export type CommercetoolsEmployeeInviteCustomObjectValue = z.infer<typeof CommercetoolsEmployeeInviteCustomObjectValueSchema>;
+export type CommercetoolsCartItemIdentifier = z.infer<typeof CommercetoolsCartItemIdentfiierSchema>;
