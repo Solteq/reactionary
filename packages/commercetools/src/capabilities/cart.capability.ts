@@ -1,4 +1,4 @@
-import type { BusinessUnitResourceIdentifier, CartDraft, CustomFieldsDraft, MyCartUpdateAction } from '@commercetools/platform-sdk';
+import type { BusinessUnitResourceIdentifier, CartDraft, CartUpdateAction, CustomFieldsDraft, MyCartUpdateAction } from '@commercetools/platform-sdk';
 import type {
   Cache,
   CartIdentifier,
@@ -18,7 +18,9 @@ import type {
   NotFoundError,
   RequestContext,
   Result,
-  InvalidInputError} from '@reactionary/core';
+  InvalidInputError,
+  Cart
+} from '@reactionary/core';
 import {
   assertSuccess,
   CartCapability,
@@ -41,7 +43,7 @@ import {
 } from '@reactionary/core';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { CommercetoolsCartFactory } from '../factories/cart/cart.factory.js';
-import type { CommercetoolsCartIdentifier } from '../schema/commercetools.schema.js';
+import type { CommercetoolsCartIdentifier, CommercetoolsCartItemIdentifier } from '../schema/commercetools.schema.js';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 
 export class CommercetoolsCartCapability<
@@ -117,7 +119,7 @@ export class CommercetoolsCartCapability<
         locale: this.context.languageContext.locale,
         businessUnit: businessUnitReference,
         custom: customFields,
-      };
+      } satisfies CartDraft;
 
     return body;
   }
@@ -185,17 +187,22 @@ export class CommercetoolsCartCapability<
 
     const channelId = await this.commercetools.resolveChannelIdByRole('Primary');
 
-    const result = await this.applyActions(cartIdentifier, [
-      {
-        action: 'addLineItem',
-        quantity: payload.quantity,
-        sku: payload.variant.sku,
-        // FIXME: This should be dynamic, probably as part of the context...
-        distributionChannel: {
-          typeId: 'channel',
-          id: channelId,
-        },
+    const actions: (MyCartUpdateAction & CartUpdateAction) [] = []
+
+    actions.push({
+      action: 'addLineItem',
+      quantity: payload.quantity,
+      sku: payload.variant.sku,
+      // FIXME: This should be dynamic, probably as part of the context...
+      distributionChannel: {
+        typeId: 'channel',
+        id: channelId,
       },
+    });
+
+
+    const result = await this.applyActions(cartIdentifier, [
+      ...actions,
       {
         action: 'recalculate',
       },
@@ -231,22 +238,21 @@ export class CommercetoolsCartCapability<
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    if (payload.quantity === 0) {
-      // Changing quantity to 0 is not allowed. Use the remove call instead. This is done to avoid accidental removal of item.
-      // Calls with quantity 0 will just be ignored.
-      const existing = await this.getById({ cart: payload.cart });
+    // annoyingly, once we have started using external prices,
+    // it needs us to reflect it back in the change quantity call, otherwise it will reset the price to the original price.
 
-      // TODO: Should we instead allow returning NotFound here, if that is indeed the case?
-      assertSuccess(existing);
-
-      return existing;
-    }
-
+    const lineIdentifier = payload.item as CommercetoolsCartItemIdentifier;
     const result = await this.applyActions(payload.cart, [
       {
         action: 'changeLineItemQuantity',
-        lineItemId: payload.item.key,
+        lineItemId: lineIdentifier.key,
         quantity: payload.quantity,
+        ...(lineIdentifier.originalPrice && {
+          externalPrice: {
+            currencyCode: lineIdentifier.originalPrice.currency,
+            centAmount: Math.floor(lineIdentifier.originalPrice.value * 100),
+          },
+        })
       },
       {
         action: 'recalculate',
@@ -410,11 +416,12 @@ export class CommercetoolsCartCapability<
 
     const newCartId = this.factory.parseCartIdentifier(this.context, newCart.body);
 
-    const cartItemAdds: MyCartUpdateAction[] = currentCart.body.lineItems.map(
+    const cartItemAdds: (CartUpdateAction & MyCartUpdateAction)[] = currentCart.body.lineItems.map(
       (item) => ({
         action: 'addLineItem',
         sku: item.variant.sku || '',
         quantity: item.quantity,
+        custom: item.custom,
       }),
     );
 
@@ -464,7 +471,7 @@ export class CommercetoolsCartCapability<
 
   protected async applyActions(
     cart: CartIdentifier,
-    actions: MyCartUpdateAction[],
+    actions: (MyCartUpdateAction & CartUpdateAction)[],
   ): Promise<CartFactoryCartOutput<TFactory>> {
 
     const company =  await this.getCompanyForCart(cart);

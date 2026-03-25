@@ -28,6 +28,7 @@ import type * as z from 'zod';
 import type {
   CommercetoolsCartIdentifier,
   CommercetoolsCartIdentifierSchema,
+  CommercetoolsCartItemIdentifier,
 } from '../../schema/commercetools.schema.js';
 
 export class CommercetoolsCartFactory<
@@ -234,10 +235,18 @@ export class CommercetoolsCartFactory<
     const currency =
       lineItem.price.value.currencyCode.toUpperCase() as Currency;
 
+
+
     return CartItemSchema.parse({
       identifier: {
         key: lineItem.id,
-      },
+        ...(lineItem.priceMode === 'ExternalPrice' && {
+          originalPrice: {
+            value: lineItem.price.value.centAmount / 100,
+            currency,
+          },
+        }),
+      } satisfies CommercetoolsCartItemIdentifier,
       product: {
         key: lineItem.productId,
       },

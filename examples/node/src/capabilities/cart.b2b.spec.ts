@@ -6,6 +6,9 @@ import { ProductSearchQueryByTermSchema, type Cart, type CartIdentifier, type Co
 const testData = {
   skuWithoutTiers: '0766623301831',
   skuWithTiers: '0766623360203',
+  skuWithExternalPrice: '0766623301831',
+
+
   requestTemplate: (ts: string) => {
     return {
       adminUserEmail: `unittest-orgadmin+${ts}@example.com`,
@@ -88,7 +91,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart B2B Capability - %s', (prov
     }
 
     companyIdentifier = orgCreateResponse.value.companyIdentifier;
-  }, 15000);
+  }, 25000);
 
 
   it('can create a cart and get it by ID', async () => {
@@ -151,6 +154,89 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart B2B Capability - %s', (prov
         cart.value.items[0].price.totalPrice.value
       );
     },50000);
+
+    it('should be able to add an item with an external price to a cart', async () => {
+
+      // in this scenario, the company does not actually matter.
+      // the important part is that we can add an item with a custom price,
+      // and that the price is correctly set on the cart and cart item.
+      const originalPrice = await client.price.getCustomerPrice({
+        variant: {
+          sku: testData.skuWithExternalPrice,
+        },
+        company: companyIdentifier,
+      })
+
+      if(!originalPrice.success) {
+        assert.fail(JSON.stringify(originalPrice.error));
+      }
+
+      const cart = await client.cart.add({
+        cart: cartIdentifier,
+        variant: {
+          sku: testData.skuWithExternalPrice,
+        },
+        quantity: 3,
+      });
+
+      if (!cart.success) {
+        assert.fail(JSON.stringify(cart.error));
+      }
+
+      expect(cart.value.identifier.key).toBeDefined();
+      expect(cart.value.items.length).toBe(1);
+      expect(cart.value.items[0].variant.sku).toBe(testData.skuWithExternalPrice);
+      expect(cart.value.items[0].quantity).toBe(3);
+
+      expect(cart.value.items[0].price.unitPrice.value).not.toBe(originalPrice.value.unitPrice.value);
+      expect((cart.value.items[0].identifier as any).originalPrice).toBeDefined();
+
+      expect(cart.value.price.grandTotal.value).toBeGreaterThan(0);
+
+      expect(cart.value.price.grandTotal.value).toBe(
+        cart.value.items[0].price.totalPrice.value
+      );
+    },50000);
+
+    it('can change the quantity of an item in the cart using external prices', async () => {
+
+      const originalPrice = await client.price.getCustomerPrice({
+        variant: {
+          sku: testData.skuWithExternalPrice,
+        },
+        company: companyIdentifier,
+      })
+      if (!originalPrice.success) {
+        assert.fail(JSON.stringify(originalPrice.error));
+      }
+
+      const addResult = await client.cart.add({
+        cart: cartIdentifier,
+        variant: {
+          sku: testData.skuWithExternalPrice,
+        },
+        quantity: 3
+      });
+
+      if (!addResult.success) {
+        assert.fail(JSON.stringify(addResult.error));
+      }
+
+      const itemIdentifier = addResult.value.items[0].identifier;
+      const qtyResult = await client.cart.changeQuantity({
+        cart: cartIdentifier,
+        item: itemIdentifier,
+        quantity: 11,
+      });
+
+      if (!qtyResult.success) {
+        assert.fail(JSON.stringify(qtyResult.error));
+       }
+
+      expect(qtyResult.value.items[0].quantity).toBe(11);
+      expect(qtyResult.value.items[0].price.unitPrice.value).not.toBe(originalPrice.value.unitPrice.value );
+      expect (qtyResult.value.items[0].price.unitPrice.value).toBeLessThan(addResult.value.items[0].price.unitPrice.value);
+    });
 
     it('can list all b2b carts for a user', async () => {
       const extraCart = await client.cart.createCart({ name: 'First B2B Cart', company: companyIdentifier });

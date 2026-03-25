@@ -9,7 +9,6 @@ import type { InferType } from '../../zod-utils.js';
 export const CartMutationItemAddSchema = BaseMutationSchema.extend({
     cart: CartIdentifierSchema,
     variant: ProductVariantIdentifierSchema,
-    customPrice: MonetaryAmountSchema.optional().describe('An optional custom price for the cart item. If not provided, the default price of the product variant will be used. This is mostly used in B2B scenarios where pricing is looked up from ERP or other service'),
     quantity: z.number().min(1).default(1).meta({ description: 'The quantity of the item to add to the cart. Must be at least 1.' }),
 });
 

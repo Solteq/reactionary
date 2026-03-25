@@ -82,12 +82,10 @@ In B2B you can run in two pricemodes:
 - Prices managed and hosted in the ecom backend
 - Prices hosted in the ERP (external prices)
 
-For ERP mode, you will most likely have to provide a project specific override to the Price Capability in which you perform a REST call to whatever endpoint you have that can resolve the price info. This way, all the display logic stays the same, but when adding to cart, you will the push the price in as a customPrice.
-
-The backend is expected to accept this at face value, but confirm it once the cart turns into a checkout, and again after checkout is complete.
+For ERP mode, you will most likely have to provide a project specific override to the Price Capability in which you perform a REST call to whatever endpoint you have that can resolve the price info. This way, all the display logic stays the same, but when adding to cart, the expectation is, the backend has its own way to resolve the price from ERP.
 
 That way, it becomes transparent to the frontend code where the price comes from, and what happens to it.
-Worst case, the customer manages to "hack" the frontend to make it look like he gets a better price, but in the end the validation will stop the order from being placed, so he is only wasting his own time.
+Worst case scenario, the frontend is using a cached fast lookup service that is slightly behind the real ERP, and might show different prices at PLP/PDP level, but once added to cart, the ECOM system is expected to be authorative on the price on the cart item, preferably by calling a non-cached ERP endpoint. This also allows any advanced ERP pricing flows, like quantity-limits on entitled prices ("you get the first 400 units this year at a lower price") to be handled correctly.
 
 To get prices, that are specific to your company, pass the company identifier to the getCustomerPrice query.
 
@@ -97,6 +95,14 @@ const myCompanyPrice = client.price.getCustomerPrice({
     company: myCompanyIdentifier;
 })
 ```
+### Design decisions
+An alternative approach could have been to allow the BFF to provide the price,  and have the backend simply accept it until such a time that the cart is converted to a checkout. The downside is, the frontend gets very involved since you then have to query for prices for both add-to-cart and quantity changes, since the unit price might differ based on the quantity.
+
+By saying it is the backends job to deal with it, you allow for the following combinations of flows:
+
+- PLP/PDP pricing can be handled in Backend
+- PLP/PDP pricing can be handled in BFF 
+
 
 ## Orders
 You can find and search for orders that belong to your company by providing the company filter.
