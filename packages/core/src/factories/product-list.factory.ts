@@ -6,6 +6,7 @@ import type {
   ProductListSchema,
 } from '../schemas/models/product-list.model.js';
 import type { RequestContext } from '../schemas/session.schema.js';
+import type { ProductListItemsQuery, ProductListQuery } from '../schemas/queries/product-list.query.js';
 
 export type AnyProductListSchema = z.ZodType<z.output<typeof ProductListSchema>>;
 export type AnyProductListItemSchema = z.ZodType<
@@ -39,10 +40,12 @@ export interface ProductListFactory<
   parseProductListPaginatedResult(
     context: RequestContext,
     data: unknown,
+    query: ProductListQuery,
   ): z.output<TProductListPaginatedSchema>;
   parseProductListItemPaginatedResult(
     context: RequestContext,
     data: unknown,
+    query: ProductListItemsQuery,
   ): z.output<TProductListItemPaginatedSchema>;
 }
 
@@ -74,9 +77,11 @@ export type ProductListFactoryWithOutput<TFactory extends ProductListFactory> =
     parseProductListPaginatedResult(
       context: RequestContext,
       data: unknown,
+      query: ProductListQuery,
     ): ProductListFactoryListPaginatedOutput<TFactory>;
     parseProductListItemPaginatedResult(
       context: RequestContext,
       data: unknown,
+      query: ProductListItemsQuery,
     ): ProductListFactoryItemPaginatedOutput<TFactory>;
   };

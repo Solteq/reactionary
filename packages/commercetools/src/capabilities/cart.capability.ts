@@ -1,4 +1,4 @@
-import type { BusinessUnitResourceIdentifier, CartDraft, CartUpdateAction, CustomFieldsDraft, MyCartUpdateAction } from '@commercetools/platform-sdk';
+import type { BusinessUnitResourceIdentifier, CartDraft, CartUpdateAction, CustomerResourceIdentifier, CustomFieldsDraft, MyCartUpdateAction } from '@commercetools/platform-sdk';
 import type {
   Cache,
   CartIdentifier,
@@ -95,12 +95,20 @@ export class CommercetoolsCartCapability<
   protected createCartPayload(payload: CartMutationCreateCart): CartDraft {
 
     let businessUnitReference: BusinessUnitResourceIdentifier | undefined = undefined;
+    let customerReference: CustomerResourceIdentifier | undefined = undefined;
     if (payload.company) {
       businessUnitReference = {
         typeId: 'business-unit',
         key: payload.company.taxIdentifier,
       };
+      if (this.context.session.identityContext?.identity.type === 'Registered' && this.context.session.identityContext?.identity.id) {
+        customerReference = {
+          typeId: 'customer',
+          id: this.context.session.identityContext?.identity.id.userId,
+        };
+      }
     }
+
 
     const customFields: CustomFieldsDraft = {
       type: {
@@ -118,6 +126,7 @@ export class CommercetoolsCartCapability<
         country:  this.context.taxJurisdiction.countryCode || 'DK',
         locale: this.context.languageContext.locale,
         businessUnit: businessUnitReference,
+        ...(customerReference ? { customerId: customerReference.id } : {}),
         custom: customFields,
       } satisfies CartDraft;
 

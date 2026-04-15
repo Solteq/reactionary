@@ -123,7 +123,7 @@ export class CommercetoolsEmployeeInvitationCapability<
   }
 
   protected makeKeyFromEmail(email: string): string {
-    return `email-` + Buffer.from(email).toString('base64');
+    return `email-` + Buffer.from(email).toString('base64').replace(/=+$/, '');
   }
 
   protected async fetchInvitationIdsByKey(adminClient: ByProjectKeyRequestBuilder, key: string): Promise<string[]> {
