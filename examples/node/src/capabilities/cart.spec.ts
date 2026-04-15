@@ -611,7 +611,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
           },
           quantity: 1,
         });
-
         if (!updatedCart.success) {
           assert.fail(JSON.stringify(updatedCart.error));
         }
@@ -684,6 +683,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
         });
 
         if (cartAfterLogout.success) {
+          // for medusa..... this isn't strictly true..yet.
           assert.fail(JSON.stringify(cartAfterLogout.value));
         }
 
