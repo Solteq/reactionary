@@ -30,14 +30,14 @@ if (!companyCartResponse.success) {
 }
 
 // this is also a place to get some info....
-console.log(companyCartRespose.value.company);
+console.log(companyCartResponse.value.company);
 ```
 
 From here you use the cart you normally would.
 
 ```ts
 const addToCartResponse = await client.cart.add({
-  cart: companyCartRespose.value.identifier,
+  cart: companyCartResponse.value.identifier,
   variant: {
     sku: 'SKUA1234',
   },
@@ -45,7 +45,7 @@ const addToCartResponse = await client.cart.add({
 });
 ```
 
-As always its important that you treat the cart identifier as a opaque entity, and don't start picking it apart for session storage, or form-submissions. Always json-derser the whole thing if you need it as a string representation at some point.
+As always its important that you treat the cart identifier as a opaque entity, and don't start picking it apart for session storage, or form-submissions. Always json-deser the whole thing if you need it as a string representation at some point.
 
 You cannot reassign a cart from one company to another. If you want to do that, create a new cart in the other company, then copy over all rows and other data.
 

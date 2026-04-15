@@ -194,9 +194,9 @@ let numItemsInCart = mySession.numItemsInCart;
 
 // if not, lets see if the system might have it for us
 if (!cartId) {
-  cartListResponse = await client.cart.listCarts(payload: { paginationOptions: { pageNumber:1, pageSize: 1 }});
+  cartListResponse = await client.cart.listCarts({ search: { paginationOptions: { pageNumber:1, pageSize: 1 }}});
   if (cartListResponse.success) {
-    activeCartId = cartListResponse.value.items[0].identifier;
+    cartId = cartListResponse.value.items[0].identifier;
     numItemsInCart = cartListResponse.value.items[0].numItems;
   } else {
     // we dont really care why it couldn't load.  We just reset to a safe value
