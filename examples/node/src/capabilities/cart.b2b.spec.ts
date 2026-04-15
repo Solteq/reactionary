@@ -69,7 +69,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart B2B Capability - %s', (prov
     }
     expect(orgCreateResponse.value.status).toBe('pending');
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 40; i++) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const checkStatusResult =
@@ -83,7 +83,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart B2B Capability - %s', (prov
       if (checkStatusResult.value.status === 'approved') {
         break;
       }
-      if (i == 19) {
+      if (i == 39) {
         assert.fail(
           'Company registration was not approved within expected time',
         );
@@ -91,7 +91,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart B2B Capability - %s', (prov
     }
 
     companyIdentifier = orgCreateResponse.value.companyIdentifier;
-  }, 25000);
+  }, 45000);
 
 
   it('can create a cart and get it by ID', async () => {
@@ -279,7 +279,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart B2B Capability - %s', (prov
       expect(extraCartInList).toBeTruthy();
       expect(extraCartInList.name).toBe('First B2B Cart');
       expect(extraCartInList.company?.taxIdentifier).toBe(companyIdentifier.taxIdentifier);
-      expect(extraCartInList.userId).toBeTruthy();
+      expect(extraCartInList.user).toBeTruthy();
       expect(extraCartInList.identifier.key).toBe(extraCart.value.identifier.key);
       expect(extraCartInList.numItems).toBe(1);
 
@@ -290,13 +290,13 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart B2B Capability - %s', (prov
       expect(originalCartInList).toBeTruthy();
       expect(originalCartInList.name).toBe('');
       expect(originalCartInList.company?.taxIdentifier).toBe(companyIdentifier.taxIdentifier);
-      expect(originalCartInList.userId).toBeTruthy();
+      expect(originalCartInList.user).toBeTruthy();
       expect(originalCartInList.identifier.key).toBe(cartIdentifier?.key);
       expect(originalCartInList.numItems).toBe(0);
 
     });
 
-    it('seperates b2c and b2b carts', async () => {
+    it('separates b2c and b2b carts', async () => {
       // Create a b2c cart
       const b2cCart = await client.cart.createCart({});
 

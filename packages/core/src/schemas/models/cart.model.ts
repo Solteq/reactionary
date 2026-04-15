@@ -16,7 +16,7 @@ export const CartItemSchema = z.looseObject({
 });
 export const BaseCartSchema = BaseModelSchema.extend({
     identifier: CartIdentifierSchema.default(() => CartIdentifierSchema.parse({})),
-    userId: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
+    user: IdentityIdentifierSchema.default(() => IdentityIdentifierSchema.parse({})),
     company: CompanyIdentifierSchema.optional(),
     name: z.string().default(''),
 });

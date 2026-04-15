@@ -377,7 +377,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
       expect(extraCartInList).toBeTruthy();
       expect(extraCartInList.name).toBe('First Cart');
       expect(extraCartInList.company).toBeUndefined();
-      expect(extraCartInList.userId).toBeTruthy();
+      expect(extraCartInList.user).toBeTruthy();
       expect(extraCartInList.identifier.key).toBe(extraCart.value.identifier.key);
       expect(extraCartInList.numItems).toBe(1);
 
@@ -388,7 +388,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
       expect(originalCartInList).toBeTruthy();
       expect(originalCartInList.name).toBe('');
       expect(originalCartInList.company).toBeUndefined();
-      expect(originalCartInList.userId).toBeTruthy();
+      expect(originalCartInList.user).toBeTruthy();
       expect(originalCartInList.identifier.key).toBe(cartIdentifier?.key);
       expect(originalCartInList.numItems).toBe(0);
 

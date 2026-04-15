@@ -148,7 +148,7 @@ export class CommercetoolsProductListCapability<
         }
       }
 
-      return success(this.factory.parseProductList(this.context, response.body));
+      return success(payloadResult);
     } catch(err: any) {
       if (err.statusCode === 404) {
         return error<NotFoundError>({

@@ -86,10 +86,11 @@ export class FakeCartCapability<
     }
 
     if (!this.carts.has(cartId)) {
-      const cart = this.createEmptyCart();
-      cart.identifier.key = cartId;
 
-      this.carts.set(cartId, cart);
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: cartId,
+      });
     }
 
     const cart = this.carts.get(cartId);
@@ -208,8 +209,10 @@ export class FakeCartCapability<
   public override async createCart(
     _payload: CartMutationCreateCart,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    // TODO: Implement createCart for fake provider
-    throw new Error('createCart is not yet implemented for fake provider');
+    const emptyCart = this.createEmptyCart();
+    emptyCart.identifier.key = `cart-${this.generator.string.uuid()}`;
+    this.carts.set(emptyCart.identifier.key, emptyCart);
+    return success(this.factory.parseCart(this.context, emptyCart));
   }
 
   @Reactionary({
@@ -219,53 +222,125 @@ export class FakeCartCapability<
   public override async renameCart(
     _payload: CartMutationRenameCart,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    // TODO: Implement renameCart for fake provider
-    throw new Error('renameCart is not yet implemented for fake provider');
+    const cart = this.carts.get(_payload.cart.key);
+    if (!cart) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: _payload.cart.key,
+      });
+    }
+    cart.name = _payload.newName;
+    return success(this.factory.parseCart(this.context, cart));
   }
 
   @Reactionary({
     outputSchema: CartIdentifierSchema,
   })
-  public override getActiveCartId(): Promise<Result<CartFactoryIdentifierOutput<TFactory>, NotFoundError>> {
-    throw new Error('Method not implemented.');
+  public override async getActiveCartId(): Promise<
+    Result<CartFactoryIdentifierOutput<TFactory>, NotFoundError>
+  > {
+    if (this.carts.size > 0 ) {
+      const cartId = this.carts.values().next().value!.identifier;
+      return success(cartId);
+    } else {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: 'activeCart',
+      });
+    }
   }
 
   @Reactionary({
     inputSchema: CartMutationDeleteCartSchema,
     outputSchema: CartSchema,
   })
-  public override deleteCart(payload: CartMutationDeleteCart): Promise<Result<void>> {
-    throw new Error('Method not implemented.');
+  public override async deleteCart(payload: CartMutationDeleteCart): Promise<Result<void>> {
+    const cartId = payload.cart.key;
+    if (this.carts.has(cartId)) {
+      this.carts.delete(cartId);
+    }
+    return success(void 0);
   }
 
   @Reactionary({
     inputSchema: CartMutationApplyCouponSchema,
     outputSchema: CartSchema,
   })
-  public override applyCouponCode(
+  public override async  applyCouponCode(
     payload: CartMutationApplyCoupon
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    throw new Error('Method not implemented.');
+    const cart = this.carts.get(payload.cart.key);
+    if (!cart) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.cart.key,
+      });
+    }
+    cart.appliedPromotions.push({
+      code: payload.couponCode,
+      isCouponCode: true,
+      name: `Promotion for ${payload.couponCode}`,
+      description: `Description for promotion with code ${payload.couponCode}`,
+    });
+    cart.price.totalDiscount.value += 10; // For simplicity, every coupon gives a $10 discount
+    cart.price.grandTotal.value -= 10;
+    return success(this.factory.parseCart(this.context, cart));
   }
 
   @Reactionary({
     inputSchema: CartMutationRemoveCouponSchema,
     outputSchema: CartSchema,
   })
-  public override removeCouponCode(
+  public override async removeCouponCode(
     payload: CartMutationRemoveCoupon
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    throw new Error('Method not implemented.');
+    const cart = this.carts.get(payload.cart.key);
+    if (!cart) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.cart.key,
+      });
+    }
+    const promoIndex = cart.appliedPromotions.findIndex(
+      (promo) => promo.code === payload.couponCode
+    );
+    if (promoIndex >= 0) {
+      cart.appliedPromotions.splice(promoIndex, 1);
+      cart.price.totalDiscount.value -= 10; // For simplicity, every coupon gives a $10 discount
+      cart.price.grandTotal.value += 10;
+    }
+    return success(this.factory.parseCart(this.context, cart));
   }
 
   @Reactionary({
     inputSchema: CartMutationChangeCurrencySchema,
     outputSchema: CartSchema,
   })
-  public override changeCurrency(
+  public override async changeCurrency(
     payload: CartMutationChangeCurrency
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    throw new Error('Method not implemented.');
+    const cart = this.carts.get(payload.cart.key);
+    if (!cart) {
+      return Promise.resolve(
+        error<NotFoundError>({
+          type: 'NotFound',
+          identifier: payload.cart.key,
+        })
+      );
+    }
+    cart.price.grandTotal.currency = payload.newCurrency;
+    cart.price.totalDiscount.currency = payload.newCurrency;
+    cart.price.totalProductPrice.currency = payload.newCurrency;
+    cart.price.totalShipping.currency = payload.newCurrency;
+    cart.price.totalSurcharge.currency = payload.newCurrency;
+    cart.price.totalTax.currency = payload.newCurrency;
+    cart.items.forEach((item) => {
+      item.price.unitPrice.currency = payload.newCurrency;
+      item.price.totalPrice.currency = payload.newCurrency;
+      item.price.unitDiscount.currency = payload.newCurrency;
+      item.price.totalDiscount.currency = payload.newCurrency;
+    });
+    return success(this.factory.parseCart(this.context, cart));
   }
 
   protected recalculateCart(cart: Cart) {
@@ -288,6 +363,14 @@ export class FakeCartCapability<
       ),
       currency: cart.items[0]?.price.unitPrice.currency || 'USD',
     };
+
+    // for each promocode applied, we give a $10 discount for simplicity
+    cart.price.totalDiscount = {
+      value: cart.appliedPromotions.length * 10,
+      currency: cart.price.grandTotal.currency,
+    };
+
+    cart.price.grandTotal.value -= cart.price.totalDiscount.value;
   }
 
   protected createEmptyCart(): Cart {
@@ -323,7 +406,7 @@ export class FakeCartCapability<
         },
       },
       appliedPromotions: [],
-      userId: {
+      user: {
         userId: '',
       },
     } satisfies Cart;

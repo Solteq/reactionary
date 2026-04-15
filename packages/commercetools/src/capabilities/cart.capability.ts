@@ -27,12 +27,16 @@ import {
   CartIdentifierSchema,
   CartMutationApplyCouponSchema,
   CartMutationChangeCurrencySchema,
+  CartMutationCreateCartSchema,
   CartMutationDeleteCartSchema,
   CartMutationItemAddSchema,
   CartMutationItemQuantityChangeSchema,
   CartMutationItemRemoveSchema,
   CartMutationRemoveCouponSchema,
+  CartMutationRenameCartSchema,
+  CartPaginatedSearchResultSchema,
   CartQueryByIdSchema,
+  CartQueryListSchema,
   CartSchema,
   error,
   Reactionary,
@@ -68,19 +72,35 @@ export class CommercetoolsCartCapability<
     this.factory = factory;
   }
 
+  @Reactionary({
+    inputSchema: CartQueryListSchema,
+    outputSchema: CartPaginatedSearchResultSchema,
+    cache: false,
+  })
   public override async  listCarts(payload: CartQueryList): Promise<Result<CartPaginatedSearchResult>> {
     const cartsClient = (await this.getClient(payload.search.company)).carts;
 
+    let companyFilter = `businessUnit is not defined`;
+    if (payload.search.company) {
+      companyFilter = `businessUnit(key=:companyKey)`;
+    }
+    const where = `(${companyFilter})`;
     const response = await cartsClient.get({
       queryArgs: {
+        where,
         limit: payload.search.paginationOptions.pageSize,
         offset: (payload.search.paginationOptions.pageNumber - 1) * payload.search.paginationOptions.pageSize,
+        'var.companyKey': payload.search.company?.taxIdentifier,
       },
     }).execute();
 
     return success(this.factory.parseCartPaginatedSearchResult(this.context, response.body, payload));
   }
 
+  @Reactionary({
+    inputSchema: CartMutationRenameCartSchema,
+    outputSchema: CartSchema,
+  })
   public override async renameCart(payload: CartMutationRenameCart): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     const actionResult = await this.applyActions(payload.cart, [
       {
@@ -133,6 +153,10 @@ export class CommercetoolsCartCapability<
     return body;
   }
 
+  @Reactionary({
+    inputSchema: CartMutationCreateCartSchema,
+    outputSchema: CartSchema,
+  })
   public override async createCart(payload: CartMutationCreateCart): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     const cartsClient = (await this.getClient(payload.company)).carts;
     const response = await cartsClient.post({

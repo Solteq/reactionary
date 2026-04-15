@@ -75,7 +75,7 @@ export class MedusaCartFactory<
       identifier: this.parseCartIdentifier(_context, data as StoreCart),
       numItems: (data as StoreCart).items?.length || 0,
       lastModifiedDate: new Date((data as StoreCart).updated_at!).toISOString(),
-      userId: {
+      user: {
         userId: data.customer_id || '???',
       },
       company: undefined,
@@ -138,7 +138,7 @@ export class MedusaCartFactory<
       price,
       items,
       appliedPromotions,
-      userId: {
+      user: {
         userId: data.customer_id || '???',
       },
     } satisfies Cart;
