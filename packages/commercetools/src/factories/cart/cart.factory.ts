@@ -104,7 +104,7 @@ export class CommercetoolsCartFactory<
 
     const result = {
       identifier,
-      userId: {
+      user: {
         userId: data.customerId || data.anonymousId || '???',
       },
       company: company,
@@ -190,8 +190,8 @@ export class CommercetoolsCartFactory<
 
     const result = {
       identifier,
-      userId: {
-        userId: '???',
+      user: {
+        userId: data.customerId || data.anonymousId || '???',
       },
       company: company,
       name: data.custom?.fields['name'] || '',

@@ -27,13 +27,16 @@ import {
   CartIdentifierSchema,
   CartMutationApplyCouponSchema,
   CartMutationChangeCurrencySchema,
+  CartMutationCreateCartSchema,
   CartMutationDeleteCartSchema,
   CartMutationItemAddSchema,
   CartMutationItemQuantityChangeSchema,
   CartMutationItemRemoveSchema,
   CartMutationRemoveCouponSchema,
   CartMutationRenameCartSchema,
+  CartPaginatedSearchResultSchema,
   CartQueryByIdSchema,
+  CartQueryListSchema,
   CartSchema,
   error,
   Reactionary,
@@ -81,6 +84,11 @@ export class MedusaCartCapability<
     this.factory = factory;
   }
 
+  @Reactionary({
+    inputSchema: CartQueryListSchema,
+    outputSchema: CartPaginatedSearchResultSchema,
+    cache: false
+  })
   public override async listCarts(payload: CartQueryList): Promise<Result<CartPaginatedSearchResult>> {
     const client = await this.getClient();
 
@@ -317,7 +325,10 @@ export class MedusaCartCapability<
     }
   }
 
-
+  @Reactionary({
+    inputSchema: CartMutationCreateCartSchema,
+    outputSchema: CartSchema,
+  })
   public override async createCart(
     payload: CartMutationCreateCart
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
@@ -444,9 +455,9 @@ export class MedusaCartCapability<
       }
       if (activeCartId) {
         // check if it still exists
-        const response = await client.store.cart.retrieve(activeCartId.key, { fields: 'id,region' });
+        const response = await client.store.cart.retrieve(activeCartId.key, { fields: 'id,region_id' });
         if (!response.cart) {
-          // if it doesn't exist, remove it from session and return not found
+        // if it doesn't exist, remove it from session and return not found
           delete sessionData.activeCartId;
           this.medusaApi.setSessionData({
             activeCartId: undefined,

@@ -44,7 +44,7 @@ if (!activeCartId) {
 }
 
 const addToCartResponse = await client.cart.add({
-   cart: cartIdentifier,
+   cart: activeCartId,
    variant: variantIdentifier,
    quantity: 1,
 })
