@@ -9,7 +9,7 @@ There isn't really a concept of an active cart. Many sites will probably be happ
 To get the list of carts, and maybe the active cart for a context (b2c) do
 
 ```ts
-const listResponse = await client.cart.listCarts(payload: { paginationOptions: { pageNumber: 1, pageSize: 10 }});
+const listResponse = await client.cart.listCarts({ search : { paginationOptions: { pageNumber: 1, pageSize: 10 }}});
 
 if (!listResponse.success) {
   return Response(500, 'unable to receive list of carts')
@@ -45,7 +45,7 @@ if (!activeCartId) {
 
 const addToCartResponse = await client.cart.add({
    cart: cartIdentifier,
-   variant: variantIdentifer,
+   variant: variantIdentifier,
    quantity: 1,
 })
 

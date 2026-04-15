@@ -10,8 +10,8 @@ export type CartQueryById = InferType<typeof CartQueryByIdSchema>;
 
 
 
-export const CartsQueryListSchema = BaseQuerySchema.extend({
+export const CartQueryListSchema = BaseQuerySchema.extend({
   search: CartSearchIdentifierSchema
 });
 
-export type CartQueryList = InferType<typeof CartsQueryListSchema>;
+export type CartQueryList = InferType<typeof CartQueryListSchema>;

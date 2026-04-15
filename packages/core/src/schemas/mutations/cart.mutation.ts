@@ -20,7 +20,6 @@ export const CartMutationItemRemoveSchema = BaseMutationSchema.extend({
 export const CartMutationItemQuantityChangeSchema = BaseMutationSchema.extend({
     cart: CartIdentifierSchema,
     item: CartItemIdentifierSchema,
-    customPrice: MonetaryAmountSchema.optional().describe('An optional custom price for the cart item. If not provided, the default price of the product variant will be used. This is mostly used in B2B scenarios where pricing is looked up from ERP or other service'),
     quantity: z.number().min(1).meta({ description: 'The new quantity for the cart item. Must be at least 1. If you want to remove the item from the cart, use the CartMutationItemRemove mutation instead.' }),
 });
 

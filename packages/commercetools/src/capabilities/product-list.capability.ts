@@ -473,7 +473,8 @@ export class CommercetoolsProductListCapability<
 
   protected async isUnpublished(list: ProductListIdentifier, client: ByProjectKeyAsAssociateByAssociateIdInBusinessUnitKeyByBusinessUnitKeyRequestBuilder | ByProjectKeyMeRequestBuilder): Promise<boolean> {
       const response = await client.shoppingLists().withId({ ID: list.key }).get().execute();
-      return !response.body.custom?.fields['published'] as boolean && true;
+      const isPublished = (response.body.custom?.fields['published'] as boolean) && true;
+      return !isPublished;
   }
 
 

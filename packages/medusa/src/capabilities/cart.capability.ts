@@ -96,7 +96,7 @@ export class MedusaCartCapability<
 
     const shortFields = ['id', 'customerId', 'updated_at', 'metadata.*', '+items.id'].join(',');
 
-    const allPromises = cartCollection.map((cartIdentifier) => client.store.cart.retrieve(cartIdentifier.key, { fields: this.includedFields }));
+    const allPromises = cartCollection.map((cartIdentifier) => client.store.cart.retrieve(cartIdentifier.key, { fields: shortFields }));
     const responses = await Promise.all(allPromises);
     const carts = responses.map((response) => response.cart).filter((cart): cart is StoreCart => !!cart);
 
@@ -137,7 +137,7 @@ export class MedusaCartCapability<
         identifier: payload,
       });
     } catch (err) {
-      debug('Failed to get cart by ID:', error);
+      debug('Failed to get cart by ID:', err);
 
       return error<NotFoundError>({
         type: 'NotFound',
@@ -439,7 +439,7 @@ export class MedusaCartCapability<
       let activeCartId = sessionData.activeCartId;
       if (!activeCartId && sessionData  && sessionData.allOwnedCarts) {
         if (sessionData.allOwnedCarts['_me']) {
-          activeCartId = sessionData.allOwnedCarts['_me'][0] || '';
+          activeCartId = sessionData.allOwnedCarts['_me'][0] || undefined;
         }
       }
       if (activeCartId) {
@@ -654,7 +654,7 @@ export class MedusaCartCapability<
       if (updatedCartResponse.cart) {
         // Update session to use new cart
         this.medusaApi.setSessionData({
-          activeCartId: this.factory.parseCartIdentifier(this.context, updatedCartResponse),
+          activeCartId: this.factory.parseCartIdentifier(this.context, updatedCartResponse.cart),
         });
 
         return success(this.factory.parseCart(this.context, updatedCartResponse.cart));
