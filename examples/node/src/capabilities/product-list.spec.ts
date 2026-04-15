@@ -298,9 +298,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
           expect(updatedList.success).toBe(true);
           if (updatedList.success) {
             expect(updatedList.value.name).toBe('My renamed favorite list');
-            expect(updatedList.value.identifier).toEqual(
-              result.value.identifier,
-            );
+            expect(updatedList.value.identifier.key).toEqual(result.value.identifier.key);
+            expect(updatedList.value.identifier.listType).toEqual(result.value.identifier.listType);
+
           }
         });
 
@@ -329,7 +329,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
           expect(updatedList.value.description).toBe(
             'my description of the list',
           );
-          expect(updatedList.value.identifier).toEqual(result.value.identifier);
+          expect(updatedList.value.identifier.key).toEqual(result.value.identifier.key);
+          expect(updatedList.value.identifier.listType).toEqual(result.value.identifier.listType);
+
         });
 
         it('can delete a list', async () => {

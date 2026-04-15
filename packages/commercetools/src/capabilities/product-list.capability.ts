@@ -1,16 +1,16 @@
-import type { MyShoppingListAddLineItemAction, MyShoppingListDraft, MyShoppingListUpdate, MyShoppingListUpdateAction, ShoppingList, ShoppingListLineItem } from '@commercetools/platform-sdk';
+import type { BusinessUnitResourceIdentifier, ByProjectKeyAsAssociateByAssociateIdInBusinessUnitKeyByBusinessUnitKeyRequestBuilder, ByProjectKeyMeRequestBuilder, CustomerResourceIdentifier, CustomFieldsDraft, MyShoppingListAddLineItemAction, MyShoppingListUpdate, MyShoppingListUpdateAction, ShoppingListDraft, ShoppingListPagedQueryResponse } from '@commercetools/platform-sdk';
 import type {
   Cache,
+  CompanyIdentifier,
+  InvalidInputError,
+  NotFoundError,
   ProductListFactory,
   ProductListFactoryItemOutput,
   ProductListFactoryItemPaginatedOutput,
   ProductListFactoryListOutput,
   ProductListFactoryListPaginatedOutput,
   ProductListFactoryWithOutput,
-  NotFoundError,
-  ProductList,
   ProductListIdentifier,
-  ProductListItem,
   ProductListItemMutationCreate,
   ProductListItemMutationDelete,
   ProductListItemMutationUpdate,
@@ -20,13 +20,12 @@ import type {
   ProductListMutationUpdate,
   ProductListQuery,
   ProductListQueryById,
-  ProductListType,
   RequestContext,
-  Result,
-
-  InvalidInputError} from '@reactionary/core';
+  Result
+} from '@reactionary/core';
 import {
   error,
+  ProductListCapability,
   ProductListItemMutationCreateSchema,
   ProductListItemMutationDeleteSchema,
   ProductListItemMutationUpdateSchema,
@@ -37,7 +36,6 @@ import {
   ProductListMutationDeleteSchema,
   ProductListMutationUpdateSchema,
   ProductListPaginatedResultsSchema,
-  ProductListCapability,
   ProductListQueryByIdSchema,
   ProductListQuerySchema,
   ProductListSchema,
@@ -45,8 +43,8 @@ import {
   success,
 } from '@reactionary/core';
 import type { CommercetoolsAPI } from '../core/client.js';
-import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { CommercetoolsProductListFactory } from '../factories/product-list/product-list.factory.js';
+import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 
 export class CommercetoolsProductListCapability<
   TFactory extends ProductListFactory = CommercetoolsProductListFactory,
@@ -73,9 +71,51 @@ export class CommercetoolsProductListCapability<
     this.factory = factory;
   }
 
-  protected async getClient() {
-    const client = await this.commercetools.getClient();
-    return client.withProjectKey({ projectKey: this.config.projectKey }).me();
+  /**
+   * Creates a new Commercetools client, optionally upgrading it from Anonymous mode to Guest mode.
+   * For now, any Query or Mutation will require an upgrade to Guest mode.
+   * In the future, maybe we can delay this upgrade until we actually need it.
+   */
+  protected async getClient(companyIdentifier?: CompanyIdentifier) {
+
+    let client;
+    if (companyIdentifier) {
+      client = await this.commercetools.getClientForCompany(companyIdentifier);
+    } else {
+      client = (await this.commercetools.getClient()).withProjectKey({ projectKey: this.config.projectKey }).me();
+    }
+
+    return client;
+  }
+  protected async isMine(listIdentifier: ProductListIdentifier): Promise<boolean> {
+    if (this.context.session.identityContext?.identity.type !== 'Registered') {
+      return false;
+    }
+    if (this.context.session.identityContext?.identity.id.userId === listIdentifier.user?.userId) {
+      return true;
+    }
+    return false;
+  }
+
+  protected async getCompanyForList(listIdentifier: ProductListIdentifier): Promise<CompanyIdentifier | undefined> {
+    if ('version' in listIdentifier && 'company' in listIdentifier) {
+      return listIdentifier.company as CompanyIdentifier | undefined;
+    }
+        const client = await this.getClient();
+    try {
+      const listResponse = await client.shoppingLists().withId({ ID: listIdentifier.key }).get().execute();
+
+      if (listResponse.body.businessUnit) {
+        return {
+          taxIdentifier: listResponse.body.businessUnit.key,
+        };
+      }
+
+      return undefined;
+    } catch (e) {
+      console.error('Error fetching list for company information:', e);
+      return undefined;
+    }
   }
 
   @Reactionary({
@@ -87,14 +127,28 @@ export class CommercetoolsProductListCapability<
     outputSchema: ProductListSchema
   })
   public override async getById(payload: ProductListQueryById): Promise<Result<ProductListFactoryListOutput<TFactory>>> {
+
+
     try {
-      const client = await this.getClient();
+      const companyIdentifier =  await this.getCompanyForList(payload.identifier);
+      const client = await this.getClient(companyIdentifier);
       const response = await client.shoppingLists()
         .withId({ ID: payload.identifier.key })
         .get()
         .execute();
 
-      return success(this.factory.parseProductList(this.context, this.parseSingle(response.body)));
+      const payloadResult = this.factory.parseProductList(this.context, response.body);
+
+      if (!await this.isMine(payloadResult.identifier)) {
+        if (!payloadResult.published) {
+          return error<NotFoundError>({
+            type: 'NotFound',
+            identifier: payload.identifier
+          });
+        }
+      }
+
+      return success(this.factory.parseProductList(this.context, response.body));
     } catch(err: any) {
       if (err.statusCode === 404) {
         return error<NotFoundError>({
@@ -120,35 +174,88 @@ export class CommercetoolsProductListCapability<
 
     if (this.context.session.identityContext?.identity?.type !== 'Registered') {
       return success(this.factory.parseProductListPaginatedResult(this.context, {
-        items: [],
-        pageNumber: 1,
-        pageSize: payload.search.paginationOptions.pageSize,
-        totalCount: 0,
-        totalPages: 0,
-        identifier: payload.search,
-      }));
+        limit: payload.search.paginationOptions.pageSize,
+        offset: (payload.search.paginationOptions.pageNumber - 1) * payload.search.paginationOptions.pageSize,
+        count: payload.search.paginationOptions.pageSize,
+        results: [],
+        total: 0,
+      } satisfies ShoppingListPagedQueryResponse, payload));
     }
 
-    const client = await this.getClient();
+    const client = await this.getClient(payload.search.company);
+
+    let where = ``;
+
+
+    const listTypeFilter = `custom(fields(listType=:listType))`;
+    const allOfMineFilter = `(customer(id=:customerId))`;
+    const othersFilter = `(customer(id != :customerId) and custom(fields(published=true)))`;
+    let companyFilter = `businessUnit is not defined`;
+    if (payload.search.company) {
+      companyFilter = `businessUnit(key=:companyKey)`;
+    }
+    where = `((${listTypeFilter}) and (${companyFilter})) and (${allOfMineFilter} or ${othersFilter})`;
+    const customerId = this.context.session.identityContext?.identity.type === 'Registered' ? this.context.session.identityContext?.identity.id.userId : 'anonymous';
+    const companyKey = payload.search.company?.taxIdentifier || undefined;
     const response = await client.shoppingLists().get({
       queryArgs: {
-        where: `custom(fields(listType=:listType))`,
+        where,
         sort: 'createdAt desc',
         'var.listType': payload.search.listType,
+        'var.published': true,
+        'var.customerId': customerId,
+        'var.companyKey': companyKey,
         limit: payload.search.paginationOptions.pageSize,
         offset: (payload.search.paginationOptions.pageNumber - 1) * payload.search.paginationOptions.pageSize
       }
     }).execute();
 
-    return success(this.factory.parseProductListPaginatedResult(this.context, {
-      items: response.body.results.map(list => this.parseSingle(list)),
-      pageNumber: payload.search.paginationOptions.pageNumber,
-      pageSize: payload.search.paginationOptions.pageSize,
-      totalCount: response.body.total || 0,
-      totalPages: Math.ceil((response.body.total || 0) / payload.search.paginationOptions.pageSize),
-      identifier: payload.search,
-    }));
+    return success(this.factory.parseProductListPaginatedResult(this.context, response.body, payload));
 
+  }
+
+
+  protected addListPayload(payload: ProductListMutationCreate): ShoppingListDraft {
+    const localeString = this.getLocaleString();
+
+    let businessUnitReference: BusinessUnitResourceIdentifier | undefined = undefined;
+    let customerReference: CustomerResourceIdentifier | undefined = undefined;
+    if (payload.company) {
+      businessUnitReference = {
+        typeId: 'business-unit',
+        key: payload.company.taxIdentifier,
+      };
+      if (this.context.session.identityContext?.identity.type === 'Registered' && this.context.session.identityContext?.identity.id) {
+        customerReference = {
+          typeId: 'customer',
+          id: this.context.session.identityContext?.identity.id.userId,
+        };
+      }
+    }
+
+    const customFields: CustomFieldsDraft = {
+      type: {
+        typeId: 'type',
+        key: 'reactionaryShoppingList',
+      },
+      fields: {
+          listType: payload.list.type,
+          imageUrl: payload.list.image ? payload.list.image.sourceUrl : undefined,
+          publishedDate: payload.list.publishDate  ? new Date(payload.list.publishDate) : undefined,
+          published: payload.list.published && true,
+      },
+    };
+
+
+
+     const draft:  ShoppingListDraft = {
+      name: { [localeString]: payload.list.name },
+      businessUnit: businessUnitReference,
+      customer: customerReference ,
+      description: payload.list.description ? { [localeString]: payload.list.description } : undefined,
+      custom: customFields
+    }
+    return draft;
   }
 
   @Reactionary({
@@ -157,8 +264,8 @@ export class CommercetoolsProductListCapability<
     outputSchema: ProductListSchema
   })
   public override async addList(mutation: ProductListMutationCreate): Promise<Result<ProductListFactoryListOutput<TFactory>>> {
-    const client = await this.getClient();
-    const localeString = this.getLocaleString();
+
+    const client = await this.getClient(mutation.company);
 
     if (this.context.session.identityContext?.identity?.type !== 'Registered') {
       return error<InvalidInputError>({
@@ -169,28 +276,16 @@ export class CommercetoolsProductListCapability<
 
 
 
-    const draft: MyShoppingListDraft = {
-      name: { [localeString]: mutation.list.name },
-      description: mutation.list.description ? { [localeString]: mutation.list.description } : undefined,
-      custom: {
-        type: {
-          key: 'reactionaryShoppingList',
-          typeId: 'type'
-        },
-        fields: {
-            listType: mutation.list.type,
-            imageUrl: mutation.list.image ? mutation.list.image.sourceUrl : undefined,
-            publishedDate: mutation.list.publishDate  ? new Date(mutation.list.publishDate) : undefined,
-            published: mutation.list.published || true,
-        }
-      },
-    }
+    const list = this.addListPayload(mutation);
     const response = await client.shoppingLists().post({
-      body: draft
+      body: list
     }).execute();
 
-    return success(this.factory.parseProductList(this.context, this.parseSingle(response.body)));
+    return success(this.factory.parseProductList(this.context, response.body));
   }
+
+
+
 
   @Reactionary({
     cache: false,
@@ -198,7 +293,18 @@ export class CommercetoolsProductListCapability<
     outputSchema: ProductListSchema
   })
   public override async updateList(mutation: ProductListMutationUpdate): Promise<Result<ProductListFactoryListOutput<TFactory>>> {
-    const client = await this.getClient();
+    const companyIdentifier =  await this.getCompanyForList(mutation.list);
+    const client = await this.getClient(companyIdentifier);
+
+    if (!await this.isMine(mutation.list)) {
+      if (await this.isUnpublished(mutation.list, client)) {
+        return error<InvalidInputError>({
+          type: 'InvalidInput',
+          error: 'Cannot update a list that is not yours, unless it is published',
+        });
+      }
+    }
+
     const actions: MyShoppingListUpdateAction[] = [];
     const localeString = this.getLocaleString()
     if (mutation.name) {
@@ -249,7 +355,7 @@ export class CommercetoolsProductListCapability<
       .post({ body: update })
       .execute();
 
-    return success(this.factory.parseProductList(this.context, this.parseSingle(response.body)));
+    return success(this.factory.parseProductList(this.context, response.body));
   }
 
   @Reactionary({
@@ -257,7 +363,18 @@ export class CommercetoolsProductListCapability<
     inputSchema: ProductListMutationDeleteSchema,
   })
   public override async deleteList(mutation: ProductListMutationDelete): Promise<Result<void>> {
-    const client = await this.getClient();
+    const companyIdentifier =  await this.getCompanyForList(mutation.list);
+    const client = await this.getClient(companyIdentifier);
+
+    if (!await this.isMine(mutation.list)) {
+      if (await this.isUnpublished(mutation.list, client)) {
+        return error<InvalidInputError>({
+          type: 'InvalidInput',
+          error: 'Cannot delete from a list that is not yours, unless it is published',
+        });
+      }
+    }
+
 
     const newestVersion = await client.shoppingLists()
       .withId({ ID: mutation.list.key })
@@ -286,7 +403,8 @@ export class CommercetoolsProductListCapability<
     outputSchema: ProductListItemPaginatedResultsSchema
   })
   public override async queryListItems(query: ProductListItemsQuery): Promise<Result<ProductListFactoryItemPaginatedOutput<TFactory>>> {
-    const client = await this.getClient();
+    const companyIdentifier =  await this.getCompanyForList(query.search.list);
+    const client = await this.getClient(companyIdentifier);
 
     const response = await client.shoppingLists()
       .withId({ ID: query.search.list.key })
@@ -295,16 +413,8 @@ export class CommercetoolsProductListCapability<
       })
       .execute();
 
-    const items = response.body.lineItems.map(lineItem => this.parseProductListItem(query.search.list, lineItem ));
 
-    return success(this.factory.parseProductListItemPaginatedResult(this.context, {
-      items: items.slice((query.search.paginationOptions.pageNumber - 1) * query.search.paginationOptions.pageSize, query.search.paginationOptions.pageNumber * query.search.paginationOptions.pageSize),
-      identifier: query.search,
-      pageNumber: query.search.paginationOptions.pageNumber,
-      pageSize: query.search.paginationOptions.pageSize,
-      totalCount: items.length,
-      totalPages: Math.ceil(items.length / query.search.paginationOptions.pageSize),
-    }));
+    return success(this.factory.parseProductListItemPaginatedResult(this.context, response.body, query));
   }
 
   @Reactionary({
@@ -313,7 +423,19 @@ export class CommercetoolsProductListCapability<
     outputSchema: ProductListItemSchema
   })
   public override async addItem(mutation: ProductListItemMutationCreate): Promise<Result<ProductListFactoryItemOutput<TFactory>>> {
-    const client = await this.getClient();
+    const companyIdentifier =  await this.getCompanyForList(mutation.list);
+    const client = await this.getClient(companyIdentifier);
+    const myList = await this.isMine(mutation.list);
+
+    if (!myList) {
+      if (await this.isUnpublished(mutation.list, client)) {
+        return error<InvalidInputError>({
+          type: 'InvalidInput',
+          error: 'Cannot add items to a list that is not yours, unless it is published',
+        });
+      }
+    }
+
 
     const lineItemDraft: MyShoppingListAddLineItemAction = {
       action: 'addLineItem',
@@ -346,15 +468,32 @@ export class CommercetoolsProductListCapability<
         throw new Error('The added line item is not the last item in the list, cannot reliably determine the identifier of the added item');
       }
 
-    return success(this.factory.parseProductListItem(this.context, this.parseProductListItem(mutation.list, lastItem)));
+    return success(this.factory.parseProductListItem(this.context, { listIdentifier: mutation.list, lineItem: lastItem }));
   }
+
+  protected async isUnpublished(list: ProductListIdentifier, client: ByProjectKeyAsAssociateByAssociateIdInBusinessUnitKeyByBusinessUnitKeyRequestBuilder | ByProjectKeyMeRequestBuilder): Promise<boolean> {
+      const response = await client.shoppingLists().withId({ ID: list.key }).get().execute();
+      return !response.body.custom?.fields['published'] as boolean && true;
+  }
+
 
   @Reactionary({
     cache: false,
     inputSchema: ProductListItemMutationDeleteSchema,
   })
   public override async deleteItem(mutation: ProductListItemMutationDelete): Promise<Result<void>> {
-    const client = await this.getClient();
+    const companyIdentifier =  await this.getCompanyForList(mutation.listItem.list);
+    const client = await this.getClient(companyIdentifier);
+
+    if (!await this.isMine(mutation.listItem.list)) {
+      if (await this.isUnpublished(mutation.listItem.list, client)) {
+        return error<InvalidInputError>({
+          type: 'InvalidInput',
+          error: 'Cannot delete items to a list that is not yours, unless it is published',
+        });
+      }
+    }
+
 
     const update: MyShoppingListUpdate = {
       version: 0, // The auto-correcting middleware will deal with the version
@@ -379,7 +518,18 @@ export class CommercetoolsProductListCapability<
     outputSchema: ProductListItemSchema
   })
   public override async updateItem(mutation: ProductListItemMutationUpdate): Promise<Result<ProductListFactoryItemOutput<TFactory>>> {
-    const client = await this.getClient();
+    const companyIdentifier =  await this.getCompanyForList(mutation.listItem.list);
+    const client = await this.getClient(companyIdentifier);
+
+    if (!await this.isMine(mutation.listItem.list)) {
+      if (await this.isUnpublished(mutation.listItem.list, client)) {
+        return error<InvalidInputError>({
+          type: 'InvalidInput',
+          error: 'Cannot update items in a list that is not yours, unless it is published',
+        });
+      }
+    }
+
 
     const actions: MyShoppingListUpdateAction[] = [];
     if (mutation.quantity !== undefined) {
@@ -423,7 +573,7 @@ export class CommercetoolsProductListCapability<
       throw new Error('Failed to find the updated line item in response');
     }
 
-    return success(this.factory.parseProductListItem(this.context, this.parseProductListItem(mutation.listItem.list, updatedLineItem)));
+    return success(this.factory.parseProductListItem(this.context,  { listIdentifier: mutation.listItem.list, lineItem: updatedLineItem} ));
   }
 
   /**
@@ -434,47 +584,5 @@ export class CommercetoolsProductListCapability<
     return 'en';
   }
 
-  protected parseSingle(list: ShoppingList): ProductList {
-    const localeString = this.getLocaleString();
-    const listType = list.custom?.fields['listType'] as ProductListType || 'favorite';
-    const image = list.custom?.fields['imageUrl'] as string | undefined;
-    const published = list.custom?.fields['published'] as boolean && true;
-    const publishDateDate = list.custom?.fields['publishedDate'] as string | undefined;
-    let publishedDate: string | undefined;
-    if (publishDateDate) {
-      publishedDate = new Date(publishDateDate).toISOString();
-    }
 
-    return {
-      identifier: {
-        listType: listType as ProductListType,
-        key: list.id
-      },
-      type: listType as ProductListType,
-      name: list.name[localeString] ||  'Unnamed List',
-      description: list.description?.[localeString] || '',
-      published: published,
-      publishDate: publishedDate,
-      image: {
-        sourceUrl: image || '',
-        altText: list.name[localeString] || 'List Image'
-      },
-    };
-  }
-
-  protected parseProductListItem(listIdentifier: ProductListIdentifier, lineItem: ShoppingListLineItem): ProductListItem {
-    const localeString = this.getLocaleString();
-    return {
-      identifier: {
-        list: listIdentifier,
-        key: lineItem.id
-      },
-      variant: {
-        sku: lineItem.variant?.sku || ''
-      },
-      quantity: lineItem.quantity,
-      notes: lineItem.custom?.fields['notes'] as string || '',
-      order: lineItem.custom?.fields['order'] as number || 1, // Commercetools doesn't have explicit ordering
-    };
-  }
 }

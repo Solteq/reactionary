@@ -104,7 +104,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart B2B Capability - %s', (prov
     }
 
     const sameCart = await client.cart.getById({
-    cart: b2bCart.value.identifier,
+      cart: b2bCart.value.identifier,
     });
 
     if (!sameCart.success) {

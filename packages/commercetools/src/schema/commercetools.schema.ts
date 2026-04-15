@@ -1,7 +1,12 @@
-import { BaseModelSchema, CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema, EmployeeInvitationSchema, CompanyIdentifierSchema, MonetaryAmountSchema } from "@reactionary/core";
+import { BaseModelSchema, CartIdentifierSchema, CheckoutIdentifierSchema, OrderIdentifierSchema, EmployeeInvitationSchema, CompanyIdentifierSchema, MonetaryAmountSchema, ProductListIdentifierSchema } from "@reactionary/core";
 import * as z from "zod";
 
 export const CommercetoolsCartIdentifierSchema = CartIdentifierSchema.extend({
+    version: z.number().default(0),
+    company: CompanyIdentifierSchema.optional(),
+});
+
+export const CommercetoolsProductListIdentifierSchema = ProductListIdentifierSchema.extend({
     version: z.number().default(0),
     company: CompanyIdentifierSchema.optional(),
 });
@@ -59,3 +64,4 @@ export type CommercetoolsCategoryLookup = z.infer<typeof CommercetoolsCategoryLo
 export type CommercetoolsEmployeeInviteCustomObject = z.infer<typeof CommercetoolsEmployeeInviteCustomObjectSchema>;
 export type CommercetoolsEmployeeInviteCustomObjectValue = z.infer<typeof CommercetoolsEmployeeInviteCustomObjectValueSchema>;
 export type CommercetoolsCartItemIdentifier = z.infer<typeof CommercetoolsCartItemIdentfiierSchema>;
+export type CommercetoolsProductListIdentifier = z.infer<typeof CommercetoolsProductListIdentifierSchema>;

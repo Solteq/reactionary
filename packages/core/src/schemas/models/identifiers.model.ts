@@ -180,24 +180,25 @@ export const OrderSearchIdentifierSchema = z.looseObject({
   partNumber: z.array(z.string()).optional().meta({ description: 'An optional list part number to filter orders by specific products. Will be ANDed together.' }),
   orderStatus: z.array(OrderStatusSchema).optional().meta({ description: 'An optional list of order statuses to filter the search results.' }),
   user: IdentityIdentifierSchema.optional().meta({ description: 'An optional user ID to filter orders by specific users. Mostly for b2b usecases with hierachial order access.' }),
-  company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search orders within. This can be used to filter orders by specific companies, which can be useful for B2B use cases.' }),
   startDate: z.string().optional().meta({ description: 'An optional start date to filter orders from a specific date onwards. ISO8601' }),
   endDate: z.string().optional().meta({ description: 'An optional end date to filter orders up to a specific date. ISO8601' }),
   filters: z.array(z.string()).meta({ description: 'Additional filters applied to the search results.' }),
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
+  company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search orders within. This can be used to filter orders by specific companies, which can be useful for B2B use cases.' }),
 });
 
 
 export const ProductListSearchIdentifierSchema = z.looseObject({
   listType: ProductListTypeSchema.meta({ description: 'The type of product list, e.g., "wishlist" or "favorites".' }),
-  company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search product lists within. This can be used to filter product lists by specific companies, which can be useful for B2B use cases.' }),
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
+  company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search product lists within. This can be used to filter product lists by specific companies, which can be useful for B2B use cases.' }),
 });
 
 
 export const ProductListIdentifierSchema = z.looseObject({
   listType: ProductListTypeSchema.meta({ description: 'The type of product list, e.g., "wish" or "favorite".' }),
   key: z.string().meta({ description: 'The unique identifier for the product list.' }),
+  user: IdentityIdentifierSchema.optional().meta({ description: 'The identifier for the owner of the list. This can be used to filter product lists by specific users, which can be useful for B2B use cases.' }),
 });
 
 export const ProductListItemSearchIdentifierSchema = z.looseObject({
