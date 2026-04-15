@@ -102,7 +102,7 @@ export class MedusaCartCapability<
       cartCollection = [];
     }
 
-    const shortFields = ['id', 'customerId', 'updated_at', 'metadata.*', '+items.id'].join(',');
+    const shortFields = ['id', 'customerId', 'updated_at', 'metadata', 'items.id'].join(',');
 
     const allPromises = cartCollection.map((cartIdentifier) => client.store.cart.retrieve(cartIdentifier.key, { fields: shortFields }));
     const responses = await Promise.all(allPromises);
