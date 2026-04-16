@@ -19,7 +19,8 @@ import type {
   CartMutationDeleteCart,
   CartMutationRemoveCoupon,
   Result,
-  NotFoundError
+  NotFoundError,
+  CartIdentifier,
 } from '@reactionary/core';
 import {
   CartIdentifierSchema,
@@ -240,8 +241,8 @@ export class FakeCartCapability<
     Result<CartFactoryIdentifierOutput<TFactory>, NotFoundError>
   > {
     if (this.carts.size > 0 ) {
-      const cartId = this.carts.values().next().value!.identifier;
-      return success(cartId);
+      const cartId = { key: this.carts.values().next().value!.identifier.key } satisfies CartIdentifier;
+      return success(this.factory.parseCartIdentifier(this.context, cartId));
     } else {
       return error<NotFoundError>({
         type: 'NotFound',
