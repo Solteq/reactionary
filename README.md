@@ -139,9 +139,9 @@ Vendors:  Commercetools
 
 - Account - Shopping List, Listing and Details
 - PDP
-  - Add to Shopping List
+  - [X] Add to Shopping List
 - PLP
-  - Add to Shopping List
+  - [X] Add to Shopping List
 
 
 
@@ -165,8 +165,8 @@ Usecase: As a B2B user i want to shop using my own prices
 Vendors:  Commercetools, Medusa
 
 - PDP / PLP
-  - [ ] External Pricing / Pushed prices
-  - [ ] Customer specific pricing
+  - [X] External Pricing / Pushed prices
+  - [-] Customer specific pricing (WIP)
   - [X] Organizational/Entitlement Context. Choose to shop private or for company?
   - [ ] Multi currency/Multi lingual
 
@@ -183,7 +183,7 @@ Vendors:  Commercetools
    - [X] My Open Carts
    - [X] My Orgs Carts
    - [X] My Requisition Lists (private)
-   - [ ] My Orgs Requisition Lists (everyones public lists)
+   - [X] My Orgs Requisition Lists (everyones public lists)
 
 ### Roadmap to V1.0
 Usecase: As a B2B user i want to see other peoples carts and orders
