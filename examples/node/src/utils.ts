@@ -4,9 +4,12 @@ import {
   NoOpCache,
   ProductSearchResultItemSchema,
 } from '@reactionary/core';
+
 import type { CommercetoolsConfiguration } from '@reactionary/commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
-import { withAlgoliaCapabilities } from "@reactionary/algolia";
+import { withAlgoliaCapabilities } from '@reactionary/algolia';
+import { withMagentoCapabilities } from '@reactionary/magento';
+import type { MagentoConfiguration } from '@reactionary/magento';
 import { withMedusaCapabilities } from '@reactionary/medusa';
 import { withMeilisearchCapabilities } from '@reactionary/meilisearch';
 import { withFakeCapabilities } from '@reactionary/fake';
@@ -43,6 +46,18 @@ export function getMedusaTestConfiguration() {
     };
 }
 
+
+export function getMagentoTestConfiguration(): MagentoConfiguration {
+  return {
+    adminApiKey: process.env['MAGENTO_ADMIN_API_KEY'] || '',
+    baseUrl: process.env['MAGENTO_BASE_URL'] || '',
+    storeCode: process.env['MAGENTO_STORE_CODE'] || '',
+    mediaUrl: process.env['MAGENTO_MEDIA_URL'] || undefined,
+    defaultCurrency: process.env['MAGENTO_DEFAULT_CURRENCY'] || '',
+    rootCategoryId: process.env['MAGENTO_ROOT_CATEGORY_ID'] || '2',
+    allCurrencies: [],
+  };
+}
 
 export function getFakeConfiguration(): FakeConfiguration {
   return {
@@ -93,6 +108,7 @@ export function getCommercetoolsTestConfiguration() {
 export enum PrimaryProvider {
   ALGOLIA = 'Algolia',
   COMMERCETOOLS = 'Commercetools',
+  MAGENTO = 'Magento',
   MEDUSA = 'Medusa',
   MEILISEARCH = 'Meilisearch',
   FAKE = 'Fake',
@@ -102,6 +118,21 @@ export function createClient(provider: PrimaryProvider) {
   const context = createInitialRequestContext();
   let builder = new ClientBuilder(context)
     .withCache(new NoOpCache());
+
+    if (provider === PrimaryProvider.MAGENTO) {
+      builder = builder.withCapability(
+        withMagentoCapabilities(getMagentoTestConfiguration(), {
+
+          cart: { enabled: true  },
+          product: { enabled: true },
+          category: { enabled: true },
+          identity: { enabled: true },
+          inventory: { enabled: true },
+          price: { enabled: true },
+          productSearch: { enabled: true },
+        })
+      );
+    }
 
     if (provider === PrimaryProvider.MEDUSA) {
       builder = builder.withCapability(

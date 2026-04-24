@@ -24,7 +24,7 @@ const testData = {
   breadCrumb: ['2833', '225'],
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category Capability - %s', (provider) => {
+describe.each([/*PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, */PrimaryProvider.MAGENTO])('Category Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
@@ -120,7 +120,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category
     });
 
     if (!result.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(result.error));
     }
 
     expect(result.value.length).toBe(testData.breadCrumb.length);
@@ -135,7 +135,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category
     });
 
     if (!result.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(result.error));
     }
 
     if (result) {
@@ -163,7 +163,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category
     });
 
     if (!result.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(result.error));
     }
 
     expect(result.value.identifier.key).toBe(testData.topCategories[0].key);

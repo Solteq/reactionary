@@ -3,9 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "main": "./src/index.js",
+  "main": "./index.js",
   "types": "./src/index.d.ts",
   "dependencies": {
-    "tslib": "^2.3.0"
-  }
+    "@reactionary/core": "0.0.1",
+    "zod": "4.1.9",
+    "debug": "^4.4.3"
+  },
+  "sideEffets": false
+
 }

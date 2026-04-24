@@ -48,13 +48,17 @@ export class RequestContextTokenStore implements MagentoCustomStorage {
 }
 
 class MagentoRest {
+  protected apiUrl: string;
   constructor(
     private baseUrl: string,
+    private storeCode: string,
     private getAuthHeader: () => Promise<Record<string, string>>
-  ) { }
+  ) {
+      this.apiUrl = `${this.baseUrl}/rest/${this.storeCode}`;
+   }
 
   private normalizeUrl(path: string) {
-    const base = this.baseUrl.replace(/\/+$/, '');
+    const base = this.apiUrl.replace(/\/+$/, '');
     const p = path.startsWith('/') ? path : `/${path}`;
     return `${base}${p}`;
   }
@@ -92,7 +96,7 @@ class MagentoRest {
   }
 }
 
-class Magento {
+export class Magento {
   constructor(
     private rest: MagentoRest,
     private tokenStore: RequestContextTokenStore
@@ -144,6 +148,16 @@ class Magento {
     category: {
       getById: async (categoryId: string) => {
         return this.rest.request<any>('GET', `/V1/categories/${encodeURIComponent(categoryId)}`);
+      },
+      getByExternalId: async (externalId: string) => {
+
+        const params = new URLSearchParams();
+        params.set('searchCriteria[filterGroups][0][filters][0][field]', 'external_id');
+        params.set('searchCriteria[filterGroups][0][filters][0][value]', externalId);
+        params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'eq');
+        params.set('searchCriteria[pageSize]', '1');
+        const response = await this.rest.request<any>('GET', `/V1/categories/list?${params.toString()}`);
+        return response.items?.[0] || null;
       },
       list: async (params: URLSearchParams) => {
         return this.rest.request<any>('GET', `/V1/categories/list?${params.toString()}`);
@@ -227,7 +241,7 @@ export class MagentoAdminClient {
   protected client: Magento;
 
   constructor(config: MagentoConfiguration, context: RequestContext) {
-    this.rest = new MagentoRest(config.apiUrl, async () => {
+    this.rest = new MagentoRest(config.baseUrl, config.storeCode, async () => {
       const headers: Record<string, string> = {};
       const token = (config as any).adminApiKey ?? '';
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -256,7 +270,7 @@ export class MagentoClient {
     this.tokenStore = new RequestContextTokenStore(context);
     this.client = undefined;
 
-    this.rest = new MagentoRest(this.config.apiUrl, async () => {
+    this.rest = new MagentoRest(this.config.baseUrl, this.config.storeCode,  async () => {
       const headers: Record<string, string> = {};
 
       const customerToken = await this.tokenStore.getItem('customerToken');

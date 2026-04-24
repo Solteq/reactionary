@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    projects: ['providers/*', 'examples/*', 'core'],
+    projects: ['capabilities/*', 'examples/*'],
     reporters: ['default', 'verbose', 'github-actions'],
 
   },

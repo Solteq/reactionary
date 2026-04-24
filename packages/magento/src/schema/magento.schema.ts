@@ -1,5 +1,5 @@
 import { CartIdentifierSchema } from "@reactionary/core";
-import { z } from "zod";
+import type * as z from "zod";
 
 export const MagentoCartIdentifierSchema = CartIdentifierSchema.extend({});
 
