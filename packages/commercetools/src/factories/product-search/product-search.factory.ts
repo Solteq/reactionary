@@ -87,7 +87,7 @@ export class CommercetoolsProductSearchFactory<
     context: RequestContext,
     data: ProductProjection,
   ): ProductSearchResultItem {
-    const identifier = { key: data.id };
+    const identifier = { key: data.key ||  data.id };
     const name = data.name[context.languageContext.locale] || data.id;
     const slug = data.slug?.[context.languageContext.locale] || data.id;
     const variants = [data.masterVariant, ...data.variants].map((variant) =>
