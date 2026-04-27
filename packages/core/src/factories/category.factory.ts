@@ -1,6 +1,7 @@
 import type * as z from 'zod';
-import type { CategoryPaginatedResultSchema, CategorySchema } from '../schemas/models/category.model.js';
+import type { Category, CategoryPaginatedResultSchema, CategorySchema } from '../schemas/models/category.model.js';
 import type { RequestContext } from '../schemas/session.schema.js';
+import type { CategoryQueryForTopCategories, CategoryQueryForChildCategories } from '../schemas/queries/category.query.js';
 
 export type AnyCategorySchema = z.ZodType<z.output<typeof CategorySchema>>;
 export type AnyCategoryPaginatedResultSchema = z.ZodType<
@@ -17,6 +18,7 @@ export interface CategoryFactory<
   parseCategoryPaginatedResult(
     context: RequestContext,
     data: unknown,
+    query: CategoryQueryForTopCategories | CategoryQueryForChildCategories,
   ): z.output<TCategoryPaginatedSchema>;
 }
 
@@ -36,5 +38,6 @@ export type CategoryFactoryWithOutput<TFactory extends CategoryFactory> = Omit<
   parseCategoryPaginatedResult(
     context: RequestContext,
     data: unknown,
+    query: CategoryQueryForTopCategories | CategoryQueryForChildCategories,
   ): CategoryFactoryPaginatedOutput<TFactory>;
 };

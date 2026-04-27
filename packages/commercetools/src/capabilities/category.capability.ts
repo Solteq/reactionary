@@ -213,7 +213,7 @@ export class CommercetoolsCategoryCapability<
         })
         .execute();
 
-      const result = this.factory.parseCategoryPaginatedResult(this.context, response.body);
+      const result = this.factory.parseCategoryPaginatedResult(this.context, response.body, payload);
       return success(result);
     } catch (error) {
       console.error(
@@ -256,7 +256,7 @@ export class CommercetoolsCategoryCapability<
         })
         .execute();
 
-      const result = this.factory.parseCategoryPaginatedResult(this.context, response.body);
+      const result = this.factory.parseCategoryPaginatedResult(this.context, response.body, payload);
       return success(result);
     } catch (error) {
       console.error(`Error fetching category top categories:`, error);

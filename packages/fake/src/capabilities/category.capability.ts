@@ -175,7 +175,7 @@ export class FakeCategoryCapability<
       totalPages: 1,
     } satisfies CategoryPaginatedResult;
 
-    return success(this.factory.parseCategoryPaginatedResult(this.context, result));
+    return success(this.factory.parseCategoryPaginatedResult(this.context, result, _payload));
   }
 
   @Reactionary({
@@ -194,6 +194,6 @@ export class FakeCategoryCapability<
       totalPages: 1,
     } satisfies CategoryPaginatedResult;
 
-    return success(this.factory.parseCategoryPaginatedResult(this.context, result));
+    return success(this.factory.parseCategoryPaginatedResult(this.context, result, payload));
   }
 }

@@ -206,6 +206,7 @@ export class MedusaCategoryCapability<
     const result = this.factory.parseCategoryPaginatedResult(
       this.context,
       response,
+      payload
     );
     return success(result);
   }
@@ -237,6 +238,7 @@ export class MedusaCategoryCapability<
     const result = this.factory.parseCategoryPaginatedResult(
       this.context,
       response,
+      payload
     );
     return success(result);
   }

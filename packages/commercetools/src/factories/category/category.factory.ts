@@ -10,6 +10,8 @@ import {
   type CategoryIdentifier,
   type CategoryPaginatedResult,
   type RequestContext,
+  type CategoryQueryForTopCategories,
+  type CategoryQueryForChildCategories,
 } from '@reactionary/core';
 import type * as z from 'zod';
 
@@ -63,12 +65,13 @@ export class CommercetoolsCategoryFactory<
   public parseCategoryPaginatedResult(
     context: RequestContext,
     data: CategoryPagedQueryResponse,
+    query: CategoryQueryForTopCategories | CategoryQueryForChildCategories,
   ): z.output<TCategoryPaginatedSchema> {
     const result = {
-      pageNumber: Math.floor(data.offset / data.count) + 1,
-      pageSize: data.count,
+      pageNumber: query.paginationOptions.pageNumber,
+      pageSize: query.paginationOptions.pageSize,
       totalCount: data.total || 0,
-      totalPages: Math.ceil((data.total ?? 0) / data.count),
+      totalPages: Math.ceil((data.total ?? 0) / query.paginationOptions.pageSize),
       items: data.results.map((category) => this.parseCategory(context, category)),
     } satisfies CategoryPaginatedResult;
 

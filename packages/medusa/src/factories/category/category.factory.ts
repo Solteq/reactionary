@@ -12,6 +12,8 @@ import {
   type CategoryPaginatedResultSchema,
   type CategorySchema,
   type RequestContext,
+  type CategoryQueryForTopCategories,
+  type CategoryQueryForChildCategories,
 } from '@reactionary/core';
 import type * as z from 'zod';
 
@@ -62,20 +64,17 @@ export class MedusaCategoryFactory<
   public parseCategoryPaginatedResult(
     context: RequestContext,
     data: StoreProductCategoryListResponse,
+    query: CategoryQueryForTopCategories | CategoryQueryForChildCategories,
   ): z.output<TCategoryPaginatedSchema> {
     const items = data.product_categories.map((x) => this.parseCategory(context, x));
 
     const totalPages = Math.ceil(
-      (data.count ?? 0) / Math.max(data.product_categories.length, 1),
+      (data.count ?? 0) / query.paginationOptions.pageSize,
     );
-    const pageNumber =
-      data.count === 0
-        ? 1
-        : Math.floor(data.offset / data.product_categories.length) + 1;
-
+    const pageNumber = query.paginationOptions.pageNumber;
     const result = {
       pageNumber: pageNumber,
-      pageSize: Math.max(data.product_categories.length, 1),
+      pageSize: query.paginationOptions.pageSize,
       totalCount: data.count,
       totalPages: totalPages,
       items: items,
