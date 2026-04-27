@@ -15,3 +15,6 @@ export * from './capabilities/product-search.capability.js';
 export * from './capabilities/product-recommendations.capability.js';
 export * from './capabilities/product-associations.capability.js';
 export * from './capabilities/profile.capability.js';
+export * from './capabilities/category.capability.js';
+export * from './capabilities/checkout.capability.js';
+export * from './capabilities/product.capability.js';
