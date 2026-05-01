@@ -14,6 +14,7 @@ import {
   type CategoryQueryForChildCategories,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
 
 export class CommercetoolsCategoryFactory<
   TCategorySchema extends AnyCategorySchema = typeof CategorySchema,
@@ -36,11 +37,12 @@ export class CommercetoolsCategoryFactory<
     data: CTCategory,
   ): z.output<TCategorySchema> {
     const identifier = { key: data.key || '' } satisfies CategoryIdentifier;
+    const localeStr = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
     const result = {
       identifier,
-      name: data.name[context.languageContext.locale] || 'No Name',
-      slug: data.slug ? data.slug[context.languageContext.locale] || '' : '',
-      text: data.description ? data.description[context.languageContext.locale] || '' : '',
+      name: data.name[localeStr] || 'No Name',
+      slug: data.slug ? data.slug[localeStr] || '' : '',
+      text: data.description ? data.description[localeStr] || '' : '',
       parentCategory:
         data.parent && data.parent.obj && data.parent.obj?.key
           ? { key: data.parent.obj.key }
@@ -51,8 +53,8 @@ export class CommercetoolsCategoryFactory<
         .map((asset) => ({
           sourceUrl: asset.sources[0].uri,
           altText:
-            asset.description?.[context.languageContext.locale] ||
-            asset.name[context.languageContext.locale] ||
+            asset.description?.[localeStr] ||
+            asset.name[localeStr] ||
             '',
           height: asset.sources[0].dimensions?.h || 0,
           width: asset.sources[0].dimensions?.w || 0,

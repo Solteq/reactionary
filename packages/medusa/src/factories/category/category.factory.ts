@@ -39,14 +39,14 @@ export class MedusaCategoryFactory<
     data: StoreProductCategory,
   ): z.output<TCategorySchema> {
     const identifier = CategoryIdentifierSchema.parse({
-      key: data.metadata?.['external_id'] || '',
+      key: data.external_id || '',
     });
 
     const name = data.name;
     const slug = data.handle;
-    const text = data.description || data.name || '';
+    const text = data.description || '';
     const parentCategory = data.parent_category_id
-      ? { key: data.parent_category?.metadata?.['external_id'] + '' || '' }
+      ? { key: data.parent_category?.external_id || '' }
       : undefined;
 
     const result = {

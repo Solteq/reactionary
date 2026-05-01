@@ -17,6 +17,7 @@ import {
 } from 'algoliasearch';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaProductSearchIdentifier } from '../schema/search.schema.js';
+import { getProductIndexNameForLocale } from '../core/index-utils.js';
 
 export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
   protected client: InsightsClient;
@@ -41,7 +42,7 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
         eventName: 'addToCart',
         eventType: 'conversion',
         eventSubtype: 'addToCart',
-        index: this.config.indexName,
+        index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
         objectIDs: [event.product.key],
         userToken: this.context.session.identityContext.personalizationKey,
         queryID: (event.source.identifier as AlgoliaProductSearchIdentifier)
@@ -61,7 +62,7 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
       const algoliaEvent = {
         eventName: 'click',
         eventType: 'click',
-        index: this.config.indexName,
+        index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
         objectIDs: [event.product.key],
         userToken: this.context.session.identityContext.personalizationKey,
         positions: [event.position],
@@ -82,7 +83,7 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
       const algoliaEvent = {
         eventName: 'view',
         eventType: 'view',
-        index: this.config.indexName,
+        index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
         objectIDs: event.products.map((x) => x.key),
         userToken: this.context.session.identityContext.personalizationKey,
       } satisfies ViewedObjectIDs;
@@ -102,7 +103,7 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
       eventName: 'purchase',
       eventType: 'conversion',
       eventSubtype: 'purchase',
-      index: this.config.indexName,
+      index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
       objectIDs: event.order.items.map((x) => x.variant.sku),
       userToken: this.context.session.identityContext.personalizationKey,
     } satisfies PurchasedObjectIDs;

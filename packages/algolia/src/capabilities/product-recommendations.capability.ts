@@ -26,6 +26,7 @@ import {
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaProductRecommendationIdentifier } from '../schema/product-recommendation.schema.js';
 import type { AlgoliaNativeRecord, AlgoliaNativeVariant } from '../schema/search.schema.js';
+import { getProductIndexNameForLocale } from '../core/index-utils.js';
 
 
 /**
@@ -86,7 +87,7 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
       const response = await this.client.getRecommendations({
         requests: [
           {
-            indexName: this.config.indexName,
+            indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
             model: 'bought-together',
             objectID: query.sourceProduct.key,
             maxRecommendations: query.numberOfRecommendations,
@@ -127,7 +128,7 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
       const response = await this.client.getRecommendations({
         requests: [
           {
-            indexName: this.config.indexName,
+            indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
             model: 'looking-similar',
             objectID: query.sourceProduct.key,
             maxRecommendations: query.numberOfRecommendations,
@@ -166,7 +167,7 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
       const response = await this.client.getRecommendations({
         requests: [
           {
-            indexName: this.config.indexName,
+            indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
             model: 'related-products',
             objectID: query.sourceProduct.key,
             maxRecommendations: query.numberOfRecommendations,
@@ -204,7 +205,7 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
       const response = await this.client.getRecommendations({
         requests: [
           {
-            indexName: this.config.indexName,
+            indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
             model: 'trending-items',
             facetName: 'categories',
             facetValue: query.sourceCategory.key,

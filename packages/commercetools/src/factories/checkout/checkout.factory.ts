@@ -38,6 +38,7 @@ import type {
   CommercetoolsCartIdentifier,
   CommercetoolsCheckoutIdentifier,
 } from '../../schema/commercetools.schema.js';
+import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
 
 export class CommercetoolsCheckoutFactory<
   TCheckoutSchema extends AnyCheckoutSchema = typeof CheckoutSchema,
@@ -173,7 +174,7 @@ export class CommercetoolsCheckoutFactory<
 
     const result = {
       deliveryTime: '',
-      description: data.localizedDescription?.[context.languageContext.locale] || '',
+      description: data.localizedDescription?.[getLanguageCodeFromLocale(context.languageContext.locale)] || '',
       identifier,
       name: data.name,
       price: data.zoneRates[0].shippingRates[0].price
@@ -271,7 +272,7 @@ export class CommercetoolsCheckoutFactory<
 
     const method = data.paymentMethodInfo?.method || 'unknown';
     const paymentProcessor = data.paymentMethodInfo?.paymentInterface || method;
-    const paymentName = data.paymentMethodInfo.name?.[context.languageContext.locale];
+    const paymentName = data.paymentMethodInfo.name?.[getLanguageCodeFromLocale(context.languageContext.locale)];
 
     const paymentMethod = {
       method,

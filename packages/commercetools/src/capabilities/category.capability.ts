@@ -33,6 +33,7 @@ import type {
 } from '@commercetools/platform-sdk';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { CommercetoolsCategoryFactory } from '../factories/category/category.factory.js';
+import { getLanguageCodeFromLocale } from '../core/locale-utils.js';
 
 export class CommercetoolsCategoryCapability<
   TFactory extends CategoryFactory = CommercetoolsCategoryFactory,
@@ -105,7 +106,7 @@ export class CommercetoolsCategoryCapability<
       const response = await client
         .get({
           queryArgs: {
-            where: `slug(${this.context.languageContext.locale}=:slug)`,
+            where: `slug(${getLanguageCodeFromLocale(this.context.languageContext.locale)}=:slug)`,
             'var.slug': payload.slug,
             storeProjection: this.context.storeIdentifier.key,
             limit: 1,

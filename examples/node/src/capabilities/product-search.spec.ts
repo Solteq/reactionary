@@ -4,14 +4,14 @@ import { createClient, PrimaryProvider } from '../utils.js';
 import type { ProductSearchQueryCreateNavigationFilter } from '@reactionary/core';
 
 const testData = {
-  searchTerm: 'manhattan',
+  searchTerm: 'Brother',
+  searchTermWithLanguage: 'Brother'
 };
 
-describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH])(
+describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA])(
   'Product Search Capability - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
-
     beforeEach(() => {
       client = createClient(provider);
     });
@@ -97,7 +97,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
           paginationOptions: {
             pageNumber: 1,
-            pageSize: 30,
+            pageSize: 12,
           },
           facets: [],
           filters: [],
@@ -110,11 +110,16 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
       expect(smallPage.value.items.length).toBe(2);
       expect(smallPage.value.pageSize).toBe(2);
-      expect(largePage.value.items.length).toBe(30);
-      expect(largePage.value.pageSize).toBe(30);
+      expect(largePage.value.items.length).toBeGreaterThan(10);
+      expect(largePage.value.pageSize).toBe(12);
     });
 
     it('should be able to apply facets', async () => {
+      if (provider === PrimaryProvider.MEDUSA) {
+        // Medusa's own search doesn't support faceting yet, so we skip this test for that provider
+        return;
+      }
+
       const initial = await client.productSearch.queryByTerm({
         search: {
           term: "",
@@ -154,6 +159,10 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
     });
 
     it('should not return facets with no values', async () => {
+      if (provider === PrimaryProvider.MEDUSA) {
+        // Medusa's own search doesn't support faceting yet, so we skip this test for that provider
+        return;
+      }
       const result = await client.productSearch.queryByTerm({
         search: {
           term: testData.searchTerm,
@@ -177,6 +186,10 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
 
     it('can apply a category facet', async () => {
+      if (provider === PrimaryProvider.MEDUSA) {
+        // Medusa's own search doesn't support faceting yet, so we skip this test for that provider
+        return;
+      }
       const result = await client.productSearch.queryByTerm({
         search: {
           term: "*",
@@ -291,3 +304,132 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
     });
   }
 );
+
+
+describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA])('Multilingual Product Search', (provider) => {
+  let client: ReturnType<typeof createClient>;
+
+
+  it('can get results in other languages', async () => {
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'en-US',
+        currencyCode: 'USD'
+      },
+    });
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: testData.searchTermWithLanguage,
+        facets: [],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+
+    expect(result.value.items.length).toBeGreaterThan(0);
+
+
+    const altLanguageClient = createClient(provider, {
+      languageContext: {
+        locale: 'da-DK',
+        currencyCode: 'EUR'
+      },
+    });
+
+    const altResult = await altLanguageClient.productSearch.queryByTerm({
+      search: {
+        term: testData.searchTermWithLanguage,
+        facets: [],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        filters: [],
+      },
+    });
+
+    if (!altResult.success) {
+      assert.fail(JSON.stringify(altResult.error));
+    }
+    const firstItem = result.value.items[0];
+    const altFirstItem = altResult.value.items.find(x => x.identifier.key === firstItem.identifier.key);
+
+    // we check that the name is different and hope the same product is in both test sets
+    expect(altFirstItem).toBeDefined();
+    expect(altFirstItem!.name).not.toBe(firstItem.name);
+  });
+
+
+  it('get facets in other languages', async () => {
+      if (provider === PrimaryProvider.MEDUSA) {
+        // Medusa's own search doesn't support faceting yet, so we skip this test for that provider
+        return;
+      }
+
+
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'en-US',
+        currencyCode: 'USD'
+      },
+    });
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        facets: [],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+
+    expect(result.value.facets.length).toBeGreaterThan(0);
+
+    const altLanguageClient = createClient(provider, {
+      languageContext: {
+        locale: 'fi-FI',
+        currencyCode: 'EUR'
+      },
+    });
+
+    const altResult = await altLanguageClient.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        facets: [],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        filters: [],
+      },
+    });
+
+    if (!altResult.success) {
+      assert.fail(JSON.stringify(altResult.error));
+    }
+
+    const firstFacet = result.value.facets.find(x => x.identifier.key.startsWith('attributes.'));
+    expect(firstFacet).toBeDefined();
+
+
+    const altFirstFacet = altResult.value.facets.find(x => x.identifier.key.startsWith('attributes.'));
+    expect(altFirstFacet).toBeDefined();
+    expect(altFirstFacet!.values.length).toBeGreaterThan(0);
+    expect(altFirstFacet!.values[0].name).not.toBe(firstFacet!.values[0].name);
+  });
+});

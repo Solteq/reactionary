@@ -8,7 +8,6 @@ const testData = {
       key: '2833',
       name: 'Computers & Peripherals',
       slug: 'computers-and-peripherals',
-      text: 'Computers & Peripherals',
     },
     {
       key: '9541',
@@ -19,6 +18,10 @@ const testData = {
   childCategoriesOfFirstTopcategory: [
     { key: '225', name: 'Printers & Scanners' },
     { key: '830', name: 'Computer Cables' },
+  ],
+
+  categoryWithDescription: [
+    { key: '195', name: 'Mice', text: 'The mouse is the second most important way of communicating' },
   ],
 
   breadCrumb: ['2833', '225'],
@@ -39,7 +42,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category
     if (!result.success) {
       assert.fail(JSON.stringify(result.error));
     }
-
+    console.log(result.value);
     expect(result.value.items.length).toBeGreaterThan(0);
     expect(result.value.items[0].identifier.key).toBe(testData.topCategories[0].key);
     expect(result.value.items[0].name).toBe(testData.topCategories[0].name);
@@ -143,9 +146,21 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category
       expect(result.value.name).toBe(testData.topCategories[0].name);
       expect(result.value.slug).toBe(testData.topCategories[0].slug);
       expect(result.value.parentCategory).toBeUndefined();
-      expect(result.value.text).not.toBe('');
     }
   });
+
+  it('can fetch a category with a description', async () => {
+    const result = await client.category.getById({
+      id: { key: testData.categoryWithDescription[0].key },
+    });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    expect(result.value.identifier.key).toBe(testData.categoryWithDescription[0].key);
+    expect(result.value.name).toBe(testData.categoryWithDescription[0].name);
+    assert(result.value.text.startsWith(testData.categoryWithDescription[0].text!.substring(0, 10)));
+  })
 
   it('returns NotFound if looking for slug that does not exist', async () => {
     const result = await client.category.getBySlug({ slug: 'non-existent-slug' });
@@ -171,7 +186,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category
     expect(result.value.slug).toBe(testData.topCategories[0].slug);
     expect(result.value.parentCategory).toBeUndefined();
 
-    expect(result.value.text).toBe(testData.topCategories[0].text);
   });
 
   it('returns NotFound if you search for a category that does not exist', async () => {

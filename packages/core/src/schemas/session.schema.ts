@@ -7,7 +7,7 @@ import { IdentitySchema } from './models/identity.model.js';
  * The language and locale context for the current request.
  */
 export const LanguageContextSchema = z.looseObject( {
-    locale: z.string().default('en-US'),
+    locale: z.string().default('en-US').meta({ description: 'The locale for the current request, in IETF BCP 47 format (e.g. en-US, fr-FR). This can be used for localization and internationalization purposes.' }),
     currencyCode: CurrencySchema.default(() => CurrencySchema.parse({})),
 });
 
