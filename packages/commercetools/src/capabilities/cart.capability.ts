@@ -49,6 +49,7 @@ import type { CommercetoolsAPI } from '../core/client.js';
 import type { CommercetoolsCartFactory } from '../factories/cart/cart.factory.js';
 import type { CommercetoolsCartIdentifier, CommercetoolsCartItemIdentifier } from '../schema/commercetools.schema.js';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
+import { getLanguageCodeFromLocale } from '../core/locale-utils.js';
 
 export class CommercetoolsCartCapability<
   TFactory extends CartFactory = CommercetoolsCartFactory,
@@ -144,7 +145,7 @@ export class CommercetoolsCartCapability<
     const body =  {
         currency:  this.context.languageContext.currencyCode || 'EUR',
         country:  this.context.taxJurisdiction.countryCode || 'DK',
-        locale: this.context.languageContext.locale,
+        locale: getLanguageCodeFromLocale(this.context.languageContext.locale),
         businessUnit: businessUnitReference,
         ...(customerReference ? { customerId: customerReference.id } : {}),
         custom: customFields,
@@ -435,7 +436,7 @@ export class CommercetoolsCartCapability<
       .post({
         body: {
           currency: payload.newCurrency,
-          locale: this.context.languageContext.locale,
+          locale: getLanguageCodeFromLocale(this.context.languageContext.locale),
           country: currentCart.body.country,
           ...(company && {
             businessUnit: {

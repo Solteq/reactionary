@@ -149,8 +149,22 @@ export class MedusaProductCapability<
       );
     }
     const sku = payload.variant.sku;
-    const product = await this.medusaApi.resolveProductForSKU(sku);
 
+    const client = await this.medusaApi.getClient();
+    const productResponse = await client.store.product.list({
+      variants: {
+        sku,
+      },
+      limit: 1,
+      fields: this.alwaysIncludedFields.join(','),
+    });
+    if (productResponse.products.length === 0) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload,
+      });
+    }
+    const product = productResponse.products[0];
     const variant = product.variants?.find((v) => v.sku === sku);
     if (!variant) {
       throw new Error(`Variant with SKU ${sku} not found`);

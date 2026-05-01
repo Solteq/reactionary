@@ -4,7 +4,7 @@ import type { RequestContext } from './schemas/session.schema.js';
 export function createInitialRequestContext(): RequestContext {
   return {
     languageContext: {
-      locale: 'en',
+      locale: 'en-US',
       currencyCode: 'EUR',
     },
     storeIdentifier: {

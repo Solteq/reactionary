@@ -28,6 +28,7 @@ import createDebug from 'debug';
 import type { CommercetoolsAPI } from '../core/client.js';
 import { CommercetoolsCategoryLookupSchema, CommercetoolsResolveCategoryQueryByKeySchema, type CommercetoolsCategoryLookup, type CommercetoolsResolveCategoryQueryById, type CommercetoolsResolveCategoryQueryByKey } from '../schema/commercetools.schema.js';
 import type { CommercetoolsProductSearchFactory } from '../factories/product-search/product-search.factory.js';
+import { getLanguageCodeFromLocale } from '../core/locale-utils.js';
 
 const debug = createDebug('reactionary:commercetools:search');
 
@@ -37,6 +38,11 @@ export class CommercetoolsProductSearchCapability<
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
   protected factory: ProductSearchFactoryWithOutput<TFactory>;
+
+  /**
+   * We assume all commercetools data is indexed on the langauge level, not the country subdivision
+   */
+  protected languageCode = getLanguageCodeFromLocale(this.context.languageContext.locale);
 
   constructor(
     config: CommercetoolsConfiguration,
@@ -78,9 +84,10 @@ export class CommercetoolsProductSearchCapability<
     return {
       exact: {
         field: selectedFacetValue.facet.key,
-        fieldType: 'text',
+        fieldType: 'ltext',
+        language: `${this.languageCode}`,
         value: selectedFacetValue.key,
-      },
+      } satisfies ProductSearchFacetExpression,
     };
   }
 
@@ -164,21 +171,21 @@ export class CommercetoolsProductSearchCapability<
         {
           fullText: {
             field: 'name',
-            language: `${this.context.languageContext.locale}`,
+            language: `${this.languageCode}`,
             value: payload.search.term,
           },
         },
         {
           fullText: {
             field: 'description',
-            language: `${this.context.languageContext.locale}`,
+            language: `${this.languageCode}`,
             value: payload.search.term,
           },
         },
         {
           fullText: {
             field: 'searchKeywords',
-            language: `${this.context.languageContext.locale}`,
+            language: `${this.languageCode}`,
             value: payload.search.term,
           },
         },
@@ -219,7 +226,8 @@ export class CommercetoolsProductSearchCapability<
         distinct: {
           name: facet,
           field: facet,
-          fieldType: 'text',
+          fieldType: 'ltext',
+          language: `${this.languageCode}`,
           limit: 50,
         },
       });
@@ -362,7 +370,7 @@ export class CommercetoolsProductSearchCapability<
         if (!category) {
           continue;
         }
-        facetValue.name = category.name[this.context.languageContext.locale] || category.id;
+        facetValue.name = category.name[this.languageCode] || category.id;
       } catch (error) {
         if (debug.enabled) {
           debug(`Error resolving category key for id ${facetValue.identifier.key}:`, error);

@@ -34,6 +34,7 @@ import {
   type SearchIdentifier,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
 
 export class CommercetoolsProductSearchFactory<
   TProductSearchResultSchema extends AnyProductSearchResultSchema = typeof ProductSearchResultSchema,
@@ -87,9 +88,11 @@ export class CommercetoolsProductSearchFactory<
     context: RequestContext,
     data: ProductProjection,
   ): ProductSearchResultItem {
+
+    const localeStr = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
     const identifier = { key: data.key ||  data.id };
-    const name = data.name[context.languageContext.locale] || data.id;
-    const slug = data.slug?.[context.languageContext.locale] || data.id;
+    const name = data.name[localeStr] || data.id;
+    const slug = data.slug?.[localeStr] || data.id;
     const variants = [data.masterVariant, ...data.variants].map((variant) =>
       this.parseVariant(context, variant, data),
     );
@@ -147,6 +150,7 @@ export class CommercetoolsProductSearchFactory<
     variant: CTProductVariant,
     product: ProductProjection,
   ): ProductSearchResultItemVariant {
+    const localeStr = getLanguageCodeFromLocale(context.languageContext.locale);
     const sourceImage = variant.images?.[0];
 
     const image = ImageSchema.parse({
@@ -154,9 +158,9 @@ export class CommercetoolsProductSearchFactory<
       height: sourceImage?.dimensions.h || undefined,
       width: sourceImage?.dimensions.w || undefined,
       altText:
-        sourceImage?.label || product.name[context.languageContext.locale] || undefined,
+        sourceImage?.label || product.name[localeStr] || undefined,
     });
-
+    // FIXME: This only supports a single option and assumes it's color. We should ideally support multiple options and not make assumptions about what they are.
     const mappedOptions =
       variant.attributes
         ?.filter((attribute) => attribute.name === 'Color')

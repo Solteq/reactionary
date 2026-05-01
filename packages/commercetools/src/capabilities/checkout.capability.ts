@@ -45,6 +45,7 @@ import type { CommercetoolsAPI } from '../core/client.js';
 import { type CommercetoolsCheckoutIdentifier } from '../schema/commercetools.schema.js';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { CommercetoolsCheckoutFactory } from '../factories/checkout/checkout.factory.js';
+import { getLanguageCodeFromLocale } from '../core/locale-utils.js';
 
 export class CheckoutNotReadyForFinalizationError extends Error {
   constructor(public checkoutIdentifier: CheckoutIdentifier) {
@@ -325,7 +326,7 @@ export class CommercetoolsCheckoutCapability<
           paymentMethodInfo: {
             method: payload.paymentInstruction.paymentMethod.method,
             name: {
-              [this.context.languageContext.locale]:
+              [getLanguageCodeFromLocale(this.context.languageContext.locale)]:
                 payload.paymentInstruction.paymentMethod.name,
             },
             paymentInterface:

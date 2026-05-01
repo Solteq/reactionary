@@ -30,6 +30,7 @@ import { MeiliSearch, type SearchParams, type SearchResponse } from 'meilisearch
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
 import type { MeilisearchNativeRecord, MeilisearchNativeVariant } from '../schema/search.schema.js';
 import type { MeilisearchProductSearchFactory } from '../factories/product-search/product-search.factory.js';
+import { getProductIndexNameForLocale } from '../core/index-utils.js';
 
 
 export class MeilisearchProductSearchCapability<
@@ -104,7 +105,7 @@ export class MeilisearchProductSearchCapability<
       apiKey: this.config.apiKey,
     });
 
-    const index = client.index(this.config.indexName);
+    const index = client.index(getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale));
 
 
     const remote = await index.search<MeilisearchNativeRecord>(payload.search.term, this.queryByTermPayload(payload) as SearchParams);

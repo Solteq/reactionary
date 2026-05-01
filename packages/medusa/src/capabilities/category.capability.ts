@@ -41,7 +41,7 @@ export class MedusaCategoryCapability<
 > {
   protected config: MedusaConfiguration;
   protected factory: CategoryFactoryWithOutput<TFactory>;
-
+  protected alwaysIncludedFields = ['+metadata', '+external_id', '+parent_category.external_id'];
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
@@ -58,35 +58,17 @@ export class MedusaCategoryCapability<
     externalId: string,
   ): Promise<StoreProductCategory | null> {
     const sdk = await this.medusaApi.getClient();
-    let offset = 0;
-    const limit = 50;
-    let candidate: StoreProductCategory | undefined = undefined;
-    while (true) {
-      try {
-        const categoryResult = await sdk.store.category.list({
-          offset,
-          limit,
-        });
 
-        if (categoryResult.product_categories.length === 0) {
-          break;
-        }
+    const categoryResult = await sdk.store.category.list({
+      fields: this.alwaysIncludedFields.join(','),
+      external_id: externalId,
+      limit: 1
+    });
 
-        candidate = categoryResult.product_categories.find(
-          (cat) => cat.metadata?.['external_id'] === externalId,
-        );
-        if (candidate) {
-          break;
-        }
-        offset += limit;
-      } catch (error) {
-        throw new Error(
-          'Category not found ' + externalId + ' due to error: ' + error,
-        );
-        break;
-      }
+    if (categoryResult.count === 0) {
+      return null;
     }
-    return candidate || null;
+    return categoryResult.product_categories[0];
   }
 
   @Reactionary({
@@ -156,7 +138,7 @@ export class MedusaCategoryCapability<
 
     const sdk = await this.medusaApi.getClient();
     const path = await sdk.store.category.retrieve(actualCategoryId.id, {
-      fields: '+metadata,+parent_category.metadata',
+      fields: this.alwaysIncludedFields.join(','),
       include_ancestors_tree: true,
     });
 
@@ -175,7 +157,7 @@ export class MedusaCategoryCapability<
     actualParent: StoreProductCategory,
   ) {
     return {
-      fields: '+metadata,+parent_category.metadata',
+      fields: this.alwaysIncludedFields.join(','),
       parent_category_id: actualParent.id,
       limit: payload.paginationOptions.pageSize,
       offset:
@@ -213,7 +195,7 @@ export class MedusaCategoryCapability<
 
   protected findTopCategoriesPayload(payload: CategoryQueryForTopCategories) {
     return {
-      fields: '+metadata',
+      fields: this.alwaysIncludedFields.join(','),
       parent_category_id: 'null',
       limit: payload.paginationOptions.pageSize,
       offset:

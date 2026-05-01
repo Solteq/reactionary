@@ -18,6 +18,7 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
 
 export class CommercetoolsProductAssociationsFactory<
   TProductAssociationSchema extends AnyProductAssociationSchema = typeof ProductAssociationSchema,
@@ -56,11 +57,11 @@ export class CommercetoolsProductAssociationsFactory<
     const variants = [data.masterVariant, ...data.variants].map((variant) =>
       this.parseVariant(context, variant, data),
     );
-
+    const localeStr = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
     return {
       identifier: { key: data.id },
-      name: data.name[context.languageContext.locale] || data.id,
-      slug: data.slug?.[context.languageContext.locale] || data.id,
+      name: data.name[localeStr] || data.id,
+      slug: data.slug?.[localeStr] || data.id,
       variants,
     } satisfies ProductSearchResultItem;
   }
@@ -75,7 +76,7 @@ export class CommercetoolsProductAssociationsFactory<
       sourceUrl: sourceImage?.url || '',
       height: sourceImage?.dimensions.h || undefined,
       width: sourceImage?.dimensions.w || undefined,
-      altText: sourceImage?.label || product.name[context.languageContext.locale] || undefined,
+      altText: sourceImage?.label || product.name[getLanguageCodeFromLocale(context.languageContext.locale)] || undefined,
     });
 
     const mappedOptions =
