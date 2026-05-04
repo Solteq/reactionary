@@ -73,14 +73,18 @@ export class MedusaPriceCapability<
     if (debug.enabled) {
       debug(`Fetching price for SKU: ${sku}`);
     }
-
     try {
       const client = await this.medusaApi.getClient();
+
+      const regionId = await this.medusaApi.getActiveRegion()
+
       const productResponse = await client.store.product.list({
         variants: {
           sku: payload.variant.sku,
+
         },
-        limit: 1
+        limit: 1,
+        region_id: regionId.id,
       });
 
       if (productResponse.products.length ===   0) {

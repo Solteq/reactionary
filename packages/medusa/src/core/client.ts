@@ -134,7 +134,9 @@ export class MedusaAPI {
   public async getActiveRegion() {
     const session = this.getSessionData();
     if (session.selectedRegion) {
-      return session.selectedRegion;
+      if (session.selectedRegion.currency_code === this.context.languageContext.currencyCode.toLowerCase()) {
+        return session.selectedRegion;
+      }
     }
 
     const regions = await (await this.getClient()).store.region.list();

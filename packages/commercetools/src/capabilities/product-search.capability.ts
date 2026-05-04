@@ -40,7 +40,7 @@ export class CommercetoolsProductSearchCapability<
   protected factory: ProductSearchFactoryWithOutput<TFactory>;
 
   /**
-   * We assume all commercetools data is indexed on the langauge level, not the country subdivision
+   * We assume all commercetools data is indexed on the language level, not the country subdivision
    */
   protected languageCode = getLanguageCodeFromLocale(this.context.languageContext.locale);
 

@@ -210,7 +210,7 @@ export class MedusaCartCapability<
           sku: payload.variant.sku,
         },
         limit: 1
-      })
+      });
       if (productResponse.products.length === 0) {
         return error<NotFoundError>({
           type: 'NotFound',
