@@ -91,6 +91,7 @@ export class MedusaCategoryCapability<
   protected getBySlugPayload(payload: CategoryQueryBySlug) {
     return {
       handle: payload.slug,
+      fields: this.alwaysIncludedFields.join(','),
       limit: 1,
       offset: 0,
     };

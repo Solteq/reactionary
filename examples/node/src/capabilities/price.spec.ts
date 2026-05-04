@@ -49,3 +49,49 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.FAKE, PrimaryProvi
     });
   }
 );
+
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Price Capability - Multicurrency - %s', (provider) => {
+  let client: ReturnType<typeof createClient>;
+
+
+    it('can get monetary values in other currencies', async () => {
+      client = createClient(provider, {
+        languageContext: {
+          locale: 'en-US',
+          currencyCode: 'USD',
+        },
+      });
+
+      const result = await client.price.getListPrice({
+        variant: { sku: testData.skuWithoutTiers},
+      });
+
+      if (!result.success) {
+        assert.fail(JSON.stringify(result.error));
+      }
+
+      const altLanguageClient = createClient(provider, {
+        languageContext: {
+          locale: 'en-US',
+          currencyCode: 'EUR',
+        },
+      });
+
+      const altResult = await altLanguageClient.price.getListPrice({
+        variant: { sku: testData.skuWithoutTiers },
+      });
+
+      if (!altResult.success) {
+        assert.fail(JSON.stringify(altResult.error));
+      }
+      const firstItem = result.value;
+      const altFirstItem = altResult.value;
+
+      // we check that the name is different and hope the same product is in both test sets
+      expect(altFirstItem.unitPrice.currency).toBe('EUR');
+      expect(firstItem.unitPrice.currency).toBe('USD');
+      expect(altFirstItem.unitPrice.value).toBeTruthy();
+      expect(altFirstItem.unitPrice.value).not.toBe(firstItem.unitPrice.value);
+    });
+  },
+);

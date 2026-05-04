@@ -42,7 +42,6 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category
     if (!result.success) {
       assert.fail(JSON.stringify(result.error));
     }
-    console.log(result.value);
     expect(result.value.items.length).toBeGreaterThan(0);
     expect(result.value.items[0].identifier.key).toBe(testData.topCategories[0].key);
     expect(result.value.items[0].name).toBe(testData.topCategories[0].name);
