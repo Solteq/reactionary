@@ -168,7 +168,7 @@ Vendors:  Commercetools, Medusa
   - [X] External Pricing / Pushed prices
   - [-] Customer specific pricing (WIP)
   - [X] Organizational/Entitlement Context. Choose to shop private or for company?
-  - [ ] Multi currency/Multi lingual
+  - [X] Multi currency/Multi lingual
 
 
 
