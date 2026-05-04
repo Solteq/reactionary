@@ -164,6 +164,8 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       const altFirstItem = altResult.value;
 
       // we check that the name is different and hope the same product is in both test sets
+      expect(firstItem.name).toBe(testData.product.name);
+      expect(altFirstItem.name).toBeTruthy();
       expect(altFirstItem!.name).not.toBe(firstItem.name);
     });
   },
