@@ -36,7 +36,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       expect(response.value.identifier.key).toBe(testData.product.id);
       expect(response.value.name).toBe(testData.product.name);
       expect(response.value.mainVariant.images[0].sourceUrl).toBe(
-        testData.product.image
+        testData.product.image,
       );
       expect(response.value.mainVariant.name).toBeTruthy();
     });
@@ -53,7 +53,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       expect(response.value.identifier.key).toBe(testData.product.id);
       expect(response.value.name).toBe(testData.product.name);
       expect(response.value.mainVariant.images[0].sourceUrl).toBe(
-        testData.product.image
+        testData.product.image,
       );
     });
 
@@ -72,10 +72,12 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       expect(response.value.variants.length).toBeGreaterThan(0);
       expect(response.value.variants[0].identifier.sku).toBeTruthy();
       expect(response.value.variants[0].identifier.sku).not.toBe(
-        response.value.mainVariant.identifier.sku
+        response.value.mainVariant.identifier.sku,
       );
       expect(response.value.sharedAttributes.length).toBeGreaterThan(1);
-      expect(response.value.sharedAttributes[1].values.length).toBeGreaterThan(0);
+      expect(response.value.sharedAttributes[1].values.length).toBeGreaterThan(
+        0,
+      );
       expect(response.value.sharedAttributes[1].values[0].value).toBeTruthy();
     });
 
@@ -91,7 +93,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       expect(response.value.identifier.key).toBe(testData.product.id);
       expect(response.value.name).toBe(testData.product.name);
       expect(response.value.mainVariant.images[0].sourceUrl).toBe(
-        testData.product.image
+        testData.product.image,
       );
     });
 
@@ -105,7 +107,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       }
 
       expect(response.value.sharedAttributes.length).toBeGreaterThan(1);
-      expect(response.value.sharedAttributes[1].values.length).toBeGreaterThan(0);
+      expect(response.value.sharedAttributes[1].values.length).toBeGreaterThan(
+        0,
+      );
       expect(response.value.sharedAttributes[1].values[0].value).toBeTruthy();
     });
 
@@ -118,5 +122,49 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
 
       expect(response.error.type).toBe('NotFound');
     });
-  }
+  },
+);
+
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
+  'Product Capability - Multilingual Support - %s',
+  (provider) => {
+    let client: ReturnType<typeof createClient>;
+
+    it('can get results in other languages', async () => {
+      client = createClient(provider, {
+        languageContext: {
+          locale: 'en-US',
+          currencyCode: 'USD',
+        },
+      });
+
+      const result = await client.product.getBySKU({
+        variant: { sku: testData.product.sku },
+      });
+
+      if (!result.success) {
+        assert.fail(JSON.stringify(result.error));
+      }
+
+      const altLanguageClient = createClient(provider, {
+        languageContext: {
+          locale: 'da-DK',
+          currencyCode: 'EUR',
+        },
+      });
+
+      const altResult = await altLanguageClient.product.getBySKU({
+        variant: { sku: testData.product.sku },
+      });
+
+      if (!altResult.success) {
+        assert.fail(JSON.stringify(altResult.error));
+      }
+      const firstItem = result.value;
+      const altFirstItem = altResult.value;
+
+      // we check that the name is different and hope the same product is in both test sets
+      expect(altFirstItem!.name).not.toBe(firstItem.name);
+    });
+  },
 );
