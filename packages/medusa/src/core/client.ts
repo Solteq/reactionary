@@ -1,5 +1,4 @@
 import { Admin, Auth, Client, type Config, Store } from '@medusajs/js-sdk';
-import Medusa from '@medusajs/js-sdk';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
   AnonymousIdentitySchema,
@@ -81,7 +80,7 @@ export class RequestContextTokenStore implements MedusaCustomStorage {
 }
 
 
-class Medusa2 {
+class Medusa {
   public client: Client;
 
   public admin: Admin;
