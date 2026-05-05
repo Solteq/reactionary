@@ -19,7 +19,9 @@ export const CapabilitiesSchema = z.looseObject({
     price: z.boolean(),
     category: z.boolean(),
     store: z.boolean(),
-    profile: z.boolean()
+    profile: z.boolean(),
+    featureFlag: z.boolean(),
+    marketingProfile: z.boolean(),
 });
 
 export type Capabilities = InferType<typeof CapabilitiesSchema>;

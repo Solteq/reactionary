@@ -18,3 +18,4 @@ export * from './capabilities/profile.capability.js';
 export * from './capabilities/category.capability.js';
 export * from './capabilities/checkout.capability.js';
 export * from './capabilities/product.capability.js';
+export * from './capabilities/marketing-profile.capability.js';

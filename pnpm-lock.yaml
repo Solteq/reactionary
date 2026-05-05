@@ -51,8 +51,8 @@ dependencies:
     specifier: ^17.2.2
     version: 17.2.2
   meilisearch:
-    specifier: ^0.55.0
-    version: 0.55.0
+    specifier: ^0.58.0
+    version: 0.58.0
   node-object-hash:
     specifier: ^3.1.1
     version: 3.1.1
@@ -13994,8 +13994,9 @@ packages:
     resolution: {integrity: sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==}
     engines: {node: '>= 0.6'}
 
-  /meilisearch@0.55.0:
-    resolution: {integrity: sha512-qSMeiezfDgIqciIeYzh5E4pXDZZD7CtHeWDCs43kN3trLgl5FtfmBAIkljL3huFaOx08feYtC8FfIFUpVwq6rg==}
+  /meilisearch@0.58.0:
+    resolution: {integrity: sha512-MXFlU+JVG2I3tDI4brS3UHxEv2fjOROP24TPP16c8dGHTulb1kxMgXvKP0x4ImvUcsVVJFi4QXP0JNDS/TaWaw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
     dev: false
 
   /memfs@4.56.10(tslib@2.8.1):

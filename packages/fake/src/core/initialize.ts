@@ -21,6 +21,8 @@ import {
   ProfileSchema as CoreProfileSchema,
   ShippingMethodSchema as CoreShippingMethodSchema,
   StoreSchema as CoreStoreSchema,
+  FeatureFlagSchema as CoreFeatureFlagSchema,
+  MarketingProfileSchema as CoreMarketingProfileSchema,
 } from '@reactionary/core';
 import { FakeProductCapability } from '../capabilities/product.capability.js';
 import { FakeProductSearchCapability } from '../capabilities/product-search.capability.js';
@@ -41,12 +43,16 @@ import { FakeOrderCapability } from '../capabilities/order.capability.js';
 import { FakeProfileCapability } from '../capabilities/profile.capability.js';
 import { FakeProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
 import { FakeProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import { FakeFeatureFlagCapability } from '../capabilities/feature-flag.capability.js';
+import { FakeMarketingProfileCapability } from '../capabilities/marketing-profile.capability.js';
 import {
   FakeCartFactory,
   FakeCategoryFactory,
   FakeCheckoutFactory,
+  FakeFeatureFlagFactory,
   FakeIdentityFactory,
   FakeInventoryFactory,
+  FakeMarketingProfileFactory,
   FakeOrderFactory,
   FakeOrderSearchFactory,
   FakePriceFactory,
@@ -269,6 +275,30 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
               args.context,
               args.factory,
             ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.featureFlag?.enabled) {
+      client.featureFlag = resolveCapabilityWithFactory(
+        capabilities.featureFlag,
+        {
+          factory: new FakeFeatureFlagFactory(CoreFeatureFlagSchema),
+          capability: (args) =>
+            new FakeFeatureFlagCapability(args.config, args.cache, args.context, args.factory),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.marketingProfile?.enabled) {
+      client.marketingProfile = resolveCapabilityWithFactory(
+        capabilities.marketingProfile,
+        {
+          factory: new FakeMarketingProfileFactory(CoreMarketingProfileSchema),
+          capability: (args) =>
+            new FakeMarketingProfileCapability(args.config, args.cache, args.context, args.factory),
         },
         buildCapabilityArgs,
       );

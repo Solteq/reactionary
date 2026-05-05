@@ -2,10 +2,12 @@ import * as z from "zod";
 import type { InferType } from "../../zod-utils.js";
 import { CategoryIdentifierSchema, ProductIdentifierSchema } from "../models/identifiers.model.js";
 import { BaseQuerySchema } from "./base.query.js";
+import { MarketingProfileSchema } from "../models/marketing-profile.model.js";
 
 export const ProductRecommendationBaseQuerySchema = BaseQuerySchema.extend({
   numberOfRecommendations: z.number().min(1).max(12).meta({ description: 'The number of recommendations requested. The provider may return fewer than this number, but should not return more.' }),
-  labels: z.array(z.string()).optional().meta({ description: 'The customer segments, quirks, chirps or other labels to which the recommendations can optimize themselves to be relevant. This can be used by the provider to personalize the recommendations based on the preferences and behaviors of users in these segments.' }),
+  marketingProfile: MarketingProfileSchema.optional().meta({ description: 'The marketing profile to use for personalizing the recommendations. This can be used by the provider to tailor the recommendations based on the preferences and behaviors of users in this marketing profile.' }),
+  labels: z.array(z.string()).optional().meta({ description: 'extra, quirks, chirps or other labels to which the recommendations can optimize themselves to be relevant. This can be used by the provider to personalize the recommendations based on the preferences and behaviors of users in these segments.' }),
 });
 
 export const ProductRecommendationsByCollectionQuerySchema = ProductRecommendationBaseQuerySchema.extend({
@@ -70,3 +72,4 @@ export type ProductRecommendationAlgorithmRelatedProductsQuery = InferType<typeo
 export type ProductRecommendationAlgorithmSimilarProductsQuery= InferType<typeof ProductRecommendationAlgorithmSimilarProductsQuerySchema>;
 export type ProductRecommendationAlgorithmFrequentlyBoughtTogetherQuery = InferType<typeof ProductRecommendationAlgorithmFrequentlyBoughtTogetherQuerySchema>;
 export type ProductRecommendationAlgorithmAlsoViewedProductsQuery = InferType<typeof ProductRecommendationAlgorithmAlsoViewedProductsQuerySchema>;
+export type ProductRecommendationBaseQuery = InferType<typeof ProductRecommendationBaseQuerySchema>;

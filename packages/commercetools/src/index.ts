@@ -14,6 +14,7 @@ export * from './capabilities/company-registration.capability.js';
 export * from './capabilities/company.capability.js';
 export * from './capabilities/employee.capability.js';
 export * from './capabilities/employee-invitation.capability.js';
+export * from './capabilities/marketing-profile.capability.js';
 export * from './factories/product/product.factory.js';
 export * from './factories/checkout/checkout.factory.js';
 export * from './factories/product-search/product-search.factory.js';
@@ -33,6 +34,7 @@ export * from './factories/company-registration/company-registration.factory.js'
 export * from './factories/company/company.factory.js';
 export * from './factories/employee/employee.factory.js';
 export * from './factories/employee-invitation/employee-invitation.factory.js';
+export * from './factories/marketing-profile/marketing-profile.factory.js';
 
 export * from './schema/capabilities.schema.js';
 export * from './schema/configuration.schema.js';

@@ -1,5 +1,44 @@
 # Adding the personal touch
 
+Reactionary supports many mechanisms by which to make the customer journey unique to a customer. The foundational element is the Marketing Profile, which represents what we know about the user, from the CDP. 
+Different CDPs use different keys, and you may be creating a profile even as anonymous, that is then later combined with your registered users profile, so there is not a 1:1 between identity and marketing profile.
+
+To obtain the users marketing profile, you would use the `marketingProfile` capability.
+
+NOTE of all capabilities, this is the only one where we always recommend at least providing the @reactionary/fake version, if you do not have a better source of the profile, as the marketingProfile is used later when calling other systems to get recommendations or the like.
+
+
+You want to re-get the marketing profile after major account changes, like changing addresses, logging in or out, etc.
+
+```ts
+let profile: Profile | undefined = undefined;
+if (context.session.identityContext.identity.type === 'Registered') {
+  const profileResponse = client.profile.getProfile({ ... })
+  if (profileResponse.success) {
+    profile = profileResponse.value;
+  }
+}
+const marketingProfileResponse = await client.marketingProfile.getMarketingProfile({
+  identity: context.session.identityContext.identity,
+  profile
+})
+
+if (marketingProfileResponse.success) {
+  session.set('marketingProfile', marketingProfileResponse.value);
+  console.log(marketingProfileResponse.value.segments);
+  console.log(marketingProfileResponse.value.blurb);
+}
+```
+
+Once this is established you can pass this when getting product recommendations or product searches to get personalized results.
+
+You will also want to use this for your analytics basis, as generally you want analytics to be scoped to the CDPs identity space. Not your IdPs.
+
+
+
+
+## Product Recommendations
+
 Reactionary supports many mechanisms by which to make the customer journey unique to a customer. The main mechanism is via the `ProductRecommendationsProvider` which offers 7 unique ways to find some relevant products to display for the user.
 
 It is assumed, that any basic-direct-assign logic (ie editor has picked 4 products to show) is already handled at the CMS level. The Reactionary provider is for the usecase where you want a dynamic result back, based on the users behavior, tags, or whatever you have.
@@ -25,11 +64,11 @@ But, the point of this is, that you can either hardcode something on the PDP
 const recommendations = client.productRecommendations.getRecommendations({
   algorithm: 'similar',
   numberOfRecommendations: 8,
+  marketingProfile: marketingProfile,
   labels: [ 
     (
       isLoggedIn: 'Registered' : 'Guest',
       registeredThisSession? 'FirstSession': 'ReturningCustomer', 
-      customerSegments.map(x => x.name), 
       new Date().getHour() > 12? "Afternoon": "Morning",
       getTemperatureAround(context.clientIp) < 20: 'Cold': 'Warm' 
     )
@@ -43,6 +82,8 @@ const allProducts = Promise.all(
   // and draw them...
 }
 ```
+
+The labels you pass here, are the kind of "soft segments" you might decide to have, that are context dependent on the frontend alone. The recommendation provider will use the marketing profiles segments, in addition to these labels, if they are defined.
 
 Instead of using the full `client.product` you could have resolved it via the `.productSearch` to get a smaller data-footprint. However, since you are hopefully just about to navigate to one of these pages, it might be better for overall cache performance to use the full data model.
 

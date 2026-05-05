@@ -26,7 +26,7 @@ import {
   type Result,
   success
 } from '@reactionary/core';
-import { MeiliSearch, type SearchParams, type SearchResponse } from 'meilisearch';
+import { Meilisearch, type SearchParams, type SearchResponse } from 'meilisearch';
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
 import type { MeilisearchNativeRecord, MeilisearchNativeVariant } from '../schema/search.schema.js';
 import type { MeilisearchProductSearchFactory } from '../factories/product-search/product-search.factory.js';
@@ -83,8 +83,24 @@ export class MeilisearchProductSearchCapability<
 
     if (this.config.useAIEmbedding) {
       searchOptions.hybrid = {
-        embedder: this.config.useAIEmbedding
+        embedder: this.config.useAIEmbedding,
+        semanticRatio: this.config.semanticRatio, // This can be adjusted based on how much weight you want to give to semantic relevance vs keyword matching
       };
+    }
+
+    if (payload.search.marketingProfile) {
+      let blurb = payload.search.marketingProfile.blurb || '';
+      if (blurb.length > 500) {
+        blurb = blurb.substring(0, 500);
+      }
+      if (!blurb) {
+        blurb = 'The customer is in the following segments: ' + payload.search.marketingProfile.segments.join(', ');
+      }
+      if (blurb) {
+        (searchOptions as any).personalize = {
+          userContext: blurb
+        };
+      }
     }
     return searchOptions;
   }
@@ -100,7 +116,7 @@ export class MeilisearchProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
-    const client = new MeiliSearch({
+    const client = new Meilisearch({
       host: this.config.apiUrl,
       apiKey: this.config.apiKey,
     });

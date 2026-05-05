@@ -24,7 +24,7 @@
     "algoliasearch": "^5.48.0",
     "debug": "^4.4.3",
     "dotenv": "^17.2.2",
-    "meilisearch": "^0.55.0",
+    "meilisearch": "^0.58.0",
     "node-object-hash": "^3.1.1",
     "posthog-node": "^5.24.0",
     "zod": "4.1.9"

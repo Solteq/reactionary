@@ -9,7 +9,7 @@ import type { CommercetoolsConfiguration } from '@reactionary/commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
 import { withAlgoliaCapabilities } from "@reactionary/algolia";
 import { withMedusaCapabilities } from '@reactionary/medusa';
-import { withMeilisearchCapabilities } from '@reactionary/meilisearch';
+import { withMeilisearchCapabilities, type MeilisearchConfiguration } from '@reactionary/meilisearch';
 import { withFakeCapabilities } from '@reactionary/fake';
 import type { FakeConfiguration } from '@reactionary/fake';
 
@@ -28,9 +28,10 @@ export function getMeilisearchTestConfiguration() {
     apiUrl: process.env['MEILISEARCH_API_URL'] || '',
     indexName: process.env['MEILISEARCH_INDEX'] || '',
     useAIEmbedding: process.env['MEILISEARCH_USE_AI_EMBEDDING'] || undefined,
+    semanticRatio: process.env['MEILISEARCH_SEMANTIC_RATIO'] ? parseFloat(process.env['MEILISEARCH_SEMANTIC_RATIO']) : 0.5,
     orderIndexName: process.env['MEILISEARCH_ORDER_INDEX'] || 'order',
     useRecommendationsForBots: process.env['MEILISEARCH_USE_RECOMMENDATIONS_FOR_BOTS'] === 'true',
-  };
+  } satisfies MeilisearchConfiguration;
 }
 
 
@@ -56,6 +57,21 @@ export function getFakeConfiguration(): FakeConfiguration {
       search: 1,
       category: 1,
     },
+    featureFlags: {
+      flags: [
+        {
+          key: 'true-flag',
+          type: 'boolean',
+          enabled: true,
+        },
+        {
+          key: 'string-flag',
+          type: 'multivariate',
+          variants: ['red', 'green', 'blue'],
+          enabledVariant: 'blue',
+        }
+      ]
+    }
   } satisfies FakeConfiguration;
 }
 
@@ -121,6 +137,7 @@ export function createClient(provider: PrimaryProvider, contextOverrides: Partia
           orderSearch: { enabled: true },
           store: { enabled: true },
           profile: { enabled: true },
+          marketingProfile: { enabled: true },
         })
       );
     }
@@ -133,6 +150,7 @@ export function createClient(provider: PrimaryProvider, contextOverrides: Partia
           product: { enabled: true },
           productReviews: { enabled: true },
           productAssociations: { enabled: true },
+          featureFlag: { enabled: true },
         }
       ))
     }
@@ -159,6 +177,7 @@ export function createClient(provider: PrimaryProvider, contextOverrides: Partia
           employeeInvitation: { enabled: true },
           store: { enabled: true },
           profile: { enabled: true },
+          marketingProfile: { enabled: true },
         })
       );
     }
