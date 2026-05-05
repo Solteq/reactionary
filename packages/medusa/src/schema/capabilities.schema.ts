@@ -12,6 +12,9 @@ import type {
   InventoryFactory,
   InventoryFactoryWithOutput,
   InventoryCapability,
+  MarketingProfileFactory,
+  MarketingProfileFactoryWithOutput,
+  MarketingProfileCapability,
   OrderFactory,
   OrderFactoryWithOutput,
   OrderCapability,
@@ -67,6 +70,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
   identity: true,
   profile: true,
   productAssociations: true,
+  marketingProfile: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -82,6 +86,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     profile: OverridableCapabilitySchema.optional(),
     productAssociations: OverridableCapabilitySchema.optional(),
     productRecommendations: DirectCapabilitySchema.optional(),
+    marketingProfile: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -166,6 +171,11 @@ export type MedusaProductAssociationsCapabilityConfig = MedusaCapabilityConfig<
   ProductAssociationsCapability
 >;
 
+export type MedusaMarketingProfileCapabilityConfig = MedusaCapabilityConfig<
+  MarketingProfileFactoryWithOutput<MarketingProfileFactory>,
+  MarketingProfileCapability
+>;
+
 export type MedusaProductRecommendationsCapabilityConfig =
   MedusaDirectCapabilityConfig<ProductRecommendationsCapability>;
 
@@ -194,6 +204,8 @@ export type MedusaCapabilities<
   TProductAssociationsFactory extends ProductAssociationsFactory = ProductAssociationsFactory,
   TProductAssociationsCapability extends ProductAssociationsCapability = ProductAssociationsCapability,
   TProductRecommendationsCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
+  TMarketingProfileFactory extends MarketingProfileFactory = MarketingProfileFactory,
+  TMarketingProfileCapability extends MarketingProfileCapability = MarketingProfileCapability,
 > = {
   product?: MedusaCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MedusaCapabilityConfig<
@@ -226,6 +238,10 @@ export type MedusaCapabilities<
     TProductAssociationsCapability
   >;
   productRecommendations?: MedusaDirectCapabilityConfig<TProductRecommendationsCapability>;
+  marketingProfile?: MedusaCapabilityConfig<
+    MarketingProfileFactoryWithOutput<TMarketingProfileFactory>,
+    TMarketingProfileCapability
+  >;
 };
 
 export type ParsedMedusaCapabilities = z.infer<typeof MedusaCapabilitiesSchema>;

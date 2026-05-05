@@ -12,6 +12,8 @@ import {
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
   ImageSchema,
+  type MarketingProfile,
+  type ProductRecommendationBaseQuery,
 } from '@reactionary/core';
 import {
   liteClient,
@@ -59,11 +61,16 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
     return 10;
   }
 
-  protected getQueryParametersForRecommendations(algorithm: string): RecommendSearchParams {
+  protected getQueryParametersForRecommendations(algorithm: string, query: ProductRecommendationBaseQuery ): RecommendSearchParams {
+    const ruleContexts = query.marketingProfile ? [ ...query.marketingProfile.segments.map(segment => 'segment:' + segment) ] : [];
+    if (query.labels) {
+      ruleContexts.push(...query.labels);
+    }
     return  {
-      userToken: this.context.session.identityContext?.personalizationKey || 'anonymous',
+      userToken: query.marketingProfile?.identifier.key || 'anonymous',
       analytics: true,
       analyticsTags: ['reactionary', algorithm],
+      ruleContexts,
       clickAnalytics: true
     } satisfies RecommendSearchParams;
   }
@@ -92,7 +99,7 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
             objectID: query.sourceProduct.key,
             maxRecommendations: query.numberOfRecommendations,
             threshold: this.getRecommendationThreshold('bought-together'),
-            queryParameters: this.getQueryParametersForRecommendations('bought-together')
+            queryParameters: this.getQueryParametersForRecommendations('bought-together', query)
           } satisfies BoughtTogetherQuery,
         ],
 
@@ -133,7 +140,7 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
             objectID: query.sourceProduct.key,
             maxRecommendations: query.numberOfRecommendations,
             threshold: this.getRecommendationThreshold('looking-similar'),
-            queryParameters: this.getQueryParametersForRecommendations('looking-similar')
+            queryParameters: this.getQueryParametersForRecommendations('looking-similar', query)
           } satisfies LookingSimilarQuery
         ],
       });
@@ -172,7 +179,7 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
             objectID: query.sourceProduct.key,
             maxRecommendations: query.numberOfRecommendations,
             threshold: this.getRecommendationThreshold('related-products'),
-            queryParameters: this.getQueryParametersForRecommendations('related-products')
+            queryParameters: this.getQueryParametersForRecommendations('related-products', query)
           } satisfies RelatedQuery,
         ],
       });
@@ -211,7 +218,7 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
             facetValue: query.sourceCategory.key,
             maxRecommendations: query.numberOfRecommendations,
             threshold: this.getRecommendationThreshold('trending-items'),
-            queryParameters: this.getQueryParametersForRecommendations('trending-items')
+            queryParameters: this.getQueryParametersForRecommendations('trending-items', query)
           } satisfies TrendingItemsQuery,
         ],
       });

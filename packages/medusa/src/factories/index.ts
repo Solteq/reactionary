@@ -10,3 +10,4 @@ export * from './product/product.factory.js';
 export * from './product-associations/product-associations.factory.js';
 export * from './product-search/product-search.factory.js';
 export * from './profile/profile.factory.js';
+export * from './marketing-profile/marketing-profile.factory.js';

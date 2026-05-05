@@ -23,7 +23,7 @@ import {
   type OrderSearchFactoryOutput,
   type OrderSearchFactoryWithOutput,
 } from '@reactionary/core';
-import { MeiliSearch, type SearchParams, type SearchResponse } from 'meilisearch';
+import { Meilisearch, type SearchParams, type SearchResponse } from 'meilisearch';
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
 import type { MeilisearchOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
 
@@ -116,7 +116,7 @@ export class MeilisearchOrderSearchCapability<
   public async queryByTerm(
     payload: OrderSearchQueryByTerm,
   ): Promise<Result<OrderSearchFactoryOutput<TFactory>>> {
-    const client = new MeiliSearch({
+    const client = new Meilisearch({
       host: this.config.apiUrl,
       apiKey: this.config.apiKey,
     });

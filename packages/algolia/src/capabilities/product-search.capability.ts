@@ -17,7 +17,7 @@ import {
   Reactionary,
   success,
 } from '@reactionary/core';
-import { algoliasearch } from 'algoliasearch';
+import { algoliasearch, type SearchQuery } from 'algoliasearch';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaNativeRecord } from '../schema/search.schema.js';
 import type { AlgoliaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
@@ -58,6 +58,11 @@ export class AlgoliaProductSearchCapability<
       finalFilters.push(`categories:"${categoryFacet.key}"`);
     }
 
+    const rulesContext = [];
+    if (payload.search.marketingProfile) {
+      rulesContext.push(...payload.search.marketingProfile.segments.map((s) => `segment:${s}`));
+    }
+
     return {
       indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
       query: payload.search.term,
@@ -68,7 +73,9 @@ export class AlgoliaProductSearchCapability<
       clickAnalytics: true,
       facetFilters: finalFacetFilters,
       filters: finalFilters.join(' AND '),
-    };
+      ruleContexts: rulesContext,
+      userToken: payload.search.marketingProfile?.identifier.key || 'anonymous',
+    } satisfies SearchQuery;
   }
 
   @Reactionary({

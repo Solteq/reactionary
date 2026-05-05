@@ -108,7 +108,7 @@ export class MedusaAdminAPI {
     this.client = new Medusa({
       baseUrl: this.config.apiUrl,
       apiKey: this.config.adminApiKey,
-      debug: true,
+      debug: false,
       globalHeaders: {
         'x-medusa-locale': this.context.languageContext.locale,
       }
@@ -299,7 +299,7 @@ export class MedusaAPI {
     const authenticatedClient = new Medusa({
       baseUrl: this.config.apiUrl,
       publishableKey: this.config.publishable_key,
-      debug: true,
+      debug: false,
       globalHeaders: {
         'x-medusa-locale': this.context.languageContext.locale,
       },
