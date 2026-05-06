@@ -6,7 +6,7 @@ import type {
   FeatureFlagFactory,
   IdentityFactory,
   InventoryFactory,
-  MarketingProfileFactory,
+  PersonalizationProfileFactory,
   OrderFactory,
   OrderSearchFactory,
   PriceFactory,
@@ -33,7 +33,7 @@ import type { FakeProductSearchFactory } from '../factories/product-search/produ
 import type { FakeProfileFactory } from '../factories/profile/profile.factory.js';
 import type { FakeStoreFactory } from '../factories/store/store.factory.js';
 import type { FakeFeatureFlagFactory } from '../factories/feature-flag/feature-flag.factory.js';
-import type { FakeMarketingProfileFactory } from '../factories/marketing-profile/marketing-profile.factory.js';
+import type { FakePersonalizationProfileFactory } from '../factories/personalization-profile/personalization-profile.factory.js';
 import type { FakeCartCapability } from '../capabilities/cart.capability.js';
 import type { FakeCategoryCapability } from '../capabilities/category.capability.js';
 import type { FakeCheckoutCapability } from '../capabilities/checkout.capability.js';
@@ -49,7 +49,7 @@ import type { FakeProductSearchCapability } from '../capabilities/product-search
 import type { FakeProfileCapability } from '../capabilities/profile.capability.js';
 import type { FakeStoreCapability } from '../capabilities/store.capability.js';
 import type { FakeFeatureFlagCapability } from '../capabilities/feature-flag.capability.js';
-import type { FakeMarketingProfileCapability } from '../capabilities/marketing-profile.capability.js';
+import type { FakePersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
 
 type FakeCapabilityKey = keyof FakeCapabilities;
 
@@ -90,7 +90,7 @@ type FactoryContractMap = {
   productReviews: ProductReviewsFactory;
   productAssociations: ProductAssociationsFactory;
   featureFlag: FeatureFlagFactory;
-  marketingProfile: MarketingProfileFactory;
+  personalizationProfile: PersonalizationProfileFactory;
 };
 
 type DefaultFactoryMap = {
@@ -109,7 +109,7 @@ type DefaultFactoryMap = {
   productReviews: FakeProductReviewsFactory;
   productAssociations: FakeProductAssociationsFactory;
   featureFlag: FakeFeatureFlagFactory;
-  marketingProfile: FakeMarketingProfileFactory;
+  personalizationProfile: FakePersonalizationProfileFactory;
 };
 
 type ResolvedFactoryMap<T extends FakeCapabilities> = {
@@ -138,7 +138,7 @@ type DefaultCapabilityMap<T extends FakeCapabilities> = {
     ResolvedFactoryMap<T>['productAssociations']
   >;
   featureFlag: FakeFeatureFlagCapability<ResolvedFactoryMap<T>['featureFlag']>;
-  marketingProfile: FakeMarketingProfileCapability<ResolvedFactoryMap<T>['marketingProfile']>;
+  personalizationProfile: FakePersonalizationProfileCapability<ResolvedFactoryMap<T>['personalizationProfile']>;
 };
 
 type CapabilityImplementationMap<T extends FakeCapabilities> = {

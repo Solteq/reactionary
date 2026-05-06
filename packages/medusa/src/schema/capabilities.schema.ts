@@ -12,9 +12,9 @@ import type {
   InventoryFactory,
   InventoryFactoryWithOutput,
   InventoryCapability,
-  MarketingProfileFactory,
-  MarketingProfileFactoryWithOutput,
-  MarketingProfileCapability,
+  PersonalizationProfileFactory,
+  PersonalizationProfileFactoryWithOutput,
+  PersonalizationProfileCapability,
   OrderFactory,
   OrderFactoryWithOutput,
   OrderCapability,
@@ -70,7 +70,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
   identity: true,
   profile: true,
   productAssociations: true,
-  marketingProfile: true,
+  personalizationProfile: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -86,7 +86,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     profile: OverridableCapabilitySchema.optional(),
     productAssociations: OverridableCapabilitySchema.optional(),
     productRecommendations: DirectCapabilitySchema.optional(),
-    marketingProfile: OverridableCapabilitySchema.optional(),
+    personalizationProfile: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -171,9 +171,9 @@ export type MedusaProductAssociationsCapabilityConfig = MedusaCapabilityConfig<
   ProductAssociationsCapability
 >;
 
-export type MedusaMarketingProfileCapabilityConfig = MedusaCapabilityConfig<
-  MarketingProfileFactoryWithOutput<MarketingProfileFactory>,
-  MarketingProfileCapability
+export type MedusaPersonalizationProfileCapabilityConfig = MedusaCapabilityConfig<
+  PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
+  PersonalizationProfileCapability
 >;
 
 export type MedusaProductRecommendationsCapabilityConfig =
@@ -204,8 +204,8 @@ export type MedusaCapabilities<
   TProductAssociationsFactory extends ProductAssociationsFactory = ProductAssociationsFactory,
   TProductAssociationsCapability extends ProductAssociationsCapability = ProductAssociationsCapability,
   TProductRecommendationsCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
-  TMarketingProfileFactory extends MarketingProfileFactory = MarketingProfileFactory,
-  TMarketingProfileCapability extends MarketingProfileCapability = MarketingProfileCapability,
+  TPersonalizationProfileFactory extends PersonalizationProfileFactory = PersonalizationProfileFactory,
+  TPersonalizationProfileCapability extends PersonalizationProfileCapability = PersonalizationProfileCapability,
 > = {
   product?: MedusaCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MedusaCapabilityConfig<
@@ -238,9 +238,9 @@ export type MedusaCapabilities<
     TProductAssociationsCapability
   >;
   productRecommendations?: MedusaDirectCapabilityConfig<TProductRecommendationsCapability>;
-  marketingProfile?: MedusaCapabilityConfig<
-    MarketingProfileFactoryWithOutput<TMarketingProfileFactory>,
-    TMarketingProfileCapability
+  personalizationProfile?: MedusaCapabilityConfig<
+    PersonalizationProfileFactoryWithOutput<TPersonalizationProfileFactory>,
+    TPersonalizationProfileCapability
   >;
 };
 

@@ -21,8 +21,12 @@ export function createInitialRequestContext(): RequestContext {
         identity: {
           type: 'Anonymous'
         } satisfies AnonymousIdentity,
-        lastUpdated: new Date(),
-        personalizationKey: crypto.randomUUID(),
+        lastUpdated: new Date()
+      },
+      marketingContext: {
+        identifier: { key: '' },
+        segments: [],
+        blurb: '',
       },
     },
     correlationId: '',

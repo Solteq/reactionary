@@ -3,9 +3,9 @@
 Reactionary supports many mechanisms by which to make the customer journey unique to a customer. The foundational element is the Marketing Profile, which represents what we know about the user, from the CDP. 
 Different CDPs use different keys, and you may be creating a profile even as anonymous, that is then later combined with your registered users profile, so there is not a 1:1 between identity and marketing profile.
 
-To obtain the users marketing profile, you would use the `marketingProfile` capability.
+To obtain the users marketing profile, you would use the `personalizationProfile` capability.
 
-NOTE of all capabilities, this is the only one where we always recommend at least providing the @reactionary/fake version, if you do not have a better source of the profile, as the marketingProfile is used later when calling other systems to get recommendations or the like.
+NOTE of all capabilities, this is the only one where we always recommend at least providing the @reactionary/fake version, if you do not have a better source of the profile, as the personalizationProfile is used later when calling other systems to get recommendations or the like.
 
 
 You want to re-get the marketing profile after major account changes, like changing addresses, logging in or out, etc.
@@ -18,15 +18,15 @@ if (context.session.identityContext.identity.type === 'Registered') {
     profile = profileResponse.value;
   }
 }
-const marketingProfileResponse = await client.marketingProfile.getMarketingProfile({
+const personalizationProfileResponse = await client.personalizationProfile.getPersonalizationProfile({
   identity: context.session.identityContext.identity,
   profile
 })
 
-if (marketingProfileResponse.success) {
-  session.set('marketingProfile', marketingProfileResponse.value);
-  console.log(marketingProfileResponse.value.segments);
-  console.log(marketingProfileResponse.value.blurb);
+if (personalizationProfileResponse.success) {
+  session.set('personalizationProfile', personalizationProfileResponse.value);
+  console.log(personalizationProfileResponse.value.segments);
+  console.log(personalizationProfileResponse.value.blurb);
 }
 ```
 
@@ -64,7 +64,7 @@ But, the point of this is, that you can either hardcode something on the PDP
 const recommendations = client.productRecommendations.getRecommendations({
   algorithm: 'similar',
   numberOfRecommendations: 8,
-  marketingProfile: marketingProfile,
+  personalizationProfile: personalizationProfile,
   labels: [ 
     (
       isLoggedIn: 'Registered' : 'Guest',

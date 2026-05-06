@@ -22,7 +22,7 @@ import {
   ShippingMethodSchema as CoreShippingMethodSchema,
   StoreSchema as CoreStoreSchema,
   FeatureFlagSchema as CoreFeatureFlagSchema,
-  MarketingProfileSchema as CoreMarketingProfileSchema,
+  PersonalizationProfileSchema as CorePersonalizationProfileSchema,
 } from '@reactionary/core';
 import { FakeProductCapability } from '../capabilities/product.capability.js';
 import { FakeProductSearchCapability } from '../capabilities/product-search.capability.js';
@@ -44,7 +44,7 @@ import { FakeProfileCapability } from '../capabilities/profile.capability.js';
 import { FakeProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
 import { FakeProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import { FakeFeatureFlagCapability } from '../capabilities/feature-flag.capability.js';
-import { FakeMarketingProfileCapability } from '../capabilities/marketing-profile.capability.js';
+import { FakePersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
 import {
   FakeCartFactory,
   FakeCategoryFactory,
@@ -52,7 +52,7 @@ import {
   FakeFeatureFlagFactory,
   FakeIdentityFactory,
   FakeInventoryFactory,
-  FakeMarketingProfileFactory,
+  FakePersonalizationProfileFactory,
   FakeOrderFactory,
   FakeOrderSearchFactory,
   FakePriceFactory,
@@ -292,13 +292,13 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
       );
     }
 
-    if (caps.marketingProfile?.enabled) {
-      client.marketingProfile = resolveCapabilityWithFactory(
-        capabilities.marketingProfile,
+    if (caps.personalizationProfile?.enabled) {
+      client.personalizationProfile = resolveCapabilityWithFactory(
+        capabilities.personalizationProfile,
         {
-          factory: new FakeMarketingProfileFactory(CoreMarketingProfileSchema),
+          factory: new FakePersonalizationProfileFactory(CorePersonalizationProfileSchema),
           capability: (args) =>
-            new FakeMarketingProfileCapability(args.config, args.cache, args.context, args.factory),
+            new FakePersonalizationProfileCapability(args.config, args.cache, args.context, args.factory),
         },
         buildCapabilityArgs,
       );

@@ -5,7 +5,7 @@ import type {
   ClientFromCapabilities,
   IdentityFactory,
   InventoryFactory,
-  MarketingProfileFactory,
+  PersonalizationProfileFactory,
   OrderFactory,
   OrderSearchFactory,
   PriceFactory,
@@ -34,7 +34,7 @@ import type { CommercetoolsProductReviewsFactory } from '../factories/product-re
 import type { CommercetoolsProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import type { CommercetoolsProfileFactory } from '../factories/profile/profile.factory.js';
 import type { CommercetoolsStoreFactory } from '../factories/store/store.factory.js';
-import type { CommercetoolsMarketingProfileFactory } from '../factories/marketing-profile/marketing-profile.factory.js';
+import type { CommercetoolsPersonalizationProfileFactory } from '../factories/personalization-profile/personalization-profile.factory.js';
 import type { CommercetoolsCompanyRegistrationFactory } from '../factories/company-registration/company-registration.factory.js';
 import type { CommercetoolsCompanyFactory } from '../factories/company/company.factory.js';
 import type { CommercetoolsEmployeeFactory } from '../factories/employee/employee.factory.js';
@@ -58,7 +58,7 @@ import type { CommercetoolsCompanyRegistrationCapability } from '../capabilities
 import type { CommercetoolsCompanyCapability } from '../capabilities/company.capability.js';
 import type { CommercetoolsEmployeeCapability } from '../capabilities/employee.capability.js';
 import type { CommercetoolsEmployeeInvitationCapability } from '../capabilities/employee-invitation.capability.js';
-import type { CommercetoolsMarketingProfileCapability } from '../capabilities/marketing-profile.capability.js';
+import type { CommercetoolsPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
 
 type EnabledCapability<TCapability> =
   TCapability extends { enabled: true } ? true : false;
@@ -102,7 +102,7 @@ type FactoryContractMap = {
   company: CommercetoolsCompanyFactory;
   employee: CommercetoolsEmployeeFactory;
   employeeInvitation: CommercetoolsEmployeeInvitationFactory;
-  marketingProfile: MarketingProfileFactory;
+  personalizationProfile: PersonalizationProfileFactory;
 };
 
 type DefaultFactoryMap = {
@@ -125,7 +125,7 @@ type DefaultFactoryMap = {
   company: CommercetoolsCompanyFactory;
   employee: CommercetoolsEmployeeFactory;
   employeeInvitation: CommercetoolsEmployeeInvitationFactory;
-  marketingProfile: CommercetoolsMarketingProfileFactory;
+  personalizationProfile: CommercetoolsPersonalizationProfileFactory;
 };
 
 type ResolvedFactoryMap<T extends CommercetoolsCapabilities> = {
@@ -160,7 +160,7 @@ type DefaultCapabilityMap<T extends CommercetoolsCapabilities> = {
   company: CommercetoolsCompanyCapability;
   employee: CommercetoolsEmployeeCapability;
   employeeInvitation: CommercetoolsEmployeeInvitationCapability;
-  marketingProfile: CommercetoolsMarketingProfileCapability<ResolvedFactoryMap<T>['marketingProfile']>;
+  personalizationProfile: CommercetoolsPersonalizationProfileCapability<ResolvedFactoryMap<T>['personalizationProfile']>;
 };
 
 type CapabilityImplementationMap<T extends CommercetoolsCapabilities> = {

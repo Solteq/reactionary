@@ -5,9 +5,10 @@ import {
 } from '../../models/identifiers.model.js';
 import { BaseMutationSchema } from '../base.mutation.js';
 import * as z from 'zod';
+import { AnalyticsBaseMutationSchema } from './base-event.mutation.js';
 
 export const AnalyticsMutationProductSummaryClickEventSchema =
-  BaseMutationSchema.extend({
+  AnalyticsBaseMutationSchema.extend({
     event: z.literal('product-summary-click'),
     product: ProductIdentifierSchema,
     source: z

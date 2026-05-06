@@ -12,7 +12,6 @@ import type { GoogleAnalyticsConfiguration } from '../schema/configuration.schem
 
 export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
   protected config: GoogleAnalyticsConfiguration;
-
   constructor(
     cache: Cache,
     context: RequestContext,
@@ -27,8 +26,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     event: AnalyticsMutationProductSummaryViewEvent
   ) {
     const gaEvent = {
-      client_id: this.context.session.identityContext.personalizationKey,
-      user_id: this.context.session.identityContext.personalizationKey,
+      client_id: event.personalizationProfile?.identifier.key || 'anonymous',
+      user_id: event.personalizationProfile?.identifier.key || 'anonymous',
       events: [
         {
           name: 'view_item_list',
@@ -51,8 +50,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     event: AnalyticsMutationProductSummaryClickEvent
   ) {
     const gaEvent = {
-      client_id: this.context.session.identityContext.personalizationKey,
-      user_id: this.context.session.identityContext.personalizationKey,
+      client_id: event.personalizationProfile?.identifier.key || 'anonymous',
+      user_id: event.personalizationProfile?.identifier.key || 'anonymous',
       events: [
         {
           name: 'select_item',
@@ -76,8 +75,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     event: AnalyticsMutationProductDetailsViewEvent
   ) {
     const gaEvent = {
-      client_id: this.context.session.identityContext.personalizationKey,
-      user_id: this.context.session.identityContext.personalizationKey,
+      client_id: event.personalizationProfile?.identifier.key || 'anonymous',
+      user_id: event.personalizationProfile?.identifier.key || 'anonymous',
       events: [
         {
           name: 'view_item',
@@ -100,8 +99,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     event: AnalyticsMutationProductAddToCartEvent
   ) {
     const gaEvent = {
-      client_id: this.context.session.identityContext.personalizationKey,
-      user_id: this.context.session.identityContext.personalizationKey,
+      client_id: event.personalizationProfile?.identifier.key || 'anonymous',
+      user_id: event.personalizationProfile?.identifier.key || 'anonymous',
       events: [
         {
           name: 'add_to_cart',
@@ -124,8 +123,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     event: AnalyticsMutationPurchaseEvent
   ) {
     const gaEvent = {
-      client_id: this.context.session.identityContext.personalizationKey,
-      user_id: this.context.session.identityContext.personalizationKey,
+      client_id: event.personalizationProfile?.identifier.key || 'anonymous',
+      user_id: event.personalizationProfile?.identifier.key || 'anonymous',
       events: [
         {
           name: 'purchase',

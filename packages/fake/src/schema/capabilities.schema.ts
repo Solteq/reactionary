@@ -18,9 +18,9 @@ import type {
   InventoryFactory,
   InventoryFactoryWithOutput,
   InventoryCapability,
-  MarketingProfileFactory,
-  MarketingProfileFactoryWithOutput,
-  MarketingProfileCapability,
+  PersonalizationProfileFactory,
+  PersonalizationProfileFactoryWithOutput,
+  PersonalizationProfileCapability,
   OrderFactory,
   OrderFactoryWithOutput,
   OrderCapability,
@@ -76,7 +76,7 @@ export const FakeCapabilitiesSchema = CapabilitiesSchema.pick({
   productReviews: true,
   productAssociations: true,
   featureFlag: true,
-  marketingProfile: true,
+  personalizationProfile: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -94,7 +94,7 @@ export const FakeCapabilitiesSchema = CapabilitiesSchema.pick({
     productReviews: OverridableCapabilitySchema.optional(),
     productAssociations: OverridableCapabilitySchema.optional(),
     featureFlag: OverridableCapabilitySchema.optional(),
-    marketingProfile: OverridableCapabilitySchema.optional(),
+    personalizationProfile: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -171,9 +171,9 @@ export type FakeFeatureFlagCapabilityConfig = FakeCapabilityConfig<
   FeatureFlagFactoryWithOutput<FeatureFlagFactory>,
   FeatureFlagCapability
 >;
-export type FakeMarketingProfileCapabilityConfig = FakeCapabilityConfig<
-  MarketingProfileFactoryWithOutput<MarketingProfileFactory>,
-  MarketingProfileCapability
+export type FakePersonalizationProfileCapabilityConfig = FakeCapabilityConfig<
+  PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
+  PersonalizationProfileCapability
 >;
 
 export type FakeCapabilities = {
@@ -192,7 +192,7 @@ export type FakeCapabilities = {
   productReviews?: FakeProductReviewsCapabilityConfig;
   productAssociations?: FakeProductAssociationsCapabilityConfig;
   featureFlag?: FakeFeatureFlagCapabilityConfig;
-  marketingProfile?: FakeMarketingProfileCapabilityConfig;
+  personalizationProfile?: FakePersonalizationProfileCapabilityConfig;
 };
 
 export type ParsedFakeCapabilities = z.infer<typeof FakeCapabilitiesSchema>;

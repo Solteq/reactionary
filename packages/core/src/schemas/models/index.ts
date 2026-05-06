@@ -27,4 +27,4 @@ export * from './company-registration.model.js';
 export * from './employee.model.js';
 export * from './employee-invitation.model.js';
 export * from './feature-flags.model.js';
-export * from './marketing-profile.model.js';
+export * from './personalization-profile.model.js';

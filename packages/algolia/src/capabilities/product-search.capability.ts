@@ -59,8 +59,8 @@ export class AlgoliaProductSearchCapability<
     }
 
     const rulesContext = [];
-    if (payload.search.marketingProfile) {
-      rulesContext.push(...payload.search.marketingProfile.segments.map((s) => `segment:${s}`));
+    if (payload.personalizationProfile) {
+      rulesContext.push(...payload.personalizationProfile.segments.map((s) => `segment:${s}`));
     }
 
     return {
@@ -74,7 +74,7 @@ export class AlgoliaProductSearchCapability<
       facetFilters: finalFacetFilters,
       filters: finalFilters.join(' AND '),
       ruleContexts: rulesContext,
-      userToken: payload.search.marketingProfile?.identifier.key || 'anonymous',
+      userToken: payload.personalizationProfile?.identifier.key || 'anonymous',
     } satisfies SearchQuery;
   }
 

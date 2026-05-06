@@ -8,7 +8,7 @@ export * from './employee.factory.js';
 export * from './feature-flag.factory.js';
 export * from './identity.factory.js';
 export * from './inventory.factory.js';
-export * from './marketing-profile.factory.js';
+export * from './personalization-profile.factory.js';
 export * from './order.factory.js';
 export * from './order-search.factory.js';
 export * from './price.factory.js';

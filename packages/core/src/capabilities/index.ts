@@ -10,7 +10,7 @@ export * from './employee.capability.js';
 export * from './feature-flag.capability.js';
 export * from './identity.capability.js';
 export * from './inventory.capability.js';
-export * from './marketing-profile.capability.js';
+export * from './personalization-profile.capability.js';
 export * from './order-search.capability.js';
 export * from './order.capability.js';
 export * from './price.capability.js';

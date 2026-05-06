@@ -12,7 +12,7 @@ import {
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
   ImageSchema,
-  type MarketingProfile,
+  type PersonalizationProfile,
   type ProductRecommendationBaseQuery,
 } from '@reactionary/core';
 import {
@@ -62,12 +62,12 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
   }
 
   protected getQueryParametersForRecommendations(algorithm: string, query: ProductRecommendationBaseQuery ): RecommendSearchParams {
-    const ruleContexts = query.marketingProfile ? [ ...query.marketingProfile.segments.map(segment => 'segment:' + segment) ] : [];
+    const ruleContexts = query.personalizationProfile ? [ ...query.personalizationProfile.segments.map(segment => 'segment:' + segment) ] : [];
     if (query.labels) {
       ruleContexts.push(...query.labels);
     }
     return  {
-      userToken: query.marketingProfile?.identifier.key || 'anonymous',
+      userToken: query.personalizationProfile?.identifier.key || 'anonymous',
       analytics: true,
       analyticsTags: ['reactionary', algorithm],
       ruleContexts,

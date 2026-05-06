@@ -88,13 +88,13 @@ export class MeilisearchProductSearchCapability<
       };
     }
 
-    if (payload.search.marketingProfile) {
-      let blurb = payload.search.marketingProfile.blurb || '';
+    if (payload.personalizationProfile) {
+      let blurb = payload.personalizationProfile.blurb || '';
       if (blurb.length > 500) {
         blurb = blurb.substring(0, 500);
       }
       if (!blurb) {
-        blurb = 'The customer is in the following segments: ' + payload.search.marketingProfile.segments.join(', ');
+        blurb = 'The customer is in the following segments: ' + payload.personalizationProfile.segments.join(', ');
       }
       if (blurb) {
         (searchOptions as any).personalize = {

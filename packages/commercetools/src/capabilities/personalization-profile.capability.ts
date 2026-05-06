@@ -1,40 +1,40 @@
 import type {
   Cache,
-  MarketingProfileFactory,
-  MarketingProfileFactoryOutput,
-  MarketingProfileFactoryWithOutput,
-  MarketingProfileQueryGetProfile,
+  PersonalizationProfileFactory,
+  PersonalizationProfileFactoryOutput,
+  PersonalizationProfileFactoryWithOutput,
+  PersonalizationProfileQueryGetProfile,
   NotFoundError,
   RequestContext,
   Result,
 } from '@reactionary/core';
 import {
-  MarketingProfileCapability,
-  MarketingProfileSchema,
-  MarketingProfileQueryGetProfileSchema,
+  PersonalizationProfileCapability,
+  PersonalizationProfileSchema,
+  PersonalizationProfileQueryGetProfileSchema,
   Reactionary,
   success,
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
-import type { CommercetoolsMarketingProfileFactory } from '../factories/marketing-profile/marketing-profile.factory.js';
+import type { CommercetoolsPersonalizationProfileFactory } from '../factories/personalization-profile/personalization-profile.factory.js';
 
-const debug = createDebug('reactionary:commercetools:marketing-profile');
+const debug = createDebug('reactionary:commercetools:personalization-profile');
 
-export class CommercetoolsMarketingProfileCapability<
-  TFactory extends MarketingProfileFactory = CommercetoolsMarketingProfileFactory,
-> extends MarketingProfileCapability<MarketingProfileFactoryOutput<TFactory>> {
+export class CommercetoolsPersonalizationProfileCapability<
+  TFactory extends PersonalizationProfileFactory = CommercetoolsPersonalizationProfileFactory,
+> extends PersonalizationProfileCapability<PersonalizationProfileFactoryOutput<TFactory>> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
-  protected factory: MarketingProfileFactoryWithOutput<TFactory>;
+  protected factory: PersonalizationProfileFactoryWithOutput<TFactory>;
 
   constructor(
     config: CommercetoolsConfiguration,
     cache: Cache,
     context: RequestContext,
     commercetools: CommercetoolsAPI,
-    factory: MarketingProfileFactoryWithOutput<TFactory>,
+    factory: PersonalizationProfileFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
@@ -48,18 +48,18 @@ export class CommercetoolsMarketingProfileCapability<
   }
 
   @Reactionary({
-    inputSchema: MarketingProfileQueryGetProfileSchema,
-    outputSchema: MarketingProfileSchema,
+    inputSchema: PersonalizationProfileQueryGetProfileSchema,
+    outputSchema: PersonalizationProfileSchema,
   })
-  public override async getMarketingProfile(
-    payload: MarketingProfileQueryGetProfile,
-  ): Promise<Result<MarketingProfileFactoryOutput<TFactory>, NotFoundError>> {
+  public override async getPersonalizationProfile(
+    payload: PersonalizationProfileQueryGetProfile,
+  ): Promise<Result<PersonalizationProfileFactoryOutput<TFactory>, NotFoundError>> {
     const identity = payload.identity;
-    debug('getMarketingProfile', payload);
+    debug('getPersonalizationProfile', payload);
 
     if (identity.type === 'Anonymous') {
       return success(
-        this.factory.parseMarketingProfile(this.context, {
+        this.factory.parsePersonalizationProfile(this.context, {
           id: 'anonymous:',
           version: 0,
           createdAt: '',
@@ -74,7 +74,7 @@ export class CommercetoolsMarketingProfileCapability<
     }
     if (identity.type === 'Guest') {
       return success(
-        this.factory.parseMarketingProfile(this.context, {
+        this.factory.parsePersonalizationProfile(this.context, {
           id: identity.id.userId ,
           version: 0,
           createdAt: '',
@@ -102,7 +102,7 @@ export class CommercetoolsMarketingProfileCapability<
       })
       .execute();
 
-    const model = this.factory.parseMarketingProfile(this.context, response.body);
+    const model = this.factory.parsePersonalizationProfile(this.context, response.body);
     return success(model);
   }
 }

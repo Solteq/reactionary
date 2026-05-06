@@ -27,7 +27,7 @@ import {
   PriceSchema,
   ShippingMethodSchema,
   StoreSchema,
-  MarketingProfileSchema,
+  PersonalizationProfileSchema,
   type Cache,
   type RequestContext,
   CartPaginatedSearchResultSchema,
@@ -76,8 +76,8 @@ import { CommercetoolsCompanyFactory } from '../factories/company/company.factor
 import { CommercetoolsEmployeeFactory } from '../factories/employee/employee.factory.js';
 import { CommercetoolsEmployeeCapability } from '../capabilities/employee.capability.js';
 import { CommercetoolsEmployeeInvitationCapability } from '../capabilities/employee-invitation.capability.js';
-import { CommercetoolsMarketingProfileCapability } from '../capabilities/marketing-profile.capability.js';
-import { CommercetoolsMarketingProfileFactory } from '../factories/marketing-profile/marketing-profile.factory.js';
+import { CommercetoolsPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
+import { CommercetoolsPersonalizationProfileFactory } from '../factories/personalization-profile/personalization-profile.factory.js';
 import { CommercetoolsEmployeeInvitationFactory } from '../factories/employee-invitation/employee-invitation.factory.js';
 
 export const capabilityKeys = [
@@ -100,7 +100,7 @@ export const capabilityKeys = [
   'company',
   'employee',
   'employeeInvitation',
-  'marketingProfile',
+  'personalizationProfile',
 ] as const;
 
 export type OverridableCapabilityKey = (typeof capabilityKeys)[number];
@@ -398,13 +398,13 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
         args.factory,
       ),
   },
-  marketingProfile: {
-    isEnabled: (caps) => caps.marketingProfile?.enabled,
-    getOverride: (caps) => caps.marketingProfile,
+  personalizationProfile: {
+    isEnabled: (caps) => caps.personalizationProfile?.enabled,
+    getOverride: (caps) => caps.personalizationProfile,
     createDefaultFactory: () =>
-      new CommercetoolsMarketingProfileFactory(MarketingProfileSchema),
+      new CommercetoolsPersonalizationProfileFactory(PersonalizationProfileSchema),
     createDefaultCapability: (args) =>
-      new CommercetoolsMarketingProfileCapability(
+      new CommercetoolsPersonalizationProfileCapability(
         args.config,
         args.cache,
         args.context,
