@@ -12,7 +12,7 @@ As your flags can be dependent on cohort, reactionary couples these to your mark
 
 So, at some point after session initialization, you should be able to do something like
 ```ts
-const featureFlagsResponse = client.featureFlag.getFlags({ marketingProfile: mymarketingProfile });
+const featureFlagsResponse = client.featureFlag.getFlags({ personalizationProfile: mypersonalizationProfile });
 if (featureFlagsResponse.success) {
   const flags = featureFlagsResponse.value;
   session.flags = flags;

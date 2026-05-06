@@ -18,11 +18,12 @@ import {
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaProductSearchIdentifier } from '../schema/search.schema.js';
 import { getProductIndexNameForLocale } from '../core/index-utils.js';
+import { hash } from 'node:crypto';
 
 export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
   protected client: InsightsClient;
   protected config: AlgoliaConfiguration;
-
+  protected authenticatedUserToken: string | undefined = undefined;
   constructor(
     cache: Cache,
     requestContext: RequestContext,
@@ -32,6 +33,9 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
 
     this.config = config;
     this.client = algoliasearch(this.config.appId, this.config.apiKey).initInsights({});
+    if (requestContext.session.identityContext.identity.type === 'Registered') {
+      this.authenticatedUserToken = hash('sha256', requestContext.session.identityContext.identity.id.userId);
+    }
   }
 
   protected override async processProductAddToCart(
@@ -44,7 +48,8 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
         eventSubtype: 'addToCart',
         index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
         objectIDs: [event.product.key],
-        userToken: this.context.session.identityContext.personalizationKey,
+        userToken: event.personalizationProfile?.identifier.key || 'anonymous',
+        authenticatedUserToken: this.authenticatedUserToken,
         queryID: (event.source.identifier as AlgoliaProductSearchIdentifier)
           .key,
       } satisfies AddedToCartObjectIDsAfterSearch;
@@ -64,7 +69,8 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
         eventType: 'click',
         index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
         objectIDs: [event.product.key],
-        userToken: this.context.session.identityContext.personalizationKey,
+        userToken: event.personalizationProfile?.identifier.key || 'anonymous',
+        authenticatedUserToken: this.authenticatedUserToken,
         positions: [event.position],
         queryID: (event.source.identifier as AlgoliaProductSearchIdentifier)
           .key,
@@ -85,7 +91,8 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
         eventType: 'view',
         index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
         objectIDs: event.products.map((x) => x.key),
-        userToken: this.context.session.identityContext.personalizationKey,
+        userToken: event.personalizationProfile?.identifier.key || 'anonymous',
+        authenticatedUserToken: this.authenticatedUserToken,
       } satisfies ViewedObjectIDs;
 
       await this.client.pushEvents({
@@ -105,7 +112,8 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
       eventSubtype: 'purchase',
       index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
       objectIDs: event.order.items.map((x) => x.variant.sku),
-      userToken: this.context.session.identityContext.personalizationKey,
+      userToken: event.personalizationProfile?.identifier.key || 'anonymous',
+      authenticatedUserToken: this.authenticatedUserToken,
     } satisfies PurchasedObjectIDs;
 
     await this.client.pushEvents({

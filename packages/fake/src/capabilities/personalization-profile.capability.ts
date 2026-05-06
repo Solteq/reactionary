@@ -1,22 +1,22 @@
 import type {
   Cache,
-  MarketingProfileFactory,
-  MarketingProfileFactoryOutput,
-  MarketingProfileFactoryWithOutput,
-  MarketingProfileQueryGetProfile,
+  PersonalizationProfileFactory,
+  PersonalizationProfileFactoryOutput,
+  PersonalizationProfileFactoryWithOutput,
+  PersonalizationProfileQueryGetProfile,
   NotFoundError,
   RequestContext,
   Result,
 } from '@reactionary/core';
 import {
-  MarketingProfileCapability,
-  MarketingProfileQueryGetProfileSchema,
-  MarketingProfileSchema,
+  PersonalizationProfileCapability,
+  PersonalizationProfileQueryGetProfileSchema,
+  PersonalizationProfileSchema,
   Reactionary,
   success,
 } from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
-import type { FakeMarketingProfileFactory } from '../factories/marketing-profile/marketing-profile.factory.js';
+import type { FakePersonalizationProfileFactory } from '../factories/personalization-profile/personalization-profile.factory.js';
 import { calcSeed } from '../utilities/seed.js';
 
 const SEGMENTS = ['Big Spender', 'Tech Head', 'Newbie', 'Gift Giver'] as const;
@@ -32,17 +32,17 @@ const BLURBS = [
   'Tech-savvy parent who values educational toys and screen-free activities but dislikes overly gendered product marketing campaigns',
 ] as const;
 
-export class FakeMarketingProfileCapability<
-  TFactory extends MarketingProfileFactory = FakeMarketingProfileFactory,
-> extends MarketingProfileCapability<MarketingProfileFactoryOutput<TFactory>> {
+export class FakePersonalizationProfileCapability<
+  TFactory extends PersonalizationProfileFactory = FakePersonalizationProfileFactory,
+> extends PersonalizationProfileCapability<PersonalizationProfileFactoryOutput<TFactory>> {
   protected config: FakeConfiguration;
-  protected factory: MarketingProfileFactoryWithOutput<TFactory>;
+  protected factory: PersonalizationProfileFactoryWithOutput<TFactory>;
 
   constructor(
     config: FakeConfiguration,
     cache: Cache,
     context: RequestContext,
-    factory: MarketingProfileFactoryWithOutput<TFactory>,
+    factory: PersonalizationProfileFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
@@ -50,12 +50,12 @@ export class FakeMarketingProfileCapability<
   }
 
   @Reactionary({
-    inputSchema: MarketingProfileQueryGetProfileSchema,
-    outputSchema: MarketingProfileSchema,
+    inputSchema: PersonalizationProfileQueryGetProfileSchema,
+    outputSchema: PersonalizationProfileSchema,
   })
-  public override async getMarketingProfile(
-    payload: MarketingProfileQueryGetProfile,
-  ): Promise<Result<MarketingProfileFactoryOutput<TFactory>, NotFoundError>> {
+  public override async getPersonalizationProfile(
+    payload: PersonalizationProfileQueryGetProfile,
+  ): Promise<Result<PersonalizationProfileFactoryOutput<TFactory>, NotFoundError>> {
     const identity = payload.identity;
 
     if (identity.type === 'Registered') {
@@ -70,7 +70,7 @@ export class FakeMarketingProfileCapability<
       const blurbIdx = Math.abs(seed) % BLURBS.length;
       const blurb = BLURBS[blurbIdx];
 
-      return success(this.factory.parseMarketingProfile(this.context, {
+      return success(this.factory.parsePersonalizationProfile(this.context, {
         identifier: { key: profileKey },
         segments,
         blurb,
@@ -81,7 +81,7 @@ export class FakeMarketingProfileCapability<
     const anonSeed = calcSeed(Date.now().toString() + Math.random().toString());
     const anonKey = hashToHex(anonSeed);
 
-    return success(this.factory.parseMarketingProfile(this.context, {
+    return success(this.factory.parsePersonalizationProfile(this.context, {
       identifier: { key: anonKey },
       segments: [],
       blurb: '',

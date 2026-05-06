@@ -12,9 +12,9 @@ describe.each([PrimaryProvider.FAKE])('Feature flag', (provider) => {
   it('can get a list of feature flags', async () => {
     const result = await client.featureFlag.getFlags({
       featureFlagIdentifiers: [{ key: 'true-flag' }, { key: 'string-flag' }],
-      marketingProfile: {
+      personalizationProfile: {
         identifier: {
-          key: 'default-marketing-profile',
+          key: 'default-personalization-profile',
         },
         segments: [],
         blurb: '',
@@ -34,9 +34,9 @@ describe.each([PrimaryProvider.FAKE])('Feature flag', (provider) => {
     beforeEach(async () => {
       const result = await client.featureFlag.getFlags({
         featureFlagIdentifiers: [{ key: 'true-flag' }, { key: 'string-flag' }],
-        marketingProfile: {
+        personalizationProfile: {
           identifier: {
-            key: 'default-marketing-profile',
+            key: 'default-personalization-profile',
           },
           segments: [],
           blurb: '',

@@ -21,4 +21,4 @@ export * from './employee.query.js';
 export * from './employee-invitation.query.js';
 export * from './company.query.js';
 export * from './feature-flag.query.js';
-export * from './marketing-profile.query.js';
+export * from './personalization-profile.query.js';

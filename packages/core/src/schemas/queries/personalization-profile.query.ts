@@ -3,9 +3,9 @@ import { IdentitySchema } from "../models/identity.model.js";
 import { ProfileSchema } from "../models/profile.model.js";
 import { BaseQuerySchema } from "./base.query.js";
 
-export const MarketingProfileQueryGetProfileSchema = BaseQuerySchema.extend({
+export const PersonalizationProfileQueryGetProfileSchema = BaseQuerySchema.extend({
     identity: IdentitySchema,
     profile: ProfileSchema.optional(),
 });
 
-export type MarketingProfileQueryGetProfile = InferType<typeof MarketingProfileQueryGetProfileSchema>;
+export type PersonalizationProfileQueryGetProfile = InferType<typeof PersonalizationProfileQueryGetProfileSchema>;

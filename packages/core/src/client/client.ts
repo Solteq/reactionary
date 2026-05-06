@@ -13,7 +13,7 @@ import type { ProductAssociationsCapability } from "../capabilities/product-asso
 import type { ProductReviewsCapability } from "../capabilities/product-reviews.capability.js";
 import type { EmployeeInvitationCapability } from "../capabilities/employee-invitation.capability.js";
 import type { FeatureFlagCapability } from "../capabilities/feature-flag.capability.js";
-import type { MarketingProfileCapability } from "../capabilities/marketing-profile.capability.js";
+import type { PersonalizationProfileCapability } from "../capabilities/personalization-profile.capability.js";
 
 export interface Client {
     product: ProductCapability,
@@ -39,6 +39,6 @@ export interface Client {
     company: CompanyCapability,
     employeeInvitation: EmployeeInvitationCapability,
     featureFlag: FeatureFlagCapability,
-    marketingProfile: MarketingProfileCapability,
+    personalizationProfile: PersonalizationProfileCapability,
 }
 

@@ -2,6 +2,7 @@ import * as z from 'zod';
 import { WebStoreIdentifierSchema } from './models/identifiers.model.js';
 import { CurrencySchema } from './models/currency.model.js';
 import { IdentitySchema } from './models/identity.model.js';
+import { PersonalizationProfileSchema } from './models/personalization-profile.model.js';
 
 /**
  * The language and locale context for the current request.
@@ -13,12 +14,12 @@ export const LanguageContextSchema = z.looseObject( {
 
 export const IdentityContextSchema = z.looseObject({
     identity: IdentitySchema,
-    personalizationKey: z.string(),
     lastUpdated: z.coerce.date()
 });
 
 export const SessionSchema = z.looseObject({
-    identityContext: IdentityContextSchema
+    identityContext: IdentityContextSchema,
+    marketingContext: PersonalizationProfileSchema.default(() => PersonalizationProfileSchema.parse({})),
 });
 
 export const TaxJurisdictionSchema = z.object( {
@@ -34,7 +35,7 @@ export const RequestContextSchema = z.looseObject( {
     storeIdentifier: WebStoreIdentifierSchema.default(() => WebStoreIdentifierSchema.parse({})).describe('ReadOnly. The identifier of the current web store making the request.'),
     taxJurisdiction: TaxJurisdictionSchema.default(() => TaxJurisdictionSchema.parse({})).describe('ReadOnly. The tax jurisdiction for the current request, typically derived from the store location or carts billing address'),
 
-    companyIdentifier: z.string().optional().meta({ description: 'The company associated with the request, if applicable. This can be used to segment requests and apply different logic or rules based on the business unit.' }),
+//    companyIdentifier: z.string().optional().meta({ description: 'The company associated with the request, if applicable. This can be used to segment requests and apply different logic or rules based on the business unit.' }),
 
     correlationId: z.string().default('').meta({ description: 'A unique identifier for the request, can be used for tracing and logging purposes.' }),
     isBot: z.boolean().default(false).meta({ description: 'Indicates if the request is made by a bot or crawler.' }),

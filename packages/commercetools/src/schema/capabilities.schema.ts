@@ -46,9 +46,9 @@ import type {
   StoreFactory,
   StoreFactoryWithOutput,
   StoreCapability,
-  MarketingProfileFactory,
-  MarketingProfileFactoryWithOutput,
-  MarketingProfileCapability,
+  PersonalizationProfileFactory,
+  PersonalizationProfileFactoryWithOutput,
+  PersonalizationProfileCapability,
   CompanyRegistrationCapability,
   CompanyCapability,
   EmployeeCapability,
@@ -89,7 +89,7 @@ export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
   category: true,
   store: true,
   profile: true,
-  marketingProfile: true,
+  personalizationProfile: true,
 })
   .extend({
     productSearch: EnabledCapabilitySchema.optional(),
@@ -105,7 +105,7 @@ export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
     category: EnabledCapabilitySchema.optional(),
     store: EnabledCapabilitySchema.optional(),
     profile: EnabledCapabilitySchema.optional(),
-    marketingProfile: EnabledCapabilitySchema.optional(),
+    personalizationProfile: EnabledCapabilitySchema.optional(),
     companyRegistration: EnabledCapabilitySchema.optional(),
     company: EnabledCapabilitySchema.optional(),
     employee: EnabledCapabilitySchema.optional(),
@@ -194,9 +194,9 @@ export type CommercetoolsOrderSearchCapabilityConfig = CommercetoolsCapabilityCo
   OrderSearchFactoryWithOutput<OrderSearchFactory>,
   OrderSearchCapability
 >;
-export type CommercetoolsMarketingProfileCapabilityConfig = CommercetoolsCapabilityConfig<
-  MarketingProfileFactoryWithOutput<MarketingProfileFactory>,
-  MarketingProfileCapability
+export type CommercetoolsPersonalizationProfileCapabilityConfig = CommercetoolsCapabilityConfig<
+  PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
+  PersonalizationProfileCapability
 >;
 export type CommercetoolsCompanyRegistrationCapabilityConfig = CommercetoolsCapabilityConfig<
   CommercetoolsCompanyRegistrationFactory,
@@ -281,9 +281,9 @@ export type CommercetoolsCapabilityConfigMap<
     CommercetoolsEmployeeInvitationFactory,
     EmployeeInvitationCapability
   >;
-  marketingProfile: EnabledCapabilityConfig<
-    MarketingProfileFactoryWithOutput<MarketingProfileFactory>,
-    MarketingProfileCapability
+  personalizationProfile: EnabledCapabilityConfig<
+    PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
+    PersonalizationProfileCapability
   >;
 };
 

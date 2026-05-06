@@ -14,14 +14,14 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       client = createClient(provider);
     });
 
-   it('can get a marketing profile for an anonymous user', async () => {
+   it('can get a personalization profile for an anonymous user', async () => {
       const selfResponse = await client.identity.getSelf({});
       if (!selfResponse.success) {
         assert.fail(JSON.stringify(selfResponse.error));
       }
       expect(selfResponse.value.type).toBe('Anonymous');
 
-      const result = await client.marketingProfile.getMarketingProfile({
+      const result = await client.personalizationProfile.getPersonalizationProfile({
         identity: selfResponse.value
       });
 
@@ -32,7 +32,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       expect(result.value.identifier.key).toBeTruthy();
     });
 
-    it('can get the marketing profile for a guest user', async () => {
+    it('can get the personalization profile for a guest user', async () => {
       const cartResult = await client.cart.createCart({});
       if (!cartResult.success) {
         assert.fail(JSON.stringify(cartResult.error));
@@ -47,7 +47,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
         assert.fail('Identity should be of type Guest');
       }
 
-      const result = await client.marketingProfile.getMarketingProfile({
+      const result = await client.personalizationProfile.getPersonalizationProfile({
         identity: selfResponse.value,
       });
 
@@ -57,7 +57,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       expect(result.value.identifier.key).toBeTruthy();
     });
 
-    it('can get the marketing profile for a registered user', async () => {
+    it('can get the personalization profile for a registered user', async () => {
       const time = new Date().getTime();
       const registrationResult = await client.identity.register({
         username: `user_${time}@example.com`,
@@ -78,7 +78,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
         assert.fail('Identity should be of type Registered');
       }
 
-      const result = await client.marketingProfile.getMarketingProfile({
+      const result = await client.personalizationProfile.getPersonalizationProfile({
         identity: selfResponse.value,
       });
 
@@ -86,10 +86,10 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
         assert.fail(JSON.stringify(result.error));
       }
       expect(result.value.identifier.key).toBeTruthy();
-      // we also want to make sure that the marketing profile we get back is not tied to the anonymous identity, but is a new one for the registered user
+      // we also want to make sure that the personalization profile we get back is not tied to the anonymous identity, but is a new one for the registered user
     });
 
-    it('can get groups for a registered user and return them as segments in the marketing profile', async () => {
+    it('can get groups for a registered user and return them as segments in the personalization profile', async () => {
       const time = new Date().getTime();
       const registrationResult = await client.identity.login({
         username: testData.userInGroup,
@@ -100,16 +100,16 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
         assert.fail(JSON.stringify(registrationResult.error));
       }
 
-      const marketingProfileResult = await client.marketingProfile.getMarketingProfile({
+      const personalizationProfileResult = await client.personalizationProfile.getPersonalizationProfile({
         identity: registrationResult.value,
       });
 
-      if (!marketingProfileResult.success) {
-        assert.fail(JSON.stringify(marketingProfileResult.error));
+      if (!personalizationProfileResult.success) {
+        assert.fail(JSON.stringify(personalizationProfileResult.error));
       }
 
-      expect(marketingProfileResult.value.identifier.key).toBeTruthy();
-      expect(marketingProfileResult.value.segments).toContain('Test-Do-Not-Delete');
+      expect(personalizationProfileResult.value.identifier.key).toBeTruthy();
+      expect(personalizationProfileResult.value.segments).toContain('Test-Do-Not-Delete');
     });
 
   },

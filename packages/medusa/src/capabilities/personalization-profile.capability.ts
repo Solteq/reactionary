@@ -1,39 +1,39 @@
 import type {
   Cache,
-  MarketingProfileFactory,
-  MarketingProfileFactoryOutput,
-  MarketingProfileFactoryWithOutput,
-  MarketingProfileQueryGetProfile,
+  PersonalizationProfileFactory,
+  PersonalizationProfileFactoryOutput,
+  PersonalizationProfileFactoryWithOutput,
+  PersonalizationProfileQueryGetProfile,
   NotFoundError,
   RequestContext,
   Result,
 } from '@reactionary/core';
 import {
-  MarketingProfileCapability,
-  MarketingProfileSchema,
+  PersonalizationProfileCapability,
+  PersonalizationProfileSchema,
   Reactionary,
-  MarketingProfileQueryGetProfileSchema,
+  PersonalizationProfileQueryGetProfileSchema,
   success,
 } from '@reactionary/core';
 import createDebug from 'debug';
 import { MedusaAdminAPI, type MedusaAPI } from '../core/client.js';
-import type { MedusaMarketingProfileFactory, MedusaCustomerGroup } from '../factories/marketing-profile/marketing-profile.factory.js';
+import type { MedusaPersonalizationProfileFactory, MedusaCustomerGroup } from '../factories/personalization-profile/personalization-profile.factory.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
-const debug = createDebug('reactionary:medusa:marketing-profile');
+const debug = createDebug('reactionary:medusa:personalization-profile');
 
-export class MedusaMarketingProfileCapability<
-  TFactory extends MarketingProfileFactory = MedusaMarketingProfileFactory,
-> extends MarketingProfileCapability<MarketingProfileFactoryOutput<TFactory>> {
+export class MedusaPersonalizationProfileCapability<
+  TFactory extends PersonalizationProfileFactory = MedusaPersonalizationProfileFactory,
+> extends PersonalizationProfileCapability<PersonalizationProfileFactoryOutput<TFactory>> {
   protected config: MedusaConfiguration;
-  protected factory: MarketingProfileFactoryWithOutput<TFactory>;
+  protected factory: PersonalizationProfileFactoryWithOutput<TFactory>;
 
   constructor(
     config: MedusaConfiguration,
     cache: Cache,
     context: RequestContext,
     public medusaApi: MedusaAPI,
-    factory: MarketingProfileFactoryWithOutput<TFactory>,
+    factory: PersonalizationProfileFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
@@ -45,18 +45,18 @@ export class MedusaMarketingProfileCapability<
   }
 
   @Reactionary({
-    inputSchema: MarketingProfileQueryGetProfileSchema,
-    outputSchema: MarketingProfileSchema,
+    inputSchema: PersonalizationProfileQueryGetProfileSchema,
+    outputSchema: PersonalizationProfileSchema,
   })
-  public override async getMarketingProfile(
-    payload: MarketingProfileQueryGetProfile,
-  ): Promise<Result<MarketingProfileFactoryOutput<TFactory>, NotFoundError>> {
+  public override async getPersonalizationProfile(
+    payload: PersonalizationProfileQueryGetProfile,
+  ): Promise<Result<PersonalizationProfileFactoryOutput<TFactory>, NotFoundError>> {
     const identity = payload.identity;
-    debug('getMarketingProfile', payload);
+    debug('getPersonalizationProfile', payload);
 
     if (identity.type !== 'Registered') {
       return success(
-        this.factory.parseMarketingProfile(this.context, {
+        this.factory.parsePersonalizationProfile(this.context, {
           customerId: 'anonymous',
           groups: [],
         }),
@@ -79,7 +79,7 @@ export class MedusaMarketingProfileCapability<
     const groups: MedusaCustomerGroup[] = ((customer as unknown as Record<string, unknown>)['groups'] as MedusaCustomerGroup[] | undefined ?? [])
       .filter((g) => this.filterGroup(g));
 
-    const model = this.factory.parseMarketingProfile(this.context, {
+    const model = this.factory.parsePersonalizationProfile(this.context, {
       customerId,
       groups,
     });

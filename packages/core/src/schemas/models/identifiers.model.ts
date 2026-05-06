@@ -1,7 +1,6 @@
 import * as z from 'zod';
 import { PaginationOptionsSchema } from './base.model.js';
 import type { InferType } from '../../zod-utils.js';
-import { MarketingProfileSchema } from './marketing-profile.model.js';
 export const OrderStatusSchema = z.enum(['AwaitingPayment', 'ReleasedToFulfillment', 'Shipped', 'Cancelled']).meta({ description: 'The current status of the order.' });
 export const OrderInventoryStatusSchema = z.enum(['NotAllocated', 'Allocated', 'Backordered', 'Preordered']).meta({ description: 'The inventory release status of the order.' });
 export const ProductListTypeSchema = z.enum(['favorite','wish','requisition','shopping']).meta({ description: 'The type of product list, e.g., "wish" or "favorite".' });
@@ -168,7 +167,7 @@ export const ProductSearchIdentifierSchema = z.looseObject({
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
   categoryFilter: FacetValueIdentifierSchema.optional().meta({ description: 'An optional category filter applied to the search results.' }),
   company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search products within. This can be used to filter products by specific companies, which can be useful for B2B use cases.' }),
-  marketingProfile: MarketingProfileSchema.optional().meta({ description: 'The marketing profile of the user performing the search. This can be used to provide personalized search results based on the user\'s segments and other attributes defined in their marketing profile.' }),
+//  personalizationProfile: PersonalizationProfileSchema.optional().meta({ description: 'The marketing profile of the user performing the search. This can be used to provide personalized search results based on the user\'s segments and other attributes defined in their marketing profile.' }),
 });
 
 
@@ -256,8 +255,8 @@ export const CartSearchIdentifierSchema = z.looseObject({
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
 });
 
-export const MarketingProfileIdentifierSchema = z.looseObject({
-    key: z.string().meta({ description: 'The unique identifier for the marketing profile.' }),
+export const PersonalizationProfileIdentifierSchema = z.looseObject({
+    key: z.string().meta({ description: 'The unique identifier for the personalization profile.' }),
 });
 
 export const FeatureFlagIdentifierSchema = z.looseObject({
@@ -326,7 +325,7 @@ export type EmployeeInvitationIdentifier = InferType<typeof EmployeeInvitationId
 export type EmployeeInvitationSearchIdentifier = InferType<typeof EmployeeInvitationSearchIdentifierSchema>;
 export type CompanySearchIdentifier = InferType<typeof CompanySearchIdentifierSchema>;
 
-export type MarketingProfileIdentifier = InferType<typeof MarketingProfileIdentifierSchema>;
+export type PersonalizationProfileIdentifier = InferType<typeof PersonalizationProfileIdentifierSchema>;
 export type FeatureFlagIdentifier = InferType<typeof FeatureFlagIdentifierSchema>;
 
 export type IdentifierType =
@@ -350,7 +349,7 @@ export type IdentifierType =
   | PaymentInstructionIdentifier
   | OrderIdentifier
   | OrderItemIdentifier
-  | MarketingProfileIdentifier
+  | PersonalizationProfileIdentifier
   | CompanyIdentifier
   | CompanyRegistrationRequestIdentifier
   | CheckoutIdentifier
@@ -377,6 +376,6 @@ export type IdentifierType =
   | OrderSearchIdentifier
   | CartSearchIdentifier
   | CompanyRegistrationRequestIdentifier
-  | MarketingProfileIdentifier
+  | PersonalizationProfileIdentifier
 
   ;

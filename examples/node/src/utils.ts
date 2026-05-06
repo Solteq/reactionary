@@ -137,7 +137,7 @@ export function createClient(provider: PrimaryProvider, contextOverrides: Partia
           orderSearch: { enabled: true },
           store: { enabled: true },
           profile: { enabled: true },
-          marketingProfile: { enabled: true },
+          personalizationProfile: { enabled: true },
         })
       );
     }
@@ -177,7 +177,7 @@ export function createClient(provider: PrimaryProvider, contextOverrides: Partia
           employeeInvitation: { enabled: true },
           store: { enabled: true },
           profile: { enabled: true },
-          marketingProfile: { enabled: true },
+          personalizationProfile: { enabled: true },
         })
       );
     }
