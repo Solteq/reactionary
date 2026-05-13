@@ -22,6 +22,10 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     this.config = configuration;
   }
 
+  protected override getResourceName(): string {
+    return 'google-analytics';
+  }
+
   protected override async processProductSummaryView(
     event: AnalyticsMutationProductSummaryViewEvent
   ) {
@@ -44,6 +48,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     };
 
     await this.sendEvent(gaEvent);
+
+    return this.accepted();
   }
 
   protected override async processProductSummaryClick(
@@ -69,6 +75,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     };
 
     await this.sendEvent(gaEvent);
+
+    return this.accepted();
   }
 
   protected override async processProductDetailsView(
@@ -93,6 +101,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     };
 
     await this.sendEvent(gaEvent);
+
+    return this.accepted();
   }
 
   protected override async processProductAddToCart(
@@ -117,6 +127,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     };
 
     await this.sendEvent(gaEvent);
+
+    return this.accepted();
   }
 
   protected override async processPurchase(
@@ -145,6 +157,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     };
 
     await this.sendEvent(gaEvent);
+
+    return this.accepted();
   }
 
   protected async sendEvent(event: unknown) {
