@@ -243,4 +243,10 @@ export interface HclFindProductsQuery {
   limit?: number;
   offset?: number;
   checkEntitlement?: boolean;
+  /**
+   * Active facet filter values to apply (repeated param).
+   * Each entry is the URL-encoded value from HclFacetEntry.value,
+   * e.g. 'manufacturer.raw%3A%22Home+Design%22'.
+   */
+  facets?: string[];
 }

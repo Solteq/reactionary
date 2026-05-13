@@ -175,10 +175,14 @@ describe('HCL Product Search Provider', () => {
       },
     });
 
-    if (!initial.success) assert.fail(`Initial search failed: ${JSON.stringify(initial)}`);
+    if (!initial.success)
+      assert.fail(`Initial search failed: ${JSON.stringify(initial)}`);
 
-    const brandFacet = initial.value.facets.find((f) => f.identifier.key === 'manufacturer.raw');
-    if (!brandFacet || brandFacet.values.length === 0) assert.fail('Expected brand facet in results');
+    const brandFacet = initial.value.facets.find(
+      (f) => f.identifier.key === 'manufacturer.raw',
+    );
+    if (!brandFacet || brandFacet.values.length === 0)
+      assert.fail('Expected brand facet in results');
 
     const firstValue = brandFacet.values[0];
 
@@ -192,16 +196,22 @@ describe('HCL Product Search Provider', () => {
       },
     });
 
-    if (!filtered.success) assert.fail(`Filtered search failed: ${JSON.stringify(filtered)}`);
+    if (!filtered.success)
+      assert.fail(`Filtered search failed: ${JSON.stringify(filtered)}`);
 
     // Filtered results must be strictly fewer — proves the filter was sent to the API
     expect(filtered.value.totalCount).toBeLessThan(initial.value.totalCount);
     expect(filtered.value.totalCount).toBeGreaterThan(0);
 
     // The selected facet value should be marked active in the response
-    const responseFacet = filtered.value.facets.find((f) => f.identifier.key === 'manufacturer.raw');
-    if (!responseFacet) assert.fail('Brand facet missing from filtered response');
-    const activeValue = responseFacet.values.find((v) => v.identifier.key === firstValue.identifier.key);
+    const responseFacet = filtered.value.facets.find(
+      (f) => f.identifier.key === 'manufacturer.raw',
+    );
+    if (!responseFacet)
+      assert.fail('Brand facet missing from filtered response');
+    const activeValue = responseFacet.values.find(
+      (v) => v.identifier.key === firstValue.identifier.key,
+    );
     expect(activeValue?.active).toBe(true);
   });
 });
