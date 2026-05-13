@@ -3,20 +3,44 @@ import type { Capabilities, ClientFromCapabilities } from "../schemas/capabiliti
 import type { Cache } from '../cache/cache.interface.js';
 import type { RequestContext } from "../schemas/session.schema.js";
 import { AnalyticsCapability } from "../capabilities/analytics.capability.js";
-import type { AnalyticsMutation } from "../schemas/index.js";
+import type { AnalyticsMutation, AnalyticsResult } from "../schemas/index.js";
 import { NoOpCache } from "../cache/noop-cache.js";
 import { createInitialRequestContext } from "../initialization.js";
 import { ClientBuilder } from "../client/client-builder.js";
 import type { Client } from "../client/client.js";
 import { ProductCapability } from "../capabilities/product.capability.js";
 
-export class MockAnalyticsCapability extends AnalyticsCapability {
+export class MockPrimaryAnalyticsCapability extends AnalyticsCapability {
     public events: Array<AnalyticsMutation> = [];
 
-    public override async track(event: AnalyticsMutation): Promise<void> {
+    public override async track(event: AnalyticsMutation): Promise<AnalyticsResult> {
         this.events.push(event);
+
+        return {
+          outcomes: [{
+            provider: 'primary',
+            outcome: 'accepted',
+          }]
+        };
     }
 }
+
+export class MockSecondaryAnalyticsCapability extends AnalyticsCapability {
+    public events: Array<AnalyticsMutation> = [];
+
+    public override async track(event: AnalyticsMutation): Promise<AnalyticsResult> {
+        this.events.push(event);
+
+        return {
+          outcomes: [{
+            provider: 'secondary',
+            outcome: 'accepted',
+          }]
+        };
+    }
+}
+
+
 
 export interface MockConfiguration {
     mock?: string;
@@ -38,8 +62,8 @@ describe('Client Builder', () => {
     const cache = new NoOpCache();
     const context = createInitialRequestContext();
     const builder = new ClientBuilder(context);
-    const analyticsCapability = new MockAnalyticsCapability(cache, context);
-    const secondaryAnalyticsCapability = new MockAnalyticsCapability(cache, context);
+    const analyticsCapability = new MockPrimaryAnalyticsCapability(cache, context);
+    const secondaryAnalyticsCapability = new MockSecondaryAnalyticsCapability(cache, context);
     const client = builder
         .withCache(cache)
         .withCapability(withMockCapabilities({ analytics: analyticsCapability }))
@@ -53,6 +77,10 @@ describe('Client Builder', () => {
         }
     });
 
+    expect(track.outcomes.length).toBe(2);
+    expect(track.outcomes.filter(x => x.outcome === 'accepted').length).toBe(2);
+    expect(track.outcomes.filter(x => x.provider === 'primary').length).toBe(1);
+    expect(track.outcomes.filter(x => x.provider === 'secondary').length).toBe(1);
     expect(analyticsCapability.events.length).toBe(1);
     expect(analyticsCapability.events[0].event).toBe('product-details-view');
     expect(secondaryAnalyticsCapability.events.length).toBe(1);
@@ -63,7 +91,7 @@ describe('Client Builder', () => {
     const cache = new NoOpCache();
     const context = createInitialRequestContext();
     const builder = new ClientBuilder(context);
-    const analyticsCapability = new MockAnalyticsCapability(cache, context);
+    const analyticsCapability = new MockPrimaryAnalyticsCapability(cache, context);
 
     const client = builder
       .withCache(cache)

@@ -24,6 +24,7 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
   protected client: InsightsClient;
   protected config: AlgoliaConfiguration;
   protected authenticatedUserToken: string | undefined = undefined;
+
   constructor(
     cache: Cache,
     requestContext: RequestContext,
@@ -36,6 +37,10 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
     if (requestContext.session.identityContext.identity.type === 'Registered') {
       this.authenticatedUserToken = hash('sha256', requestContext.session.identityContext.identity.id.userId);
     }
+  }
+
+  protected override getResourceName(): string {
+    return 'algolia-analytics';
   }
 
   protected override async processProductAddToCart(
@@ -57,7 +62,11 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
       await this.client.pushEvents({
         events: [algoliaEvent],
       });
+
+      return this.accepted();
     }
+
+    return this.rejected();
   }
 
   protected override async processProductSummaryClick(
@@ -79,7 +88,11 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
       await this.client.pushEvents({
         events: [algoliaEvent],
       });
+
+      return this.accepted();
     }
+
+    return this.rejected();
   }
 
   protected override async processProductSummaryView(
@@ -98,12 +111,14 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
       await this.client.pushEvents({
         events: [algoliaEvent],
       });
+      return this.accepted();
     }
+    return this.rejected();
   }
 
   protected override async processPurchase(
     event: AnalyticsMutationPurchaseEvent
-  ): Promise<void> {
+  ) {
     // TODO: Figure out how to handle the problem below. From the order we have the SKUs,
     // but in Algolia we have the products indexed, and we can't really resolve it here...
     const algoliaEvent = {
@@ -119,5 +134,7 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
     await this.client.pushEvents({
       events: [algoliaEvent],
     });
+
+    return this.accepted();
   }
 }
