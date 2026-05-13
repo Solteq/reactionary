@@ -1,5 +1,5 @@
 import type { Cache, RequestContext } from '@reactionary/core';
-import { ProductSchema } from '@reactionary/core';
+import { CategoryPaginatedResultSchema, CategorySchema, ProductSchema } from '@reactionary/core';
 import {
   HclCapabilitiesSchema,
   type HclCapabilities,
@@ -14,8 +14,9 @@ import {
   resolveCapabilityWithFactory,
 } from './initialize.types.js';
 import { HclClient } from './client.js';
-import { HclProductFactory } from '../factories/index.js';
+import { HclCategoryFactory, HclProductFactory } from '../factories/index.js';
 import { HclProductCapability } from '../capabilities/product.capability.js';
+import { HclCategoryCapability } from '../capabilities/category.capability.js';
 
 export function withHclCapabilities<T extends HclCapabilities>(
   configuration: HclConfiguration,
@@ -51,6 +52,27 @@ export function withHclCapabilities<T extends HclCapabilities>(
             args: HclCapabilityFactoryArgs & { factory: HclProductFactory },
           ) =>
             new HclProductCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.category?.enabled) {
+      client.category = resolveCapabilityWithFactory(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        capabilities.category as any,
+        {
+          factory: new HclCategoryFactory(CategorySchema, CategoryPaginatedResultSchema),
+          capability: (
+            args: HclCapabilityFactoryArgs & { factory: HclCategoryFactory },
+          ) =>
+            new HclCategoryCapability(
               args.cache,
               args.context,
               args.config,

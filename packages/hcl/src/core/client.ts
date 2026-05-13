@@ -1,5 +1,7 @@
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type {
+  HclCategoryQueryResponse,
+  HclFindCategoriesQuery,
   HclFindProductsQuery,
   HclProductQueryResponse,
   HclUrlQueryResponse,
@@ -83,5 +85,49 @@ export class HclClient {
 
     const data = (await response.json()) as HclUrlQueryResponse;
     return data.contents?.[0];
+  }
+
+  /**
+   * Query categories from the HCL Commerce Query Service.
+   * Calls GET /api/v2/categories with the given query parameters.
+   */
+  async findCategories(
+    query: HclFindCategoriesQuery,
+  ): Promise<HclCategoryQueryResponse> {
+    const params = new URLSearchParams();
+
+    params.set('storeId', query.storeId ?? this.config.storeId);
+
+    const catalogId = query.catalogId ?? this.config.catalogId;
+    if (catalogId) params.set('catalogId', catalogId);
+
+    const langId = query.langId ?? this.config.langId;
+    if (langId) params.set('langId', langId);
+
+    if (query.parentCategoryId) params.set('parentCategoryId', query.parentCategoryId);
+    if (query.depthAndLimit) params.set('depthAndLimit', query.depthAndLimit);
+    if (query.profileName) params.set('profileName', query.profileName);
+
+    for (const id of query.id ?? []) {
+      params.append('id', id);
+    }
+    for (const identifier of query.identifier ?? []) {
+      params.append('identifier', identifier);
+    }
+
+    const url = `${this.config.apiUrl}/api/v2/categories?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `HCL API error ${response.status} ${response.statusText} for URL: ${url}`,
+      );
+    }
+
+    return response.json() as Promise<HclCategoryQueryResponse>;
   }
 }
