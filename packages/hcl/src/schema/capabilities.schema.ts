@@ -25,6 +25,7 @@ import type {
 } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
 import type { HclConfiguration } from './configuration.schema.js';
+import type { HclClient } from '../core/client.js';
 import * as z from 'zod';
 
 const OverridableCapabilitySchema = z.looseObject({
@@ -59,6 +60,7 @@ export interface HclCapabilityFactoryArgs {
   cache: Cache;
   context: RequestContext;
   config: HclConfiguration;
+  hclClient: HclClient;
 }
 
 export interface HclFactoryCapabilityArgs<TFactory>
