@@ -18,7 +18,8 @@ import {
 
 export class HclCategoryFactory<
   TCategorySchema extends AnyCategorySchema = typeof CategorySchema,
-  TCategoryPaginatedSchema extends AnyCategoryPaginatedResultSchema = typeof CategoryPaginatedResultSchema,
+  TCategoryPaginatedSchema extends
+    AnyCategoryPaginatedResultSchema = typeof CategoryPaginatedResultSchema,
 > implements CategoryFactory<TCategorySchema, TCategoryPaginatedSchema>
 {
   public readonly categorySchema: TCategorySchema;
@@ -43,21 +44,43 @@ export class HclCategoryFactory<
     const slug =
       data.seo?.href?.split('/').filter(Boolean).pop() ?? data.identifier ?? '';
 
-    const parentKey = data.parentCatalogGroupID;
-    const parentCategory =
-      parentKey && parentKey !== '-1' && parentKey !== '0' && parentKey !== ''
-        ? ({ key: parentKey } satisfies CategoryIdentifier)
+    // parentCatalogGroupID is a path like "/10501/10503" where the last segment is
+    // this category's own ID in the hierarchy. The direct parent is the second-to-last.
+    const pathSegments = (
+      typeof data.parentCatalogGroupID === 'string'
+        ? data.parentCatalogGroupID
+        : (data.parentCatalogGroupID?.[0] ?? '')
+    )
+      .split('/')
+      .filter(Boolean);
+    const parentKey =
+      pathSegments.length > 1
+        ? pathSegments[pathSegments.length - 2]
         : undefined;
+    const parentCategory = parentKey
+      ? ({ key: parentKey } satisfies CategoryIdentifier)
+      : undefined;
 
     const images = [
-      data.fullImage && { sourceUrl: data.fullImage, altText: data.name, width: 0, height: 0 },
-      data.thumbnail && data.thumbnail !== data.fullImage && {
-        sourceUrl: data.thumbnail,
+      data.fullImage && {
+        sourceUrl: data.fullImage,
         altText: data.name,
         width: 0,
         height: 0,
       },
-    ].filter(Boolean) as Array<{ sourceUrl: string; altText: string; width: number; height: number }>;
+      data.thumbnail &&
+        data.thumbnail !== data.fullImage && {
+          sourceUrl: data.thumbnail,
+          altText: data.name,
+          width: 0,
+          height: 0,
+        },
+    ].filter(Boolean) as Array<{
+      sourceUrl: string;
+      altText: string;
+      width: number;
+      height: number;
+    }>;
 
     const result = {
       identifier,

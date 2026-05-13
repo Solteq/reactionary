@@ -9,7 +9,17 @@ import type {
 } from '../schema/hcl.schema.js';
 
 export class HclClient {
-  constructor(private readonly config: HclConfiguration) {}
+  private readonly baseUrl: string;
+
+  constructor(private readonly config: HclConfiguration) {
+    // HCL Commerce splits endpoints across multiple roots, e.g.:
+    //   /search/resources  — query service (products, categories, urls)
+    //   /wcs/resources     — transaction service (cart, user, orders)
+    // Each API root has its own config property. This client calls the query service.
+    const origin = config.apiUrl.replace(/\/+$/, '');
+    const path = config.searchApiPath.replace(/\/+$/, '');
+    this.baseUrl = `${origin}${path}`;
+  }
 
   async findProducts(
     query: HclFindProductsQuery,
@@ -45,7 +55,7 @@ export class HclClient {
       params.append('partNumber', partNumber);
     }
 
-    const url = `${this.config.apiUrl}/api/v2/products?${params.toString()}`;
+    const url = `${this.baseUrl}/api/v2/products?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -64,18 +74,21 @@ export class HclClient {
   /**
    * Resolve a URL slug to an HCL token (product partNumber, category ID, etc.).
    * Calls GET /api/v2/urls?storeId=X&identifier=<slug>
+   * Returns undefined when the slug is not found (404).
    */
   async resolveSlug(slug: string): Promise<HclUrlResponse | undefined> {
     const params = new URLSearchParams();
     params.set('storeId', this.config.storeId);
     params.append('identifier', slug);
 
-    const url = `${this.config.apiUrl}/api/v2/urls?${params.toString()}`;
+    const url = `${this.baseUrl}/api/v2/urls?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',
       headers: { Accept: 'application/json' },
     });
+
+    if (response.status === 404) return undefined;
 
     if (!response.ok) {
       throw new Error(
@@ -104,7 +117,8 @@ export class HclClient {
     const langId = query.langId ?? this.config.langId;
     if (langId) params.set('langId', langId);
 
-    if (query.parentCategoryId) params.set('parentCategoryId', query.parentCategoryId);
+    if (query.parentCategoryId)
+      params.set('parentCategoryId', query.parentCategoryId);
     if (query.depthAndLimit) params.set('depthAndLimit', query.depthAndLimit);
     if (query.profileName) params.set('profileName', query.profileName);
 
@@ -115,7 +129,7 @@ export class HclClient {
       params.append('identifier', identifier);
     }
 
-    const url = `${this.config.apiUrl}/api/v2/categories?${params.toString()}`;
+    const url = `${this.baseUrl}/api/v2/categories?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',

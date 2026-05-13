@@ -110,15 +110,45 @@ export interface HclProductResponse {
   groupingProperties?: HclGroupingProperties;
 }
 
+export interface HclFacetEntry {
+  /** The API returns count as number or string depending on facet type. */
+  count: number | string;
+  /** Display label shown to the user */
+  label: string;
+  name: string;
+  /** The filterable value, e.g. an attribute value or category ID */
+  value: string;
+  term: string;
+  frequency: string;
+  fullPath: string;
+  fullPathCategoryIds: string;
+  image: string;
+  shortDescription: string;
+}
+
+/**
+ * A single facet group as returned in HCL product search responses.
+ * Reference: karkkainen-commerce-storefront/integration/data/core/types/Product.ts
+ */
+export interface HclFacet {
+  /** The facet key/identifier, e.g. "manufacturer" */
+  value: string;
+  name: string;
+  entry: HclFacetEntry[];
+}
+
 export interface HclProductQueryResponse {
-  recordSetCount: number;
-  recordSetTotal: number;
-  recordSetStartNumber: number;
-  recordSetComplete: boolean;
+  recordSetCount?: number;
+  recordSetTotal?: number;
+  recordSetStartNumber?: number;
+  recordSetComplete?: boolean;
+  /** v2 query service total count field */
+  total?: number;
   /** Standard v2/products response array */
   contents?: HclProductResponse[];
   /** Used by some profiles (e.g. productview) */
   catalogEntryView?: HclProductResponse[];
+  facets?: HclFacet[];
 }
 
 /**

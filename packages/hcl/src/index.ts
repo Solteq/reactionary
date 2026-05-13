@@ -7,3 +7,4 @@ export * from './core/initialize.types.js';
 export * from './factories/index.js';
 export * from './capabilities/product.capability.js';
 export * from './capabilities/category.capability.js';
+export * from './capabilities/product-search.capability.js';

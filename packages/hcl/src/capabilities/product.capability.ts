@@ -48,6 +48,7 @@ export class HclProductCapability<
   ): Promise<Result<ProductFactoryOutput<TFactory>>> {
     const response = await this.client.findProducts({
       partNumber: [payload.identifier.key],
+      profileName: this.config.profiles.product,
     });
 
     const products = response.contents ?? response.catalogEntryView ?? [];
@@ -89,6 +90,7 @@ export class HclProductCapability<
 
     const response = await this.client.findProducts({
       partNumber: [token.tokenExternalValue],
+      profileName: this.config.profiles.product,
     });
 
     const products = response.contents ?? response.catalogEntryView ?? [];
@@ -118,6 +120,7 @@ export class HclProductCapability<
   ): Promise<Result<ProductFactoryOutput<TFactory>>> {
     const response = await this.client.findProducts({
       partNumber: [payload.variant.sku],
+      profileName: this.config.profiles.product,
     });
 
     const products = response.contents ?? response.catalogEntryView ?? [];
