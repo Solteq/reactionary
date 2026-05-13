@@ -148,6 +148,54 @@ export interface HclUrlQueryResponse {
   contents?: HclUrlResponse[];
 }
 
+/**
+ * SEO data for a category as returned by /api/v2/categories.
+ * Reference: karkkainen-commerce-storefront/integration/data/core/types/Category.ts
+ */
+export interface HclCategorySeo {
+  id: string;
+  /** Full SEO URL path, e.g. "/Electronics/c/Electronics" */
+  href: string;
+}
+
+/**
+ * A single category entry as returned by the HCL Commerce Query Service.
+ */
+export interface HclCategoryResponse {
+  uniqueID: string;
+  /** Human-readable URL slug / identifier, e.g. "Electronics" */
+  identifier: string;
+  name: string;
+  shortDescription: string;
+  description: string;
+  thumbnail: string;
+  fullImage: string;
+  sequence: string;
+  seo: HclCategorySeo;
+  /** Parent category uniqueID — may be a root marker value like "-1" or "0" */
+  parentCatalogGroupID: string;
+  children?: HclCategoryResponse[];
+}
+
+export interface HclCategoryQueryResponse {
+  contents?: HclCategoryResponse[];
+}
+
+export interface HclFindCategoriesQuery {
+  storeId?: string;
+  catalogId?: string;
+  langId?: string;
+  /** Filter by category uniqueID */
+  id?: string[];
+  /** Filter by category identifier (slug) */
+  identifier?: string[];
+  /** Limit child categories to those under this parent uniqueID */
+  parentCategoryId?: string;
+  /** Controls depth and breadth: "depth,limit" e.g. "1,0" means 1 level deep, no count limit */
+  depthAndLimit?: string;
+  profileName?: string;
+}
+
 export interface HclFindProductsQuery {
   storeId?: string;
   catalogId?: string;
