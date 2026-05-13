@@ -40,7 +40,7 @@ export class HclProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm,
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
-    const { term, paginationOptions, categoryFilter } = payload.search;
+    const { term, paginationOptions, categoryFilter, facets } = payload.search;
     const { pageNumber, pageSize } = paginationOptions;
 
     const response = await this.client.findProducts({
@@ -51,6 +51,9 @@ export class HclProductSearchCapability<
       profileName: categoryFilter?.key
         ? this.config.profiles.categoryBrowse
         : this.config.profiles.productSearch,
+      // Pass selected facet values as API-level filters.
+      // FacetValueIdentifier.key holds the URL-encoded entry value from HCL.
+      facets: facets.length > 0 ? facets.map((f) => f.key) : undefined,
     });
 
     const value = this.factory.parseSearchResult(

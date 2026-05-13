@@ -101,7 +101,7 @@ function parseOptions(skus: HclProductResponse[]): ProductOption[] {
         optionMap.set(attr.identifier, { name: attr.name, values: new Map() });
       }
       const option = optionMap.get(attr.identifier);
-      if (!option) continue;;
+      if (!option) continue;
       for (const fv of flattenAttributeValues(attr)) {
         option.values.set(fv.key, { key: fv.key, label: fv.label });
       }

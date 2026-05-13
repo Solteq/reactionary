@@ -54,6 +54,9 @@ export class HclClient {
     for (const partNumber of query.partNumber ?? []) {
       params.append('partNumber', partNumber);
     }
+    for (const facet of query.facets ?? []) {
+      params.append('facet', facet);
+    }
 
     const url = `${this.baseUrl}/api/v2/products?${params.toString()}`;
 
