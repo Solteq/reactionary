@@ -17,7 +17,7 @@ export class FakeAnalyticsCapability extends AnalyticsCapability {
     this.config = config;
   }
 
-  public override async track(event: AnalyticsMutation): Promise<void> {
-    // No-op
+  public override async track(event: AnalyticsMutation) {
+    return this.ignored();
   }
 }
