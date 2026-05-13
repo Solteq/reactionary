@@ -15,7 +15,6 @@ import {
   type CategoryFactoryCategoryOutput,
   type CategoryFactoryPaginatedOutput,
   type CategoryFactoryWithOutput,
-  type CategoryPaginatedResult,
   type CategoryQueryById,
   type CategoryQueryBySlug,
   type CategoryQueryForBreadcrumb,

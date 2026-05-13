@@ -8,7 +8,7 @@ import {
   ProductOptionSchema,
   ProductOptionValueSchema,
   ProductVariantOptionSchema,
-  ProductSchema,
+  type ProductSchema,
   type AnyProductSchema,
   type Image,
   type Product,
@@ -100,7 +100,8 @@ function parseOptions(skus: HclProductResponse[]): ProductOption[] {
       if (!optionMap.has(attr.identifier)) {
         optionMap.set(attr.identifier, { name: attr.name, values: new Map() });
       }
-      const option = optionMap.get(attr.identifier)!;
+      const option = optionMap.get(attr.identifier);
+      if (!option) continue;;
       for (const fv of flattenAttributeValues(attr)) {
         option.values.set(fv.key, { key: fv.key, label: fv.label });
       }
