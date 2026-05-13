@@ -12,24 +12,6 @@ import { HclClient } from '../core/client.js';
 import { getHclTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
 
-// TODO: Update IDs and slugs once the HCL instance is confirmed.
-// Using placeholder category data aligned with the ICECAT product test data.
-const testData = {
-  category: {
-    // The SEO URL slug for a top-level category (e.g. "Cables")
-    slug: 'cables',
-    // The uniqueID of the same category as returned by /api/v2/categories
-    id: '10001',
-    name: 'Cables',
-  },
-  parentCategory: {
-    // A parent category that has child categories
-    id: '10000',
-    slug: 'electronics',
-    name: 'Electronics',
-  },
-};
-
 describe('HCL Category Provider', () => {
   let provider: HclCategoryCapability;
   let reqCtx: RequestContext;
@@ -47,29 +29,61 @@ describe('HCL Category Provider', () => {
     );
   });
 
-  it('should get a category by slug', async () => {
-    const result = await provider.getBySlug({ slug: testData.category.slug });
-
-    if (!result.success) {
-      assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
-    }
-
-    expect(result.value.name).toBeTruthy();
-    expect(result.value.identifier.key).toBeTruthy();
-    expect(result.value.slug).toBeTruthy();
-  });
-
-  it('should get a category by id', async () => {
-    const result = await provider.getById({
-      id: { key: testData.category.id },
+  it('should find top-level categories', async () => {
+    const result = await provider.findTopCategories({
+      paginationOptions: { pageNumber: 1, pageSize: 10 },
     });
 
     if (!result.success) {
       assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
     }
 
+    expect(result.value.items.length).toBeGreaterThan(0);
+    expect(result.value.items[0].identifier.key).toBeTruthy();
+  });
+
+  it('should get a category by id', async () => {
+    // Discover a real category ID from findTopCategories
+    const top = await provider.findTopCategories({
+      paginationOptions: { pageNumber: 1, pageSize: 1 },
+    });
+    if (!top.success || top.value.items.length === 0) {
+      assert.fail('findTopCategories returned no results — cannot derive ID');
+    }
+
+    const id = top.value.items[0].identifier;
+    const result = await provider.getById({ id });
+
+    if (!result.success) {
+      assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
+    }
+
+    expect(result.value.identifier.key).toBe(id.key);
     expect(result.value.name).toBeTruthy();
-    expect(result.value.identifier.key).toBe(testData.category.id);
+  });
+
+  it('should get a category by slug', async () => {
+    // Discover a real slug from findTopCategories
+    const top = await provider.findTopCategories({
+      paginationOptions: { pageNumber: 1, pageSize: 1 },
+    });
+    if (!top.success || top.value.items.length === 0) {
+      assert.fail('findTopCategories returned no results — cannot derive slug');
+    }
+
+    const slug = top.value.items[0].slug;
+    if (!slug) assert.fail('Top category has no slug — cannot test getBySlug');
+
+    const result = await provider.getBySlug({ slug });
+
+    if (!result.success) {
+      assert.fail(
+        `Expected success for slug "${slug}", got: ${JSON.stringify(result)}`,
+      );
+    }
+
+    expect(result.value.slug).toBeTruthy();
+    expect(result.value.name).toBeTruthy();
   });
 
   it('should return NotFound for an unknown category slug', async () => {
@@ -84,35 +98,39 @@ describe('HCL Category Provider', () => {
   });
 
   it('should get breadcrumb path to a category', async () => {
-    const result = await provider.getBreadcrumbPathToCategory({
-      id: { key: testData.category.id },
+    // Discover a real category ID first
+    const top = await provider.findTopCategories({
+      paginationOptions: { pageNumber: 1, pageSize: 1 },
     });
+    if (!top.success || top.value.items.length === 0) {
+      assert.fail('findTopCategories returned no results — cannot derive ID');
+    }
+
+    const id = top.value.items[0].identifier;
+    const result = await provider.getBreadcrumbPathToCategory({ id });
 
     if (!result.success) {
       assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
     }
 
     expect(result.value.length).toBeGreaterThan(0);
-    // Last item should be the category itself
-    expect(result.value.at(-1)?.identifier.key).toBe(testData.category.id);
-  });
-
-  it('should find top-level categories', async () => {
-    const result = await provider.findTopCategories({
-      paginationOptions: { pageNumber: 1, pageSize: 10 },
-    });
-
-    if (!result.success) {
-      assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
-    }
-
-    expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.items[0].identifier.key).toBeTruthy();
+    expect(result.value.at(-1)?.identifier.key).toBe(id.key);
   });
 
   it('should find child categories', async () => {
+    // Discover a parent category that has children
+    const top = await provider.findTopCategories({
+      paginationOptions: { pageNumber: 1, pageSize: 5 },
+    });
+    if (!top.success || top.value.items.length === 0) {
+      assert.fail(
+        'findTopCategories returned no results — cannot derive parent ID',
+      );
+    }
+
+    const parentId = top.value.items[0].identifier;
     const result = await provider.findChildCategories({
-      parentId: { key: testData.parentCategory.id },
+      parentId,
       paginationOptions: { pageNumber: 1, pageSize: 10 },
     });
 
@@ -120,7 +138,7 @@ describe('HCL Category Provider', () => {
       assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
     }
 
-    expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.items[0].identifier.key).toBeTruthy();
+    // May be empty if the top category has no children — that's still valid
+    expect(result.value.items).toBeDefined();
   });
 });

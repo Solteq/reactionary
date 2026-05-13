@@ -10,5 +10,10 @@ export function getHclTestConfiguration(): HclConfiguration {
     catalogId: process.env['HCL_CATALOG_ID'] || '',
     langId: process.env['HCL_LANG_ID'] || '-1',
     currency: process.env['HCL_CURRENCY'] || 'EUR',
+    profiles: {
+      product: process.env['HCL_PROFILE_PRODUCT'] || undefined,
+      productSearch: process.env['HCL_PROFILE_PRODUCT_SEARCH'] || undefined,
+      categoryBrowse: process.env['HCL_PROFILE_CATEGORY_BROWSE'] || undefined,
+    },
   });
 }

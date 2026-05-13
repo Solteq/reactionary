@@ -181,7 +181,12 @@ export class HclProductFactory<
     data: HclProductResponse,
   ): z.output<TProductSchema> {
     const name = data.name;
-    const slug = data.seo?.tokenValue ?? data.partNumber;
+    // Derive slug from seo.href (e.g. "/wooden-chair-dr-chrs-0001" → "wooden-chair-dr-chrs-0001").
+    // tokenValue is absent in the standard HCL_V2_* detail profiles.
+    const slug =
+      data.seo?.href?.split('/').filter(Boolean).pop() ??
+      data.seo?.tokenValue ??
+      data.partNumber;
 
     const parentCategories = (
       Array.isArray(data.parentCatalogGroupID)
