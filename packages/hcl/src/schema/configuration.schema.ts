@@ -37,15 +37,9 @@ const HclProfilesSchema = z
   }));
 
 export const HclConfigurationSchema = z.looseObject({
-  apiUrl: z
-    .string()
-    .meta({
-      description:
-        'The base origin URL for the HCL Commerce server (e.g. https://example.com).',
-    }),
-  searchApiPath: z.string().default('/search/resources').meta({
+  apiUrl: z.string().meta({
     description:
-      'Path prefix for the HCL Commerce Query Service (search, products, categories). Defaults to /search/resources.',
+      'The base origin URL for the HCL Commerce server (e.g. https://example.com).',
   }),
   storeId: z
     .string()
