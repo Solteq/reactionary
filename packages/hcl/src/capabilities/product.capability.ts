@@ -35,6 +35,13 @@ export class HclProductCapability<
     super(cache, context);
   }
 
+  private localeParams() {
+    return {
+      langId: this.config.localeMap[this.context.languageContext.locale],
+      currency: this.context.languageContext.currencyCode as string,
+    };
+  }
+
   @Reactionary({
     inputSchema: ProductQueryByIdSchema,
     outputSchema: ProductSchema,
@@ -46,9 +53,12 @@ export class HclProductCapability<
   public override async getById(
     payload: ProductQueryById,
   ): Promise<Result<ProductFactoryOutput<TFactory>>> {
+    const { langId, currency } = this.localeParams();
     const response = await this.client.findProducts({
       partNumber: [payload.identifier.key],
       profileName: this.config.profiles.product,
+      langId,
+      currency,
     });
 
     const products = response.contents ?? response.catalogEntryView ?? [];
@@ -73,9 +83,10 @@ export class HclProductCapability<
   public override async getBySlug(
     payload: ProductQueryBySlug,
   ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
+    const { langId, currency } = this.localeParams();
     // Resolve the URL slug to a partNumber via the HCL URL token API.
     // tokenExternalValue holds the partNumber for ProductToken entries.
-    const token = await this.client.resolveSlug(payload.slug);
+    const token = await this.client.resolveSlug(payload.slug, langId);
 
     if (
       !token ||
@@ -91,6 +102,8 @@ export class HclProductCapability<
     const response = await this.client.findProducts({
       partNumber: [token.tokenExternalValue],
       profileName: this.config.profiles.product,
+      langId,
+      currency,
     });
 
     const products = response.contents ?? response.catalogEntryView ?? [];
@@ -118,9 +131,12 @@ export class HclProductCapability<
   public override async getBySKU(
     payload: ProductQueryBySKU,
   ): Promise<Result<ProductFactoryOutput<TFactory>>> {
+    const { langId, currency } = this.localeParams();
     const response = await this.client.findProducts({
       partNumber: [payload.variant.sku],
       profileName: this.config.profiles.product,
+      langId,
+      currency,
     });
 
     const products = response.contents ?? response.catalogEntryView ?? [];

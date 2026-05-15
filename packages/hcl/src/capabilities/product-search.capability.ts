@@ -33,6 +33,13 @@ export class HclProductSearchCapability<
     super(cache, context);
   }
 
+  private localeParams() {
+    return {
+      langId: this.config.localeMap[this.context.languageContext.locale],
+      currency: this.context.languageContext.currencyCode as string,
+    };
+  }
+
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
     outputSchema: ProductSearchResultSchema,
@@ -42,6 +49,7 @@ export class HclProductSearchCapability<
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
     const { term, paginationOptions, categoryFilter, facets, company } = payload.search;
     const { pageNumber, pageSize } = paginationOptions;
+    const { langId, currency } = this.localeParams();
 
     const response = await this.client.findProducts({
       searchTerm: term || undefined,
@@ -51,11 +59,10 @@ export class HclProductSearchCapability<
       profileName: categoryFilter?.key
         ? this.config.profiles.categoryBrowse
         : this.config.profiles.productSearch,
-      // Pass selected facet values as API-level filters.
-      // FacetValueIdentifier.key holds the URL-encoded entry value from HCL.
       facets: facets.length > 0 ? facets.map((f) => f.key) : undefined,
-      // B2B contract pricing: use the company tax identifier as HCL contractId.
       contractId: company?.taxIdentifier,
+      langId,
+      currency,
     });
 
     const value = this.factory.parseSearchResult(
