@@ -12,8 +12,7 @@ export class HclClient {
   private readonly baseUrl: string;
   constructor(private readonly config: HclConfiguration) {
     const origin = config.apiUrl.replace(/\/+$/, '');
-    const apiPath = '/search/resources/api/v2';
-    this.baseUrl = `${origin}${apiPath}`;
+    this.baseUrl = `${origin}/search/resources`;
   }
 
   async findProducts(
@@ -50,7 +49,7 @@ export class HclClient {
       params.append('facet', facet);
     }
 
-    const url = `${this.baseUrl}/products?${params.toString()}`;
+    const url = `${this.baseUrl}/api/v2/products?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -80,7 +79,7 @@ export class HclClient {
     params.append('identifier', slug);
     if (langId) params.set('langId', langId);
 
-    const url = `${this.baseUrl}/urls?${params.toString()}`;
+    const url = `${this.baseUrl}/api/v2/urls?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -127,7 +126,7 @@ export class HclClient {
       params.append('identifier', identifier);
     }
 
-    const url = `${this.baseUrl}/categories?${params.toString()}`;
+    const url = `${this.baseUrl}/api/v2/categories?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',

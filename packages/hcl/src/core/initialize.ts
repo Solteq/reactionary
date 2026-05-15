@@ -18,15 +18,20 @@ import {
   resolveCapabilityWithFactory,
 } from './initialize.types.js';
 import { HclClient } from './client.js';
+import { HclTransactionClient } from './transaction-client.js';
 import {
   HclCategoryFactory,
+  HclInventoryFactory,
+  HclPriceFactory,
   HclProductFactory,
   HclProductSearchFactory,
 } from '../factories/index.js';
 import { HclProductCapability } from '../capabilities/product.capability.js';
 import { HclCategoryCapability } from '../capabilities/category.capability.js';
 import { HclProductSearchCapability } from '../capabilities/product-search.capability.js';
-import { ProductSearchResultSchema } from '@reactionary/core';
+import { HclPriceCapability } from '../capabilities/price.capability.js';
+import { HclInventoryCapability } from '../capabilities/inventory.capability.js';
+import { InventorySchema, PriceSchema, ProductSearchResultSchema } from '@reactionary/core';
 
 export function withHclCapabilities<T extends HclCapabilities>(
   configuration: HclConfiguration,
@@ -41,6 +46,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
     const config = HclConfigurationSchema.parse(configuration);
     const caps = HclCapabilitiesSchema.parse(capabilities);
     const hclClient = new HclClient(config);
+    const hclTransactionClient = new HclTransactionClient(config);
 
     const buildCapabilityArgs = <TFactory>(
       factory: TFactory,
@@ -49,6 +55,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
       context,
       config,
       hclClient,
+      hclTransactionClient,
       factory,
     });
 
@@ -113,6 +120,48 @@ export function withHclCapabilities<T extends HclCapabilities>(
               args.context,
               args.config,
               args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.price?.enabled) {
+      client.price = resolveCapabilityWithFactory(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        capabilities.price as any,
+        {
+          factory: new HclPriceFactory(PriceSchema),
+          capability: (
+            args: HclCapabilityFactoryArgs & { factory: HclPriceFactory },
+          ) =>
+            new HclPriceCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclTransactionClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.inventory?.enabled) {
+      client.inventory = resolveCapabilityWithFactory(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        capabilities.inventory as any,
+        {
+          factory: new HclInventoryFactory(InventorySchema),
+          capability: (
+            args: HclCapabilityFactoryArgs & { factory: HclInventoryFactory },
+          ) =>
+            new HclInventoryCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclTransactionClient,
               args.factory,
             ),
         },

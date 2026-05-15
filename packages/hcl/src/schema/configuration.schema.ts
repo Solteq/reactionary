@@ -53,6 +53,15 @@ export const HclConfigurationSchema = z.looseObject({
       'Mapping from BCP 47 locale (RequestContext.languageContext.locale) to HCL langId.',
   }),
   profiles: HclProfilesSchema,
+  /**
+   * Optional price rule ID passed to /display_price?q=byPartNumbersAndPriceRuleId.
+   * When omitted the server applies its default configured price rule.
+   * In Karkkainen this is '10003'.
+   */
+  priceRuleId: z.string().optional().meta({
+    description:
+      'Price rule ID for /display_price WCS calls. Optional — the server uses its default rule when absent.',
+  }),
 });
 
 export type HclConfiguration = z.infer<typeof HclConfigurationSchema>;

@@ -3,6 +3,8 @@ import type { HclCapabilities } from '../schema/capabilities.schema.js';
 import type { HclProductCapability } from '../capabilities/product.capability.js';
 import type { HclCategoryCapability } from '../capabilities/category.capability.js';
 import type { HclProductSearchCapability } from '../capabilities/product-search.capability.js';
+import type { HclPriceCapability } from '../capabilities/price.capability.js';
+import type { HclInventoryCapability } from '../capabilities/inventory.capability.js';
 
 type OverridableCapabilityKey =
   | 'product'
@@ -37,8 +39,8 @@ type DefaultCapabilityMap = {
   cart: never;
   checkout: never;
   category: HclCategoryCapability;
-  price: never;
-  inventory: never;
+  price: HclPriceCapability;
+  inventory: HclInventoryCapability;
 };
 
 type CapabilityImplementationMap<T extends HclCapabilities> = {
