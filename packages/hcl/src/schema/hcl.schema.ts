@@ -9,8 +9,6 @@ export interface HclPrice {
   description: string;
   currency: string;
   value: string;
-  /** Present on Offer prices when contract-specific pricing is returned */
-  contractId?: string;
 }
 
 export interface HclProductAttributeValue {
@@ -68,10 +66,6 @@ export interface HclImage {
   sequence: string;
   fullImage: string;
   thumbnail: string;
-  /** Raw (un-optimized) Cloudinary URL — present in custom profiles (e.g. Karkkainen_findProductByPartNumber_Details) */
-  fullImageRaw?: string;
-  /** Raw (un-optimized) Cloudinary thumbnail URL */
-  thumbnailRaw?: string;
 }
 
 /**
@@ -88,46 +82,24 @@ export interface HclProductSearchItem {
   name: string;
   shortDescription: string;
   longDescription: string;
-  /** Main thumbnail URL (CDN-optimized). Always present. */
-  thumbnail?: string;
-  /** Raw (un-optimized) Cloudinary thumbnail URL — present in some profiles/stores */
-  thumbnailRaw?: string;
-  /**
-   * Full-size image URL. Present in detail profiles; absent in search profiles.
-   * Use `fullImageRaw` or fall back to `thumbnail` when this is missing.
-   */
-  fullImage?: string;
-  /** Raw (un-optimized) Cloudinary full image URL — present in custom profiles (e.g. Karkkainen) */
-  fullImageRaw?: string;
+  thumbnail: string;
+  fullImage: string;
   /** 'product' | 'item' | 'variant' | 'package' | 'bundle' */
   type: string;
   catalogEntryTypeCode?: string;
   hasSingleSKU: boolean;
   /** 'true' | 'false' */
   buyable: string;
-  /**
-   * Whether the product is displayable in the storefront. 'true' | 'false'.
-   * Present in custom profiles (e.g. Karkkainen_findProductByPartNumber_Details).
-   */
-  displayable?: string;
   sellerId: string;
-  seller?: string;
+  seller: string;
   manufacturer: string;
-  numberOfSKUs?: number;
-  sequence?: string;
-  /** Internal HCL store ID */
-  storeID?: string;
+  numberOfSKUs: number;
+  sequence: string;
   seo?: HclSeo;
   parentCatalogGroupID: string | string[];
   parentCatalogEntryID?: string;
   price: HclPrice[];
-  attributes?: HclProductAttribute[];
-  /**
-   * Real-time inventory quantity for this store, keyed as `inventories.<storeId>.quantity`.
-   * Present in custom profiles (e.g. Karkkainen_findProductByPartNumber_Details).
-   * Access dynamically: `(product as Record<string, string>)['inventories.' + storeId + '.quantity']`
-   */
-  [inventoryKey: `inventories.${string}.quantity`]: string | undefined;
+  attributes: HclProductAttribute[];
   /** Aggregated variant pricing/grouping data — present only in search profile responses */
   groupingProperties?: HclGroupingProperties;
 }
