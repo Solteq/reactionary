@@ -9,6 +9,104 @@ export interface HclPrice {
   description: string;
   currency: string;
   value: string;
+  /** B2B contract identifier. Present on Offer-usage entries when a contract price applies. */
+  contractId?: string;
+}
+
+/**
+ * A single unit price entry in a /display_price response item.
+ * `value` is already a number (unlike the inline `HclPrice.value` which is a string).
+ */
+export interface HclDisplayPriceUnitPrice {
+  price?: {
+    currency?: string;
+    /** Numeric value — already a number, not a string. */
+    value?: number;
+  };
+  quantity?: { value?: number; uom?: string };
+}
+
+/**
+ * A single item in the `resultList` of a /display_price response.
+ * Returned for both `byPartNumbersAndPriceRuleId` and `byCatalogEntryIds*` query variants.
+ */
+export interface HclDisplayPriceItem {
+  partNumber: string;
+  priceRuleId?: string;
+  priceRuleName?: string;
+  catalogEntryId?: string;
+  unitPrice?: HclDisplayPriceUnitPrice[];
+  userDataField?: { value?: string; key: string }[];
+}
+
+/** Top-level response from GET /wcs/resources/store/{storeId}/display_price */
+export interface HclDisplayPriceResponse {
+  resourceId?: string;
+  resourceName?: string;
+  resultList?: HclDisplayPriceItem[];
+}
+
+/**
+ * A single unit price entry in a /price?q=byPartNumbers response item.
+ * Note: HCL uses `UnitPrice` (capital U) on this endpoint.
+ */
+export interface HclEntitledPriceUnitPrice {
+  price?: {
+    currency?: string;
+    /** Numeric value. */
+    value?: number;
+  };
+  quantity?: { value?: number; uom?: string };
+}
+
+/**
+ * A single item in the `EntitledPrice` array of a /price?q=byPartNumbers response.
+ */
+export interface HclEntitledPriceItem {
+  partNumber?: string;
+  productId?: string;
+  contractId?: string;
+  UnitPrice?: HclEntitledPriceUnitPrice[];
+}
+
+/** Top-level response from GET /wcs/resources/store/{storeId}/price?q=byPartNumbers */
+export interface HclEntitledPriceResponse {
+  resourceId?: string;
+  resourceName?: string;
+  EntitledPrice?: HclEntitledPriceItem[];
+}
+
+/**
+ * A single item in the `InventoryAvailability` array of the inventoryavailability response.
+ */
+export interface HclInventoryAvailabilityItem {
+  /** Internal HCL product ID (numeric string). */
+  productId?: string;
+  /** Inventory status string, e.g. 'Available'. */
+  inventoryStatus?: string;
+  /** Available quantity as a string (format: double). */
+  availableQuantity?: string;
+  unitOfMeasure?: string;
+  /** ID of the physical store, if this is a store-specific record. */
+  physicalStoreId?: string;
+  /** Name/key of the physical store, e.g. '1004/0001'. */
+  physicalStoreName?: string;
+  /** Name/key of the online store. Present on online inventory records. */
+  onlineStoreName?: string;
+  /** Online store ID. Present on online inventory records. */
+  onlineStoreId?: string;
+  availabilityDateTime?: string;
+  x_customField1?: string | null;
+  x_customField2?: string | null;
+  x_customField3?: string | null;
+  userDataField?: { value?: string; key: string }[];
+}
+
+/** Top-level response from GET /wcs/resources/store/{storeId}/inventoryavailability/byPartNumber/{partNumbers} */
+export interface HclInventoryAvailabilityResponse {
+  resourceId: string;
+  resourceName: string;
+  InventoryAvailability?: HclInventoryAvailabilityItem[];
 }
 
 export interface HclProductAttributeValue {

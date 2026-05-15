@@ -10,14 +10,9 @@ import type {
 
 export class HclClient {
   private readonly baseUrl: string;
-  private readonly searchApiPath: string;
   constructor(private readonly config: HclConfiguration) {
-    // HCL Commerce splits endpoints across multiple roots, e.g.:
-    //   /search/resources  — query service (products, categories, urls)
-    //   /wcs/resources     — transaction service (cart, user, orders)
-    // Each API root has its own config property. This client calls the query service.
-    this.baseUrl = config.apiUrl.replace(/\/+$/, '');
-    this.searchApiPath = config.searchApiPath.replace(/\/+$/, '');
+    const origin = config.apiUrl.replace(/\/+$/, '');
+    this.baseUrl = `${origin}/search/resources`;
   }
 
   async findProducts(
@@ -57,7 +52,7 @@ export class HclClient {
       params.append('facet', facet);
     }
 
-    const url = `${this.baseUrl}${this.searchApiPath}/api/v2/products?${params.toString()}`;
+    const url = `${this.baseUrl}/api/v2/products?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -83,7 +78,7 @@ export class HclClient {
     params.set('storeId', this.config.storeId);
     params.append('identifier', slug);
 
-    const url = `${this.baseUrl}${this.searchApiPath}/api/v2/urls?${params.toString()}`;
+    const url = `${this.baseUrl}/api/v2/urls?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -131,7 +126,7 @@ export class HclClient {
       params.append('identifier', identifier);
     }
 
-    const url = `${this.baseUrl}${this.searchApiPath}/api/v2/categories?${params.toString()}`;
+    const url = `${this.baseUrl}/api/v2/categories?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',

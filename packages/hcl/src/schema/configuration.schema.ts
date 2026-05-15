@@ -37,15 +37,9 @@ const HclProfilesSchema = z
   }));
 
 export const HclConfigurationSchema = z.looseObject({
-  apiUrl: z
-    .string()
-    .meta({
-      description:
-        'The base origin URL for the HCL Commerce server (e.g. https://example.com).',
-    }),
-  searchApiPath: z.string().default('/search/resources').meta({
+  apiUrl: z.string().meta({
     description:
-      'Path prefix for the HCL Commerce Query Service (search, products, categories). Defaults to /search/resources.',
+      'The base origin URL for the HCL Commerce server (e.g. https://example.com).',
   }),
   storeId: z
     .string()
@@ -62,6 +56,15 @@ export const HclConfigurationSchema = z.looseObject({
     .default('USD')
     .meta({ description: 'The currency to use for pricing.' }),
   profiles: HclProfilesSchema,
+  /**
+   * Optional price rule ID passed to /display_price?q=byPartNumbersAndPriceRuleId.
+   * When omitted the server applies its default configured price rule.
+   * In Karkkainen this is '10003'.
+   */
+  priceRuleId: z.string().optional().meta({
+    description:
+      'Price rule ID for /display_price WCS calls. Optional — the server uses its default rule when absent.',
+  }),
 });
 
 export type HclConfiguration = z.infer<typeof HclConfigurationSchema>;
