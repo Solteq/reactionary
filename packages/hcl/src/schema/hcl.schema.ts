@@ -69,10 +69,14 @@ export interface HclImage {
 }
 
 /**
- * A single product entry as returned by the HCL Commerce Query Service.
- * Applies to both parent products and SKU-level items (items[]).
+ * A product item as returned by HCL search profiles
+ * (e.g. HCL_V2_findProductsBySearchTermWithPrice, HCL_V2_findProductsByCategoryWithPriceRange).
+ *
+ * Search profile responses contain aggregated entries without nested SKU items[].
+ * Attribute values may be arrays (aggregated across all variants of the group).
+ * Use this type in product-search factories.
  */
-export interface HclProductResponse {
+export interface HclProductSearchItem {
   id: string;
   partNumber: string;
   name: string;
@@ -96,7 +100,20 @@ export interface HclProductResponse {
   parentCatalogEntryID?: string;
   price: HclPrice[];
   attributes: HclProductAttribute[];
-  /** Variant SKUs (items in HCL terminology) */
+  /** Aggregated variant pricing/grouping data — present only in search profile responses */
+  groupingProperties?: HclGroupingProperties;
+}
+
+/**
+ * A full product entry as returned by HCL detail profiles
+ * (e.g. HCL_V2_findProductByPartNumber_Details).
+ *
+ * Extends HclProductSearchItem with detail-only fields: nested SKU items[],
+ * attachments, images, and merchandising associations.
+ * Use this type in product detail factories.
+ */
+export interface HclProductResponse extends HclProductSearchItem {
+  /** Variant SKUs with full detail data — only present in detail profile responses */
   items: HclProductResponse[];
   /** Kit/bundle SKU list */
   sKUs?: HclProductResponse[];
@@ -107,7 +124,6 @@ export interface HclProductResponse {
   merchandisingAssociations?: HclProductResponse[];
   attachments?: HclAttachment[];
   images?: HclImage[];
-  groupingProperties?: HclGroupingProperties;
 }
 
 export interface HclFacetEntry {
