@@ -46,15 +46,30 @@ export const HclConfigurationSchema = z.looseObject({
     .meta({ description: 'The HCL Commerce store identifier.' }),
   catalogId: z
     .string()
+    .optional()
     .meta({ description: 'The HCL Commerce catalog identifier.' }),
-  langId: z.string().default('-1').meta({
-    description:
-      'The HCL Commerce language identifier. Defaults to -1 (English).',
-  }),
-  currency: z
+  /**
+   * Path prefix for the HCL Commerce Query Service including API version.
+   * Switch between SOLR (/search/resources/api/v1) and
+   * Elasticsearch (/search/resources/api/v2) here.
+   */
+  searchApiPath: z
     .string()
-    .default('USD')
-    .meta({ description: 'The currency to use for pricing.' }),
+    .default('/search/resources/api/v2')
+    .meta({
+      description:
+        'Base path for the HCL Commerce Query Service, including API version. ' +
+        'Use "/search/resources/api/v1" for SOLR or "/search/resources/api/v2" for Elasticsearch.',
+    }),
+  /**
+   * Maps BCP 47 locale strings (from RequestContext) to HCL Commerce langId values.
+   * HCL uses numeric language identifiers (e.g. -1 for English, -11 for Finnish).
+   * Add an entry for each locale your store supports.
+   */
+  localeMap: z.record(z.string(), z.string()).default({ 'en-US': '-1' }).meta({
+    description:
+      'Mapping from BCP 47 locale (RequestContext.languageContext.locale) to HCL langId.',
+  }),
   profiles: HclProfilesSchema,
 });
 

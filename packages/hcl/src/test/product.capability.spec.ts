@@ -1,15 +1,108 @@
 import 'dotenv/config';
-import type { RequestContext } from '@reactionary/core';
-import {
-  NoOpCache,
-  ProductSchema,
-  createInitialRequestContext,
-} from '@reactionary/core';
-import { HclProductCapability } from '../capabilities/product.capability.js';
-import { HclProductFactory } from '../factories/index.js';
-import { HclClient } from '../core/client.js';
-import { getHclTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
+import { createHclClient } from './test-utils.js';
+
+// Demo server: www-latestdevauth.demo.solteq.io, storeId=41
+const testData = {
+  product: {
+    id: 'DR-CHRS-0001',
+    name: 'Wooden Dining Chair',
+    sku: 'DR-CHRS-0001-0001',
+    slug: 'wooden-dining-chair-dr-chrs-0001',
+  },
+  productWithMultiVariants: {
+    slug: 'wooden-dining-chair-dr-chrs-0001',
+  },
+};
+
+describe('HCL Product Capability', () => {
+  let client: ReturnType<typeof createHclClient>;
+
+  beforeEach(() => {
+    client = createHclClient();
+  });
+
+  it('should be able to get a product by id', async () => {
+    const response = await client.product.getById({
+      identifier: { key: testData.product.id },
+    });
+
+    if (!response.success) {
+      assert.fail(JSON.stringify(response.error));
+    }
+
+    expect(response.value.identifier.key).toBe(testData.product.id);
+    expect(response.value.name).toBe(testData.product.name);
+    expect(response.value.mainVariant).toBeDefined();
+    expect(response.value.mainVariant.identifier.sku).toBeTruthy();
+  });
+
+  it('should be able to get a product by slug', async () => {
+    const response = await client.product.getBySlug({
+      slug: testData.product.slug,
+    });
+
+    if (!response.success) {
+      assert.fail(JSON.stringify(response.error));
+    }
+
+    expect(response.value.identifier.key).toBe(testData.product.id);
+    expect(response.value.name).toBe(testData.product.name);
+  });
+
+  it('should be able to get a multivariant product by slug', async () => {
+    const response = await client.product.getBySlug({
+      slug: testData.productWithMultiVariants.slug,
+    });
+
+    if (!response.success) {
+      assert.fail(JSON.stringify(response.error));
+    }
+
+    expect(response.value.identifier.key).toBeTruthy();
+    expect(response.value.slug).toBe(testData.productWithMultiVariants.slug);
+    expect(response.value.mainVariant).toBeDefined();
+    expect(response.value.variants.length).toBeGreaterThan(0);
+    expect(response.value.variants[0].identifier.sku).toBeTruthy();
+  });
+
+  it('should be able to get a product by sku', async () => {
+    const response = await client.product.getBySKU({
+      variant: { sku: testData.product.sku },
+    });
+
+    if (!response.success) {
+      assert.fail(JSON.stringify(response.error));
+    }
+
+    expect(response.value.identifier.key).toBe(testData.product.id);
+    expect(response.value.name).toBe(testData.product.name);
+  });
+
+  it('should contain both product level and variant level attributes', async () => {
+    const response = await client.product.getBySKU({
+      variant: { sku: testData.product.sku },
+    });
+
+    if (!response.success) {
+      assert.fail(JSON.stringify(response.error));
+    }
+
+    expect(response.value.sharedAttributes.length).toBeGreaterThan(0);
+    expect(response.value.sharedAttributes[0].values.length).toBeGreaterThan(0);
+    expect(response.value.sharedAttributes[0].values[0].value).toBeTruthy();
+  });
+
+  it('should return an error of NotFound for unknown slug', async () => {
+    const response = await client.product.getBySlug({ slug: 'unknown-slug' });
+
+    if (response.success) {
+      assert.fail();
+    }
+
+    expect(response.error.type).toBe('NotFound');
+  });
+});
 
 // Confirmed product on www-latestdevauth.demo.solteq.io store 41.
 // DR-CHRS-0001 ("Wooden Dining Chair") has Descriptive attributes and multiple SKUs.
@@ -24,103 +117,3 @@ const testData = {
     slug: 'wooden-dining-chair-dr-chrs-0001',
   },
 };
-
-describe('HCL Product Provider', () => {
-  let provider: HclProductCapability;
-  let reqCtx: RequestContext;
-
-  beforeEach(() => {
-    reqCtx = createInitialRequestContext();
-    const config = getHclTestConfiguration();
-    const client = new HclClient(config);
-    provider = new HclProductCapability(
-      new NoOpCache(),
-      reqCtx,
-      config,
-      client,
-      new HclProductFactory(ProductSchema),
-    );
-  });
-
-  it('should get a product by id (partNumber)', async () => {
-    const result = await provider.getById({
-      identifier: { key: testData.product.partNumber },
-    });
-
-    if (!result.success) {
-      assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
-    }
-
-    expect(result.value.name).toBeTruthy();
-    expect(result.value.identifier.key).toBe(testData.product.partNumber);
-    expect(result.value.slug).toBeTruthy();
-    expect(result.value.mainVariant).toBeDefined();
-    expect(result.value.mainVariant.identifier.sku).toBeTruthy();
-  });
-
-  it('should get a product by slug', async () => {
-    const result = await provider.getBySlug({ slug: testData.product.slug });
-
-    if (!result.success) {
-      assert.fail(
-        `Expected success for slug "${testData.product.slug}", got: ${JSON.stringify(result)}`,
-      );
-    }
-
-    expect(result.value.identifier.key).toBe(testData.product.partNumber);
-    expect(result.value.name).toBeTruthy();
-  });
-
-  it('should get a product by SKU', async () => {
-    const result = await provider.getBySKU({
-      variant: { sku: testData.product.sku },
-    });
-
-    if (!result.success) {
-      assert.fail(
-        `Expected success for SKU "${testData.product.sku}", got: ${JSON.stringify(result)}`,
-      );
-    }
-
-    expect(result.value.name).toBeTruthy();
-    expect(result.value.mainVariant.identifier.sku).toBeTruthy();
-  });
-
-  it('should get a multi-variant product with multiple variants', async () => {
-    const result = await provider.getById({
-      identifier: { key: testData.productWithMultiVariants.partNumber },
-    });
-
-    if (!result.success) {
-      assert.fail(`getById failed: ${JSON.stringify(result)}`);
-    }
-
-    expect(result.value.mainVariant).toBeDefined();
-    // NOTE: update testData.productWithMultiVariants with a real multi-SKU partNumber
-    // to make this assertion meaningful.
-    expect(result.value.mainVariant.identifier.sku).toBeTruthy();
-  });
-
-  it('should return NotFound for an unknown slug', async () => {
-    const result = await provider.getBySlug({ slug: 'UNKNOWN-PART-XYZ-99999' });
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.type).toBe('NotFound');
-    }
-  });
-
-  it('should contain descriptive attributes', async () => {
-    const result = await provider.getById({
-      identifier: { key: testData.product.partNumber },
-    });
-
-    if (!result.success) {
-      assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
-    }
-
-    expect(result.value.sharedAttributes.length).toBeGreaterThan(0);
-    expect(result.value.sharedAttributes[0].values.length).toBeGreaterThan(0);
-    expect(result.value.sharedAttributes[0].values[0].value).toBeTruthy();
-  });
-});

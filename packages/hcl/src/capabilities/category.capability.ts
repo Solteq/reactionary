@@ -28,6 +28,7 @@ import * as z from 'zod';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
 import type { HclCategoryFactory } from '../factories/category/category.factory.js';
+import type { HclCategoryQueryResponse } from '../schema/hcl.schema.js';
 
 export class HclCategoryCapability<
   TFactory extends CategoryFactory = HclCategoryFactory,
@@ -45,6 +46,12 @@ export class HclCategoryCapability<
     super(cache, context);
   }
 
+  private localeParams() {
+    return {
+      langId: this.config.localeMap[this.context.languageContext.locale],
+    };
+  }
+
   @Reactionary({
     inputSchema: CategoryQueryByIdSchema,
     outputSchema: CategorySchema,
@@ -52,8 +59,10 @@ export class HclCategoryCapability<
   public override async getById(
     payload: CategoryQueryById,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
+    const { langId } = this.localeParams();
     const response = await this.client.findCategories({
-      id: [payload.id.key],
+      identifier: [payload.id.key],
+      langId,
     });
 
     const data = response.contents?.[0];
@@ -71,8 +80,9 @@ export class HclCategoryCapability<
   public override async getBySlug(
     payload: CategoryQueryBySlug,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
-    // Use the URL token API to resolve the slug to a category uniqueID.
-    const token = await this.client.resolveSlug(payload.slug);
+    const { langId } = this.localeParams();
+    // Use the URL token API to resolve the slug to a category identifier.
+    const token = await this.client.resolveSlug(payload.slug, langId);
 
     if (
       !token ||
@@ -86,9 +96,10 @@ export class HclCategoryCapability<
     }
 
     const response = await this.client.findCategories({
-      // tokenValue is the numeric uniqueID; tokenExternalValue is the string identifier
-      // which the categories API rejects with 400 when used as an id= parameter.
-      id: [token.tokenValue],
+      // tokenExternalValue is the external identifier (e.g. "LivingRoom").
+      // Use identifier= param so the key returned by the factory is consistent.
+      identifier: [token.tokenExternalValue],
+      langId,
     });
 
     const data = response.contents?.[0];
@@ -110,12 +121,23 @@ export class HclCategoryCapability<
     payload: CategoryQueryForBreadcrumb,
   ): Promise<Result<Array<CategoryFactoryCategoryOutput<TFactory>>>> {
     // Walk up the parent chain by repeatedly resolving parentCatalogGroupID.
+    // First lookup uses the external identifier (payload.id.key).
+    // Subsequent lookups use the internal uniqueID extracted from parentCatalogGroupID paths.
     const path: Array<CategoryFactoryCategoryOutput<TFactory>> = [];
+    const { langId } = this.localeParams();
 
-    let currentId: string | undefined = payload.id.key;
+    let currentKey: string | undefined = payload.id.key;
+    let useExternalIdentifier = true;
 
-    while (currentId) {
-      const response = await this.client.findCategories({ id: [currentId] });
+    while (currentKey) {
+      let response: HclCategoryQueryResponse;
+      if (useExternalIdentifier) {
+        response = await this.client.findCategories({ identifier: [currentKey], langId });
+      } else {
+        response = await this.client.findCategories({ id: [currentKey], langId });
+      }
+      useExternalIdentifier = false;
+
       const data = response.contents?.[0];
       if (!data) break;
 
@@ -123,7 +145,7 @@ export class HclCategoryCapability<
 
       const parentId = data.parentCatalogGroupID;
       // parentCatalogGroupID is a path like "/10501/10503" ending with this category's own ID.
-      // Extract the direct parent as the second-to-last path segment.
+      // Extract the direct parent as the second-to-last path segment (internal uniqueID).
       const pathSegments = (
         typeof parentId === 'string' ? parentId : (parentId?.[0] ?? '')
       )
@@ -134,7 +156,7 @@ export class HclCategoryCapability<
           ? pathSegments[pathSegments.length - 2]
           : undefined;
       if (!directParentId) break;
-      currentId = directParentId;
+      currentKey = directParentId;
     }
 
     return success(path);
@@ -147,9 +169,27 @@ export class HclCategoryCapability<
   public override async findChildCategories(
     payload: CategoryQueryForChildCategories,
   ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>>> {
+    const { langId } = this.localeParams();
+
+    // Resolve the external identifier to an internal uniqueID.
+    // HCL's parentCategoryId parameter requires the internal uniqueID.
+    const parentResp = await this.client.findCategories({
+      identifier: [payload.parentId.key],
+      langId,
+    });
+    const parentUniqueId = parentResp.contents?.[0]?.uniqueID;
+
+    if (!parentUniqueId) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.parentId,
+      });
+    }
+
     const response = await this.client.findCategories({
-      parentCategoryId: payload.parentId.key,
+      parentCategoryId: parentUniqueId,
       depthAndLimit: '1,0',
+      langId,
     });
 
     const items = response.contents ?? [];
@@ -169,9 +209,11 @@ export class HclCategoryCapability<
   public override async findTopCategories(
     payload: CategoryQueryForTopCategories,
   ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>>> {
+    const { langId } = this.localeParams();
     // Fetching without a parentCategoryId returns root-level categories.
     const response = await this.client.findCategories({
       depthAndLimit: '1,0',
+      langId,
     });
 
     const items = response.contents ?? [];

@@ -16,7 +16,8 @@ export class HclClient {
     //   /wcs/resources     — transaction service (cart, user, orders)
     // Each API root has its own config property. This client calls the query service.
     const origin = config.apiUrl.replace(/\/+$/, '');
-    this.baseUrl = `${origin}/search/resources`;
+    const searchApiPath = config.searchApiPath.replace(/\/+$/, '');
+    this.baseUrl = `${origin}${searchApiPath}`;
   }
 
   async findProducts(
@@ -29,11 +30,8 @@ export class HclClient {
     const catalogId = query.catalogId ?? this.config.catalogId;
     if (catalogId) params.set('catalogId', catalogId);
 
-    const langId = query.langId ?? this.config.langId;
-    if (langId) params.set('langId', langId);
-
-    const currency = query.currency ?? this.config.currency;
-    if (currency) params.set('currency', currency);
+    if (query.langId) params.set('langId', query.langId);
+    if (query.currency) params.set('currency', query.currency);
 
     if (query.categoryId) params.set('categoryId', query.categoryId);
     if (query.searchTerm) params.set('searchTerm', query.searchTerm);
@@ -56,7 +54,7 @@ export class HclClient {
       params.append('facet', facet);
     }
 
-    const url = `${this.baseUrl}/api/v2/products?${params.toString()}`;
+    const url = `${this.baseUrl}/products?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -77,12 +75,13 @@ export class HclClient {
    * Calls GET /api/v2/urls?storeId=X&identifier=<slug>
    * Returns undefined when the slug is not found (404).
    */
-  async resolveSlug(slug: string): Promise<HclUrlResponse | undefined> {
+  async resolveSlug(slug: string, langId?: string): Promise<HclUrlResponse | undefined> {
     const params = new URLSearchParams();
     params.set('storeId', this.config.storeId);
     params.append('identifier', slug);
+    if (langId) params.set('langId', langId);
 
-    const url = `${this.baseUrl}/api/v2/urls?${params.toString()}`;
+    const url = `${this.baseUrl}/urls?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -115,8 +114,7 @@ export class HclClient {
     const catalogId = query.catalogId ?? this.config.catalogId;
     if (catalogId) params.set('catalogId', catalogId);
 
-    const langId = query.langId ?? this.config.langId;
-    if (langId) params.set('langId', langId);
+    if (query.langId) params.set('langId', query.langId);
 
     if (query.parentCategoryId)
       params.set('parentCategoryId', query.parentCategoryId);
@@ -130,7 +128,7 @@ export class HclClient {
       params.append('identifier', identifier);
     }
 
-    const url = `${this.baseUrl}/api/v2/categories?${params.toString()}`;
+    const url = `${this.baseUrl}/categories?${params.toString()}`;
 
     const response = await fetch(url, {
       method: 'GET',

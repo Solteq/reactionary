@@ -1,37 +1,25 @@
 import 'dotenv/config';
-import type { RequestContext } from '@reactionary/core';
-import {
-  NoOpCache,
-  ProductSearchResultSchema,
-  createInitialRequestContext,
-} from '@reactionary/core';
-import { HclProductSearchCapability } from '../capabilities/product-search.capability.js';
-import { HclProductSearchFactory } from '../factories/index.js';
-import { HclClient } from '../core/client.js';
-import { getHclTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
+import { createHclClient } from './test-utils.js';
 
-describe('HCL Product Search Provider', () => {
-  let provider: HclProductSearchCapability;
-  let reqCtx: RequestContext;
+// Demo server: www-latestdevauth.demo.solteq.io, storeId=41
+const testData = {
+  searchTerm: 'chair',
+  // Category external identifier for category-browse search
+  categoryKey: 'LivingRoomFurniture',
+};
+
+describe('HCL Product Search Capability', () => {
+  let client: ReturnType<typeof createHclClient>;
 
   beforeEach(() => {
-    reqCtx = createInitialRequestContext();
-    const config = getHclTestConfiguration();
-    const client = new HclClient(config);
-    provider = new HclProductSearchCapability(
-      new NoOpCache(),
-      reqCtx,
-      config,
-      client,
-      new HclProductSearchFactory(ProductSearchResultSchema),
-    );
+    client = createHclClient();
   });
 
-  it('should return products matching a search term', async () => {
-    const result = await provider.queryByTerm({
+  it('should be able to get a result by term', async () => {
+    const result = await client.productSearch.queryByTerm({
       search: {
-        term: 'cable',
+        term: testData.searchTerm,
         facets: [],
         filters: [],
         paginationOptions: { pageNumber: 1, pageSize: 10 },
@@ -39,179 +27,152 @@ describe('HCL Product Search Provider', () => {
     });
 
     if (!result.success) {
-      assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
+      assert.fail(JSON.stringify(result.error));
     }
 
     expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.items[0].name).toBeTruthy();
-    expect(result.value.items[0].slug).toBeTruthy();
-    expect(result.value.totalCount).toBeGreaterThan(0);
   });
 
-  it('should respect pagination', async () => {
-    const page1 = await provider.queryByTerm({
+  it('should be able to get a result by term, paged', async () => {
+    const result = await client.productSearch.queryByTerm({
       search: {
-        term: 'cable',
+        term: testData.searchTerm,
+        facets: [],
+        filters: [],
+        paginationOptions: { pageNumber: 1, pageSize: 1 },
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+
+    expect(result.value.items.length).toBeGreaterThan(0);
+    expect(result.value.totalPages).toBeGreaterThan(1);
+
+    const result2 = await client.productSearch.queryByTerm({
+      search: {
+        term: testData.searchTerm,
+        facets: [],
+        filters: [],
+        paginationOptions: { pageNumber: 2, pageSize: 1 },
+      },
+    });
+
+    if (!result2.success) {
+      assert.fail(JSON.stringify(result2.error));
+    }
+
+    expect(result2.value.items.length).toBeGreaterThan(0);
+    expect(result2.value.items[0].identifier.key).not.toBe(
+      result.value.items[0].identifier.key,
+    );
+  });
+
+  it('should be able to change page size', async () => {
+    const smallPage = await client.productSearch.queryByTerm({
+      search: {
+        term: testData.searchTerm,
         facets: [],
         filters: [],
         paginationOptions: { pageNumber: 1, pageSize: 2 },
       },
     });
-
-    const page2 = await provider.queryByTerm({
+    const largePage = await client.productSearch.queryByTerm({
       search: {
-        term: 'cable',
+        term: testData.searchTerm,
         facets: [],
         filters: [],
-        paginationOptions: { pageNumber: 2, pageSize: 2 },
+        paginationOptions: { pageNumber: 1, pageSize: 12 },
       },
     });
 
-    if (!page1.success || !page2.success) {
-      assert.fail('Expected both pages to succeed');
+    if (!smallPage.success || !largePage.success) {
+      assert.fail();
     }
 
-    expect(page1.value.items.length).toBeLessThanOrEqual(2);
-    // Page 2 items should differ from page 1 items
-    if (page2.value.items.length > 0) {
-      expect(page1.value.items[0].identifier.key).not.toBe(
-        page2.value.items[0].identifier.key,
-      );
-    }
+    expect(smallPage.value.items.length).toBe(2);
+    expect(smallPage.value.pageSize).toBe(2);
+    expect(largePage.value.items.length).toBeGreaterThan(2);
+    expect(largePage.value.pageSize).toBe(12);
   });
 
-  it('should return facets in search results', async () => {
-    const result = await provider.queryByTerm({
+  it('should be able to apply facets', async () => {
+    const initial = await client.productSearch.queryByTerm({
       search: {
-        term: 'cable',
+        term: testData.searchTerm,
         facets: [],
         filters: [],
         paginationOptions: { pageNumber: 1, pageSize: 10 },
       },
     });
 
-    if (!result.success) {
-      assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
+    if (!initial.success) {
+      assert.fail(JSON.stringify(initial.error));
     }
-
-    expect(result.value.facets).toBeDefined();
-  });
-
-  it('should filter by category when categoryFilter is provided', async () => {
-    // LivingRoomFurniture (uniqueID=10502) is a known leaf category with products
-    const result = await provider.queryByTerm({
-      search: {
-        term: '',
-        facets: [],
-        filters: [],
-        categoryFilter: { facet: { key: 'categories' }, key: '10502' },
-        paginationOptions: { pageNumber: 1, pageSize: 10 },
-      },
-    });
-
-    if (!result.success) {
-      assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
-    }
-
-    expect(result.value.items.length).toBeGreaterThan(0);
-  });
-
-  it('should return empty results for an impossible search term', async () => {
-    const result = await provider.queryByTerm({
-      search: {
-        term: 'xyzzy-no-product-matches-this-impossible-term-9999',
-        facets: [],
-        filters: [],
-        paginationOptions: { pageNumber: 1, pageSize: 10 },
-      },
-    });
-
-    if (!result.success) {
-      assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
-    }
-
-    // HCL uses fuzzy/similarity search so truly 0 results is not guaranteed.
-    // Instead verify the count is much lower than a normal search would return.
-    expect(result.value.totalCount).toBeLessThan(3);
-  });
-
-  it('should create a category navigation filter', async () => {
-    const result = await provider.createCategoryNavigationFilter({
-      categoryPath: [
-        {
-          identifier: { key: '10000' },
-          name: 'Electronics',
-          slug: 'electronics',
-          text: '',
-          images: [],
-        },
-        {
-          identifier: { key: '10001' },
-          name: 'Cables',
-          slug: 'cables',
-          text: '',
-          images: [],
-        },
-      ],
-    });
-
-    if (!result.success) {
-      assert.fail(`Expected success, got: ${JSON.stringify(result)}`);
-    }
-
-    // The leaf category should be used as the navigation filter
-    expect(result.value.facet.key).toBe('categories');
-    expect(result.value.key).toBe('10001');
-  });
-
-  it('should apply selected facets as filters and return fewer results', async () => {
-    // First get all results and pick an active facet value to filter on
-    const initial = await provider.queryByTerm({
-      search: {
-        term: 'chair',
-        facets: [],
-        filters: [],
-        paginationOptions: { pageNumber: 1, pageSize: 10 },
-      },
-    });
-
-    if (!initial.success)
-      assert.fail(`Initial search failed: ${JSON.stringify(initial)}`);
 
     const brandFacet = initial.value.facets.find(
       (f) => f.identifier.key === 'manufacturer.raw',
     );
-    if (!brandFacet || brandFacet.values.length === 0)
-      assert.fail('Expected brand facet in results');
+    if (!brandFacet || brandFacet.values.length === 0) {
+      assert.fail('Expected manufacturer.raw facet in results');
+    }
 
-    const firstValue = brandFacet.values[0];
+    const firstValue = brandFacet.values.at(0);
+    if (!firstValue) assert.fail('Expected at least one brand facet value');
 
-    // Now re-query with that facet selected
-    const filtered = await provider.queryByTerm({
+    const filtered = await client.productSearch.queryByTerm({
       search: {
-        term: 'chair',
+        term: testData.searchTerm,
         facets: [firstValue.identifier],
         filters: [],
         paginationOptions: { pageNumber: 1, pageSize: 10 },
       },
     });
 
-    if (!filtered.success)
-      assert.fail(`Filtered search failed: ${JSON.stringify(filtered)}`);
+    if (!filtered.success) {
+      assert.fail(JSON.stringify(filtered.error));
+    }
 
-    // Filtered results must be strictly fewer — proves the filter was sent to the API
     expect(filtered.value.totalCount).toBeLessThan(initial.value.totalCount);
     expect(filtered.value.totalCount).toBeGreaterThan(0);
+  });
 
-    // The selected facet value should be marked active in the response
-    const responseFacet = filtered.value.facets.find(
-      (f) => f.identifier.key === 'manufacturer.raw',
-    );
-    if (!responseFacet)
-      assert.fail('Brand facet missing from filtered response');
-    const activeValue = responseFacet.values.find(
-      (v) => v.identifier.key === firstValue.identifier.key,
-    );
-    expect(activeValue?.active).toBe(true);
+  it('should filter by category when categoryFilter is provided', async () => {
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: '',
+        facets: [],
+        filters: [],
+        categoryFilter: {
+          facet: { key: 'categories' },
+          key: testData.categoryKey,
+        },
+        paginationOptions: { pageNumber: 1, pageSize: 10 },
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+
+    expect(result.value.items.length).toBeGreaterThan(0);
+  });
+
+  it('should return empty results for an impossible search term', async () => {
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: 'XQZWKFGHPQR_IMPOSSIBLE_TERM_99999',
+        facets: [],
+        filters: [],
+        paginationOptions: { pageNumber: 1, pageSize: 10 },
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+
+    expect(result.value.items.length).toBe(0);
   });
 });

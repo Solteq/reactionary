@@ -37,7 +37,7 @@ export class HclCategoryFactory<
     _context: RequestContext,
     data: HclCategoryResponse,
   ): z.output<TCategorySchema> {
-    const identifier = { key: data.uniqueID } satisfies CategoryIdentifier;
+    const identifier = { key: data.identifier } satisfies CategoryIdentifier;
 
     // Derive a slug: prefer the last path segment from the SEO href, fall back to identifier field.
     // seo.href is like "/Electronics/c/electronics" — we want "electronics".
