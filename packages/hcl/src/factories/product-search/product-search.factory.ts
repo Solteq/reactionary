@@ -16,7 +16,7 @@ import type { ProductSearchResultSchema } from '@reactionary/core';
 import type {
   HclFacet,
   HclProductQueryResponse,
-  HclProductResponse,
+  HclProductSearchItem,
 } from '../../schema/hcl.schema.js';
 
 export class HclProductSearchFactory<
@@ -60,26 +60,16 @@ export class HclProductSearchFactory<
     return this.productSearchResultSchema.parse(result);
   }
 
-  private parseSearchItem(p: HclProductResponse): ProductSearchResultItem {
+  private parseSearchItem(p: HclProductSearchItem): ProductSearchResultItem {
     const slug =
       p.seo?.href?.split('/').filter(Boolean).pop() ??
       p.seo?.tokenValue ??
       p.partNumber;
-    const variants: ProductSearchResultItemVariant[] = (p.items ?? []).map(
-      (sku) => ({
-        variant: { sku: sku.partNumber },
-        image: {
-          sourceUrl: sku.fullImage || sku.thumbnail || p.fullImage || '',
-          altText: sku.name || p.name,
-          width: 0,
-          height: 0,
-        },
-      }),
-    );
 
-    // If no SKUs, treat the product itself as the single variant
-    if (variants.length === 0) {
-      variants.push({
+    // Search profile responses don't include nested items[]/SKUs — represent
+    // the product itself as the single purchasable variant.
+    const variants: ProductSearchResultItemVariant[] = [
+      {
         variant: { sku: p.partNumber },
         image: {
           sourceUrl: p.fullImage || p.thumbnail || '',
@@ -87,8 +77,8 @@ export class HclProductSearchFactory<
           width: 0,
           height: 0,
         },
-      });
-    }
+      },
+    ];
 
     return {
       identifier: { key: p.partNumber },
