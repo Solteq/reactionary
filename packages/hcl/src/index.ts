@@ -12,3 +12,4 @@ export * from './capabilities/category.capability.js';
 export * from './capabilities/product-search.capability.js';
 export * from './capabilities/price.capability.js';
 export * from './capabilities/inventory.capability.js';
+export * from './capabilities/identity.capability.js';

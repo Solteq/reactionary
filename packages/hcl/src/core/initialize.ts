@@ -1,6 +1,8 @@
 import type { Cache, RequestContext } from '@reactionary/core';
 import {
   CategoryPaginatedResultSchema,
+  CategorySchema,
+  IdentitySchema,
   ProductSchema,
 } from '@reactionary/core';
 import { HclCategorySchema } from '../schema/category.schema.js';
@@ -21,6 +23,7 @@ import { HclClient } from './client.js';
 import { HclTransactionClient } from './transaction-client.js';
 import {
   HclCategoryFactory,
+  HclIdentityFactory,
   HclInventoryFactory,
   HclPriceFactory,
   HclProductFactory,
@@ -31,7 +34,12 @@ import { HclCategoryCapability } from '../capabilities/category.capability.js';
 import { HclProductSearchCapability } from '../capabilities/product-search.capability.js';
 import { HclPriceCapability } from '../capabilities/price.capability.js';
 import { HclInventoryCapability } from '../capabilities/inventory.capability.js';
-import { InventorySchema, PriceSchema, ProductSearchResultSchema } from '@reactionary/core';
+import { HclIdentityCapability } from '../capabilities/identity.capability.js';
+import {
+  InventorySchema,
+  PriceSchema,
+  ProductSearchResultSchema,
+} from '@reactionary/core';
 
 export function withHclCapabilities<T extends HclCapabilities>(
   configuration: HclConfiguration,
@@ -158,6 +166,27 @@ export function withHclCapabilities<T extends HclCapabilities>(
             args: HclCapabilityFactoryArgs & { factory: HclInventoryFactory },
           ) =>
             new HclInventoryCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclTransactionClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.identity?.enabled) {
+      client.identity = resolveCapabilityWithFactory(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        capabilities.identity as any,
+        {
+          factory: new HclIdentityFactory(IdentitySchema),
+          capability: (
+            args: HclCapabilityFactoryArgs & { factory: HclIdentityFactory },
+          ) =>
+            new HclIdentityCapability(
               args.cache,
               args.context,
               args.config,

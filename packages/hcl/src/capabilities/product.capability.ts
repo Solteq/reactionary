@@ -20,6 +20,7 @@ import {
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
+import { getWcsAuthFromContext } from '../core/transaction-client.js';
 import type { HclProductFactory } from '../factories/product/product.factory.js';
 import type { HclProductResponse } from '../schema/hcl.schema.js';
 import { getLocaleParams } from '../core/locale-params.js';
@@ -49,12 +50,15 @@ export class HclProductCapability<
     payload: ProductQueryById,
   ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
     const { langId, currency } = getLocaleParams(this.config, this.context);
-    const response = await this.client.findProducts({
-      partNumber: [payload.identifier.key],
-      profileName: this.config.profiles.product,
-      langId,
-      currency,
-    });
+    const response = await this.client.findProducts(
+      {
+        partNumber: [payload.identifier.key],
+        profileName: this.config.profiles.product,
+        langId,
+        currency,
+      },
+      getWcsAuthFromContext(this.context),
+    );
 
     const products = response.contents ?? response.catalogEntryView ?? [];
     const data = products[0];
@@ -87,7 +91,11 @@ export class HclProductCapability<
     const { langId, currency } = getLocaleParams(this.config, this.context);
     // Resolve the URL slug to a partNumber via the HCL URL token API.
     // tokenExternalValue holds the partNumber for ProductToken entries.
-    const token = await this.client.resolveSlug(payload.slug, langId);
+    const token = await this.client.resolveSlug(
+      payload.slug,
+      getWcsAuthFromContext(this.context),
+      langId,
+    );
 
     if (
       !token ||
@@ -100,12 +108,15 @@ export class HclProductCapability<
       });
     }
 
-    const response = await this.client.findProducts({
-      partNumber: [token.tokenExternalValue],
-      profileName: this.config.profiles.product,
-      langId,
-      currency,
-    });
+    const response = await this.client.findProducts(
+      {
+        partNumber: [token.tokenExternalValue],
+        profileName: this.config.profiles.product,
+        langId,
+        currency,
+      },
+      getWcsAuthFromContext(this.context),
+    );
 
     const products = response.contents ?? response.catalogEntryView ?? [];
     const data = products[0];
@@ -136,12 +147,15 @@ export class HclProductCapability<
     payload: ProductQueryBySKU,
   ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
     const { langId, currency } = getLocaleParams(this.config, this.context);
-    const response = await this.client.findProducts({
-      partNumber: [payload.variant.sku],
-      profileName: this.config.profiles.product,
-      langId,
-      currency,
-    });
+    const response = await this.client.findProducts(
+      {
+        partNumber: [payload.variant.sku],
+        profileName: this.config.profiles.product,
+        langId,
+        currency,
+      },
+      getWcsAuthFromContext(this.context),
+    );
 
     const products = response.contents ?? response.catalogEntryView ?? [];
     const data = products[0];

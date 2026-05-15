@@ -16,6 +16,7 @@ import {
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclTransactionClient } from '../core/transaction-client.js';
+import { getWcsAuthFromContext } from '../core/transaction-client.js';
 import type { HclInventoryFactory } from '../factories/inventory/inventory.factory.js';
 
 export class HclInventoryCapability<
@@ -47,6 +48,7 @@ export class HclInventoryCapability<
     const response = await this.transactionClient.getInventoryByPartNumber(
       [sku],
       physicalStoreName,
+      getWcsAuthFromContext(this.context),
     );
 
     const items = response.InventoryAvailability ?? [];

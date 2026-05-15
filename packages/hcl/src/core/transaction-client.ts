@@ -1,14 +1,40 @@
+import type { RequestContext } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type {
   HclDisplayPriceResponse,
   HclEntitledPriceResponse,
   HclInventoryAvailabilityResponse,
+  HclPersonResponse,
+  HclWcsIdentityResponse,
 } from '../schema/hcl.schema.js';
 
 /** Optional WCS session authentication headers. */
 export interface HclWcsAuthHeaders {
   WCToken?: string;
   WCTrustedToken?: string;
+  /**
+   * Personalization tracking ID returned by guestidentity / loginidentity.
+   * Forwarded as the `WCPersonalization` header for personalized responses.
+   * Optional — omit for anonymous requests or when not available.
+   */
+  WCPersonalization?: string;
+}
+
+/**
+ * Read the WCS session tokens stored by HclIdentityCapability from
+ * the request context and return them as auth headers.
+ * Returns an empty object (no tokens) for anonymous sessions.
+ */
+export function getWcsAuthFromContext(
+  context: RequestContext,
+): HclWcsAuthHeaders {
+  return {
+    WCToken: context.session['hcl.WCToken'] as string | undefined,
+    WCTrustedToken: context.session['hcl.WCTrustedToken'] as string | undefined,
+    WCPersonalization: context.session['hcl.personalizationID'] as
+      | string
+      | undefined,
+  };
 }
 
 /**
@@ -129,10 +155,139 @@ export class HclTransactionClient {
     return response.json() as Promise<HclInventoryAvailabilityResponse>;
   }
 
+  /**
+   * Create an anonymous guest session.
+   * Calls POST /wcs/resources/store/{storeId}/guestidentity
+   * Returns WCToken/WCTrustedToken/userId that can be stored in the session.
+   */
+  async createGuestIdentity(): Promise<HclWcsIdentityResponse> {
+    const url = `${this.storeBaseUrl}/guestidentity`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { ...this.buildHeaders(), 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `HCL guestidentity error ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return response.json() as Promise<HclWcsIdentityResponse>;
+  }
+
+  /**
+   * Login with username/password credentials.
+   * Calls POST /wcs/resources/store/{storeId}/loginidentity
+   * Returns WCToken/WCTrustedToken/userId.
+   */
+  async loginIdentity(
+    logonId: string,
+    logonPassword: string,
+  ): Promise<HclWcsIdentityResponse> {
+    const url = `${this.storeBaseUrl}/loginidentity`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { ...this.buildHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ logonId, logonPassword }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `HCL loginidentity error ${response.status} ${response.statusText}: ${body}`,
+      );
+    }
+
+    return response.json() as Promise<HclWcsIdentityResponse>;
+  }
+
+  /**
+   * Logout the current session.
+   * Calls DELETE /wcs/resources/store/{storeId}/loginidentity/{userId}
+   * Best-effort — does not throw on 404 (some demo servers omit this endpoint).
+   */
+  async deleteLoginIdentity(
+    userId: string,
+    auth: HclWcsAuthHeaders,
+  ): Promise<void> {
+    const url = `${this.storeBaseUrl}/loginidentity/${encodeURIComponent(userId)}`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.buildHeaders(auth),
+    });
+
+    // 404 means the endpoint is not supported on this server; silently ignore.
+    if (!response.ok && response.status !== 404) {
+      throw new Error(
+        `HCL logout error ${response.status} ${response.statusText}`,
+      );
+    }
+  }
+
+  /**
+   * Register a new person (customer account).
+   * Calls PUT /wcs/resources/store/{storeId}/person/@self
+   * Requires an active guest session (auth headers).
+   * Returns new WCToken/WCTrustedToken/userId for the registered session.
+   */
+  async registerPerson(
+    logonId: string,
+    logonPassword: string,
+    auth: HclWcsAuthHeaders,
+  ): Promise<HclWcsIdentityResponse> {
+    const url = `${this.storeBaseUrl}/person/@self`;
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        ...this.buildHeaders(auth),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        logonId,
+        logonPassword,
+        logonPasswordVerify: logonPassword,
+        registerType: 'G',
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `HCL register error ${response.status} ${response.statusText}: ${body}`,
+      );
+    }
+
+    return response.json() as Promise<HclWcsIdentityResponse>;
+  }
+
+  /**
+   * Fetch the currently authenticated user's person record.
+   * Calls GET /wcs/resources/store/{storeId}/person/@self
+   */
+  async getSelfPerson(auth: HclWcsAuthHeaders): Promise<HclPersonResponse> {
+    const url = `${this.storeBaseUrl}/person/@self`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.buildHeaders(auth),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `HCL person/@self error ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return response.json() as Promise<HclPersonResponse>;
+  }
+
   private buildHeaders(auth?: HclWcsAuthHeaders): Record<string, string> {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (auth?.WCToken) headers['WCToken'] = auth.WCToken;
     if (auth?.WCTrustedToken) headers['WCTrustedToken'] = auth.WCTrustedToken;
+    if (auth?.WCPersonalization)
+      headers['WCPersonalization'] = auth.WCPersonalization;
     return headers;
   }
 }

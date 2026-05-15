@@ -18,6 +18,7 @@ import {
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
+import { getWcsAuthFromContext } from '../core/transaction-client.js';
 import type { HclProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { getLocaleParams } from '../core/locale-params.js';
 import type { HclCategory } from '../schema/category.schema.js';
@@ -68,6 +69,7 @@ export class HclProductSearchCapability<
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
     const response = await this.client.findProducts(
       this.queryByTermPayload(payload),
+      getWcsAuthFromContext(this.context),
     );
 
     const value = this.factory.parseSearchResult(

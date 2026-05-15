@@ -7,6 +7,7 @@ import type {
   HclUrlQueryResponse,
   HclUrlResponse,
 } from '../schema/hcl.schema.js';
+import type { HclWcsAuthHeaders } from './transaction-client.js';
 
 export class HclClient {
   private readonly baseUrl: string;
@@ -17,6 +18,7 @@ export class HclClient {
 
   async findProducts(
     query: HclFindProductsQuery,
+    auth?: HclWcsAuthHeaders,
   ): Promise<HclProductQueryResponse> {
     const params = new URLSearchParams();
 
@@ -53,7 +55,7 @@ export class HclClient {
 
     const response = await fetch(url, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: this.buildHeaders(auth),
     });
 
     if (!response.ok) {
@@ -72,6 +74,7 @@ export class HclClient {
    */
   async resolveSlug(
     slug: string,
+    auth?: HclWcsAuthHeaders,
     langId?: string,
   ): Promise<HclUrlResponse | undefined> {
     const params = new URLSearchParams();
@@ -83,7 +86,7 @@ export class HclClient {
 
     const response = await fetch(url, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: this.buildHeaders(auth),
     });
 
     if (response.status === 404) return undefined;
@@ -104,6 +107,7 @@ export class HclClient {
    */
   async findCategories(
     query: HclFindCategoriesQuery,
+    auth?: HclWcsAuthHeaders,
   ): Promise<HclCategoryQueryResponse> {
     const params = new URLSearchParams();
 
@@ -130,7 +134,7 @@ export class HclClient {
 
     const response = await fetch(url, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: this.buildHeaders(auth),
     });
 
     if (!response.ok) {
@@ -140,5 +144,12 @@ export class HclClient {
     }
 
     return response.json() as Promise<HclCategoryQueryResponse>;
+  }
+
+  private buildHeaders(auth?: HclWcsAuthHeaders): Record<string, string> {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (auth?.WCToken) headers['WCToken'] = auth.WCToken;
+    if (auth?.WCTrustedToken) headers['WCTrustedToken'] = auth.WCTrustedToken;
+    return headers;
   }
 }

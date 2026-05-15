@@ -27,6 +27,7 @@ import {
 import * as z from 'zod';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
+import { getWcsAuthFromContext } from '../core/transaction-client.js';
 import type { HclCategoryFactory } from '../factories/category/category.factory.js';
 import { getLocaleParams } from '../core/locale-params.js';
 
@@ -54,10 +55,13 @@ export class HclCategoryCapability<
     payload: CategoryQueryById,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
     const { langId } = getLocaleParams(this.config, this.context);
-    const response = await this.client.findCategories({
-      identifier: [payload.id.key],
-      langId,
-    });
+    const response = await this.client.findCategories(
+      {
+        identifier: [payload.id.key],
+        langId,
+      },
+      getWcsAuthFromContext(this.context),
+    );
 
     const data = response.contents?.[0];
     if (!data) {
@@ -75,8 +79,12 @@ export class HclCategoryCapability<
     payload: CategoryQueryBySlug,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
     const { langId } = getLocaleParams(this.config, this.context);
-    // Use the URL token API to resolve the slug to a category identifier.
-    const token = await this.client.resolveSlug(payload.slug, langId);
+    // Use the URL token API to resolve the slug to a category uniqueID.
+    const token = await this.client.resolveSlug(
+      payload.slug,
+      getWcsAuthFromContext(this.context),
+      langId,
+    );
 
     if (
       !token ||
@@ -89,12 +97,15 @@ export class HclCategoryCapability<
       });
     }
 
-    const response = await this.client.findCategories({
-      // tokenExternalValue is the external identifier (e.g. "LivingRoom").
-      // Use identifier= param so the key returned by the factory is consistent.
-      identifier: [token.tokenExternalValue],
-      langId,
-    });
+    const response = await this.client.findCategories(
+      {
+        // tokenValue is the numeric uniqueID; tokenExternalValue is the string identifier
+        // which the categories API rejects with 400 when used as an id= parameter.
+        id: [token.tokenValue],
+        langId,
+      },
+      getWcsAuthFromContext(this.context),
+    );
 
     const data = response.contents?.[0];
     if (!data) {
@@ -117,10 +128,13 @@ export class HclCategoryCapability<
     const { langId } = getLocaleParams(this.config, this.context);
 
     // Fetch the leaf category by external identifier.
-    const leafResponse = await this.client.findCategories({
-      identifier: [payload.id.key],
-      langId,
-    });
+    const leafResponse = await this.client.findCategories(
+      {
+        identifier: [payload.id.key],
+        langId,
+      },
+      getWcsAuthFromContext(this.context),
+    );
 
     const leafData = leafResponse.contents?.[0];
     if (!leafData) {
@@ -142,7 +156,10 @@ export class HclCategoryCapability<
     // Fetch all ancestors in a single request — the id param accepts multiple values.
     const ancestorsResp =
       ancestorIds.length > 0
-        ? await this.client.findCategories({ id: ancestorIds, langId })
+        ? await this.client.findCategories(
+            { id: ancestorIds, langId },
+            getWcsAuthFromContext(this.context),
+          )
         : { contents: [] };
 
     // Re-order results to match the original root-first order from pathSegments,
@@ -170,15 +187,18 @@ export class HclCategoryCapability<
   })
   public override async findChildCategories(
     payload: CategoryQueryForChildCategories,
-  ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>>> {
+  ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>, NotFoundError>> {
     const { langId } = getLocaleParams(this.config, this.context);
 
     // Resolve the external identifier to an internal uniqueID.
     // HCL's parentCategoryId parameter requires the internal uniqueID.
-    const parentResp = await this.client.findCategories({
-      identifier: [payload.parentId.key],
-      langId,
-    });
+    const parentResp = await this.client.findCategories(
+      {
+        identifier: [payload.parentId.key],
+        langId,
+      },
+      getWcsAuthFromContext(this.context),
+    );
     const parentUniqueId = parentResp.contents?.[0]?.uniqueID;
 
     if (!parentUniqueId) {
@@ -188,11 +208,14 @@ export class HclCategoryCapability<
       });
     }
 
-    const response = await this.client.findCategories({
-      parentCategoryId: parentUniqueId,
-      depthAndLimit: '1,0',
-      langId,
-    });
+    const response = await this.client.findCategories(
+      {
+        parentCategoryId: parentUniqueId,
+        depthAndLimit: '1,0',
+        langId,
+      },
+      getWcsAuthFromContext(this.context),
+    );
 
     const items = response.contents ?? [];
     const paginated = this.factory.parseCategoryPaginatedResult(
@@ -213,10 +236,13 @@ export class HclCategoryCapability<
   ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>>> {
     const { langId } = getLocaleParams(this.config, this.context);
     // Fetching without a parentCategoryId returns root-level categories.
-    const response = await this.client.findCategories({
-      depthAndLimit: '1,0',
-      langId,
-    });
+    const response = await this.client.findCategories(
+      {
+        depthAndLimit: '1,0',
+        langId,
+      },
+      getWcsAuthFromContext(this.context),
+    );
 
     const items = response.contents ?? [];
     const paginated = this.factory.parseCategoryPaginatedResult(

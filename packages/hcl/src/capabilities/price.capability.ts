@@ -16,6 +16,7 @@ import {
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclTransactionClient } from '../core/transaction-client.js';
+import { getWcsAuthFromContext } from '../core/transaction-client.js';
 import type { HclPriceFactory } from '../factories/price/price.factory.js';
 
 export class HclPriceCapability<
@@ -61,15 +62,20 @@ export class HclPriceCapability<
   ): Promise<Result<PriceFactoryOutput<TFactory>>> {
     // When a priceRuleId is known (B2B customer price), use /display_price which
     // supports rule-based pricing. Fall back to /price for anonymous list prices.
+    const auth = getWcsAuthFromContext(this.context);
     const rawItem = priceRuleId
       ? await this.transactionClient
-          .getDisplayPrice([sku], {
-            priceRuleId,
-            currency: this.config.currency,
-          })
+          .getDisplayPrice(
+            [sku],
+            {
+              priceRuleId,
+              currency: this.config.currency,
+            },
+            auth,
+          )
           .then((r) => r.resultList?.find((i) => i.partNumber === sku))
       : await this.transactionClient
-          .getEntitledPrice([sku], { currency: this.config.currency })
+          .getEntitledPrice([sku], { currency: this.config.currency }, auth)
           .then((r) => r.EntitledPrice?.find((i) => i.partNumber === sku));
 
     if (!rawItem) {

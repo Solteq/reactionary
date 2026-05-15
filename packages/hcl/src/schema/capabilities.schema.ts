@@ -10,6 +10,9 @@ import type {
   CheckoutFactory,
   CheckoutFactoryWithOutput,
   CheckoutCapability,
+  IdentityFactory,
+  IdentityFactoryWithOutput,
+  IdentityCapability,
   InventoryFactory,
   InventoryFactoryWithOutput,
   InventoryCapability,
@@ -42,6 +45,7 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
   product: true,
   price: true,
   inventory: true,
+  identity: true,
   productSearch: true,
 })
   .extend({
@@ -51,6 +55,7 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
     product: OverridableCapabilitySchema.optional(),
     price: OverridableCapabilitySchema.optional(),
     inventory: OverridableCapabilitySchema.optional(),
+    identity: OverridableCapabilitySchema.optional(),
     productSearch: OverridableCapabilitySchema.optional(),
   })
   .partial();
@@ -109,4 +114,9 @@ export type HclProductCapabilityConfig = HclCapabilityConfig<
 export type HclProductSearchCapabilityConfig = HclCapabilityConfig<
   ProductSearchFactoryWithOutput<ProductSearchFactory>,
   ProductSearchCapability
+>;
+
+export type HclIdentityCapabilityConfig = HclCapabilityConfig<
+  IdentityFactoryWithOutput<IdentityFactory>,
+  IdentityCapability
 >;

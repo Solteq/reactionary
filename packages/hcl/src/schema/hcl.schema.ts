@@ -424,3 +424,40 @@ export interface HclFindProductsQuery {
    */
   facets?: string[];
 }
+
+// ---------------------------------------------------------------------------
+// WCS Transaction Service — Identity / Session types
+// ---------------------------------------------------------------------------
+
+/**
+ * Response from POST /wcs/resources/store/{storeId}/guestidentity
+ * and POST /wcs/resources/store/{storeId}/loginidentity.
+ */
+export interface HclWcsIdentityResponse {
+  /** Opaque session token — must be forwarded as `WCToken` header on subsequent requests. */
+  WCToken: string;
+  /** Trusted token — must be forwarded as `WCTrustedToken` header. */
+  WCTrustedToken: string;
+  /** Numeric user ID string assigned by WCS. */
+  userId: string;
+  /** Personalization tracking ID. */
+  personalizationID?: string;
+  resourceName?: string;
+}
+
+/**
+ * Response from GET /wcs/resources/store/{storeId}/person/@self.
+ * Only the fields we use are typed; the full WCS schema has many more.
+ */
+export interface HclPersonResponse {
+  /** Numeric user ID string. */
+  userId: string;
+  /** Customer's email / logon ID. Only populated for registered users. */
+  logonId?: string;
+  email1?: string;
+  firstName?: string;
+  lastName?: string;
+  resourceName?: string;
+  /** Organization ID. `-2000` indicates the default anonymous org. */
+  orgizationId?: string;
+}
