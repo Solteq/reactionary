@@ -56,3 +56,5 @@ vitest.config.*.timestamp*
 
 # Generated docs
 .docusaurus/
+*.local.md
+notes/

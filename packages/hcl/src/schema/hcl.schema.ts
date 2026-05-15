@@ -66,6 +66,10 @@ export interface HclImage {
   sequence: string;
   fullImage: string;
   thumbnail: string;
+  /** Raw (pre-CDN-transform) full image path. Present in standard HCL_V2 detail profiles. */
+  fullImageRaw?: string;
+  /** Raw (pre-CDN-transform) thumbnail path. Present in standard HCL_V2 detail profiles. */
+  thumbnailRaw?: string;
 }
 
 /**
@@ -81,9 +85,16 @@ export interface HclProductSearchItem {
   partNumber: string;
   name: string;
   shortDescription: string;
-  longDescription: string;
+  /** Absent in search profiles — only populated in detail profiles. */
+  longDescription?: string;
   thumbnail: string;
-  fullImage: string;
+  /** Raw (pre-CDN-transform) thumbnail path. Standard HCL_V2 field. */
+  thumbnailRaw?: string;
+  /**
+   * Full-size image URL. Absent in search profiles (HCL_V2_findProductsBySearchTerm*).
+   * Present in detail profiles (HCL_V2_findProductByPartNumber_Details).
+   */
+  fullImage?: string;
   /** 'product' | 'item' | 'variant' | 'package' | 'bundle' */
   type: string;
   catalogEntryTypeCode?: string;
@@ -91,15 +102,24 @@ export interface HclProductSearchItem {
   /** 'true' | 'false' */
   buyable: string;
   sellerId: string;
-  seller: string;
+  /** Absent in search profiles. */
+  seller?: string;
   manufacturer: string;
-  numberOfSKUs: number;
-  sequence: string;
+  /** Absent in search profiles. */
+  numberOfSKUs?: number;
+  /** Absent in search profiles. */
+  sequence?: string;
+  /** Internal HCL store ID. Standard HCL_V2 field. */
+  storeID?: string;
   seo?: HclSeo;
   parentCatalogGroupID: string | string[];
   parentCatalogEntryID?: string;
   price: HclPrice[];
-  attributes: HclProductAttribute[];
+  /**
+   * Descriptive/Defining attributes. Present in detail profiles and some
+   * search profiles (server-dependent). Always treat as optional.
+   */
+  attributes?: HclProductAttribute[];
   /** Aggregated variant pricing/grouping data — present only in search profile responses */
   groupingProperties?: HclGroupingProperties;
 }
@@ -124,6 +144,16 @@ export interface HclProductResponse extends HclProductSearchItem {
   merchandisingAssociations?: HclProductResponse[];
   attachments?: HclAttachment[];
   images?: HclImage[];
+  /**
+   * Raw (pre-CDN-transform) full image path. Standard HCL_V2 field in detail profiles.
+   * For SKU items, also present as a sibling of `fullImage`.
+   */
+  fullImageRaw?: string;
+  /**
+   * Link to parent category API endpoint. Standard HCL_V2 field on SKU-level items.
+   * e.g. `/search/resources/api/v2/categories?storeId=41&id=10507`
+   */
+  parent?: string;
 }
 
 export interface HclFacetEntry {
