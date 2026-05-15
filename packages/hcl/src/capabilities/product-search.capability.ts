@@ -19,6 +19,7 @@ import {
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
 import type { HclProductSearchFactory } from '../factories/product-search/product-search.factory.js';
+import { getLocaleParams } from '../core/locale-params.js';
 
 export class HclProductSearchCapability<
   TFactory extends ProductSearchFactory = HclProductSearchFactory,
@@ -33,13 +34,6 @@ export class HclProductSearchCapability<
     super(cache, context);
   }
 
-  private localeParams() {
-    return {
-      langId: this.config.localeMap[this.context.languageContext.locale],
-      currency: this.context.languageContext.currencyCode as string,
-    };
-  }
-
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
     outputSchema: ProductSearchResultSchema,
@@ -47,16 +41,28 @@ export class HclProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm,
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
-    const { term, paginationOptions, categoryFilter, facets, company } = payload.search;
+    const { term, paginationOptions, categoryFilter, facets, company } =
+      payload.search;
     const { pageNumber, pageSize } = paginationOptions;
-    const { langId, currency } = this.localeParams();
+    const { langId, currency } = getLocaleParams(this.config, this.context);
+
+    // HCL's categoryId parameter for product search requires the internal uniqueID,
+    // not the external identifier. Resolve it with a category lookup when filtering.
+    let categoryId: string | undefined;
+    if (categoryFilter?.key) {
+      const catResp = await this.client.findCategories({
+        identifier: [categoryFilter.key],
+        langId,
+      });
+      categoryId = catResp.contents?.[0]?.uniqueID;
+    }
 
     const response = await this.client.findProducts({
       searchTerm: term || undefined,
-      categoryId: categoryFilter?.key,
+      categoryId,
       limit: pageSize,
       offset: (pageNumber - 1) * pageSize,
-      profileName: categoryFilter?.key
+      profileName: categoryId
         ? this.config.profiles.categoryBrowse
         : this.config.profiles.productSearch,
       facets: facets.length > 0 ? facets.map((f) => f.key) : undefined,

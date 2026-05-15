@@ -99,13 +99,18 @@ export class HclCategoryFactory<
     data: HclCategoryResponse[],
     query: CategoryQueryForTopCategories | CategoryQueryForChildCategories,
   ): z.output<TCategoryPaginatedSchema> {
-    const items = data.map((c) => this.parseCategory(context, c));
+    const { pageNumber, pageSize } = query.paginationOptions;
+    const totalCount = data.length;
+    const totalPages = Math.ceil(totalCount / pageSize);
+    const offset = (pageNumber - 1) * pageSize;
+    const pageItems = data.slice(offset, offset + pageSize);
+    const items = pageItems.map((c) => this.parseCategory(context, c));
 
     const result = {
-      pageNumber: query.paginationOptions.pageNumber,
-      pageSize: query.paginationOptions.pageSize,
-      totalCount: data.length,
-      totalPages: Math.ceil(data.length / query.paginationOptions.pageSize),
+      pageNumber,
+      pageSize,
+      totalCount,
+      totalPages,
       items,
     } satisfies CategoryPaginatedResult;
 
