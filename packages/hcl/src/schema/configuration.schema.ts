@@ -49,17 +49,19 @@ export const HclConfigurationSchema = z.looseObject({
     .optional()
     .meta({ description: 'The HCL Commerce catalog identifier.' }),
   /**
-   * Path prefix for the HCL Commerce Query Service including API version.
-   * Switch between SOLR (/search/resources/api/v1) and
-   * Elasticsearch (/search/resources/api/v2) here.
+   * The search engine backend used by this HCL Commerce instance.
+   * - "elasticsearch" (default): HCL Commerce v2 API (/search/resources/api/v2), Elasticsearch-backed.
+   *    Response shape uses `contents[]` with standard field names.
+   * - "solr": HCL Commerce v1 API (/search/resources/api/v1), SOLR-backed.
+   *    Response shape differs (e.g. `catalogEntryView` instead of `contents`).
+   *    Only Elasticsearch is fully implemented; SOLR support is a future addition.
    */
-  searchApiPath: z
-    .string()
-    .default('/search/resources/api/v2')
+  searchEngine: z
+    .enum(['elasticsearch', 'solr'])
+    .default('elasticsearch')
     .meta({
       description:
-        'Base path for the HCL Commerce Query Service, including API version. ' +
-        'Use "/search/resources/api/v1" for SOLR or "/search/resources/api/v2" for Elasticsearch.',
+        'Search engine backend: "elasticsearch" (v2 API, default) or "solr" (v1 API).',
     }),
   /**
    * Maps BCP 47 locale strings (from RequestContext) to HCL Commerce langId values.

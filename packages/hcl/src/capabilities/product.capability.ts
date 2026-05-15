@@ -21,6 +21,7 @@ import {
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
 import type { HclProductFactory } from '../factories/product/product.factory.js';
+import { getLocaleParams } from '../core/locale-params.js';
 
 export class HclProductCapability<
   TFactory extends ProductFactory = HclProductFactory,
@@ -35,13 +36,6 @@ export class HclProductCapability<
     super(cache, context);
   }
 
-  private localeParams() {
-    return {
-      langId: this.config.localeMap[this.context.languageContext.locale],
-      currency: this.context.languageContext.currencyCode as string,
-    };
-  }
-
   @Reactionary({
     inputSchema: ProductQueryByIdSchema,
     outputSchema: ProductSchema,
@@ -53,7 +47,7 @@ export class HclProductCapability<
   public override async getById(
     payload: ProductQueryById,
   ): Promise<Result<ProductFactoryOutput<TFactory>>> {
-    const { langId, currency } = this.localeParams();
+    const { langId, currency } = getLocaleParams(this.config, this.context);
     const response = await this.client.findProducts({
       partNumber: [payload.identifier.key],
       profileName: this.config.profiles.product,
@@ -83,7 +77,7 @@ export class HclProductCapability<
   public override async getBySlug(
     payload: ProductQueryBySlug,
   ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
-    const { langId, currency } = this.localeParams();
+    const { langId, currency } = getLocaleParams(this.config, this.context);
     // Resolve the URL slug to a partNumber via the HCL URL token API.
     // tokenExternalValue holds the partNumber for ProductToken entries.
     const token = await this.client.resolveSlug(payload.slug, langId);
@@ -131,7 +125,7 @@ export class HclProductCapability<
   public override async getBySKU(
     payload: ProductQueryBySKU,
   ): Promise<Result<ProductFactoryOutput<TFactory>>> {
-    const { langId, currency } = this.localeParams();
+    const { langId, currency } = getLocaleParams(this.config, this.context);
     const response = await this.client.findProducts({
       partNumber: [payload.variant.sku],
       profileName: this.config.profiles.product,

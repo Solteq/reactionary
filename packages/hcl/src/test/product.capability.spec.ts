@@ -75,7 +75,7 @@ describe('HCL Product Capability', () => {
       assert.fail(JSON.stringify(response.error));
     }
 
-    expect(response.value.identifier.key).toBe(testData.product.id);
+    expect(response.value.identifier.key).toBe(testData.product.sku);
     expect(response.value.name).toBe(testData.product.name);
   });
 
@@ -103,17 +103,3 @@ describe('HCL Product Capability', () => {
     expect(response.error.type).toBe('NotFound');
   });
 });
-
-// Confirmed product on www-latestdevauth.demo.solteq.io store 41.
-// DR-CHRS-0001 ("Wooden Dining Chair") has Descriptive attributes and multiple SKUs.
-const testData = {
-  product: {
-    partNumber: 'DR-CHRS-0001',
-    slug: 'wooden-dining-chair-dr-chrs-0001',
-    sku: 'DR-CHRS-0001-0001',
-  },
-  productWithMultiVariants: {
-    partNumber: 'DR-CHRS-0001',
-    slug: 'wooden-dining-chair-dr-chrs-0001',
-  },
-};

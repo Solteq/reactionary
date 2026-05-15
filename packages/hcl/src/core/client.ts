@@ -11,13 +11,12 @@ import type {
 export class HclClient {
   private readonly baseUrl: string;
   constructor(private readonly config: HclConfiguration) {
-    // HCL Commerce splits endpoints across multiple roots, e.g.:
-    //   /search/resources  — query service (products, categories, urls)
-    //   /wcs/resources     — transaction service (cart, user, orders)
-    // Each API root has its own config property. This client calls the query service.
     const origin = config.apiUrl.replace(/\/+$/, '');
-    const searchApiPath = config.searchApiPath.replace(/\/+$/, '');
-    this.baseUrl = `${origin}${searchApiPath}`;
+    const apiPath =
+      config.searchEngine === 'solr'
+        ? '/search/resources/api/v1'
+        : '/search/resources/api/v2';
+    this.baseUrl = `${origin}${apiPath}`;
   }
 
   async findProducts(

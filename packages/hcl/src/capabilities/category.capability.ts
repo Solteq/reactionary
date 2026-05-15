@@ -29,6 +29,7 @@ import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
 import type { HclCategoryFactory } from '../factories/category/category.factory.js';
 import type { HclCategoryQueryResponse } from '../schema/hcl.schema.js';
+import { getLocaleParams } from '../core/locale-params.js';
 
 export class HclCategoryCapability<
   TFactory extends CategoryFactory = HclCategoryFactory,
@@ -46,12 +47,6 @@ export class HclCategoryCapability<
     super(cache, context);
   }
 
-  private localeParams() {
-    return {
-      langId: this.config.localeMap[this.context.languageContext.locale],
-    };
-  }
-
   @Reactionary({
     inputSchema: CategoryQueryByIdSchema,
     outputSchema: CategorySchema,
@@ -59,7 +54,7 @@ export class HclCategoryCapability<
   public override async getById(
     payload: CategoryQueryById,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
-    const { langId } = this.localeParams();
+    const { langId } = getLocaleParams(this.config, this.context);
     const response = await this.client.findCategories({
       identifier: [payload.id.key],
       langId,
@@ -80,7 +75,7 @@ export class HclCategoryCapability<
   public override async getBySlug(
     payload: CategoryQueryBySlug,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
-    const { langId } = this.localeParams();
+    const { langId } = getLocaleParams(this.config, this.context);
     // Use the URL token API to resolve the slug to a category identifier.
     const token = await this.client.resolveSlug(payload.slug, langId);
 
@@ -124,7 +119,7 @@ export class HclCategoryCapability<
     // First lookup uses the external identifier (payload.id.key).
     // Subsequent lookups use the internal uniqueID extracted from parentCatalogGroupID paths.
     const path: Array<CategoryFactoryCategoryOutput<TFactory>> = [];
-    const { langId } = this.localeParams();
+    const { langId } = getLocaleParams(this.config, this.context);
 
     let currentKey: string | undefined = payload.id.key;
     let useExternalIdentifier = true;
@@ -132,9 +127,15 @@ export class HclCategoryCapability<
     while (currentKey) {
       let response: HclCategoryQueryResponse;
       if (useExternalIdentifier) {
-        response = await this.client.findCategories({ identifier: [currentKey], langId });
+        response = await this.client.findCategories({
+          identifier: [currentKey],
+          langId,
+        });
       } else {
-        response = await this.client.findCategories({ id: [currentKey], langId });
+        response = await this.client.findCategories({
+          id: [currentKey],
+          langId,
+        });
       }
       useExternalIdentifier = false;
 
@@ -169,7 +170,7 @@ export class HclCategoryCapability<
   public override async findChildCategories(
     payload: CategoryQueryForChildCategories,
   ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>>> {
-    const { langId } = this.localeParams();
+    const { langId } = getLocaleParams(this.config, this.context);
 
     // Resolve the external identifier to an internal uniqueID.
     // HCL's parentCategoryId parameter requires the internal uniqueID.
@@ -209,7 +210,7 @@ export class HclCategoryCapability<
   public override async findTopCategories(
     payload: CategoryQueryForTopCategories,
   ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>>> {
-    const { langId } = this.localeParams();
+    const { langId } = getLocaleParams(this.config, this.context);
     // Fetching without a parentCategoryId returns root-level categories.
     const response = await this.client.findCategories({
       depthAndLimit: '1,0',
