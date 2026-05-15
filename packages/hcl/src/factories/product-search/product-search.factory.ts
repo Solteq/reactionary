@@ -60,7 +60,7 @@ export class HclProductSearchFactory<
     return this.productSearchResultSchema.parse(result);
   }
 
-  private parseSearchItem(p: HclProductSearchItem): ProductSearchResultItem {
+  protected parseSearchItem(p: HclProductSearchItem): ProductSearchResultItem {
     const slug =
       p.seo?.href?.split('/').filter(Boolean).pop() ??
       p.seo?.tokenValue ??
@@ -88,7 +88,7 @@ export class HclProductSearchFactory<
     } satisfies ProductSearchResultItem;
   }
 
-  private parseFacet(
+  protected parseFacet(
     f: HclFacet,
     query: ProductSearchQueryByTerm,
   ): ProductSearchResultFacet {
