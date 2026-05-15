@@ -210,12 +210,25 @@ export interface HclUrlResponse {
   tokenExternalValue: string;
   /** Internal HCL token value */
   tokenValue: string;
+  /** Internal token record ID */
+  id?: string;
+  /** Store ID for this token */
+  storeId?: string;
+  /** Token status code (1 = active) */
+  status?: number;
+  /** Locale string, e.g. 'en_US' */
+  language?: string;
+  /** Store type, e.g. 'CPS' */
+  'store.type'?: string;
   redirect?: string;
   page?: {
+    /** Page template name, e.g. 'PRODUCT_PAGE' or 'CATEGORY_PAGE' */
+    name?: string;
     type: string;
     title: string;
     metaDescription: string;
     metaKeyword: string;
+    imageAlternateDescription?: string;
     redirect?: string;
   };
 }
@@ -229,9 +242,20 @@ export interface HclUrlQueryResponse {
  * Reference: karkkainen-commerce-storefront/integration/data/core/types/Category.ts
  */
 export interface HclCategorySeo {
-  id: string;
+  /** Not present in actual API responses — kept optional for forward-compatibility */
+  id?: string;
   /** Full SEO URL path, e.g. "/Electronics/c/Electronics" */
   href: string;
+}
+
+/**
+ * Navigation links returned alongside each category entry.
+ * Note: `children` links are plain strings in format "href: <url>", not objects.
+ */
+export interface HclCategoryLinks {
+  parent?: { href: string };
+  children?: string[];
+  self?: { href: string };
 }
 
 /**
@@ -239,18 +263,24 @@ export interface HclCategorySeo {
  */
 export interface HclCategoryResponse {
   uniqueID: string;
+  /** Alias for uniqueID — both fields are returned by the API */
+  id?: string;
   /** Human-readable URL slug / identifier, e.g. "Electronics" */
   identifier: string;
   name: string;
-  shortDescription: string;
-  description: string;
-  thumbnail: string;
-  fullImage: string;
+  shortDescription?: string;
+  longDescription?: string;
+  description?: string;
+  thumbnail?: string;
+  fullImage?: string;
   sequence: string;
+  /** Internal HCL store ID. Standard HCL_V2 field. */
+  storeID?: string;
   seo: HclCategorySeo;
   /** Parent category uniqueID — may be a root marker value like "-1" or "0" */
   parentCatalogGroupID: string;
   children?: HclCategoryResponse[];
+  links?: HclCategoryLinks;
 }
 
 export interface HclCategoryQueryResponse {
