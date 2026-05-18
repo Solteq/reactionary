@@ -183,7 +183,7 @@ export class MedusaProductFactory<
     const parentCategories = [];
     parentCategories.push(
       ...(data.categories
-        ?.map((cat) => cat.metadata?.['external_id'])
+        ?.map((cat) => cat.external_id)
         .map((id) => CategoryIdentifierSchema.parse({ key: id || '' })) || []),
     );
     const sharedAttributes = this.parseAttributes(context, data);
