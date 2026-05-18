@@ -59,7 +59,7 @@ export class MeilisearchProductSearchCapability<
 
     const finalFacetFilters: string[] = [
       ...facetsThatAreNotCategory.map(
-        (x) => `${x.facet.key}="${x.key}"`
+        (x) => `"${x.facet.key}"="${x.key}"`
       ),
     ];
 
@@ -125,7 +125,6 @@ export class MeilisearchProductSearchCapability<
 
 
     const remote = await index.search<MeilisearchNativeRecord>(payload.search.term, this.queryByTermPayload(payload) as SearchParams);
-
     const result = this.parsePaginatedResult(remote, payload);
 
     // mark selected facets as active
@@ -195,7 +194,7 @@ export class MeilisearchProductSearchCapability<
         });
         const facet = this.parseFacet(facetId, f);
         if (facet.values.length > 0) {
-        facets.push(facet);
+          facets.push(facet);
         }
       }
     }
