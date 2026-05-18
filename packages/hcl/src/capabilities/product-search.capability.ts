@@ -20,6 +20,7 @@ import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
 import type { HclProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { getLocaleParams } from '../core/locale-params.js';
+import type { HclCategory } from '../schema/category.schema.js';
 
 export class HclProductSearchCapability<
   TFactory extends ProductSearchFactory = HclProductSearchFactory,
@@ -46,16 +47,7 @@ export class HclProductSearchCapability<
     const { pageNumber, pageSize } = paginationOptions;
     const { langId, currency } = getLocaleParams(this.config, this.context);
 
-    // HCL's categoryId parameter for product search requires the internal uniqueID,
-    // not the external identifier. Resolve it with a category lookup when filtering.
-    let categoryId: string | undefined;
-    if (categoryFilter?.key) {
-      const catResp = await this.client.findCategories({
-        identifier: [categoryFilter.key],
-        langId,
-      });
-      categoryId = catResp.contents?.[0]?.uniqueID;
-    }
+    const categoryId = categoryFilter?.key || undefined;
 
     const response = await this.client.findProducts({
       searchTerm: term || undefined,
@@ -86,11 +78,12 @@ export class HclProductSearchCapability<
   public override async createCategoryNavigationFilter(
     payload: ProductSearchQueryCreateNavigationFilter,
   ): Promise<Result<FacetValueIdentifier>> {
-    // Use the leaf (last) category in the breadcrumb path as the navigation filter.
-    const leaf = payload.categoryPath.at(-1);
+    // The HCL product search API (categoryId param) requires the internal uniqueID.
+    // HclCategoryFactory stores it as `uniqueId` so no extra API call is needed here.
+    const leaf = payload.categoryPath.at(-1) as HclCategory | undefined;
     const filter: FacetValueIdentifier = {
       facet: { key: 'categories' },
-      key: leaf?.identifier.key ?? '',
+      key: leaf?.uniqueId ?? leaf?.identifier.key ?? '',
     };
     return success(filter);
   }

@@ -49,21 +49,6 @@ export const HclConfigurationSchema = z.looseObject({
     .optional()
     .meta({ description: 'The HCL Commerce catalog identifier.' }),
   /**
-   * The search engine backend used by this HCL Commerce instance.
-   * - "elasticsearch" (default): HCL Commerce v2 API (/search/resources/api/v2), Elasticsearch-backed.
-   *    Response shape uses `contents[]` with standard field names.
-   * - "solr": HCL Commerce v1 API (/search/resources/api/v1), SOLR-backed.
-   *    Response shape differs (e.g. `catalogEntryView` instead of `contents`).
-   *    Only Elasticsearch is fully implemented; SOLR support is a future addition.
-   */
-  searchEngine: z
-    .enum(['elasticsearch', 'solr'])
-    .default('elasticsearch')
-    .meta({
-      description:
-        'Search engine backend: "elasticsearch" (v2 API, default) or "solr" (v1 API).',
-    }),
-  /**
    * Maps BCP 47 locale strings (from RequestContext) to HCL Commerce langId values.
    * HCL uses numeric language identifiers (e.g. -1 for English, -11 for Finnish).
    * Add an entry for each locale your store supports.

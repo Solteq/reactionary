@@ -12,10 +12,7 @@ export class HclClient {
   private readonly baseUrl: string;
   constructor(private readonly config: HclConfiguration) {
     const origin = config.apiUrl.replace(/\/+$/, '');
-    const apiPath =
-      config.searchEngine === 'solr'
-        ? '/search/resources/api/v1'
-        : '/search/resources/api/v2';
+    const apiPath = '/search/resources/api/v2';
     this.baseUrl = `${origin}${apiPath}`;
   }
 
@@ -74,7 +71,10 @@ export class HclClient {
    * Calls GET /api/v2/urls?storeId=X&identifier=<slug>
    * Returns undefined when the slug is not found (404).
    */
-  async resolveSlug(slug: string, langId?: string): Promise<HclUrlResponse | undefined> {
+  async resolveSlug(
+    slug: string,
+    langId?: string,
+  ): Promise<HclUrlResponse | undefined> {
     const params = new URLSearchParams();
     params.set('storeId', this.config.storeId);
     params.append('identifier', slug);
