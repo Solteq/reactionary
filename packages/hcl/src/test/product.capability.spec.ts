@@ -9,6 +9,8 @@ const testData = {
     name: 'Wooden Dining Chair',
     sku: 'DR-CHRS-0001-0001',
     slug: 'wooden-dining-chair-dr-chrs-0001',
+    // Expected resolved external category identifier (not a raw uniqueID or path string)
+    parentCategoryKey: 'DiningChairs',
   },
   productWithMultiVariants: {
     slug: 'wooden-dining-chair-dr-chrs-0001',
@@ -101,5 +103,52 @@ describe('HCL Product Capability', () => {
     }
 
     expect(response.error.type).toBe('NotFound');
+  });
+
+  it('should return an error of NotFound for unknown id', async () => {
+    const response = await client.product.getById({
+      identifier: { key: 'UNKNOWN-PRODUCT-XXXX' },
+    });
+
+    if (response.success) {
+      assert.fail();
+    }
+
+    expect(response.error.type).toBe('NotFound');
+  });
+
+  it('should return an error of NotFound for unknown sku', async () => {
+    const response = await client.product.getBySKU({
+      variant: { sku: 'UNKNOWN-SKU-XXXX' },
+    });
+
+    if (response.success) {
+      assert.fail();
+    }
+
+    expect(response.error.type).toBe('NotFound');
+  });
+
+  it('should resolve parentCategories to external identifiers, not internal uniqueIDs or path strings', async () => {
+    const response = await client.product.getById({
+      identifier: { key: testData.product.id },
+    });
+
+    if (!response.success) {
+      assert.fail(JSON.stringify(response.error));
+    }
+
+    expect(response.value.parentCategories.length).toBeGreaterThan(0);
+
+    for (const cat of response.value.parentCategories) {
+      // Must not be a path string like "/10505/10507"
+      expect(cat.key).not.toMatch(/^\//);
+      // Must not be a raw numeric uniqueID like "10507"
+      expect(cat.key).not.toMatch(/^\d+$/);
+    }
+
+    expect(response.value.parentCategories).toContainEqual(
+      expect.objectContaining({ key: testData.product.parentCategoryKey }),
+    );
   });
 });

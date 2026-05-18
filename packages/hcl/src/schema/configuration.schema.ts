@@ -5,13 +5,8 @@ import * as z from 'zod';
  * Service. The right profile depends on your server configuration and any
  * custom profiles deployed to the instance.
  *
- * HCL ships a set of built-in profiles (prefixed HCL_V2_*). Product detail
- * profiles are always instance-specific — set them via environment variables.
- *
- * Env vars:
- *   HCL_PROFILE_PRODUCT            — profile for getById / getBySlug / getBySKU
- *   HCL_PROFILE_PRODUCT_SEARCH     — profile for search by term (default: HCL_V2_findProductsBySearchTermWithPrice)
- *   HCL_PROFILE_CATEGORY_BROWSE    — profile for category browse / findChildCategories / findTopCategories
+ * HCL ships a set of built-in profiles (prefixed HCL_V2_*). Override the
+ * defaults here if your instance uses custom profiles.
  */
 const HclProfilesSchema = z
   .looseObject({

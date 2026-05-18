@@ -189,13 +189,19 @@ export class HclProductFactory<
       data.seo?.tokenValue ??
       data.partNumber;
 
-    const parentCategories = (
-      Array.isArray(data.parentCatalogGroupID)
-        ? data.parentCatalogGroupID
-        : data.parentCatalogGroupID
-          ? [data.parentCatalogGroupID]
-          : []
-    ).map((id) => CategoryIdentifierSchema.parse({ key: id }));
+    // parentCatalogGroupID entries may be path strings like "/10505/10507".
+    // The capability pre-resolves these to external identifiers, but we
+    // defensively extract the last path segment so raw data also produces
+    // a reasonable key rather than the full path string.
+    const rawIds = Array.isArray(data.parentCatalogGroupID)
+      ? data.parentCatalogGroupID
+      : data.parentCatalogGroupID
+        ? [data.parentCatalogGroupID]
+        : [];
+    const parentCategories = rawIds
+      .map((p) => p.split('/').filter(Boolean).at(-1) ?? p)
+      .filter(Boolean)
+      .map((id) => CategoryIdentifierSchema.parse({ key: id }));
 
     const sharedAttributes = parseSharedAttributes(data);
 
