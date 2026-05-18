@@ -21,6 +21,7 @@ import {
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
 import type { HclProductFactory } from '../factories/product/product.factory.js';
+import type { HclProductResponse } from '../schema/hcl.schema.js';
 import { getLocaleParams } from '../core/locale-params.js';
 
 export class HclProductCapability<
@@ -65,7 +66,10 @@ export class HclProductCapability<
       });
     }
 
-    const value = this.factory.parseProduct(this.context, data);
+    const value = this.factory.parseProduct(
+      this.context,
+      await this.withResolvedParentCategories(data, langId),
+    );
     return success(value);
   }
 
@@ -113,7 +117,10 @@ export class HclProductCapability<
       });
     }
 
-    const value = this.factory.parseProduct(this.context, data);
+    const value = this.factory.parseProduct(
+      this.context,
+      await this.withResolvedParentCategories(data, langId),
+    );
     return success(value);
   }
 
@@ -146,7 +153,46 @@ export class HclProductCapability<
       });
     }
 
-    const value = this.factory.parseProduct(this.context, data);
+    const value = this.factory.parseProduct(
+      this.context,
+      await this.withResolvedParentCategories(data, langId),
+    );
     return success(value);
+  }
+
+  /**
+   * Resolves `parentCatalogGroupID` path strings (e.g. "/10505/10507") to external
+   * category identifiers (e.g. "LivingRoomFurniture") so the factory receives
+   * human-readable keys rather than internal uniqueIDs.
+   */
+  protected async withResolvedParentCategories(
+    data: HclProductResponse,
+    langId: string,
+  ): Promise<HclProductResponse> {
+    const rawIds = Array.isArray(data.parentCatalogGroupID)
+      ? data.parentCatalogGroupID
+      : data.parentCatalogGroupID
+        ? [data.parentCatalogGroupID]
+        : [];
+
+    // Each entry is a path like "/10505/10507" — the last segment is the
+    // direct parent category uniqueID.
+    const uniqueIds = [
+      ...new Set(
+        rawIds
+          .map((p) => p.split('/').filter(Boolean).at(-1))
+          .filter((id): id is string => id !== undefined),
+      ),
+    ];
+
+    if (uniqueIds.length === 0) return data;
+
+    const catResp = await this.client.findCategories({ id: uniqueIds, langId });
+    const idToIdentifier = new Map(
+      (catResp.contents ?? []).map((c) => [c.uniqueID, c.identifier]),
+    );
+
+    const resolvedIds = uniqueIds.map((id) => idToIdentifier.get(id) ?? id);
+    return { ...data, parentCatalogGroupID: resolvedIds };
   }
 }
