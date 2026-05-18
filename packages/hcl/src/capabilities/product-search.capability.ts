@@ -79,11 +79,25 @@ export class HclProductSearchCapability<
     payload: ProductSearchQueryCreateNavigationFilter,
   ): Promise<Result<FacetValueIdentifier>> {
     // The HCL product search API (categoryId param) requires the internal uniqueID.
-    // HclCategoryFactory stores it as `uniqueId` so no extra API call is needed here.
+    // HclCategoryFactory stores it as `uniqueId` — use it directly when available.
+    // Fall back to a findCategories lookup when the category path came from a
+    // source that did not go through HclCategoryFactory (e.g. a custom factory).
     const leaf = payload.categoryPath.at(-1) as HclCategory | undefined;
+    const externalKey = leaf?.identifier.key ?? '';
+
+    let uniqueId = leaf?.uniqueId;
+    if (!uniqueId) {
+      const { langId } = getLocaleParams(this.config, this.context);
+      const catResp = await this.client.findCategories({
+        identifier: [externalKey],
+        langId,
+      });
+      uniqueId = catResp.contents?.[0]?.uniqueID ?? externalKey;
+    }
+
     const filter: FacetValueIdentifier = {
       facet: { key: 'categories' },
-      key: leaf?.uniqueId ?? leaf?.identifier.key ?? '',
+      key: uniqueId,
     };
     return success(filter);
   }
