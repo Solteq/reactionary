@@ -21,6 +21,7 @@ import type { HclClient } from '../core/client.js';
 import type { HclProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { getLocaleParams } from '../core/locale-params.js';
 import type { HclCategory } from '../schema/category.schema.js';
+import type { HclFindProductsQuery } from '../schema/hcl.schema.js';
 
 export class HclProductSearchCapability<
   TFactory extends ProductSearchFactory = HclProductSearchFactory,
@@ -35,21 +36,16 @@ export class HclProductSearchCapability<
     super(cache, context);
   }
 
-  @Reactionary({
-    inputSchema: ProductSearchQueryByTermSchema,
-    outputSchema: ProductSearchResultSchema,
-  })
-  public override async queryByTerm(
+  protected queryByTermPayload(
     payload: ProductSearchQueryByTerm,
-  ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
-    const { term, paginationOptions, categoryFilter, facets, company } =
-      payload.search;
+  ): HclFindProductsQuery {
+    const { term, paginationOptions, categoryFilter, facets } = payload.search;
     const { pageNumber, pageSize } = paginationOptions;
     const { langId, currency } = getLocaleParams(this.config, this.context);
 
     const categoryId = categoryFilter?.key || undefined;
 
-    const response = await this.client.findProducts({
+    return {
       searchTerm: term || undefined,
       categoryId,
       limit: pageSize,
@@ -58,10 +54,21 @@ export class HclProductSearchCapability<
         ? this.config.profiles.categoryBrowse
         : this.config.profiles.productSearch,
       facets: facets.length > 0 ? facets.map((f) => f.key) : undefined,
-      contractId: company?.taxIdentifier,
       langId,
       currency,
-    });
+    };
+  }
+
+  @Reactionary({
+    inputSchema: ProductSearchQueryByTermSchema,
+    outputSchema: ProductSearchResultSchema,
+  })
+  public override async queryByTerm(
+    payload: ProductSearchQueryByTerm,
+  ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
+    const response = await this.client.findProducts(
+      this.queryByTermPayload(payload),
+    );
 
     const value = this.factory.parseSearchResult(
       this.context,
