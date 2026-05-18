@@ -46,7 +46,7 @@ export class HclProductCapability<
   })
   public override async getById(
     payload: ProductQueryById,
-  ): Promise<Result<ProductFactoryOutput<TFactory>>> {
+  ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
     const { langId, currency } = getLocaleParams(this.config, this.context);
     const response = await this.client.findProducts({
       partNumber: [payload.identifier.key],
@@ -59,7 +59,10 @@ export class HclProductCapability<
     const data = products[0];
 
     if (!data) {
-      return success(this.createEmptyProduct(payload.identifier.key));
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.identifier,
+      });
     }
 
     const value = this.factory.parseProduct(this.context, data);
@@ -124,7 +127,7 @@ export class HclProductCapability<
   })
   public override async getBySKU(
     payload: ProductQueryBySKU,
-  ): Promise<Result<ProductFactoryOutput<TFactory>>> {
+  ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
     const { langId, currency } = getLocaleParams(this.config, this.context);
     const response = await this.client.findProducts({
       partNumber: [payload.variant.sku],
@@ -137,7 +140,10 @@ export class HclProductCapability<
     const data = products[0];
 
     if (!data) {
-      return success(this.createEmptyProduct(payload.variant.sku));
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.variant,
+      });
     }
 
     const value = this.factory.parseProduct(this.context, data);

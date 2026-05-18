@@ -28,7 +28,6 @@ import * as z from 'zod';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
 import type { HclCategoryFactory } from '../factories/category/category.factory.js';
-import type { HclCategoryQueryResponse } from '../schema/hcl.schema.js';
 import { getLocaleParams } from '../core/locale-params.js';
 
 export class HclCategoryCapability<
@@ -115,50 +114,52 @@ export class HclCategoryCapability<
   public override async getBreadcrumbPathToCategory(
     payload: CategoryQueryForBreadcrumb,
   ): Promise<Result<Array<CategoryFactoryCategoryOutput<TFactory>>>> {
-    // Walk up the parent chain by repeatedly resolving parentCatalogGroupID.
-    // First lookup uses the external identifier (payload.id.key).
-    // Subsequent lookups use the internal uniqueID extracted from parentCatalogGroupID paths.
-    const path: Array<CategoryFactoryCategoryOutput<TFactory>> = [];
     const { langId } = getLocaleParams(this.config, this.context);
 
-    let currentKey: string | undefined = payload.id.key;
-    let useExternalIdentifier = true;
+    // Fetch the leaf category by external identifier.
+    const leafResponse = await this.client.findCategories({
+      identifier: [payload.id.key],
+      langId,
+    });
 
-    while (currentKey) {
-      let response: HclCategoryQueryResponse;
-      if (useExternalIdentifier) {
-        response = await this.client.findCategories({
-          identifier: [currentKey],
-          langId,
-        });
-      } else {
-        response = await this.client.findCategories({
-          id: [currentKey],
-          langId,
-        });
-      }
-      useExternalIdentifier = false;
-
-      const data = response.contents?.[0];
-      if (!data) break;
-
-      path.unshift(this.factory.parseCategory(this.context, data));
-
-      const parentId = data.parentCatalogGroupID;
-      // parentCatalogGroupID is a path like "/10501/10503" ending with this category's own ID.
-      // Extract the direct parent as the second-to-last path segment (internal uniqueID).
-      const pathSegments = (
-        typeof parentId === 'string' ? parentId : (parentId?.[0] ?? '')
-      )
-        .split('/')
-        .filter(Boolean);
-      const directParentId =
-        pathSegments.length > 1
-          ? pathSegments[pathSegments.length - 2]
-          : undefined;
-      if (!directParentId) break;
-      currentKey = directParentId;
+    const leafData = leafResponse.contents?.[0];
+    if (!leafData) {
+      return success([]);
     }
+
+    // parentCatalogGroupID is a path like "/10501/10503/10504" where the last segment
+    // is this category's own uniqueID and all earlier segments are ancestor uniqueIDs
+    // in root-first order. Extract them to fetch all ancestors in parallel.
+    const parentId = leafData.parentCatalogGroupID;
+    const pathSegments = (
+      typeof parentId === 'string' ? parentId : (parentId?.[0] ?? '')
+    )
+      .split('/')
+      .filter(Boolean);
+    // All segments except the last are ancestor uniqueIDs (root-first order).
+    const ancestorIds = pathSegments.slice(0, -1);
+
+    // Fetch all ancestors in a single request — the id param accepts multiple values.
+    const ancestorsResp =
+      ancestorIds.length > 0
+        ? await this.client.findCategories({ id: ancestorIds, langId })
+        : { contents: [] };
+
+    // Re-order results to match the original root-first order from pathSegments,
+    // since the API does not guarantee response ordering when multiple ids are passed.
+    const byUniqueId = new Map(
+      (ancestorsResp.contents ?? []).map((c) => [c.uniqueID, c]),
+    );
+
+    // Build the breadcrumb: ancestors in root-first order, leaf at the end.
+    const path: Array<CategoryFactoryCategoryOutput<TFactory>> = [];
+    for (const id of ancestorIds) {
+      const data = byUniqueId.get(id);
+      if (data) {
+        path.push(this.factory.parseCategory(this.context, data));
+      }
+    }
+    path.push(this.factory.parseCategory(this.context, leafData));
 
     return success(path);
   }
