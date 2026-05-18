@@ -1,9 +1,9 @@
 import type { Cache, RequestContext } from '@reactionary/core';
 import {
   CategoryPaginatedResultSchema,
-  CategorySchema,
   ProductSchema,
 } from '@reactionary/core';
+import { HclCategorySchema } from '../schema/category.schema.js';
 import {
   HclCapabilitiesSchema,
   type HclCapabilities,
@@ -79,7 +79,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
         capabilities.category as any,
         {
           factory: new HclCategoryFactory(
-            CategorySchema,
+            HclCategorySchema,
             CategoryPaginatedResultSchema,
           ),
           capability: (

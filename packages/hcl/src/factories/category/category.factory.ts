@@ -3,7 +3,6 @@ import type {
   AnyCategorySchema,
   Category,
   CategoryFactory,
-  CategoryIdentifier,
   CategoryPaginatedResult,
   RequestContext,
   CategoryQueryForTopCategories,
@@ -11,13 +10,11 @@ import type {
 } from '@reactionary/core';
 import type * as z from 'zod';
 import type { HclCategoryResponse } from '../../schema/hcl.schema.js';
-import {
-  type CategorySchema,
-  type CategoryPaginatedResultSchema,
-} from '@reactionary/core';
+import { type CategoryPaginatedResultSchema } from '@reactionary/core';
+import type { HclCategorySchema } from '../../schema/category.schema.js';
 
 export class HclCategoryFactory<
-  TCategorySchema extends AnyCategorySchema = typeof CategorySchema,
+  TCategorySchema extends AnyCategorySchema = typeof HclCategorySchema,
   TCategoryPaginatedSchema extends
     AnyCategoryPaginatedResultSchema = typeof CategoryPaginatedResultSchema,
 > implements CategoryFactory<TCategorySchema, TCategoryPaginatedSchema>
@@ -37,7 +34,7 @@ export class HclCategoryFactory<
     _context: RequestContext,
     data: HclCategoryResponse,
   ): z.output<TCategorySchema> {
-    const identifier = { key: data.identifier } satisfies CategoryIdentifier;
+    const identifier = { key: data.identifier };
 
     // Derive a slug: prefer the last path segment from the SEO href, fall back to identifier field.
     // seo.href is like "/Electronics/c/electronics" — we want "electronics".
@@ -45,7 +42,9 @@ export class HclCategoryFactory<
       data.seo?.href?.split('/').filter(Boolean).pop() ?? data.identifier ?? '';
 
     // parentCatalogGroupID is a path like "/10501/10503" where the last segment is
-    // this category's own ID in the hierarchy. The direct parent is the second-to-last.
+    // this category's own uniqueID and the second-to-last is the direct parent's uniqueID.
+    // The parent's external identifier is NOT in this response, so we store the
+    // parent's uniqueID separately and leave `parentCategory` unset.
     const pathSegments = (
       typeof data.parentCatalogGroupID === 'string'
         ? data.parentCatalogGroupID
@@ -53,13 +52,10 @@ export class HclCategoryFactory<
     )
       .split('/')
       .filter(Boolean);
-    const parentKey =
+    const parentUniqueId =
       pathSegments.length > 1
         ? pathSegments[pathSegments.length - 2]
         : undefined;
-    const parentCategory = parentKey
-      ? ({ key: parentKey } satisfies CategoryIdentifier)
-      : undefined;
 
     const images = [
       data.fullImage && {
@@ -88,10 +84,13 @@ export class HclCategoryFactory<
       slug,
       text: data.shortDescription ?? data.description ?? '',
       images,
-      parentCategory,
     } satisfies Category;
 
-    return this.categorySchema.parse(result);
+    return this.categorySchema.parse({
+      ...result,
+      uniqueId: data.uniqueID,
+      parentUniqueId,
+    });
   }
 
   public parseCategoryPaginatedResult(
