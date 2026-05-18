@@ -433,3 +433,39 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
     expect(altFirstFacet!.values[0].name).not.toBe(firstFacet!.values[0].name);
   });
 });
+
+
+
+describe.each([PrimaryProvider.MEILISEARCH, PrimaryProvider.ALGOLIA])('Weird Facets', (provider) => {
+  let client: ReturnType<typeof createClient>;
+
+  it('should be able to use facets with / in the name', async () => {
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'nb-NO',
+        currencyCode: 'EUR'
+      },
+     });
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        facets: [{
+          facet: {
+          key: 'attributes.Modell/Type',
+          },
+          key: 'some-value'
+        }],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+  });
+});
