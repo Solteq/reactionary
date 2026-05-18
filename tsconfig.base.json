@@ -24,8 +24,9 @@
         "packages/google-analytics/src/index.ts"
       ],
       "@reactionary/medusa": ["packages/medusa/src/index.ts"],
-      "@reactionary/meilisearch": ["packages/meilisearch/src/index.ts"]
-    },
+      "@reactionary/meilisearch": ["packages/meilisearch/src/index.ts"],
+      "@reactionary/hcl": ["packages/hcl/src/index.ts"]
+    }
   },
   "exclude": ["node_modules", "tmp"]
 }
