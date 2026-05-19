@@ -461,3 +461,183 @@ export interface HclPersonResponse {
   /** Organization ID. `-2000` indicates the default anonymous org. */
   orgizationId?: string;
 }
+
+// ---------------------------------------------------------------------------
+// WCS Transaction Service — Cart / Order types
+// ---------------------------------------------------------------------------
+
+/** A single order item embedded in a WCS cart/@self response. */
+export interface HclWcsOrderItem {
+  orderItemId: string;
+  /** Internal HCL catalog entry ID (numeric string). */
+  productId?: string;
+  /** SKU part number. Use this as the variant identifier. */
+  partNumber: string;
+  /** Quantity as a string — coerce with Number(). */
+  quantity: string;
+  /** Total line price as a string (unitPrice × quantity). */
+  orderItemPrice: string;
+  /** Price per single unit as a string. */
+  unitPrice: string;
+  /** ISO 4217 currency code. */
+  currency: string;
+  orderItemInventoryStatus?: string;
+  /** 'true' | 'false' — marks free-gift promotional items. */
+  freeGift?: string;
+  comments?: string;
+  /** Ship mode ID assigned to this item (present in shipping_info response). */
+  shipModeId?: string;
+  shipModeCode?: string;
+  shipModeDescription?: string;
+  carrier?: string;
+  shippingCharge?: string;
+}
+
+/** A single price adjustment on a WCS cart (discount, surcharge, tax, shipping). */
+export interface HclWcsAdjustment {
+  code: string;
+  /** Adjustment amount as a string — negative for discounts. */
+  amount: string;
+  currency: string;
+  /** 'Order' | 'OrderItem' | 'Shipping' */
+  displayLevel?: string;
+  /** 'Discount' | 'Tax' | 'Surcharge' | 'Shipping' */
+  usage?: string;
+  description?: string;
+}
+
+/** A promotion/coupon code applied to a WCS cart. */
+export interface HclWcsPromoCode {
+  code: string;
+  reason?: string;
+  associatedPromotion?: { promotionId?: string; promotionCode?: string }[];
+}
+
+/** Key-value pair carried in a WCS payment instruction. */
+export interface HclWcsPaymentProtocolData {
+  name: string;
+  value: string;
+}
+
+/** A payment instruction attached to a WCS cart. */
+export interface HclWcsPaymentInstruction {
+  piId: string;
+  payMethodId: string;
+  /** Authorized amount as a string. */
+  piAmount?: string;
+  currency?: string;
+  protocolData?: HclWcsPaymentProtocolData[];
+  piStatus?: string;
+  piDescription?: string;
+}
+
+/** An address embedded in a WCS cart/order response. */
+export interface HclWcsAddress {
+  addressId?: string;
+  firstName?: string;
+  lastName?: string;
+  /** Array of street address lines — index 0 is the primary line. */
+  addressLine?: string[];
+  /** Single-field street address (some WCS endpoints prefer this over addressLine). */
+  address1?: string;
+  city?: string;
+  /** State/province/region code. */
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  phone1?: string;
+  email1?: string;
+  addressType?: string;
+  nickName?: string;
+}
+
+/** A single available ship mode returned by the WCS shipping_info endpoint. */
+export interface HclWcsShipMode {
+  shipModeId: string;
+  carrier: string;
+  shipModeCode: string;
+  shipModeDescription: string;
+  /** Store-defined extra field (varies by HCL configuration). */
+  field1?: string;
+  /** Estimated delivery time (store-defined). */
+  field2?: string;
+}
+
+/**
+ * Top-level response from GET /wcs/resources/store/{storeId}/cart/@self.
+ * All monetary amounts are returned as strings and must be parsed with Number().
+ */
+export interface HclWcsCartResponse {
+  orderId: string;
+  storeId?: string;
+  buyerId?: string;
+  orgUniqueID?: string;
+  grandTotal?: string;
+  grandTotalCurrency?: string;
+  totalProductPrice?: string;
+  totalProductPriceCurrency?: string;
+  totalShippingCharge?: string;
+  totalShippingChargeCurrency?: string;
+  totalAdjustment?: string;
+  totalAdjustmentCurrency?: string;
+  totalSalesTax?: string;
+  totalSalesTaxCurrency?: string;
+  totalShippingTax?: string;
+  /** Shipping address embedded in the cart (when set). */
+  x_shippingAddress?: HclWcsAddress;
+  /** Billing address embedded in the cart (when set). */
+  x_billingAddress?: HclWcsAddress;
+  orderItem?: HclWcsOrderItem[];
+  adjustment?: HclWcsAdjustment[];
+  promotionCode?: HclWcsPromoCode[];
+  paymentInstruction?: HclWcsPaymentInstruction[];
+  /** Currently selected shipping mode ID. */
+  shipModeId?: string;
+  shipModeCode?: string;
+  shipModeDescription?: string;
+  carrier?: string;
+  /** '0' | '1' — locked orders cannot be modified. */
+  x_isPurchaseLocked?: string;
+  /** WCS order status, e.g. 'P' = pending, 'C' = submitted. */
+  orderStatus?: string;
+  lastUpdateDate?: string;
+}
+
+/** Response from the precheckout / checkout endpoints. */
+export interface HclWcsOrderIdContainer {
+  orderId: string;
+  resourceName?: string;
+}
+
+/** Response from GET cart/@self/shipping_info with usable shipping modes. */
+export interface HclWcsShipModesResponse {
+  /** Present in newer WCS versions when using IBM_usableShippingMode profile. */
+  usableShippingMode?: HclWcsShipMode[];
+  /** Present in older WCS versions — shipping mode embedded per orderItem. */
+  orderItem?: Array<{
+    orderItemId: string;
+    shipModeId?: string;
+    shipModeCode?: string;
+    shipModeDescription?: string;
+    carrier?: string;
+    description?: string;
+  }>;
+}
+
+/** A single usable payment method entry returned by WCS. */
+export interface HclWcsPaymentMethod {
+  paymentMethodName: string;
+  xucc?: string;
+  description?: string;
+}
+
+/** Response listing available payment methods for the store. */
+export interface HclWcsPaymentMethodsResponse {
+  usablePaymentInformation?: HclWcsPaymentMethod[];
+}
+
+/** Minimal response from addOrderItem / updateOrderItem operations. */
+export interface HclWcsOrderItemUpdateResponse {
+  orderId: string;
+  orderItem?: { orderItemId: string }[];
+}

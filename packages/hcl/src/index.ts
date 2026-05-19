@@ -7,6 +7,8 @@ export * from './core/transaction-client.js';
 export * from './core/initialize.js';
 export * from './core/initialize.types.js';
 export * from './factories/index.js';
+export * from './capabilities/cart.capability.js';
+export * from './capabilities/checkout.capability.js';
 export * from './capabilities/product.capability.js';
 export * from './capabilities/category.capability.js';
 export * from './capabilities/product-search.capability.js';

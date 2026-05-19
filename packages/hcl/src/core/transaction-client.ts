@@ -5,8 +5,22 @@ import type {
   HclEntitledPriceResponse,
   HclInventoryAvailabilityResponse,
   HclPersonResponse,
+  HclWcsAddress,
+  HclWcsCartResponse,
   HclWcsIdentityResponse,
+  HclWcsOrderIdContainer,
+  HclWcsOrderItemUpdateResponse,
+  HclWcsPaymentMethodsResponse,
+  HclWcsShipModesResponse,
 } from '../schema/hcl.schema.js';
+
+/** Thrown by getCart when the WCS server returns 404 (no active cart). */
+export class HclCartNotFoundError extends Error {
+  constructor() {
+    super('No active cart found');
+    this.name = 'HclCartNotFoundError';
+  }
+}
 
 /** Optional WCS session authentication headers. */
 export interface HclWcsAuthHeaders {
@@ -263,7 +277,7 @@ export class HclTransactionClient {
   }
 
   /**
-   * Fetch the currently authenticated user's person record.
+   * Fetch the current user's person record.
    * Calls GET /wcs/resources/store/{storeId}/person/@self
    */
   async getSelfPerson(auth: HclWcsAuthHeaders): Promise<HclPersonResponse> {
@@ -280,6 +294,458 @@ export class HclTransactionClient {
     }
 
     return response.json() as Promise<HclPersonResponse>;
+  }
+
+  // -------------------------------------------------------------------------
+  // Cart / Checkout
+  // -------------------------------------------------------------------------
+
+  /**
+   * Fetch the current user's active cart.
+   * GET /wcs/resources/store/{storeId}/cart/@self
+   * Throws HclCartNotFoundError on 404 (no active cart).
+   */
+  async getCart(
+    opts?: { currency?: string; langId?: string },
+    auth?: HclWcsAuthHeaders,
+  ): Promise<HclWcsCartResponse> {
+    const params = new URLSearchParams();
+    if (opts?.currency) params.set('currency', opts.currency);
+    if (opts?.langId) params.set('langId', opts.langId);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const url = `${this.storeBaseUrl}/cart/@self${query}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.buildHeaders(auth),
+    });
+
+    if (response.status === 404) {
+      throw new HclCartNotFoundError();
+    }
+    if (!response.ok) {
+      throw new Error(
+        `HCL cart/@self error ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return response.json() as Promise<HclWcsCartResponse>;
+  }
+
+  /**
+   * Add a SKU to the cart (creates the cart if it does not yet exist).
+   * POST /wcs/resources/store/{storeId}/cart
+   * x_calculateOrder=1 triggers server-side price recalculation.
+   */
+  async addOrderItem(
+    partNumber: string,
+    quantity: number,
+    auth?: HclWcsAuthHeaders,
+  ): Promise<HclWcsOrderItemUpdateResponse> {
+    const url = `${this.storeBaseUrl}/cart`;
+    const body = {
+      orderItem: [{ partNumber, quantity: String(quantity) }],
+      x_calculateOrder: '1',
+      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...this.buildHeaders(auth),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HCL addOrderItem error ${response.status}: ${text}`);
+    }
+
+    return response.json() as Promise<HclWcsOrderItemUpdateResponse>;
+  }
+
+  /**
+   * Update the quantity of an existing cart item.
+   * PUT /wcs/resources/store/{storeId}/cart/@self/update_order_item
+   */
+  async updateOrderItem(
+    orderItemId: string,
+    quantity: number,
+    auth?: HclWcsAuthHeaders,
+  ): Promise<HclWcsOrderItemUpdateResponse> {
+    const url = `${this.storeBaseUrl}/cart/@self/update_order_item`;
+    const body = {
+      orderItem: [{ orderItemId, quantity: String(quantity) }],
+      x_calculateOrder: '1',
+      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+    };
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        ...this.buildHeaders(auth),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HCL updateOrderItem error ${response.status}: ${text}`);
+    }
+
+    return response.json() as Promise<HclWcsOrderItemUpdateResponse>;
+  }
+
+  /**
+   * Remove a single item from the cart.
+   * PUT /wcs/resources/store/{storeId}/cart/@self/delete_order_item
+   */
+  async deleteOrderItem(
+    orderItemId: string,
+    auth?: HclWcsAuthHeaders,
+  ): Promise<void> {
+    const url = `${this.storeBaseUrl}/cart/@self/delete_order_item`;
+    const body = {
+      orderItemId,
+      x_calculateOrder: '1',
+      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+    };
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        ...this.buildHeaders(auth),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HCL deleteOrderItem error ${response.status}: ${text}`);
+    }
+  }
+
+  /**
+   * Delete (cancel) the entire active cart.
+   * DELETE /wcs/resources/store/{storeId}/cart/@self
+   */
+  async deleteCart(auth?: HclWcsAuthHeaders): Promise<void> {
+    const url = `${this.storeBaseUrl}/cart/@self`;
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.buildHeaders(auth),
+    });
+
+    // 404 = no active cart — treat as success (already gone).
+    if (!response.ok && response.status !== 404) {
+      throw new Error(
+        `HCL deleteCart error ${response.status} ${response.statusText}`,
+      );
+    }
+  }
+
+  /**
+   * Apply a promotion/coupon code to the cart.
+   * POST /wcs/resources/store/{storeId}/cart/@self/assigned_promotion_code
+   */
+  async addPromotionCode(
+    code: string,
+    auth?: HclWcsAuthHeaders,
+  ): Promise<void> {
+    const url = `${this.storeBaseUrl}/cart/@self/assigned_promotion_code`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...this.buildHeaders(auth),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ promoCode: code }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HCL addPromotionCode error ${response.status}: ${text}`);
+    }
+  }
+
+  /**
+   * Remove a promotion/coupon code from the cart.
+   * DELETE /wcs/resources/store/{storeId}/cart/@self/assigned_promotion_code/{code}
+   */
+  async removePromotionCode(
+    code: string,
+    auth?: HclWcsAuthHeaders,
+  ): Promise<void> {
+    const url = `${this.storeBaseUrl}/cart/@self/assigned_promotion_code/${encodeURIComponent(code)}`;
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.buildHeaders(auth),
+    });
+
+    if (!response.ok && response.status !== 404) {
+      const text = await response.text();
+      throw new Error(
+        `HCL removePromotionCode error ${response.status}: ${text}`,
+      );
+    }
+  }
+
+  /**
+   * Get available shipping modes for the current cart.
+   * GET /wcs/resources/store/{storeId}/cart/@self/shipping_info
+   */
+  async getShippingModes(
+    opts?: { langId?: string },
+    auth?: HclWcsAuthHeaders,
+  ): Promise<HclWcsShipModesResponse> {
+    const params = new URLSearchParams();
+    params.set('profileName', 'IBM_usableShippingMode');
+    if (opts?.langId) params.set('langId', opts.langId);
+    const url = `${this.storeBaseUrl}/cart/@self/shipping_info?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.buildHeaders(auth),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `HCL getShippingModes error ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return response.json() as Promise<HclWcsShipModesResponse>;
+  }
+
+  /**
+   * Set the shipping mode (and optionally an inline address) on the cart.
+   * PUT /wcs/resources/store/{storeId}/cart/@self/shipping_info
+   */
+  async setShippingInfo(
+    body: {
+      shipModeId?: string;
+      /** Cart item IDs to apply the shipping mode to. */
+      orderItemId?: string[];
+      /** Inline shipping address (alternative to address book). */
+      x_addr?: HclWcsAddress;
+    },
+    auth?: HclWcsAuthHeaders,
+  ): Promise<HclWcsOrderIdContainer> {
+    const url = `${this.storeBaseUrl}/cart/@self/shipping_info`;
+    const payload = {
+      ...body,
+      x_calculateOrder: '1',
+      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+    };
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        ...this.buildHeaders(auth),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HCL setShippingInfo error ${response.status}: ${text}`);
+    }
+
+    return response.json() as Promise<HclWcsOrderIdContainer>;
+  }
+
+  /**
+   * Set a shipping address inline on each order item.
+   * PUT /wcs/resources/store/{storeId}/cart/@self/shipping_info
+   * Uses the nested `orderItem[].x_addr` format required by WCS.
+   */
+  async setShippingAddressForItems(
+    orderItemIds: string[],
+    addr: HclWcsAddress,
+    auth?: HclWcsAuthHeaders,
+  ): Promise<HclWcsOrderIdContainer> {
+    const url = `${this.storeBaseUrl}/cart/@self/shipping_info`;
+    const payload = {
+      x_calculateOrder: '1',
+      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+      orderItem: orderItemIds.map((orderItemId) => ({
+        orderItemId,
+        x_addr: addr,
+      })),
+    };
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        ...this.buildHeaders(auth),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `HCL setShippingAddressForItems error ${response.status}: ${text}`,
+      );
+    }
+
+    return response.json() as Promise<HclWcsOrderIdContainer>;
+  }
+
+  /**
+   * Get available payment methods for the current cart.
+   * GET /wcs/resources/store/{storeId}/cart/@self/payment_instruction/eligible_payment_info
+   */
+  async getPaymentMethods(
+    auth?: HclWcsAuthHeaders,
+  ): Promise<HclWcsPaymentMethodsResponse> {
+    const url = `${this.storeBaseUrl}/cart/@self/payment_instruction/eligible_payment_info`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.buildHeaders(auth),
+    });
+
+    // Some WCS versions do not expose this endpoint — treat 404 as empty list.
+    if (response.status === 404) {
+      return { usablePaymentInformation: [] };
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        `HCL getPaymentMethods error ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return response.json() as Promise<HclWcsPaymentMethodsResponse>;
+  }
+
+  /**
+   * Add a payment instruction to the cart.
+   * POST /wcs/resources/store/{storeId}/cart/@self/payment_instruction
+   *
+   * Billing address can be provided as an address-book reference (`billing_address_id`)
+   * or inline via WCS `billto_*` fields (for guests without an address book).
+   */
+  async addPaymentInstruction(
+    body: {
+      payMethodId: string;
+      piAmount?: string;
+      protocolData?: { name: string; value: string }[];
+      /** Address-book ID for the billing address (registered users). */
+      billing_address_id?: string;
+      /** Inline billing address fields (guest users, no address book). */
+      billto_firstName?: string;
+      billto_lastName?: string;
+      billto_address1?: string;
+      billto_city?: string;
+      billto_state?: string;
+      billto_zipCode?: string;
+      billto_country?: string;
+      billto_phone1?: string;
+      billto_email1?: string;
+    },
+    auth?: HclWcsAuthHeaders,
+  ): Promise<{ piId: string }> {
+    const url = `${this.storeBaseUrl}/cart/@self/payment_instruction`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...this.buildHeaders(auth),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `HCL addPaymentInstruction error ${response.status}: ${text}`,
+      );
+    }
+
+    return response.json() as Promise<{ piId: string }>;
+  }
+
+  /**
+   * Delete a payment instruction from the cart.
+   * DELETE /wcs/resources/store/{storeId}/cart/@self/payment_instruction/{piId}
+   */
+  async deletePaymentInstruction(
+    piId: string,
+    auth?: HclWcsAuthHeaders,
+  ): Promise<void> {
+    const url = `${this.storeBaseUrl}/cart/@self/payment_instruction/${encodeURIComponent(piId)}`;
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.buildHeaders(auth),
+    });
+
+    if (!response.ok && response.status !== 404) {
+      throw new Error(
+        `HCL deletePaymentInstruction error ${response.status} ${response.statusText}`,
+      );
+    }
+  }
+
+  /**
+   * Pre-checkout validation — must be called before checkout().
+   * PUT /wcs/resources/store/{storeId}/cart/@self/precheckout
+   */
+  async precheckout(auth?: HclWcsAuthHeaders): Promise<HclWcsOrderIdContainer> {
+    const url = `${this.storeBaseUrl}/cart/@self/precheckout`;
+
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        ...this.buildHeaders(auth),
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HCL precheckout error ${response.status}: ${text}`);
+    }
+
+    return response.json() as Promise<HclWcsOrderIdContainer>;
+  }
+
+  /**
+   * Submit the cart as an order.
+   * POST /wcs/resources/store/{storeId}/cart/@self/checkout
+   * The returned orderId is the same as the cart's orderId (WCS = same entity).
+   */
+  async checkout(auth?: HclWcsAuthHeaders): Promise<HclWcsOrderIdContainer> {
+    const url = `${this.storeBaseUrl}/cart/@self/checkout`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...this.buildHeaders(auth),
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HCL checkout error ${response.status}: ${text}`);
+    }
+
+    return response.json() as Promise<HclWcsOrderIdContainer>;
   }
 
   private buildHeaders(auth?: HclWcsAuthHeaders): Record<string, string> {

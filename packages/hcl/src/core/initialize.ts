@@ -1,7 +1,6 @@
 import type { Cache, RequestContext } from '@reactionary/core';
 import {
   CategoryPaginatedResultSchema,
-  CategorySchema,
   IdentitySchema,
   ProductSchema,
 } from '@reactionary/core';
@@ -22,13 +21,17 @@ import {
 import { HclClient } from './client.js';
 import { HclTransactionClient } from './transaction-client.js';
 import {
+  HclCartFactory,
   HclCategoryFactory,
+  HclCheckoutFactory,
   HclIdentityFactory,
   HclInventoryFactory,
   HclPriceFactory,
   HclProductFactory,
   HclProductSearchFactory,
 } from '../factories/index.js';
+import { HclCartCapability } from '../capabilities/cart.capability.js';
+import { HclCheckoutCapability } from '../capabilities/checkout.capability.js';
 import { HclProductCapability } from '../capabilities/product.capability.js';
 import { HclCategoryCapability } from '../capabilities/category.capability.js';
 import { HclProductSearchCapability } from '../capabilities/product-search.capability.js';
@@ -36,9 +39,15 @@ import { HclPriceCapability } from '../capabilities/price.capability.js';
 import { HclInventoryCapability } from '../capabilities/inventory.capability.js';
 import { HclIdentityCapability } from '../capabilities/identity.capability.js';
 import {
+  CartIdentifierSchema,
+  CartPaginatedSearchResultSchema,
+  CartSchema,
+  CheckoutSchema,
   InventorySchema,
+  PaymentMethodSchema,
   PriceSchema,
   ProductSearchResultSchema,
+  ShippingMethodSchema,
 } from '@reactionary/core';
 
 export function withHclCapabilities<T extends HclCapabilities>(
@@ -66,6 +75,56 @@ export function withHclCapabilities<T extends HclCapabilities>(
       hclTransactionClient,
       factory,
     });
+
+    if (caps.cart?.enabled) {
+      client.cart = resolveCapabilityWithFactory(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        capabilities.cart as any,
+        {
+          factory: new HclCartFactory(
+            CartSchema,
+            CartIdentifierSchema,
+            CartPaginatedSearchResultSchema,
+          ),
+          capability: (
+            args: HclCapabilityFactoryArgs & { factory: HclCartFactory },
+          ) =>
+            new HclCartCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclTransactionClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.checkout?.enabled) {
+      client.checkout = resolveCapabilityWithFactory(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        capabilities.checkout as any,
+        {
+          factory: new HclCheckoutFactory(
+            CheckoutSchema,
+            ShippingMethodSchema,
+            PaymentMethodSchema,
+          ),
+          capability: (
+            args: HclCapabilityFactoryArgs & { factory: HclCheckoutFactory },
+          ) =>
+            new HclCheckoutCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclTransactionClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
 
     if (caps.product?.enabled) {
       client.product = resolveCapabilityWithFactory(
