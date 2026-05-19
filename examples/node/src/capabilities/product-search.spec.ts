@@ -468,6 +468,23 @@ describe.each([ PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fa
   it('should only return one category facet when a category facet value lvl 0 is set ', async () => {
     client = createClient(provider);
 
+    const baseResult = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [],
+        filters: [],
+      },
+    });
+
+    if (!baseResult.success) {
+      assert.fail(JSON.stringify(baseResult.error));
+    }
+
+
     const result = await client.productSearch.queryByTerm({
       search: {
         term: "*",
@@ -491,9 +508,27 @@ describe.each([ PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fa
     const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
     expect(categoryFacets.length).toBe(1);
     expect(result.value.totalCount).toBeGreaterThan(0);
+
   });
   it('should only return one category facet when a category facet value lvl 1 is set ', async () => {
     client = createClient(provider);
+
+    const baseResult = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [],
+        filters: [],
+      },
+    });
+
+    if (!baseResult.success) {
+      assert.fail(JSON.stringify(baseResult.error));
+    }
+
 
     const result = await client.productSearch.queryByTerm({
       search: {
@@ -518,11 +553,28 @@ describe.each([ PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fa
     const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
     expect(categoryFacets.length).toBe(1);
     expect(result.value.totalCount).toBeGreaterThan(0);
+      expect(result.value.totalCount).toBeLessThan(baseResult.value.totalCount);
   });
 
 
   it('should only return no category facet when a category facet value lvl 2 is set ', async () => {
     client = createClient(provider);
+
+    const baseResult = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [],
+        filters: [],
+      },
+    });
+
+    if (!baseResult.success) {
+      assert.fail(JSON.stringify(baseResult.error));
+    }
 
     const result = await client.productSearch.queryByTerm({
       search: {
@@ -547,6 +599,7 @@ describe.each([ PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fa
     const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
     expect(categoryFacets.length).toBe(0);
     expect(result.value.totalCount).toBeGreaterThan(0);
+    expect(result.value.totalCount).toBeLessThan(baseResult.value.totalCount);
 
   });
 
