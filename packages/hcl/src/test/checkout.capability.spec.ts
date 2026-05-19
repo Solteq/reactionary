@@ -13,7 +13,8 @@ import {
 import { HclCartCapability } from '../capabilities/cart.capability.js';
 import { HclCheckoutCapability } from '../capabilities/checkout.capability.js';
 import { HclCartFactory, HclCheckoutFactory } from '../factories/index.js';
-import { HclTransactionClient } from '../core/transaction-client.js';
+import { HclClient } from '../core/client.js';
+import type { HclWcsIdentityResponse } from '../schema/hcl.schema.js';
 import { getHclTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
@@ -24,18 +25,18 @@ describe('HCL Checkout Capability', () => {
   let cartProvider: HclCartCapability;
   let checkoutProvider: HclCheckoutCapability;
   let reqCtx: RequestContext;
-  let transactionClient: HclTransactionClient;
+  let hclClient: HclClient;
 
   beforeEach(async () => {
     reqCtx = createInitialRequestContext();
     const config = getHclTestConfiguration();
-    transactionClient = new HclTransactionClient(config);
+    hclClient = new HclClient(config, reqCtx);
 
     cartProvider = new HclCartCapability(
       new NoOpCache(),
       reqCtx,
       config,
-      transactionClient,
+      hclClient,
       new HclCartFactory(
         CartSchema,
         CartIdentifierSchema,
@@ -47,7 +48,7 @@ describe('HCL Checkout Capability', () => {
       new NoOpCache(),
       reqCtx,
       config,
-      transactionClient,
+      hclClient,
       new HclCheckoutFactory(
         CheckoutSchema,
         ShippingMethodSchema,
@@ -56,7 +57,9 @@ describe('HCL Checkout Capability', () => {
     );
 
     // Establish a guest session.
-    const guest = await transactionClient.createGuestIdentity();
+    const guest = await hclClient.callPost<HclWcsIdentityResponse>(
+      `${hclClient.transactionBaseUrl}/guestidentity`,
+    );
     reqCtx.session['hcl.WCToken'] = guest.WCToken;
     reqCtx.session['hcl.WCTrustedToken'] = guest.WCTrustedToken;
     reqCtx.session['hcl.userId'] = guest.userId;

@@ -9,7 +9,8 @@ import {
 } from '@reactionary/core';
 import { HclCartCapability } from '../capabilities/cart.capability.js';
 import { HclCartFactory } from '../factories/index.js';
-import { HclTransactionClient } from '../core/transaction-client.js';
+import { HclClient } from '../core/client.js';
+import type { HclWcsIdentityResponse } from '../schema/hcl.schema.js';
 import { getHclTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
@@ -19,17 +20,17 @@ const TEST_PART_NUMBER = 'DR-CHRS-0001-0001';
 describe('HCL Cart Capability', () => {
   let provider: HclCartCapability;
   let reqCtx: RequestContext;
-  let transactionClient: HclTransactionClient;
+  let hclClient: HclClient;
 
   beforeEach(async () => {
     reqCtx = createInitialRequestContext();
     const config = getHclTestConfiguration();
-    transactionClient = new HclTransactionClient(config);
+    hclClient = new HclClient(config, reqCtx);
     provider = new HclCartCapability(
       new NoOpCache(),
       reqCtx,
       config,
-      transactionClient,
+      hclClient,
       new HclCartFactory(
         CartSchema,
         CartIdentifierSchema,
@@ -38,7 +39,9 @@ describe('HCL Cart Capability', () => {
     );
 
     // Establish a guest session so cart operations are authenticated.
-    const guest = await transactionClient.createGuestIdentity();
+    const guest = await hclClient.callPost<HclWcsIdentityResponse>(
+      `${hclClient.transactionBaseUrl}/guestidentity`,
+    );
     reqCtx.session['hcl.WCToken'] = guest.WCToken;
     reqCtx.session['hcl.WCTrustedToken'] = guest.WCTrustedToken;
     reqCtx.session['hcl.userId'] = guest.userId;
@@ -171,7 +174,8 @@ describe('HCL Cart Capability', () => {
   it('should create a virtual empty cart', async () => {
     const result = await provider.createCart({ name: 'My Cart' });
 
-    if (!result.success) console.error("DEBUG CART FAILURE:", JSON.stringify(result));
+    if (!result.success)
+      console.error('DEBUG CART FAILURE:', JSON.stringify(result));
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.value.name).toBe('My Cart');

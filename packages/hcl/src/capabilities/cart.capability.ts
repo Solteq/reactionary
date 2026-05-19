@@ -38,13 +38,12 @@ import {
   type Result,
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
-import type { HclTransactionClient } from '../core/transaction-client.js';
-import {
-  HclCartNotFoundError,
-  getWcsAuthFromContext,
-} from '../core/transaction-client.js';
+import { HclCartNotFoundError, type HclClient } from '../core/client.js';
 import type { HclCartFactory } from '../factories/cart/cart.factory.js';
-import { getLocaleParams } from '../core/locale-params.js';
+import type {
+  HclWcsCartResponse,
+  HclWcsOrderItemUpdateResponse,
+} from '../schema/hcl.schema.js';
 import createDebug from 'debug';
 
 const debug = createDebug('reactionary:hcl:cart');
@@ -56,28 +55,103 @@ export class HclCartCapability<
   CartFactoryIdentifierOutput<TFactory>
 > {
   protected config: HclConfiguration;
-  protected transactionClient: HclTransactionClient;
+  protected client: HclClient;
   protected factory: CartFactoryWithOutput<TFactory>;
 
   constructor(
     cache: Cache,
     context: RequestContext,
     config: HclConfiguration,
-    transactionClient: HclTransactionClient,
+    client: HclClient,
     factory: CartFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
-    this.transactionClient = transactionClient;
+    this.client = client;
     this.factory = factory;
   }
 
-  /** Fetch the current cart and parse it via the factory. */
-  private async fetchCart(): Promise<CartFactoryCartOutput<TFactory>> {
-    const auth = getWcsAuthFromContext(this.context);
-    const { currency } = getLocaleParams(this.config, this.context);
-    const data = await this.transactionClient.getCart({ currency }, auth);
+  /** Fetch the raw WCS cart response. Throws HclCartNotFoundError on 404. */
+  protected async fetchWcsCart(): Promise<HclWcsCartResponse> {
+    const data = await this.client.callGet<HclWcsCartResponse>(
+      `${this.client.transactionBaseUrl}/cart/@self`,
+      undefined,
+      { allowUndefined: true },
+    );
+    if (!data) throw new HclCartNotFoundError();
+    return data;
+  }
+
+  /** Fetch and parse the current cart via the factory. */
+  protected async fetchCart(): Promise<CartFactoryCartOutput<TFactory>> {
+    const data = await this.fetchWcsCart();
     return this.factory.parseCart(this.context, data);
+  }
+
+  /** Add a SKU to the cart (creates the cart if it does not yet exist). */
+  protected async fetchAddOrderItem(
+    partNumber: string,
+    quantity: number,
+  ): Promise<HclWcsOrderItemUpdateResponse> {
+    return this.client.callPost<HclWcsOrderItemUpdateResponse>(
+      `${this.client.transactionBaseUrl}/cart`,
+      {
+        orderItem: [{ partNumber, quantity: String(quantity) }],
+        x_calculateOrder: '1',
+        x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+      },
+    );
+  }
+
+  /** Update the quantity of an existing cart item. */
+  protected async fetchUpdateOrderItem(
+    orderItemId: string,
+    quantity: number,
+  ): Promise<HclWcsOrderItemUpdateResponse> {
+    return this.client.callPut<HclWcsOrderItemUpdateResponse>(
+      `${this.client.transactionBaseUrl}/cart/@self/update_order_item`,
+      {
+        orderItem: [{ orderItemId, quantity: String(quantity) }],
+        x_calculateOrder: '1',
+        x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+      },
+    );
+  }
+
+  /** Remove a single item from the cart. */
+  protected async fetchDeleteOrderItem(orderItemId: string): Promise<void> {
+    await this.client.callPut<void>(
+      `${this.client.transactionBaseUrl}/cart/@self/delete_order_item`,
+      {
+        orderItemId,
+        x_calculateOrder: '1',
+        x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+      },
+    );
+  }
+
+  /** Delete (cancel) the entire active cart. */
+  protected async fetchDeleteCart(): Promise<void> {
+    return this.client.callDelete(
+      `${this.client.transactionBaseUrl}/cart/@self`,
+      { ignore404: true },
+    );
+  }
+
+  /** Apply a promotion/coupon code to the cart. */
+  protected async fetchAddPromotionCode(code: string): Promise<void> {
+    await this.client.callPost<void>(
+      `${this.client.transactionBaseUrl}/cart/@self/assigned_promotion_code`,
+      { promoCode: code },
+    );
+  }
+
+  /** Remove a promotion/coupon code from the cart. */
+  protected async fetchRemovePromotionCode(code: string): Promise<void> {
+    return this.client.callDelete(
+      `${this.client.transactionBaseUrl}/cart/@self/assigned_promotion_code/${encodeURIComponent(code)}`,
+      { ignore404: true },
+    );
   }
 
   @Reactionary({
@@ -107,9 +181,7 @@ export class HclCartCapability<
   > {
     debug('getActiveCartId');
     try {
-      const auth = getWcsAuthFromContext(this.context);
-      const { currency } = getLocaleParams(this.config, this.context);
-      const data = await this.transactionClient.getCart({ currency }, auth);
+      const data = await this.fetchWcsCart();
       return success(this.factory.parseCartIdentifier(this.context, data));
     } catch (err) {
       if (err instanceof HclCartNotFoundError) {
@@ -127,12 +199,7 @@ export class HclCartCapability<
     payload: CartMutationItemAdd,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     debug('add %s x%d', payload.variant.sku, payload.quantity);
-    const auth = getWcsAuthFromContext(this.context);
-    await this.transactionClient.addOrderItem(
-      payload.variant.sku,
-      payload.quantity,
-      auth,
-    );
+    await this.fetchAddOrderItem(payload.variant.sku, payload.quantity);
     return success(await this.fetchCart());
   }
 
@@ -144,8 +211,7 @@ export class HclCartCapability<
     payload: CartMutationItemRemove,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     debug('remove orderItemId=%s', payload.item.key);
-    const auth = getWcsAuthFromContext(this.context);
-    await this.transactionClient.deleteOrderItem(payload.item.key, auth);
+    await this.fetchDeleteOrderItem(payload.item.key);
     return success(await this.fetchCart());
   }
 
@@ -161,12 +227,7 @@ export class HclCartCapability<
       payload.item.key,
       payload.quantity,
     );
-    const auth = getWcsAuthFromContext(this.context);
-    await this.transactionClient.updateOrderItem(
-      payload.item.key,
-      payload.quantity,
-      auth,
-    );
+    await this.fetchUpdateOrderItem(payload.item.key, payload.quantity);
     return success(await this.fetchCart());
   }
 
@@ -185,9 +246,7 @@ export class HclCartCapability<
   > {
     debug('listCarts');
     try {
-      const auth = getWcsAuthFromContext(this.context);
-      const { currency } = getLocaleParams(this.config, this.context);
-      const data = await this.transactionClient.getCart({ currency }, auth);
+      const data = await this.fetchWcsCart();
       return success(
         this.factory.parseCartPaginatedSearchResult(
           this.context,
@@ -256,8 +315,7 @@ export class HclCartCapability<
     _payload: CartMutationDeleteCart,
   ): Promise<Result<void>> {
     debug('deleteCart');
-    const auth = getWcsAuthFromContext(this.context);
-    await this.transactionClient.deleteCart(auth);
+    await this.fetchDeleteCart();
     return success(undefined);
   }
 
@@ -281,8 +339,7 @@ export class HclCartCapability<
     payload: CartMutationApplyCoupon,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     debug('applyCouponCode %s', payload.couponCode);
-    const auth = getWcsAuthFromContext(this.context);
-    await this.transactionClient.addPromotionCode(payload.couponCode, auth);
+    await this.fetchAddPromotionCode(payload.couponCode);
     return success(await this.fetchCart());
   }
 
@@ -294,8 +351,7 @@ export class HclCartCapability<
     payload: CartMutationRemoveCoupon,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     debug('removeCouponCode %s', payload.couponCode);
-    const auth = getWcsAuthFromContext(this.context);
-    await this.transactionClient.removePromotionCode(payload.couponCode, auth);
+    await this.fetchRemovePromotionCode(payload.couponCode);
     return success(await this.fetchCart());
   }
 
@@ -308,7 +364,7 @@ export class HclCartCapability<
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     debug('changeCurrency %s', payload.newCurrency);
     // Store the currency preference in session; it will be passed as a query
-    // param on subsequent getCart calls via getLocaleParams.
+    // param on subsequent getCart calls via buildParams.
     this.context.session['hcl.currency'] = payload.newCurrency;
     return success(await this.fetchCart());
   }
