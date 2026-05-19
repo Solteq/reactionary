@@ -2,10 +2,10 @@ import { RedisCache, ProductSchema, ClientBuilder, NoOpCache, createInitialReque
 import { withFakeCapabilities } from '@reactionary/fake';
 
 describe('redis cache interactions', () => {
-  it('should be able to get and put', async () => {
-        const reqCtx = createInitialRequestContext();
-        const client = new ClientBuilder(reqCtx)
-          .withCapability(
+  it('should be able to perform basic operations on the cache', async () => {
+    const reqCtx = createInitialRequestContext();
+    const client = new ClientBuilder(reqCtx)
+        .withCapability(
             withFakeCapabilities(
               {
                 jitter: {
@@ -46,5 +46,46 @@ describe('redis cache interactions', () => {
     const cachedAfterInvalidation = await cache.get(cacheKey, ProductSchema);
 
     expect(cachedAfterInvalidation).toBeNull();
+  });
+
+  it('should work when used as the cache for capability results', async () => {
+    const cache = new RedisCache();
+    const reqCtx = createInitialRequestContext();
+    const client = new ClientBuilder(reqCtx)
+        .withCapability(
+            withFakeCapabilities(
+              {
+                jitter: {
+                  mean: 0,
+                  deviation: 0,
+                },
+                seeds: {
+                  category: 1,
+                  product: 1,
+                  search: 1,
+                },
+              },
+              { product: { enabled: true } }
+            )
+          )
+          .withCache(cache)
+          .build();
+
+    const productKey = new Date().getTime().toString();
+    const result = await client.product.getById({ identifier: { key: productKey } });
+
+    if (!result.success) {
+      throw new Error('Failed to get product');
+    }
+
+    expect(result.meta.cache.hit).toBeFalsy();
+
+    const resultFromCache = await client.product.getById({ identifier: { key: productKey } });
+
+    if (!resultFromCache.success) {
+      throw new Error('Failed to get product');
+    }
+
+    expect(resultFromCache.meta.cache.hit).toBeTruthy();
   });
 });
