@@ -36,6 +36,10 @@ export const HclConfigurationSchema = z.looseObject({
     description:
       'The base origin URL for the HCL Commerce server (e.g. https://example.com).',
   }),
+  searchApiUrl: z.string().optional().meta({
+    description:
+      'The base origin URL for the HCL Commerce Search API server, if different from apiUrl.',
+  }),
   storeId: z
     .string()
     .meta({ description: 'The HCL Commerce store identifier.' }),

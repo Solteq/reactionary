@@ -11,7 +11,7 @@ import type {
 export class HclClient {
   private readonly baseUrl: string;
   constructor(private readonly config: HclConfiguration) {
-    const origin = config.apiUrl.replace(/\/+$/, '');
+    const origin = (config.searchApiUrl ?? config.apiUrl).replace(/\/+$/, '');
     const apiPath = '/search/resources/api/v2';
     this.baseUrl = `${origin}${apiPath}`;
   }
