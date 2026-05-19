@@ -1,5 +1,7 @@
 import type { ClientFromCapabilities } from '@reactionary/core';
 import type { HclCapabilities } from '../schema/capabilities.schema.js';
+import type { HclCartCapability } from '../capabilities/cart.capability.js';
+import type { HclCheckoutCapability } from '../capabilities/checkout.capability.js';
 import type { HclProductCapability } from '../capabilities/product.capability.js';
 import type { HclCategoryCapability } from '../capabilities/category.capability.js';
 import type { HclProductSearchCapability } from '../capabilities/product-search.capability.js';
@@ -34,12 +36,12 @@ type ExtractCapabilityImplementation<TCapability, TDefaultCapability> =
       : TDefaultCapability
     : TDefaultCapability;
 
-// Default capability types — replaced with concrete capability types as implementations are added.
+// Default capability types for each overridable key.
 type DefaultCapabilityMap = {
   product: HclProductCapability;
   productSearch: HclProductSearchCapability;
-  cart: never;
-  checkout: never;
+  cart: HclCartCapability;
+  checkout: HclCheckoutCapability;
   category: HclCategoryCapability;
   price: HclPriceCapability;
   inventory: HclInventoryCapability;

@@ -8,7 +8,6 @@ import { HclCategorySchema } from '../schema/category.schema.js';
 import {
   HclCapabilitiesSchema,
   type HclCapabilities,
-  type HclCapabilityFactoryArgs,
 } from '../schema/capabilities.schema.js';
 import {
   HclConfigurationSchema,
@@ -63,9 +62,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
     const caps = HclCapabilitiesSchema.parse(capabilities);
     const hclClient = new HclClient(config, context);
 
-    const buildCapabilityArgs = <TFactory>(
-      factory: TFactory,
-    ): HclCapabilityFactoryArgs & { factory: TFactory } => ({
+    const buildCapabilityArgs = <TFactory>(factory: TFactory) => ({
       cache,
       context,
       config,
@@ -75,17 +72,14 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.cart?.enabled) {
       client.cart = resolveCapabilityWithFactory(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        capabilities.cart as any,
+        capabilities.cart,
         {
           factory: new HclCartFactory(
             CartSchema,
             CartIdentifierSchema,
             CartPaginatedSearchResultSchema,
           ),
-          capability: (
-            args: HclCapabilityFactoryArgs & { factory: HclCartFactory },
-          ) =>
+          capability: (args) =>
             new HclCartCapability(
               args.cache,
               args.context,
@@ -100,17 +94,14 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.checkout?.enabled) {
       client.checkout = resolveCapabilityWithFactory(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        capabilities.checkout as any,
+        capabilities.checkout,
         {
           factory: new HclCheckoutFactory(
             CheckoutSchema,
             ShippingMethodSchema,
             PaymentMethodSchema,
           ),
-          capability: (
-            args: HclCapabilityFactoryArgs & { factory: HclCheckoutFactory },
-          ) =>
+          capability: (args) =>
             new HclCheckoutCapability(
               args.cache,
               args.context,
@@ -125,13 +116,10 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.product?.enabled) {
       client.product = resolveCapabilityWithFactory(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        capabilities.product as any,
+        capabilities.product,
         {
           factory: new HclProductFactory(ProductSchema),
-          capability: (
-            args: HclCapabilityFactoryArgs & { factory: HclProductFactory },
-          ) =>
+          capability: (args) =>
             new HclProductCapability(
               args.cache,
               args.context,
@@ -146,16 +134,13 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.category?.enabled) {
       client.category = resolveCapabilityWithFactory(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        capabilities.category as any,
+        capabilities.category,
         {
           factory: new HclCategoryFactory(
             HclCategorySchema,
             CategoryPaginatedResultSchema,
           ),
-          capability: (
-            args: HclCapabilityFactoryArgs & { factory: HclCategoryFactory },
-          ) =>
+          capability: (args) =>
             new HclCategoryCapability(
               args.cache,
               args.context,
@@ -170,15 +155,10 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.productSearch?.enabled) {
       client.productSearch = resolveCapabilityWithFactory(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        capabilities.productSearch as any,
+        capabilities.productSearch,
         {
           factory: new HclProductSearchFactory(ProductSearchResultSchema),
-          capability: (
-            args: HclCapabilityFactoryArgs & {
-              factory: HclProductSearchFactory;
-            },
-          ) =>
+          capability: (args) =>
             new HclProductSearchCapability(
               args.cache,
               args.context,
@@ -193,13 +173,10 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.price?.enabled) {
       client.price = resolveCapabilityWithFactory(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        capabilities.price as any,
+        capabilities.price,
         {
           factory: new HclPriceFactory(PriceSchema),
-          capability: (
-            args: HclCapabilityFactoryArgs & { factory: HclPriceFactory },
-          ) =>
+          capability: (args) =>
             new HclPriceCapability(
               args.cache,
               args.context,
@@ -214,13 +191,10 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.inventory?.enabled) {
       client.inventory = resolveCapabilityWithFactory(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        capabilities.inventory as any,
+        capabilities.inventory,
         {
           factory: new HclInventoryFactory(InventorySchema),
-          capability: (
-            args: HclCapabilityFactoryArgs & { factory: HclInventoryFactory },
-          ) =>
+          capability: (args) =>
             new HclInventoryCapability(
               args.cache,
               args.context,
@@ -235,13 +209,10 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.identity?.enabled) {
       client.identity = resolveCapabilityWithFactory(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        capabilities.identity as any,
+        capabilities.identity,
         {
           factory: new HclIdentityFactory(IdentitySchema),
-          capability: (
-            args: HclCapabilityFactoryArgs & { factory: HclIdentityFactory },
-          ) =>
+          capability: (args) =>
             new HclIdentityCapability(
               args.cache,
               args.context,
