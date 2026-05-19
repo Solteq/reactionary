@@ -1,155 +1,152 @@
+import type { RequestContext } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
-import type {
-  HclCategoryQueryResponse,
-  HclFindCategoriesQuery,
-  HclFindProductsQuery,
-  HclProductQueryResponse,
-  HclUrlQueryResponse,
-  HclUrlResponse,
-} from '../schema/hcl.schema.js';
-import type { HclWcsAuthHeaders } from './transaction-client.js';
+import { getLocaleParams } from './locale-params.js';
+import {
+  SESSION_KEY_PERSONALIZATION_ID,
+  SESSION_KEY_WC_TOKEN,
+  SESSION_KEY_WC_TRUSTED_TOKEN,
+} from './session-keys.js';
 
+/** Thrown when the WCS server returns 404 for a cart endpoint (no active cart). */
+export class HclCartNotFoundError extends Error {
+  constructor() {
+    super('No active cart found');
+    this.name = 'HclCartNotFoundError';
+  }
+}
+
+/**
+ * Unified HCL Commerce HTTP client.
+ *
+ * Covers both the Query Service (catalog/search) and the WCS Transaction
+ * Service through two base URL prefixes:
+ *
+ *   catalogBaseUrl     — {apiUrl}/search/resources
+ *   transactionBaseUrl — {apiUrl}/wcs/resources/store/{storeId}
+ *
+ * Auth headers are read from the injected RequestContext on every request,
+ * so capabilities never need to extract and forward session tokens manually.
+ *
+ * Use the generic `callGet` / `callPost` / `callPut` / `callDelete` helpers
+ * in capability subclasses, passing the appropriate base URL + path, so that
+ * project-level subclasses can intercept and customise individual API calls.
+ */
 export class HclClient {
-  private readonly baseUrl: string;
-  constructor(private readonly config: HclConfiguration) {
+  /** Base URL for the Query Service (catalog / search). */
+  readonly catalogBaseUrl: string;
+
+  /** Base URL for the Transaction Service (WCS REST). */
+  readonly transactionBaseUrl: string;
+
+  constructor(
+    protected readonly config: HclConfiguration,
+    protected readonly context: RequestContext,
+  ) {
     const origin = config.apiUrl.replace(/\/+$/, '');
-    this.baseUrl = `${origin}/search/resources`;
+    this.catalogBaseUrl = `${origin}/search/resources`;
+    this.transactionBaseUrl = `${origin}/wcs/resources/store/${config.storeId}`;
   }
 
-  async findProducts(
-    query: HclFindProductsQuery,
-    auth?: HclWcsAuthHeaders,
-  ): Promise<HclProductQueryResponse> {
-    const params = new URLSearchParams();
+  // ---------------------------------------------------------------------------
+  // Generic HTTP helpers — auth headers are injected from context automatically.
+  // Pass the full URL (catalogBaseUrl or transactionBaseUrl + path) so callers
+  // are explicit about which service they are targeting.
+  // ---------------------------------------------------------------------------
 
-    params.set('storeId', query.storeId ?? this.config.storeId);
-
-    const catalogId = query.catalogId ?? this.config.catalogId;
-    if (catalogId) params.set('catalogId', catalogId);
-
-    if (query.langId) params.set('langId', query.langId);
-    if (query.currency) params.set('currency', query.currency);
-
-    if (query.categoryId) params.set('categoryId', query.categoryId);
-    if (query.searchTerm) params.set('searchTerm', query.searchTerm);
-    if (query.contractId) params.set('contractId', query.contractId);
-    if (query.profileName) params.set('profileName', query.profileName);
-    if (query.limit !== undefined) params.set('limit', String(query.limit));
-    if (query.offset !== undefined) params.set('offset', String(query.offset));
-    if (query.checkEntitlement !== undefined) {
-      params.set('checkEntitlement', String(query.checkEntitlement));
-    }
-
-    // Arrays are serialized as repeated params: partNumber=X&partNumber=Y
-    for (const id of query.id ?? []) {
-      params.append('id', id);
-    }
-    for (const partNumber of query.partNumber ?? []) {
-      params.append('partNumber', partNumber);
-    }
-    for (const facet of query.facets ?? []) {
-      params.append('facet', facet);
-    }
-
-    const url = `${this.baseUrl}/api/v2/products?${params.toString()}`;
-
-    const response = await fetch(url, {
+  async callGet<T>(url: string, params?: URLSearchParams): Promise<T>;
+  async callGet<T>(
+    url: string,
+    params: URLSearchParams | undefined,
+    opts: { allowUndefined: true },
+  ): Promise<T | undefined>;
+  async callGet<T>(
+    url: string,
+    params?: URLSearchParams,
+    opts?: { allowUndefined?: boolean },
+  ): Promise<T | undefined> {
+    const merged = this.buildParams(params);
+    const query = merged.toString() ? `?${merged.toString()}` : '';
+    const response = await fetch(`${url}${query}`, {
       method: 'GET',
-      headers: this.buildHeaders(auth),
+      headers: this.buildHeaders(),
     });
-
+    if (opts?.allowUndefined && response.status === 404) return undefined;
     if (!response.ok) {
       throw new Error(
-        `HCL API error ${response.status} ${response.statusText} for URL: ${url}`,
+        `HCL GET ${url} error ${response.status} ${response.statusText}`,
       );
     }
+    return response.json() as Promise<T>;
+  }
 
-    return response.json() as Promise<HclProductQueryResponse>;
+  async callPost<T>(url: string, body: unknown = {}): Promise<T> {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { ...this.buildHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `HCL POST ${url} error ${response.status} ${response.statusText}: ${text}`,
+      );
+    }
+    return response.json() as Promise<T>;
+  }
+
+  async callPut<T>(url: string, body: unknown): Promise<T> {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: { ...this.buildHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `HCL PUT ${url} error ${response.status} ${response.statusText}: ${text}`,
+      );
+    }
+    return response.json() as Promise<T>;
+  }
+
+  async callDelete(url: string, opts?: { ignore404?: boolean }): Promise<void> {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.buildHeaders(),
+    });
+    if (!response.ok && !(opts?.ignore404 && response.status === 404)) {
+      throw new Error(
+        `HCL DELETE ${url} error ${response.status} ${response.statusText}`,
+      );
+    }
   }
 
   /**
-   * Resolve a URL slug to an HCL token (product partNumber, category ID, etc.).
-   * Calls GET /api/v2/urls?storeId=X&identifier=<slug>
-   * Returns undefined when the slug is not found (404).
+   * Merges caller-supplied params with locale defaults (langId, currency)
+   * derived from the request context. Caller-supplied values always win.
    */
-  async resolveSlug(
-    slug: string,
-    auth?: HclWcsAuthHeaders,
-    langId?: string,
-  ): Promise<HclUrlResponse | undefined> {
-    const params = new URLSearchParams();
-    params.set('storeId', this.config.storeId);
-    params.append('identifier', slug);
-    if (langId) params.set('langId', langId);
-
-    const url = `${this.baseUrl}/api/v2/urls?${params.toString()}`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.buildHeaders(auth),
-    });
-
-    if (response.status === 404) return undefined;
-
-    if (!response.ok) {
-      throw new Error(
-        `HCL URL resolve error ${response.status} ${response.statusText} for URL: ${url}`,
-      );
-    }
-
-    const data = (await response.json()) as HclUrlQueryResponse;
-    return data.contents?.[0];
+  protected buildParams(params?: URLSearchParams): URLSearchParams {
+    const merged = new URLSearchParams(params);
+    const { langId, currency } = getLocaleParams(this.config, this.context);
+    if (langId && !merged.has('langId')) merged.set('langId', langId);
+    if (currency && !merged.has('currency')) merged.set('currency', currency);
+    return merged;
   }
 
-  /**
-   * Query categories from the HCL Commerce Query Service.
-   * Calls GET /api/v2/categories with the given query parameters.
-   */
-  async findCategories(
-    query: HclFindCategoriesQuery,
-    auth?: HclWcsAuthHeaders,
-  ): Promise<HclCategoryQueryResponse> {
-    const params = new URLSearchParams();
-
-    params.set('storeId', query.storeId ?? this.config.storeId);
-
-    const catalogId = query.catalogId ?? this.config.catalogId;
-    if (catalogId) params.set('catalogId', catalogId);
-
-    if (query.langId) params.set('langId', query.langId);
-
-    if (query.parentCategoryId)
-      params.set('parentCategoryId', query.parentCategoryId);
-    if (query.depthAndLimit) params.set('depthAndLimit', query.depthAndLimit);
-    if (query.profileName) params.set('profileName', query.profileName);
-
-    for (const id of query.id ?? []) {
-      params.append('id', id);
-    }
-    for (const identifier of query.identifier ?? []) {
-      params.append('identifier', identifier);
-    }
-
-    const url = `${this.baseUrl}/api/v2/categories?${params.toString()}`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.buildHeaders(auth),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `HCL API error ${response.status} ${response.statusText} for URL: ${url}`,
-      );
-    }
-
-    return response.json() as Promise<HclCategoryQueryResponse>;
-  }
-
-  private buildHeaders(auth?: HclWcsAuthHeaders): Record<string, string> {
+  protected buildHeaders(): Record<string, string> {
     const headers: Record<string, string> = { Accept: 'application/json' };
-    if (auth?.WCToken) headers['WCToken'] = auth.WCToken;
-    if (auth?.WCTrustedToken) headers['WCTrustedToken'] = auth.WCTrustedToken;
+    const token = this.context.session[SESSION_KEY_WC_TOKEN] as
+      | string
+      | undefined;
+    const trustedToken = this.context.session[SESSION_KEY_WC_TRUSTED_TOKEN] as
+      | string
+      | undefined;
+    const personalizationId = this.context.session[
+      SESSION_KEY_PERSONALIZATION_ID
+    ] as string | undefined;
+    if (token) headers['WCToken'] = token;
+    if (trustedToken) headers['WCTrustedToken'] = trustedToken;
+    if (personalizationId) headers['WCPersonalization'] = personalizationId;
     return headers;
   }
 }

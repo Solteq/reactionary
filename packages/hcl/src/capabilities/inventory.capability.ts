@@ -15,9 +15,9 @@ import {
   type Result,
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
-import type { HclTransactionClient } from '../core/transaction-client.js';
-import { getWcsAuthFromContext } from '../core/transaction-client.js';
+import type { HclClient } from '../core/client.js';
 import type { HclInventoryFactory } from '../factories/inventory/inventory.factory.js';
+import type { HclInventoryAvailabilityResponse } from '../schema/hcl.schema.js';
 
 export class HclInventoryCapability<
   TFactory extends InventoryFactory = HclInventoryFactory,
@@ -26,7 +26,7 @@ export class HclInventoryCapability<
     cache: Cache,
     context: RequestContext,
     protected readonly config: HclConfiguration,
-    protected readonly transactionClient: HclTransactionClient,
+    protected readonly client: HclClient,
     protected readonly factory: InventoryFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
@@ -42,14 +42,7 @@ export class HclInventoryCapability<
     const { sku } = payload.variant;
     const centreKey = payload.fulfilmentCenter.key;
 
-    // Pass physicalStoreName when a specific fulfilment centre is requested.
-    const physicalStoreName = centreKey || undefined;
-
-    const response = await this.transactionClient.getInventoryByPartNumber(
-      [sku],
-      physicalStoreName,
-      getWcsAuthFromContext(this.context),
-    );
+    const response = await this.fetchInventory(sku, centreKey || undefined);
 
     const items = response.InventoryAvailability ?? [];
 
@@ -78,6 +71,28 @@ export class HclInventoryCapability<
         sku,
         fulfilmentCenterKey: centreKey,
       }) as InventoryFactoryOutput<TFactory>,
+    );
+  }
+
+  /**
+   * Fetch inventory availability for a single SKU from WCS.
+   *
+   * Calls GET /inventoryavailability/byPartNumber/{sku}[?physicalStoreName=X]
+   *
+   * The URL logic lives here (not in the transaction client) so that
+   * project-level subclasses can override this method to add extra parameters
+   * or use a different inventory endpoint.
+   */
+  protected async fetchInventory(
+    sku: string,
+    physicalStoreName?: string,
+  ): Promise<HclInventoryAvailabilityResponse> {
+    const params = new URLSearchParams();
+    if (physicalStoreName) params.set('physicalStoreName', physicalStoreName);
+
+    return this.client.callGet<HclInventoryAvailabilityResponse>(
+      `${this.client.transactionBaseUrl}/inventoryavailability/byPartNumber/${encodeURIComponent(sku)}`,
+      params,
     );
   }
 }

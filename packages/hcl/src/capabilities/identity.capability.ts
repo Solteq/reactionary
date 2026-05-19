@@ -22,39 +22,40 @@ import {
   success,
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
-import type { HclTransactionClient } from '../core/transaction-client.js';
+import type { HclClient } from '../core/client.js';
 import type { HclIdentityFactory } from '../factories/identity/identity.factory.js';
+import type {
+  HclPersonResponse,
+  HclWcsIdentityResponse,
+} from '../schema/hcl.schema.js';
+import {
+  SESSION_KEY_WC_TOKEN,
+  SESSION_KEY_WC_TRUSTED_TOKEN,
+  SESSION_KEY_USER_ID,
+  SESSION_KEY_IDENTITY_TYPE,
+  SESSION_KEY_PERSONALIZATION_ID,
+} from '../core/session-keys.js';
 import createDebug from 'debug';
 
 const debug = createDebug('reactionary:hcl:identity');
-
-/**
- * Session keys used to persist WCS auth tokens across requests.
- * Using the `hcl.` prefix per provider convention.
- */
-const SESSION_KEY_WC_TOKEN = 'hcl.WCToken';
-const SESSION_KEY_WC_TRUSTED_TOKEN = 'hcl.WCTrustedToken';
-const SESSION_KEY_USER_ID = 'hcl.userId';
-const SESSION_KEY_IDENTITY_TYPE = 'hcl.identityType';
-const SESSION_KEY_PERSONALIZATION_ID = 'hcl.personalizationID';
 
 export class HclIdentityCapability<
   TFactory extends IdentityFactory = HclIdentityFactory,
 > extends IdentityCapability<IdentityFactoryOutput<TFactory>> {
   protected config: HclConfiguration;
-  protected transactionClient: HclTransactionClient;
+  protected client: HclClient;
   protected factory: IdentityFactoryWithOutput<TFactory>;
 
   constructor(
     cache: Cache,
     context: RequestContext,
     config: HclConfiguration,
-    transactionClient: HclTransactionClient,
+    client: HclClient,
     factory: IdentityFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
     this.config = config;
-    this.transactionClient = transactionClient;
+    this.client = client;
     this.factory = factory;
   }
 
@@ -71,6 +72,17 @@ export class HclIdentityCapability<
 
     if (!wcToken) {
       debug('No WCS session token — returning anonymous identity');
+      // Ensure a personalization ID exists for anonymous browsing.
+      // This lightweight ID is sent as the WCPersonalization header so WCS can
+      // provide personalised responses without creating a full guest-identity
+      // row in the database. A full guest session is only created when the user
+      // actually manifests state (e.g. adds to cart).
+      if (!this.context.session[SESSION_KEY_PERSONALIZATION_ID]) {
+        this.context.session[SESSION_KEY_PERSONALIZATION_ID] = crypto
+          .randomUUID()
+          .replace(/-/g, '')
+          .slice(0, 30);
+      }
       const parsed = this.factory.parseIdentity(this.context, {
         type: 'Anonymous',
       } satisfies AnonymousIdentity) as IdentityFactoryOutput<TFactory>;
@@ -123,7 +135,7 @@ export class HclIdentityCapability<
   ): Promise<Result<IdentityFactoryOutput<TFactory>>> {
     debug('Attempting login for user: %s', payload.username);
 
-    const response = await this.transactionClient.loginIdentity(
+    const response = await this.loginIdentity(
       payload.username,
       payload.password,
     );
@@ -156,20 +168,15 @@ export class HclIdentityCapability<
     const wcToken = this.context.session[SESSION_KEY_WC_TOKEN] as
       | string
       | undefined;
-    const wcTrustedToken = this.context.session[
-      SESSION_KEY_WC_TRUSTED_TOKEN
-    ] as string | undefined;
     const userId = this.context.session[SESSION_KEY_USER_ID] as
       | string
       | undefined;
 
-    // Best-effort server-side logout — silently ignored if endpoint not supported
-    if (wcToken && wcTrustedToken && userId) {
+    // Best-effort server-side logout — silently ignored if endpoint not supported.
+    // Auth headers are read automatically from the context by the client.
+    if (wcToken && userId) {
       try {
-        await this.transactionClient.deleteLoginIdentity(userId, {
-          WCToken: wcToken,
-          WCTrustedToken: wcTrustedToken,
-        });
+        await this.deleteLoginIdentity(userId);
       } catch (err) {
         debug('Server-side logout failed (non-fatal): %o', err);
       }
@@ -194,7 +201,7 @@ export class HclIdentityCapability<
     debug('Registering new user: %s', payload.username);
 
     // WCS requires a guest session before registering a new person.
-    const guest = await this.transactionClient.createGuestIdentity();
+    const guest = await this.createGuestIdentity();
     this.storeSessionTokens(
       guest.WCToken,
       guest.WCTrustedToken,
@@ -203,15 +210,11 @@ export class HclIdentityCapability<
       guest.personalizationID,
     );
 
-    // Register the person — the guest session tokens are passed as auth.
-    const guestAuth = {
-      WCToken: guest.WCToken,
-      WCTrustedToken: guest.WCTrustedToken,
-    };
-    const registered = await this.transactionClient.registerPerson(
+    // Register the person — the guest session tokens are now stored in the
+    // context so the client reads them automatically via buildHeaders().
+    const registered = await this.registerPerson(
       payload.username,
       payload.password,
-      guestAuth,
     );
 
     this.storeSessionTokens(
@@ -229,10 +232,6 @@ export class HclIdentityCapability<
     this.updateIdentityContext(registerParsed);
     return success(registerParsed);
   }
-
-  // ---------------------------------------------------------------------------
-  // Private helpers
-  // ---------------------------------------------------------------------------
 
   private storeSessionTokens(
     wcToken: string,
@@ -258,5 +257,62 @@ export class HclIdentityCapability<
     delete this.context.session[SESSION_KEY_USER_ID];
     delete this.context.session[SESSION_KEY_IDENTITY_TYPE];
     delete this.context.session[SESSION_KEY_PERSONALIZATION_ID];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Protected fetch methods — override in subclasses to customise API calls
+  // ---------------------------------------------------------------------------
+
+  protected async loginIdentity(
+    logonId: string,
+    logonPassword: string,
+  ): Promise<HclWcsIdentityResponse> {
+    return this.client.callPost<HclWcsIdentityResponse>(
+      `${this.client.transactionBaseUrl}/loginidentity`,
+      { logonId, logonPassword },
+    );
+  }
+
+  protected async deleteLoginIdentity(userId: string): Promise<void> {
+    await this.client.callDelete(
+      `${this.client.transactionBaseUrl}/loginidentity/${encodeURIComponent(userId)}`,
+      { ignore404: true },
+    );
+  }
+
+  /**
+   * Create an anonymous guest session.
+   * Only call this when the user actually needs a persisted session (e.g. on
+   * cart creation). For pure browsing, a personalization ID is sufficient.
+   */
+  protected async createGuestIdentity(): Promise<HclWcsIdentityResponse> {
+    return this.client.callPost<HclWcsIdentityResponse>(
+      `${this.client.transactionBaseUrl}/guestidentity`,
+    );
+  }
+
+  /**
+   * Register a new person. Requires an active guest session already stored in
+   * the context (guest tokens are picked up automatically by buildHeaders).
+   */
+  protected async registerPerson(
+    logonId: string,
+    logonPassword: string,
+  ): Promise<HclWcsIdentityResponse> {
+    return this.client.callPut<HclWcsIdentityResponse>(
+      `${this.client.transactionBaseUrl}/person/@self`,
+      {
+        logonId,
+        logonPassword,
+        logonPasswordVerify: logonPassword,
+        registerType: 'G',
+      },
+    );
+  }
+
+  protected async getSelfPerson(): Promise<HclPersonResponse> {
+    return this.client.callGet<HclPersonResponse>(
+      `${this.client.transactionBaseUrl}/person/@self`,
+    );
   }
 }

@@ -3,7 +3,6 @@ export * from './schema/capabilities.schema.js';
 export * from './schema/hcl.schema.js';
 export * from './schema/category.schema.js';
 export * from './core/client.js';
-export * from './core/transaction-client.js';
 export * from './core/initialize.js';
 export * from './core/initialize.types.js';
 export * from './factories/index.js';

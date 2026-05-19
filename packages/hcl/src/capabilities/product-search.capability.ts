@@ -18,11 +18,14 @@ import {
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
-import { getWcsAuthFromContext } from '../core/transaction-client.js';
 import type { HclProductSearchFactory } from '../factories/product-search/product-search.factory.js';
-import { getLocaleParams } from '../core/locale-params.js';
 import type { HclCategory } from '../schema/category.schema.js';
-import type { HclFindProductsQuery } from '../schema/hcl.schema.js';
+import type {
+  HclCategoryQueryResponse,
+  HclFindCategoriesQuery,
+  HclFindProductsQuery,
+  HclProductQueryResponse,
+} from '../schema/hcl.schema.js';
 
 export class HclProductSearchCapability<
   TFactory extends ProductSearchFactory = HclProductSearchFactory,
@@ -42,7 +45,6 @@ export class HclProductSearchCapability<
   ): HclFindProductsQuery {
     const { term, paginationOptions, categoryFilter, facets } = payload.search;
     const { pageNumber, pageSize } = paginationOptions;
-    const { langId, currency } = getLocaleParams(this.config, this.context);
 
     const categoryId = categoryFilter?.key || undefined;
 
@@ -55,8 +57,6 @@ export class HclProductSearchCapability<
         ? this.config.profiles.categoryBrowse
         : this.config.profiles.productSearch,
       facets: facets.length > 0 ? facets.map((f) => f.key) : undefined,
-      langId,
-      currency,
     };
   }
 
@@ -67,10 +67,7 @@ export class HclProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm,
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
-    const response = await this.client.findProducts(
-      this.queryByTermPayload(payload),
-      getWcsAuthFromContext(this.context),
-    );
+    const response = await this.fetchProducts(this.queryByTermPayload(payload));
 
     const value = this.factory.parseSearchResult(
       this.context,
@@ -96,10 +93,8 @@ export class HclProductSearchCapability<
 
     let uniqueId = leaf?.uniqueId;
     if (!uniqueId) {
-      const { langId } = getLocaleParams(this.config, this.context);
-      const catResp = await this.client.findCategories({
+      const catResp = await this.fetchCategories({
         identifier: [externalKey],
-        langId,
       });
       uniqueId = catResp.contents?.[0]?.uniqueID ?? externalKey;
     }
@@ -109,5 +104,49 @@ export class HclProductSearchCapability<
       key: uniqueId,
     };
     return success(filter);
+  }
+
+  protected async fetchProducts(
+    query: HclFindProductsQuery,
+  ): Promise<HclProductQueryResponse> {
+    const params = new URLSearchParams();
+    params.set('storeId', query.storeId ?? this.config.storeId);
+    const catalogId = query.catalogId ?? this.config.catalogId;
+    if (catalogId) params.set('catalogId', catalogId);
+    if (query.categoryId) params.set('categoryId', query.categoryId);
+    if (query.searchTerm) params.set('searchTerm', query.searchTerm);
+    if (query.contractId) params.set('contractId', query.contractId);
+    if (query.profileName) params.set('profileName', query.profileName);
+    if (query.limit !== undefined) params.set('limit', String(query.limit));
+    if (query.offset !== undefined) params.set('offset', String(query.offset));
+    if (query.checkEntitlement !== undefined)
+      params.set('checkEntitlement', String(query.checkEntitlement));
+    for (const id of query.id ?? []) params.append('id', id);
+    for (const pn of query.partNumber ?? []) params.append('partNumber', pn);
+    for (const facet of query.facets ?? []) params.append('facet', facet);
+    return this.client.callGet<HclProductQueryResponse>(
+      `${this.client.catalogBaseUrl}/api/v2/products`,
+      params,
+    );
+  }
+
+  protected async fetchCategories(
+    query: HclFindCategoriesQuery,
+  ): Promise<HclCategoryQueryResponse> {
+    const params = new URLSearchParams();
+    params.set('storeId', query.storeId ?? this.config.storeId);
+    const catalogId = query.catalogId ?? this.config.catalogId;
+    if (catalogId) params.set('catalogId', catalogId);
+    if (query.parentCategoryId)
+      params.set('parentCategoryId', query.parentCategoryId);
+    if (query.depthAndLimit) params.set('depthAndLimit', query.depthAndLimit);
+    if (query.profileName) params.set('profileName', query.profileName);
+    for (const id of query.id ?? []) params.append('id', id);
+    for (const identifier of query.identifier ?? [])
+      params.append('identifier', identifier);
+    return this.client.callGet<HclCategoryQueryResponse>(
+      `${this.client.catalogBaseUrl}/api/v2/categories`,
+      params,
+    );
   }
 }

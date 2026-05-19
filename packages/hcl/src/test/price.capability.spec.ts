@@ -7,7 +7,7 @@ import {
 } from '@reactionary/core';
 import { HclPriceCapability } from '../capabilities/price.capability.js';
 import { HclPriceFactory } from '../factories/index.js';
-import { HclTransactionClient } from '../core/transaction-client.js';
+import { HclClient } from '../core/client.js';
 import { getHclTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
 
@@ -23,12 +23,12 @@ describe('HCL Price Capability', () => {
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
     const config = getHclTestConfiguration();
-    const transactionClient = new HclTransactionClient(config);
+    const client = new HclClient(config, reqCtx);
     provider = new HclPriceCapability(
       new NoOpCache(),
       reqCtx,
       config,
-      transactionClient,
+      client,
       new HclPriceFactory(PriceSchema),
     );
   });

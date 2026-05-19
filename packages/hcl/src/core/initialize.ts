@@ -19,7 +19,6 @@ import {
   resolveCapabilityWithFactory,
 } from './initialize.types.js';
 import { HclClient } from './client.js';
-import { HclTransactionClient } from './transaction-client.js';
 import {
   HclCartFactory,
   HclCategoryFactory,
@@ -62,8 +61,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
     const client: any = {};
     const config = HclConfigurationSchema.parse(configuration);
     const caps = HclCapabilitiesSchema.parse(capabilities);
-    const hclClient = new HclClient(config);
-    const hclTransactionClient = new HclTransactionClient(config);
+    const hclClient = new HclClient(config, context);
 
     const buildCapabilityArgs = <TFactory>(
       factory: TFactory,
@@ -72,7 +70,6 @@ export function withHclCapabilities<T extends HclCapabilities>(
       context,
       config,
       hclClient,
-      hclTransactionClient,
       factory,
     });
 
@@ -207,7 +204,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
               args.cache,
               args.context,
               args.config,
-              args.hclTransactionClient,
+              args.hclClient,
               args.factory,
             ),
         },
@@ -228,7 +225,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
               args.cache,
               args.context,
               args.config,
-              args.hclTransactionClient,
+              args.hclClient,
               args.factory,
             ),
         },
@@ -249,7 +246,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
               args.cache,
               args.context,
               args.config,
-              args.hclTransactionClient,
+              args.hclClient,
               args.factory,
             ),
         },

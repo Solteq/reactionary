@@ -7,7 +7,8 @@ import {
 } from '@reactionary/core';
 import { HclIdentityCapability } from '../capabilities/identity.capability.js';
 import { HclIdentityFactory } from '../factories/index.js';
-import { HclTransactionClient } from '../core/transaction-client.js';
+import { HclClient } from '../core/client.js';
+import type { HclWcsIdentityResponse } from '../schema/hcl.schema.js';
 import { getHclTestConfiguration } from './test-utils.js';
 import { describe, expect, it, beforeEach } from 'vitest';
 
@@ -18,12 +19,12 @@ describe('HCL Identity Capability', () => {
   beforeEach(() => {
     reqCtx = createInitialRequestContext();
     const config = getHclTestConfiguration();
-    const transactionClient = new HclTransactionClient(config);
+    const client = new HclClient(config, reqCtx);
     provider = new HclIdentityCapability(
       new NoOpCache(),
       reqCtx,
       config,
-      transactionClient,
+      client,
       new HclIdentityFactory(IdentitySchema),
     );
   });
@@ -39,10 +40,12 @@ describe('HCL Identity Capability', () => {
 
   it('should return guest identity after creating a guest session', async () => {
     const config = getHclTestConfiguration();
-    const transactionClient = new HclTransactionClient(config);
+    const client = new HclClient(config, reqCtx);
 
-    // Create a guest session directly on the transaction client
-    const guestResponse = await transactionClient.createGuestIdentity();
+    // Create a guest session via callPost (createGuestIdentity moved to capability)
+    const guestResponse = await client.callPost<HclWcsIdentityResponse>(
+      `${client.transactionBaseUrl}/guestidentity`,
+    );
     expect(guestResponse.WCToken).toBeTruthy();
     expect(guestResponse.WCTrustedToken).toBeTruthy();
     expect(guestResponse.userId).toBeTruthy();

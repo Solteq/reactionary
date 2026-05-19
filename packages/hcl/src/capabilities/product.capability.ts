@@ -20,10 +20,16 @@ import {
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
-import { getWcsAuthFromContext } from '../core/transaction-client.js';
 import type { HclProductFactory } from '../factories/product/product.factory.js';
-import type { HclProductResponse } from '../schema/hcl.schema.js';
-import { getLocaleParams } from '../core/locale-params.js';
+import type {
+  HclCategoryQueryResponse,
+  HclFindCategoriesQuery,
+  HclFindProductsQuery,
+  HclProductQueryResponse,
+  HclProductResponse,
+  HclUrlQueryResponse,
+  HclUrlResponse,
+} from '../schema/hcl.schema.js';
 
 export class HclProductCapability<
   TFactory extends ProductFactory = HclProductFactory,
@@ -49,16 +55,10 @@ export class HclProductCapability<
   public override async getById(
     payload: ProductQueryById,
   ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
-    const { langId, currency } = getLocaleParams(this.config, this.context);
-    const response = await this.client.findProducts(
-      {
-        partNumber: [payload.identifier.key],
-        profileName: this.config.profiles.product,
-        langId,
-        currency,
-      },
-      getWcsAuthFromContext(this.context),
-    );
+    const response = await this.fetchProducts({
+      partNumber: [payload.identifier.key],
+      profileName: this.config.profiles.product,
+    });
 
     const products = response.contents ?? response.catalogEntryView ?? [];
     const data = products[0];
@@ -72,7 +72,7 @@ export class HclProductCapability<
 
     const value = this.factory.parseProduct(
       this.context,
-      await this.withResolvedParentCategories(data, langId),
+      await this.withResolvedParentCategories(data),
     );
     return success(value);
   }
@@ -88,14 +88,9 @@ export class HclProductCapability<
   public override async getBySlug(
     payload: ProductQueryBySlug,
   ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
-    const { langId, currency } = getLocaleParams(this.config, this.context);
     // Resolve the URL slug to a partNumber via the HCL URL token API.
     // tokenExternalValue holds the partNumber for ProductToken entries.
-    const token = await this.client.resolveSlug(
-      payload.slug,
-      getWcsAuthFromContext(this.context),
-      langId,
-    );
+    const token = await this.fetchSlug(payload.slug);
 
     if (
       !token ||
@@ -108,15 +103,10 @@ export class HclProductCapability<
       });
     }
 
-    const response = await this.client.findProducts(
-      {
-        partNumber: [token.tokenExternalValue],
-        profileName: this.config.profiles.product,
-        langId,
-        currency,
-      },
-      getWcsAuthFromContext(this.context),
-    );
+    const response = await this.fetchProducts({
+      partNumber: [token.tokenExternalValue],
+      profileName: this.config.profiles.product,
+    });
 
     const products = response.contents ?? response.catalogEntryView ?? [];
     const data = products[0];
@@ -130,7 +120,7 @@ export class HclProductCapability<
 
     const value = this.factory.parseProduct(
       this.context,
-      await this.withResolvedParentCategories(data, langId),
+      await this.withResolvedParentCategories(data),
     );
     return success(value);
   }
@@ -146,16 +136,10 @@ export class HclProductCapability<
   public override async getBySKU(
     payload: ProductQueryBySKU,
   ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
-    const { langId, currency } = getLocaleParams(this.config, this.context);
-    const response = await this.client.findProducts(
-      {
-        partNumber: [payload.variant.sku],
-        profileName: this.config.profiles.product,
-        langId,
-        currency,
-      },
-      getWcsAuthFromContext(this.context),
-    );
+    const response = await this.fetchProducts({
+      partNumber: [payload.variant.sku],
+      profileName: this.config.profiles.product,
+    });
 
     const products = response.contents ?? response.catalogEntryView ?? [];
     const data = products[0];
@@ -169,7 +153,7 @@ export class HclProductCapability<
 
     const value = this.factory.parseProduct(
       this.context,
-      await this.withResolvedParentCategories(data, langId),
+      await this.withResolvedParentCategories(data),
     );
     return success(value);
   }
@@ -181,7 +165,6 @@ export class HclProductCapability<
    */
   protected async withResolvedParentCategories(
     data: HclProductResponse,
-    langId: string,
   ): Promise<HclProductResponse> {
     const rawIds = Array.isArray(data.parentCatalogGroupID)
       ? data.parentCatalogGroupID
@@ -201,12 +184,68 @@ export class HclProductCapability<
 
     if (uniqueIds.length === 0) return data;
 
-    const catResp = await this.client.findCategories({ id: uniqueIds, langId });
+    const catResp = await this.fetchCategories({ id: uniqueIds });
     const idToIdentifier = new Map(
       (catResp.contents ?? []).map((c) => [c.uniqueID, c.identifier]),
     );
 
     const resolvedIds = uniqueIds.map((id) => idToIdentifier.get(id) ?? id);
     return { ...data, parentCatalogGroupID: resolvedIds };
+  }
+
+  protected async fetchProducts(
+    query: HclFindProductsQuery,
+  ): Promise<HclProductQueryResponse> {
+    const params = new URLSearchParams();
+    params.set('storeId', query.storeId ?? this.config.storeId);
+    const catalogId = query.catalogId ?? this.config.catalogId;
+    if (catalogId) params.set('catalogId', catalogId);
+    if (query.categoryId) params.set('categoryId', query.categoryId);
+    if (query.searchTerm) params.set('searchTerm', query.searchTerm);
+    if (query.contractId) params.set('contractId', query.contractId);
+    if (query.profileName) params.set('profileName', query.profileName);
+    if (query.limit !== undefined) params.set('limit', String(query.limit));
+    if (query.offset !== undefined) params.set('offset', String(query.offset));
+    if (query.checkEntitlement !== undefined)
+      params.set('checkEntitlement', String(query.checkEntitlement));
+    for (const id of query.id ?? []) params.append('id', id);
+    for (const pn of query.partNumber ?? []) params.append('partNumber', pn);
+    for (const facet of query.facets ?? []) params.append('facet', facet);
+    return this.client.callGet<HclProductQueryResponse>(
+      `${this.client.catalogBaseUrl}/api/v2/products`,
+      params,
+    );
+  }
+
+  protected async fetchCategories(
+    query: HclFindCategoriesQuery,
+  ): Promise<HclCategoryQueryResponse> {
+    const params = new URLSearchParams();
+    params.set('storeId', query.storeId ?? this.config.storeId);
+    const catalogId = query.catalogId ?? this.config.catalogId;
+    if (catalogId) params.set('catalogId', catalogId);
+    if (query.parentCategoryId)
+      params.set('parentCategoryId', query.parentCategoryId);
+    if (query.depthAndLimit) params.set('depthAndLimit', query.depthAndLimit);
+    if (query.profileName) params.set('profileName', query.profileName);
+    for (const id of query.id ?? []) params.append('id', id);
+    for (const identifier of query.identifier ?? [])
+      params.append('identifier', identifier);
+    return this.client.callGet<HclCategoryQueryResponse>(
+      `${this.client.catalogBaseUrl}/api/v2/categories`,
+      params,
+    );
+  }
+
+  protected async fetchSlug(slug: string): Promise<HclUrlResponse | undefined> {
+    const params = new URLSearchParams();
+    params.set('storeId', this.config.storeId);
+    params.append('identifier', slug);
+    const response = await this.client.callGet<HclUrlQueryResponse>(
+      `${this.client.catalogBaseUrl}/api/v2/urls`,
+      params,
+      { allowUndefined: true },
+    );
+    return response?.contents?.[0];
   }
 }

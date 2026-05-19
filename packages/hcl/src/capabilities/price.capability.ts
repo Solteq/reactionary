@@ -15,9 +15,9 @@ import {
   type Result,
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
-import type { HclTransactionClient } from '../core/transaction-client.js';
-import { getWcsAuthFromContext } from '../core/transaction-client.js';
+import type { HclClient } from '../core/client.js';
 import type { HclPriceFactory } from '../factories/price/price.factory.js';
+import type { HclEntitledPriceResponse } from '../schema/hcl.schema.js';
 
 export class HclPriceCapability<
   TFactory extends PriceFactory = HclPriceFactory,
@@ -26,7 +26,7 @@ export class HclPriceCapability<
     cache: Cache,
     context: RequestContext,
     protected readonly config: HclConfiguration,
-    protected readonly transactionClient: HclTransactionClient,
+    protected readonly client: HclClient,
     protected readonly factory: PriceFactoryWithOutput<TFactory>,
   ) {
     super(cache, context);
@@ -39,7 +39,10 @@ export class HclPriceCapability<
   public override async getListPrice(
     payload: ListPriceQuery,
   ): Promise<Result<PriceFactoryOutput<TFactory>>> {
-    return this.fetchPrice(payload.variant.sku);
+    // In HCL Commerce the public catalogue price rule is always named
+    // 'List Price Rule'. We use the entitled-price endpoint which honours
+    // that rule automatically for anonymous sessions.
+    return this.fetchEntitledPrice(payload.variant.sku);
   }
 
   @Reactionary({
@@ -49,38 +52,37 @@ export class HclPriceCapability<
   public override async getCustomerPrice(
     payload: CustomerPriceQuery,
   ): Promise<Result<PriceFactoryOutput<TFactory>>> {
-    // For B2B: treat company.taxIdentifier as the price rule ID (consistent with
-    // how contractId is used in product search queries).
-    const priceRuleId =
-      payload.company?.taxIdentifier ?? this.config.priceRuleId;
-    return this.fetchPrice(payload.variant.sku, priceRuleId);
+    // The entitled-price endpoint (/price?q=byPartNumbers) automatically
+    // applies the session's organisation contract for authenticated B2B users,
+    // so no explicit price-rule ID is required here.
+    return this.fetchEntitledPrice(payload.variant.sku);
   }
 
-  private async fetchPrice(
+  /**
+   * Fetch the entitled price for a single SKU.
+   *
+   * Calls GET /price?q=byPartNumbers&partNumber={sku}[&currency=X]
+   *
+   * The URL and query-parameter logic lives here (not in the transaction
+   * client) so that project-level subclasses can override this method to add
+   * extra parameters, switch endpoints, or apply custom logic.
+   */
+  protected async fetchEntitledPrice(
     sku: string,
-    priceRuleId?: string,
   ): Promise<Result<PriceFactoryOutput<TFactory>>> {
-    // When a priceRuleId is known (B2B customer price), use /display_price which
-    // supports rule-based pricing. Fall back to /price for anonymous list prices.
-    const auth = getWcsAuthFromContext(this.context);
-    const rawItem = priceRuleId
-      ? await this.transactionClient
-          .getDisplayPrice(
-            [sku],
-            {
-              priceRuleId,
-              currency: this.config.currency,
-            },
-            auth,
-          )
-          .then((r) => r.resultList?.find((i) => i.partNumber === sku))
-      : await this.transactionClient
-          .getEntitledPrice([sku], { currency: this.config.currency }, auth)
-          .then((r) => r.EntitledPrice?.find((i) => i.partNumber === sku));
+    const params = new URLSearchParams();
+    params.set('q', 'byPartNumbers');
+    params.append('partNumber', sku);
+
+    const response = await this.client.callGet<HclEntitledPriceResponse>(
+      `${this.client.transactionBaseUrl}/price`,
+      params,
+    );
+
+    const rawItem = response.EntitledPrice?.find((i) => i.partNumber === sku);
 
     if (!rawItem) {
-      // Return an empty placeholder price rather than a not-found error —
-      // consistent with PriceCapability.createEmptyPriceResult semantics.
+      // Return a zero/empty placeholder consistent with PriceCapability semantics.
       return success(
         this.factory.parsePrice(this.context, {
           item: { partNumber: sku },
