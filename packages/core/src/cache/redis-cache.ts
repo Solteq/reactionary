@@ -1,15 +1,33 @@
-import { Redis } from '@upstash/redis';
+import { createClient } from 'redis';
 import type { Cache, CacheEntryOptions } from './cache.interface.js';
 import type * as z from 'zod';
 import { getReactionaryCacheMeter } from '../metrics/metrics.js';
 
 export class RedisCache implements Cache {
-  protected redis: Redis;
+  protected redis: ReturnType<typeof createClient>;
+  protected connectPromise?: Promise<ReturnType<typeof createClient>>;
   protected meter = getReactionaryCacheMeter();
 
+  constructor(redisUrl = process.env['REDIS_URL']) {
+    if (!redisUrl) {
+      throw new Error('REDIS_URL is required');
+    }
 
-  constructor() {
-    this.redis = Redis.fromEnv();
+    this.redis = createClient({
+      url: redisUrl,
+    });
+
+    this.redis.on('error', (err) => {
+      console.error('Redis error', err);
+    });
+  }
+
+  protected async client(): Promise<ReturnType<typeof createClient>> {
+    if (!this.connectPromise) {
+      this.connectPromise = this.redis.connect();
+    }
+
+    return this.connectPromise;
   }
 
   public async get<T>(key: string, schema: z.ZodType<T>): Promise<T | null> {
@@ -17,14 +35,28 @@ export class RedisCache implements Cache {
       return null;
     }
 
-    const unvalidated = await this.redis.get(key);
+    const redis = await this.client();
+
+    const serialized = await redis.get(key);
+
+    if (serialized === null) {
+      return null;
+    }
+
+    let unvalidated: unknown;
+
+    try {
+      unvalidated = JSON.parse(serialized);
+    } catch {
+      return null;
+    }
+
     const parsed = schema.safeParse(unvalidated);
 
     if (parsed.success) {
       this.meter.hits.add(1, {
         'labels.cache_type': 'redis',
       });
-
 
       return parsed.data;
     }
@@ -35,50 +67,64 @@ export class RedisCache implements Cache {
   public async put(
     key: string,
     value: unknown,
-    options: CacheEntryOptions
+    options: CacheEntryOptions,
   ): Promise<void> {
     if (!key) {
       return;
     }
 
+    const redis = await this.client();
     const serialized = JSON.stringify(value);
-    const multi = this.redis.multi();
 
-    multi.set(key, serialized, { ex: options.ttlSeconds });
+    const multi = redis.multi();
 
-    for (const depId of options.dependencyIds) {
-      multi.sadd(`dep:${depId}`, key);
-    }
-
-    this.meter.items.record(await this.redis.dbsize(), {
-      'labels.cache_type': 'redis',
+    multi.set(key, serialized, {
+      EX: options.ttlSeconds,
     });
 
+    for (const depId of options.dependencyIds) {
+      multi.sAdd(`dep:${depId}`, key);
+    }
+
     await multi.exec();
+
+    this.meter.items.record(await redis.dbSize(), {
+      'labels.cache_type': 'redis',
+    });
   }
 
   public async invalidate(dependencyIds: Array<string>): Promise<void> {
+    const redis = await this.client();
+
     for (const id of dependencyIds) {
       const depKey = `dep:${id}`;
-      const keys = await this.redis.smembers(depKey);
+      const keys = await redis.sMembers(depKey);
 
       if (keys.length > 0) {
-        await this.redis.del(...keys);
+        await redis.del(keys);
       }
 
-      await this.redis.del(depKey);
+      await redis.del(depKey);
     }
 
-    this.meter.items.record(await this.redis.dbsize(), {
+    this.meter.items.record(await redis.dbSize(), {
       'labels.cache_type': 'redis',
     });
-
   }
 
   public async clear(): Promise<void> {
-    this.meter.items.record(await this.redis.dbsize(), {
+    const redis = await this.client();
+
+    this.meter.items.record(await redis.dbSize(), {
       'labels.cache_type': 'redis',
     });
-    // Not sure about supporting this on Redis.
+
+    await redis.flushDb();
+  }
+
+  public async close(): Promise<void> {
+    if (this.redis.isOpen) {
+      await this.redis.quit();
+    }
   }
 }
