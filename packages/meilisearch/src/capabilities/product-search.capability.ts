@@ -224,7 +224,6 @@ export class MeilisearchProductSearchCapability<
 
     // remove other hierarchy facets
     facets = facets.filter(f => !f.identifier.key.startsWith('hierarchy.lvl'));
-
     const totalPages = Math.ceil((body.estimatedTotalHits || 0) / query.search.paginationOptions.pageSize);
 
     const result = {
@@ -251,6 +250,11 @@ export class MeilisearchProductSearchCapability<
       name: facetIdentifier.key.replace(/_/g, ' '),
       values: []
     });
+
+    // never return the categories facet raw, as its only used for navigation and should be remapped to the hierarchy facet
+    if (facetIdentifier.key === 'categories') {
+      return result;
+    }
 
     for (const vid in facetValues) {
       const fv = facetValues[vid];

@@ -5,7 +5,12 @@ import type { ProductSearchQueryCreateNavigationFilter } from '@reactionary/core
 
 const testData = {
   searchTerm: 'Brother',
-  searchTermWithLanguage: 'Brother'
+  searchTermWithLanguage: 'Brother',
+  category: {
+    lvl0: 'Computers & Peripherals',
+    lvl1: 'Computers & Peripherals > Computer Cables',
+    lvl2: 'Computers & Peripherals > Computer Cables > Audio Cables',
+  }
 };
 
 describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA])(
@@ -436,8 +441,116 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
 
 
-describe.each([PrimaryProvider.MEILISEARCH, PrimaryProvider.ALGOLIA])('Weird Facets', (provider) => {
+describe.each([ PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Facets', (provider) => {
   let client: ReturnType<typeof createClient>;
+
+  it('should only return one category facet even if there are multiple levels of category hierarchy', async () => {
+    client = createClient(provider);
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [],
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    expect(categoryFacets.length).toBe(1);
+  });
+  it('should only return one category facet when a category facet value lvl 0 is set ', async () => {
+    client = createClient(provider);
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [{
+          facet: {
+            key: 'categories'
+          },
+          key: testData.category.lvl0
+        }],
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    expect(categoryFacets.length).toBe(1);
+    expect(result.value.totalCount).toBeGreaterThan(0);
+  });
+  it('should only return one category facet when a category facet value lvl 1 is set ', async () => {
+    client = createClient(provider);
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [{
+          facet: {
+            key: 'categories'
+          },
+          key: testData.category.lvl1
+        }],
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    expect(categoryFacets.length).toBe(1);
+    expect(result.value.totalCount).toBeGreaterThan(0);
+  });
+
+
+  it('should only return no category facet when a category facet value lvl 2 is set ', async () => {
+    client = createClient(provider);
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [{
+          facet: {
+            key: 'categories'
+          },
+          key: testData.category.lvl2
+        }],
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    expect(categoryFacets.length).toBe(0);
+    expect(result.value.totalCount).toBeGreaterThan(0);
+
+  });
+
+
 
   it('should be able to use facets with / in the name', async () => {
     client = createClient(provider, {

@@ -49,7 +49,10 @@ export class AlgoliaProductSearchFactory<
     for (const id in body.facets) {
       const values = body.facets[id];
       const facetId = FacetIdentifierSchema.parse({ key: id });
-      facets.push(this.parseFacet(facetId, values));
+      const facet = this.parseFacet(facetId, values);
+      if (facet.values.length > 0) {
+        facets.push(facet);
+      }
     }
 
     const selectedCategoryFacet =
@@ -133,6 +136,11 @@ export class AlgoliaProductSearchFactory<
       name: facetIdentifier.key,
       values: [],
     } satisfies Partial<ProductSearchResultFacet>);
+
+    // never return the categories facet raw, as its only used for navigation and should be remapped to the hierarchy facet
+    if (facetIdentifier.key === 'categories') {
+      return result;
+    }
 
     for (const valueId in facetValues) {
       const count = facetValues[valueId];
