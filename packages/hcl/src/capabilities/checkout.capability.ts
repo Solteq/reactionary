@@ -72,10 +72,14 @@ export class HclCheckoutCapability<
     this.factory = factory;
   }
 
+  protected cartUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self`;
+  }
+
   /** Fetch the raw WCS cart response. Throws HclCartNotFoundError on 404. */
   protected async fetchWcsCart(): Promise<HclWcsCartResponse> {
     const data = await this.client.callGet<HclWcsCartResponse>(
-      `${this.client.transactionBaseUrl}/cart/@self`,
+      this.cartUrl(),
       undefined,
       { allowUndefined: true },
     );
@@ -91,104 +95,64 @@ export class HclCheckoutCapability<
     return this.factory.parseCheckout(this.context, { ...data, ...extra });
   }
 
-  /** Fetch available payment methods. Returns empty list if endpoint returns 404. */
-  protected async fetchPaymentMethods(): Promise<HclWcsPaymentMethodsResponse> {
-    const data = await this.client.callGet<HclWcsPaymentMethodsResponse>(
-      `${this.client.transactionBaseUrl}/cart/@self/payment_instruction/eligible_payment_info`,
-      undefined,
-      { allowUndefined: true },
-    );
-    return data ?? { usablePaymentInformation: [] };
+  protected paymentMethodsUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/payment_instruction/eligible_payment_info`;
   }
 
-  /** Add a payment instruction to the cart. */
-  protected async fetchAddPaymentInstruction(body: {
-    payMethodId: string;
-    piAmount?: string;
-    protocolData?: { name: string; value: string }[];
-    billing_address_id?: string;
-    billto_firstName?: string;
-    billto_lastName?: string;
-    billto_address1?: string;
-    billto_city?: string;
-    billto_state?: string;
-    billto_zipCode?: string;
-    billto_country?: string;
-    billto_phone1?: string;
-    billto_email1?: string;
-  }): Promise<{ piId: string }> {
-    return this.client.callPost<{ piId: string }>(
-      `${this.client.transactionBaseUrl}/cart/@self/payment_instruction`,
-      body,
-    );
+  protected addPaymentInstructionUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/payment_instruction`;
   }
 
-  /** Delete a payment instruction from the cart. */
-  protected async fetchDeletePaymentInstruction(piId: string): Promise<void> {
-    return this.client.callDelete(
-      `${this.client.transactionBaseUrl}/cart/@self/payment_instruction/${encodeURIComponent(piId)}`,
-      { ignore404: true },
-    );
+  protected deletePaymentInstructionUrl(piId: string): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/payment_instruction/${encodeURIComponent(piId)}`;
   }
 
-  /** Fetch available shipping modes. */
-  protected async fetchShippingModes(): Promise<HclWcsShipModesResponse> {
+  protected shippingModesUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/shipping_info`;
+  }
+
+  protected shippingModesParams(): URLSearchParams {
     const params = new URLSearchParams();
     params.set('profileName', 'IBM_usableShippingMode');
-    return this.client.callGet<HclWcsShipModesResponse>(
-      `${this.client.transactionBaseUrl}/cart/@self/shipping_info`,
-      params,
-    );
+    return params;
   }
 
-  /** Set the shipping mode (and optionally inline address) on the cart. */
-  protected async fetchSetShippingInfo(body: {
+  protected shippingInfoUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/shipping_info`;
+  }
+
+  protected setShippingInfoPayload(body: {
     shipModeId?: string;
     orderItemId?: string[];
     x_addr?: HclWcsAddress;
-  }): Promise<HclWcsOrderIdContainer> {
-    return this.client.callPut<HclWcsOrderIdContainer>(
-      `${this.client.transactionBaseUrl}/cart/@self/shipping_info`,
-      {
-        ...body,
-        x_calculateOrder: '1',
-        x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
-      },
-    );
+  }): object {
+    return {
+      ...body,
+      x_calculateOrder: '1',
+      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+    };
   }
 
-  /** Set an inline shipping address on each order item. */
-  protected async fetchSetShippingAddressForItems(
+  protected setShippingAddressForItemsPayload(
     orderItemIds: string[],
     addr: HclWcsAddress,
-  ): Promise<HclWcsOrderIdContainer> {
-    return this.client.callPut<HclWcsOrderIdContainer>(
-      `${this.client.transactionBaseUrl}/cart/@self/shipping_info`,
-      {
-        x_calculateOrder: '1',
-        x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
-        orderItem: orderItemIds.map((orderItemId) => ({
-          orderItemId,
-          x_addr: addr,
-        })),
-      },
-    );
+  ): object {
+    return {
+      x_calculateOrder: '1',
+      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+      orderItem: orderItemIds.map((orderItemId) => ({
+        orderItemId,
+        x_addr: addr,
+      })),
+    };
   }
 
-  /** Pre-checkout validation — must be called before fetchSubmitCheckout(). */
-  protected async fetchPrecheckout(): Promise<HclWcsOrderIdContainer> {
-    return this.client.callPut<HclWcsOrderIdContainer>(
-      `${this.client.transactionBaseUrl}/cart/@self/precheckout`,
-      {},
-    );
+  protected precheckoutUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/precheckout`;
   }
 
-  /** Submit the cart as an order. */
-  protected async fetchSubmitCheckout(): Promise<HclWcsOrderIdContainer> {
-    return this.client.callPost<HclWcsOrderIdContainer>(
-      `${this.client.transactionBaseUrl}/cart/@self/checkout`,
-      {},
-    );
+  protected submitCheckoutUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/checkout`;
   }
 
   @Reactionary({
@@ -214,28 +178,42 @@ export class HclCheckoutCapability<
       const addr = payload.billingAddress;
 
       // Get the first available payment method to use as a placeholder.
-      const methodsResp = await this.fetchPaymentMethods();
+      const methodsResp =
+        (await this.client.callGet<HclWcsPaymentMethodsResponse>(
+          this.paymentMethodsUrl(),
+          undefined,
+          { allowUndefined: true },
+        )) ?? { usablePaymentInformation: [] };
       const firstMethod = methodsResp.usablePaymentInformation?.[0];
 
       if (firstMethod) {
         // Delete any existing PIs first (mirrors upsertBillingAddress).
         const cartData = await this.fetchWcsCart();
         for (const pi of cartData.paymentInstruction ?? []) {
-          await this.fetchDeletePaymentInstruction(pi.piId);
+          await this.client.callDelete(
+            this.deletePaymentInstructionUrl(pi.piId),
+            {
+              ignore404: true,
+            },
+          );
         }
 
-        await this.fetchAddPaymentInstruction({
-          payMethodId: firstMethod.paymentMethodName,
-          billto_firstName: addr.firstName,
-          billto_lastName: addr.lastName,
-          billto_address1: `${addr.streetAddress} ${addr.streetNumber}`.trim(),
-          billto_city: addr.city,
-          billto_state: addr.region,
-          billto_zipCode: addr.postalCode,
-          billto_country: addr.countryCode,
-          billto_phone1: payload.notificationPhone,
-          billto_email1: payload.notificationEmail,
-        });
+        await this.client.callPost<{ piId: string }>(
+          this.addPaymentInstructionUrl(),
+          {
+            payMethodId: firstMethod.paymentMethodName,
+            billto_firstName: addr.firstName,
+            billto_lastName: addr.lastName,
+            billto_address1:
+              `${addr.streetAddress} ${addr.streetNumber}`.trim(),
+            billto_city: addr.city,
+            billto_state: addr.region,
+            billto_zipCode: addr.postalCode,
+            billto_country: addr.countryCode,
+            billto_phone1: payload.notificationPhone,
+            billto_email1: payload.notificationEmail,
+          },
+        );
       }
     }
     return success(await this.fetchCheckout());
@@ -271,15 +249,18 @@ export class HclCheckoutCapability<
     const cartData = await this.fetchWcsCart();
     const orderItemIds = (cartData.orderItem ?? []).map((i) => i.orderItemId);
     const addr = payload.shippingAddress;
-    await this.fetchSetShippingAddressForItems(orderItemIds, {
-      firstName: addr.firstName,
-      lastName: addr.lastName,
-      address1: `${addr.streetAddress} ${addr.streetNumber}`.trim(),
-      city: addr.city,
-      state: addr.region,
-      zipCode: addr.postalCode,
-      country: addr.countryCode,
-    });
+    await this.client.callPut<HclWcsOrderIdContainer>(
+      this.shippingInfoUrl(),
+      this.setShippingAddressForItemsPayload(orderItemIds, {
+        firstName: addr.firstName,
+        lastName: addr.lastName,
+        address1: `${addr.streetAddress} ${addr.streetNumber}`.trim(),
+        city: addr.city,
+        state: addr.region,
+        zipCode: addr.postalCode,
+        country: addr.countryCode,
+      }),
+    );
     return success(await this.fetchCheckout());
   }
 
@@ -291,7 +272,10 @@ export class HclCheckoutCapability<
     _payload: CheckoutQueryForAvailableShippingMethods,
   ): Promise<Result<CheckoutFactoryShippingMethodOutput<TFactory>[]>> {
     debug('getAvailableShippingMethods');
-    const response = await this.fetchShippingModes();
+    const response = await this.client.callGet<HclWcsShipModesResponse>(
+      this.shippingModesUrl(),
+      this.shippingModesParams(),
+    );
     // Newer WCS returns usableShippingMode at root; older WCS embeds modes in orderItem.
     let modes: CheckoutFactoryShippingMethodOutput<TFactory>[];
     if (response.usableShippingMode && response.usableShippingMode.length > 0) {
@@ -331,7 +315,11 @@ export class HclCheckoutCapability<
     _payload: CheckoutQueryForAvailablePaymentMethods,
   ): Promise<Result<CheckoutFactoryPaymentMethodOutput<TFactory>[]>> {
     debug('getAvailablePaymentMethods');
-    const response = await this.fetchPaymentMethods();
+    const response = (await this.client.callGet<HclWcsPaymentMethodsResponse>(
+      this.paymentMethodsUrl(),
+      undefined,
+      { allowUndefined: true },
+    )) ?? { usablePaymentInformation: [] };
     const methods = (response.usablePaymentInformation ?? []).map((method) =>
       this.factory.parsePaymentMethod(this.context, method),
     );
@@ -349,16 +337,19 @@ export class HclCheckoutCapability<
       'addPaymentInstruction payMethodId=%s',
       payload.paymentInstruction.paymentMethod.method,
     );
-    await this.fetchAddPaymentInstruction({
-      payMethodId: payload.paymentInstruction.paymentMethod.method,
-      piAmount: payload.paymentInstruction.amount
-        ? String(payload.paymentInstruction.amount.value)
-        : undefined,
-      protocolData: payload.paymentInstruction.protocolData.map((pd) => ({
-        name: pd.key,
-        value: pd.value,
-      })),
-    });
+    await this.client.callPost<{ piId: string }>(
+      this.addPaymentInstructionUrl(),
+      {
+        payMethodId: payload.paymentInstruction.paymentMethod.method,
+        piAmount: payload.paymentInstruction.amount
+          ? String(payload.paymentInstruction.amount.value)
+          : undefined,
+        protocolData: payload.paymentInstruction.protocolData.map((pd) => ({
+          name: pd.key,
+          value: pd.value,
+        })),
+      },
+    );
     return success(await this.fetchCheckout());
   }
 
@@ -370,7 +361,12 @@ export class HclCheckoutCapability<
     payload: CheckoutMutationRemovePaymentInstruction,
   ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     debug('removePaymentInstruction piId=%s', payload.paymentInstruction.key);
-    await this.fetchDeletePaymentInstruction(payload.paymentInstruction.key);
+    await this.client.callDelete(
+      this.deletePaymentInstructionUrl(payload.paymentInstruction.key),
+      {
+        ignore404: true,
+      },
+    );
     return success(await this.fetchCheckout());
   }
 
@@ -389,10 +385,13 @@ export class HclCheckoutCapability<
     const cartData = await this.fetchWcsCart();
     const orderItemIds = (cartData.orderItem ?? []).map((i) => i.orderItemId);
 
-    await this.fetchSetShippingInfo({
-      shipModeId: payload.shippingInstruction.shippingMethod.key,
-      orderItemId: orderItemIds,
-    });
+    await this.client.callPut<HclWcsOrderIdContainer>(
+      this.shippingInfoUrl(),
+      this.setShippingInfoPayload({
+        shipModeId: payload.shippingInstruction.shippingMethod.key,
+        orderItemId: orderItemIds,
+      }),
+    );
     return success(await this.fetchCheckout());
   }
 
@@ -407,8 +406,14 @@ export class HclCheckoutCapability<
     // Save cart state before submission (after checkout the cart is gone).
     const cartBefore = await this.fetchWcsCart();
 
-    await this.fetchPrecheckout();
-    const result = await this.fetchSubmitCheckout();
+    await this.client.callPut<HclWcsOrderIdContainer>(
+      this.precheckoutUrl(),
+      {},
+    );
+    const result = await this.client.callPost<HclWcsOrderIdContainer>(
+      this.submitCheckoutUrl(),
+      {},
+    );
 
     // In WCS, the orderId returned by checkout IS the same as the cart orderId
     // (same entity, status changed from 'P' to 'C').

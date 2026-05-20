@@ -58,9 +58,10 @@ export class HclCategoryCapability<
   public override async getById(
     payload: CategoryQueryById,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
-    const response = await this.fetchCategories({
-      identifier: [payload.id.key],
-    });
+    const response = await this.client.callGet<HclCategoryQueryResponse>(
+      this.getByIdUrl(payload),
+      this.getByIdPayload(payload),
+    );
 
     const data = response.contents?.[0];
     if (!data) {
@@ -78,7 +79,12 @@ export class HclCategoryCapability<
     payload: CategoryQueryBySlug,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
     // Use the URL token API to resolve the slug to a category uniqueID.
-    const token = await this.fetchBySlug(payload.slug);
+    const urlResponse = await this.client.callGet<HclUrlQueryResponse>(
+      this.urlsUrl(),
+      this.urlsParams(payload.slug),
+      { allowUndefined: true },
+    );
+    const token = urlResponse?.contents?.[0];
 
     if (
       !token ||
@@ -91,11 +97,10 @@ export class HclCategoryCapability<
       });
     }
 
-    const response = await this.fetchCategories({
-      // tokenValue is the numeric uniqueID; tokenExternalValue is the string identifier
-      // which the categories API rejects with 400 when used as an id= parameter.
-      id: [token.tokenValue],
-    });
+    const response = await this.client.callGet<HclCategoryQueryResponse>(
+      this.getBySlugUrl(token),
+      this.getBySlugPayload(token),
+    );
 
     const data = response.contents?.[0];
     if (!data) {
@@ -116,9 +121,10 @@ export class HclCategoryCapability<
     payload: CategoryQueryForBreadcrumb,
   ): Promise<Result<Array<CategoryFactoryCategoryOutput<TFactory>>>> {
     // Fetch the leaf category by external identifier.
-    const leafResponse = await this.fetchCategories({
-      identifier: [payload.id.key],
-    });
+    const leafResponse = await this.client.callGet<HclCategoryQueryResponse>(
+      this.getBreadcrumbLeafUrl(payload),
+      this.getBreadcrumbLeafPayload(payload),
+    );
 
     const leafData = leafResponse.contents?.[0];
     if (!leafData) {
@@ -140,7 +146,10 @@ export class HclCategoryCapability<
     // Fetch all ancestors in a single request — the id param accepts multiple values.
     const ancestorsResp =
       ancestorIds.length > 0
-        ? await this.fetchCategories({ id: ancestorIds })
+        ? await this.client.callGet<HclCategoryQueryResponse>(
+            this.getBreadcrumbAncestorsUrl(ancestorIds),
+            this.getBreadcrumbAncestorsPayload(ancestorIds),
+          )
         : { contents: [] };
 
     // Re-order results to match the original root-first order from pathSegments,
@@ -171,9 +180,10 @@ export class HclCategoryCapability<
   ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>, NotFoundError>> {
     // Resolve the external identifier to an internal uniqueID.
     // HCL's parentCategoryId parameter requires the internal uniqueID.
-    const parentResp = await this.fetchCategories({
-      identifier: [payload.parentId.key],
-    });
+    const parentResp = await this.client.callGet<HclCategoryQueryResponse>(
+      this.findChildCategoriesParentUrl(payload),
+      this.findChildCategoriesParentPayload(payload),
+    );
     const parentUniqueId = parentResp.contents?.[0]?.uniqueID;
 
     if (!parentUniqueId) {
@@ -183,10 +193,10 @@ export class HclCategoryCapability<
       });
     }
 
-    const response = await this.fetchCategories({
-      parentCategoryId: parentUniqueId,
-      depthAndLimit: '1,0',
-    });
+    const response = await this.client.callGet<HclCategoryQueryResponse>(
+      this.findChildCategoriesUrl(parentUniqueId),
+      this.findChildCategoriesPayload(parentUniqueId),
+    );
 
     const items = response.contents ?? [];
     const paginated = this.factory.parseCategoryPaginatedResult(
@@ -206,9 +216,10 @@ export class HclCategoryCapability<
     payload: CategoryQueryForTopCategories,
   ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>>> {
     // Fetching without a parentCategoryId returns root-level categories.
-    const response = await this.fetchCategories({
-      depthAndLimit: '1,0',
-    });
+    const response = await this.client.callGet<HclCategoryQueryResponse>(
+      this.findTopCategoriesUrl(payload),
+      this.findTopCategoriesPayload(),
+    );
 
     const items = response.contents ?? [];
     const paginated = this.factory.parseCategoryPaginatedResult(
@@ -220,9 +231,84 @@ export class HclCategoryCapability<
     return success(paginated as CategoryFactoryPaginatedOutput<TFactory>);
   }
 
-  protected async fetchCategories(
-    query: HclFindCategoriesQuery,
-  ): Promise<HclCategoryQueryResponse> {
+  protected getByIdUrl(_payload: CategoryQueryById): string {
+    return this.categoriesUrl();
+  }
+
+  protected getBySlugUrl(_token: HclUrlResponse): string {
+    return this.categoriesUrl();
+  }
+
+  protected getBreadcrumbLeafUrl(_payload: CategoryQueryForBreadcrumb): string {
+    return this.categoriesUrl();
+  }
+
+  protected getBreadcrumbAncestorsUrl(_ancestorIds: string[]): string {
+    return this.categoriesUrl();
+  }
+
+  protected findChildCategoriesParentUrl(
+    _payload: CategoryQueryForChildCategories,
+  ): string {
+    return this.categoriesUrl();
+  }
+
+  protected findChildCategoriesUrl(_parentUniqueId: string): string {
+    return this.categoriesUrl();
+  }
+
+  protected findTopCategoriesUrl(
+    _payload: CategoryQueryForTopCategories,
+  ): string {
+    return this.categoriesUrl();
+  }
+
+  protected getByIdPayload(payload: CategoryQueryById): URLSearchParams {
+    return this.categoriesParams({ identifier: [payload.id.key] });
+  }
+
+  // tokenValue is the numeric uniqueID; tokenExternalValue is the string identifier
+  // which the categories API rejects with 400 when used as an id= parameter.
+  protected getBySlugPayload(token: HclUrlResponse): URLSearchParams {
+    return this.categoriesParams({ id: [token.tokenValue] });
+  }
+
+  protected getBreadcrumbLeafPayload(
+    payload: CategoryQueryForBreadcrumb,
+  ): URLSearchParams {
+    return this.categoriesParams({ identifier: [payload.id.key] });
+  }
+
+  protected getBreadcrumbAncestorsPayload(
+    ancestorIds: string[],
+  ): URLSearchParams {
+    return this.categoriesParams({ id: ancestorIds });
+  }
+
+  protected findChildCategoriesParentPayload(
+    payload: CategoryQueryForChildCategories,
+  ): URLSearchParams {
+    return this.categoriesParams({ identifier: [payload.parentId.key] });
+  }
+
+  protected findChildCategoriesPayload(
+    parentUniqueId: string,
+  ): URLSearchParams {
+    return this.categoriesParams({
+      parentCategoryId: parentUniqueId,
+      depthAndLimit: '1,0',
+    });
+  }
+
+  protected findTopCategoriesPayload(): URLSearchParams {
+    return this.categoriesParams({ depthAndLimit: '1,0' });
+  }
+
+  protected categoriesUrl(): string {
+    return `${this.client.catalogBaseUrl}/api/v2/categories`;
+  }
+
+  protected categoriesParams(query: HclFindCategoriesQuery): URLSearchParams {
     const params = new URLSearchParams();
     params.set('storeId', query.storeId ?? this.config.storeId);
     const catalogId = query.catalogId ?? this.config.catalogId;
@@ -234,23 +320,17 @@ export class HclCategoryCapability<
     for (const id of query.id ?? []) params.append('id', id);
     for (const identifier of query.identifier ?? [])
       params.append('identifier', identifier);
-    return this.client.callGet<HclCategoryQueryResponse>(
-      `${this.client.catalogBaseUrl}/api/v2/categories`,
-      params,
-    );
+    return params;
   }
 
-  protected async fetchBySlug(
-    slug: string,
-  ): Promise<HclUrlResponse | undefined> {
+  protected urlsUrl(): string {
+    return `${this.client.catalogBaseUrl}/api/v2/urls`;
+  }
+
+  protected urlsParams(slug: string): URLSearchParams {
     const params = new URLSearchParams();
     params.set('storeId', this.config.storeId);
     params.append('identifier', slug);
-    const response = await this.client.callGet<HclUrlQueryResponse>(
-      `${this.client.catalogBaseUrl}/api/v2/urls`,
-      params,
-      { allowUndefined: true },
-    );
-    return response?.contents?.[0];
+    return params;
   }
 }

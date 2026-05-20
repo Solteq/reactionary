@@ -42,13 +42,13 @@ export class HclProductSearchCapability<
 
   protected queryByTermPayload(
     payload: ProductSearchQueryByTerm,
-  ): HclFindProductsQuery {
+  ): URLSearchParams {
     const { term, paginationOptions, categoryFilter, facets } = payload.search;
     const { pageNumber, pageSize } = paginationOptions;
 
     const categoryId = categoryFilter?.key || undefined;
 
-    return {
+    return this.productsParams({
       searchTerm: term || undefined,
       categoryId,
       limit: pageSize,
@@ -57,7 +57,7 @@ export class HclProductSearchCapability<
         ? this.config.profiles.categoryBrowse
         : this.config.profiles.productSearch,
       facets: facets.length > 0 ? facets.map((f) => f.key) : undefined,
-    };
+    });
   }
 
   @Reactionary({
@@ -67,7 +67,10 @@ export class HclProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm,
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
-    const response = await this.fetchProducts(this.queryByTermPayload(payload));
+    const response = await this.client.callGet<HclProductQueryResponse>(
+      this.queryByTermUrl(payload),
+      this.queryByTermPayload(payload),
+    );
 
     const value = this.factory.parseSearchResult(
       this.context,
@@ -93,9 +96,10 @@ export class HclProductSearchCapability<
 
     let uniqueId = leaf?.uniqueId;
     if (!uniqueId) {
-      const catResp = await this.fetchCategories({
-        identifier: [externalKey],
-      });
+      const catResp = await this.client.callGet<HclCategoryQueryResponse>(
+        this.categoriesUrl(),
+        this.categoriesParams({ identifier: [externalKey] }),
+      );
       uniqueId = catResp.contents?.[0]?.uniqueID ?? externalKey;
     }
 
@@ -106,9 +110,15 @@ export class HclProductSearchCapability<
     return success(filter);
   }
 
-  protected async fetchProducts(
-    query: HclFindProductsQuery,
-  ): Promise<HclProductQueryResponse> {
+  protected queryByTermUrl(_payload: ProductSearchQueryByTerm): string {
+    return this.productsUrl();
+  }
+
+  protected productsUrl(): string {
+    return `${this.client.catalogBaseUrl}/api/v2/products`;
+  }
+
+  protected productsParams(query: HclFindProductsQuery): URLSearchParams {
     const params = new URLSearchParams();
     params.set('storeId', query.storeId ?? this.config.storeId);
     const catalogId = query.catalogId ?? this.config.catalogId;
@@ -124,15 +134,14 @@ export class HclProductSearchCapability<
     for (const id of query.id ?? []) params.append('id', id);
     for (const pn of query.partNumber ?? []) params.append('partNumber', pn);
     for (const facet of query.facets ?? []) params.append('facet', facet);
-    return this.client.callGet<HclProductQueryResponse>(
-      `${this.client.catalogBaseUrl}/api/v2/products`,
-      params,
-    );
+    return params;
   }
 
-  protected async fetchCategories(
-    query: HclFindCategoriesQuery,
-  ): Promise<HclCategoryQueryResponse> {
+  protected categoriesUrl(): string {
+    return `${this.client.catalogBaseUrl}/api/v2/categories`;
+  }
+
+  protected categoriesParams(query: HclFindCategoriesQuery): URLSearchParams {
     const params = new URLSearchParams();
     params.set('storeId', query.storeId ?? this.config.storeId);
     const catalogId = query.catalogId ?? this.config.catalogId;
@@ -144,9 +153,7 @@ export class HclProductSearchCapability<
     for (const id of query.id ?? []) params.append('id', id);
     for (const identifier of query.identifier ?? [])
       params.append('identifier', identifier);
-    return this.client.callGet<HclCategoryQueryResponse>(
-      `${this.client.catalogBaseUrl}/api/v2/categories`,
-      params,
-    );
+    return params;
   }
+
 }
