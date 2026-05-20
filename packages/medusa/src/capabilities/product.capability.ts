@@ -34,7 +34,7 @@ export class MedusaProductCapability<
   protected config: MedusaConfiguration;
   protected alwaysIncludedFields = [
     '+metadata.*',
-    '+categories.metadata.*',
+    '+categories.external_id',
     '+external_id',
   ];
   protected factory: ProductFactoryWithOutput<TFactory>;

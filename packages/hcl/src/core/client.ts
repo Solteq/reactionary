@@ -43,7 +43,8 @@ export class HclClient {
     protected readonly context: RequestContext,
   ) {
     const origin = config.apiUrl.replace(/\/+$/, '');
-    this.catalogBaseUrl = `${origin}/search/resources`;
+    const searchOrigin =  (config.searchApiUrl ?? config.apiUrl).replace(/\/+$/, '')
+    this.catalogBaseUrl = `${searchOrigin}/search/resources`;
     this.transactionBaseUrl = `${origin}/wcs/resources/store/${config.storeId}`;
   }
 
