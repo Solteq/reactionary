@@ -11,3 +11,4 @@ export const SESSION_KEY_WC_TRUSTED_TOKEN = 'hcl.WCTrustedToken';
 export const SESSION_KEY_USER_ID = 'hcl.userId';
 export const SESSION_KEY_IDENTITY_TYPE = 'hcl.identityType';
 export const SESSION_KEY_PERSONALIZATION_ID = 'hcl.personalizationID';
+export const SESSION_KEY_PRICE_RULE_ID = 'hcl.priceRuleId';

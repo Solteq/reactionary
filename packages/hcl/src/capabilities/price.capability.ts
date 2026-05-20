@@ -16,8 +16,12 @@ import {
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
+import { SESSION_KEY_PRICE_RULE_ID } from '../core/session-keys.js';
 import type { HclPriceFactory } from '../factories/price/price.factory.js';
-import type { HclEntitledPriceResponse } from '../schema/hcl.schema.js';
+import type {
+  HclEntitledPriceResponse,
+  HclDisplayPriceResponse,
+} from '../schema/hcl.schema.js';
 
 export class HclPriceCapability<
   TFactory extends PriceFactory = HclPriceFactory,
@@ -39,10 +43,9 @@ export class HclPriceCapability<
   public override async getListPrice(
     payload: ListPriceQuery,
   ): Promise<Result<PriceFactoryOutput<TFactory>>> {
-    // In HCL Commerce the public catalogue price rule is always named
-    // 'List Price Rule'. We use the entitled-price endpoint which honours
-    // that rule automatically for anonymous sessions.
-    return this.fetchEntitledPrice(payload.variant.sku);
+    // In HCL Commerce the public catalogue price is provided by the
+    // display_price endpoint (as opposed to the session-aware entitled price).
+    return this.fetchDisplayPrice(payload.variant.sku);
   }
 
   @Reactionary({
@@ -56,6 +59,57 @@ export class HclPriceCapability<
     // applies the session's organisation contract for authenticated B2B users,
     // so no explicit price-rule ID is required here.
     return this.fetchEntitledPrice(payload.variant.sku);
+  }
+
+  /**
+   * Fetch the display (list) price for a single SKU.
+   *
+   * Calls GET /display_price?q=byPartNumbersAndPriceRuleId&priceRuleId={id}&partNumber={sku}
+   *
+   * Requires `hcl.priceRuleId` to be set in the request context session.
+   * Falls back to fetchEntitledPrice when no price rule ID is available.
+   */
+  protected async fetchDisplayPrice(
+    sku: string | string[],
+  ): Promise<Result<PriceFactoryOutput<TFactory>>> {
+    const skus = Array.isArray(sku) ? sku : [sku];
+    const primarySku = skus[0];
+    const priceRuleId = this.context.session[SESSION_KEY_PRICE_RULE_ID] as
+      | string
+      | undefined;
+    if (!priceRuleId) {
+      // display_price requires a priceRuleId — fall back to entitled price.
+      return this.fetchEntitledPrice(primarySku);
+    }
+    const params = new URLSearchParams();
+    params.set('q', 'byPartNumbersAndPriceRuleId');
+    params.set('priceRuleId', priceRuleId);
+    for (const s of skus) {
+      params.append('partNumber', s);
+    }
+
+    const response = await this.client.callGet<HclDisplayPriceResponse>(
+      `${this.client.transactionBaseUrl}/display_price`,
+      params,
+    );
+
+    const rawItem = response.resultList?.find(
+      (i) => i.partNumber === primarySku,
+    );
+
+    if (!rawItem) {
+      return success(
+        this.factory.parsePrice(this.context, {
+          item: { partNumber: primarySku },
+        }) as PriceFactoryOutput<TFactory>,
+      );
+    }
+
+    return success(
+      this.factory.parsePrice(this.context, {
+        item: rawItem,
+      }) as PriceFactoryOutput<TFactory>,
+    );
   }
 
   /**

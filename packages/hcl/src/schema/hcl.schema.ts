@@ -601,6 +601,20 @@ export interface HclWcsCartResponse {
   /** WCS order status, e.g. 'P' = pending, 'C' = submitted. */
   orderStatus?: string;
   lastUpdateDate?: string;
+  /** Order description / name as persisted in WCS. Returned by GET /order/{orderId} and GET /order/byStatus/P. */
+  orderDescription?: string;
+}
+
+/**
+ * Response from GET /store/{storeId}/order/byStatus/P.
+ * Returns a list of pending orders (multi-cart B2B support).
+ */
+export interface HclWcsOrderListResponse {
+  Order: HclWcsCartResponse[];
+  recordSetTotal?: string;
+  recordSetCount?: string;
+  recordSetComplete?: string;
+  recordSetStartNumber?: string;
 }
 
 /** Response from the precheckout / checkout endpoints. */
@@ -640,4 +654,12 @@ export interface HclWcsPaymentMethodsResponse {
 export interface HclWcsOrderItemUpdateResponse {
   orderId: string;
   orderItem?: { orderItemId: string }[];
+}
+
+/** Response from POST /store/{storeId}/cart/create_order */
+export interface HclWcsCreateOrderResponse {
+  /** The newly created order ID. */
+  outOrderId: string;
+  redirecturl?: string;
+  viewTaskName?: string;
 }

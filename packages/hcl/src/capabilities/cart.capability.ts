@@ -42,7 +42,9 @@ import { HclCartNotFoundError, type HclClient } from '../core/client.js';
 import type { HclCartFactory } from '../factories/cart/cart.factory.js';
 import type {
   HclWcsCartResponse,
+  HclWcsCreateOrderResponse,
   HclWcsOrderItemUpdateResponse,
+  HclWcsOrderListResponse,
 } from '../schema/hcl.schema.js';
 import createDebug from 'debug';
 
@@ -71,8 +73,42 @@ export class HclCartCapability<
     this.factory = factory;
   }
 
-  /** Fetch the raw WCS cart response. Throws HclCartNotFoundError on 404. */
-  protected async fetchWcsCart(): Promise<HclWcsCartResponse> {
+  /**
+   * Set the specified order as the current pending (@self) order.
+   * After this call, @self endpoints will operate on that orderId.
+   */
+  protected async fetchSetPendingOrder(orderId: string): Promise<void> {
+    await this.client.callPost<unknown>(
+      `${this.client.transactionBaseUrl}/cart/${encodeURIComponent(orderId)}/set_pending_order`,
+      { orderId },
+    );
+  }
+
+  /**
+   * Fetch a specific order by ID directly from the Order API.
+   * Does NOT call set_pending_order — safe to use for read-only access.
+   * Throws HclCartNotFoundError on 404.
+   */
+  protected async fetchWcsOrder(orderId: string): Promise<HclWcsCartResponse> {
+    const data = await this.client.callGet<HclWcsCartResponse>(
+      `${this.client.transactionBaseUrl}/order/${encodeURIComponent(orderId)}`,
+      undefined,
+      { allowUndefined: true },
+    );
+    if (!data) throw new HclCartNotFoundError();
+    return data;
+  }
+
+  /**
+   * Fetch the raw WCS cart response.
+   * If orderId is provided, uses GET /order/{orderId} directly (no side effects).
+   * Without orderId, falls back to GET /cart/@self (current pending order).
+   * Throws HclCartNotFoundError on 404.
+   */
+  protected async fetchWcsCart(orderId?: string): Promise<HclWcsCartResponse> {
+    if (orderId) {
+      return this.fetchWcsOrder(orderId);
+    }
     const data = await this.client.callGet<HclWcsCartResponse>(
       `${this.client.transactionBaseUrl}/cart/@self`,
       undefined,
@@ -83,8 +119,10 @@ export class HclCartCapability<
   }
 
   /** Fetch and parse the current cart via the factory. */
-  protected async fetchCart(): Promise<CartFactoryCartOutput<TFactory>> {
-    const data = await this.fetchWcsCart();
+  protected async fetchCart(
+    orderId?: string,
+  ): Promise<CartFactoryCartOutput<TFactory>> {
+    const data = await this.fetchWcsCart(orderId);
     return this.factory.parseCart(this.context, data);
   }
 
@@ -130,11 +168,76 @@ export class HclCartCapability<
     );
   }
 
-  /** Delete (cancel) the entire active cart. */
-  protected async fetchDeleteCart(): Promise<void> {
+  /**
+   * Delete (cancel) the specified order, or the current pending order.
+   * If orderId is provided, cancels that specific order via its own endpoint.
+   */
+  protected async fetchDeleteCart(orderId?: string): Promise<void> {
+    if (orderId) {
+      return this.client.callDelete(
+        `${this.client.transactionBaseUrl}/cart/${encodeURIComponent(orderId)}/cancel_order`,
+        { ignore404: true },
+      );
+    }
     return this.client.callDelete(
       `${this.client.transactionBaseUrl}/cart/@self`,
       { ignore404: true },
+    );
+  }
+
+  /**
+   * Fetch a list of all pending orders from the Order API.
+   * Calls GET /order/byStatus/P — returns all P-status orders for the current user.
+   */
+  protected async fetchWcsOrderList(): Promise<HclWcsOrderListResponse> {
+    const data = await this.client.callGet<HclWcsOrderListResponse>(
+      `${this.client.transactionBaseUrl}/order/byStatus/P`,
+      undefined,
+      { allowUndefined: true },
+    );
+    return data ?? { Order: [] };
+  }
+
+  /**
+   * Create a new order in WCS with an optional description/name.
+   * Calls POST /cart/create_order?description={name}
+   */
+  protected async fetchCreateOrder(
+    description?: string,
+  ): Promise<HclWcsCreateOrderResponse> {
+    const params = new URLSearchParams();
+    // description is mandatory for WCS create_order — default to empty string.
+    params.set('description', description ?? '');
+    return this.client.callPost<HclWcsCreateOrderResponse>(
+      `${this.client.transactionBaseUrl}/cart/create_order?${params.toString()}`,
+      {},
+    );
+  }
+
+  /**
+   * Persist the cart description (name) to WCS via the update_order_item
+   * endpoint. Must call fetchSetPendingOrder first if targeting a
+   * non-current order.
+   *
+   */
+  protected async fetchUpdateOrderDescription(
+    description: string,
+  ): Promise<void> {
+    // WCS update_order_item requires an orderItem array in the body — include
+    // the current items so the endpoint does not return HTTP 500.
+    const cart = await this.fetchWcsCart();
+    const orderItem = (cart.orderItem ?? []).map((item) => ({
+      orderItemId: item.orderItemId,
+      quantity: item.quantity,
+    }));
+    await this.client.callPut<unknown>(
+      `${this.client.transactionBaseUrl}/cart/@self/update_order_item`,
+      {
+        orderDescription: description,
+        orderItem,
+        x_calculateOrder: '1',
+        x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+      },
     );
   }
 
@@ -159,11 +262,11 @@ export class HclCartCapability<
     outputSchema: CartSchema,
   })
   public override async getById(
-    _payload: CartQueryById,
+    payload: CartQueryById,
   ): Promise<Result<CartFactoryCartOutput<TFactory>, NotFoundError>> {
-    debug('getById');
+    debug('getById %s', payload.cart.key);
     try {
-      const cart = await this.fetchCart();
+      const cart = await this.fetchCart(payload.cart.key || undefined);
       return success(cart);
     } catch (err) {
       if (err instanceof HclCartNotFoundError) {
@@ -198,9 +301,17 @@ export class HclCartCapability<
   public override async add(
     payload: CartMutationItemAdd,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    debug('add %s x%d', payload.variant.sku, payload.quantity);
+    debug(
+      'add %s x%d cart=%s',
+      payload.variant.sku,
+      payload.quantity,
+      payload.cart.key,
+    );
+    if (payload.cart.key) {
+      await this.fetchSetPendingOrder(payload.cart.key);
+    }
     await this.fetchAddOrderItem(payload.variant.sku, payload.quantity);
-    return success(await this.fetchCart());
+    return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
   @Reactionary({
@@ -210,9 +321,12 @@ export class HclCartCapability<
   public override async remove(
     payload: CartMutationItemRemove,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    debug('remove orderItemId=%s', payload.item.key);
+    debug('remove orderItemId=%s cart=%s', payload.item.key, payload.cart.key);
+    if (payload.cart.key) {
+      await this.fetchSetPendingOrder(payload.cart.key);
+    }
     await this.fetchDeleteOrderItem(payload.item.key);
-    return success(await this.fetchCart());
+    return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
   @Reactionary({
@@ -223,12 +337,16 @@ export class HclCartCapability<
     payload: CartMutationItemQuantityChange,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     debug(
-      'changeQuantity orderItemId=%s qty=%d',
+      'changeQuantity orderItemId=%s qty=%d cart=%s',
       payload.item.key,
       payload.quantity,
+      payload.cart.key,
     );
+    if (payload.cart.key) {
+      await this.fetchSetPendingOrder(payload.cart.key);
+    }
     await this.fetchUpdateOrderItem(payload.item.key, payload.quantity);
-    return success(await this.fetchCart());
+    return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
   @Reactionary({
@@ -245,28 +363,14 @@ export class HclCartCapability<
     >
   > {
     debug('listCarts');
-    try {
-      const data = await this.fetchWcsCart();
-      return success(
-        this.factory.parseCartPaginatedSearchResult(
-          this.context,
-          data,
-          payload,
-        ),
-      );
-    } catch (err) {
-      if (err instanceof HclCartNotFoundError) {
-        // No active cart — return empty paginated result.
-        return success(
-          this.factory.parseCartPaginatedSearchResult(
-            this.context,
-            { orderId: '' },
-            payload,
-          ),
-        );
-      }
-      throw err;
-    }
+    const orderList = await this.fetchWcsOrderList();
+    return success(
+      this.factory.parseCartPaginatedSearchResult(
+        this.context,
+        orderList,
+        payload,
+      ),
+    );
   }
 
   @Reactionary({
@@ -277,45 +381,23 @@ export class HclCartCapability<
     payload: CartMutationCreateCart,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     debug('createCart name=%s', payload.name);
+    // Create the order in WCS with the name as description so it persists.
+    const result = await this.fetchCreateOrder(payload.name || undefined);
+    // Also store in session so the current request can read back the name.
     if (payload.name) {
       this.context.session['hcl.cartName'] = payload.name;
     }
-    // WCS creates the cart lazily on the first addOrderItem call.
-    // Return a virtual empty cart so callers have something to work with.
-    const userId =
-      (this.context.session['hcl.userId'] as string | undefined) ?? '';
-    const currency =
-      (this.context.session['hcl.currency'] as string | undefined) ??
-      this.config.defaultCurrency ??
-      'USD';
-    const zeroAmount = { value: 0, currency };
-    const emptyCart = this.factory.cartSchema.parse({
-      identifier: { key: '' },
-      user: { userId },
-      name: payload.name ?? '',
-      price: {
-        grandTotal: zeroAmount,
-        totalProductPrice: zeroAmount,
-        totalShipping: zeroAmount,
-        totalTax: zeroAmount,
-        totalDiscount: zeroAmount,
-        totalSurcharge: zeroAmount,
-      },
-      company: payload.company
-        ? { taxIdentifier: payload.company.taxIdentifier }
-        : undefined,
-    }) as CartFactoryCartOutput<TFactory>;
-    return success(emptyCart);
+    return success(await this.fetchCart(result.outOrderId));
   }
 
   @Reactionary({
     inputSchema: CartMutationDeleteCartSchema,
   })
   public override async deleteCart(
-    _payload: CartMutationDeleteCart,
+    payload: CartMutationDeleteCart,
   ): Promise<Result<void>> {
-    debug('deleteCart');
-    await this.fetchDeleteCart();
+    debug('deleteCart %s', payload.cart.key);
+    await this.fetchDeleteCart(payload.cart.key || undefined);
     return success(undefined);
   }
 
@@ -326,9 +408,15 @@ export class HclCartCapability<
   public override async renameCart(
     payload: CartMutationRenameCart,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    debug('renameCart newName=%s', payload.newName);
+    debug('renameCart %s -> %s', payload.cart.key, payload.newName);
+    if (payload.cart.key) {
+      await this.fetchSetPendingOrder(payload.cart.key);
+    }
+    // Persist the new name to HCL as the order description.
+    await this.fetchUpdateOrderDescription(payload.newName);
+    // Keep session in sync so the current request reads back the new name.
     this.context.session['hcl.cartName'] = payload.newName;
-    return success(await this.fetchCart());
+    return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
   @Reactionary({
@@ -338,9 +426,12 @@ export class HclCartCapability<
   public override async applyCouponCode(
     payload: CartMutationApplyCoupon,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    debug('applyCouponCode %s', payload.couponCode);
+    debug('applyCouponCode %s cart=%s', payload.couponCode, payload.cart.key);
+    if (payload.cart.key) {
+      await this.fetchSetPendingOrder(payload.cart.key);
+    }
     await this.fetchAddPromotionCode(payload.couponCode);
-    return success(await this.fetchCart());
+    return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
   @Reactionary({
@@ -350,9 +441,12 @@ export class HclCartCapability<
   public override async removeCouponCode(
     payload: CartMutationRemoveCoupon,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    debug('removeCouponCode %s', payload.couponCode);
+    debug('removeCouponCode %s cart=%s', payload.couponCode, payload.cart.key);
+    if (payload.cart.key) {
+      await this.fetchSetPendingOrder(payload.cart.key);
+    }
     await this.fetchRemovePromotionCode(payload.couponCode);
-    return success(await this.fetchCart());
+    return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
   @Reactionary({

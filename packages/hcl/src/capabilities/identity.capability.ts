@@ -305,7 +305,6 @@ export class HclIdentityCapability<
         logonId,
         logonPassword,
         logonPasswordVerify: logonPassword,
-        registerType: 'G',
       },
     );
   }

@@ -10,7 +10,10 @@ import {
   type RequestContext,
   type CartQueryList,
 } from '@reactionary/core';
-import type { HclWcsCartResponse } from '../../schema/hcl.schema.js';
+import type {
+  HclWcsCartResponse,
+  HclWcsOrderListResponse,
+} from '../../schema/hcl.schema.js';
 
 export class HclCartFactory<
   TCartSchema extends AnyCartSchema = typeof CartSchema,
@@ -36,7 +39,10 @@ export class HclCartFactory<
       identifier: { key: cart.orderId },
       user: { userId: cart.buyerId ?? '' },
       company: cart.orgUniqueID ? { id: cart.orgUniqueID } : undefined,
-      name: (context.session['hcl.cartName'] as string | undefined) ?? '',
+      name:
+        cart.orderDescription ??
+        (context.session['hcl.cartName'] as string | undefined) ??
+        '',
       description: '',
       items: (cart.orderItem ?? []).map((item) => ({
         identifier: { key: item.orderItemId },
@@ -111,9 +117,34 @@ export class HclCartFactory<
     data: unknown,
     _query: CartQueryList,
   ): z.output<TCartPaginatedSearchResult> {
-    const cart = data as HclWcsCartResponse;
     const pageSize = _query.search.paginationOptions.pageSize;
     const pageNumber = _query.search.paginationOptions.pageNumber;
+
+    // Handle order list response from GET /order/byStatus/P.
+    const orderList = data as Partial<HclWcsOrderListResponse>;
+    if (Array.isArray(orderList.Order)) {
+      const orders = orderList.Order;
+      const total = Number(orderList.recordSetTotal ?? orders.length);
+      const items = orders.map((order) => {
+        const parsed = this.parseCart(context, order);
+        return {
+          ...parsed,
+          numItems: (order.orderItem ?? []).length,
+          lastModifiedDate: order.lastUpdateDate ?? '',
+        };
+      });
+      return this.cartPaginatedSearchResultSchema.parse({
+        identifier: _query.search,
+        items,
+        totalCount: total,
+        totalPages: Math.ceil(total / Math.max(1, pageSize)),
+        pageSize,
+        pageNumber,
+      }) as z.output<TCartPaginatedSearchResult>;
+    }
+
+    // Single cart response from GET /cart/@self or GET /order/{orderId}.
+    const cart = data as HclWcsCartResponse;
 
     // Empty orderId signals no active cart — return empty result.
     if (!cart.orderId) {
