@@ -42,7 +42,10 @@ export class HclInventoryCapability<
     const { sku } = payload.variant;
     const centreKey = payload.fulfilmentCenter.key;
 
-    const response = await this.fetchInventory(sku, centreKey || undefined);
+    const response = await this.client.callGet<HclInventoryAvailabilityResponse>(
+      this.getBySKUUrl(payload),
+      this.getBySKUPayload(payload),
+    );
 
     const items = response.InventoryAvailability ?? [];
 
@@ -74,25 +77,14 @@ export class HclInventoryCapability<
     );
   }
 
-  /**
-   * Fetch inventory availability for a single SKU from WCS.
-   *
-   * Calls GET /inventoryavailability/byPartNumber/{sku}[?physicalStoreName=X]
-   *
-   * The URL logic lives here (not in the transaction client) so that
-   * project-level subclasses can override this method to add extra parameters
-   * or use a different inventory endpoint.
-   */
-  protected async fetchInventory(
-    sku: string,
-    physicalStoreName?: string,
-  ): Promise<HclInventoryAvailabilityResponse> {
-    const params = new URLSearchParams();
-    if (physicalStoreName) params.set('physicalStoreName', physicalStoreName);
+  protected getBySKUUrl(payload: InventoryQueryBySKU): string {
+    return `${this.client.transactionBaseUrl}/inventoryavailability/byPartNumber/${encodeURIComponent(payload.variant.sku)}`;
+  }
 
-    return this.client.callGet<HclInventoryAvailabilityResponse>(
-      `${this.client.transactionBaseUrl}/inventoryavailability/byPartNumber/${encodeURIComponent(sku)}`,
-      params,
-    );
+  protected getBySKUPayload(payload: InventoryQueryBySKU): URLSearchParams {
+    const params = new URLSearchParams();
+    const centreKey = payload.fulfilmentCenter.key;
+    if (centreKey) params.set('physicalStoreName', centreKey);
+    return params;
   }
 }

@@ -73,15 +73,27 @@ export class HclCartCapability<
     this.factory = factory;
   }
 
+  protected setPendingOrderUrl(orderId: string): string {
+    return `${this.client.transactionBaseUrl}/cart/${encodeURIComponent(orderId)}/set_pending_order`;
+  }
+
+  protected setPendingOrderPayload(orderId: string): { orderId: string } {
+    return { orderId };
+  }
+
   /**
    * Set the specified order as the current pending (@self) order.
    * After this call, @self endpoints will operate on that orderId.
    */
   protected async fetchSetPendingOrder(orderId: string): Promise<void> {
     await this.client.callPost<unknown>(
-      `${this.client.transactionBaseUrl}/cart/${encodeURIComponent(orderId)}/set_pending_order`,
-      { orderId },
+      this.setPendingOrderUrl(orderId),
+      this.setPendingOrderPayload(orderId),
     );
+  }
+
+  protected wcsOrderUrl(orderId: string): string {
+    return `${this.client.transactionBaseUrl}/order/${encodeURIComponent(orderId)}`;
   }
 
   /**
@@ -91,12 +103,16 @@ export class HclCartCapability<
    */
   protected async fetchWcsOrder(orderId: string): Promise<HclWcsCartResponse> {
     const data = await this.client.callGet<HclWcsCartResponse>(
-      `${this.client.transactionBaseUrl}/order/${encodeURIComponent(orderId)}`,
+      this.wcsOrderUrl(orderId),
       undefined,
       { allowUndefined: true },
     );
     if (!data) throw new HclCartNotFoundError();
     return data;
+  }
+
+  protected cartUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self`;
   }
 
   /**
@@ -110,7 +126,7 @@ export class HclCartCapability<
       return this.fetchWcsOrder(orderId);
     }
     const data = await this.client.callGet<HclWcsCartResponse>(
-      `${this.client.transactionBaseUrl}/cart/@self`,
+      this.cartUrl(),
       undefined,
       { allowUndefined: true },
     );
@@ -126,142 +142,97 @@ export class HclCartCapability<
     return this.factory.parseCart(this.context, data);
   }
 
-  /** Add a SKU to the cart (creates the cart if it does not yet exist).
-   * Pass `currency` to force the price calculation into that currency
-   * (used when copying items to a new order during changeCurrency).
-   */
-  protected async fetchAddOrderItem(
-    partNumber: string,
-    quantity: number,
-    currency?: string,
-  ): Promise<HclWcsOrderItemUpdateResponse> {
+  protected addOrderItemUrl(currency?: string): string {
     const qs = currency ? `?currency=${encodeURIComponent(currency)}` : '';
-    return this.client.callPost<HclWcsOrderItemUpdateResponse>(
-      `${this.client.transactionBaseUrl}/cart${qs}`,
-      {
-        orderItem: [{ partNumber, quantity: String(quantity) }],
-        x_calculateOrder: '1',
-        x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
-      },
-    );
+    return `${this.client.transactionBaseUrl}/cart${qs}`;
   }
 
-  /** Update the quantity of an existing cart item. */
-  protected async fetchUpdateOrderItem(
+  protected addOrderItemPayload(partNumber: string, quantity: number): object {
+    return {
+      orderItem: [{ partNumber, quantity: String(quantity) }],
+      x_calculateOrder: '1',
+      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+    };
+  }
+
+  protected updateOrderItemUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/update_order_item`;
+  }
+
+  protected updateOrderItemPayload(
     orderItemId: string,
     quantity: number,
-  ): Promise<HclWcsOrderItemUpdateResponse> {
-    return this.client.callPut<HclWcsOrderItemUpdateResponse>(
-      `${this.client.transactionBaseUrl}/cart/@self/update_order_item`,
-      {
-        orderItem: [{ orderItemId, quantity: String(quantity) }],
-        x_calculateOrder: '1',
-        x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
-      },
-    );
+  ): object {
+    return {
+      orderItem: [{ orderItemId, quantity: String(quantity) }],
+      x_calculateOrder: '1',
+      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+    };
   }
 
-  /** Remove a single item from the cart. */
-  protected async fetchDeleteOrderItem(orderItemId: string): Promise<void> {
-    await this.client.callPut<void>(
-      `${this.client.transactionBaseUrl}/cart/@self/delete_order_item`,
-      {
-        orderItemId,
-        x_calculateOrder: '1',
-        x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
-      },
-    );
+  protected deleteOrderItemUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/delete_order_item`;
   }
 
-  /**
-   * Delete (cancel) the specified order, or the current pending order.
-   * If orderId is provided, cancels that specific order via its own endpoint.
-   */
-  protected async fetchDeleteCart(orderId?: string): Promise<void> {
-    if (orderId) {
-      return this.client.callDelete(
-        `${this.client.transactionBaseUrl}/cart/${encodeURIComponent(orderId)}/cancel_order`,
-        { ignore404: true },
-      );
-    }
-    return this.client.callDelete(
-      `${this.client.transactionBaseUrl}/cart/@self`,
-      { ignore404: true },
-    );
+  protected deleteOrderItemPayload(orderItemId: string): object {
+    return {
+      orderItemId,
+      x_calculateOrder: '1',
+      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+    };
   }
 
-  /**
-   * Fetch a list of all pending orders from the Order API.
-   * Calls GET /order/byStatus/P — returns all P-status orders for the current user.
-   */
-  protected async fetchWcsOrderList(): Promise<HclWcsOrderListResponse> {
-    const data = await this.client.callGet<HclWcsOrderListResponse>(
-      `${this.client.transactionBaseUrl}/order/byStatus/P`,
-      undefined,
-      { allowUndefined: true },
-    );
-    return data ?? { Order: [] };
+  protected deleteCartUrl(orderId?: string): string {
+    return orderId
+      ? `${this.client.transactionBaseUrl}/cart/${encodeURIComponent(orderId)}/cancel_order`
+      : `${this.client.transactionBaseUrl}/cart/@self`;
   }
 
-  /**
-   * Create a new order in WCS with an optional description/name and currency.
-   * Calls POST /cart/create_order?description={name}[&currency={currency}]
-   */
-  protected async fetchCreateOrder(
+  protected orderListUrl(): string {
+    return `${this.client.transactionBaseUrl}/order/byStatus/P`;
+  }
+
+  protected createOrderUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/create_order`;
+  }
+
+  protected createOrderParams(
     description?: string,
     currency?: string,
-  ): Promise<HclWcsCreateOrderResponse> {
+  ): URLSearchParams {
     const params = new URLSearchParams();
     // description is mandatory for WCS create_order — default to empty string.
     params.set('description', description ?? '');
     if (currency) params.set('currency', currency);
-    return this.client.callPost<HclWcsCreateOrderResponse>(
-      `${this.client.transactionBaseUrl}/cart/create_order?${params.toString()}`,
-      {},
-    );
+    return params;
   }
 
-  /**
-   * Persist the cart description (name) to WCS via the update_order_item
-   * endpoint. Must call fetchSetPendingOrder first if targeting a
-   * non-current order.
-   *
-   */
-  protected async fetchUpdateOrderDescription(
+  protected updateOrderDescriptionUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/update_order_item`;
+  }
+
+  protected updateOrderDescriptionPayload(
     description: string,
-  ): Promise<void> {
-    // WCS update_order_item requires an orderItem array in the body — include
-    // the current items so the endpoint does not return HTTP 500.
-    const cart = await this.fetchWcsCart();
-    const orderItem = (cart.orderItem ?? []).map((item) => ({
-      orderItemId: item.orderItemId,
-      quantity: item.quantity,
-    }));
-    await this.client.callPut<unknown>(
-      `${this.client.transactionBaseUrl}/cart/@self/update_order_item`,
-      {
-        orderDescription: description,
-        orderItem,
-        x_calculateOrder: '1',
-        x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
-      },
-    );
+    orderItem: Array<{ orderItemId: string; quantity: string }>,
+  ): object {
+    return {
+      orderDescription: description,
+      orderItem,
+      x_calculateOrder: '1',
+      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
+    };
   }
 
-  /** Apply a promotion/coupon code to the cart. */
-  protected async fetchAddPromotionCode(code: string): Promise<void> {
-    await this.client.callPost<void>(
-      `${this.client.transactionBaseUrl}/cart/@self/assigned_promotion_code`,
-      { promoCode: code },
-    );
+  protected addPromotionCodeUrl(): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/assigned_promotion_code`;
   }
 
-  /** Remove a promotion/coupon code from the cart. */
-  protected async fetchRemovePromotionCode(code: string): Promise<void> {
-    return this.client.callDelete(
-      `${this.client.transactionBaseUrl}/cart/@self/assigned_promotion_code/${encodeURIComponent(code)}`,
-      { ignore404: true },
-    );
+  protected addPromotionCodePayload(code: string): { promoCode: string } {
+    return { promoCode: code };
+  }
+
+  protected removePromotionCodeUrl(code: string): string {
+    return `${this.client.transactionBaseUrl}/cart/@self/assigned_promotion_code/${encodeURIComponent(code)}`;
   }
 
   @Reactionary({
@@ -317,7 +288,10 @@ export class HclCartCapability<
     if (payload.cart.key) {
       await this.fetchSetPendingOrder(payload.cart.key);
     }
-    await this.fetchAddOrderItem(payload.variant.sku, payload.quantity);
+    await this.client.callPost<HclWcsOrderItemUpdateResponse>(
+      this.addOrderItemUrl(),
+      this.addOrderItemPayload(payload.variant.sku, payload.quantity),
+    );
     return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
@@ -332,7 +306,10 @@ export class HclCartCapability<
     if (payload.cart.key) {
       await this.fetchSetPendingOrder(payload.cart.key);
     }
-    await this.fetchDeleteOrderItem(payload.item.key);
+    await this.client.callPut<void>(
+      this.deleteOrderItemUrl(),
+      this.deleteOrderItemPayload(payload.item.key),
+    );
     return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
@@ -352,7 +329,10 @@ export class HclCartCapability<
     if (payload.cart.key) {
       await this.fetchSetPendingOrder(payload.cart.key);
     }
-    await this.fetchUpdateOrderItem(payload.item.key, payload.quantity);
+    await this.client.callPut<HclWcsOrderItemUpdateResponse>(
+      this.updateOrderItemUrl(),
+      this.updateOrderItemPayload(payload.item.key, payload.quantity),
+    );
     return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
@@ -370,7 +350,12 @@ export class HclCartCapability<
     >
   > {
     debug('listCarts');
-    const orderList = await this.fetchWcsOrderList();
+    const data = await this.client.callGet<HclWcsOrderListResponse>(
+      this.orderListUrl(),
+      undefined,
+      { allowUndefined: true },
+    );
+    const orderList = data ?? { Order: [] };
     return success(
       this.factory.parseCartPaginatedSearchResult(
         this.context,
@@ -389,7 +374,10 @@ export class HclCartCapability<
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     debug('createCart name=%s', payload.name);
     // Create the order in WCS with the name as description so it persists.
-    const result = await this.fetchCreateOrder(payload.name || undefined);
+    const result = await this.client.callPost<HclWcsCreateOrderResponse>(
+      `${this.createOrderUrl()}?${this.createOrderParams(payload.name || undefined).toString()}`,
+      {},
+    );
     // Also store in session so the current request can read back the name.
     if (payload.name) {
       this.context.session['hcl.cartName'] = payload.name;
@@ -404,7 +392,12 @@ export class HclCartCapability<
     payload: CartMutationDeleteCart,
   ): Promise<Result<void>> {
     debug('deleteCart %s', payload.cart.key);
-    await this.fetchDeleteCart(payload.cart.key || undefined);
+    await this.client.callDelete(
+      this.deleteCartUrl(payload.cart.key || undefined),
+      {
+        ignore404: true,
+      },
+    );
     return success(undefined);
   }
 
@@ -420,7 +413,17 @@ export class HclCartCapability<
       await this.fetchSetPendingOrder(payload.cart.key);
     }
     // Persist the new name to HCL as the order description.
-    await this.fetchUpdateOrderDescription(payload.newName);
+    const wcsCart = await this.fetchWcsCart();
+    const orderItem = (wcsCart.orderItem ?? []).map((item) => ({
+      orderItemId: item.orderItemId,
+      quantity: item.quantity,
+    }));
+    await this.client.callPut<unknown>(
+      this.updateOrderDescriptionUrl(),
+      this.updateOrderDescriptionPayload(payload.newName, orderItem),
+    );
+    // Keep session in sync so the current request reads back the new name.
+    this.context.session['hcl.cartName'] = payload.newName;
     return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
@@ -435,7 +438,10 @@ export class HclCartCapability<
     if (payload.cart.key) {
       await this.fetchSetPendingOrder(payload.cart.key);
     }
-    await this.fetchAddPromotionCode(payload.couponCode);
+    await this.client.callPost<void>(
+      this.addPromotionCodeUrl(),
+      this.addPromotionCodePayload(payload.couponCode),
+    );
     return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
@@ -450,7 +456,12 @@ export class HclCartCapability<
     if (payload.cart.key) {
       await this.fetchSetPendingOrder(payload.cart.key);
     }
-    await this.fetchRemovePromotionCode(payload.couponCode);
+    await this.client.callDelete(
+      this.removePromotionCodeUrl(payload.couponCode),
+      {
+        ignore404: true,
+      },
+    );
     return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
@@ -468,9 +479,9 @@ export class HclCartCapability<
     const oldOrderId = oldCart.orderId;
 
     // Create a new order with the target currency.
-    const newOrder = await this.fetchCreateOrder(
-      oldCart.orderDescription,
-      payload.newCurrency,
+    const newOrder = await this.client.callPost<HclWcsCreateOrderResponse>(
+      `${this.createOrderUrl()}?${this.createOrderParams(oldCart.orderDescription, payload.newCurrency).toString()}`,
+      {},
     );
 
     // Make the new order the active (@self) one.
@@ -479,15 +490,16 @@ export class HclCartCapability<
     // Copy all items from the old order into the new one, priced in the new
     // currency by passing it as a query param on the add-item POST.
     for (const item of oldCart.orderItem ?? []) {
-      await this.fetchAddOrderItem(
-        item.partNumber,
-        Number(item.quantity),
-        payload.newCurrency,
+      await this.client.callPost<HclWcsOrderItemUpdateResponse>(
+        this.addOrderItemUrl(payload.newCurrency),
+        this.addOrderItemPayload(item.partNumber, Number(item.quantity)),
       );
     }
 
     // Cancel the old order.
-    await this.fetchDeleteCart(oldOrderId);
+    await this.client.callDelete(this.deleteCartUrl(oldOrderId), {
+      ignore404: true,
+    });
 
     return success(await this.fetchCart(newOrder.outOrderId));
   }

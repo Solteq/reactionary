@@ -24,10 +24,7 @@ import {
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
 import type { HclIdentityFactory } from '../factories/identity/identity.factory.js';
-import type {
-  HclPersonResponse,
-  HclWcsIdentityResponse,
-} from '../schema/hcl.schema.js';
+import type { HclWcsIdentityResponse } from '../schema/hcl.schema.js';
 import {
   SESSION_KEY_WC_TOKEN,
   SESSION_KEY_WC_TRUSTED_TOKEN,
@@ -135,9 +132,9 @@ export class HclIdentityCapability<
   ): Promise<Result<IdentityFactoryOutput<TFactory>>> {
     debug('Attempting login for user: %s', payload.username);
 
-    const response = await this.loginIdentity(
-      payload.username,
-      payload.password,
+    const response = await this.client.callPost<HclWcsIdentityResponse>(
+      this.loginIdentityUrl(),
+      this.loginIdentityPayload(payload.username, payload.password),
     );
 
     this.storeSessionTokens(
@@ -176,7 +173,9 @@ export class HclIdentityCapability<
     // Auth headers are read automatically from the context by the client.
     if (wcToken && userId) {
       try {
-        await this.deleteLoginIdentity(userId);
+        await this.client.callDelete(this.deleteLoginIdentityUrl(userId), {
+          ignore404: true,
+        });
       } catch (err) {
         debug('Server-side logout failed (non-fatal): %o', err);
       }
@@ -201,7 +200,9 @@ export class HclIdentityCapability<
     debug('Registering new user: %s', payload.username);
 
     // WCS requires a guest session before registering a new person.
-    const guest = await this.createGuestIdentity();
+    const guest = await this.client.callPost<HclWcsIdentityResponse>(
+      this.createGuestIdentityUrl(),
+    );
     this.storeSessionTokens(
       guest.WCToken,
       guest.WCTrustedToken,
@@ -212,9 +213,9 @@ export class HclIdentityCapability<
 
     // Register the person — the guest session tokens are now stored in the
     // context so the client reads them automatically via buildHeaders().
-    const registered = await this.registerPerson(
-      payload.username,
-      payload.password,
+    const registered = await this.client.callPut<HclWcsIdentityResponse>(
+      this.registerPersonUrl(),
+      this.registerPersonPayload(payload.username, payload.password),
     );
 
     this.storeSessionTokens(
@@ -259,59 +260,37 @@ export class HclIdentityCapability<
     delete this.context.session[SESSION_KEY_PERSONALIZATION_ID];
   }
 
-  // ---------------------------------------------------------------------------
-  // Protected fetch methods — override in subclasses to customise API calls
-  // ---------------------------------------------------------------------------
+  protected loginIdentityUrl(): string {
+    return `${this.client.transactionBaseUrl}/loginidentity`;
+  }
 
-  protected async loginIdentity(
+  protected loginIdentityPayload(
     logonId: string,
     logonPassword: string,
-  ): Promise<HclWcsIdentityResponse> {
-    return this.client.callPost<HclWcsIdentityResponse>(
-      `${this.client.transactionBaseUrl}/loginidentity`,
-      { logonId, logonPassword },
-    );
+  ): { logonId: string; logonPassword: string } {
+    return { logonId, logonPassword };
   }
 
-  protected async deleteLoginIdentity(userId: string): Promise<void> {
-    await this.client.callDelete(
-      `${this.client.transactionBaseUrl}/loginidentity/${encodeURIComponent(userId)}`,
-      { ignore404: true },
-    );
+  protected deleteLoginIdentityUrl(userId: string): string {
+    return `${this.client.transactionBaseUrl}/loginidentity/${encodeURIComponent(userId)}`;
   }
 
-  /**
-   * Create an anonymous guest session.
-   * Only call this when the user actually needs a persisted session (e.g. on
-   * cart creation). For pure browsing, a personalization ID is sufficient.
-   */
-  protected async createGuestIdentity(): Promise<HclWcsIdentityResponse> {
-    return this.client.callPost<HclWcsIdentityResponse>(
-      `${this.client.transactionBaseUrl}/guestidentity`,
-    );
+  protected createGuestIdentityUrl(): string {
+    return `${this.client.transactionBaseUrl}/guestidentity`;
   }
 
-  /**
-   * Register a new person. Requires an active guest session already stored in
-   * the context (guest tokens are picked up automatically by buildHeaders).
-   */
-  protected async registerPerson(
+  protected registerPersonUrl(): string {
+    return `${this.client.transactionBaseUrl}/person/@self`;
+  }
+
+  protected registerPersonPayload(
     logonId: string,
     logonPassword: string,
-  ): Promise<HclWcsIdentityResponse> {
-    return this.client.callPut<HclWcsIdentityResponse>(
-      `${this.client.transactionBaseUrl}/person/@self`,
-      {
-        logonId,
-        logonPassword,
-        logonPasswordVerify: logonPassword,
-      },
-    );
-  }
-
-  protected async getSelfPerson(): Promise<HclPersonResponse> {
-    return this.client.callGet<HclPersonResponse>(
-      `${this.client.transactionBaseUrl}/person/@self`,
-    );
+  ): {
+    logonId: string;
+    logonPassword: string;
+    logonPasswordVerify: string;
+  } {
+    return { logonId, logonPassword, logonPasswordVerify: logonPassword };
   }
 }
