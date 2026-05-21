@@ -8,6 +8,14 @@ import { HclCategorySchema } from '../schema/category.schema.js';
 import {
   HclCapabilitiesSchema,
   type HclCapabilities,
+  type HclCartCapabilityConfig,
+  type HclCheckoutCapabilityConfig,
+  type HclProductCapabilityConfig,
+  type HclCategoryCapabilityConfig,
+  type HclProductSearchCapabilityConfig,
+  type HclPriceCapabilityConfig,
+  type HclInventoryCapabilityConfig,
+  type HclIdentityCapabilityConfig,
 } from '../schema/capabilities.schema.js';
 import {
   HclConfigurationSchema,
@@ -72,7 +80,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.cart?.enabled) {
       client.cart = resolveCapabilityWithFactory(
-        capabilities.cart,
+        capabilities.cart as HclCartCapabilityConfig | undefined,
         {
           factory: new HclCartFactory(
             CartSchema,
@@ -94,7 +102,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.checkout?.enabled) {
       client.checkout = resolveCapabilityWithFactory(
-        capabilities.checkout,
+        capabilities.checkout as HclCheckoutCapabilityConfig | undefined,
         {
           factory: new HclCheckoutFactory(
             CheckoutSchema,
@@ -116,7 +124,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.product?.enabled) {
       client.product = resolveCapabilityWithFactory(
-        capabilities.product,
+        capabilities.product as HclProductCapabilityConfig | undefined,
         {
           factory: new HclProductFactory(ProductSchema),
           capability: (args) =>
@@ -134,7 +142,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.category?.enabled) {
       client.category = resolveCapabilityWithFactory(
-        capabilities.category,
+        capabilities.category as HclCategoryCapabilityConfig | undefined,
         {
           factory: new HclCategoryFactory(
             HclCategorySchema,
@@ -155,7 +163,9 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.productSearch?.enabled) {
       client.productSearch = resolveCapabilityWithFactory(
-        capabilities.productSearch,
+        capabilities.productSearch as
+          | HclProductSearchCapabilityConfig
+          | undefined,
         {
           factory: new HclProductSearchFactory(ProductSearchResultSchema),
           capability: (args) =>
@@ -173,7 +183,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.price?.enabled) {
       client.price = resolveCapabilityWithFactory(
-        capabilities.price,
+        capabilities.price as HclPriceCapabilityConfig | undefined,
         {
           factory: new HclPriceFactory(PriceSchema),
           capability: (args) =>
@@ -191,7 +201,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.inventory?.enabled) {
       client.inventory = resolveCapabilityWithFactory(
-        capabilities.inventory,
+        capabilities.inventory as HclInventoryCapabilityConfig | undefined,
         {
           factory: new HclInventoryFactory(InventorySchema),
           capability: (args) =>
@@ -209,7 +219,7 @@ export function withHclCapabilities<T extends HclCapabilities>(
 
     if (caps.identity?.enabled) {
       client.identity = resolveCapabilityWithFactory(
-        capabilities.identity,
+        capabilities.identity as HclIdentityCapabilityConfig | undefined,
         {
           factory: new HclIdentityFactory(IdentitySchema),
           capability: (args) =>

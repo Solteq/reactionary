@@ -1,6 +1,6 @@
 import type * as z from 'zod';
 import {
-  CheckoutSchema,
+  type CheckoutSchema,
   ShippingMethodSchema,
   PaymentMethodSchema,
   type AnyCheckoutSchema,
@@ -45,8 +45,7 @@ export class HclCheckoutFactory<
       cart.totalProductPriceCurrency ?? cart.grandTotalCurrency ?? 'USD';
 
     // WCS returns shipModeId at cart level in some versions and in orderItem in others.
-    const shipModeId =
-      cart.shipModeId ?? (cart.orderItem ?? [])[0]?.shipModeId;
+    const shipModeId = cart.shipModeId ?? (cart.orderItem ?? [])[0]?.shipModeId;
 
     const shippingInstruction = shipModeId
       ? {
