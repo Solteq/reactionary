@@ -17,7 +17,7 @@ export class RedisCache implements Cache {
       url: redisUrl,
     });
 
-    this.redis.on('error', (err) => {
+    this.redis.on('error', (err: any) => {
       console.error('Redis error', err);
     });
   }
