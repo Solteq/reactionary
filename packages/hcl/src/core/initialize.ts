@@ -2,7 +2,10 @@ import type { Cache, RequestContext } from '@reactionary/core';
 import {
   CategoryPaginatedResultSchema,
   IdentitySchema,
+  OrderSchema,
+  OrderSearchResultSchema,
   ProductSchema,
+  ProfileSchema,
 } from '@reactionary/core';
 import { HclCategorySchema } from '../schema/category.schema.js';
 import {
@@ -16,6 +19,9 @@ import {
   type HclPriceCapabilityConfig,
   type HclInventoryCapabilityConfig,
   type HclIdentityCapabilityConfig,
+  type HclProfileCapabilityConfig,
+  type HclOrderCapabilityConfig,
+  type HclOrderSearchCapabilityConfig,
 } from '../schema/capabilities.schema.js';
 import {
   HclConfigurationSchema,
@@ -32,9 +38,12 @@ import {
   HclCheckoutFactory,
   HclIdentityFactory,
   HclInventoryFactory,
+  HclOrderFactory,
+  HclOrderSearchFactory,
   HclPriceFactory,
   HclProductFactory,
   HclProductSearchFactory,
+  HclProfileFactory,
 } from '../factories/index.js';
 import { HclCartCapability } from '../capabilities/cart.capability.js';
 import { HclCheckoutCapability } from '../capabilities/checkout.capability.js';
@@ -44,6 +53,9 @@ import { HclProductSearchCapability } from '../capabilities/product-search.capab
 import { HclPriceCapability } from '../capabilities/price.capability.js';
 import { HclInventoryCapability } from '../capabilities/inventory.capability.js';
 import { HclIdentityCapability } from '../capabilities/identity.capability.js';
+import { HclProfileCapability } from '../capabilities/profile.capability.js';
+import { HclOrderCapability } from '../capabilities/order.capability.js';
+import { HclOrderSearchCapability } from '../capabilities/order-search.capability.js';
 import {
   CartIdentifierSchema,
   CartPaginatedSearchResultSchema,
@@ -224,6 +236,60 @@ export function withHclCapabilities<T extends HclCapabilities>(
           factory: new HclIdentityFactory(IdentitySchema),
           capability: (args) =>
             new HclIdentityCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.profile?.enabled) {
+      client.profile = resolveCapabilityWithFactory(
+        capabilities.profile as HclProfileCapabilityConfig | undefined,
+        {
+          factory: new HclProfileFactory(ProfileSchema),
+          capability: (args) =>
+            new HclProfileCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.order?.enabled) {
+      client.order = resolveCapabilityWithFactory(
+        capabilities.order as HclOrderCapabilityConfig | undefined,
+        {
+          factory: new HclOrderFactory(OrderSchema),
+          capability: (args) =>
+            new HclOrderCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.orderSearch?.enabled) {
+      client.orderSearch = resolveCapabilityWithFactory(
+        capabilities.orderSearch as HclOrderSearchCapabilityConfig | undefined,
+        {
+          factory: new HclOrderSearchFactory(OrderSearchResultSchema),
+          capability: (args) =>
+            new HclOrderSearchCapability(
               args.cache,
               args.context,
               args.config,

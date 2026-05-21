@@ -8,6 +8,9 @@ import type { HclProductSearchCapability } from '../capabilities/product-search.
 import type { HclPriceCapability } from '../capabilities/price.capability.js';
 import type { HclInventoryCapability } from '../capabilities/inventory.capability.js';
 import type { HclIdentityCapability } from '../capabilities/identity.capability.js';
+import type { HclProfileCapability } from '../capabilities/profile.capability.js';
+import type { HclOrderCapability } from '../capabilities/order.capability.js';
+import type { HclOrderSearchCapability } from '../capabilities/order-search.capability.js';
 
 type OverridableCapabilityKey =
   | 'product'
@@ -17,7 +20,10 @@ type OverridableCapabilityKey =
   | 'category'
   | 'price'
   | 'inventory'
-  | 'identity';
+  | 'identity'
+  | 'profile'
+  | 'order'
+  | 'orderSearch';
 
 type EnabledCapability<TCapability> = TCapability extends { enabled: true }
   ? true
@@ -46,6 +52,9 @@ type DefaultCapabilityMap = {
   price: HclPriceCapability;
   inventory: HclInventoryCapability;
   identity: HclIdentityCapability;
+  profile: HclProfileCapability;
+  order: HclOrderCapability;
+  orderSearch: HclOrderSearchCapability;
 };
 
 type CapabilityImplementationMap<T extends HclCapabilities> = {
