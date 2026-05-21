@@ -7,9 +7,11 @@
   "dependencies": {
     "@reactionary/core": "0.0.1",
     "zod": "4.1.9",
-    "algoliasearch": "^5.48.0",
-    "vitest": "^4.0.9",
-    "@nx/vite": "22.4.5"
+    "algoliasearch": "^5.48.0"
+  },
+  "devDependencies": {
+    "@nx/vite": "22.4.5",
+    "vitest": "^4.0.9"
   },
   "sideEffects": false
 }

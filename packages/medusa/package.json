@@ -9,9 +9,11 @@
     "@reactionary/core": "0.0.1",
     "debug": "^4.4.3",
     "@medusajs/types": "^2.13.3",
-    "zod": "4.1.9",
-    "vitest": "^4.0.9",
-    "@nx/vite": "22.4.5"
+    "zod": "4.1.9"
+  },
+  "devDependencies": {
+    "@nx/vite": "22.4.5",
+    "vitest": "^4.0.9"
   },
   "sideEffects": false
 }
