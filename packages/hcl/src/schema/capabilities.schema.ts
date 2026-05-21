@@ -16,6 +16,12 @@ import type {
   InventoryFactory,
   InventoryFactoryWithOutput,
   InventoryCapability,
+  OrderFactory,
+  OrderFactoryWithOutput,
+  OrderCapability,
+  OrderSearchFactory,
+  OrderSearchFactoryWithOutput,
+  OrderSearchCapability,
   PriceFactory,
   PriceFactoryWithOutput,
   PriceCapability,
@@ -25,6 +31,9 @@ import type {
   ProductSearchFactory,
   ProductSearchFactoryWithOutput,
   ProductSearchCapability,
+  ProfileFactory,
+  ProfileFactoryWithOutput,
+  ProfileCapability,
 } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
 import type { HclConfiguration } from './configuration.schema.js';
@@ -46,6 +55,9 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
   inventory: true,
   identity: true,
   productSearch: true,
+  profile: true,
+  order: true,
+  orderSearch: true,
 })
   .extend({
     cart: OverridableCapabilitySchema.optional(),
@@ -56,6 +68,9 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
     inventory: OverridableCapabilitySchema.optional(),
     identity: OverridableCapabilitySchema.optional(),
     productSearch: OverridableCapabilitySchema.optional(),
+    profile: OverridableCapabilitySchema.optional(),
+    order: OverridableCapabilitySchema.optional(),
+    orderSearch: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -117,4 +132,19 @@ export type HclProductSearchCapabilityConfig = HclCapabilityConfig<
 export type HclIdentityCapabilityConfig = HclCapabilityConfig<
   IdentityFactoryWithOutput<IdentityFactory>,
   IdentityCapability
+>;
+
+export type HclProfileCapabilityConfig = HclCapabilityConfig<
+  ProfileFactoryWithOutput<ProfileFactory>,
+  ProfileCapability
+>;
+
+export type HclOrderCapabilityConfig = HclCapabilityConfig<
+  OrderFactoryWithOutput<OrderFactory>,
+  OrderCapability
+>;
+
+export type HclOrderSearchCapabilityConfig = HclCapabilityConfig<
+  OrderSearchFactoryWithOutput<OrderSearchFactory>,
+  OrderSearchCapability
 >;

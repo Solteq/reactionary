@@ -446,6 +446,32 @@ export interface HclWcsIdentityResponse {
 }
 
 /**
+ * A single entry in a WCS person address book (contact list).
+ * Returned as part of the GET /person/@self response (contact[] field)
+ * and used for POST/PUT /person/@self/contact operations.
+ */
+export interface HclWcsPersonContact {
+  /** Unique identifier / display name for this address (e.g. 'Home', 'Work', 'Billing'). */
+  nickName: string;
+  firstName?: string;
+  lastName?: string;
+  /** Street address lines. Index 0 = street, index 1 = apartment / second line. */
+  addressLine?: string[];
+  /** Alternative single-field address (some WCS endpoint variants). */
+  address1?: string;
+  city?: string;
+  stateOrProvinceName?: string;
+  zipCode?: string;
+  /** ISO country code, e.g. 'US'. */
+  country?: string;
+  phone1?: string;
+  email1?: string;
+  /** '1' marks this as the default / primary shipping address. */
+  primary?: string;
+  addressType?: string;
+}
+
+/**
  * Response from GET /wcs/resources/store/{storeId}/person/@self.
  * Only the fields we use are typed; the full WCS schema has many more.
  */
@@ -457,9 +483,12 @@ export interface HclPersonResponse {
   email1?: string;
   firstName?: string;
   lastName?: string;
+  phone1?: string;
   resourceName?: string;
   /** Organization ID. `-2000` indicates the default anonymous org. */
   orgizationId?: string;
+  /** Address book entries embedded in the person/@self response. */
+  contact?: HclWcsPersonContact[];
 }
 
 // ---------------------------------------------------------------------------
@@ -662,4 +691,42 @@ export interface HclWcsCreateOrderResponse {
   outOrderId: string;
   redirecturl?: string;
   viewTaskName?: string;
+}
+
+/**
+ * A full order as returned by GET /wcs/resources/store/{storeId}/order/{orderId}.
+ * Extends the cart response shape with the `placedDate` field that is only
+ * present on placed (non-active) orders.
+ */
+export interface HclWcsOrderDetailResponse extends HclWcsCartResponse {
+  /** Date/time when the order was placed, e.g. '2024-01-15T10:30:00.000Z'. */
+  placedDate?: string;
+}
+
+/**
+ * A single summary entry in a GET /wcs/resources/store/{storeId}/order/@history response.
+ * Contains only the fields available in the history list; use getById for full detail.
+ */
+export interface HclWcsOrderHistoryItem {
+  orderId: string;
+  /** WCS order status code, e.g. 'P', 'M', 'S', 'X'. */
+  status: string;
+  placedDate?: string;
+  grandTotal?: string;
+  grandTotalCurrency?: string;
+  totalProductPrice?: string;
+  orderDescription?: string;
+  buyerDistinguishedName?: string;
+}
+
+/**
+ * Top-level response from GET /wcs/resources/store/{storeId}/order/@history.
+ * Returns a paginated list of the buyer's past orders.
+ */
+export interface HclWcsOrderHistoryResponse {
+  Order?: HclWcsOrderHistoryItem[];
+  recordSetTotal?: string;
+  recordSetCount?: string;
+  recordSetStartNumber?: string;
+  recordSetComplete?: string;
 }
