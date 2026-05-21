@@ -213,6 +213,30 @@ describe('HCL Cart Capability', () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.value.name).toBe('Renamed Cart');
-    expect(reqCtx.session['hcl.cartName']).toBe('Renamed Cart');
+  });
+
+  it('should change the cart currency by creating a new order with items copied', async () => {
+    const addResult = await provider.add({
+      cart: { key: '' },
+      variant: { sku: TEST_PART_NUMBER },
+      quantity: 1,
+    });
+    expect(addResult.success).toBe(true);
+    if (!addResult.success) return;
+    const oldOrderId = addResult.value.identifier.key;
+
+    const result = await provider.changeCurrency({
+      cart: { key: oldOrderId },
+      newCurrency: 'USD',
+    });
+
+    expect(result.success, JSON.stringify(result)).toBe(true);
+    if (!result.success) return;
+    // A new order is created — the key is different from the old one.
+    expect(result.value.identifier.key).toBeTruthy();
+    expect(result.value.identifier.key).not.toBe(oldOrderId);
+    expect(result.value.items).toHaveLength(1);
+    expect(result.value.items[0].variant.sku).toBe(TEST_PART_NUMBER);
+    expect(result.value.items[0].price.unitPrice.currency).toBe('USD');
   });
 });

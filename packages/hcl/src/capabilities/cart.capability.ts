@@ -37,16 +37,16 @@ import {
   type RequestContext,
   type Result,
 } from '@reactionary/core';
-import type { HclConfiguration } from '../schema/configuration.schema.js';
+import createDebug from 'debug';
 import { HclCartNotFoundError, type HclClient } from '../core/client.js';
 import type { HclCartFactory } from '../factories/cart/cart.factory.js';
+import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type {
   HclWcsCartResponse,
   HclWcsCreateOrderResponse,
   HclWcsOrderItemUpdateResponse,
   HclWcsOrderListResponse,
 } from '../schema/hcl.schema.js';
-import createDebug from 'debug';
 
 const debug = createDebug('reactionary:hcl:cart');
 
@@ -126,13 +126,18 @@ export class HclCartCapability<
     return this.factory.parseCart(this.context, data);
   }
 
-  /** Add a SKU to the cart (creates the cart if it does not yet exist). */
+  /** Add a SKU to the cart (creates the cart if it does not yet exist).
+   * Pass `currency` to force the price calculation into that currency
+   * (used when copying items to a new order during changeCurrency).
+   */
   protected async fetchAddOrderItem(
     partNumber: string,
     quantity: number,
+    currency?: string,
   ): Promise<HclWcsOrderItemUpdateResponse> {
+    const qs = currency ? `?currency=${encodeURIComponent(currency)}` : '';
     return this.client.callPost<HclWcsOrderItemUpdateResponse>(
-      `${this.client.transactionBaseUrl}/cart`,
+      `${this.client.transactionBaseUrl}/cart${qs}`,
       {
         orderItem: [{ partNumber, quantity: String(quantity) }],
         x_calculateOrder: '1',
@@ -199,15 +204,17 @@ export class HclCartCapability<
   }
 
   /**
-   * Create a new order in WCS with an optional description/name.
-   * Calls POST /cart/create_order?description={name}
+   * Create a new order in WCS with an optional description/name and currency.
+   * Calls POST /cart/create_order?description={name}[&currency={currency}]
    */
   protected async fetchCreateOrder(
     description?: string,
+    currency?: string,
   ): Promise<HclWcsCreateOrderResponse> {
     const params = new URLSearchParams();
     // description is mandatory for WCS create_order — default to empty string.
     params.set('description', description ?? '');
+    if (currency) params.set('currency', currency);
     return this.client.callPost<HclWcsCreateOrderResponse>(
       `${this.client.transactionBaseUrl}/cart/create_order?${params.toString()}`,
       {},
@@ -414,8 +421,6 @@ export class HclCartCapability<
     }
     // Persist the new name to HCL as the order description.
     await this.fetchUpdateOrderDescription(payload.newName);
-    // Keep session in sync so the current request reads back the new name.
-    this.context.session['hcl.cartName'] = payload.newName;
     return success(await this.fetchCart(payload.cart.key || undefined));
   }
 
@@ -456,10 +461,34 @@ export class HclCartCapability<
   public override async changeCurrency(
     payload: CartMutationChangeCurrency,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    debug('changeCurrency %s', payload.newCurrency);
-    // Store the currency preference in session; it will be passed as a query
-    // param on subsequent getCart calls via buildParams.
-    this.context.session['hcl.currency'] = payload.newCurrency;
-    return success(await this.fetchCart());
+    debug('changeCurrency %s cart=%s', payload.newCurrency, payload.cart.key);
+
+    // Fetch the current cart to get its items and description.
+    const oldCart = await this.fetchWcsCart(payload.cart.key || undefined);
+    const oldOrderId = oldCart.orderId;
+
+    // Create a new order with the target currency.
+    const newOrder = await this.fetchCreateOrder(
+      oldCart.orderDescription,
+      payload.newCurrency,
+    );
+
+    // Make the new order the active (@self) one.
+    await this.fetchSetPendingOrder(newOrder.outOrderId);
+
+    // Copy all items from the old order into the new one, priced in the new
+    // currency by passing it as a query param on the add-item POST.
+    for (const item of oldCart.orderItem ?? []) {
+      await this.fetchAddOrderItem(
+        item.partNumber,
+        Number(item.quantity),
+        payload.newCurrency,
+      );
+    }
+
+    // Cancel the old order.
+    await this.fetchDeleteCart(oldOrderId);
+
+    return success(await this.fetchCart(newOrder.outOrderId));
   }
 }
