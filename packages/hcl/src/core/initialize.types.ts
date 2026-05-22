@@ -3,7 +3,7 @@ import type { HclCapabilities } from '../schema/capabilities.schema.js';
 import type { HclCartCapability } from '../capabilities/cart.capability.js';
 import type { HclCheckoutCapability } from '../capabilities/checkout.capability.js';
 import type { HclCompanyCapability } from '../capabilities/company.capability.js';
-import type { HclCompanyRegistrationCapability } from '../capabilities/company-registration.capability.js';
+
 import type { HclProductCapability } from '../capabilities/product.capability.js';
 import type { HclCategoryCapability } from '../capabilities/category.capability.js';
 import type { HclProductSearchCapability } from '../capabilities/product-search.capability.js';
@@ -23,7 +23,6 @@ type OverridableCapabilityKey =
   | 'checkout'
   | 'category'
   | 'company'
-  | 'companyRegistration'
   | 'price'
   | 'inventory'
   | 'identity'
@@ -58,7 +57,6 @@ type DefaultCapabilityMap = {
   checkout: HclCheckoutCapability;
   category: HclCategoryCapability;
   company: HclCompanyCapability;
-  companyRegistration: HclCompanyRegistrationCapability;
   price: HclPriceCapability;
   inventory: HclInventoryCapability;
   identity: HclIdentityCapability;

@@ -14,9 +14,6 @@ import type {
   CompanyCapability,
   CompanyFactory,
   CompanyFactoryWithOutput,
-  CompanyRegistrationCapability,
-  CompanyRegistrationFactory,
-  CompanyRegistrationFactoryWithOutput,
   IdentityFactory,
   IdentityFactoryWithOutput,
   IdentityCapability,
@@ -73,7 +70,6 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
   checkout: true,
   category: true,
   company: true,
-  companyRegistration: true,
   product: true,
   price: true,
   inventory: true,
@@ -94,7 +90,6 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
     checkout: OverridableCapabilitySchema.optional(),
     category: OverridableCapabilitySchema.optional(),
     company: OverridableCapabilitySchema.optional(),
-    companyRegistration: OverridableCapabilitySchema.optional(),
     product: OverridableCapabilitySchema.optional(),
     price: OverridableCapabilitySchema.optional(),
     inventory: OverridableCapabilitySchema.optional(),
@@ -212,11 +207,6 @@ export type HclPersonalizationProfileCapabilityConfig = HclCapabilityConfig<
 export type HclCompanyCapabilityConfig = HclCapabilityConfig<
   CompanyFactoryWithOutput<CompanyFactory>,
   CompanyCapability
->;
-
-export type HclCompanyRegistrationCapabilityConfig = HclCapabilityConfig<
-  CompanyRegistrationFactoryWithOutput<CompanyRegistrationFactory>,
-  CompanyRegistrationCapability
 >;
 
 export type HclStoreCapabilityConfig = HclCapabilityConfig<

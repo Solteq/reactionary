@@ -23,7 +23,6 @@ export const CapabilitiesSchema = z.looseObject({
   featureFlag: z.boolean(),
   personalizationProfile: z.boolean(),
   company: z.boolean(),
-  companyRegistration: z.boolean(),
 });
 
 export type Capabilities = InferType<typeof CapabilitiesSchema>;
