@@ -9,3 +9,6 @@ export * from './identity/identity.factory.js';
 export * from './profile/profile.factory.js';
 export * from './order/order.factory.js';
 export * from './order-search/order-search.factory.js';
+export * from './product-associations/product-associations.factory.js';
+export * from './product-recommendations/product-recommendations.factory.js';
+export * from './personalization-profile/personalization-profile.factory.js';

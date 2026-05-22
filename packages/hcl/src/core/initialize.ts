@@ -4,6 +4,9 @@ import {
   IdentitySchema,
   OrderSchema,
   OrderSearchResultSchema,
+  PersonalizationProfileSchema,
+  ProductAssociationSchema,
+  ProductRecommendationSchema,
   ProductSchema,
   ProfileSchema,
 } from '@reactionary/core';
@@ -22,6 +25,10 @@ import {
   type HclProfileCapabilityConfig,
   type HclOrderCapabilityConfig,
   type HclOrderSearchCapabilityConfig,
+  type HclAnalyticsCapabilityConfig,
+  type HclProductAssociationsCapabilityConfig,
+  type HclProductRecommendationsCapabilityConfig,
+  type HclPersonalizationProfileCapabilityConfig,
 } from '../schema/capabilities.schema.js';
 import {
   HclConfigurationSchema,
@@ -40,8 +47,11 @@ import {
   HclInventoryFactory,
   HclOrderFactory,
   HclOrderSearchFactory,
+  HclPersonalizationProfileFactory,
   HclPriceFactory,
+  HclProductAssociationsFactory,
   HclProductFactory,
+  HclProductRecommendationsFactory,
   HclProductSearchFactory,
   HclProfileFactory,
 } from '../factories/index.js';
@@ -56,6 +66,10 @@ import { HclIdentityCapability } from '../capabilities/identity.capability.js';
 import { HclProfileCapability } from '../capabilities/profile.capability.js';
 import { HclOrderCapability } from '../capabilities/order.capability.js';
 import { HclOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import { HclAnalyticsCapability } from '../capabilities/analytics.capability.js';
+import { HclProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import { HclProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
+import { HclPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
 import {
   CartIdentifierSchema,
   CartPaginatedSearchResultSchema,
@@ -290,6 +304,88 @@ export function withHclCapabilities<T extends HclCapabilities>(
           factory: new HclOrderSearchFactory(OrderSearchResultSchema),
           capability: (args) =>
             new HclOrderSearchCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.analytics?.enabled) {
+      const analyticsCap = capabilities.analytics as
+        | HclAnalyticsCapabilityConfig
+        | undefined;
+      if (analyticsCap?.capability) {
+        client.analytics = analyticsCap.capability(
+          buildCapabilityArgs(undefined as never) as never,
+        );
+      } else {
+        client.analytics = new HclAnalyticsCapability(
+          cache,
+          context,
+          config,
+          hclClient,
+        );
+      }
+    }
+
+    if (caps.productAssociations?.enabled) {
+      client.productAssociations = resolveCapabilityWithFactory(
+        capabilities.productAssociations as
+          | HclProductAssociationsCapabilityConfig
+          | undefined,
+        {
+          factory: new HclProductAssociationsFactory(ProductAssociationSchema),
+          capability: (args) =>
+            new HclProductAssociationsCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.productRecommendations?.enabled) {
+      client.productRecommendations = resolveCapabilityWithFactory(
+        capabilities.productRecommendations as
+          | HclProductRecommendationsCapabilityConfig
+          | undefined,
+        {
+          factory: new HclProductRecommendationsFactory(
+            ProductRecommendationSchema,
+          ),
+          capability: (args) =>
+            new HclProductRecommendationsCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.personalizationProfile?.enabled) {
+      client.personalizationProfile = resolveCapabilityWithFactory(
+        capabilities.personalizationProfile as
+          | HclPersonalizationProfileCapabilityConfig
+          | undefined,
+        {
+          factory: new HclPersonalizationProfileFactory(
+            PersonalizationProfileSchema,
+          ),
+          capability: (args) =>
+            new HclPersonalizationProfileCapability(
               args.cache,
               args.context,
               args.config,

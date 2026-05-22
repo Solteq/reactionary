@@ -239,7 +239,7 @@ export interface HclProductResponse extends HclProductSearchItem {
   components?: HclProductResponse[];
   /** Quantity — only present on components array elements */
   quantity?: string;
-  merchandisingAssociations?: HclProductResponse[];
+  merchandisingAssociations?: HclAssociation[];
   attachments?: HclAttachment[];
   images?: HclImage[];
   /**
@@ -729,4 +729,74 @@ export interface HclWcsOrderHistoryResponse {
   recordSetCount?: string;
   recordSetStartNumber?: string;
   recordSetComplete?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Query Service — Merchandising Associations
+// ---------------------------------------------------------------------------
+
+/**
+ * A product item returned within a `merchandisingAssociations` array on a
+ * HCL detail-profile product response. Extends the search item shape with
+ * an `associationCodeType` that identifies the semantic relationship.
+ *
+ * Known values: 'ACCESSORY', 'SPAREPART', 'REPLACEMENT', 'CROSSSELL', 'UPSELL', 'UPGRADE'
+ */
+export interface HclAssociation extends HclProductSearchItem {
+  /** The association type code. e.g. 'ACCESSORY', 'SPAREPART', 'REPLACEMENT'. */
+  associationCodeType?: string;
+  /** Display sequence for ordering associations within a type. */
+  associationSequence?: string;
+}
+
+// ---------------------------------------------------------------------------
+// WCS Transaction Service — Marketing / ESpot
+// ---------------------------------------------------------------------------
+
+/**
+ * A single activity data entry within a marketing spot response.
+ * When `baseMarketingSpotDataType` is 'CatalogEntry' or 'CatalogEntryId',
+ * the entry represents a product recommendation from the spot.
+ */
+export interface HclEspotActivityData {
+  /** 'CatalogEntry' | 'CatalogEntryId' | 'CatalogGroupId' | 'MarketingContent' */
+  baseMarketingSpotDataType?: string;
+  /** Internal HCL product uniqueID (numeric string). Present for CatalogEntry/CatalogEntryId types. */
+  contentId?: string;
+  /** Part number of the product, if returned inline by the spot configuration. */
+  partNumber?: string;
+  /** Display name of the product or content entry. */
+  contentName?: string;
+}
+
+/** A single marketing spot entry in a WCS espot response. */
+export interface HclEspotMarketingSpot {
+  eSpotName?: string;
+  baseMarketingSpotActivityData?: HclEspotActivityData[];
+}
+
+/** Top-level response from GET /wcs/resources/store/{storeId}/espot/{name}. */
+export interface HclEspotResponse {
+  MarketingSpotData?: HclEspotMarketingSpot[];
+}
+
+// ---------------------------------------------------------------------------
+// WCS Transaction Service — Segment / Personalization
+// ---------------------------------------------------------------------------
+
+/** A single customer segment (member group) entry in a WCS segment response. */
+export interface HclSegmentMemberGroup {
+  id: string;
+  displayName?: { language: number; value: string };
+  description?: { language: number; value: string };
+  usage?: string[];
+}
+
+/** Top-level response from GET /wcs/resources/store/{storeId}/segment. */
+export interface HclSegmentResponse {
+  MemberGroup?: HclSegmentMemberGroup[];
+  recordSetTotal?: number;
+  recordSetCount?: number;
+  recordSetStartNumber?: number;
+  recordSetComplete?: boolean;
 }

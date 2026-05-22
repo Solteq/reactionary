@@ -66,6 +66,46 @@ export const HclConfigurationSchema = z.looseObject({
     description:
       'Price rule ID for /display_price WCS calls. Optional — the server uses its default rule when absent.',
   }),
+  /**
+   * Maps Reactionary association types to the HCL `associationCodeType` values
+   * returned in `merchandisingAssociations` on product detail responses.
+   * Override to match custom HCL store configuration.
+   */
+  associationTypes: z
+    .looseObject({
+      accessories: z.array(z.string()).default(['ACCESSORY']),
+      spareparts: z.array(z.string()).default(['SPAREPART']),
+      replacements: z.array(z.string()).default(['REPLACEMENT']),
+    })
+    .default(() => ({
+      accessories: ['ACCESSORY'],
+      spareparts: ['SPAREPART'],
+      replacements: ['REPLACEMENT'],
+    })),
+  /**
+   * Names of HCL marketing spots used for product recommendation algorithms.
+   * Each algorithm calls the corresponding named espot via the WCS Transaction Service.
+   * These espots must be configured in HCL Commerce to return catalog entry data.
+   */
+  espotNames: z
+    .looseObject({
+      frequentlyBoughtTogether: z.string().default('Reactionary_FrequentlyBoughtTogether'),
+      similar: z.string().default('Reactionary_SimilarProducts'),
+      related: z.string().default('Reactionary_RelatedProducts'),
+      trendingInCategory: z.string().default('Reactionary_TrendingInCategory'),
+      popular: z.string().default('Reactionary_Popular'),
+      topPicks: z.string().default('Reactionary_TopPicks'),
+      alsoViewed: z.string().default('Reactionary_AlsoViewed'),
+    })
+    .default(() => ({
+      frequentlyBoughtTogether: 'Reactionary_FrequentlyBoughtTogether',
+      similar: 'Reactionary_SimilarProducts',
+      related: 'Reactionary_RelatedProducts',
+      trendingInCategory: 'Reactionary_TrendingInCategory',
+      popular: 'Reactionary_Popular',
+      topPicks: 'Reactionary_TopPicks',
+      alsoViewed: 'Reactionary_AlsoViewed',
+    })),
 });
 
 export type HclConfiguration = z.infer<typeof HclConfigurationSchema>;

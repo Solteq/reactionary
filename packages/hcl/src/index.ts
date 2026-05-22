@@ -17,3 +17,7 @@ export * from './capabilities/identity.capability.js';
 export * from './capabilities/profile.capability.js';
 export * from './capabilities/order.capability.js';
 export * from './capabilities/order-search.capability.js';
+export * from './capabilities/analytics.capability.js';
+export * from './capabilities/product-associations.capability.js';
+export * from './capabilities/product-recommendations.capability.js';
+export * from './capabilities/personalization-profile.capability.js';
