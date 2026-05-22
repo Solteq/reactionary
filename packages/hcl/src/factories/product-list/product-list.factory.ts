@@ -16,6 +16,7 @@ import type {
   ProductListPaginatedResultsSchema,
   ProductListQuery,
   ProductListSchema,
+  ProductListType,
   RequestContext,
 } from '@reactionary/core';
 import type {
@@ -63,6 +64,44 @@ export interface HclRequisitionListFactoryExtension {
   ): unknown;
 }
 
+/**
+ * Wishlist types that map to the /wishlist WCS API.
+ * Requisition lists use their own API and are excluded here.
+ */
+const WISHLIST_TYPES = new Set<string>(['favorite', 'wish', 'shopping']);
+
+/**
+ * Encode a listType and user description into HCL's description field.
+ * Format: `{type}:{description}` — e.g. `favorite:My list` or `wish:`
+ */
+export function encodeWishlistType(
+  type: string,
+  description: string | undefined,
+): string {
+  return `${type}:${description ?? ''}`;
+}
+
+/**
+ * Decode listType and user description from HCL's description field.
+ * Falls back to `wish` for lists that pre-date the encoding scheme.
+ */
+function decodeWishlistType(raw: string | undefined): {
+  type: ProductListType;
+  description: string | undefined;
+} {
+  if (raw) {
+    const colonIdx = raw.indexOf(':');
+    if (colonIdx > 0) {
+      const prefix = raw.slice(0, colonIdx);
+      if (WISHLIST_TYPES.has(prefix)) {
+        const desc = raw.slice(colonIdx + 1);
+        return { type: prefix as ProductListType, description: desc || undefined };
+      }
+    }
+  }
+  return { type: 'wish', description: raw || undefined };
+}
+
 export class HclProductListFactory<
   TProductListSchema extends AnyProductListSchema = typeof ProductListSchema,
   TProductListItemSchema extends
@@ -101,15 +140,13 @@ export class HclProductListFactory<
     data: HclWishlist,
   ): z.output<TProductListSchema> {
     const key = data.uniqueID ?? data.externalIdentifier ?? '';
+    const { type, description } = decodeWishlistType(data.description);
 
     const result = {
-      identifier: {
-        key,
-        listType: 'wish',
-      },
-      type: 'wish',
+      identifier: { key, listType: type },
+      type,
       name: data.descriptionName ?? '',
-      description: data.description,
+      description,
       published: true,
     } satisfies ProductList;
 
@@ -135,9 +172,11 @@ export class HclProductListFactory<
     data: HclWishlistListResponse,
     query: ProductListQuery,
   ): z.output<TProductListPaginatedSchema> {
-    const items = (data.GiftList ?? []).map((w) =>
-      this.parseProductList(context, w),
-    );
+    // Parse all lists then filter client-side — HCL returns all wishlists
+    // regardless of type; the type is stored in the encoded description field.
+    const items = (data.GiftList ?? [])
+      .map((w) => this.parseProductList(context, w))
+      .filter((item) => (item as ProductList).identifier.listType === query.search.listType);
 
     const result = {
       identifier: {
@@ -145,8 +184,8 @@ export class HclProductListFactory<
         paginationOptions: query.search.paginationOptions,
       },
       items,
-      totalCount: Number(data.recordSetTotal ?? items.length),
-      pageSize: items.length,
+      totalCount: items.length,
+      pageSize: Math.max(1, items.length),
       pageNumber: 1,
       totalPages: 1,
     } satisfies ProductListPaginatedResult;
