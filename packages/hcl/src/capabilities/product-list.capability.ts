@@ -93,8 +93,10 @@ export class HclProductListCapability<
    * Returns the factory cast to include the HCL-specific requisition list parse methods.
    * Subclasses can override this if they provide a custom factory.
    */
-  protected get requisitionFactory(): ProductListFactoryWithOutput<TFactory> & HclRequisitionListFactoryExtension {
-    return this.factory as ProductListFactoryWithOutput<TFactory> & HclRequisitionListFactoryExtension;
+  protected get requisitionFactory(): ProductListFactoryWithOutput<TFactory> &
+    HclRequisitionListFactoryExtension {
+    return this.factory as ProductListFactoryWithOutput<TFactory> &
+      HclRequisitionListFactoryExtension;
   }
 
   // ---------------------------------------------------------------------------
@@ -108,7 +110,11 @@ export class HclProductListCapability<
   public override async getById(
     payload: ProductListQueryById,
   ): Promise<Result<ProductListFactoryListOutput<TFactory>>> {
-    debug('getById %s (type=%s)', payload.identifier.key, payload.identifier.listType);
+    debug(
+      'getById %s (type=%s)',
+      payload.identifier.key,
+      payload.identifier.listType,
+    );
 
     const itemsQuery: ProductListItemsQuery = {
       search: {
@@ -120,14 +126,24 @@ export class HclProductListCapability<
     let wishlist: HclWishlist | undefined;
 
     if (isRequisitionList(payload.identifier.listType)) {
-      const response = await this.client.callGet<HclRequisitionListDetailResponse>(
-        this.getRequisitionListItemsUrl(payload.identifier.key),
-        this.getRequisitionListItemsParams(itemsQuery),
-        { allowUndefined: true },
-      );
+      const response =
+        await this.client.callGet<HclRequisitionListDetailResponse>(
+          this.getRequisitionListItemsUrl(payload.identifier.key),
+          this.getRequisitionListItemsParams(itemsQuery),
+          { allowUndefined: true },
+        );
       const raw = response?.resultList?.[0];
-      if (!raw) return error<NotFoundError>({ type: 'NotFound', identifier: payload.identifier });
-      return success(this.requisitionFactory.parseRequisitionList(this.context, raw) as ProductListFactoryListOutput<TFactory>);
+      if (!raw)
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: payload.identifier,
+        });
+      return success(
+        this.requisitionFactory.parseRequisitionList(
+          this.context,
+          raw,
+        ) as ProductListFactoryListOutput<TFactory>,
+      );
     } else {
       const response = await this.client.callGet<HclWishlistItemResponse>(
         this.getWishlistItemsUrl(payload.identifier.key),
@@ -138,7 +154,10 @@ export class HclProductListCapability<
     }
 
     if (!wishlist) {
-      return error<NotFoundError>({ type: 'NotFound', identifier: payload.identifier });
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.identifier,
+      });
     }
 
     return success(this.factory.parseProductList(this.context, wishlist));
@@ -178,7 +197,9 @@ export class HclProductListCapability<
       GiftList: response?.GiftList ?? [],
       recordSetTotal: response?.recordSetTotal ?? '0',
     };
-    return success(this.factory.parseProductListPaginatedResult(this.context, data, query));
+    return success(
+      this.factory.parseProductListPaginatedResult(this.context, data, query),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -197,26 +218,36 @@ export class HclProductListCapability<
     let listId: string;
 
     if (isRequisitionList(mutation.list.type)) {
-      const response = await this.client.callPost<HclRequisitionListMutationResponse>(
-        this.getRequisitionListsUrl(),
-        this.getCreateRequisitionListBody(mutation),
-      );
+      const response =
+        await this.client.callPost<HclRequisitionListMutationResponse>(
+          this.getRequisitionListsUrl(),
+          this.getCreateRequisitionListBody(mutation),
+        );
       listId = response.requisitionListId ?? '';
 
-      const fetchedResponse = await this.client.callGet<HclRequisitionListDetailResponse>(
-        this.getRequisitionListItemsUrl(listId),
-        this.getRequisitionListItemsParams({
-          search: { list: { key: listId, listType: mutation.list.type }, paginationOptions: { pageSize: 1, pageNumber: 1 } },
-        } as ProductListItemsQuery),
-        { allowUndefined: true },
-      );
+      const fetchedResponse =
+        await this.client.callGet<HclRequisitionListDetailResponse>(
+          this.getRequisitionListItemsUrl(listId),
+          this.getRequisitionListItemsParams({
+            search: {
+              list: { key: listId, listType: mutation.list.type },
+              paginationOptions: { pageSize: 1, pageNumber: 1 },
+            },
+          } as ProductListItemsQuery),
+          { allowUndefined: true },
+        );
 
       const raw: HclRequisitionList = fetchedResponse?.resultList?.[0] ?? {
         requisitionListId: listId,
         name: mutation.list.name,
         description: mutation.list.description,
       };
-      return success(this.requisitionFactory.parseRequisitionList(this.context, raw) as ProductListFactoryListOutput<TFactory>);
+      return success(
+        this.requisitionFactory.parseRequisitionList(
+          this.context,
+          raw,
+        ) as ProductListFactoryListOutput<TFactory>,
+      );
     } else {
       const response = await this.client.callPost<HclWishlistMutationResponse>(
         this.getWishlistsUrl(),
@@ -224,13 +255,17 @@ export class HclProductListCapability<
       );
       listId = response.uniqueID ?? response.externalIdentifier ?? '';
 
-      const fetchedResponse = await this.client.callGet<HclWishlistItemResponse>(
-        this.getWishlistItemsUrl(listId),
-        this.getWishlistItemsParams({
-          search: { list: { key: listId, listType: mutation.list.type }, paginationOptions: { pageSize: 1, pageNumber: 1 } },
-        } as ProductListItemsQuery),
-        { allowUndefined: true },
-      );
+      const fetchedResponse =
+        await this.client.callGet<HclWishlistItemResponse>(
+          this.getWishlistItemsUrl(listId),
+          this.getWishlistItemsParams({
+            search: {
+              list: { key: listId, listType: mutation.list.type },
+              paginationOptions: { pageSize: 1, pageNumber: 1 },
+            },
+          } as ProductListItemsQuery),
+          { allowUndefined: true },
+        );
 
       const wishlist: HclWishlist = fetchedResponse?.GiftList?.[0] ?? {
         uniqueID: listId,
@@ -252,7 +287,10 @@ export class HclProductListCapability<
     debug('updateList %s (type=%s)', mutation.list.key, mutation.list.listType);
 
     const itemsQuery: ProductListItemsQuery = {
-      search: { list: mutation.list, paginationOptions: { pageSize: 1, pageNumber: 1 } },
+      search: {
+        list: mutation.list,
+        paginationOptions: { pageSize: 1, pageNumber: 1 },
+      },
     };
 
     if (isRequisitionList(mutation.list.listType)) {
@@ -260,14 +298,24 @@ export class HclProductListCapability<
         this.getRequisitionListUrl(mutation.list.key),
         this.getUpdateRequisitionListBody(mutation),
       );
-      const response = await this.client.callGet<HclRequisitionListDetailResponse>(
-        this.getRequisitionListItemsUrl(mutation.list.key),
-        this.getRequisitionListItemsParams(itemsQuery),
-        { allowUndefined: true },
-      );
+      const response =
+        await this.client.callGet<HclRequisitionListDetailResponse>(
+          this.getRequisitionListItemsUrl(mutation.list.key),
+          this.getRequisitionListItemsParams(itemsQuery),
+          { allowUndefined: true },
+        );
       const raw = response?.resultList?.[0];
-      if (!raw) return error<NotFoundError>({ type: 'NotFound', identifier: mutation.list });
-      return success(this.requisitionFactory.parseRequisitionList(this.context, raw) as ProductListFactoryListOutput<TFactory>);
+      if (!raw)
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: mutation.list,
+        });
+      return success(
+        this.requisitionFactory.parseRequisitionList(
+          this.context,
+          raw,
+        ) as ProductListFactoryListOutput<TFactory>,
+      );
     } else {
       await this.client.callPut<HclWishlistMutationResponse>(
         this.getWishlistUrl(mutation.list.key),
@@ -278,8 +326,14 @@ export class HclProductListCapability<
         this.getWishlistItemsParams(itemsQuery),
         { allowUndefined: true },
       );
-      if (!response?.GiftList?.[0]) return error<NotFoundError>({ type: 'NotFound', identifier: mutation.list });
-      return success(this.factory.parseProductList(this.context, response.GiftList[0]));
+      if (!response?.GiftList?.[0])
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: mutation.list,
+        });
+      return success(
+        this.factory.parseProductList(this.context, response.GiftList[0]),
+      );
     }
   }
 
@@ -292,9 +346,14 @@ export class HclProductListCapability<
     debug('deleteList %s (type=%s)', mutation.list.key, mutation.list.listType);
 
     if (isRequisitionList(mutation.list.listType)) {
-      await this.client.callDelete(this.getRequisitionListUrl(mutation.list.key), { ignore404: false });
+      await this.client.callDelete(
+        this.getRequisitionListUrl(mutation.list.key),
+        { ignore404: false },
+      );
     } else {
-      await this.client.callDelete(this.getWishlistUrl(mutation.list.key), { ignore404: false });
+      await this.client.callDelete(this.getWishlistUrl(mutation.list.key), {
+        ignore404: false,
+      });
     }
 
     return success(undefined);
@@ -311,14 +370,19 @@ export class HclProductListCapability<
   public override async queryListItems(
     query: ProductListItemsQuery,
   ): Promise<Result<ProductListFactoryItemPaginatedOutput<TFactory>>> {
-    debug('queryListItems list=%s (type=%s)', query.search.list.key, query.search.list.listType);
+    debug(
+      'queryListItems list=%s (type=%s)',
+      query.search.list.key,
+      query.search.list.listType,
+    );
 
     if (isRequisitionList(query.search.list.listType)) {
-      const response = await this.client.callGet<HclRequisitionListDetailResponse>(
-        this.getRequisitionListItemsUrl(query.search.list.key),
-        this.getRequisitionListItemsParams(query),
-        { allowUndefined: true },
-      );
+      const response =
+        await this.client.callGet<HclRequisitionListDetailResponse>(
+          this.getRequisitionListItemsUrl(query.search.list.key),
+          this.getRequisitionListItemsParams(query),
+          { allowUndefined: true },
+        );
       return success(
         this.requisitionFactory.parseRequisitionListItemPaginatedResult(
           this.context,
@@ -332,8 +396,17 @@ export class HclProductListCapability<
         this.getWishlistItemsParams(query),
         { allowUndefined: true },
       );
-      const data: HclWishlistItemResponse = response ?? { GiftList: [], recordSetTotal: '0' };
-      return success(this.factory.parseProductListItemPaginatedResult(this.context, data, query));
+      const data: HclWishlistItemResponse = response ?? {
+        GiftList: [],
+        recordSetTotal: '0',
+      };
+      return success(
+        this.factory.parseProductListItemPaginatedResult(
+          this.context,
+          data,
+          query,
+        ),
+      );
     }
   }
 
@@ -344,36 +417,65 @@ export class HclProductListCapability<
   public override async addItem(
     mutation: ProductListItemMutationCreate,
   ): Promise<Result<ProductListFactoryItemOutput<TFactory>>> {
-    debug('addItem list=%s sku=%s', mutation.list.key, mutation.listItem.variant.sku);
+    debug(
+      'addItem list=%s sku=%s',
+      mutation.list.key,
+      mutation.listItem.variant.sku,
+    );
 
     if (isRequisitionList(mutation.list.listType)) {
       const params = this.getRequisitionAddItemParams();
       const url = `${this.getRequisitionListUrl(mutation.list.key)}?${params.toString()}`;
-      await this.client.callPut<HclRequisitionListMutationResponse>(url, this.getRequisitionAddItemBody(mutation));
-
-      const response = await this.client.callGet<HclRequisitionListDetailResponse>(
-        this.getRequisitionListItemsUrl(mutation.list.key),
-        this.getRequisitionListItemsParams({
-          search: { list: mutation.list, paginationOptions: { pageSize: 100, pageNumber: 1 } },
-        } as ProductListItemsQuery),
-        { allowUndefined: true },
+      await this.client.callPut<HclRequisitionListMutationResponse>(
+        url,
+        this.getRequisitionAddItemBody(mutation),
       );
+
+      const response =
+        await this.client.callGet<HclRequisitionListDetailResponse>(
+          this.getRequisitionListItemsUrl(mutation.list.key),
+          this.getRequisitionListItemsParams({
+            search: {
+              list: mutation.list,
+              paginationOptions: { pageSize: 100, pageNumber: 1 },
+            },
+          } as ProductListItemsQuery),
+          { allowUndefined: true },
+        );
       const sku = mutation.listItem.variant.sku;
       const raw = response?.resultList?.[0]?.item?.find(
         (i) => i.productId === sku || i.partNumber === sku,
       );
-      if (!raw) return error<NotFoundError>({ type: 'NotFound', identifier: { key: sku, list: mutation.list } });
-      const input: HclRequisitionListItemInput = { item: raw, list: mutation.list };
-      return success(this.requisitionFactory.parseRequisitionListItem(this.context, input) as ProductListFactoryItemOutput<TFactory>);
+      if (!raw)
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: { key: sku, list: mutation.list },
+        });
+      const input: HclRequisitionListItemInput = {
+        item: raw,
+        list: mutation.list,
+      };
+      return success(
+        this.requisitionFactory.parseRequisitionListItem(
+          this.context,
+          input,
+        ) as ProductListFactoryItemOutput<TFactory>,
+      );
     } else {
       const params = this.getAddItemParams();
       const url = `${this.getWishlistUrl(mutation.list.key)}?${params.toString()}`;
-      await this.client.callPut<HclWishlistMutationResponse>(url, this.getAddItemBody(mutation));
+      await this.client.callPut<HclWishlistMutationResponse>(
+        url,
+        this.getAddItemBody(mutation),
+      );
 
       const listResponse = await this.client.callGet<HclWishlistItemResponse>(
         this.getWishlistItemsUrl(mutation.list.key),
         this.getWishlistItemsParams({
-          search: { list: mutation.list, paginationOptions: { pageSize: 100, pageNumber: 1 } },
+          search: {
+            list: mutation.list,
+            paginationOptions: { pageSize: 100, pageNumber: 1 },
+          },
         } as ProductListItemsQuery),
         { allowUndefined: true },
       );
@@ -381,7 +483,11 @@ export class HclProductListCapability<
       const item = listResponse?.GiftList?.[0]?.item?.find(
         (i) => i.productId === sku || i.partNumber === sku,
       );
-      if (!item) return error<NotFoundError>({ type: 'NotFound', identifier: { key: sku, list: mutation.list } });
+      if (!item)
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: { key: sku, list: mutation.list },
+        });
       const input: HclProductListItemInput = { item, list: mutation.list };
       return success(this.factory.parseProductListItem(this.context, input));
     }
@@ -394,42 +500,75 @@ export class HclProductListCapability<
   public override async updateItem(
     mutation: ProductListItemMutationUpdate,
   ): Promise<Result<ProductListFactoryItemOutput<TFactory>>> {
-    debug('updateItem list=%s item=%s', mutation.listItem.list.key, mutation.listItem.key);
+    debug(
+      'updateItem list=%s item=%s',
+      mutation.listItem.list.key,
+      mutation.listItem.key,
+    );
 
     const listType = mutation.listItem.list.listType;
     const listId = mutation.listItem.list.key;
     const fetchQuery: ProductListItemsQuery = {
-      search: { list: mutation.listItem.list, paginationOptions: { pageSize: 100, pageNumber: 1 } },
+      search: {
+        list: mutation.listItem.list,
+        paginationOptions: { pageSize: 100, pageNumber: 1 },
+      },
     };
 
     if (isRequisitionList(listType)) {
-      const response = await this.client.callGet<HclRequisitionListDetailResponse>(
-        this.getRequisitionListItemsUrl(listId),
-        this.getRequisitionListItemsParams(fetchQuery),
-        { allowUndefined: true },
-      );
+      const response =
+        await this.client.callGet<HclRequisitionListDetailResponse>(
+          this.getRequisitionListItemsUrl(listId),
+          this.getRequisitionListItemsParams(fetchQuery),
+          { allowUndefined: true },
+        );
       const existing = response?.resultList?.[0]?.item?.find(
         (i) => i.requisitionListItemId === mutation.listItem.key,
       );
-      if (!existing) return error<NotFoundError>({ type: 'NotFound', identifier: mutation.listItem });
+      if (!existing)
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: mutation.listItem,
+        });
 
       const params = this.getRequisitionAddItemParams();
       const url = `${this.getRequisitionListUrl(listId)}?${params.toString()}`;
       await this.client.callPut<HclRequisitionListMutationResponse>(url, {
-        item: [{ location: 'online', productId: existing.productId ?? existing.partNumber, quantity: String(mutation.quantity ?? Number(existing.quantity ?? 1)) }],
+        item: [
+          {
+            location: 'online',
+            productId: existing.productId ?? existing.partNumber,
+            quantity: String(
+              mutation.quantity ?? Number(existing.quantity ?? 1),
+            ),
+          },
+        ],
       });
 
-      const updated = await this.client.callGet<HclRequisitionListDetailResponse>(
-        this.getRequisitionListItemsUrl(listId),
-        this.getRequisitionListItemsParams(fetchQuery),
-        { allowUndefined: true },
-      );
+      const updated =
+        await this.client.callGet<HclRequisitionListDetailResponse>(
+          this.getRequisitionListItemsUrl(listId),
+          this.getRequisitionListItemsParams(fetchQuery),
+          { allowUndefined: true },
+        );
       const updatedRaw = updated?.resultList?.[0]?.item?.find(
         (i) => i.requisitionListItemId === mutation.listItem.key,
       );
-      if (!updatedRaw) return error<NotFoundError>({ type: 'NotFound', identifier: mutation.listItem });
-      const input: HclRequisitionListItemInput = { item: updatedRaw, list: mutation.listItem.list };
-      return success(this.requisitionFactory.parseRequisitionListItem(this.context, input) as ProductListFactoryItemOutput<TFactory>);
+      if (!updatedRaw)
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: mutation.listItem,
+        });
+      const input: HclRequisitionListItemInput = {
+        item: updatedRaw,
+        list: mutation.listItem.list,
+      };
+      return success(
+        this.requisitionFactory.parseRequisitionListItem(
+          this.context,
+          input,
+        ) as ProductListFactoryItemOutput<TFactory>,
+      );
     } else {
       const listResponse = await this.client.callGet<HclWishlistItemResponse>(
         this.getWishlistItemsUrl(listId),
@@ -439,12 +578,24 @@ export class HclProductListCapability<
       const existing = listResponse?.GiftList?.[0]?.item?.find(
         (i) => i.giftListItemID === mutation.listItem.key,
       );
-      if (!existing) return error<NotFoundError>({ type: 'NotFound', identifier: mutation.listItem });
+      if (!existing)
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: mutation.listItem,
+        });
 
       const params = this.getAddItemParams();
       const url = `${this.getWishlistUrl(listId)}?${params.toString()}`;
       await this.client.callPut<HclWishlistMutationResponse>(url, {
-        item: [{ location: 'online', productId: existing.productId ?? existing.partNumber, quantityRequested: String(mutation.quantity ?? Number(existing.quantityRequested ?? 1)) }],
+        item: [
+          {
+            location: 'online',
+            productId: existing.productId ?? existing.partNumber,
+            quantityRequested: String(
+              mutation.quantity ?? Number(existing.quantityRequested ?? 1),
+            ),
+          },
+        ],
       });
 
       const updated = await this.client.callGet<HclWishlistItemResponse>(
@@ -455,8 +606,15 @@ export class HclProductListCapability<
       const updatedItem = updated?.GiftList?.[0]?.item?.find(
         (i) => i.giftListItemID === mutation.listItem.key,
       );
-      if (!updatedItem) return error<NotFoundError>({ type: 'NotFound', identifier: mutation.listItem });
-      const input: HclProductListItemInput = { item: updatedItem, list: mutation.listItem.list };
+      if (!updatedItem)
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: mutation.listItem,
+        });
+      const input: HclProductListItemInput = {
+        item: updatedItem,
+        list: mutation.listItem.list,
+      };
       return success(this.factory.parseProductListItem(this.context, input));
     }
   }
@@ -467,16 +625,26 @@ export class HclProductListCapability<
   public override async deleteItem(
     mutation: ProductListItemMutationDelete,
   ): Promise<Result<void>> {
-    debug('deleteItem list=%s item=%s', mutation.listItem.list.key, mutation.listItem.key);
+    debug(
+      'deleteItem list=%s item=%s',
+      mutation.listItem.list.key,
+      mutation.listItem.key,
+    );
 
     if (isRequisitionList(mutation.listItem.list.listType)) {
       await this.client.callDelete(
-        this.getRequisitionListItemUrl(mutation.listItem.list.key, mutation.listItem.key),
+        this.getRequisitionListItemUrl(
+          mutation.listItem.list.key,
+          mutation.listItem.key,
+        ),
         { ignore404: true },
       );
     } else {
       await this.client.callDelete(
-        this.getWishlistItemUrl(mutation.listItem.list.key, mutation.listItem.key),
+        this.getWishlistItemUrl(
+          mutation.listItem.list.key,
+          mutation.listItem.key,
+        ),
         { ignore404: true },
       );
     }
@@ -504,14 +672,18 @@ export class HclProductListCapability<
     return `${this.client.transactionBaseUrl}/wishlist/${encodeURIComponent(listId)}/item/${encodeURIComponent(itemId)}`;
   }
 
-  protected getWishlistItemsParams(query: ProductListItemsQuery): URLSearchParams {
+  protected getWishlistItemsParams(
+    query: ProductListItemsQuery,
+  ): URLSearchParams {
     const params = new URLSearchParams();
     params.set('pageNumber', String(query.search.paginationOptions.pageNumber));
     params.set('pageSize', String(query.search.paginationOptions.pageSize));
     return params;
   }
 
-  protected getCreateWishlistBody(mutation: ProductListMutationCreate): Record<string, unknown> {
+  protected getCreateWishlistBody(
+    mutation: ProductListMutationCreate,
+  ): Record<string, unknown> {
     return {
       descriptionName: mutation.list.name,
       description: mutation.list.description ?? '',
@@ -520,10 +692,13 @@ export class HclProductListCapability<
     };
   }
 
-  protected getUpdateWishlistBody(mutation: ProductListMutationUpdate): Record<string, unknown> {
+  protected getUpdateWishlistBody(
+    mutation: ProductListMutationUpdate,
+  ): Record<string, unknown> {
     const body: Record<string, unknown> = {};
     if (mutation.name !== undefined) body['descriptionName'] = mutation.name;
-    if (mutation.description !== undefined) body['description'] = mutation.description;
+    if (mutation.description !== undefined)
+      body['description'] = mutation.description;
     return body;
   }
 
@@ -533,9 +708,17 @@ export class HclProductListCapability<
     return params;
   }
 
-  protected getAddItemBody(mutation: ProductListItemMutationCreate): Record<string, unknown> {
+  protected getAddItemBody(
+    mutation: ProductListItemMutationCreate,
+  ): Record<string, unknown> {
     return {
-      item: [{ location: 'online', productId: mutation.listItem.variant.sku, quantityRequested: String(mutation.listItem.quantity ?? 1) }],
+      item: [
+        {
+          location: 'online',
+          productId: mutation.listItem.variant.sku,
+          quantityRequested: String(mutation.listItem.quantity ?? 1),
+        },
+      ],
     };
   }
 
@@ -559,24 +742,31 @@ export class HclProductListCapability<
     return `${this.client.transactionBaseUrl}/requisitionList/${encodeURIComponent(listId)}/requisitionListItem/${encodeURIComponent(itemId)}`;
   }
 
-  protected getRequisitionListItemsParams(query: ProductListItemsQuery): URLSearchParams {
+  protected getRequisitionListItemsParams(
+    query: ProductListItemsQuery,
+  ): URLSearchParams {
     const params = new URLSearchParams();
     params.set('pageNumber', String(query.search.paginationOptions.pageNumber));
     params.set('pageSize', String(query.search.paginationOptions.pageSize));
     return params;
   }
 
-  protected getCreateRequisitionListBody(mutation: ProductListMutationCreate): Record<string, unknown> {
+  protected getCreateRequisitionListBody(
+    mutation: ProductListMutationCreate,
+  ): Record<string, unknown> {
     return {
       name: mutation.list.name,
       description: mutation.list.description ?? '',
     };
   }
 
-  protected getUpdateRequisitionListBody(mutation: ProductListMutationUpdate): Record<string, unknown> {
+  protected getUpdateRequisitionListBody(
+    mutation: ProductListMutationUpdate,
+  ): Record<string, unknown> {
     const body: Record<string, unknown> = {};
     if (mutation.name !== undefined) body['name'] = mutation.name;
-    if (mutation.description !== undefined) body['description'] = mutation.description;
+    if (mutation.description !== undefined)
+      body['description'] = mutation.description;
     return body;
   }
 
@@ -586,9 +776,17 @@ export class HclProductListCapability<
     return params;
   }
 
-  protected getRequisitionAddItemBody(mutation: ProductListItemMutationCreate): Record<string, unknown> {
+  protected getRequisitionAddItemBody(
+    mutation: ProductListItemMutationCreate,
+  ): Record<string, unknown> {
     return {
-      item: [{ location: 'online', productId: mutation.listItem.variant.sku, quantity: String(mutation.listItem.quantity ?? 1) }],
+      item: [
+        {
+          location: 'online',
+          productId: mutation.listItem.variant.sku,
+          quantity: String(mutation.listItem.quantity ?? 1),
+        },
+      ],
     };
   }
 }
