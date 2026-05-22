@@ -21,3 +21,7 @@ export * from './capabilities/analytics.capability.js';
 export * from './capabilities/product-associations.capability.js';
 export * from './capabilities/product-recommendations.capability.js';
 export * from './capabilities/personalization-profile.capability.js';
+export * from './capabilities/company.capability.js';
+export * from './capabilities/company-registration.capability.js';
+export * from './capabilities/store.capability.js';
+export * from './capabilities/product-list.capability.js';

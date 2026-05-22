@@ -2,15 +2,19 @@ import type { ClientFromCapabilities } from '@reactionary/core';
 import type { HclCapabilities } from '../schema/capabilities.schema.js';
 import type { HclCartCapability } from '../capabilities/cart.capability.js';
 import type { HclCheckoutCapability } from '../capabilities/checkout.capability.js';
+import type { HclCompanyCapability } from '../capabilities/company.capability.js';
+import type { HclCompanyRegistrationCapability } from '../capabilities/company-registration.capability.js';
 import type { HclProductCapability } from '../capabilities/product.capability.js';
 import type { HclCategoryCapability } from '../capabilities/category.capability.js';
 import type { HclProductSearchCapability } from '../capabilities/product-search.capability.js';
 import type { HclPriceCapability } from '../capabilities/price.capability.js';
 import type { HclInventoryCapability } from '../capabilities/inventory.capability.js';
 import type { HclIdentityCapability } from '../capabilities/identity.capability.js';
+import type { HclProductListCapability } from '../capabilities/product-list.capability.js';
 import type { HclProfileCapability } from '../capabilities/profile.capability.js';
 import type { HclOrderCapability } from '../capabilities/order.capability.js';
 import type { HclOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import type { HclStoreCapability } from '../capabilities/store.capability.js';
 
 type OverridableCapabilityKey =
   | 'product'
@@ -18,12 +22,16 @@ type OverridableCapabilityKey =
   | 'cart'
   | 'checkout'
   | 'category'
+  | 'company'
+  | 'companyRegistration'
   | 'price'
   | 'inventory'
   | 'identity'
+  | 'productList'
   | 'profile'
   | 'order'
-  | 'orderSearch';
+  | 'orderSearch'
+  | 'store';
 
 type EnabledCapability<TCapability> = TCapability extends { enabled: true }
   ? true
@@ -49,12 +57,16 @@ type DefaultCapabilityMap = {
   cart: HclCartCapability;
   checkout: HclCheckoutCapability;
   category: HclCategoryCapability;
+  company: HclCompanyCapability;
+  companyRegistration: HclCompanyRegistrationCapability;
   price: HclPriceCapability;
   inventory: HclInventoryCapability;
   identity: HclIdentityCapability;
+  productList: HclProductListCapability;
   profile: HclProfileCapability;
   order: HclOrderCapability;
   orderSearch: HclOrderSearchCapability;
+  store: HclStoreCapability;
 };
 
 type CapabilityImplementationMap<T extends HclCapabilities> = {
