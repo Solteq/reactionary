@@ -46,6 +46,7 @@ import type {
   HclRequisitionListFactoryExtension,
   HclRequisitionListItemInput,
 } from '../factories/product-list/product-list.factory.js';
+import { encodeWishlistType } from '../factories/product-list/product-list.factory.js';
 import type {
   HclRequisitionList,
   HclRequisitionListDetailResponse,
@@ -271,7 +272,7 @@ export class HclProductListCapability<
         uniqueID: listId,
         externalIdentifier: response.externalIdentifier,
         descriptionName: mutation.list.name,
-        description: mutation.list.description,
+        description: encodeWishlistType(mutation.list.type, mutation.list.description),
       };
       return success(this.factory.parseProductList(this.context, wishlist));
     }
@@ -686,7 +687,8 @@ export class HclProductListCapability<
   ): Record<string, unknown> {
     return {
       descriptionName: mutation.list.name,
-      description: mutation.list.description ?? '',
+      // Encode the listType into description so it can be read back on query.
+      description: encodeWishlistType(mutation.list.type, mutation.list.description),
       giftCardAccepted: 'false',
       accessSpecifier: 'Private',
     };
@@ -697,8 +699,13 @@ export class HclProductListCapability<
   ): Record<string, unknown> {
     const body: Record<string, unknown> = {};
     if (mutation.name !== undefined) body['descriptionName'] = mutation.name;
-    if (mutation.description !== undefined)
-      body['description'] = mutation.description;
+    if (mutation.description !== undefined) {
+      // Re-encode the listType alongside the updated description.
+      body['description'] = encodeWishlistType(
+        mutation.list.listType,
+        mutation.description,
+      );
+    }
     return body;
   }
 
