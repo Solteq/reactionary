@@ -11,6 +11,12 @@ import type {
   CheckoutFactory,
   CheckoutFactoryWithOutput,
   CheckoutCapability,
+  CompanyCapability,
+  CompanyFactory,
+  CompanyFactoryWithOutput,
+  CompanyRegistrationCapability,
+  CompanyRegistrationFactory,
+  CompanyRegistrationFactoryWithOutput,
   IdentityFactory,
   IdentityFactoryWithOutput,
   IdentityCapability,
@@ -35,6 +41,9 @@ import type {
   ProductFactory,
   ProductFactoryWithOutput,
   ProductCapability,
+  ProductListCapability,
+  ProductListFactory,
+  ProductListFactoryWithOutput,
   ProductRecommendationsCapability,
   ProductRecommendationsFactory,
   ProductRecommendationsFactoryWithOutput,
@@ -44,6 +53,9 @@ import type {
   ProfileFactory,
   ProfileFactoryWithOutput,
   ProfileCapability,
+  StoreCapability,
+  StoreFactory,
+  StoreFactoryWithOutput,
 } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
 import type { HclConfiguration } from './configuration.schema.js';
@@ -60,11 +72,14 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
   cart: true,
   checkout: true,
   category: true,
+  company: true,
+  companyRegistration: true,
   product: true,
   price: true,
   inventory: true,
   identity: true,
   productSearch: true,
+  productList: true,
   profile: true,
   order: true,
   orderSearch: true,
@@ -72,16 +87,20 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
   productAssociations: true,
   productRecommendations: true,
   personalizationProfile: true,
+  store: true,
 })
   .extend({
     cart: OverridableCapabilitySchema.optional(),
     checkout: OverridableCapabilitySchema.optional(),
     category: OverridableCapabilitySchema.optional(),
+    company: OverridableCapabilitySchema.optional(),
+    companyRegistration: OverridableCapabilitySchema.optional(),
     product: OverridableCapabilitySchema.optional(),
     price: OverridableCapabilitySchema.optional(),
     inventory: OverridableCapabilitySchema.optional(),
     identity: OverridableCapabilitySchema.optional(),
     productSearch: OverridableCapabilitySchema.optional(),
+    productList: OverridableCapabilitySchema.optional(),
     profile: OverridableCapabilitySchema.optional(),
     order: OverridableCapabilitySchema.optional(),
     orderSearch: OverridableCapabilitySchema.optional(),
@@ -89,6 +108,7 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
     productAssociations: OverridableCapabilitySchema.optional(),
     productRecommendations: OverridableCapabilitySchema.optional(),
     personalizationProfile: OverridableCapabilitySchema.optional(),
+    store: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -187,4 +207,24 @@ export type HclProductRecommendationsCapabilityConfig = HclCapabilityConfig<
 export type HclPersonalizationProfileCapabilityConfig = HclCapabilityConfig<
   PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
   PersonalizationProfileCapability
+>;
+
+export type HclCompanyCapabilityConfig = HclCapabilityConfig<
+  CompanyFactoryWithOutput<CompanyFactory>,
+  CompanyCapability
+>;
+
+export type HclCompanyRegistrationCapabilityConfig = HclCapabilityConfig<
+  CompanyRegistrationFactoryWithOutput<CompanyRegistrationFactory>,
+  CompanyRegistrationCapability
+>;
+
+export type HclStoreCapabilityConfig = HclCapabilityConfig<
+  StoreFactoryWithOutput<StoreFactory>,
+  StoreCapability
+>;
+
+export type HclProductListCapabilityConfig = HclCapabilityConfig<
+  ProductListFactoryWithOutput<ProductListFactory>,
+  ProductListCapability
 >;

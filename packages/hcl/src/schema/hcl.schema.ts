@@ -800,3 +800,202 @@ export interface HclSegmentResponse {
   recordSetStartNumber?: number;
   recordSetComplete?: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// WCS Transaction Service — Organization (B2B Company)
+// ---------------------------------------------------------------------------
+
+/**
+ * A WCS person contact embedded within an organization's contactInfo or addressBook.
+ * Shares the same shape as HclWcsPersonContact but is returned under different keys
+ * in the organization API response.
+ */
+export interface HclWcsOrgContact {
+  nickName?: string;
+  firstName?: string;
+  lastName?: string;
+  /** Street address lines. Index 0 = street, index 1 = second line. */
+  addressLine?: string[];
+  city?: string;
+  stateOrProvinceName?: string;
+  zipCode?: string;
+  country?: string;
+  phone1?: string;
+  email1?: string;
+  /** '1' marks this as the default / primary shipping address. */
+  primary?: string;
+  addressType?: string;
+  addressId?: string;
+}
+
+/**
+ * An organization entry as returned by GET /wcs/resources/store/{storeId}/organization/{id}.
+ * Fields present depend on the profileName used (IBM_Org_Entity_Details vs IBM_Organization_Details).
+ */
+export interface HclOrganizationItem {
+  /** Internal WCS organization/member ID (numeric string). */
+  organizationId?: string;
+  orgEntityId?: string;
+  organizationName?: string;
+  displayName?: string;
+  /** Approval status code: '0' = pending, '1' = approved, '2' = rejected. */
+  status?: string;
+  /** '0' = locked/blocked, '1' = active. */
+  state?: string;
+  /** Tax payer ID (maps to taxIdentifier on the domain model). */
+  taxPayerId?: string;
+  /** Legal entity identifier. */
+  legalId?: string;
+  /** Business category. */
+  businessCategory?: string;
+  description?: string;
+  /** Primary billing / contact address. */
+  contactInfo?: HclWcsOrgContact;
+  /** Additional shipping addresses. */
+  addressBook?: HclWcsOrgContact[];
+  /** Context attributes set by IBM_Org_Entity_Details profile (key-value map). */
+  contextAttribute?: Record<string, unknown>;
+  /** Parent organization member ID. */
+  parentMemberId?: string;
+}
+
+/**
+ * Top-level response from GET /wcs/resources/store/{storeId}/organization
+ * with profileName=IBM_Organization_List_Summary.
+ */
+export interface HclOrganizationListResponse {
+  organizationDataBeans?: HclOrganizationItem[];
+  recordSetTotal?: string;
+  recordSetCount?: string;
+  recordSetStartNumber?: string;
+  recordSetComplete?: string;
+}
+
+/**
+ * Response from POST /wcs/resources/store/{storeId}/organization/buyer.
+ * Returns the newly created org entity ID and the buyer admin user ID.
+ */
+export interface HclBuyerRegistrationResponse {
+  orgEntityId: string;
+  userId: string;
+  resourceName?: string;
+}
+
+// ---------------------------------------------------------------------------
+// WCS Transaction Service — Store Locator
+// ---------------------------------------------------------------------------
+
+/** A single store attribute as returned in the storelocator response. */
+export interface HclStoreAttribute {
+  name: string;
+  value: string;
+  displayName?: string;
+  displayValue?: string;
+}
+
+/** A description block for a physical store. */
+export interface HclStoreDescription {
+  displayStoreName?: string;
+}
+
+/**
+ * A single physical store entry as returned by the WCS storelocator endpoints.
+ * Reference: location_based_services.yaml — storelocator-storelocator_item
+ */
+export interface HclPhysicalStore {
+  uniqueID: string;
+  /** Store name as configured in WCS (fallback when Description[].displayStoreName is absent). */
+  storeName?: string;
+  /** Array of description blocks; index 0 typically contains displayStoreName. */
+  Description?: HclStoreDescription[];
+  /** Street address lines. Index 0 = primary line, index 1 = second line. */
+  addressLine?: string[];
+  city?: string;
+  stateOrProvinceName?: string;
+  postalCode?: string;
+  country?: string;
+  telephone1?: string;
+  email?: string;
+  /** Geographic latitude (as a string — coerce with Number()). */
+  latitude?: string;
+  /** Geographic longitude (as a string — coerce with Number()). */
+  longitude?: string;
+  /** Distance from the query point (as a string — coerce with Number()). */
+  distance?: string;
+  Attribute?: HclStoreAttribute[];
+  userDataField?: { value?: string; key: string }[];
+}
+
+/**
+ * Top-level response from GET /wcs/resources/store/{storeId}/storelocator/latitude/{lat}/longitude/{lon}.
+ */
+export interface HclStoreLocatorResponse {
+  PhysicalStore?: HclPhysicalStore[];
+  recordSetTotal?: string;
+  recordSetCount?: string;
+  recordSetStartNumber?: string;
+  recordSetComplete?: string;
+}
+
+// ---------------------------------------------------------------------------
+// WCS Transaction Service — Wishlist (Product List)
+// ---------------------------------------------------------------------------
+
+/**
+ * A single item entry within a wishlist — from GET /wishlist/{id}/item.
+ */
+export interface HclWishlistItem {
+  /** Unique identifier for the wishlist item entry. */
+  giftListItemID?: string;
+  /** Internal WCS catalog entry ID (numeric string). Corresponds to a SKU. */
+  productId?: string;
+  /** SKU part number — use this as the variant identifier when present. */
+  partNumber?: string;
+  /** Requested quantity as a string — coerce with Number(). */
+  quantityRequested?: string;
+  /** Purchased quantity as a string. */
+  quantityBought?: string;
+  location?: string;
+}
+
+/**
+ * A single wishlist (GiftList) entry as returned by GET /wishlist/@self.
+ */
+export interface HclWishlist {
+  /** Internal WCS list ID. */
+  uniqueID?: string;
+  /** Customer-assigned external identifier. Alias for uniqueID on some responses. */
+  externalIdentifier?: string;
+  /** The list's display name. */
+  descriptionName?: string;
+  /** The list's optional description text. */
+  description?: string;
+  lastUpdate?: string;
+  guestAccessKey?: string;
+  /** Items embedded in the list (present when fetching a specific list with items). */
+  item?: HclWishlistItem[];
+}
+
+/** Top-level response from GET /wcs/resources/store/{storeId}/wishlist/@self. */
+export interface HclWishlistListResponse {
+  GiftList?: HclWishlist[];
+  recordSetTotal?: string;
+  recordSetCount?: string;
+  recordSetStartNumber?: string;
+  recordSetComplete?: string;
+}
+
+/** Top-level response from GET /wcs/resources/store/{storeId}/wishlist/{id}/item. */
+export interface HclWishlistItemResponse {
+  GiftList?: HclWishlist[];
+  recordSetTotal?: string;
+  recordSetCount?: string;
+  recordSetStartNumber?: string;
+}
+
+/** Response from POST /wishlist (create) and PUT /wishlist/{id} (update). */
+export interface HclWishlistMutationResponse {
+  uniqueID?: string;
+  externalIdentifier?: string;
+  resourceName?: string;
+}

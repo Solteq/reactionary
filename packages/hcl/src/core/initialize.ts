@@ -1,14 +1,22 @@
 import type { Cache, RequestContext } from '@reactionary/core';
 import {
   CategoryPaginatedResultSchema,
+  CompanyPaginatedListSchema,
+  CompanyRegistrationRequestSchema,
+  CompanySchema,
   IdentitySchema,
   OrderSchema,
   OrderSearchResultSchema,
   PersonalizationProfileSchema,
   ProductAssociationSchema,
+  ProductListItemPaginatedResultsSchema,
+  ProductListItemSchema,
+  ProductListPaginatedResultsSchema,
+  ProductListSchema,
   ProductRecommendationSchema,
   ProductSchema,
   ProfileSchema,
+  StoreSchema,
 } from '@reactionary/core';
 import { HclCategorySchema } from '../schema/category.schema.js';
 import {
@@ -29,6 +37,10 @@ import {
   type HclProductAssociationsCapabilityConfig,
   type HclProductRecommendationsCapabilityConfig,
   type HclPersonalizationProfileCapabilityConfig,
+  type HclCompanyCapabilityConfig,
+  type HclCompanyRegistrationCapabilityConfig,
+  type HclStoreCapabilityConfig,
+  type HclProductListCapabilityConfig,
 } from '../schema/capabilities.schema.js';
 import {
   HclConfigurationSchema,
@@ -43,6 +55,8 @@ import {
   HclCartFactory,
   HclCategoryFactory,
   HclCheckoutFactory,
+  HclCompanyFactory,
+  HclCompanyRegistrationFactory,
   HclIdentityFactory,
   HclInventoryFactory,
   HclOrderFactory,
@@ -51,9 +65,11 @@ import {
   HclPriceFactory,
   HclProductAssociationsFactory,
   HclProductFactory,
+  HclProductListFactory,
   HclProductRecommendationsFactory,
   HclProductSearchFactory,
   HclProfileFactory,
+  HclStoreFactory,
 } from '../factories/index.js';
 import { HclCartCapability } from '../capabilities/cart.capability.js';
 import { HclCheckoutCapability } from '../capabilities/checkout.capability.js';
@@ -70,6 +86,10 @@ import { HclAnalyticsCapability } from '../capabilities/analytics.capability.js'
 import { HclProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import { HclProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import { HclPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
+import { HclCompanyCapability } from '../capabilities/company.capability.js';
+import { HclCompanyRegistrationCapability } from '../capabilities/company-registration.capability.js';
+import { HclStoreCapability } from '../capabilities/store.capability.js';
+import { HclProductListCapability } from '../capabilities/product-list.capability.js';
 import {
   CartIdentifierSchema,
   CartPaginatedSearchResultSchema,
@@ -386,6 +406,90 @@ export function withHclCapabilities<T extends HclCapabilities>(
           ),
           capability: (args) =>
             new HclPersonalizationProfileCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.company?.enabled) {
+      client.company = resolveCapabilityWithFactory(
+        capabilities.company as HclCompanyCapabilityConfig | undefined,
+        {
+          factory: new HclCompanyFactory(
+            CompanySchema,
+            CompanyPaginatedListSchema,
+          ),
+          capability: (args) =>
+            new HclCompanyCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.companyRegistration?.enabled) {
+      client.companyRegistration = resolveCapabilityWithFactory(
+        capabilities.companyRegistration as
+          | HclCompanyRegistrationCapabilityConfig
+          | undefined,
+        {
+          factory: new HclCompanyRegistrationFactory(
+            CompanyRegistrationRequestSchema,
+          ),
+          capability: (args) =>
+            new HclCompanyRegistrationCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.store?.enabled) {
+      client.store = resolveCapabilityWithFactory(
+        capabilities.store as HclStoreCapabilityConfig | undefined,
+        {
+          factory: new HclStoreFactory(StoreSchema),
+          capability: (args) =>
+            new HclStoreCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.productList?.enabled) {
+      client.productList = resolveCapabilityWithFactory(
+        capabilities.productList as HclProductListCapabilityConfig | undefined,
+        {
+          factory: new HclProductListFactory(
+            ProductListSchema,
+            ProductListItemSchema,
+            ProductListPaginatedResultsSchema,
+            ProductListItemPaginatedResultsSchema,
+          ),
+          capability: (args) =>
+            new HclProductListCapability(
               args.cache,
               args.context,
               args.config,
