@@ -43,10 +43,24 @@ export interface HclRequisitionListItemInput {
 
 /** Extension interface implemented by HclProductListFactory for requisition list parsing. */
 export interface HclRequisitionListFactoryExtension {
-  parseRequisitionList(context: RequestContext, data: HclRequisitionList): unknown;
-  parseRequisitionListItem(context: RequestContext, data: HclRequisitionListItemInput): unknown;
-  parseRequisitionListPaginatedResult(context: RequestContext, data: HclRequisitionListResponse, query: ProductListQuery): unknown;
-  parseRequisitionListItemPaginatedResult(context: RequestContext, data: HclRequisitionListDetailResponse, query: ProductListItemsQuery): unknown;
+  parseRequisitionList(
+    context: RequestContext,
+    data: HclRequisitionList,
+  ): unknown;
+  parseRequisitionListItem(
+    context: RequestContext,
+    data: HclRequisitionListItemInput,
+  ): unknown;
+  parseRequisitionListPaginatedResult(
+    context: RequestContext,
+    data: HclRequisitionListResponse,
+    query: ProductListQuery,
+  ): unknown;
+  parseRequisitionListItemPaginatedResult(
+    context: RequestContext,
+    data: HclRequisitionListDetailResponse,
+    query: ProductListItemsQuery,
+  ): unknown;
 }
 
 export class HclProductListFactory<
@@ -192,7 +206,10 @@ export class HclProductListFactory<
     data: HclRequisitionListItemInput,
   ): z.output<TProductListItemSchema> {
     const result = {
-      identifier: { key: data.item.requisitionListItemId ?? '', list: data.list },
+      identifier: {
+        key: data.item.requisitionListItemId ?? '',
+        list: data.list,
+      },
       variant: { sku: data.item.productId ?? data.item.partNumber ?? '' },
       quantity: Math.max(1, Number(data.item.quantity ?? 1)),
       order: 1,
@@ -232,7 +249,10 @@ export class HclProductListFactory<
   ): z.output<TProductListItemPaginatedSchema> {
     const rawItems = data.resultList?.[0]?.item ?? [];
     const items = rawItems.map((i) =>
-      this.parseRequisitionListItem(context, { item: i, list: query.search.list }),
+      this.parseRequisitionListItem(context, {
+        item: i,
+        list: query.search.list,
+      }),
     );
 
     const result = {
