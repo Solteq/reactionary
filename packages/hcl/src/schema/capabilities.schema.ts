@@ -1,6 +1,7 @@
 import type {
   Cache,
   RequestContext,
+  AnalyticsCapability,
   CartFactory,
   CartFactoryWithOutput,
   CartCapability,
@@ -22,12 +23,21 @@ import type {
   OrderSearchFactory,
   OrderSearchFactoryWithOutput,
   OrderSearchCapability,
+  PersonalizationProfileCapability,
+  PersonalizationProfileFactory,
+  PersonalizationProfileFactoryWithOutput,
   PriceFactory,
   PriceFactoryWithOutput,
   PriceCapability,
+  ProductAssociationsCapability,
+  ProductAssociationsFactory,
+  ProductAssociationsFactoryWithOutput,
   ProductFactory,
   ProductFactoryWithOutput,
   ProductCapability,
+  ProductRecommendationsCapability,
+  ProductRecommendationsFactory,
+  ProductRecommendationsFactoryWithOutput,
   ProductSearchFactory,
   ProductSearchFactoryWithOutput,
   ProductSearchCapability,
@@ -58,6 +68,10 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
   profile: true,
   order: true,
   orderSearch: true,
+  analytics: true,
+  productAssociations: true,
+  productRecommendations: true,
+  personalizationProfile: true,
 })
   .extend({
     cart: OverridableCapabilitySchema.optional(),
@@ -71,6 +85,10 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
     profile: OverridableCapabilitySchema.optional(),
     order: OverridableCapabilitySchema.optional(),
     orderSearch: OverridableCapabilitySchema.optional(),
+    analytics: OverridableCapabilitySchema.optional(),
+    productAssociations: OverridableCapabilitySchema.optional(),
+    productRecommendations: OverridableCapabilitySchema.optional(),
+    personalizationProfile: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -147,4 +165,26 @@ export type HclOrderCapabilityConfig = HclCapabilityConfig<
 export type HclOrderSearchCapabilityConfig = HclCapabilityConfig<
   OrderSearchFactoryWithOutput<OrderSearchFactory>,
   OrderSearchCapability
+>;
+
+/** Analytics does not use a factory — the capability writes events directly. */
+export type HclAnalyticsCapabilityConfig = HclCapabilityConfig<
+  never,
+  AnalyticsCapability
+>;
+
+export type HclProductAssociationsCapabilityConfig = HclCapabilityConfig<
+  ProductAssociationsFactoryWithOutput<ProductAssociationsFactory>,
+  ProductAssociationsCapability
+>;
+
+/** Product recommendations uses a factory to parse espot activity data into recommendations. */
+export type HclProductRecommendationsCapabilityConfig = HclCapabilityConfig<
+  ProductRecommendationsFactoryWithOutput<ProductRecommendationsFactory>,
+  ProductRecommendationsCapability
+>;
+
+export type HclPersonalizationProfileCapabilityConfig = HclCapabilityConfig<
+  PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
+  PersonalizationProfileCapability
 >;
