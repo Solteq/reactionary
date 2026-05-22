@@ -40,16 +40,18 @@ import {
 import createDebug from 'debug';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
-import type { HclProductListFactory } from '../factories/product-list/product-list.factory.js';
-import type { HclProductListItemInput } from '../factories/product-list/product-list.factory.js';
+import type {
+  HclProductListFactory,
+  HclProductListItemInput,
+  HclRequisitionListFactoryExtension,
+  HclRequisitionListItemInput,
+} from '../factories/product-list/product-list.factory.js';
 import type {
   HclRequisitionList,
   HclRequisitionListDetailResponse,
-  HclRequisitionListItem,
   HclRequisitionListMutationResponse,
   HclRequisitionListResponse,
   HclWishlist,
-  HclWishlistItem,
   HclWishlistItemResponse,
   HclWishlistListResponse,
   HclWishlistMutationResponse,
@@ -60,29 +62,6 @@ const debug = createDebug('reactionary:hcl:product-list');
 /** Returns true when this listType maps to the WCS Requisition List API. */
 function isRequisitionList(listType: ProductListType): boolean {
   return listType === 'requisition';
-}
-
-/** Normalise a WCS requisition list item into the shared wishlist item shape. */
-function requisitionItemToWishlistItem(
-  item: HclRequisitionListItem,
-): HclWishlistItem {
-  return {
-    giftListItemID: item.requisitionListItemId,
-    productId: item.productId,
-    partNumber: item.partNumber,
-    quantityRequested: item.quantity,
-    location: item.location,
-  };
-}
-
-/** Normalise a WCS requisition list into the shared wishlist shape. */
-function requisitionListToWishlist(list: HclRequisitionList): HclWishlist {
-  return {
-    uniqueID: list.requisitionListId,
-    descriptionName: list.name,
-    description: list.description,
-    item: (list.item ?? []).map(requisitionItemToWishlistItem),
-  };
 }
 
 export class HclProductListCapability<
@@ -108,6 +87,14 @@ export class HclProductListCapability<
     this.config = config;
     this.client = client;
     this.factory = factory;
+  }
+
+  /**
+   * Returns the factory cast to include the HCL-specific requisition list parse methods.
+   * Subclasses can override this if they provide a custom factory.
+   */
+  protected get requisitionFactory(): ProductListFactoryWithOutput<TFactory> & HclRequisitionListFactoryExtension {
+    return this.factory as ProductListFactoryWithOutput<TFactory> & HclRequisitionListFactoryExtension;
   }
 
   // ---------------------------------------------------------------------------
@@ -139,7 +126,8 @@ export class HclProductListCapability<
         { allowUndefined: true },
       );
       const raw = response?.resultList?.[0];
-      if (raw) wishlist = requisitionListToWishlist(raw);
+      if (!raw) return error<NotFoundError>({ type: 'NotFound', identifier: payload.identifier });
+      return success(this.requisitionFactory.parseRequisitionList(this.context, raw) as ProductListFactoryListOutput<TFactory>);
     } else {
       const response = await this.client.callGet<HclWishlistItemResponse>(
         this.getWishlistItemsUrl(payload.identifier.key),
@@ -165,28 +153,30 @@ export class HclProductListCapability<
   ): Promise<Result<ProductListFactoryListPaginatedOutput<TFactory>>> {
     debug('queryLists listType=%s', query.search.listType);
 
-    let allLists: HclWishlist[];
-
     if (isRequisitionList(query.search.listType)) {
       const response = await this.client.callGet<HclRequisitionListResponse>(
         this.getRequisitionListsUrl(),
         undefined,
         { allowUndefined: true },
       );
-      allLists = (response?.resultList ?? []).map(requisitionListToWishlist);
-    } else {
-      const response = await this.client.callGet<HclWishlistListResponse>(
-        this.getWishlistsUrl(),
-        undefined,
-        { allowUndefined: true },
+      return success(
+        this.requisitionFactory.parseRequisitionListPaginatedResult(
+          this.context,
+          response ?? {},
+          query,
+        ) as ProductListFactoryListPaginatedOutput<TFactory>,
       );
-      // HCL returns all wishlists regardless of type — filter client-side.
-      allLists = response?.GiftList ?? [];
     }
 
+    const response = await this.client.callGet<HclWishlistListResponse>(
+      this.getWishlistsUrl(),
+      undefined,
+      { allowUndefined: true },
+    );
+    // HCL returns all wishlists regardless of type — filter client-side.
     const data: HclWishlistListResponse = {
-      GiftList: allLists,
-      recordSetTotal: String(allLists.length),
+      GiftList: response?.GiftList ?? [],
+      recordSetTotal: response?.recordSetTotal ?? '0',
     };
     return success(this.factory.parseProductListPaginatedResult(this.context, data, query));
   }
@@ -221,11 +211,12 @@ export class HclProductListCapability<
         { allowUndefined: true },
       );
 
-      const raw = fetchedResponse?.resultList?.[0];
-      const wishlist = raw
-        ? requisitionListToWishlist(raw)
-        : { uniqueID: listId, descriptionName: mutation.list.name, description: mutation.list.description };
-      return success(this.factory.parseProductList(this.context, wishlist));
+      const raw: HclRequisitionList = fetchedResponse?.resultList?.[0] ?? {
+        requisitionListId: listId,
+        name: mutation.list.name,
+        description: mutation.list.description,
+      };
+      return success(this.requisitionFactory.parseRequisitionList(this.context, raw) as ProductListFactoryListOutput<TFactory>);
     } else {
       const response = await this.client.callPost<HclWishlistMutationResponse>(
         this.getWishlistsUrl(),
@@ -276,7 +267,7 @@ export class HclProductListCapability<
       );
       const raw = response?.resultList?.[0];
       if (!raw) return error<NotFoundError>({ type: 'NotFound', identifier: mutation.list });
-      return success(this.factory.parseProductList(this.context, requisitionListToWishlist(raw)));
+      return success(this.requisitionFactory.parseRequisitionList(this.context, raw) as ProductListFactoryListOutput<TFactory>);
     } else {
       await this.client.callPut<HclWishlistMutationResponse>(
         this.getWishlistUrl(mutation.list.key),
@@ -328,12 +319,13 @@ export class HclProductListCapability<
         this.getRequisitionListItemsParams(query),
         { allowUndefined: true },
       );
-      const raw = response?.resultList?.[0];
-      const data: HclWishlistItemResponse = {
-        GiftList: raw ? [requisitionListToWishlist(raw)] : [],
-        recordSetTotal: response?.recordSetTotal ?? '0',
-      };
-      return success(this.factory.parseProductListItemPaginatedResult(this.context, data, query));
+      return success(
+        this.requisitionFactory.parseRequisitionListItemPaginatedResult(
+          this.context,
+          response ?? {},
+          query,
+        ) as ProductListFactoryItemPaginatedOutput<TFactory>,
+      );
     } else {
       const response = await this.client.callGet<HclWishlistItemResponse>(
         this.getWishlistItemsUrl(query.search.list.key),
@@ -371,8 +363,8 @@ export class HclProductListCapability<
         (i) => i.productId === sku || i.partNumber === sku,
       );
       if (!raw) return error<NotFoundError>({ type: 'NotFound', identifier: { key: sku, list: mutation.list } });
-      const input: HclProductListItemInput = { item: requisitionItemToWishlistItem(raw), list: mutation.list };
-      return success(this.factory.parseProductListItem(this.context, input));
+      const input: HclRequisitionListItemInput = { item: raw, list: mutation.list };
+      return success(this.requisitionFactory.parseRequisitionListItem(this.context, input) as ProductListFactoryItemOutput<TFactory>);
     } else {
       const params = this.getAddItemParams();
       const url = `${this.getWishlistUrl(mutation.list.key)}?${params.toString()}`;
@@ -436,8 +428,8 @@ export class HclProductListCapability<
         (i) => i.requisitionListItemId === mutation.listItem.key,
       );
       if (!updatedRaw) return error<NotFoundError>({ type: 'NotFound', identifier: mutation.listItem });
-      const input: HclProductListItemInput = { item: requisitionItemToWishlistItem(updatedRaw), list: mutation.listItem.list };
-      return success(this.factory.parseProductListItem(this.context, input));
+      const input: HclRequisitionListItemInput = { item: updatedRaw, list: mutation.listItem.list };
+      return success(this.requisitionFactory.parseRequisitionListItem(this.context, input) as ProductListFactoryItemOutput<TFactory>);
     } else {
       const listResponse = await this.client.callGet<HclWishlistItemResponse>(
         this.getWishlistItemsUrl(listId),

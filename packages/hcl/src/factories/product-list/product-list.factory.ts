@@ -19,6 +19,10 @@ import type {
   RequestContext,
 } from '@reactionary/core';
 import type {
+  HclRequisitionList,
+  HclRequisitionListDetailResponse,
+  HclRequisitionListItem,
+  HclRequisitionListResponse,
   HclWishlist,
   HclWishlistItem,
   HclWishlistItemResponse,
@@ -29,6 +33,20 @@ import type {
 export interface HclProductListItemInput {
   item: HclWishlistItem;
   list: ProductListIdentifier;
+}
+
+/** Passed to parseRequisitionListItem so it can include the parent list reference. */
+export interface HclRequisitionListItemInput {
+  item: HclRequisitionListItem;
+  list: ProductListIdentifier;
+}
+
+/** Extension interface implemented by HclProductListFactory for requisition list parsing. */
+export interface HclRequisitionListFactoryExtension {
+  parseRequisitionList(context: RequestContext, data: HclRequisitionList): unknown;
+  parseRequisitionListItem(context: RequestContext, data: HclRequisitionListItemInput): unknown;
+  parseRequisitionListPaginatedResult(context: RequestContext, data: HclRequisitionListResponse, query: ProductListQuery): unknown;
+  parseRequisitionListItemPaginatedResult(context: RequestContext, data: HclRequisitionListDetailResponse, query: ProductListItemsQuery): unknown;
 }
 
 export class HclProductListFactory<
@@ -140,6 +158,91 @@ export class HclProductListFactory<
       items,
       totalCount: Number(data.recordSetTotal ?? items.length),
       pageSize: items.length,
+      pageNumber: 1,
+      totalPages: 1,
+    } satisfies ProductListItemPaginatedResult;
+
+    return this.productListItemPaginatedSchema.parse(result);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Requisition list parsers
+  // ---------------------------------------------------------------------------
+
+  public parseRequisitionList(
+    _context: RequestContext,
+    data: HclRequisitionList,
+  ): z.output<TProductListSchema> {
+    const result = {
+      identifier: {
+        key: data.requisitionListId ?? '',
+        listType: 'requisition' as const,
+      },
+      type: 'requisition' as const,
+      name: data.name ?? '',
+      description: data.description,
+      published: true,
+    } satisfies ProductList;
+
+    return this.productListSchema.parse(result);
+  }
+
+  public parseRequisitionListItem(
+    _context: RequestContext,
+    data: HclRequisitionListItemInput,
+  ): z.output<TProductListItemSchema> {
+    const result = {
+      identifier: { key: data.item.requisitionListItemId ?? '', list: data.list },
+      variant: { sku: data.item.productId ?? data.item.partNumber ?? '' },
+      quantity: Math.max(1, Number(data.item.quantity ?? 1)),
+      order: 1,
+    } satisfies ProductListItem;
+
+    return this.productListItemSchema.parse(result);
+  }
+
+  public parseRequisitionListPaginatedResult(
+    context: RequestContext,
+    data: HclRequisitionListResponse,
+    query: ProductListQuery,
+  ): z.output<TProductListPaginatedSchema> {
+    const items = (data.resultList ?? []).map((r) =>
+      this.parseRequisitionList(context, r),
+    );
+
+    const result = {
+      identifier: {
+        listType: query.search.listType,
+        paginationOptions: query.search.paginationOptions,
+      },
+      items,
+      totalCount: Number(data.recordSetTotal ?? items.length),
+      pageSize: Math.max(1, items.length),
+      pageNumber: 1,
+      totalPages: 1,
+    } satisfies ProductListPaginatedResult;
+
+    return this.productListPaginatedSchema.parse(result);
+  }
+
+  public parseRequisitionListItemPaginatedResult(
+    context: RequestContext,
+    data: HclRequisitionListDetailResponse,
+    query: ProductListItemsQuery,
+  ): z.output<TProductListItemPaginatedSchema> {
+    const rawItems = data.resultList?.[0]?.item ?? [];
+    const items = rawItems.map((i) =>
+      this.parseRequisitionListItem(context, { item: i, list: query.search.list }),
+    );
+
+    const result = {
+      identifier: {
+        list: query.search.list,
+        paginationOptions: query.search.paginationOptions,
+      },
+      items,
+      totalCount: Number(data.recordSetTotal ?? items.length),
+      pageSize: Math.max(1, items.length),
       pageNumber: 1,
       totalPages: 1,
     } satisfies ProductListItemPaginatedResult;
