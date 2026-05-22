@@ -95,7 +95,10 @@ function decodeWishlistType(raw: string | undefined): {
       const prefix = raw.slice(0, colonIdx);
       if (WISHLIST_TYPES.has(prefix)) {
         const desc = raw.slice(colonIdx + 1);
-        return { type: prefix as ProductListType, description: desc || undefined };
+        return {
+          type: prefix as ProductListType,
+          description: desc || undefined,
+        };
       }
     }
   }
@@ -176,7 +179,10 @@ export class HclProductListFactory<
     // regardless of type; the type is stored in the encoded description field.
     const items = (data.GiftList ?? [])
       .map((w) => this.parseProductList(context, w))
-      .filter((item) => (item as ProductList).identifier.listType === query.search.listType);
+      .filter(
+        (item) =>
+          (item as ProductList).identifier.listType === query.search.listType,
+      );
 
     const result = {
       identifier: {
