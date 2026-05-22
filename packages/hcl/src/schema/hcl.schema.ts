@@ -999,3 +999,53 @@ export interface HclWishlistMutationResponse {
   externalIdentifier?: string;
   resourceName?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Requisition list (B2B) types
+// ---------------------------------------------------------------------------
+
+/** A single item in a WCS requisition list. */
+export interface HclRequisitionListItem {
+  /** Unique identifier of the item within the list. */
+  requisitionListItemId?: string;
+  /** Numeric product identifier (same semantics as GiftList item.productId). */
+  productId?: string;
+  /** Partner number / SKU. */
+  partNumber?: string;
+  /** Requested quantity as a string. */
+  quantity?: string;
+  /** Location (e.g. "online"). */
+  location?: string;
+}
+
+/** A single WCS requisition list (from GET /requisitionList/@self or by ID). */
+export interface HclRequisitionList {
+  /** Unique identifier of the list. */
+  requisitionListId?: string;
+  /** Display name of the list. */
+  name?: string;
+  /** Description of the list. */
+  description?: string;
+  /** Items in the list (only present on detail endpoints). */
+  item?: HclRequisitionListItem[];
+}
+
+/** Response from GET /requisitionList/@self — array of lists. */
+export interface HclRequisitionListResponse {
+  resultList?: HclRequisitionList[];
+  recordSetTotal?: string;
+  recordSetCount?: string;
+  recordSetStartNumber?: string;
+}
+
+/** Response from GET /requisitionList/{id}/item. */
+export interface HclRequisitionListDetailResponse {
+  resultList?: HclRequisitionList[];
+  recordSetTotal?: string;
+}
+
+/** Response from POST /requisitionList (create) and PUT /requisitionList/{id}. */
+export interface HclRequisitionListMutationResponse {
+  requisitionListId?: string;
+  resourceName?: string;
+}

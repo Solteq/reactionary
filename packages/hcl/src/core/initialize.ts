@@ -2,7 +2,6 @@ import type { Cache, RequestContext } from '@reactionary/core';
 import {
   CategoryPaginatedResultSchema,
   CompanyPaginatedListSchema,
-  CompanyRegistrationRequestSchema,
   CompanySchema,
   IdentitySchema,
   OrderSchema,
@@ -38,7 +37,6 @@ import {
   type HclProductRecommendationsCapabilityConfig,
   type HclPersonalizationProfileCapabilityConfig,
   type HclCompanyCapabilityConfig,
-  type HclCompanyRegistrationCapabilityConfig,
   type HclStoreCapabilityConfig,
   type HclProductListCapabilityConfig,
 } from '../schema/capabilities.schema.js';
@@ -56,7 +54,6 @@ import {
   HclCategoryFactory,
   HclCheckoutFactory,
   HclCompanyFactory,
-  HclCompanyRegistrationFactory,
   HclIdentityFactory,
   HclInventoryFactory,
   HclOrderFactory,
@@ -87,7 +84,6 @@ import { HclProductAssociationsCapability } from '../capabilities/product-associ
 import { HclProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import { HclPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
 import { HclCompanyCapability } from '../capabilities/company.capability.js';
-import { HclCompanyRegistrationCapability } from '../capabilities/company-registration.capability.js';
 import { HclStoreCapability } from '../capabilities/store.capability.js';
 import { HclProductListCapability } from '../capabilities/product-list.capability.js';
 import {
@@ -427,28 +423,6 @@ export function withHclCapabilities<T extends HclCapabilities>(
           ),
           capability: (args) =>
             new HclCompanyCapability(
-              args.cache,
-              args.context,
-              args.config,
-              args.hclClient,
-              args.factory,
-            ),
-        },
-        buildCapabilityArgs,
-      );
-    }
-
-    if (caps.companyRegistration?.enabled) {
-      client.companyRegistration = resolveCapabilityWithFactory(
-        capabilities.companyRegistration as
-          | HclCompanyRegistrationCapabilityConfig
-          | undefined,
-        {
-          factory: new HclCompanyRegistrationFactory(
-            CompanyRegistrationRequestSchema,
-          ),
-          capability: (args) =>
-            new HclCompanyRegistrationCapability(
               args.cache,
               args.context,
               args.config,
