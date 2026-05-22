@@ -272,7 +272,10 @@ export class HclProductListCapability<
         uniqueID: listId,
         externalIdentifier: response.externalIdentifier,
         descriptionName: mutation.list.name,
-        description: encodeWishlistType(mutation.list.type, mutation.list.description),
+        description: encodeWishlistType(
+          mutation.list.type,
+          mutation.list.description,
+        ),
       };
       return success(this.factory.parseProductList(this.context, wishlist));
     }
@@ -688,7 +691,10 @@ export class HclProductListCapability<
     return {
       descriptionName: mutation.list.name,
       // Encode the listType into description so it can be read back on query.
-      description: encodeWishlistType(mutation.list.type, mutation.list.description),
+      description: encodeWishlistType(
+        mutation.list.type,
+        mutation.list.description,
+      ),
       giftCardAccepted: 'false',
       accessSpecifier: 'Private',
     };
