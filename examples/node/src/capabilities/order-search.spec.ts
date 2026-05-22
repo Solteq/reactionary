@@ -8,6 +8,11 @@ const testData = {
   sku: '0766623301831',
   customerName: 'Eileen Harvey',
   email: 'eileen.harvey@example.com',
+
+ /*
+  email: 'ahmad_hammes93@example.com',
+  customerName: 'Ahmad Hammes',
+  */
 };
 
 describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryProvider.MEILISEARCH])(
