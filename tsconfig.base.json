@@ -25,7 +25,8 @@
       ],
       "@reactionary/medusa": ["packages/medusa/src/index.ts"],
       "@reactionary/meilisearch": ["packages/meilisearch/src/index.ts"],
-      "@reactionary/hcl": ["packages/hcl/src/index.ts"]
+      "@reactionary/hcl": ["packages/hcl/src/index.ts"],
+      "@reactionary/bazaarvoice": ["packages/bazaarvoice/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]
