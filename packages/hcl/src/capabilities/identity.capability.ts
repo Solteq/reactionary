@@ -199,20 +199,9 @@ export class HclIdentityCapability<
   ): Promise<Result<IdentityFactoryOutput<TFactory>>> {
     debug('Registering new user: %s', payload.username);
 
-    // WCS requires a guest session before registering a new person.
-    const guest = await this.client.callPost<HclWcsIdentityResponse>(
-      this.createGuestIdentityUrl(),
-    );
-    this.storeSessionTokens(
-      guest.WCToken,
-      guest.WCTrustedToken,
-      guest.userId,
-      'guest',
-      guest.personalizationID,
-    );
-
-    // Register the person — the guest session tokens are now stored in the
-    // context so the client reads them automatically via buildHeaders().
+    // WCS requires a guest session before registering a new person. The client
+    // automatically bootstraps one via POST /guestidentity before the first
+    // transaction call when no session token is present.
     const registered = await this.client.callPut<HclWcsIdentityResponse>(
       this.registerPersonUrl(),
       this.registerPersonPayload(payload.username, payload.password),

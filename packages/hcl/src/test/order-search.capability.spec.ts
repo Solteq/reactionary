@@ -52,6 +52,7 @@ describe.skipIf(!hasCredentials)('HCL Order Search Capability', () => {
     const result = await provider.queryByTerm({
       search: {
         term: '',
+        filters: [],
         paginationOptions: { pageSize: 10, pageNumber: 1 },
       },
     });
@@ -66,6 +67,7 @@ describe.skipIf(!hasCredentials)('HCL Order Search Capability', () => {
     const result = await provider.queryByTerm({
       search: {
         term: '',
+        filters: [],
         paginationOptions: { pageSize: 5, pageNumber: 2 },
       },
     });
@@ -77,6 +79,7 @@ describe.skipIf(!hasCredentials)('HCL Order Search Capability', () => {
     const result = await provider.queryByTerm({
       search: {
         term: '',
+        filters: [],
         paginationOptions: { pageSize: 10, pageNumber: 9999 },
       },
     });

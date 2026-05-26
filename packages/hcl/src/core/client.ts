@@ -1,8 +1,11 @@
 import type { RequestContext } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import { getLocaleParams } from './locale-params.js';
+import type { HclWcsIdentityResponse } from '../schema/hcl.schema.js';
 import {
+  SESSION_KEY_IDENTITY_TYPE,
   SESSION_KEY_PERSONALIZATION_ID,
+  SESSION_KEY_USER_ID,
   SESSION_KEY_WC_TOKEN,
   SESSION_KEY_WC_TRUSTED_TOKEN,
 } from './session-keys.js';
@@ -43,7 +46,10 @@ export class HclClient {
     protected readonly context: RequestContext,
   ) {
     const origin = config.apiUrl.replace(/\/+$/, '');
-    const searchOrigin =  (config.searchApiUrl ?? config.apiUrl).replace(/\/+$/, '')
+    const searchOrigin = (config.searchApiUrl ?? config.apiUrl).replace(
+      /\/+$/,
+      '',
+    );
     this.catalogBaseUrl = `${searchOrigin}/search/resources`;
     this.transactionBaseUrl = `${origin}/wcs/resources/store/${config.storeId}`;
   }
@@ -65,6 +71,7 @@ export class HclClient {
     params?: URLSearchParams,
     opts?: { allowUndefined?: boolean },
   ): Promise<T | undefined> {
+    await this.ensureGuestSession(url);
     const merged = this.buildParams(params);
     const query = merged.toString() ? `?${merged.toString()}` : '';
     const response = await fetch(`${url}${query}`, {
@@ -81,6 +88,7 @@ export class HclClient {
   }
 
   async callPost<T>(url: string, body: unknown = {}): Promise<T> {
+    await this.ensureGuestSession(url);
     const response = await fetch(url, {
       method: 'POST',
       headers: { ...this.buildHeaders(), 'Content-Type': 'application/json' },
@@ -96,6 +104,7 @@ export class HclClient {
   }
 
   async callPut<T>(url: string, body: unknown): Promise<T> {
+    await this.ensureGuestSession(url);
     const response = await fetch(url, {
       method: 'PUT',
       headers: { ...this.buildHeaders(), 'Content-Type': 'application/json' },
@@ -111,6 +120,7 @@ export class HclClient {
   }
 
   async callDelete(url: string, opts?: { ignore404?: boolean }): Promise<void> {
+    await this.ensureGuestSession(url);
     const response = await fetch(url, {
       method: 'DELETE',
       headers: this.buildHeaders(),
@@ -119,6 +129,48 @@ export class HclClient {
       throw new Error(
         `HCL DELETE ${url} error ${response.status} ${response.statusText}`,
       );
+    }
+  }
+
+  /**
+   * Ensures a guest WCS session exists before any transaction URL call.
+   * If no WCToken is present, bootstraps a guest identity via POST /guestidentity
+   * and stores the returned tokens in the request context.
+   *
+   * Skipped for auth-bootstrap endpoints (/guestidentity, /loginidentity) to
+   * prevent infinite recursion and avoid pre-empting explicit auth flows.
+   * Skipped entirely for catalog (non-transaction) URLs.
+   */
+  protected async ensureGuestSession(url: string): Promise<void> {
+    if (!url.startsWith(this.transactionBaseUrl)) return;
+    if (this.context.session[SESSION_KEY_WC_TOKEN]) return;
+    if (url.includes('/guestidentity') || url.includes('/loginidentity'))
+      return;
+
+    const guestUrl = `${this.transactionBaseUrl}/guestidentity`;
+    const response = await fetch(guestUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+    if (!response.ok) {
+      throw new Error(
+        `HCL guest identity bootstrap failed: ${response.status} ${response.statusText}`,
+      );
+    }
+    const data = (await response.json()) as HclWcsIdentityResponse;
+    this.context.session[SESSION_KEY_WC_TOKEN] = data.WCToken;
+    this.context.session[SESSION_KEY_WC_TRUSTED_TOKEN] = data.WCTrustedToken;
+    this.context.session[SESSION_KEY_USER_ID] = data.userId;
+    this.context.session[SESSION_KEY_IDENTITY_TYPE] = 'guest';
+    if (data.personalizationID) {
+      this.context.session[SESSION_KEY_PERSONALIZATION_ID] =
+        data.personalizationID;
+    } else {
+      delete this.context.session[SESSION_KEY_PERSONALIZATION_ID];
     }
   }
 
