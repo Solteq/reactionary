@@ -71,7 +71,6 @@ export class HclClient {
     params?: URLSearchParams,
     opts?: { allowUndefined?: boolean },
   ): Promise<T | undefined> {
-    await this.ensureGuestSession(url);
     const merged = this.buildParams(params);
     const query = merged.toString() ? `?${merged.toString()}` : '';
     const response = await fetch(`${url}${query}`, {
@@ -120,7 +119,6 @@ export class HclClient {
   }
 
   async callDelete(url: string, opts?: { ignore404?: boolean }): Promise<void> {
-    await this.ensureGuestSession(url);
     const response = await fetch(url, {
       method: 'DELETE',
       headers: this.buildHeaders(),
