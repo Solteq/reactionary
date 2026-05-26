@@ -50,7 +50,9 @@ describe.skipIf(!hasCredentials)('HCL Profile Capability', () => {
   });
 
   it('should return the authenticated user profile', async () => {
-    const result = await provider.getById({});
+    const result = await provider.getById({
+      identifier: { userId: reqCtx.session['hcl.userId'] as string },
+    });
     expect(result.success).toBe(true);
     if (!result.success) return;
 
@@ -58,7 +60,9 @@ describe.skipIf(!hasCredentials)('HCL Profile Capability', () => {
   });
 
   it('should update profile email and phone', async () => {
-    const profileResult = await provider.getById({});
+    const profileResult = await provider.getById({
+      identifier: { userId: reqCtx.session['hcl.userId'] as string },
+    });
     expect(profileResult.success).toBe(true);
     if (!profileResult.success) return;
 
@@ -74,12 +78,15 @@ describe.skipIf(!hasCredentials)('HCL Profile Capability', () => {
 
   it('should add a shipping address', async () => {
     const result = await provider.addShippingAddress({
+      identifier: { userId: reqCtx.session['hcl.userId'] as string },
       address: {
         identifier: { nickName: 'TestAddr_' + Date.now() },
         firstName: 'Test',
         lastName: 'User',
         streetAddress: 'Test Street 1',
+        streetNumber: '',
         city: 'Helsinki',
+        region: '',
         postalCode: '00100',
         countryCode: 'FI',
       },
@@ -88,11 +95,13 @@ describe.skipIf(!hasCredentials)('HCL Profile Capability', () => {
   });
 
   it('should update an existing shipping address', async () => {
-    const profileResult = await provider.getById({});
+    const profileResult = await provider.getById({
+      identifier: { userId: reqCtx.session['hcl.userId'] as string },
+    });
     expect(profileResult.success).toBe(true);
     if (!profileResult.success) return;
 
-    const addresses = profileResult.value.shippingAddresses ?? [];
+    const addresses = profileResult.value.alternateShippingAddresses ?? [];
     if (addresses.length === 0) {
       console.warn('No shipping addresses to update — skipping');
       return;
@@ -100,6 +109,7 @@ describe.skipIf(!hasCredentials)('HCL Profile Capability', () => {
 
     const addr = addresses[0];
     const result = await provider.updateShippingAddress({
+      identifier: profileResult.value.identifier,
       address: { ...addr, city: 'Espoo' },
     });
     expect(result.success).toBe(true);
@@ -107,12 +117,15 @@ describe.skipIf(!hasCredentials)('HCL Profile Capability', () => {
 
   it('should return NotFound when updating a non-existent address', async () => {
     const result = await provider.updateShippingAddress({
+      identifier: { userId: reqCtx.session['hcl.userId'] as string },
       address: {
         identifier: { nickName: 'DoesNotExist_' + Date.now() },
         firstName: 'Ghost',
         lastName: 'User',
         streetAddress: 'Nowhere',
+        streetNumber: '',
         city: 'Void',
+        region: '',
         postalCode: '00000',
         countryCode: 'FI',
       },
@@ -126,12 +139,15 @@ describe.skipIf(!hasCredentials)('HCL Profile Capability', () => {
     // Add one first so we have something to remove
     const nick = 'ToDelete_' + Date.now();
     const addResult = await provider.addShippingAddress({
+      identifier: { userId: reqCtx.session['hcl.userId'] as string },
       address: {
         identifier: { nickName: nick },
         firstName: 'Delete',
         lastName: 'Me',
         streetAddress: 'Temp St 1',
+        streetNumber: '',
         city: 'Helsinki',
+        region: '',
         postalCode: '00100',
         countryCode: 'FI',
       },
@@ -139,6 +155,7 @@ describe.skipIf(!hasCredentials)('HCL Profile Capability', () => {
     expect(addResult.success).toBe(true);
 
     const removeResult = await provider.removeShippingAddress({
+      identifier: { userId: reqCtx.session['hcl.userId'] as string },
       addressIdentifier: { nickName: nick },
     });
     expect(removeResult.success).toBe(true);
@@ -146,6 +163,7 @@ describe.skipIf(!hasCredentials)('HCL Profile Capability', () => {
 
   it('should return NotFound when removing a non-existent address', async () => {
     const result = await provider.removeShippingAddress({
+      identifier: { userId: reqCtx.session['hcl.userId'] as string },
       addressIdentifier: { nickName: 'DoesNotExist_' + Date.now() },
     });
     expect(result.success).toBe(false);
@@ -154,17 +172,20 @@ describe.skipIf(!hasCredentials)('HCL Profile Capability', () => {
   });
 
   it('should set a default shipping address', async () => {
-    const profileResult = await provider.getById({});
+    const profileResult = await provider.getById({
+      identifier: { userId: reqCtx.session['hcl.userId'] as string },
+    });
     expect(profileResult.success).toBe(true);
     if (!profileResult.success) return;
 
-    const addresses = profileResult.value.shippingAddresses ?? [];
+    const addresses = profileResult.value.alternateShippingAddresses ?? [];
     if (addresses.length === 0) {
       console.warn('No shipping addresses to make default — skipping');
       return;
     }
 
     const result = await provider.makeShippingAddressDefault({
+      identifier: profileResult.value.identifier,
       addressIdentifier: addresses[0].identifier,
     });
     expect(result.success).toBe(true);
@@ -172,12 +193,15 @@ describe.skipIf(!hasCredentials)('HCL Profile Capability', () => {
 
   it('should set the billing address (upsert)', async () => {
     const result = await provider.setBillingAddress({
+      identifier: { userId: reqCtx.session['hcl.userId'] as string },
       address: {
         identifier: { nickName: 'Billing' },
         firstName: 'Billing',
         lastName: 'User',
         streetAddress: 'Billing Ave 1',
+        streetNumber: '',
         city: 'Helsinki',
+        region: '',
         postalCode: '00100',
         countryCode: 'FI',
       },
