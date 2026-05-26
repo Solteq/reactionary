@@ -70,6 +70,9 @@ describe('HCL auto guest-session upgrade', () => {
     expect(reqCtx.session['hcl.userId']).toBeTruthy();
     expect(reqCtx.session['hcl.identityType']).toBe('guest');
 
+    // The structured identity context must reflect the upgrade.
+    expect(reqCtx.session.identityContext.identity.type).toBe('Guest');
+
     // Cart operation itself must have succeeded.
     expect(result.value.items).toHaveLength(1);
     expect(result.value.items[0].variant.sku).toBe(testData.partNumber);

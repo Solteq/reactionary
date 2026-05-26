@@ -1,4 +1,4 @@
-import type { RequestContext } from '@reactionary/core';
+import type { GuestIdentity, RequestContext } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import { getLocaleParams } from './locale-params.js';
 import type { HclWcsIdentityResponse } from '../schema/hcl.schema.js';
@@ -133,19 +133,18 @@ export class HclClient {
   }
 
   /**
-   * Ensures a guest WCS session exists before any transaction URL call.
-   * If no WCToken is present, bootstraps a guest identity via POST /guestidentity
-   * and stores the returned tokens in the request context.
+   * Bootstraps a guest WCS session for whitelisted transaction endpoints.
    *
-   * Skipped for auth-bootstrap endpoints (/guestidentity, /loginidentity) to
-   * prevent infinite recursion and avoid pre-empting explicit auth flows.
-   * Skipped entirely for catalog (non-transaction) URLs.
+   * Only fires when no WCToken is present AND the URL targets one of the
+   * whitelisted capabilities (cart, order, profile). Catalog URLs and
+   * non-whitelisted transaction paths are left as anonymous so that browsing
+   * sessions never create guest-identity rows in the WCS database.
+   *
+   * @see requiresGuestSession
    */
   protected async ensureGuestSession(url: string): Promise<void> {
-    if (!url.startsWith(this.transactionBaseUrl)) return;
+    if (!this.requiresGuestSession(url)) return;
     if (this.context.session[SESSION_KEY_WC_TOKEN]) return;
-    if (url.includes('/guestidentity') || url.includes('/loginidentity'))
-      return;
 
     const guestUrl = `${this.transactionBaseUrl}/guestidentity`;
     const response = await fetch(guestUrl, {
@@ -172,6 +171,36 @@ export class HclClient {
     } else {
       delete this.context.session[SESSION_KEY_PERSONALIZATION_ID];
     }
+    // Reflect the upgrade in the structured identity context so capability-layer
+    // callers (e.g. getSelf) immediately see the correct identity type.
+    this.context.session.identityContext.identity = {
+      type: 'Guest',
+      id: { userId: data.userId },
+    } satisfies GuestIdentity;
+    this.context.session.identityContext.lastUpdated = new Date();
+  }
+
+  /**
+   * Returns true when `url` targets a transaction endpoint that should trigger
+   * automatic guest-session bootstrapping.
+   *
+   * Only the following path prefixes are whitelisted — other transaction calls
+   * (price rules, espots, segments, inventory, …) must NOT create guest-identity
+   * rows in the WCS database for anonymous browsing sessions.
+   *
+   * Override in project-specific subclasses to adjust the whitelist.
+   */
+  protected requiresGuestSession(url: string): boolean {
+    if (!url.startsWith(this.transactionBaseUrl)) return false;
+    const path = url.slice(this.transactionBaseUrl.length);
+    // /cart   — cart and checkout capabilities
+    // /order  — order and order-search capabilities
+    // /person — profile capability
+    return (
+      path.startsWith('/cart') ||
+      path.startsWith('/order') ||
+      path.startsWith('/person')
+    );
   }
 
   /**
