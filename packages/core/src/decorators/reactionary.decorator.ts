@@ -96,7 +96,9 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
             return input;
           }
 
-          const cacheKey = this.generateCacheKeyForQuery(scope, input.value);
+          const localeCacheKey = options.localeDependentCaching ? this.context.languageContext?.locale ?? 'all' : 'all';
+          const currencyCacheKey = options.currencyDependentCaching ? this.context.languageContext?.currencyCode ?? 'all' : 'all';
+          const cacheKey = this.generateCacheKeyForQuery(scope, input.value, localeCacheKey, currencyCacheKey);
           let fromCache = null;
 
           if (options.cache) {

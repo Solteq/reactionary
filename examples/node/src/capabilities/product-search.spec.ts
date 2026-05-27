@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
-import type { ProductSearchQueryCreateNavigationFilter } from '@reactionary/core';
+import { MemoryCache, type ProductSearchQueryCreateNavigationFilter } from '@reactionary/core';
 
 const testData = {
   searchTerm: 'Brother',
@@ -311,6 +311,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 );
 
 
+
 describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA])('Multilingual Product Search', (provider) => {
   let client: ReturnType<typeof createClient>;
 
@@ -407,8 +408,8 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
     const altLanguageClient = createClient(provider, {
       languageContext: {
-        locale: 'fi-FI',
-        currencyCode: 'EUR'
+        locale: 'da-DK',
+        currencyCode: 'DKK'
       },
     });
 
@@ -634,4 +635,96 @@ describe.each([ PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fa
       assert.fail(JSON.stringify(result.error));
     }
   });
+});
+
+
+
+
+describe.each([PrimaryProvider.COMMERCETOOLS])('Caching is multilingual', (provider) => {
+  let client: ReturnType<typeof createClient>;
+
+  beforeEach(() => {
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'en-US',
+        currencyCode: 'USD'
+      },
+    }, new MemoryCache());
+
+  });
+
+  it('should return different results for different locales when cached', async () => {
+      const cachePutSpy = vi.spyOn(client.cache, 'put');
+      const cacheGetSpy = vi.spyOn(client.cache, 'get');
+
+      // first query - should miss cache
+      const result = await client.productSearch.queryByTerm({
+        search: {
+          term: testData.searchTermWithLanguage,
+          facets: [],
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 10,
+          },
+          filters: [],
+        },
+      });
+
+      if (!result.success) {
+        assert.fail();
+      }
+      expect(cachePutSpy).toHaveBeenCalledTimes(1);
+      expect(cacheGetSpy).toHaveBeenCalledTimes(1);
+
+      // second query with same locale - should hit cache
+      const result2 = await client.productSearch.queryByTerm({
+        search: {
+          term: testData.searchTermWithLanguage,
+          facets: [],
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 10,
+          },
+          filters: [],
+        },
+      });
+
+      if (!result2.success) {
+        assert.fail();
+      }
+
+      expect(cachePutSpy).toHaveBeenCalledTimes(1);
+      expect(cacheGetSpy).toHaveBeenCalledTimes(2);
+
+      // third query with different locale - should miss cache
+      const altLanguageClient = createClient(provider, {
+        languageContext: {
+          locale: 'da-DK',
+          currencyCode: 'EUR'
+        },
+      }, client.cache); // share cache between clients
+      altLanguageClient.cache = client.cache; // share cache between clients
+
+      const result3 = await altLanguageClient.productSearch.queryByTerm({
+        search: {
+          term: testData.searchTermWithLanguage,
+          facets: [],
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 10,
+          },
+          filters: [],
+        },
+      });
+
+      if (!result3.success) {
+        assert.fail();
+      }
+
+      expect(cachePutSpy).toHaveBeenCalledTimes(2);
+      expect(cacheGetSpy).toHaveBeenCalledTimes(3);
+
+  });
+
+
 });

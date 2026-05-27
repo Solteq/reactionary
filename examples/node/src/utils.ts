@@ -4,6 +4,7 @@ import {
   NoOpCache,
   ProductSearchResultItemSchema,
   type RequestContext,
+  type Cache,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '@reactionary/commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
@@ -115,10 +116,10 @@ export enum PrimaryProvider {
   FAKE = 'Fake',
 }
 
-export function createClient(provider: PrimaryProvider, contextOverrides: Partial<RequestContext> = {}) {
+export function createClient(provider: PrimaryProvider, contextOverrides: Partial<RequestContext> = {}, cacheProvider: Cache = new NoOpCache()) {
   const context = { ...createInitialRequestContext(), ...contextOverrides };
   let builder = new ClientBuilder(context)
-    .withCache(new NoOpCache());
+    .withCache(cacheProvider);
 
     if (provider === PrimaryProvider.MEDUSA) {
       builder = builder.withCapability(
