@@ -8,4 +8,4 @@
 
 # Workflow
 - Be sure to ensure that changes lint and build.
-- Avoid introducing changes that would be breaking for any client consumer of the library without asking for clearance.
+- Avoid introducing changes that would be breaking for any client consumer of the library without asking for clearance!
