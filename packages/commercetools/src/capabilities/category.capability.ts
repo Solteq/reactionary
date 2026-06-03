@@ -80,7 +80,11 @@ export class CommercetoolsCategoryCapability<
     try {
       const response = await client
         .withKey({ key: payload.id.key })
-        .get()
+        .get({
+          queryArgs: {
+            expand: 'parent',
+          },
+        })
         .execute();
       return success(this.factory.parseCategory(this.context, response.body));
     } catch (err) {
@@ -106,6 +110,7 @@ export class CommercetoolsCategoryCapability<
       const response = await client
         .get({
           queryArgs: {
+            expand: 'parent',
             where: `slug(${getLanguageCodeFromLocale(this.context.languageContext.locale)}=:slug)`,
             'var.slug': payload.slug,
             storeProjection: this.context.storeIdentifier.key,
@@ -202,6 +207,7 @@ export class CommercetoolsCategoryCapability<
       const response = await client
         .get({
           queryArgs: {
+            expand: 'parent',
             where: 'parent(id = :parentId)',
             'var.parentId': parentCategory.body.id,
             limit: payload.paginationOptions.pageSize,
