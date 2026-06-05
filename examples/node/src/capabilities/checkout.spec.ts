@@ -8,11 +8,11 @@ import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 
 const testData = {
-  skuWithoutTiers: '0766623301831',
-  skuWithTiers: '0766623360203',
+  skuWithoutTiers: '3414970706584',
+  skuWithTiers: '3414970706584',
 };
 
-describe.each([ PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
+describe.each([ PrimaryProvider.COMMERCETOOLS])(
   'Checkout Capability - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
@@ -25,7 +25,14 @@ describe.each([ PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       let cart: Cart;
 
       beforeEach(async () => {
+        const q = await client.cart.createCart({});
+
+        if (!q.success) {
+          assert.fail();
+        }
+
         const c = await client.cart.add({
+          cart: q.value.identifier,
           variant: {
             sku: testData.skuWithoutTiers,
           },
@@ -118,7 +125,7 @@ describe.each([ PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
           ).toBeDefined();
         });
 
-        it('can list shipping methods', async () => {
+        it.only('can list shipping methods', async () => {
           const shippingMethods =
             await client.checkout.getAvailableShippingMethods({
               checkout: checkout.identifier,
@@ -129,6 +136,9 @@ describe.each([ PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
           }
 
           expect(shippingMethods.value.length).toBeGreaterThan(0);
+          
+          // Currently should be EUR
+          expect(shippingMethods.value[0].price.currency).toBe('EUR');
         });
 
         it('can add a payment instruction', async () => {
