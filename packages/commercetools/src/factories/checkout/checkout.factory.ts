@@ -172,19 +172,17 @@ export class CommercetoolsCheckoutFactory<
       key: data.key || '',
     } satisfies ShippingMethodIdentifier;
 
+    const rate = data.zoneRates[0]?.shippingRates.find(x => x.isMatching);
+
     const result = {
       deliveryTime: '',
       description: data.localizedDescription?.[getLanguageCodeFromLocale(context.languageContext.locale)] || '',
       identifier,
       name: data.name,
-      price: data.zoneRates[0].shippingRates[0].price
-        ? {
-            value: (data.zoneRates[0].shippingRates[0].price.centAmount || 0) / 100,
-            currency:
-              (data.zoneRates[0].shippingRates[0].price.currencyCode as Currency) ||
-              context.languageContext.currencyCode,
-          }
-        : { value: 0, currency: context.languageContext.currencyCode },
+      price: {
+        value: (rate?.price.centAmount || 0) / 100,
+        currency: rate?.price.currencyCode as Currency
+      }
     } satisfies ShippingMethod;
 
     return this.shippingMethodSchema.parse(result);
