@@ -215,8 +215,8 @@ export class HclProductCapability<
 
   protected getByIdPayload(payload: ProductQueryById): URLSearchParams {
     return this.productsParams({
-      partNumber: [payload.identifier.key],
-      profileName: this.config.profiles.product,
+      id: [payload.identifier.key],
+      profileName: this.config.profiles.productById,
     });
   }
 

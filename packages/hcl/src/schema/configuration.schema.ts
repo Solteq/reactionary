@@ -12,7 +12,10 @@ const HclProfilesSchema = z
   .looseObject({
     product: z.string().default('HCL_V2_findProductByPartNumber_Details').meta({
       description:
-        'Profile name for product detail lookups (getById, getBySlug, getBySKU).',
+        'Profile name for product detail lookups ( getBySlug, getBySKU).',
+    }),
+    productById: z.string().default('HCL_V2_findProductByIds_Details').meta({
+      description: 'Profile name for product detail lookups (getById).',
     }),
     productSearch: z
       .string()
@@ -27,6 +30,7 @@ const HclProfilesSchema = z
   })
   .default(() => ({
     product: 'HCL_V2_findProductByPartNumber_Details',
+    productById: 'HCL_V2_findProductByIds_Details',
     productSearch: 'HCL_V2_findProductsBySearchTermWithPrice',
     categoryBrowse: 'HCL_V2_findProductsByCategoryWithPriceRange',
   }));
@@ -89,7 +93,9 @@ export const HclConfigurationSchema = z.looseObject({
    */
   espotNames: z
     .looseObject({
-      frequentlyBoughtTogether: z.string().default('Reactionary_FrequentlyBoughtTogether'),
+      frequentlyBoughtTogether: z
+        .string()
+        .default('Reactionary_FrequentlyBoughtTogether'),
       similar: z.string().default('Reactionary_SimilarProducts'),
       related: z.string().default('Reactionary_RelatedProducts'),
       trendingInCategory: z.string().default('Reactionary_TrendingInCategory'),
