@@ -132,21 +132,33 @@ export class LipscoreProductReviewsCapability<
   // Extension points — override in subclasses to customise API calls
   // ---------------------------------------------------------------------------
 
-  protected async getProduct(productKey: string): Promise<LipscoreProductListItem | null> {
-    const params = new URLSearchParams({ internal_id: productKey });
+  protected async getProduct(
+    productKey: string,
+  ): Promise<LipscoreProductListItem | null> {
+    const params = this.getProductsParams(productKey);
     const products = await this.client.callGet(
-      `${this.client.baseUrl}/products`,
+      this.getProductsUrl(),
       params,
       LipscoreProductsListSchema,
     );
     return products[0] ?? null;
   }
-
+  protected getProductsUrl(): string {
+    return `${this.client.baseUrl}/products`;
+  }
   protected getReviewsUrl(lipscoreProductId: number): string {
     return `${this.client.baseUrl}/products/${lipscoreProductId}/reviews`;
   }
-
-  protected getReviewsParams(pageSize: number, pageNumber: number): URLSearchParams {
+  protected getProductsParams(productKey: string): URLSearchParams {
+    const params = new URLSearchParams();
+    params.set('internal_id', productKey);
+    params.set('fields', 'rating,review_count');
+    return params;
+  }
+  protected getReviewsParams(
+    pageSize: number,
+    pageNumber: number,
+  ): URLSearchParams {
     const params = new URLSearchParams();
     params.set('page', String(pageNumber));
     params.set('per_page', String(pageSize));
