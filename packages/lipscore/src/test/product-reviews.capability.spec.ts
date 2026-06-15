@@ -25,9 +25,15 @@ function getLipscoreTestConfiguration(): LipscoreConfiguration {
       'LIPSCORE_API_KEY environment variable is required for integration tests.',
     );
   }
+  const apiSecret = process.env['LIPSCORE_API_SECRET'];
+  if (!apiSecret) {
+    throw new Error(
+      'LIPSCORE_API_SECRET environment variable is required for integration tests.',
+    );
+  }
   return {
     apiKey,
-    apiSecret: process.env['LIPSCORE_API_SECRET'],
+    apiSecret,
     apiUrl: process.env['LIPSCORE_API_URL'] ?? 'https://api.lipscore.com',
   };
 }

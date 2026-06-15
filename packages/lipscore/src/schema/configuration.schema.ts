@@ -4,10 +4,9 @@ export const LipscoreConfigurationSchema = z.looseObject({
   apiKey: z.string().meta({ description: 'Lipscore public API key.' }),
   apiSecret: z
     .string()
-    .optional()
     .meta({
       description:
-        'Lipscore server-side API secret. When set it is sent as the X-Authorization header.',
+        'Lipscore server-side API secret. Sent as the X-Authorization header on all v2 API requests.',
     }),
   apiUrl: z
     .string()

@@ -19,7 +19,11 @@ import {
   type RequestContext,
   type Result,
 } from '@reactionary/core';
-import { LipscoreProductsResponseSchema } from '../schema/lipscore.schema.js';
+import {
+  LipscoreProductsListSchema,
+  LipscoreReviewsResponseSchema,
+} from '../schema/lipscore.schema.js';
+import type { LipscoreProductListItem } from '../schema/lipscore.schema.js';
 import type { LipscoreConfiguration } from '../schema/configuration.schema.js';
 import type { LipscoreClient } from '../core/client.js';
 import type { LipscoreProductReviewsFactory } from '../factories/product-reviews/product-reviews.factory.js';
@@ -51,13 +55,15 @@ export class LipscoreProductReviewsCapability<
   public override async getRatingSummary(
     query: ProductReviewsGetRatingSummaryQuery,
   ): Promise<Result<ProductReviewsFactoryRatingOutput<TFactory>>> {
-    const response = await this.client.callGet(
-      this.getReviewsUrl(),
-      this.getRatingSummaryParams(query.product.key),
-      LipscoreProductsResponseSchema,
-    );
+    const product = await this.getProduct(query.product.key);
 
-    return success(this.factory.parseRatingSummary(this.context, response));
+    return success(
+      this.factory.parseRatingSummary(this.context, {
+        productKey: query.product.key,
+        votes: product?.votes ?? null,
+        rating: product?.rating ?? null,
+      }),
+    );
   }
 
   @Reactionary({
@@ -73,18 +79,33 @@ export class LipscoreProductReviewsCapability<
     const pageSize = query.paginationOptions?.pageSize ?? 10;
     const pageNumber = query.paginationOptions?.pageNumber ?? 1;
 
-    const response = await this.client.callGet(
-      this.getReviewsUrl(),
-      this.getReviewsParams(query.product.key),
-      LipscoreProductsResponseSchema,
+    const product = await this.getProduct(query.product.key);
+
+    if (product === null) {
+      return success(
+        this.factory.parseReviewPaginatedResult(this.context, {
+          reviews: [],
+          productKey: query.product.key,
+          pageSize,
+          pageNumber,
+          totalReviewCount: 0,
+        }),
+      );
+    }
+
+    const reviews = await this.client.callGet(
+      this.getReviewsUrl(product.id),
+      this.getReviewsParams(pageSize, pageNumber),
+      LipscoreReviewsResponseSchema,
     );
 
     return success(
       this.factory.parseReviewPaginatedResult(this.context, {
-        response,
+        reviews,
         productKey: query.product.key,
         pageSize,
         pageNumber,
+        totalReviewCount: product.review_count ?? undefined,
       }),
     );
   }
@@ -111,18 +132,24 @@ export class LipscoreProductReviewsCapability<
   // Extension points — override in subclasses to customise API calls
   // ---------------------------------------------------------------------------
 
-  protected getReviewsUrl(): string {
-    return `${this.client.baseUrl}/products`;
+  protected async getProduct(productKey: string): Promise<LipscoreProductListItem | null> {
+    const params = new URLSearchParams({ internal_id: productKey });
+    const products = await this.client.callGet(
+      `${this.client.baseUrl}/products`,
+      params,
+      LipscoreProductsListSchema,
+    );
+    return products[0] ?? null;
   }
 
-  protected getReviewsParams(productId: string): URLSearchParams {
+  protected getReviewsUrl(lipscoreProductId: number): string {
+    return `${this.client.baseUrl}/products/${lipscoreProductId}/reviews`;
+  }
+
+  protected getReviewsParams(pageSize: number, pageNumber: number): URLSearchParams {
     const params = new URLSearchParams();
-    params.set('internal_id[]', productId);
-    params.set('fields', 'reviews');
+    params.set('page', String(pageNumber));
+    params.set('per_page', String(pageSize));
     return params;
-  }
-
-  protected getRatingSummaryParams(productId: string): URLSearchParams {
-    return this.getReviewsParams(productId);
   }
 }
