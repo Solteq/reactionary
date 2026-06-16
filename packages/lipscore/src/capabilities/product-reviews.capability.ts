@@ -152,7 +152,7 @@ export class LipscoreProductReviewsCapability<
   protected getProductsParams(productKey: string): URLSearchParams {
     const params = new URLSearchParams();
     params.set('internal_id', productKey);
-    params.set('fields', 'rating,review_count');
+    params.set('fields', 'rating,review_count,votes');
     return params;
   }
   protected getReviewsParams(
