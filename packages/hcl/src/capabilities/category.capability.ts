@@ -296,12 +296,12 @@ export class HclCategoryCapability<
   ): URLSearchParams {
     return this.categoriesParams({
       parentCategoryId: parentUniqueId,
-      depthAndLimit: '1,0',
+      depthAndLimit: '0',
     });
   }
 
   protected findTopCategoriesPayload(): URLSearchParams {
-    return this.categoriesParams({ depthAndLimit: '1,0' });
+    return this.categoriesParams({ depthAndLimit: '0' });
   }
 
   protected categoriesUrl(): string {
