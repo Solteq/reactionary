@@ -27,6 +27,7 @@ import {
   type PaymentMethodSchema,
   type PointOfContact,
   type RequestContext,
+  type ShippingInstruction,
   type ShippingMethod,
   type ShippingMethodSchema,
 } from '@reactionary/core';
@@ -141,6 +142,30 @@ export class MedusaCheckoutFactory<
       region: '',
     };
   }
+
+  protected isReadyForFinalization(
+    price: CostBreakDown,
+    paymentInstructions: PaymentInstruction[],
+    billingAddress?: Address,
+    shippingAddress?: Address,
+    shippingInstruction?: ShippingInstruction,
+  ): boolean {
+    if (!billingAddress) return false;
+    if (!shippingInstruction) return false;
+    if (!shippingAddress && !shippingInstruction.pickupPoint) return false;
+    if (paymentInstructions.length === 0) return false;
+
+    const authorizedPayments = paymentInstructions
+      .filter((paymentInstruction) => paymentInstruction.status === 'authorized')
+      .map((paymentInstruction) => paymentInstruction.amount.value)
+      .reduce((sum, value) => sum + value, 0);
+
+    if (price.grandTotal.value !== authorizedPayments) return false;
+
+    return true;
+  }
+
+
 
   public parseCheckout(
     context: RequestContext,
@@ -270,6 +295,14 @@ export class MedusaCheckoutFactory<
       } satisfies MedusaOrderIdentifier;
     }
 
+    const readyForFinalization = this.isReadyForFinalization(
+      price,
+      paymentInstructions,
+      billingAddress,
+      shippingAddress,
+      shippingInstruction,
+    );
+
     const result: Checkout = {
       identifier,
       name,
@@ -278,7 +311,7 @@ export class MedusaCheckoutFactory<
       items,
       originalCartReference,
       paymentInstructions,
-      readyForFinalization: false,
+      readyForFinalization,
       billingAddress,
       resultingOrder,
       shippingAddress,
