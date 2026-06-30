@@ -4,8 +4,8 @@ import type { RequestContext } from './schemas/session.schema.js';
 export function createInitialRequestContext(): RequestContext {
   return {
     languageContext: {
-      locale: 'en-US',
-      currencyCode: 'EUR',
+      locale: 'da-DK',
+      currencyCode: 'DKK',
     },
     storeIdentifier: {
       key: 'the-good-store',

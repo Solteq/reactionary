@@ -1,4 +1,4 @@
-import type { StoreOrder, StoreOrderLineItem, StorePaymentCollection } from '@medusajs/types';
+import type { StoreOrder, StoreOrderLineItem, StorePaymentCollection, StorePaymentSession } from '@medusajs/types';
 import {
   ProductVariantIdentifierSchema,
   type AnyOrderSchema,
@@ -65,7 +65,7 @@ export class MedusaOrderFactory<
 
     const paymentInstructions: PaymentInstruction[] =  data.payment_collections?.map( (pc) => {
       return this.parsePaymentInstruction(context, pc, data);
-    }) || [];
+    }).filter(x => !!x) || [];
 
     const result = {
       identifier,
@@ -132,11 +132,20 @@ export class MedusaOrderFactory<
   }
 
   protected parsePaymentInstruction(_context: RequestContext, remotePayment: StorePaymentCollection, order: StoreOrder) {
+      const mainSession = (remotePayment.payment_sessions || []).find(
+        (session) => session.status !== 'canceled' && session.status !== 'error',
+      ) as StorePaymentSession;
+      if  (!mainSession) {
+        console.log(`Skipping collection ${remotePayment.id} because it has no valid payment sessions`);
+        return undefined;
+      }
+
       const paymentMethodIdentifier: PaymentMethodIdentifier = {
-        method: remotePayment.payment_providers?.[0]?.id || 'unknown',
-        name: remotePayment.payment_providers?.[0]?.id || 'unknown',
-        paymentProcessor: remotePayment.payment_providers?.[0]?.id || 'unknown',
+        method: mainSession.provider_id,
+        name: mainSession.provider_id,
+        paymentProcessor: mainSession.provider_id,
       };
+
 
       let status: PaymentInstruction['status'] = 'pending';
       switch (remotePayment.status) {
@@ -163,7 +172,7 @@ export class MedusaOrderFactory<
           break;
       }
 
-      const paymentData = remotePayment.payments?.[0].data || {};
+      const paymentData = mainSession.data || {};
       const pi = {
         identifier: {
           key: remotePayment.id,

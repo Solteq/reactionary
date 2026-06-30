@@ -4,8 +4,8 @@ import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { ProductSearchQueryByTermSchema, type Cart, type CartIdentifier, type Company, type CompanyIdentifier, type ProductSearchQueryByTerm } from '@reactionary/core';
 
 const testData = {
-  skuWithoutTiers: '0766623301831',
-  skuWithTiers: '0766623360203',
+  skuWithoutTiers: '8436584872870',
+  skuWithTiers: '0731304432500',
   skuWithExternalPrice: '0766623301831',
 
 

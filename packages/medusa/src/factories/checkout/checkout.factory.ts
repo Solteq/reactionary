@@ -1,9 +1,13 @@
 import type {
-  StoreCart,
-  StoreCartAddress,
-  StoreCartLineItem,
-  StoreCartShippingOptionWithServiceZone,
-  StorePaymentProvider,
+  StorePaymentCollection} from '@medusajs/types';
+import {
+  type StoreCart,
+  type StoreCartAddress,
+  type StoreCartLineItem,
+  type StoreCartShippingOptionWithServiceZone,
+  type StoreOrderAddress,
+  type StorePaymentProvider,
+  type StorePaymentSession,
 } from '@medusajs/types';
 import {
   AddressIdentifierSchema,
@@ -25,6 +29,7 @@ import {
   type PaymentInstruction,
   type PaymentMethodIdentifier,
   type PaymentMethodSchema,
+  type PaymentStatus,
   type PointOfContact,
   type RequestContext,
   type ShippingInstruction,
@@ -76,7 +81,7 @@ export class MedusaCheckoutFactory<
    */
   protected parseItemPrice(
     _context: RequestContext,
-    remoteItem: StoreCartLineItem,
+    remoteItem: StoreCartLineItem ,
     currency: Currency,
   ): ItemCostBreakdown {
     return parseMedusaItemPrice(remoteItem, currency);
@@ -89,7 +94,7 @@ export class MedusaCheckoutFactory<
    */
   protected parseCostBreakdown(
     _context: RequestContext,
-    remote: StoreCart,
+    remote: StoreCart ,
   ): CostBreakDown {
     return parseMedusaCostBreakdown(remote);
   }
@@ -165,6 +170,9 @@ export class MedusaCheckoutFactory<
     return true;
   }
 
+  protected isCart(data: StoreCart): data is StoreCart {
+    return (data as StoreCart).payment_collection !== undefined;
+  }
 
 
   public parseCheckout(
@@ -241,41 +249,15 @@ export class MedusaCheckoutFactory<
     });
 
     const paymentInstructions = new Array<PaymentInstruction>();
-    for (const remotePayment of data.payment_collection?.payment_sessions ||
-      []) {
-      if (
-        remotePayment.status === 'canceled' ||
-        remotePayment.status === 'error'
-      ) {
-        console.warn(
-          `Skipping payment session ${remotePayment.id} with status ${remotePayment.status}`,
-        );
-        continue;
-      }
-      const paymentMethodIdentifier: PaymentMethodIdentifier = {
-        method: remotePayment.provider_id,
-        name: remotePayment.provider_id,
-        paymentProcessor: remotePayment.provider_id,
-      };
 
-      paymentInstructions.push({
-        identifier: {
-          key: remotePayment.id,
-        },
-        amount: {
-          value: remotePayment.amount,
-          currency: remotePayment.currency_code?.toUpperCase() as Currency,
-        },
-        paymentMethod: paymentMethodIdentifier,
-        protocolData: remotePayment.data
-          ? Object.entries(remotePayment.data).map(([key, value]) => ({
-              key,
-              value: String(value),
-            }))
-          : [],
-        status: 'pending',
-      });
+    if (data.payment_collection) {
+      const paymentInstruction = this.parsePaymentInstruction(context, data.payment_collection, data);
+      if (paymentInstruction) {
+        paymentInstructions.push(paymentInstruction);
+      }
     }
+
+
 
     const originalCartReference: MedusaCartIdentifier = {
       key: data.id,
@@ -288,10 +270,17 @@ export class MedusaCheckoutFactory<
     } satisfies PointOfContact;
 
     let resultingOrder: MedusaOrderIdentifier | undefined = undefined;
-    if (data.metadata?.['order_id']) {
+    let displayId: number | undefined = undefined;
+    if ((data as any)['order']?.custom_display_id) {
+      displayId = Number((data as any)['order'].custom_display_id + '' || '0');
+    } else if ((data as any)['order']?.display_id) {
+      displayId = Number((data as any)['order'].display_id + '' || '0');
+    }
+
+    if ((data as any)['order']?.id) {
       resultingOrder = {
-        key: data.metadata?.['order_id'] + '' || '',
-        display_id: Number(data.metadata?.['order_display_id'] + '' || '0'),
+        key: (data as any)['order'].id || '',
+        display_id: displayId,
       } satisfies MedusaOrderIdentifier;
     }
 
@@ -340,6 +329,70 @@ export class MedusaCheckoutFactory<
 
     return this.shippingMethodSchema.parse(sm);
   }
+
+
+  protected parsePaymentInstruction(_context: RequestContext, remotePayment: StorePaymentCollection, checkout: StoreCart) {
+
+      const mainSession = (remotePayment.payment_sessions || []).find(
+        (session) => session.status !== 'canceled' && session.status !== 'error',
+      ) as StorePaymentSession;
+      if  (!mainSession) {
+        console.log(`Skipping collection ${remotePayment.id} because it has no valid payment sessions`);
+        return undefined;
+      }
+
+      const paymentMethodIdentifier: PaymentMethodIdentifier = {
+        method: mainSession.provider_id,
+        name: mainSession.provider_id,
+        paymentProcessor: mainSession.provider_id,
+      };
+
+      let status: PaymentInstruction['status'] = 'pending';
+      switch (remotePayment.status) {
+        case 'not_paid':
+          status = 'pending';
+          break;
+        case 'awaiting':
+          status = 'pending';
+          break;
+        case 'authorized':
+          status = 'authorized';
+          break;
+        case 'partially_authorized':
+          status = 'pending';
+          break;
+        case 'canceled':
+          status = 'canceled';
+          break;
+        case 'failed':
+          status = 'canceled';
+          break;
+        case 'completed':
+          status = 'capture';
+          break;
+      }
+
+      const paymentData = mainSession.data || {};
+      const pi = {
+        identifier: {
+          key: remotePayment.id,
+        },
+        amount: {
+          value: remotePayment.amount,
+          currency: remotePayment.currency_code?.toUpperCase() as Currency,
+        },
+        paymentMethod: paymentMethodIdentifier,
+        protocolData: paymentData
+          ? Object.entries(paymentData).map(([key, value]) => ({
+              key,
+              value: String(value),
+            }))
+          : [],
+        status,
+      } satisfies PaymentInstruction;
+    return pi;
+  }
+
 
   public parsePaymentMethod(
     _context: RequestContext,

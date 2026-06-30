@@ -303,13 +303,18 @@ export class MedusaCartCapability<
    * @param currency
    * @returns
    */
-  protected createCartPayload(payload: CartMutationCreateCart): StoreCreateCart {
+  protected async createCartPayload(payload: CartMutationCreateCart): Promise<StoreCreateCart> {
+
+    const newRegionId = (await this.medusaApi.getActiveRegion()).id;
+
+
     return {
         currency_code: (
             this.context.languageContext.currencyCode ||
             'EUR'
         ).toLowerCase(),
         locale: this.context.languageContext.locale,
+        region_id: newRegionId,
         metadata: {
           name: payload.name,
         }
@@ -355,7 +360,7 @@ export class MedusaCartCapability<
       const client = await this.getClient();
 
       const response = await client.store.cart.create(
-        this.createCartPayload(payload),
+        await this.createCartPayload(payload),
         {
           fields: this.includedFields,
         }

@@ -86,7 +86,7 @@ export class MedusaCheckoutCapability<
    *
    * example: this.includedFields = [includedFields, '+discounts.*'].join(',');
    */
-  protected includedFields: string = ['+items.*'].join(',');
+  protected includedFields: string = ['+items.*', '+order.id','+order.display_id', '+order.custom_display_id'].join(',');
 
 
 
@@ -154,7 +154,7 @@ export class MedusaCheckoutCapability<
     const response = await client.store.cart.retrieve(payload.identifier.key, {
       fields: this.includedFields,
     });
-    return success(this.factory.parseCheckout(this.context, response.cart));
+      return success(this.factory.parseCheckout(this.context, response.cart));
   }
 
 
@@ -398,51 +398,48 @@ export class MedusaCheckoutCapability<
   public override async finalizeCheckout(
     payload: CheckoutMutationFinalizeCheckout
   ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
-    const checkout = await this.getById({ identifier: payload.checkout });
+    let checkout = await this.getById({ identifier: payload.checkout });
     if (!checkout.success || !checkout.value.readyForFinalization) {
       throw new CheckoutNotReadyForFinalizationError(payload.checkout);
     }
 
-    const client = await this.medusaApi.getClient();
-    const medusaId = payload.checkout as CheckoutIdentifier;
+    // medusa already most likely created the order. If it did, we can just return clean up local state and return the order.
+    if (!checkout.value.resultingOrder) {
+      const client = await this.medusaApi.getClient();
+      const medusaId = payload.checkout as CheckoutIdentifier;
 
-    // Complete the cart to create an order
-    const response = await client.store.cart.complete(medusaId.key);
+      // Complete the cart to create an order
+      const response = await client.store.cart.complete(medusaId.key);
 
-    if (response.type === 'order') {
-      // lets persist this on the carts metadata for future reference
-      const updatedCart = await client.store.cart.update(medusaId.key, {
-        metadata: {
-          order_id: response.order.id,
-          order_display_id: response.order?.display_id ? response.order.display_id + '' : '',
-        },
-      });
-      const refreshedCheckout = await this.getById({
-        identifier: payload.checkout,
-      });
-
-      const sessionData = this.medusaApi.getSessionData();
-      const cartCollectionKey = '_me';
-      if (sessionData.allOwnedCarts?.[cartCollectionKey]) {
-        const updatedCollection = sessionData.allOwnedCarts[cartCollectionKey].filter(x => x.key !== updatedCart.cart.id);
-
-        this.medusaApi.setSessionData({
-          allOwnedCarts: {
-            ...sessionData.allOwnedCarts,
-            [cartCollectionKey]: updatedCollection,
-          },
-          activeCartId: updatedCollection.length > 0 ? updatedCollection[0] : undefined,
+      if (response.type === 'order') {
+        // lets persist this on the carts metadata for future reference
+        checkout = await this.getById({
+          identifier: payload.checkout,
         });
+        if (!checkout.success) {
+          throw new Error(`Unable to reload checkout ${payload.checkout.key} after completion`);
+        }
+      } else {
+        throw new Error(`Failed to finalize checkout ${payload.checkout.key}. Expected order, got ${response.type}`);
       }
-
-      if (!refreshedCheckout.success) {
-        throw new Error(`Unable to reload checkout ${payload.checkout.key} after completion`);
-      }
-
-      return success(refreshedCheckout.value);
     }
 
-    throw new Error('Something failed during order creation');
+    const originatingCartRef = checkout.value.originalCartReference;
+
+    const sessionData = this.medusaApi.getSessionData();
+    const cartCollectionKey = '_me';
+    if (sessionData.allOwnedCarts?.[cartCollectionKey]) {
+      const updatedCollection = sessionData.allOwnedCarts[cartCollectionKey].filter(x => x.key !== originatingCartRef?.key);
+
+      this.medusaApi.setSessionData({
+        allOwnedCarts: {
+          ...sessionData.allOwnedCarts,
+          [cartCollectionKey]: updatedCollection,
+        },
+        activeCartId: updatedCollection.length > 0 ? updatedCollection[0] : undefined,
+      });
+    }
+    return success(checkout.value);
   }
 
   /**
