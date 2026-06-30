@@ -5,26 +5,26 @@ import { createClient, PrimaryProvider } from '../utils.js';
 const testData = {
   topCategories: [
     {
-      key: '2833',
-      name: 'Computers & Peripherals',
-      slug: 'computers-and-peripherals',
+      key: '1883',
+      name: 'Tools used in the home and garden such as power drills, spades and screwdrivers.',
+      slug: 'work-tools-and-hardware',
     },
     {
-      key: '9541',
-      name: 'Computer Spare Parts & Accessories',
+      key: '2554',
+      name: 'Electrical Equipment & Supplies',
     },
   ],
 
   childCategoriesOfFirstTopcategory: [
-    { key: '225', name: 'Printers & Scanners' },
-    { key: '830', name: 'Computer Cables' },
+    { key: '1355', name: 'Hand Tools' },
+    { key: '1884', name: 'Power Tools' },
   ],
 
   categoryWithDescription: [
-    { key: '195', name: 'Mice', text: 'The mouse is the second most important way of communicating' },
+    { key: '1730', name: 'Hot Glue Guns & Pens', text: 'Hot glue guns and pens are tools designed to melt and apply adhesive sticks for bonding various materials securely. They provide quick-setting and strong adhesion used in crafting, repairs, and assembly tasks.' },
   ],
 
-  breadCrumb: ['2833', '225'],
+  breadCrumb: ['1883', '1355'],
 };
 
 describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category Capability - %s', (provider) => {
