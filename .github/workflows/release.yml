@@ -22,7 +22,6 @@ permissions:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
 
 jobs:
   release:
@@ -48,11 +47,6 @@ jobs:
           git config --global user.name "Martin Rogne"
           pnpm exec nx release patch --yes -- --no-agents
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_ACCESS_TOKEN }}
-          NPM_CONFIG_PROVENANCE: false
           NPM_CONFIG_ACCESS: public
-
-
-
 
 
