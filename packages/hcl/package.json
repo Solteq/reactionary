@@ -4,6 +4,10 @@
   "type": "module",
   "main": "./index.js",
   "types": "./src/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Solteq/reactionary.git"
+  },
   "dependencies": {
     "@reactionary/core": "0.0.1",
     "debug": "^4.4.3",
