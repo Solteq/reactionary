@@ -46,11 +46,20 @@ jobs:
           npm --version
           pnpm --version
 
-      - run: |
+      - name: Version and build
+        run: |
           git config --global user.email "martin.rogne@solteq.com"
           git config --global user.name "Martin Rogne"
-          pnpm exec nx release patch --yes -- --no-agents
-        env:
-          NPM_CONFIG_ACCESS: public
-          NPM_CONFIG_PROVENANCE: true
+          pnpm exec nx release patch --yes --skip-publish -- --no-agents
+
+      - name: Inspect package
+        working-directory: dist/packages/core
+        run: |
+          node -p "require('./package.json').name"
+          node -p "require('./package.json').version"
+          npm pack --dry-run
+
+      - name: Publish core with npm
+        working-directory: dist/packages/core
+        run: npm publish --access public
 
