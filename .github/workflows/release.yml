@@ -48,5 +48,5 @@ jobs:
           pnpm exec nx release patch --yes -- --no-agents
         env:
           NPM_CONFIG_ACCESS: public
-
+          NPM_CONFIG_PROVENANCE: true
 

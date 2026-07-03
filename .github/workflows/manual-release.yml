@@ -47,3 +47,4 @@ jobs:
           pnpm exec nx release ${{ github.event.inputs.version_bump }} --yes -- --no-agents
         env:
           NPM_CONFIG_ACCESS: public
+          NPM_CONFIG_PROVENANCE: true
