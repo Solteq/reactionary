@@ -38,6 +38,7 @@ jobs:
         with:
           node-version: 24
           cache: 'pnpm'
+          registry-url: https://registry.npmjs.org/
 
       - run: pnpm install
 
@@ -58,6 +59,23 @@ jobs:
           node -p "require('./package.json').name"
           node -p "require('./package.json').version"
           npm pack --dry-run
+
+      - name: Diagnose npm trusted publishing
+        working-directory: dist/packages/core
+        run: |
+          echo "Repository from GitHub: $GITHUB_REPOSITORY"
+          echo "Workflow ref: $GITHUB_WORKFLOW_REF"
+
+          echo "Package repository:"
+          node -p "JSON.stringify(require('./package.json').repository, null, 2)"
+
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" \
+            && echo "OIDC request URL is available" \
+            || echo "OIDC request URL is MISSING"
+
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" \
+            && echo "OIDC request token is available" \
+            || echo "OIDC request token is MISSING"
 
       - name: Publish core with npm
         working-directory: dist/packages/core
