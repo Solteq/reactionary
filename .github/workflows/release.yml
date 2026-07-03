@@ -42,42 +42,11 @@ jobs:
 
       - run: pnpm install
 
-      - run: |
-          node --version
-          npm --version
-          pnpm --version
-
-      - name: Version and build
+      - name: Release
         run: |
           git config --global user.email "martin.rogne@solteq.com"
           git config --global user.name "Martin Rogne"
-          pnpm exec nx release patch --skip-publish -- --no-agents
-
-      - name: Inspect package
-        working-directory: dist/packages/core
-        run: |
-          node -p "require('./package.json').name"
-          node -p "require('./package.json').version"
-          npm pack --dry-run
-
-      - name: Diagnose npm trusted publishing
-        working-directory: dist/packages/core
-        run: |
-          echo "Repository from GitHub: $GITHUB_REPOSITORY"
-          echo "Workflow ref: $GITHUB_WORKFLOW_REF"
-
-          echo "Package repository:"
-          node -p "JSON.stringify(require('./package.json').repository, null, 2)"
-
-          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" \
-            && echo "OIDC request URL is available" \
-            || echo "OIDC request URL is MISSING"
-
-          test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" \
-            && echo "OIDC request token is available" \
-            || echo "OIDC request token is MISSING"
-
-      - name: Publish core with npm
-        working-directory: dist/packages/core
-        run: npm publish --access public
-
+          pnpm exec nx release patch --yes -- --no-agents
+        env:
+          NPM_CONFIG_ACCESS: public
+          NPM_CONFIG_PROVENANCE: true
