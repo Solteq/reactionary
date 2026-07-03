@@ -6,7 +6,7 @@
   "types": "./src/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/solteq/reactionary.git"
+    "url": "git+https://github.com/Solteq/reactionary.git"
   },
   "dependencies": {
     "zod": "4.1.9",
