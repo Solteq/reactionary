@@ -10,9 +10,23 @@ on:
       - '**/*.md'
 
     branches:
-      main
+      - main
 
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
 
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   actions: read
@@ -22,9 +36,11 @@ permissions:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  VERSION_BUMP: ${{ inputs.version_bump || 'patch' }}
 
 jobs:
   release:
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +62,7 @@ jobs:
         run: |
           git config --global user.email "martin.rogne@solteq.com"
           git config --global user.name "Martin Rogne"
-          pnpm exec nx release patch --yes -- --no-agents
+          pnpm exec nx release "$VERSION_BUMP" --yes -- --no-agents
         env:
           NPM_CONFIG_ACCESS: public
           NPM_CONFIG_PROVENANCE: true
