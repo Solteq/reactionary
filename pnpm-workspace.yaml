@@ -1,0 +1,13 @@
+allowBuilds:
+  '@datadog/native-appsec': true
+  '@datadog/native-iast-taint-tracking': true
+  '@datadog/native-metrics': true
+  '@datadog/pprof': true
+  '@newrelic/fn-inspect': true
+  '@newrelic/native-metrics': true
+  '@swc/core': true
+  core-js: true
+  esbuild: true
+  nx: true
+  protobufjs: true
+  unrs-resolver: true
