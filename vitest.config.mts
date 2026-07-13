@@ -1,10 +1,9 @@
-import { resolve } from 'path'
-import { defineConfig } from 'vitest/config'
+import { resolve } from 'path';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
     projects: ['providers/*', 'examples/*', 'core'],
-    reporters: ['default', 'verbose', 'github-actions'],
-
+    reporters: ['default', 'tree', 'github-actions'],
   },
-})
+});

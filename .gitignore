@@ -58,3 +58,8 @@ vitest.config.*.timestamp*
 .docusaurus/
 *.local.md
 notes/
+
+.claude/worktrees
+.nx/polygraph
+.nx/self-healing
+.nx/migrate-runs
