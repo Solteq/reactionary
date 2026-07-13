@@ -66,3 +66,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_ACCESS: public
           NPM_CONFIG_PROVENANCE: true
+          NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_ACCESS_TOKEN }}

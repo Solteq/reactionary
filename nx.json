@@ -12,7 +12,7 @@
       "!{projectRoot}/test-setup.[jt]s",
       "!{projectRoot}/vitest.config.mts"
     ],
-    "sharedGlobals": ["{workspaceRoot}/.github/workflows/ci.yml"]
+    "sharedGlobals": ["{workspaceRoot}/.github/workflows/pull-request.yml"]
   },
   "targetDefaults": {
     "@nx/eslint:lint": {
