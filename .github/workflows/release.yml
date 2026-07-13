@@ -35,7 +35,6 @@ permissions:
   id-token: write
 
 env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   VERSION_BUMP: ${{ inputs.version_bump || 'patch' }}
 
 jobs:
@@ -64,5 +63,6 @@ jobs:
           git config --global user.name "Martin Rogne"
           pnpm exec nx release "$VERSION_BUMP" --yes -- --no-agents
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_ACCESS: public
           NPM_CONFIG_PROVENANCE: true

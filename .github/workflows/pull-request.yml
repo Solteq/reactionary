@@ -11,9 +11,6 @@ permissions:
 
 concurrency: pull-request-${{ github.event.pull_request.number }}
 
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -29,7 +26,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 23
+          node-version: 24
           cache: 'pnpm'
 
       - run: pnpm install
