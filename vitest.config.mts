@@ -1,9 +1,8 @@
-import { resolve } from 'path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    projects: ['providers/*', 'examples/*', 'core'],
+    projects: ['packages/*/vitest.config.mts', 'examples/*/vitest.config.mts'],
     reporters: ['default', 'tree', 'github-actions'],
   },
 });

@@ -16,7 +16,6 @@
     "zod": "4.1.9"
   },
   "devDependencies": {
-    "@nx/vite": "22.4.5",
     "vitest": "^4.0.9"
   },
   "sideEffects": false
