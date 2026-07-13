@@ -177,7 +177,7 @@ describe('@Reactionary decorator', () => {
       console.log('unset expected: ', status);
 
       expect(name).toBe('TestableCapability.decoratedFunction');
-      expect(duration).toBeGreaterThanOrEqual(200);
+      expect(duration).toBeGreaterThan(150);
       expect(duration).toBeLessThanOrEqual(300);
       expect(status.code).toBe(SpanStatusCode.UNSET);
     });

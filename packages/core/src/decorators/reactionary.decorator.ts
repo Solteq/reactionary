@@ -76,10 +76,6 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
     const attributes = {
       'labels.scope': scope,
     };
-    const startTime = performance.now();
-    let status = 'ok';
-    let cacheStatus = 'miss';
-
     if (!original) {
       throw new Error(
         '@Reactionary decorator may only be applied to methods on classes extending BaseCapability.'
@@ -87,6 +83,10 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
     }
 
     descriptor.value = async function (this: BaseCapability, ...args: any[]) {
+      const startTime = performance.now();
+      let status = 'ok';
+      let cacheStatus = 'miss';
+
       return traceSpan(scope, async () => {
         meter.requestInProgress.add(1, attributes);
         try {
