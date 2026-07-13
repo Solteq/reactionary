@@ -138,9 +138,12 @@ importers:
       esbuild:
         specifier: ^0.19.2
         version: 0.19.12
+      eslint:
+        specifier: ^9.8.0
+        version: 9.39.4(jiti@1.21.7)
       eslint-plugin-zod:
-        specifier: ^3.1.0
-        version: 3.12.1(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)(zod@4.1.9)
+        specifier: 3.1.0
+        version: 3.1.0(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)(zod@4.1.9)
       jsonc-eslint-parser:
         specifier: ^2.1.0
         version: 2.4.2
@@ -5607,18 +5610,13 @@ packages:
     resolution: {integrity: sha512-/veY75JbMK4j1yjvuUxuVsiS/hr/4iHs9FTT6cgTexxdE0Ly/glccBAkloH/DofkjRbZU3bnoj38mOmhkZ0lHw==}
     engines: {node: '>=12'}
 
-  eslint-plugin-zod@3.12.1:
-    resolution: {integrity: sha512-wTSFJ/I8EvajCQVWzftwYPFM0ElsxxH5xMd22n+4v016ZdmC/nh95LUkKbStqrmDCMiGheZsn1ByNo6/Jvo7Ow==}
+  eslint-plugin-zod@3.1.0:
+    resolution: {integrity: sha512-9XemRkKexNSXP31yDGNlghr0c42hWJaqgmQ1tQx+u4ZawxObVlSQyKTTATXmN7Cr4BXH2uUrKYiZoEhLhoAXrg==}
     engines: {node: ^20 || ^22 || >=24}
     peerDependencies:
-      eslint: ^9 || ^10
-      oxlint: ^1.59.0
+      eslint: ^9
       zod: ^4
     peerDependenciesMeta:
-      eslint:
-        optional: true
-      oxlint:
-        optional: true
       zod:
         optional: true
 
@@ -16765,12 +16763,12 @@ snapshots:
 
   escape-string-regexp@5.0.0: {}
 
-  eslint-plugin-zod@3.12.1(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)(zod@4.1.9):
+  eslint-plugin-zod@3.1.0(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)(zod@4.1.9):
     dependencies:
       '@typescript-eslint/utils': 8.62.1(eslint@9.39.4(jiti@1.21.7))(typescript@5.9.3)
+      eslint: 9.39.4(jiti@1.21.7)
       esquery: 1.7.0
     optionalDependencies:
-      eslint: 9.39.4(jiti@1.21.7)
       zod: 4.1.9
     transitivePeerDependencies:
       - supports-color
