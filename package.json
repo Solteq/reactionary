@@ -7,25 +7,17 @@
     "docs:build": "docusaurus build --config documentation/docusaurus.config.js",
     "docs:generate": "node ./documentation/scripts/generate.ts"
   },
-  "private": false,
+  "private": true,
   "dependencies": {
     "@commercetools/platform-sdk": "^8.25.0",
     "@commercetools/ts-client": "^4.9.1",
-    "@commercetools/ts-sdk-apm": "^4.0.0",
-    "@docusaurus/core": "^3.9.2",
-    "@docusaurus/preset-classic": "^3.9.2",
     "@faker-js/faker": "^9.8.0",
     "@medusajs/js-sdk": "^2.14.1",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/core": "^2.0.1",
-    "@opentelemetry/sdk-trace-base": "^2.0.1",
-    "@opentelemetry/sdk-trace-node": "^2.0.1",
     "algoliasearch": "^5.48.0",
     "debug": "^4.4.3",
-    "dotenv": "^17.2.2",
     "meilisearch": "^0.58.0",
     "node-object-hash": "^3.1.1",
-    "posthog-node": "^5.24.0",
     "redis": "^5.12.1",
     "zod": "4.1.9"
   },
@@ -40,7 +32,6 @@
     "@nx/eslint-plugin": "23.0.2",
     "@nx/js": "23.0.2",
     "@nx/node": "23.0.2",
-    "@nx/playwright": "23.0.2",
     "@nx/vitest": "23.0.2",
     "@nx/workspace": "23.0.2",
     "@swc-node/register": "1.11.1",
@@ -67,14 +58,16 @@
     "verdaccio": "6.7.4",
     "vite": "8.1.4",
     "vitest": "^4.0.9",
-    "zod2md": "^0.2.5"
+    "zod2md": "^0.2.5",
+    "@docusaurus/core": "^3.9.2",
+    "@docusaurus/preset-classic": "^3.9.2",
+    "dotenv": "^17.2.2",
+    "@opentelemetry/core": "^2.0.1",
+    "@opentelemetry/sdk-trace-base": "^2.0.1",
+    "@opentelemetry/sdk-trace-node": "^2.0.1"
   },
   "nx": {
     "includedScripts": []
-  },
-  "publishConfig": {
-    "access": "public",
-    "provenance": false
   },
   "packageManager": "pnpm@10.32.0+sha512.9b2634bb3fed5601c33633f2d92593f506270a3963b8c51d2b2d6a828da615ce4e9deebef9614ccebbc13ac8d3c0f9c9ccceb583c69c8578436fa477dbb20d70"
 }
