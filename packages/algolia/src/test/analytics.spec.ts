@@ -1,4 +1,18 @@
-import { describe, it, assert } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  algoliasearch: vi.fn(),
+  pushEvents: vi.fn(),
+  search: vi.fn(),
+}));
+
+vi.mock('algoliasearch', () => ({
+  algoliasearch: mocks.algoliasearch.mockImplementation(() => ({
+    initInsights: () => ({ pushEvents: mocks.pushEvents }),
+    search: mocks.search,
+  })),
+}));
+
 import { AlgoliaAnalyticsCapability } from '../capabilities/analytics.capability.js';
 import { createInitialRequestContext, NoOpCache } from '@reactionary/core';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
@@ -8,9 +22,9 @@ import { AlgoliaProductSearchResultSchema } from '../schema/search.schema.js';
 
 describe('Analytics event tracking', async () => {
   const config = {
-    apiKey: process.env['ALGOLIA_API_KEY'] || '',
-    appId: process.env['ALGOLIA_APP_ID'] || '',
-    indexName: process.env['ALGOLIA_INDEX'] || '',
+    apiKey: 'test-api-key',
+    appId: 'test-app-id',
+    indexName: 'products',
   } satisfies AlgoliaConfiguration;
   const cache = new NoOpCache();
   const context = createInitialRequestContext();
@@ -23,6 +37,33 @@ describe('Analytics event tracking', async () => {
     searchFactory,
   );
   const analytics = new AlgoliaAnalyticsCapability(cache, context, config);
+
+  beforeEach(() => {
+    mocks.pushEvents.mockReset();
+    mocks.pushEvents.mockResolvedValue(undefined);
+  });
+
+  mocks.search.mockResolvedValue({
+    results: [
+      {
+        hits: [
+          {
+            name: 'Test product',
+            objectID: 'product-1',
+            variants: [{ image: 'https://example.invalid/product.png', sku: 'SKU-1' }],
+          },
+        ],
+        index: 'products',
+        nbHits: 1,
+        nbPages: 1,
+        page: 0,
+        queryID: 'query-1',
+        hitsPerPage: 10,
+        facets: {},
+      },
+    ],
+  });
+
   const searchResult = await search.queryByTerm({
     search: {
       facets: [],
@@ -36,7 +77,7 @@ describe('Analytics event tracking', async () => {
   });
 
   if (!searchResult.success) {
-    assert.fail();
+    throw new Error('Expected the mocked Algolia search to succeed');
   }
 
   it('can track summary clicks', async () => {
@@ -49,6 +90,8 @@ describe('Analytics event tracking', async () => {
         identifier: searchResult.value.identifier,
       },
     });
+
+    expect(mocks.pushEvents).toHaveBeenCalledTimes(1);
   });
 
   it('can track summary views', async () => {
@@ -60,6 +103,8 @@ describe('Analytics event tracking', async () => {
         identifier: searchResult.value.identifier,
       },
     });
+
+    expect(mocks.pushEvents).toHaveBeenCalledTimes(1);
   });
 
   it('can track add to cart', async () => {
@@ -71,6 +116,8 @@ describe('Analytics event tracking', async () => {
         identifier: searchResult.value.identifier,
       },
     });
+
+    expect(mocks.pushEvents).toHaveBeenCalledTimes(1);
   });
 
   it('can track purchase', async () => {
@@ -142,5 +189,7 @@ describe('Analytics event tracking', async () => {
         }
       },
     });
+
+    expect(mocks.pushEvents).toHaveBeenCalledTimes(1);
   });
 });
