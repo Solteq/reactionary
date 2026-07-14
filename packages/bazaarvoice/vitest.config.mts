@@ -10,6 +10,11 @@ export default defineConfig(() => ({
     globals: true,
     environment: 'node',
     include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    typecheck: {
+      enabled: true,
+      tsconfig: './tsconfig.spec.json',
+      include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    },
     reporters: ['default'],
     coverage: {
       reportsDirectory: '../../coverage/packages/bazaarvoice',

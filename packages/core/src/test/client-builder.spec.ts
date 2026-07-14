@@ -95,9 +95,9 @@ describe('Client Builder', () => {
 
     const client = builder
       .withCache(cache)
-      .withCapability(({ cache: sharedCache, context: sharedContext }) => {
-        expect(sharedCache).toBe(cache);
-        expect(sharedContext).toBe(context);
+      .withCapability(({ cache: cache, context: context }) => {
+        expect(cache).toBe(cache);
+        expect(context).toBe(context);
         return { analytics: analyticsCapability };
       })
       .build();
