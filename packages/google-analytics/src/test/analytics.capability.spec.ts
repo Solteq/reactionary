@@ -1,25 +1,28 @@
-import 'dotenv/config';
 import type { AnalyticsMutationProductSummaryViewEvent, AnalyticsMutationPurchaseEvent, RequestContext } from '@reactionary/core';
 import {
-  CartSchema,
-  IdentitySchema,
   NoOpCache,
   createInitialRequestContext,
 } from '@reactionary/core';
-import { describe, it, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GoogleAnalyticsAnalyticsCapability } from '../capabilities/analytics.capability.js';
 import type { GoogleAnalyticsConfiguration } from '../schema/configuration.schema.js';
+
+const fetchMock = vi.fn<typeof fetch>();
 
 describe('Google Analytics Analytics Capability', () => {
   let capability: GoogleAnalyticsAnalyticsCapability;
   let reqCtx: RequestContext;
 
   beforeEach(() => {
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
     reqCtx = createInitialRequestContext();
     const config = {
-      apiSecret: process.env['GOOGLE_ANALYTICS_API_SECRET'] || '',
-      measurementId: process.env['GOOGLE_ANALYTICS_MEASUREMENT_ID'] || '',
-      url: process.env['GOOGLE_ANALYTICS_URL'] || '',
+      apiSecret: 'test-api-secret',
+      measurementId: 'G-TEST123',
+      url: 'https://example.invalid/collect',
     } satisfies GoogleAnalyticsConfiguration;
 
     capability = new GoogleAnalyticsAnalyticsCapability(
@@ -27,6 +30,10 @@ describe('Google Analytics Analytics Capability', () => {
       reqCtx,
       config
     );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   describe('tracking', () => {
@@ -39,6 +46,11 @@ describe('Google Analytics Analytics Capability', () => {
         } satisfies AnalyticsMutationProductSummaryViewEvent;
 
         await capability.track(event);
+
+        expect(fetchMock).toHaveBeenCalledWith(
+          'https://example.invalid/collect?measurement_id=G-TEST123&api_secret=test-api-secret',
+          expect.objectContaining({ method: 'POST' })
+        );
     });
 
     it('should be able to track a purchase', async () => {
@@ -88,6 +100,11 @@ describe('Google Analytics Analytics Capability', () => {
         } satisfies AnalyticsMutationPurchaseEvent;
 
         await capability.track(event);
+
+        expect(fetchMock).toHaveBeenCalledWith(
+          'https://example.invalid/collect?measurement_id=G-TEST123&api_secret=test-api-secret',
+          expect.objectContaining({ method: 'POST' })
+        );
     });
   });
 });

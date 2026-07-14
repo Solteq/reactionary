@@ -381,7 +381,7 @@ export class CommercetoolsAPI {
       `${this.config.clientId}:${this.config.clientSecret}`,
     ).toString('base64');
 
-    // FIXME: Missing scope-down from .env scopes list
+    // FIXME: Missing scope-down from .test.env scopes list
     const response = await fetch(
       `${this.config.authUrl}/oauth/${this.config.projectKey}/anonymous/token?grant_type=client_credentials`,
       {
