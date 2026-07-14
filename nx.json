@@ -51,6 +51,22 @@
       "options": {
         "testTargetName": "test"
       }
+    },
+    {
+      "plugin": "@nx/vitest",
+      "include": ["packages/**"],
+      "exclude": [
+        "packages/commercetools/**",
+        "packages/meilisearch/**",
+        "packages/medusa/**",
+        "packages/fake/**",
+        "packages/bazaarvoice/**",
+        "packages/lipscore/**",
+        "packages/hcl/**"
+      ],
+      "options": {
+        "testTargetName": "test:offline"
+      }
     }
   ],
   "nxCloudId": "683eb2fef42fbc631b8c5f05",

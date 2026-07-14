@@ -26,7 +26,7 @@ jobs:
 
       - uses: pnpm/action-setup@v6
 
-      - run: pnpm dlx nx-cloud start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="lint,build,test"
+      - run: pnpm dlx nx-cloud start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="lint,build,test:offline"
 
       - uses: actions/setup-node@v6
         with:
@@ -37,6 +37,4 @@ jobs:
 
       - uses: nrwl/nx-set-shas@v5
 
-      - run: pnpm exec nx affected -t lint build
-
-      - run: pnpm exec nx test core
+      - run: pnpm exec nx affected -t lint build test:offline
