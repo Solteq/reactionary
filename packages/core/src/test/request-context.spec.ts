@@ -7,9 +7,10 @@ describe('Request Context', () => {
     const context = createInitialRequestContext();
     const contextString = JSON.stringify(context);
     const reconstructedContext = JSON.parse(contextString);
-    
+
     const parse = RequestContextSchema.safeParse(reconstructedContext);
 
     expect(parse.success).toBe(true);
+    expect(parse.data?.userAgent).toBe(context.userAgent);
   });
 });
