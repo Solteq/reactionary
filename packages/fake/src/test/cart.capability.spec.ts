@@ -2,6 +2,7 @@ import 'dotenv/config';
 import type { RequestContext} from '@reactionary/core';
 import {
   CartIdentifierSchema,
+  CartPaginatedSearchResultSchema,
   CartSchema,
   IdentitySchema,
   NoOpCache,
@@ -29,7 +30,11 @@ describe('Fake Cart Provider', () => {
       getFakerTestConfiguration(),
       new NoOpCache(),
       reqCtx,
-      new FakeCartFactory(CartSchema, CartIdentifierSchema),
+      new FakeCartFactory(
+        CartSchema,
+        CartIdentifierSchema,
+        CartPaginatedSearchResultSchema,
+      ),
     );
     identityProvider = new FakeIdentityCapability(
       getFakerTestConfiguration(),
@@ -42,6 +47,7 @@ describe('Fake Cart Provider', () => {
   describe('anonymous sessions', () => {
     it('should be able to add an item to a cart', async () => {
       const cart = await provider.add({
+          cart: { key: 'test-cart' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
@@ -49,7 +55,7 @@ describe('Fake Cart Provider', () => {
       });
 
       if (!cart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(cart.error));
       }
 
       expect(cart.value.identifier.key).toBeDefined();
@@ -65,6 +71,7 @@ describe('Fake Cart Provider', () => {
 
     it('should be able to change quantity of an item in a cart', async () => {
       const cart = await provider.add({
+          cart: { key: 'test-cart' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
@@ -72,7 +79,7 @@ describe('Fake Cart Provider', () => {
       });
       
       if (!cart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(cart.error));
       }
 
       const updatedCart = await provider.changeQuantity({
@@ -93,6 +100,7 @@ describe('Fake Cart Provider', () => {
 
     it('should be able to remove an item from a cart', async () => {
       const cart = await provider.add({
+          cart: { key: 'test-cart' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
@@ -100,7 +108,7 @@ describe('Fake Cart Provider', () => {
       });
 
       if (!cart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(cart.error));
       }
 
       const updatedCart = await provider.remove({
