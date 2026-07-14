@@ -47,9 +47,11 @@ export function createTestableCapability(
 
     public override generateCacheKeyForQuery(
       scope: string,
-      query: object
+      query: object,
+      locale: string,
+      currency: string,
     ): string {
-      return super.generateCacheKeyForQuery(scope, query);
+      return super.generateCacheKeyForQuery(scope, query, locale, currency);
     }
 
     public getResourceName(): string {

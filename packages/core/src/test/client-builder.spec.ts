@@ -6,7 +6,7 @@ import { AnalyticsCapability } from "../capabilities/analytics.capability.js";
 import type { AnalyticsMutation, AnalyticsResult } from "../schemas/index.js";
 import { NoOpCache } from "../cache/noop-cache.js";
 import { createInitialRequestContext } from "../initialization.js";
-import { ClientBuilder } from "../client/client-builder.js";
+import { ClientBuilder, type ClientBuilderFactoryArgs } from "../client/client-builder.js";
 import type { Client } from "../client/client.js";
 import { ProductCapability } from "../capabilities/product.capability.js";
 
@@ -95,9 +95,9 @@ describe('Client Builder', () => {
 
     const client = builder
       .withCache(cache)
-      .withCapability(({ cache: cache, context: context }) => {
-        expect(cache).toBe(cache);
-        expect(context).toBe(context);
+      .withCapability(({ cache: capabilityCache, context: capabilityContext }: ClientBuilderFactoryArgs) => {
+        expect(capabilityCache).toBe(cache);
+        expect(capabilityContext).toBe(context);
         return { analytics: analyticsCapability };
       })
       .build();
