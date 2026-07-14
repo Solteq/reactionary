@@ -25,6 +25,7 @@ describe('Analytics event tracking', async () => {
     apiKey: 'test-api-key',
     appId: 'test-app-id',
     indexName: 'products',
+    useRecommendationsForBots: false,
   } satisfies AlgoliaConfiguration;
   const cache = new NoOpCache();
   const context = createInitialRequestContext();
