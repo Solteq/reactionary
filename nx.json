@@ -59,7 +59,6 @@
         "packages/commercetools/**",
         "packages/meilisearch/**",
         "packages/medusa/**",
-        "packages/fake/**",
         "packages/bazaarvoice/**",
         "packages/lipscore/**",
         "packages/hcl/**"

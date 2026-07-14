@@ -40,7 +40,7 @@ describe('Fake Price Provider', () => {
 
     expect(result.value.identifier.variant.sku).toBe(testData.skuWithoutTiers);
     expect(result.value.unitPrice.value).toBeGreaterThan(0);
-    expect(result.value.unitPrice.currency).toBe('USD');
+    expect(result.value.unitPrice.currency).toBe(reqCtx.languageContext.currencyCode);
     expect(result.value.tieredPrices.length).toBe(0);
   });
 
@@ -55,14 +55,14 @@ describe('Fake Price Provider', () => {
 
     expect(result.value.identifier.variant.sku).toBe(testData.skuWithTiers);
     expect(result.value.unitPrice.value).toBeGreaterThan(0);
-    expect(result.value.unitPrice.currency).toBe('USD');
+    expect(result.value.unitPrice.currency).toBe(reqCtx.languageContext.currencyCode);
     expect(result.value.tieredPrices.length).toBeGreaterThan(0);
 
     expect(result.value.tieredPrices[0].minimumQuantity).toBeGreaterThan(0);
     expect(result.value.tieredPrices[0].price.value).toBeLessThanOrEqual(
       result.value.unitPrice.value
     );
-    expect(result.value.tieredPrices[0].price.currency).toBe('USD');
+    expect(result.value.tieredPrices[0].price.currency).toBe(reqCtx.languageContext.currencyCode);
   });
 
   it('should return a placeholder price for an unknown SKU', async () => {
@@ -76,7 +76,7 @@ describe('Fake Price Provider', () => {
 
     expect(result.value.identifier.variant.sku).toBe('unknown-sku');
     expect(result.value.unitPrice.value).toBe(-1);
-    expect(result.value.unitPrice.currency).toBe('USD');
+    expect(result.value.unitPrice.currency).toBe(reqCtx.languageContext.currencyCode);
     expect(result.value.tieredPrices.length).toBe(0);
   });
 });
