@@ -15,7 +15,7 @@ Reactionary is a framework-agnostic client library for standardized data access,
 
 ### Running locally
 
-The includes examples generally require `.env` to be configured with the relevant API keys. We can likely create a setup for this in Vault, for easy bootstrapping.
+The includes examples generally require `.test.env` to be configured with the relevant API keys. We can likely create a setup for this in Vault, for easy bootstrapping.
 
 ### Pull requests
 
