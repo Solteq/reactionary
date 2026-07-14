@@ -85,7 +85,7 @@ describe('HCL Identity Capability', () => {
   });
 
   // Login and register tests require a test user — skipped until credentials
-  // are added to .env as HCL_USER / HCL_PASS.
+  // are added to .test.env as HCL_USER / HCL_PASS.
   it.skipIf(!process.env['HCL_USER'])(
     'should login and return a registered identity',
     async () => {

@@ -32,8 +32,8 @@ npx tsc -p packages/hcl/tsconfig.json --noEmit
 # Type-check tests too (spec tsconfig includes test files)
 npx tsc -p packages/hcl/tsconfig.spec.json --noEmit
 
-# Run integration tests (requires .env with live credentials)
-source .env && npx vitest run --config packages/hcl/vitest.config.mts
+# Run integration tests (requires .test.env with live credentials)
+source .test.env && npx vitest run --config packages/hcl/vitest.config.mts
 ```
 
 All source files are ESM-only. Always use `.js` extensions in imports even for `.ts` sources.

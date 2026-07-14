@@ -12,7 +12,7 @@ import { HclClient } from '../core/client.js';
 import { getHclTestConfiguration } from './test-utils.js';
 
 // Demo server: www-latestdevauth.demo.solteq.io, storeId=41
-// Set HCL_ESPOTS_CONFIGURED=true in .env when the target server has the
+// Set HCL_ESPOTS_CONFIGURED=true in .test.env when the target server has the
 // Reactionary_* espots configured. Algorithm tests are skipped when not set.
 const espotsConfigured = !!process.env['HCL_ESPOTS_CONFIGURED'];
 const testData = {

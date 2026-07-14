@@ -44,7 +44,7 @@ Thumbs.db
 .angular
 
 # Local environment
-.env
+*.env
 
 # Next.js
 .next
