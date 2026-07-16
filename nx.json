@@ -30,7 +30,7 @@
       "tag": true
     },
     "version": {
-      "preVersionCommand": "pnpm nx run-many -t build"
+      "preVersionCommand": "pnpm nx run-many -t build --skip-nx-cache"
     },
     "changelog": {
       "workspaceChangelog": {
