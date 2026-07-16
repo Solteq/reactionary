@@ -9,7 +9,7 @@ import {
 import { FakeCategoryCapability } from '../capabilities/index.js';
 import { FakeCategoryFactory } from '../factories/index.js';
 import { getFakerTestConfiguration } from './test-utils.js';
-import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
+import { describe, expect, it, beforeEach, assert } from 'vitest';
 
 describe('Faker Category Provider', () => {
   let provider: FakeCategoryCapability;
@@ -138,7 +138,7 @@ describe('Faker Category Provider', () => {
 
   it('returns NotFound if looking for slug that does not exist', async () => {
     const result = await provider.getBySlug({ slug: 'non-existent-slug' });
-    
+
     if (result.success) {
       assert.fail();
     }
@@ -148,7 +148,7 @@ describe('Faker Category Provider', () => {
 
   it('should be able to get a category by id', async () => {
     const result = await provider.getById({ id: { key: 'grocery' } });
-    
+
     if (!result.success) {
       assert.fail();
     }
@@ -169,7 +169,7 @@ describe('Faker Category Provider', () => {
     if (result.success) {
       assert.fail();
     }
-    
+
     expect(result.error.type).toBe('NotFound');
   });
 
