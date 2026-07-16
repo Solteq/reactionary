@@ -35,12 +35,6 @@ describe('Fake Cart Provider', () => {
         CartPaginatedSearchResultSchema,
       ),
     );
-    identityProvider = new FakeIdentityCapability(
-      getFakerTestConfiguration(),
-      new NoOpCache(),
-      reqCtx,
-      new FakeIdentityFactory(IdentitySchema),
-    );
   });
 
   describe('anonymous sessions', () => {
