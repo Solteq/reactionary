@@ -12,7 +12,7 @@ import { getFakerTestConfiguration } from './test-utils.js';
 import { FakeCartCapability } from '../capabilities/cart.capability.js';
 import { FakeIdentityCapability } from '../capabilities/index.js';
 import { FakeCartFactory, FakeIdentityFactory } from '../factories/index.js';
-import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
+import { describe, expect, it, beforeEach, assert } from 'vitest';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',
@@ -21,7 +21,6 @@ const testData = {
 
 describe('Fake Cart Provider', () => {
   let provider: FakeCartCapability;
-  let identityProvider: FakeIdentityCapability;
   let reqCtx: RequestContext;
 
   beforeEach( () => {
@@ -77,7 +76,7 @@ describe('Fake Cart Provider', () => {
           },
           quantity: 1
       });
-      
+
       if (!cart.success) {
         assert.fail(JSON.stringify(cart.error));
       }
@@ -115,7 +114,7 @@ describe('Fake Cart Provider', () => {
         cart: cart.value.identifier,
         item: cart.value.items[0].identifier,
       });
-    
+
       if (!updatedCart.success) {
         assert.fail();
       }
