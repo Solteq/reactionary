@@ -4,7 +4,7 @@ import { PaymentInstructionIdentifierSchema, PaymentMethodIdentifierSchema } fro
 import { MonetaryAmountSchema } from './price.model.js';
 import type { InferType } from '../../zod-utils.js';
 
-export const PaymentStatusSchema = z.enum(['pending', 'authorized', 'canceled', 'capture', 'partial_capture', 'refunded', 'partial_refund']);
+export const PaymentStatusSchema = z.enum(['pending', 'authorized', 'canceled', 'captured', 'partial_captured', 'refunded', 'partial_refunded']);
 
 export const PaymentProtocolDataSchema = z.looseObject({
     key: z.string(),
