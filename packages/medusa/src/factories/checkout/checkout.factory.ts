@@ -161,7 +161,7 @@ export class MedusaCheckoutFactory<
     if (paymentInstructions.length === 0) return false;
 
     const authorizedPayments = paymentInstructions
-      .filter((paymentInstruction) => paymentInstruction.status === 'authorized')
+      .filter((paymentInstruction) => (paymentInstruction.status === 'authorized' || paymentInstruction.status === 'captured'))
       .map((paymentInstruction) => paymentInstruction.amount.value)
       .reduce((sum, value) => sum + value, 0);
 
@@ -368,7 +368,7 @@ export class MedusaCheckoutFactory<
           status = 'canceled';
           break;
         case 'completed':
-          status = 'capture';
+          status = 'captured';
           break;
       }
 
