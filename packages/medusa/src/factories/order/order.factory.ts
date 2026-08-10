@@ -167,9 +167,19 @@ export class MedusaOrderFactory<
         case 'failed':
           status = 'canceled';
           break;
+
         case 'completed':
-          status = 'capture';
+          status = 'captured';
           break;
+      }
+
+
+      if (remotePayment.refunded_amount && remotePayment.refunded_amount > 0) {
+        if (remotePayment.refunded_amount === remotePayment.captured_amount) {
+          status = 'refunded';
+        } else {
+          status = 'partial_refunded';
+        }
       }
 
       const paymentData = mainSession.data || {};

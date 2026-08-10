@@ -372,6 +372,14 @@ export class MedusaCheckoutFactory<
           break;
       }
 
+      if (remotePayment.refunded_amount && remotePayment.refunded_amount > 0) {
+        if (remotePayment.refunded_amount === remotePayment.captured_amount) {
+          status = 'refunded';
+        } else {
+          status = 'partial_refunded';
+        }
+      }
+
       const paymentData = mainSession.data || {};
       const pi = {
         identifier: {
