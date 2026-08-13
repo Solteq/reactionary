@@ -5,7 +5,7 @@ import type { OrderIdentifier, ProductSearchQueryCreateNavigationFilter } from '
 
 const testData = {
   searchTerm: '',
-  sku: '0766623301831',
+  sku: '8436584872870',
 };
 
 describe.each([PrimaryProvider.COMMERCETOOLS])(
@@ -18,8 +18,13 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
     });
 
     it.skip('can be called by guest users', async () => {
+      const createdCart = await client.cart.createCart({});
+      if (!createdCart.success) {
+        assert.fail(JSON.stringify(createdCart.error));
+      }
       const updatedCart = await client.cart.add(
               {
+                cart: createdCart.value.identifier,
                 quantity: 1,
                 variant: {
                   sku: testData.sku
@@ -31,7 +36,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       const orderId: OrderIdentifier = { key: '123456'};
       const identity = await client.identity.getSelf({});
       if (!identity.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(identity.error));
       }
 
       expect(identity.value.type).toBe('Guest');
@@ -57,13 +62,17 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       );
 
       if (!identity.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(identity.error));
       }
 
       expect(identity.value.type).toBe('Registered');
-
+      const createdCart = await client.cart.createCart({});
+      if (!createdCart.success) {
+        assert.fail(JSON.stringify(createdCart.error));
+      }
       const updatedCart = await client.cart.add(
               {
+                cart: createdCart.value.identifier,
                 quantity: 1,
                 variant: {
                   sku: testData.sku
@@ -75,7 +84,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       const orderId: OrderIdentifier = { key: '456789'};
 
 
-      expect(identity.value.type).toBe('Guest');
+    expect(identity.value.type).toBe('Guest');
       const result = await client.order.getById({ order: orderId });
       if (!result.success) {
         assert.fail(JSON.stringify(result.error));

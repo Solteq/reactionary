@@ -5,7 +5,7 @@ import type { ProductSearchQueryCreateNavigationFilter } from '@reactionary/core
 
 const testData = {
   searchTerm: '',
-  sku: '0766623301831',
+  sku: '0609585129832',
   customerName: 'Eileen Harvey',
   email: 'eileen.harvey@example.com',
 

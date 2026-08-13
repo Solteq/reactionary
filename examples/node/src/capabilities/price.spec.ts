@@ -3,7 +3,7 @@ import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 
 const testData = {
-  skuWithoutTiers: '4049699458101',
+  skuWithoutTiers: '8436584872870',
 };
 
 
@@ -13,7 +13,12 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.FAKE, PrimaryProvi
     let client: ReturnType<typeof createClient>;
 
     beforeEach(() => {
-      client = createClient(provider);
+      client = createClient(provider, {
+        languageContext: {
+          locale: 'fi-FI',
+          currencyCode: 'EUR',
+        },
+      });
     });
 
     it('should be able to get an offer price for a sku', async () => {

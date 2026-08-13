@@ -8,10 +8,10 @@ import type {
 
 const testData = {
   product1: {
-   sku: '0766623170703',
+   sku: '8436584872870',
    },
   product2: {
-    sku: '0766623301831',
+    sku: '8009561119338',
   },
 };
 

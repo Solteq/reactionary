@@ -33,7 +33,7 @@ export class MedusaProductCapability<
 > extends ProductCapability<ProductFactoryOutput<TFactory>> {
   protected config: MedusaConfiguration;
   protected alwaysIncludedFields = [
-    '+metadata.*',
+    '+metadata',
     '+categories.external_id',
     '+external_id',
   ];

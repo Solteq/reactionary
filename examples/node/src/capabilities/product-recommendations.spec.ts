@@ -5,14 +5,11 @@ import type { ProductSearchQueryCreateNavigationFilter } from '@reactionary/core
 
 const testData = {
   product: {
-    id: 'product_10959528',
-    name: 'Manhattan 170703 cable accessory Cable kit',
-    image: 'https://images.icecat.biz/img/norm/high/10959528-2837.jpg',
-    sku: '0766623170703',
-    slug: 'manhattan-170703-cable-accessory-cable-kit-10959528',
-  },
-  productWithMultiVariants: {
-    slug: 'hp-gk859aa-mouse-office-bluetooth-laser-1600-dpi-1377612',
+    id: 'product_4743891',
+    name: 'Addit cable eater ø15/25 mm - mounting clips 902',
+    image: 'https://images.icecat.biz/img/gallery/00ca65ba8dab0a84ed66b399aa9ec8c0.jpg',
+    sku: '0805410339029',
+    slug: 'addit-cable-eater-o15-25-mm-mounting-clips-902-4743891',
   },
 };
 
