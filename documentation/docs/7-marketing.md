@@ -7,8 +7,8 @@ To obtain the users marketing profile, you would use the `personalizationProfile
 
 NOTE of all capabilities, this is the only one where we always recommend at least providing the @reactionary/fake version, if you do not have a better source of the profile, as the personalizationProfile is used later when calling other systems to get recommendations or the like.
 
-
 You want to re-get the marketing profile after major account changes, like changing addresses, logging in or out, etc.
+
 
 ```ts
 let profile: Profile | undefined = undefined;
@@ -29,12 +29,46 @@ if (personalizationProfileResponse.success) {
   console.log(personalizationProfileResponse.value.blurb);
 }
 ```
+The source of your segment information can be either your ecom, your CRM or your CDP. In some cases you want to identify the user by something you control, and in others you want to associate it by some preset cookie from an external source.
 
-Once this is established you can pass this when getting product recommendations or product searches to get personalized results.
+In that case, you can (from NextJS maybe), read the frontend cookie, and get the external systems ID and pass it here.
+```ts
+const jar = await cookies();
+const hasExternalId = jar.get('cookieName')?.value;
+const externalIdentifier = hasExternalId ? {
+  key: hasExternalId
+} : undefined;
 
+const personalizationProfileResponse = await client.personalizationProfile.getPersonalizationProfile({
+  identity: context.session.identityContext.identity,
+  profile,
+  personalizationProfileIdentifier: externalIdentifier
+})
+```
+
+If the external identifier is sent, it is used instead of generating something from the identity or other session data.
+
+
+This allows for a nice pattern, where the backend tracks operational events (add-to-cart, remove-from-cart, etc etc), and frontend tracks UI events (seen-facets, opened-drawer), because the externalId is defined by the remote system after the first page has been loaded.
+
+If you have something you absolutely must track serverside, you can add chose to set the cookie yourself, based on the identifier generated from `identity` and `profile`:
+(after the above)
+
+```ts
+
+if (personalizationProfileResponse.success && !hasExternalId) {
+   jar.set('cookieName', personalizationProfileResponse.identifier.key)
+}
+```
+If your frontend follows standard tracker patterns, this cookie will then get picked up, and the value be used as the profile id .
+This allows your sites backend to dictate profile id on first render of a new user, and subsequently just pick it up to whatever it was set to.
+
+
+The same pattern can be used for analytics providers, although there you might need to also capture (and optionally set) a session id.
+
+
+Anyways, Once this is established you can pass this when getting product recommendations or product searches to get personalized results.
 You will also want to use this for your analytics basis, as generally you want analytics to be scoped to the CDPs identity space. Not your IdPs.
-
-
 
 
 ## Product Recommendations
