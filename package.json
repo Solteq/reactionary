@@ -12,7 +12,7 @@
     "@commercetools/platform-sdk": "^8.25.0",
     "@commercetools/ts-client": "^4.9.1",
     "@faker-js/faker": "^9.8.0",
-    "@medusajs/js-sdk": "^2.14.1",
+    "@medusajs/js-sdk": "^2.18.0",
     "@opentelemetry/api": "^1.9.0",
     "algoliasearch": "^5.48.0",
     "debug": "^4.4.3",
@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
-    "@medusajs/types": "^2.14.1",
+    "@medusajs/types": "^2.18.0",
     "@nx/devkit": "23.0.2",
     "@nx/esbuild": "23.0.2",
     "@nx/eslint": "23.0.2",

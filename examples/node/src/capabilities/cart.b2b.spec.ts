@@ -6,7 +6,7 @@ import { ProductSearchQueryByTermSchema, type Cart, type CartIdentifier, type Co
 const testData = {
   skuWithoutTiers: '8436584872870',
   skuWithTiers: '0731304432500',
-  skuWithExternalPrice: '0766623301831',
+  skuWithExternalPrice: '4047443491138',
 
 
   requestTemplate: (ts: string) => {
@@ -129,6 +129,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart B2B Capability - %s', (prov
     });
 
     it('should be able to add an item to a cart', async () => {
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
       const cart = await client.cart.add({
         cart: cartIdentifier,
         variant: {
@@ -171,6 +174,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart B2B Capability - %s', (prov
         assert.fail(JSON.stringify(originalPrice.error));
       }
 
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
       const cart = await client.cart.add({
         cart: cartIdentifier,
         variant: {
@@ -199,6 +205,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Cart B2B Capability - %s', (prov
     },50000);
 
     it('can change the quantity of an item in the cart using external prices', async () => {
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
 
       const originalPrice = await client.price.getCustomerPrice({
         variant: {

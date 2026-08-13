@@ -8,7 +8,7 @@ const testData = {
   skuWithTiers: '0731304432500',
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Capability - %s', (provider) => {
+describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Capability  %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(async () => {
@@ -58,7 +58,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
     });
 
     it('should be able to add an item to a cart', async () => {
-
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
       const cart = await client.cart.add({
         cart: cartIdentifier,
         variant: {
@@ -86,6 +88,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
     },50000);
 
     it('can add multiple different items to a cart', async () => {
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
       const cart = await client.cart.add({
         cart: cartIdentifier,
         variant: {
@@ -117,6 +122,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
     });
 
     it('should be able to change quantity of an item in a cart', async () => {
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
       const cart = await client.cart.add({
         cart: cartIdentifier,
         variant: {
@@ -151,6 +159,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
     });
 
     it('should be able to remove an item from a cart', async () => {
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
       const cart = await client.cart.add({
         cart: cartIdentifier,
         variant: {
@@ -176,7 +187,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
     });
 
     it('should be able to delete a cart', async () => {
-
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
 
       const cart = await client.cart.add({
         cart: cartIdentifier,
@@ -224,6 +237,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
     });
 
     it('can load the product information for cart items', async () => {
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
       const cart = await client.cart.add({
         cart: cartIdentifier,
         variant: {
@@ -255,6 +271,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
     });
 
     it('can apply a coupon code to a cart', async () => {
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
       const cart = await client.cart.add({
         cart: cartIdentifier,
         variant: {
@@ -285,6 +304,9 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
     });
 
     it('can remove a coupon code from a cart', async () => {
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
       const cart = await client.cart.add({
         cart: cartIdentifier,
         variant: {
@@ -462,6 +484,10 @@ describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA])('Cart Ca
 
       let cart = undefined;
       expect(searchResult.value.items.length).toBeGreaterThanOrEqual(8);
+
+      if (!cartIdentifier) {
+        assert.fail('cartIdentifier is undefined');
+      }
 
       for (const product of searchResult.value.items) {
         const updated = await client.cart.add({

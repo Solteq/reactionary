@@ -25,6 +25,12 @@ export class MedusaProductAssociationsCapability<
   protected config: MedusaConfiguration;
   protected medusa: MedusaAPI;
   protected factory: ProductAssociationsFactoryWithOutput<TFactory>;
+  protected alwaysIncludedFields = [
+    '+metadata',
+    '+external_id',
+  ];
+
+
 
   constructor(
     config: MedusaConfiguration,
@@ -47,7 +53,7 @@ export class MedusaProductAssociationsCapability<
       external_id: productKey.key,
       limit: 1,
       offset: 0,
-      fields: 'metadata.*,external_id',
+      fields: this.alwaysIncludedFields.join(','),
     })
 
     let product;
@@ -59,7 +65,7 @@ export class MedusaProductAssociationsCapability<
     if (!product) {
       return [];
     }
-
+    console.log('Product metadata:', product.metadata);
     // Look for associations in metadata
     const associationsMetadata = (product.metadata?.[attributeName] as string || '').split(';');
     if (!associationsMetadata || associationsMetadata.length === 0 || associationsMetadata[0] === '') {

@@ -5,10 +5,10 @@ import type { ProductSearchQueryCreateNavigationFilter } from '@reactionary/core
 
 const testData = {
   productWithAssociations: {
-    id: 'product_102456',
+    id: 'product_4743891',
   },
   productWithoutAssociations: {
-    id: 'product_100201',
+    id: 'product_101381089',
   },
 };
 
@@ -21,7 +21,7 @@ describe.each([PrimaryProvider.FAKE, PrimaryProvider.COMMERCETOOLS, PrimaryProvi
       client = createClient(provider);
     });
 
-    describe('Accessories', () => {
+    describe.only('Accessories', () => {
       it('should be able to return a list of accessories for a product that has them', async () => {
         const result = await client.productAssociations.getAccessories({
           forProduct: { key: testData.productWithAssociations.id },

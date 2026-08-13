@@ -3,7 +3,7 @@ import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 
 const testData = {
-  existingSKU: '0766623360203',
+  existingSKU: '8436584872870',
   existingFulfillmentCenter: {
     [PrimaryProvider.MEDUSA]: 'European Warehouse',
     [PrimaryProvider.COMMERCETOOLS]: 'solteqPhysicalStore',

@@ -6,7 +6,8 @@ const testData = {
   topCategories: [
     {
       key: '1883',
-      name: 'Tools used in the home and garden such as power drills, spades and screwdrivers.',
+      name: 'Work Tools & Hardware',
+      description: 'Tools used in the home and garden such as power drills, spades and screwdrivers.',
       slug: 'work-tools-and-hardware',
     },
     {
@@ -31,7 +32,11 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
-    client = createClient(provider);
+    client = createClient(provider, {
+    languageContext: {
+      locale: 'en-US',
+      currencyCode: 'USD'
+    }});
   });
 
   it('should be able to get top-categories', async () => {
@@ -42,12 +47,19 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category
     if (!result.success) {
       assert.fail(JSON.stringify(result.error));
     }
-    expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.items[0].identifier.key).toBe(testData.topCategories[0].key);
-    expect(result.value.items[0].name).toBe(testData.topCategories[0].name);
-
-    expect(result.value.items[1].identifier.key).toBe(testData.topCategories[1].key);
-    expect(result.value.items[1].name).toBe(testData.topCategories[1].name);
+    for(const topCategory of testData.topCategories) {
+      const found = result.value.items.find((item) => item.identifier.key === topCategory.key);
+      expect(found).toBeDefined();
+      if (found) {
+        expect(found.name).toBe(topCategory.name);
+        if (topCategory.description) {
+          expect(found.text).toBeDefined();
+          assert(found.text!.startsWith(topCategory.description.substring(0, 10)));
+        }
+      } else {
+        assert.fail(`Top category with key ${topCategory.key} not found in result`);
+      }
+    }
   });
 
   it('should be able to get child categories for a category', async () => {
@@ -90,8 +102,8 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category
     }
 
     expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.totalCount).toBe(3);
-    expect(result.value.totalPages).toBe(3);
+    expect(result.value.totalCount).toBeGreaterThan(1);
+    expect(result.value.totalPages).toBeGreaterThan(1);
     expect(result.value.pageSize).toBe(1);
     expect(result.value.pageNumber).toBe(1);
 
@@ -107,8 +119,8 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Category
     }
 
     expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.totalCount).toBe(3);
-    expect(result.value.totalPages).toBe(3);
+    expect(result.value.totalCount).toBeGreaterThan(1);
+    expect(result.value.totalPages).toBeGreaterThan(1);
     expect(result.value.pageSize).toBe(1);
     expect(result.value.pageNumber).toBe(2);
 

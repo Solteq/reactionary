@@ -5,11 +5,11 @@ import type { ProductSearchQueryCreateNavigationFilter } from '@reactionary/core
 
 const testData = {
   product: {
-    id: 'product_878198',
+    id: 'product_104593524',
   },
 };
 
-describe.each([PrimaryProvider.FAKE, PrimaryProvider.COMMERCETOOLS])('Product Reviews', (provider) => {
+describe.each([PrimaryProvider.FAKE, PrimaryProvider.COMMERCETOOLS])('Product Reviews - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {

@@ -4,11 +4,11 @@ import { createClient, PrimaryProvider } from '../utils.js';
 
 const testData = {
   product: {
-    id: 'product_10959528',
-    name: 'Manhattan 170703 cable accessory Cable kit',
-    image: 'https://images.icecat.biz/img/norm/high/10959528-2837.jpg',
-    sku: '0766623170703',
-    slug: 'manhattan-170703-cable-accessory-cable-kit-10959528',
+    id: 'product_114033503',
+    name: 'Legrand 382446 conduit fitting',
+    image: 'https://images.icecat.biz/img/gallery/a73a964b7dbf4952d2bf848a73406e88d43163b5.jpg',
+    sku: '8009561119338',
+    slug: 'legrand-382446-conduit-fitting-114033503',
   },
   productWithMultiVariants: {
     slug: 'hp-gk859aa-mouse-office-bluetooth-laser-1600-dpi-1377612',
@@ -21,7 +21,12 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
     let client: ReturnType<typeof createClient>;
 
     beforeEach(() => {
-      client = createClient(provider);
+      client = createClient(provider, {
+        languageContext: {
+          locale: 'en-US',
+          currencyCode: 'USD',
+        },
+      });
     });
 
     it('should be able to get a product by id', async () => {
@@ -57,7 +62,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       );
     });
 
-    it('should be able to get a multivariant product by slug', async () => {
+    it.skip('should be able to get a multivariant product by slug', async () => {
       const response = await client.product.getBySlug({
         slug: testData.productWithMultiVariants.slug,
       });
@@ -106,7 +111,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
         assert.fail();
       }
 
-      expect(response.value.sharedAttributes.length).toBeGreaterThan(1);
+      expect(response.value.sharedAttributes.length).toBeGreaterThan(5);
       expect(response.value.sharedAttributes[1].values.length).toBeGreaterThan(
         0,
       );

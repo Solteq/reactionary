@@ -4,12 +4,13 @@ import { createClient, PrimaryProvider } from '../utils.js';
 import { MemoryCache, type ProductSearchQueryCreateNavigationFilter } from '@reactionary/core';
 
 const testData = {
-  searchTerm: 'Brother',
-  searchTermWithLanguage: 'Brother',
+  searchTerm: 'Bag',
+  searchTermWithLanguage: 'Task',
   category: {
-    lvl0: 'Computers & Peripherals',
-    lvl1: 'Computers & Peripherals > Computer Cables',
-    lvl2: 'Computers & Peripherals > Computer Cables > Audio Cables',
+    lvl0: 'Work Tools & Hardware',
+    lvl1: 'Work Tools & Hardware > Hand Tools',
+    lvl2: 'Work Tools & Hardware > Hand Tools > Wrenches & Drivers',
+    lvl3: 'Work Tools & Hardware > Hand Tools > Wrenches & Drivers > Nut Drivers',
   }
 };
 
@@ -87,7 +88,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
     it('should be able to change page size', async () => {
       const smallPage = await client.productSearch.queryByTerm({
         search: {
-          term: testData.searchTerm,
+          term: '*',
           paginationOptions: {
             pageNumber: 1,
             pageSize: 2,
@@ -98,7 +99,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
       });
       const largePage = await client.productSearch.queryByTerm({
         search: {
-          term: testData.searchTerm,
+          term: '*',
 
           paginationOptions: {
             pageNumber: 1,
