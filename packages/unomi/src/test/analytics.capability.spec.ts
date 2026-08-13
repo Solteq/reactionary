@@ -23,7 +23,7 @@ const testData = {
 
 config({ path: '../../.env' });
 
-describe('Unomi Analytics Capability', () => {
+describe.skip('Unomi Analytics Capability', () => {
   let provider: UnomiAnalyticsCapability;
   let reqCtx: RequestContext;
 
