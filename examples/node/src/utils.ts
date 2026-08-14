@@ -10,6 +10,7 @@ import type { CommercetoolsConfiguration } from '@reactionary/commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
 import { withAlgoliaCapabilities } from "@reactionary/algolia";
 import { withMedusaCapabilities } from '@reactionary/medusa';
+import { withUnomiCapabilities } from '@reactionary/unomi';
 import { withMeilisearchCapabilities, type MeilisearchConfiguration } from '@reactionary/meilisearch';
 import { withFakeCapabilities } from '@reactionary/fake';
 import type { FakeConfiguration } from '@reactionary/fake';
@@ -35,6 +36,15 @@ export function getMeilisearchTestConfiguration() {
   } satisfies MeilisearchConfiguration;
 }
 
+export function getUnomiTestConfiguration() {
+  return {
+    apiUrl: process.env['UNOMI_API_URL'] || '',
+    username: process.env['UNOMI_USERNAME'] || '',
+    password: process.env['UNOMI_PASSWORD'] || '',
+    scope: process.env['UNOMI_SCOPE'] || '',
+    profilePath: process.env['UNOMI_PROFILE_PATH'] || '/cxs/profiles',
+  };
+}
 
 export function getMedusaTestConfiguration() {
   return {
@@ -114,6 +124,7 @@ export enum PrimaryProvider {
   MEDUSA = 'Medusa',
   MEILISEARCH = 'Meilisearch',
   FAKE = 'Fake',
+  UNOMI = 'Unomi',
 }
 
 export function createClient(provider: PrimaryProvider, contextOverrides: Partial<RequestContext> = {}, cacheProvider: Cache = new NoOpCache()) {
@@ -189,6 +200,22 @@ export function createClient(provider: PrimaryProvider, contextOverrides: Partia
       withAlgoliaCapabilities(getAlgoliaTestConfiguration(), {
         productSearch: { enabled: true },
         productRecommendations: { enabled: true },
+      })
+    );
+  }
+
+  if (provider === PrimaryProvider.UNOMI) {
+    builder = builder.withCapability(
+      withUnomiCapabilities(getUnomiTestConfiguration(), {
+        personalizationProfile: { enabled: true },
+        analytics: { enabled: false },
+      })
+    );
+
+     builder = builder.withCapability(
+      withMedusaCapabilities(getMedusaTestConfiguration(), {
+        cart: { enabled: true },
+        identity: { enabled: true },
       })
     );
   }

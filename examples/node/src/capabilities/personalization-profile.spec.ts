@@ -6,8 +6,8 @@ const testData = {
   userInGroup: 'claude_kessler@example.com'
 }
 
-describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
-  'Marketing profile',
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryProvider.UNOMI])(
+  'Marketing profile - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
     beforeEach(() => {
