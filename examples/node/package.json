@@ -9,6 +9,7 @@
     "@reactionary/algolia": "0.0.1",
     "@reactionary/medusa": "0.0.1",
     "@reactionary/meilisearch": "0.0.1",
+    "@reactionary/unomi": "0.0.1",
     "@reactionary/fake": "0.0.1"
   },
   "devDependencies": {
