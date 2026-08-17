@@ -60,7 +60,7 @@ export class AlgoliaProductSearchCapability<
 
     const rulesContext = [];
     if (payload.personalizationProfile) {
-      rulesContext.push(...payload.personalizationProfile.segments.map((s) => `segment:${s}`));
+      rulesContext.push(...payload.personalizationProfile.segments.map((s) => `segment_${s}`));
     }
 
     return {

@@ -62,7 +62,7 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
   }
 
   protected getQueryParametersForRecommendations(algorithm: string, query: ProductRecommendationBaseQuery ): RecommendSearchParams {
-    const ruleContexts = query.personalizationProfile ? [ ...query.personalizationProfile.segments.map(segment => 'segment:' + segment) ] : [];
+    const ruleContexts = query.personalizationProfile ? [ ...query.personalizationProfile.segments.map(segment => 'segment_' + segment) ] : [];
     if (query.labels) {
       ruleContexts.push(...query.labels);
     }
