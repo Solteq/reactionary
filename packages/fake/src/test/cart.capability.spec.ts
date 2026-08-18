@@ -2,6 +2,7 @@ import 'dotenv/config';
 import type { RequestContext} from '@reactionary/core';
 import {
   CartIdentifierSchema,
+  CartPaginatedSearchResultSchema,
   CartSchema,
   IdentitySchema,
   NoOpCache,
@@ -11,7 +12,7 @@ import { getFakerTestConfiguration } from './test-utils.js';
 import { FakeCartCapability } from '../capabilities/cart.capability.js';
 import { FakeIdentityCapability } from '../capabilities/index.js';
 import { FakeCartFactory, FakeIdentityFactory } from '../factories/index.js';
-import { describe, expect, it, beforeAll, beforeEach, assert } from 'vitest';
+import { describe, expect, it, beforeEach, assert } from 'vitest';
 
 const testData = {
   skuWithoutTiers: 'SGB-01',
@@ -20,7 +21,6 @@ const testData = {
 
 describe('Fake Cart Provider', () => {
   let provider: FakeCartCapability;
-  let identityProvider: FakeIdentityCapability;
   let reqCtx: RequestContext;
 
   beforeEach( () => {
@@ -29,19 +29,18 @@ describe('Fake Cart Provider', () => {
       getFakerTestConfiguration(),
       new NoOpCache(),
       reqCtx,
-      new FakeCartFactory(CartSchema, CartIdentifierSchema),
-    );
-    identityProvider = new FakeIdentityCapability(
-      getFakerTestConfiguration(),
-      new NoOpCache(),
-      reqCtx,
-      new FakeIdentityFactory(IdentitySchema),
+      new FakeCartFactory(
+        CartSchema,
+        CartIdentifierSchema,
+        CartPaginatedSearchResultSchema,
+      ),
     );
   });
 
   describe('anonymous sessions', () => {
     it('should be able to add an item to a cart', async () => {
       const cart = await provider.add({
+          cart: { key: 'test-cart' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
@@ -49,7 +48,7 @@ describe('Fake Cart Provider', () => {
       });
 
       if (!cart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(cart.error));
       }
 
       expect(cart.value.identifier.key).toBeDefined();
@@ -65,14 +64,15 @@ describe('Fake Cart Provider', () => {
 
     it('should be able to change quantity of an item in a cart', async () => {
       const cart = await provider.add({
+          cart: { key: 'test-cart' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
           quantity: 1
       });
-      
+
       if (!cart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(cart.error));
       }
 
       const updatedCart = await provider.changeQuantity({
@@ -93,6 +93,7 @@ describe('Fake Cart Provider', () => {
 
     it('should be able to remove an item from a cart', async () => {
       const cart = await provider.add({
+          cart: { key: 'test-cart' },
           variant: {
             sku: testData.skuWithoutTiers,
           },
@@ -100,14 +101,14 @@ describe('Fake Cart Provider', () => {
       });
 
       if (!cart.success) {
-        assert.fail();
+        assert.fail(JSON.stringify(cart.error));
       }
 
       const updatedCart = await provider.remove({
         cart: cart.value.identifier,
         item: cart.value.items[0].identifier,
       });
-    
+
       if (!updatedCart.success) {
         assert.fail();
       }

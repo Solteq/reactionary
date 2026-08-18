@@ -12,7 +12,6 @@ import type { GoogleAnalyticsConfiguration } from '../schema/configuration.schem
 
 export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
   protected config: GoogleAnalyticsConfiguration;
-
   constructor(
     cache: Cache,
     context: RequestContext,
@@ -23,12 +22,16 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     this.config = configuration;
   }
 
+  protected override getResourceName(): string {
+    return 'google-analytics';
+  }
+
   protected override async processProductSummaryView(
     event: AnalyticsMutationProductSummaryViewEvent
   ) {
     const gaEvent = {
-      client_id: this.context.session.identityContext.personalizationKey,
-      user_id: this.context.session.identityContext.personalizationKey,
+      client_id: event.personalizationProfile?.identifier.key || 'anonymous',
+      user_id: event.personalizationProfile?.identifier.key || 'anonymous',
       events: [
         {
           name: 'view_item_list',
@@ -45,14 +48,16 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     };
 
     await this.sendEvent(gaEvent);
+
+    return this.accepted();
   }
 
   protected override async processProductSummaryClick(
     event: AnalyticsMutationProductSummaryClickEvent
   ) {
     const gaEvent = {
-      client_id: this.context.session.identityContext.personalizationKey,
-      user_id: this.context.session.identityContext.personalizationKey,
+      client_id: event.personalizationProfile?.identifier.key || 'anonymous',
+      user_id: event.personalizationProfile?.identifier.key || 'anonymous',
       events: [
         {
           name: 'select_item',
@@ -70,14 +75,16 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     };
 
     await this.sendEvent(gaEvent);
+
+    return this.accepted();
   }
 
   protected override async processProductDetailsView(
     event: AnalyticsMutationProductDetailsViewEvent
   ) {
     const gaEvent = {
-      client_id: this.context.session.identityContext.personalizationKey,
-      user_id: this.context.session.identityContext.personalizationKey,
+      client_id: event.personalizationProfile?.identifier.key || 'anonymous',
+      user_id: event.personalizationProfile?.identifier.key || 'anonymous',
       events: [
         {
           name: 'view_item',
@@ -94,14 +101,16 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     };
 
     await this.sendEvent(gaEvent);
+
+    return this.accepted();
   }
 
   protected override async processProductAddToCart(
     event: AnalyticsMutationProductAddToCartEvent
   ) {
     const gaEvent = {
-      client_id: this.context.session.identityContext.personalizationKey,
-      user_id: this.context.session.identityContext.personalizationKey,
+      client_id: event.personalizationProfile?.identifier.key || 'anonymous',
+      user_id: event.personalizationProfile?.identifier.key || 'anonymous',
       events: [
         {
           name: 'add_to_cart',
@@ -118,14 +127,16 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     };
 
     await this.sendEvent(gaEvent);
+
+    return this.accepted();
   }
 
   protected override async processPurchase(
     event: AnalyticsMutationPurchaseEvent
   ) {
     const gaEvent = {
-      client_id: this.context.session.identityContext.personalizationKey,
-      user_id: this.context.session.identityContext.personalizationKey,
+      client_id: event.personalizationProfile?.identifier.key || 'anonymous',
+      user_id: event.personalizationProfile?.identifier.key || 'anonymous',
       events: [
         {
           name: 'purchase',
@@ -146,6 +157,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
     };
 
     await this.sendEvent(gaEvent);
+
+    return this.accepted();
   }
 
   protected async sendEvent(event: unknown) {

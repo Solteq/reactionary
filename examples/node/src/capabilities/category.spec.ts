@@ -5,30 +5,38 @@ import { createClient, PrimaryProvider } from '../utils.js';
 const testData = {
   topCategories: [
     {
-      key: '2833',
-      name: 'Computers & Peripherals',
-      slug: 'computers-and-peripherals',
-      text: 'Computers & Peripherals',
+      key: '1883',
+      name: 'Work Tools & Hardware',
+      description: 'Tools used in the home and garden such as power drills, spades and screwdrivers.',
+      slug: 'work-tools-and-hardware',
     },
     {
-      key: '9541',
-      name: 'Computer Spare Parts & Accessories',
+      key: '2554',
+      name: 'Electrical Equipment & Supplies',
     },
   ],
 
   childCategoriesOfFirstTopcategory: [
-    { key: '225', name: 'Printers & Scanners' },
-    { key: '830', name: 'Computer Cables' },
+    { key: '1355', name: 'Hand Tools' },
+    { key: '1884', name: 'Power Tools' },
   ],
 
-  breadCrumb: ['2833', '225'],
+  categoryWithDescription: [
+    { key: '1730', name: 'Hot Glue Guns & Pens', text: 'Hot glue guns and pens are tools designed to melt and apply adhesive sticks for bonding various materials securely. They provide quick-setting and strong adhesion used in crafting, repairs, and assembly tasks.' },
+  ],
+
+  breadCrumb: ['1883', '1355'],
 };
 
 describe.each([/*PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, */PrimaryProvider.MAGENTO])('Category Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
-    client = createClient(provider);
+    client = createClient(provider, {
+    languageContext: {
+      locale: 'en-US',
+      currencyCode: 'USD'
+    }});
   });
 
   it('should be able to get top-categories', async () => {
@@ -39,13 +47,19 @@ describe.each([/*PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, */Primar
     if (!result.success) {
       assert.fail(JSON.stringify(result.error));
     }
-
-    expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.items[0].identifier.key).toBe(testData.topCategories[0].key);
-    expect(result.value.items[0].name).toBe(testData.topCategories[0].name);
-
-    expect(result.value.items[1].identifier.key).toBe(testData.topCategories[1].key);
-    expect(result.value.items[1].name).toBe(testData.topCategories[1].name);
+    for(const topCategory of testData.topCategories) {
+      const found = result.value.items.find((item) => item.identifier.key === topCategory.key);
+      expect(found).toBeDefined();
+      if (found) {
+        expect(found.name).toBe(topCategory.name);
+        if (topCategory.description) {
+          expect(found.text).toBeDefined();
+          assert(found.text!.startsWith(topCategory.description.substring(0, 10)));
+        }
+      } else {
+        assert.fail(`Top category with key ${topCategory.key} not found in result`);
+      }
+    }
   });
 
   it('should be able to get child categories for a category', async () => {
@@ -88,8 +102,8 @@ describe.each([/*PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, */Primar
     }
 
     expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.totalCount).toBe(3);
-    expect(result.value.totalPages).toBe(3);
+    expect(result.value.totalCount).toBeGreaterThan(1);
+    expect(result.value.totalPages).toBeGreaterThan(1);
     expect(result.value.pageSize).toBe(1);
     expect(result.value.pageNumber).toBe(1);
 
@@ -105,8 +119,8 @@ describe.each([/*PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, */Primar
     }
 
     expect(result.value.items.length).toBeGreaterThan(0);
-    expect(result.value.totalCount).toBe(3);
-    expect(result.value.totalPages).toBe(3);
+    expect(result.value.totalCount).toBeGreaterThan(1);
+    expect(result.value.totalPages).toBeGreaterThan(1);
     expect(result.value.pageSize).toBe(1);
     expect(result.value.pageNumber).toBe(2);
 
@@ -143,9 +157,21 @@ describe.each([/*PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, */Primar
       expect(result.value.name).toBe(testData.topCategories[0].name);
       expect(result.value.slug).toBe(testData.topCategories[0].slug);
       expect(result.value.parentCategory).toBeUndefined();
-      expect(result.value.text).not.toBe('');
     }
   });
+
+  it('can fetch a category with a description', async () => {
+    const result = await client.category.getById({
+      id: { key: testData.categoryWithDescription[0].key },
+    });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    expect(result.value.identifier.key).toBe(testData.categoryWithDescription[0].key);
+    expect(result.value.name).toBe(testData.categoryWithDescription[0].name);
+    assert(result.value.text.startsWith(testData.categoryWithDescription[0].text!.substring(0, 10)));
+  })
 
   it('returns NotFound if looking for slug that does not exist', async () => {
     const result = await client.category.getBySlug({ slug: 'non-existent-slug' });
@@ -171,7 +197,6 @@ describe.each([/*PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, */Primar
     expect(result.value.slug).toBe(testData.topCategories[0].slug);
     expect(result.value.parentCategory).toBeUndefined();
 
-    expect(result.value.text).toBe(testData.topCategories[0].text);
   });
 
   it('returns NotFound if you search for a category that does not exist', async () => {

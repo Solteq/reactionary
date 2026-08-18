@@ -27,6 +27,7 @@ import {
   PriceSchema,
   ShippingMethodSchema,
   StoreSchema,
+  PersonalizationProfileSchema,
   type Cache,
   type RequestContext,
   CartPaginatedSearchResultSchema,
@@ -75,6 +76,8 @@ import { CommercetoolsCompanyFactory } from '../factories/company/company.factor
 import { CommercetoolsEmployeeFactory } from '../factories/employee/employee.factory.js';
 import { CommercetoolsEmployeeCapability } from '../capabilities/employee.capability.js';
 import { CommercetoolsEmployeeInvitationCapability } from '../capabilities/employee-invitation.capability.js';
+import { CommercetoolsPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
+import { CommercetoolsPersonalizationProfileFactory } from '../factories/personalization-profile/personalization-profile.factory.js';
 import { CommercetoolsEmployeeInvitationFactory } from '../factories/employee-invitation/employee-invitation.factory.js';
 
 export const capabilityKeys = [
@@ -97,6 +100,7 @@ export const capabilityKeys = [
   'company',
   'employee',
   'employeeInvitation',
+  'personalizationProfile',
 ] as const;
 
 export type OverridableCapabilityKey = (typeof capabilityKeys)[number];
@@ -387,6 +391,20 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
       new CommercetoolsEmployeeInvitationFactory(),
     createDefaultCapability: (args) =>
       new CommercetoolsEmployeeInvitationCapability(
+        args.config,
+        args.cache,
+        args.context,
+        args.commercetoolsApi,
+        args.factory,
+      ),
+  },
+  personalizationProfile: {
+    isEnabled: (caps) => caps.personalizationProfile?.enabled,
+    getOverride: (caps) => caps.personalizationProfile,
+    createDefaultFactory: () =>
+      new CommercetoolsPersonalizationProfileFactory(PersonalizationProfileSchema),
+    createDefaultCapability: (args) =>
+      new CommercetoolsPersonalizationProfileCapability(
         args.config,
         args.cache,
         args.context,

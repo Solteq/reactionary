@@ -4,8 +4,8 @@ import type { RequestContext } from './schemas/session.schema.js';
 export function createInitialRequestContext(): RequestContext {
   return {
     languageContext: {
-      locale: 'en',
-      currencyCode: 'EUR',
+      locale: 'da-DK',
+      currencyCode: 'DKK',
     },
     storeIdentifier: {
       key: 'the-good-store',
@@ -21,8 +21,12 @@ export function createInitialRequestContext(): RequestContext {
         identity: {
           type: 'Anonymous'
         } satisfies AnonymousIdentity,
-        lastUpdated: new Date(),
-        personalizationKey: crypto.randomUUID(),
+        lastUpdated: new Date()
+      },
+      marketingContext: {
+        identifier: { key: '' },
+        segments: [],
+        blurb: '',
       },
     },
     correlationId: '',

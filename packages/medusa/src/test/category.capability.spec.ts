@@ -190,7 +190,7 @@ describe('Medusa Category Provider', () => {
   });
 
   it.skip('should be able to get a category by id in alternate language', async () => {
-    reqCtx.languageContext.locale = 'da';
+    reqCtx.languageContext.locale = 'da-DK';
     const result = await provider.getById({
       id: { key: testData.topCategories[0].key },
     });

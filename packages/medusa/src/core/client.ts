@@ -1,5 +1,4 @@
 import { Admin, Auth, Client, type Config, Store } from '@medusajs/js-sdk';
-
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
   AnonymousIdentitySchema,
@@ -80,6 +79,7 @@ export class RequestContextTokenStore implements MedusaCustomStorage {
   }
 }
 
+
 class Medusa {
   public client: Client;
 
@@ -94,6 +94,7 @@ class Medusa {
     this.store = new Store(this.client);
     this.auth = new Auth(this.client, config);
   }
+
 }
 
 export class MedusaAdminAPI {
@@ -104,16 +105,13 @@ export class MedusaAdminAPI {
   constructor(config: MedusaConfiguration, context: RequestContext) {
     this.config = config;
     this.context = context;
-    console.log(
-      'MedusaAdminClient config:',
-      this.config,
-      'Debug enabled:',
-      debug.enabled
-    );
     this.client = new Medusa({
       baseUrl: this.config.apiUrl,
       apiKey: this.config.adminApiKey,
-      debug: true,
+      debug: false,
+      globalHeaders: {
+        'x-medusa-locale': this.context.languageContext.locale,
+      }
     });
   }
 
@@ -130,20 +128,15 @@ export class MedusaAPI {
   constructor(config: MedusaConfiguration, context: RequestContext) {
     this.config = config;
     this.context = context;
-
-    console.log(
-      'MedusaClient config:',
-      this.config,
-      'Debug enabled:',
-      debug.enabled
-    );
     this.client = undefined;
   }
 
   public async getActiveRegion() {
     const session = this.getSessionData();
     if (session.selectedRegion) {
-      return session.selectedRegion;
+      if (session.selectedRegion.currency_code === this.context.languageContext.currencyCode.toLowerCase()) {
+        return session.selectedRegion;
+      }
     }
 
     const regions = await (await this.getClient()).store.region.list();
@@ -172,45 +165,6 @@ export class MedusaAPI {
     return selectedRegion;
   }
 
-  public async resolveProductForSKU(sku: string): Promise<StoreProduct> {
-    const adminClient = await new MedusaAdminAPI(
-      this.config,
-      this.context
-    ).getClient();
-
-    const productsResponse = await adminClient.admin.product.list({
-      limit: 1,
-      offset: 0,
-      fields: '+metadata.*,+categories.metadata.*,+external_id',
-      variants: {
-        $or: [{ ean: sku }, { upc: sku }, { barcode: sku }],
-      },
-    });
-
-    const product = productsResponse.products[0];
-    if (!product) {
-      throw new Error(`Product with SKU ${sku} not found`);
-    }
-    return product;
-  }
-
-  /**
-   * This function should not need to exist.
-   * It returns a product-id, given a SKU.
-   * @param sku
-   * @returns
-   */
-  public async resolveVariantId(sku: string): Promise<string> {
-    // FIXME: Medusa does not support searching by SKU directly, so we have to use the admin client to search for products with variants matching the SKU
-    const product = await this.resolveProductForSKU(sku);
-
-    const variant = product.variants?.find((v) => v.sku === sku);
-    if (!variant) {
-      throw new Error(`Variant with SKU ${sku} not found`);
-    }
-
-    return variant.id;
-  }
 
   public async getClient(): Promise<Medusa> {
     if (!this.client) {
@@ -345,7 +299,10 @@ export class MedusaAPI {
     const authenticatedClient = new Medusa({
       baseUrl: this.config.apiUrl,
       publishableKey: this.config.publishable_key,
-      debug: true,
+      debug: false,
+      globalHeaders: {
+        'x-medusa-locale': this.context.languageContext.locale,
+      },
 
       auth: {
         type: 'jwt',

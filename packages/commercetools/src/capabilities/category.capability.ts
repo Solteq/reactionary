@@ -33,6 +33,7 @@ import type {
 } from '@commercetools/platform-sdk';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { CommercetoolsCategoryFactory } from '../factories/category/category.factory.js';
+import { getLanguageCodeFromLocale } from '../core/locale-utils.js';
 
 export class CommercetoolsCategoryCapability<
   TFactory extends CategoryFactory = CommercetoolsCategoryFactory,
@@ -79,7 +80,11 @@ export class CommercetoolsCategoryCapability<
     try {
       const response = await client
         .withKey({ key: payload.id.key })
-        .get()
+        .get({
+          queryArgs: {
+            expand: 'parent',
+          },
+        })
         .execute();
       return success(this.factory.parseCategory(this.context, response.body));
     } catch (err) {
@@ -105,7 +110,8 @@ export class CommercetoolsCategoryCapability<
       const response = await client
         .get({
           queryArgs: {
-            where: `slug(${this.context.languageContext.locale}=:slug)`,
+            expand: 'parent',
+            where: `slug(${getLanguageCodeFromLocale(this.context.languageContext.locale)}=:slug)`,
             'var.slug': payload.slug,
             storeProjection: this.context.storeIdentifier.key,
             limit: 1,
@@ -201,6 +207,7 @@ export class CommercetoolsCategoryCapability<
       const response = await client
         .get({
           queryArgs: {
+            expand: 'parent',
             where: 'parent(id = :parentId)',
             'var.parentId': parentCategory.body.id,
             limit: payload.paginationOptions.pageSize,
@@ -213,7 +220,7 @@ export class CommercetoolsCategoryCapability<
         })
         .execute();
 
-      const result = this.factory.parseCategoryPaginatedResult(this.context, response.body);
+      const result = this.factory.parseCategoryPaginatedResult(this.context, response.body, payload);
       return success(result);
     } catch (error) {
       console.error(
@@ -256,7 +263,7 @@ export class CommercetoolsCategoryCapability<
         })
         .execute();
 
-      const result = this.factory.parseCategoryPaginatedResult(this.context, response.body);
+      const result = this.factory.parseCategoryPaginatedResult(this.context, response.body, payload);
       return success(result);
     } catch (error) {
       console.error(`Error fetching category top categories:`, error);

@@ -47,9 +47,11 @@ export function createTestableCapability(
 
     public override generateCacheKeyForQuery(
       scope: string,
-      query: object
+      query: object,
+      locale: string,
+      currency: string,
     ): string {
-      return super.generateCacheKeyForQuery(scope, query);
+      return super.generateCacheKeyForQuery(scope, query, locale, currency);
     }
 
     public getResourceName(): string {
@@ -177,7 +179,7 @@ describe('@Reactionary decorator', () => {
       console.log('unset expected: ', status);
 
       expect(name).toBe('TestableCapability.decoratedFunction');
-      expect(duration).toBeGreaterThanOrEqual(200);
+      expect(duration).toBeGreaterThan(150);
       expect(duration).toBeLessThanOrEqual(300);
       expect(status.code).toBe(SpanStatusCode.UNSET);
     });

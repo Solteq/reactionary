@@ -28,6 +28,7 @@ import type { CommercetoolsConfiguration } from '../schema/configuration.schema.
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { Review as CTReview } from '@commercetools/platform-sdk';
 import type { CommercetoolsProductReviewsFactory } from '../factories/product-reviews/product-reviews.factory.js';
+import { getLanguageCodeFromLocale } from '../core/locale-utils.js';
 
 export class CommercetoolsProductReviewsCapability<
   TFactory extends ProductReviewsFactory = CommercetoolsProductReviewsFactory,
@@ -240,7 +241,7 @@ export class CommercetoolsProductReviewsCapability<
             typeId: 'product',
             id: mutation.product.key,
           },
-          locale: this.context.languageContext.locale,
+          locale: getLanguageCodeFromLocale(this.context.languageContext.locale),
         },
       })
       .execute();

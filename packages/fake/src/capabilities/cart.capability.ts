@@ -107,12 +107,21 @@ export class FakeCartCapability<
   })
   public override async add(payload: CartMutationItemAdd): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     const cartId = payload?.cart?.key || `cart-${this.generator.string.uuid()}`;
-    const cart = unwrapValue(await this.getById({ cart: { key: cartId } }));
-
-    if (cart.identifier.key === '') {
-      cart.identifier.key = cartId;
-      this.carts.set(cartId, cart);
-    }
+    const currency = this.context.languageContext.currencyCode;
+    const zero = { value: 0, currency };
+    const cart = this.carts.get(cartId) || this.factory.parseCart(this.context, {
+      identifier: { key: cartId },
+      user: { userId: 'anonymous' },
+      price: {
+        totalTax: zero,
+        totalDiscount: zero,
+        totalSurcharge: zero,
+        totalShipping: zero,
+        totalProductPrice: zero,
+        grandTotal: zero,
+      },
+    });
+    this.carts.set(cartId, cart);
     const existingItemIndex = cart.items.findIndex(
       (item) => item.variant.sku === payload.variant.sku
     );

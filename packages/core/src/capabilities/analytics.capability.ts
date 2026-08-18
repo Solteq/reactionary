@@ -3,12 +3,14 @@ import { BaseCapability } from './base.capability.js';
 import type { Cache } from '../cache/cache.interface.js';
 import {
   AnalyticsMutationSchema,
+  AnalyticsResultSchema,
   type AnalyticsMutation,
   type AnalyticsMutationProductAddToCartEvent,
   type AnalyticsMutationProductDetailsViewEvent,
   type AnalyticsMutationProductSummaryClickEvent,
   type AnalyticsMutationProductSummaryViewEvent,
   type AnalyticsMutationPurchaseEvent,
+  type AnalyticsResult,
 } from '../schemas/index.js';
 import { Reactionary } from '../decorators/reactionary.decorator.js';
 
@@ -17,44 +19,84 @@ export abstract class AnalyticsCapability extends BaseCapability {
     return 'analytics';
   }
 
-  public async track(event: AnalyticsMutation): Promise<void> {
+  public async track(event: AnalyticsMutation): Promise<AnalyticsResult> {
     switch (event.event) {
       case 'product-summary-view':
-        await this.processProductSummaryView(event);
-        break;
+        return this.processProductSummaryView(event);
       case 'product-summary-click':
-        await this.processProductSummaryClick(event);
-        break;
+        return this.processProductSummaryClick(event);
       case 'product-details-view':
-        await this.processProductDetailsView(event);
-        break;
+        return this.processProductDetailsView(event);
       case 'product-cart-add':
-        await this.processProductAddToCart(event);
-        break;
+        return this.processProductAddToCart(event);
       case 'purchase':
-        await this.processPurchase(event)
-        break;
+        return this.processPurchase(event);
+      default:
+        return this.ignored();
     }
   }
 
-  protected async processProductSummaryView(_event: AnalyticsMutationProductSummaryViewEvent) {
-    // Default is no-op
+  protected async processProductSummaryView(
+    _event: AnalyticsMutationProductSummaryViewEvent,
+  ): Promise<AnalyticsResult> {
+    return this.ignored();
   }
 
-  protected async processProductSummaryClick(_event: AnalyticsMutationProductSummaryClickEvent) {
-    // Default is no-op
+  protected async processProductSummaryClick(
+    _event: AnalyticsMutationProductSummaryClickEvent,
+  ): Promise<AnalyticsResult> {
+    return this.ignored();
   }
 
-  protected async processProductDetailsView(_event: AnalyticsMutationProductDetailsViewEvent) {
-    // Default is no-op
+  protected async processProductDetailsView(
+    _event: AnalyticsMutationProductDetailsViewEvent,
+  ): Promise<AnalyticsResult> {
+    return this.ignored();
   }
 
-  protected async processProductAddToCart(_event: AnalyticsMutationProductAddToCartEvent) {
-    // Default is no-op
+  protected async processProductAddToCart(
+    _event: AnalyticsMutationProductAddToCartEvent,
+  ): Promise<AnalyticsResult> {
+    return this.ignored();
   }
 
-  protected async processPurchase(_event: AnalyticsMutationPurchaseEvent) {
-    // Default is no-op
+  protected async processPurchase(
+    _event: AnalyticsMutationPurchaseEvent,
+  ): Promise<AnalyticsResult> {
+    return this.ignored();
+  }
+
+  protected accepted(): AnalyticsResult {
+    return {
+      outcomes: [
+        {
+          provider: this.getResourceName(),
+          outcome: 'accepted',
+        },
+      ],
+    };
+  }
+
+  protected ignored(): AnalyticsResult {
+    return {
+      outcomes: [
+        {
+          provider: this.getResourceName(),
+          outcome: 'ignored',
+        },
+      ],
+    };
+  }
+
+  protected rejected(): AnalyticsResult {
+    return {
+      outcomes: [
+        {
+          provider: this.getResourceName(),
+          outcome: 'rejected',
+        },
+      ],
+    };
   }
 }
 
@@ -64,7 +106,7 @@ export class MulticastAnalyticsCapability extends AnalyticsCapability {
   constructor(
     cache: Cache,
     requestContext: RequestContext,
-    capabilities: Array<AnalyticsCapability>
+    capabilities: Array<AnalyticsCapability>,
   ) {
     super(cache, requestContext);
 
@@ -73,10 +115,20 @@ export class MulticastAnalyticsCapability extends AnalyticsCapability {
 
   @Reactionary({
     inputSchema: AnalyticsMutationSchema,
+    outputSchema: AnalyticsResultSchema,
   })
-  public override async track(event: AnalyticsMutation) {
+  public override async track(
+    event: AnalyticsMutation,
+  ): Promise<AnalyticsResult> {
+    const tracks = [];
     for (const capability of this.capabilities) {
-      capability.track(event);
+      tracks.push(capability.track(event));
     }
+
+    const results = await Promise.all(tracks);
+
+    return {
+      outcomes: results.flatMap((result) => result.outcomes),
+    };
   }
 }

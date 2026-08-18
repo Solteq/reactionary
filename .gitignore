@@ -44,7 +44,7 @@ Thumbs.db
 .angular
 
 # Local environment
-.env
+*.env
 
 # Next.js
 .next
@@ -56,3 +56,10 @@ vitest.config.*.timestamp*
 
 # Generated docs
 .docusaurus/
+*.local.md
+notes/
+
+.claude/worktrees
+.nx/polygraph
+.nx/self-healing
+.nx/migrate-runs

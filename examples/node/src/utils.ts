@@ -3,6 +3,8 @@ import {
   ClientBuilder,
   NoOpCache,
   ProductSearchResultItemSchema,
+  type RequestContext,
+  type Cache,
 } from '@reactionary/core';
 
 import type { CommercetoolsConfiguration } from '@reactionary/commercetools';
@@ -11,7 +13,8 @@ import { withAlgoliaCapabilities } from '@reactionary/algolia';
 import { withMagentoCapabilities } from '@reactionary/magento';
 import type { MagentoConfiguration } from '@reactionary/magento';
 import { withMedusaCapabilities } from '@reactionary/medusa';
-import { withMeilisearchCapabilities } from '@reactionary/meilisearch';
+import { withUnomiCapabilities } from '@reactionary/unomi';
+import { withMeilisearchCapabilities, type MeilisearchConfiguration } from '@reactionary/meilisearch';
 import { withFakeCapabilities } from '@reactionary/fake';
 import type { FakeConfiguration } from '@reactionary/fake';
 
@@ -30,11 +33,21 @@ export function getMeilisearchTestConfiguration() {
     apiUrl: process.env['MEILISEARCH_API_URL'] || '',
     indexName: process.env['MEILISEARCH_INDEX'] || '',
     useAIEmbedding: process.env['MEILISEARCH_USE_AI_EMBEDDING'] || undefined,
+    semanticRatio: process.env['MEILISEARCH_SEMANTIC_RATIO'] ? parseFloat(process.env['MEILISEARCH_SEMANTIC_RATIO']) : 0.5,
     orderIndexName: process.env['MEILISEARCH_ORDER_INDEX'] || 'order',
     useRecommendationsForBots: process.env['MEILISEARCH_USE_RECOMMENDATIONS_FOR_BOTS'] === 'true',
-  };
+  } satisfies MeilisearchConfiguration;
 }
 
+export function getUnomiTestConfiguration() {
+  return {
+    apiUrl: process.env['UNOMI_API_URL'] || '',
+    username: process.env['UNOMI_USERNAME'] || '',
+    password: process.env['UNOMI_PASSWORD'] || '',
+    scope: process.env['UNOMI_SCOPE'] || '',
+    profilePath: process.env['UNOMI_PROFILE_PATH'] || '/cxs/profiles',
+  };
+}
 
 export function getMedusaTestConfiguration() {
   return {
@@ -70,6 +83,21 @@ export function getFakeConfiguration(): FakeConfiguration {
       search: 1,
       category: 1,
     },
+    featureFlags: {
+      flags: [
+        {
+          key: 'true-flag',
+          type: 'boolean',
+          enabled: true,
+        },
+        {
+          key: 'string-flag',
+          type: 'multivariate',
+          variants: ['red', 'green', 'blue'],
+          enabledVariant: 'blue',
+        }
+      ]
+    }
   } satisfies FakeConfiguration;
 }
 
@@ -112,12 +140,13 @@ export enum PrimaryProvider {
   MEDUSA = 'Medusa',
   MEILISEARCH = 'Meilisearch',
   FAKE = 'Fake',
+  UNOMI = 'Unomi',
 }
 
-export function createClient(provider: PrimaryProvider) {
-  const context = createInitialRequestContext();
+export function createClient(provider: PrimaryProvider, contextOverrides: Partial<RequestContext> = {}, cacheProvider: Cache = new NoOpCache()) {
+  const context = { ...createInitialRequestContext(), ...contextOverrides };
   let builder = new ClientBuilder(context)
-    .withCache(new NoOpCache());
+    .withCache(cacheProvider);
 
     if (provider === PrimaryProvider.MAGENTO) {
       builder = builder.withCapability(
@@ -153,6 +182,7 @@ export function createClient(provider: PrimaryProvider) {
           orderSearch: { enabled: true },
           store: { enabled: true },
           profile: { enabled: true },
+          personalizationProfile: { enabled: true },
         })
       );
     }
@@ -165,6 +195,7 @@ export function createClient(provider: PrimaryProvider) {
           product: { enabled: true },
           productReviews: { enabled: true },
           productAssociations: { enabled: true },
+          featureFlag: { enabled: true },
         }
       ))
     }
@@ -191,6 +222,7 @@ export function createClient(provider: PrimaryProvider) {
           employeeInvitation: { enabled: true },
           store: { enabled: true },
           profile: { enabled: true },
+          personalizationProfile: { enabled: true },
         })
       );
     }
@@ -201,6 +233,22 @@ export function createClient(provider: PrimaryProvider) {
       withAlgoliaCapabilities(getAlgoliaTestConfiguration(), {
         productSearch: { enabled: true },
         productRecommendations: { enabled: true },
+      })
+    );
+  }
+
+  if (provider === PrimaryProvider.UNOMI) {
+    builder = builder.withCapability(
+      withUnomiCapabilities(getUnomiTestConfiguration(), {
+        personalizationProfile: { enabled: true },
+        analytics: { enabled: false },
+      })
+    );
+
+     builder = builder.withCapability(
+      withMedusaCapabilities(getMedusaTestConfiguration(), {
+        cart: { enabled: true },
+        identity: { enabled: true },
       })
     );
   }

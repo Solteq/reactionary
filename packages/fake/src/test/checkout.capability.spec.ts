@@ -184,7 +184,7 @@ describe('Fake Checkout Provider', () => {
                 value: 0
             }
         },
-        userId: {
+        user: {
             userId: 'Fake'
         },
         appliedPromotions: [],

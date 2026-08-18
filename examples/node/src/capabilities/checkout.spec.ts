@@ -8,8 +8,8 @@ import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 
 const testData = {
-  skuWithoutTiers: '0766623301831',
-  skuWithTiers: '0766623360203',
+  skuWithoutTiers: '8436584872870',
+  skuWithTiers: '0731304432500',
 };
 
 describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryProvider.MAGENTO])(
@@ -25,7 +25,14 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
       let cart: Cart;
 
       beforeEach(async () => {
+        const q = await client.cart.createCart({});
+
+        if (!q.success) {
+          assert.fail(JSON.stringify(q.error, null, 2));
+        }
+
         const c = await client.cart.add({
+          cart: q.value.identifier,
           variant: {
             sku: testData.skuWithoutTiers,
           },
@@ -33,7 +40,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
         });
 
         if (!c.success) {
-          assert.fail();
+          assert.fail(JSON.stringify(c.error, null, 2));
         }
 
         cart = c.value;
@@ -60,7 +67,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
         });
 
         if (!checkout.success) {
-          assert.fail();
+          assert.fail(JSON.stringify(checkout.error, null, 2));
         }
 
         expect(checkout.value.identifier.key).toBeDefined();
@@ -96,7 +103,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
           if (!cc.success) {
             console.log(cc);
 
-            assert.fail();
+            assert.fail(JSON.stringify(cc.error, null, 2));
           }
 
           checkout = cc.value;
@@ -109,7 +116,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
             });
 
           if (!paymentMethods.success) {
-            assert.fail();
+            assert.fail(JSON.stringify(paymentMethods.error, null, 2));
           }
 
           expect(paymentMethods.value.length).toBeGreaterThan(0);
@@ -125,10 +132,13 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
             });
 
           if (!shippingMethods.success) {
-            assert.fail();
+            assert.fail(JSON.stringify(shippingMethods.error, null, 2));
           }
 
           expect(shippingMethods.value.length).toBeGreaterThan(0);
+
+          // Currently should be DKK
+          expect(shippingMethods.value[0].price.currency).toBe('DKK');
         });
 
         it('can add a payment instruction', async () => {
@@ -138,7 +148,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
             });
 
           if (!paymentMethods.success) {
-            assert.fail();
+            assert.fail(JSON.stringify(paymentMethods.error, null, 2));
           }
 
           const pm = paymentMethods.value.find(
@@ -160,13 +170,13 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
           });
 
           if (!checkoutWithPi.success) {
-            assert.fail();
+            assert.fail(JSON.stringify(checkoutWithPi.error, null, 2));
           }
 
           expect(checkoutWithPi.value.paymentInstructions.length).toBe(1);
           expect(
             checkoutWithPi.value.paymentInstructions[0].paymentMethod.method
-          ).toBe(pm.identifier.method);
+          ).toBe(pm!.identifier.method);
           expect(
             checkoutWithPi.value.paymentInstructions[0].protocolData.find(
               (x) => x.key === 'stripe_clientSecret' || x.key === 'client_secret'
@@ -181,7 +191,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
             });
 
           if (!paymentMethods.success) {
-            assert.fail();
+            assert.fail(JSON.stringify(paymentMethods.error, null, 2));
           }
 
           const pm = paymentMethods.value.find(
@@ -199,7 +209,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
           });
 
           if (!checkoutWithPi.success) {
-            assert.fail();
+            assert.fail(JSON.stringify(checkoutWithPi.error, null, 2));
           }
 
           expect(checkoutWithPi.value.paymentInstructions.length).toBe(1);
@@ -212,7 +222,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
             });
 
           if (!checkoutAfterCancel.success) {
-            assert.fail();
+            assert.fail(JSON.stringify(checkoutAfterCancel.error, null, 2));
           }
 
           expect(checkoutAfterCancel.value.paymentInstructions.length).toBe(0);
@@ -250,7 +260,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
             });
 
           if (!shippingMethods.success) {
-            assert.fail();
+            assert.fail(JSON.stringify(shippingMethods.error, null, 2));
           }
           expect(shippingMethods.value.length).toBeGreaterThan(0);
           const sm = shippingMethods.value[0];
@@ -271,7 +281,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
             });
 
           if (!checkoutWithShipping.success) {
-            assert.fail();
+            assert.fail(JSON.stringify(checkoutWithShipping.error, null, 2));
           }
 
           expect(checkout.price.totalShipping.value).toBe(0);
@@ -301,7 +311,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
           });
 
           if (!r.success) {
-            assert.fail();
+            assert.fail(JSON.stringify(r.error, null, 2));
           }
 
           const pm = r.value.find((x) => x.identifier.method === 'stripe');
@@ -316,7 +326,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
           });
 
           if (!checkoutWithPi.success) {
-            assert.fail();
+            assert.fail(JSON.stringify(checkoutWithPi.error, null, 2));
           }
 
           // do something to simulate payment authorization ?
@@ -324,7 +334,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryPro
             identifier: checkoutWithPi.value.identifier,
           });
           if (!checkoutReady.success) {
-            expect.fail('checkout not found');
+            expect.fail(JSON.stringify(checkoutReady.error, null, 2));
           }
           expect(checkoutReady.value.readyForFinalization).toBe(true);
         });

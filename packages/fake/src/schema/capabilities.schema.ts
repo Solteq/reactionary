@@ -9,12 +9,18 @@ import type {
   CheckoutFactory,
   CheckoutFactoryWithOutput,
   CheckoutCapability,
+  FeatureFlagFactory,
+  FeatureFlagFactoryWithOutput,
+  FeatureFlagCapability,
   IdentityFactory,
   IdentityFactoryWithOutput,
   IdentityCapability,
   InventoryFactory,
   InventoryFactoryWithOutput,
   InventoryCapability,
+  PersonalizationProfileFactory,
+  PersonalizationProfileFactoryWithOutput,
+  PersonalizationProfileCapability,
   OrderFactory,
   OrderFactoryWithOutput,
   OrderCapability,
@@ -69,6 +75,8 @@ export const FakeCapabilitiesSchema = CapabilitiesSchema.pick({
   profile: true,
   productReviews: true,
   productAssociations: true,
+  featureFlag: true,
+  personalizationProfile: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -85,6 +93,8 @@ export const FakeCapabilitiesSchema = CapabilitiesSchema.pick({
     profile: OverridableCapabilitySchema.optional(),
     productReviews: OverridableCapabilitySchema.optional(),
     productAssociations: OverridableCapabilitySchema.optional(),
+    featureFlag: OverridableCapabilitySchema.optional(),
+    personalizationProfile: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -157,6 +167,14 @@ export type FakeProductAssociationsCapabilityConfig = FakeCapabilityConfig<
   ProductAssociationsFactoryWithOutput<ProductAssociationsFactory>,
   ProductAssociationsCapability
 >;
+export type FakeFeatureFlagCapabilityConfig = FakeCapabilityConfig<
+  FeatureFlagFactoryWithOutput<FeatureFlagFactory>,
+  FeatureFlagCapability
+>;
+export type FakePersonalizationProfileCapabilityConfig = FakeCapabilityConfig<
+  PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
+  PersonalizationProfileCapability
+>;
 
 export type FakeCapabilities = {
   product?: FakeProductCapabilityConfig;
@@ -173,6 +191,8 @@ export type FakeCapabilities = {
   profile?: FakeProfileCapabilityConfig;
   productReviews?: FakeProductReviewsCapabilityConfig;
   productAssociations?: FakeProductAssociationsCapabilityConfig;
+  featureFlag?: FakeFeatureFlagCapabilityConfig;
+  personalizationProfile?: FakePersonalizationProfileCapabilityConfig;
 };
 
 export type ParsedFakeCapabilities = z.infer<typeof FakeCapabilitiesSchema>;

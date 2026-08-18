@@ -26,10 +26,11 @@ import {
   type Result,
   success
 } from '@reactionary/core';
-import { MeiliSearch, type SearchParams, type SearchResponse } from 'meilisearch';
+import { Meilisearch, type SearchParams, type SearchResponse } from 'meilisearch';
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
 import type { MeilisearchNativeRecord, MeilisearchNativeVariant } from '../schema/search.schema.js';
 import type { MeilisearchProductSearchFactory } from '../factories/product-search/product-search.factory.js';
+import { getProductIndexNameForLocale } from '../core/index-utils.js';
 
 
 export class MeilisearchProductSearchCapability<
@@ -58,7 +59,7 @@ export class MeilisearchProductSearchCapability<
 
     const finalFacetFilters: string[] = [
       ...facetsThatAreNotCategory.map(
-        (x) => `${x.facet.key}="${x.key}"`
+        (x) => `"${x.facet.key}"="${x.key}"`
       ),
     ];
 
@@ -82,8 +83,24 @@ export class MeilisearchProductSearchCapability<
 
     if (this.config.useAIEmbedding) {
       searchOptions.hybrid = {
-        embedder: this.config.useAIEmbedding
+        embedder: this.config.useAIEmbedding,
+        semanticRatio: this.config.semanticRatio, // This can be adjusted based on how much weight you want to give to semantic relevance vs keyword matching
       };
+    }
+
+    if (payload.personalizationProfile) {
+      let blurb = payload.personalizationProfile.blurb || '';
+      if (blurb.length > 500) {
+        blurb = blurb.substring(0, 500);
+      }
+      if (!blurb) {
+        blurb = 'The customer is in the following segments: ' + payload.personalizationProfile.segments.join(', ');
+      }
+      if (blurb) {
+        (searchOptions as any).personalize = {
+          userContext: blurb
+        };
+      }
     }
     return searchOptions;
   }
@@ -99,16 +116,15 @@ export class MeilisearchProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
-    const client = new MeiliSearch({
+    const client = new Meilisearch({
       host: this.config.apiUrl,
       apiKey: this.config.apiKey,
     });
 
-    const index = client.index(this.config.indexName);
+    const index = client.index(getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale));
 
 
     const remote = await index.search<MeilisearchNativeRecord>(payload.search.term, this.queryByTermPayload(payload) as SearchParams);
-
     const result = this.parsePaginatedResult(remote, payload);
 
     // mark selected facets as active
@@ -178,7 +194,7 @@ export class MeilisearchProductSearchCapability<
         });
         const facet = this.parseFacet(facetId, f);
         if (facet.values.length > 0) {
-        facets.push(facet);
+          facets.push(facet);
         }
       }
     }
@@ -208,7 +224,6 @@ export class MeilisearchProductSearchCapability<
 
     // remove other hierarchy facets
     facets = facets.filter(f => !f.identifier.key.startsWith('hierarchy.lvl'));
-
     const totalPages = Math.ceil((body.estimatedTotalHits || 0) / query.search.paginationOptions.pageSize);
 
     const result = {
@@ -235,6 +250,11 @@ export class MeilisearchProductSearchCapability<
       name: facetIdentifier.key.replace(/_/g, ' '),
       values: []
     });
+
+    // never return the categories facet raw, as its only used for navigation and should be remapped to the hierarchy facet
+    if (facetIdentifier.key === 'categories') {
+      return result;
+    }
 
     for (const vid in facetValues) {
       const fv = facetValues[vid];

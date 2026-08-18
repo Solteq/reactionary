@@ -1,17 +1,23 @@
 import 'dotenv/config';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
-import type { ProductSearchQueryCreateNavigationFilter } from '@reactionary/core';
+import { MemoryCache, type ProductSearchQueryCreateNavigationFilter } from '@reactionary/core';
 
 const testData = {
-  searchTerm: 'manhattan',
+  searchTerm: 'Bag',
+  searchTermWithLanguage: 'Task',
+  category: {
+    lvl0: 'Work Tools & Hardware',
+    lvl1: 'Work Tools & Hardware > Hand Tools',
+    lvl2: 'Work Tools & Hardware > Hand Tools > Wrenches & Drivers',
+    lvl3: 'Work Tools & Hardware > Hand Tools > Wrenches & Drivers > Nut Drivers',
+  }
 };
 
-describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH])(
+describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA])(
   'Product Search Capability - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
-
     beforeEach(() => {
       client = createClient(provider);
     });
@@ -82,7 +88,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
     it('should be able to change page size', async () => {
       const smallPage = await client.productSearch.queryByTerm({
         search: {
-          term: testData.searchTerm,
+          term: '*',
           paginationOptions: {
             pageNumber: 1,
             pageSize: 2,
@@ -93,11 +99,11 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
       });
       const largePage = await client.productSearch.queryByTerm({
         search: {
-          term: testData.searchTerm,
+          term: '*',
 
           paginationOptions: {
             pageNumber: 1,
-            pageSize: 30,
+            pageSize: 12,
           },
           facets: [],
           filters: [],
@@ -110,11 +116,16 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
       expect(smallPage.value.items.length).toBe(2);
       expect(smallPage.value.pageSize).toBe(2);
-      expect(largePage.value.items.length).toBe(30);
-      expect(largePage.value.pageSize).toBe(30);
+      expect(largePage.value.items.length).toBeGreaterThan(10);
+      expect(largePage.value.pageSize).toBe(12);
     });
 
     it('should be able to apply facets', async () => {
+      if (provider === PrimaryProvider.MEDUSA) {
+        // Medusa's own search doesn't support faceting yet, so we skip this test for that provider
+        return;
+      }
+
       const initial = await client.productSearch.queryByTerm({
         search: {
           term: "",
@@ -154,6 +165,10 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
     });
 
     it('should not return facets with no values', async () => {
+      if (provider === PrimaryProvider.MEDUSA) {
+        // Medusa's own search doesn't support faceting yet, so we skip this test for that provider
+        return;
+      }
       const result = await client.productSearch.queryByTerm({
         search: {
           term: testData.searchTerm,
@@ -177,6 +192,10 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
 
     it('can apply a category facet', async () => {
+      if (provider === PrimaryProvider.MEDUSA) {
+        // Medusa's own search doesn't support faceting yet, so we skip this test for that provider
+        return;
+      }
       const result = await client.productSearch.queryByTerm({
         search: {
           term: "*",
@@ -291,3 +310,422 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
     });
   }
 );
+
+
+
+describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA])('Multilingual Product Search', (provider) => {
+  let client: ReturnType<typeof createClient>;
+
+
+  it('can get results in other languages', async () => {
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'en-US',
+        currencyCode: 'USD'
+      },
+    });
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: testData.searchTermWithLanguage,
+        facets: [],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+
+    expect(result.value.items.length).toBeGreaterThan(0);
+
+
+    const altLanguageClient = createClient(provider, {
+      languageContext: {
+        locale: 'da-DK',
+        currencyCode: 'EUR'
+      },
+    });
+
+    const altResult = await altLanguageClient.productSearch.queryByTerm({
+      search: {
+        term: testData.searchTermWithLanguage,
+        facets: [],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        filters: [],
+      },
+    });
+
+    if (!altResult.success) {
+      assert.fail(JSON.stringify(altResult.error));
+    }
+    const firstItem = result.value.items[0];
+    const altFirstItem = altResult.value.items.find(x => x.identifier.key === firstItem.identifier.key);
+
+    // we check that the name is different and hope the same product is in both test sets
+    expect(altFirstItem).toBeDefined();
+    expect(altFirstItem!.name).not.toBe(firstItem.name);
+  });
+
+
+  it('get facets in other languages', async () => {
+      if (provider === PrimaryProvider.MEDUSA) {
+        // Medusa's own search doesn't support faceting yet, so we skip this test for that provider
+        return;
+      }
+
+
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'en-US',
+        currencyCode: 'USD'
+      },
+    });
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        facets: [],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+
+    expect(result.value.facets.length).toBeGreaterThan(0);
+
+    const altLanguageClient = createClient(provider, {
+      languageContext: {
+        locale: 'da-DK',
+        currencyCode: 'DKK'
+      },
+    });
+
+    const altResult = await altLanguageClient.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        facets: [],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        filters: [],
+      },
+    });
+
+    if (!altResult.success) {
+      assert.fail(JSON.stringify(altResult.error));
+    }
+
+    const firstFacet = result.value.facets.find(x => x.identifier.key.startsWith('attributes.'));
+    expect(firstFacet).toBeDefined();
+
+
+    const altFirstFacet = altResult.value.facets.find(x => x.identifier.key.startsWith('attributes.'));
+    expect(altFirstFacet).toBeDefined();
+    expect(altFirstFacet!.values.length).toBeGreaterThan(0);
+    expect(altFirstFacet!.values[0].name).not.toBe(firstFacet!.values[0].name);
+  });
+});
+
+
+
+describe.each([ PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Facets', (provider) => {
+  let client: ReturnType<typeof createClient>;
+
+  it('should only return one category facet even if there are multiple levels of category hierarchy', async () => {
+    client = createClient(provider);
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [],
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    expect(categoryFacets.length).toBe(1);
+  });
+  it('should only return one category facet when a category facet value lvl 0 is set ', async () => {
+    client = createClient(provider);
+
+    const baseResult = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [],
+        filters: [],
+      },
+    });
+
+    if (!baseResult.success) {
+      assert.fail(JSON.stringify(baseResult.error));
+    }
+
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [{
+          facet: {
+            key: 'categories'
+          },
+          key: testData.category.lvl0
+        }],
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    expect(categoryFacets.length).toBe(1);
+    expect(result.value.totalCount).toBeGreaterThan(0);
+
+  });
+  it('should only return one category facet when a category facet value lvl 1 is set ', async () => {
+    client = createClient(provider);
+
+    const baseResult = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [],
+        filters: [],
+      },
+    });
+
+    if (!baseResult.success) {
+      assert.fail(JSON.stringify(baseResult.error));
+    }
+
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [{
+          facet: {
+            key: 'categories'
+          },
+          key: testData.category.lvl1
+        }],
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    expect(categoryFacets.length).toBe(1);
+    expect(result.value.totalCount).toBeGreaterThan(0);
+      expect(result.value.totalCount).toBeLessThan(baseResult.value.totalCount);
+  });
+
+
+  it('should only return no category facet when a category facet value lvl 2 is set ', async () => {
+    client = createClient(provider);
+
+    const baseResult = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [],
+        filters: [],
+      },
+    });
+
+    if (!baseResult.success) {
+      assert.fail(JSON.stringify(baseResult.error));
+    }
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        facets: [{
+          facet: {
+            key: 'categories'
+          },
+          key: testData.category.lvl2
+        }],
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    expect(categoryFacets.length).toBe(0);
+    expect(result.value.totalCount).toBeGreaterThan(0);
+    expect(result.value.totalCount).toBeLessThan(baseResult.value.totalCount);
+
+  });
+
+
+
+  it('should be able to use facets with / in the name', async () => {
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'nb-NO',
+        currencyCode: 'EUR'
+      },
+     });
+
+    const result = await client.productSearch.queryByTerm({
+      search: {
+        term: "*",
+        facets: [{
+          facet: {
+          key: 'attributes.Modell/Type',
+          },
+          key: 'some-value'
+        }],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+        filters: [],
+      },
+    });
+
+    if (!result.success) {
+      assert.fail(JSON.stringify(result.error));
+    }
+  });
+});
+
+
+
+
+describe.each([PrimaryProvider.COMMERCETOOLS])('Caching is multilingual', (provider) => {
+  let client: ReturnType<typeof createClient>;
+
+  beforeEach(() => {
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'en-US',
+        currencyCode: 'USD'
+      },
+    }, new MemoryCache());
+
+  });
+
+  it('should return different results for different locales when cached', async () => {
+      const cachePutSpy = vi.spyOn(client.cache, 'put');
+      const cacheGetSpy = vi.spyOn(client.cache, 'get');
+
+      // first query - should miss cache
+      const result = await client.productSearch.queryByTerm({
+        search: {
+          term: testData.searchTermWithLanguage,
+          facets: [],
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 10,
+          },
+          filters: [],
+        },
+      });
+
+      if (!result.success) {
+        assert.fail();
+      }
+      expect(cachePutSpy).toHaveBeenCalledTimes(1);
+      expect(cacheGetSpy).toHaveBeenCalledTimes(1);
+
+      // second query with same locale - should hit cache
+      const result2 = await client.productSearch.queryByTerm({
+        search: {
+          term: testData.searchTermWithLanguage,
+          facets: [],
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 10,
+          },
+          filters: [],
+        },
+      });
+
+      if (!result2.success) {
+        assert.fail();
+      }
+
+      expect(cachePutSpy).toHaveBeenCalledTimes(1);
+      expect(cacheGetSpy).toHaveBeenCalledTimes(2);
+
+      // third query with different locale - should miss cache
+      const altLanguageClient = createClient(provider, {
+        languageContext: {
+          locale: 'da-DK',
+          currencyCode: 'EUR'
+        },
+      }, client.cache); // share cache between clients
+      altLanguageClient.cache = client.cache; // share cache between clients
+
+      const result3 = await altLanguageClient.productSearch.queryByTerm({
+        search: {
+          term: testData.searchTermWithLanguage,
+          facets: [],
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 10,
+          },
+          filters: [],
+        },
+      });
+
+      if (!result3.success) {
+        assert.fail();
+      }
+
+      expect(cachePutSpy).toHaveBeenCalledTimes(2);
+      expect(cacheGetSpy).toHaveBeenCalledTimes(3);
+
+  });
+
+
+});

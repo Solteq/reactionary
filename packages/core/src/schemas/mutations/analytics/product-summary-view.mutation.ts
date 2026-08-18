@@ -5,9 +5,10 @@ import {
 } from '../../models/identifiers.model.js';
 import { BaseMutationSchema } from '../base.mutation.js';
 import * as z from 'zod';
+import { AnalyticsBaseMutationSchema } from './base-event.mutation.js';
 
 export const AnalyticsMutationProductSummaryViewEventSchema =
-  BaseMutationSchema.extend({
+  AnalyticsBaseMutationSchema.extend({
     event: z.literal('product-summary-view'),
     source: z
       .discriminatedUnion('type', [

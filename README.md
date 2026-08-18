@@ -4,7 +4,7 @@ Reactionary is a framework-agnostic client library for standardized data access,
 
 - it favors keeping the providers on the server in order to:
   - keep the client bundle minimal for performance.
-  - allow for cross transactional caching.
+  - allow for cross-transactional caching.
   - standardize observability.
   - control access, allowing for session features like rate limiting.
 - it favors serializable, parseable domain models because it:
@@ -15,7 +15,7 @@ Reactionary is a framework-agnostic client library for standardized data access,
 
 ### Running locally
 
-The includes examples generally require `.env` to be configured with the relevant API keys. We can likely create a setup for this in Vault, for easy bootstrapping.
+The includes examples generally require `.test.env` to be configured with the relevant API keys. We can likely create a setup for this in Vault, for easy bootstrapping.
 
 ### Pull requests
 
@@ -168,7 +168,7 @@ Vendors:  Commercetools, Medusa
   - [X] External Pricing / Pushed prices
   - [-] Customer specific pricing (WIP)
   - [X] Organizational/Entitlement Context. Choose to shop private or for company?
-  - [ ] Multi currency/Multi lingual
+  - [X] Multi currency/Multi lingual
 
 
 

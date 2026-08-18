@@ -18,6 +18,7 @@ import {
   ProductSchema,
   ProductSearchResultSchema,
   ProfileSchema,
+  PersonalizationProfileSchema,
   ShippingMethodSchema,
 } from '@reactionary/core';
 import { MedusaCartCapability } from '../capabilities/cart.capability.js';
@@ -33,6 +34,7 @@ import { MedusaProductRecommendationsCapability } from '../capabilities/product-
 import { MedusaProductCapability } from '../capabilities/product.capability.js';
 import { MedusaProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import { MedusaProfileCapability } from '../capabilities/profile.capability.js';
+import { MedusaPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
 import {
   MedusaCapabilitiesSchema,
   type MedusaCapabilities,
@@ -54,6 +56,7 @@ import {
   MedusaProductFactory,
   MedusaProductSearchFactory,
   MedusaProfileFactory,
+  MedusaPersonalizationProfileFactory,
 } from '../factories/index.js';
 import {
   type MedusaClientFromCapabilities,
@@ -319,6 +322,24 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
           factory: new MedusaProductAssociationsFactory(ProductAssociationSchema),
           capability: (args) =>
             new MedusaProductAssociationsCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.medusaApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.personalizationProfile?.enabled) {
+      client.personalizationProfile = resolveCapabilityWithFactory(
+        capabilities.personalizationProfile,
+        {
+          factory: new MedusaPersonalizationProfileFactory(PersonalizationProfileSchema),
+          capability: (args) =>
+            new MedusaPersonalizationProfileCapability(
               args.config,
               args.cache,
               args.context,

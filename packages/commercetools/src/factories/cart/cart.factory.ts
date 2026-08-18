@@ -30,6 +30,7 @@ import type {
   CommercetoolsCartIdentifierSchema,
   CommercetoolsCartItemIdentifier,
 } from '../../schema/commercetools.schema.js';
+import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
 
 export class CommercetoolsCartFactory<
   TCartSchema extends AnyCartSchema = typeof CartSchema,
@@ -174,7 +175,7 @@ export class CommercetoolsCartFactory<
       },
     } satisfies CostBreakDown;
 
-    const localeString = context.languageContext.locale || 'en';
+    const localeString = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
     const appliedPromotions = [];
     if (data.discountCodes) {
       for (const promo of data.discountCodes) {

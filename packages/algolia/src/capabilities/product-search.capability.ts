@@ -17,10 +17,11 @@ import {
   Reactionary,
   success,
 } from '@reactionary/core';
-import { algoliasearch } from 'algoliasearch';
+import { algoliasearch, type SearchQuery } from 'algoliasearch';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaNativeRecord } from '../schema/search.schema.js';
 import type { AlgoliaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
+import { getProductIndexNameForLocale } from '../core/index-utils.js';
 
 export class AlgoliaProductSearchCapability<
   TFactory extends ProductSearchFactory = AlgoliaProductSearchFactory,
@@ -57,8 +58,13 @@ export class AlgoliaProductSearchCapability<
       finalFilters.push(`categories:"${categoryFacet.key}"`);
     }
 
+    const rulesContext = [];
+    if (payload.personalizationProfile) {
+      rulesContext.push(...payload.personalizationProfile.segments.map((s) => `segment_${s}`));
+    }
+
     return {
-      indexName: this.config.indexName,
+      indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
       query: payload.search.term,
       page: payload.search.paginationOptions.pageNumber - 1,
       hitsPerPage: payload.search.paginationOptions.pageSize,
@@ -67,7 +73,9 @@ export class AlgoliaProductSearchCapability<
       clickAnalytics: true,
       facetFilters: finalFacetFilters,
       filters: finalFilters.join(' AND '),
-    };
+      ruleContexts: rulesContext,
+      userToken: payload.personalizationProfile?.identifier.key || 'anonymous',
+    } satisfies SearchQuery;
   }
 
   @Reactionary({

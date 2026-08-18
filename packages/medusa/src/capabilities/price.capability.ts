@@ -73,17 +73,25 @@ export class MedusaPriceCapability<
     if (debug.enabled) {
       debug(`Fetching price for SKU: ${sku}`);
     }
-
     try {
-      const productForSKU = await this.medusaApi.resolveProductForSKU(payload.variant.sku);
-
       const client = await this.medusaApi.getClient();
-      const product = (
-        await client.store.product.retrieve(
-          productForSKU.id || '',
-          { region_id: (await this.medusaApi.getActiveRegion()).id },
-        )
-      ).product;
+
+      const regionId = await this.medusaApi.getActiveRegion()
+
+      const productResponse = await client.store.product.list({
+        variants: {
+          sku: payload.variant.sku,
+
+        },
+        limit: 1,
+        region_id: regionId.id,
+      });
+
+      if (productResponse.products.length ===   0) {
+        return this.createEmptyPriceResult(sku);
+      }
+
+      const product = productResponse.products[0];
 
 
       const variant = product.variants?.find((v) => v.sku === sku);

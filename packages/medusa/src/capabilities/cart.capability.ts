@@ -205,8 +205,27 @@ export class MedusaCartCapability<
       // the SKU identifier is supposed to be a globally understood identifier,
 
       // but medusa only accepts variant IDs , so we have to resolve it somehow...
-      const variantId = await this.medusaApi.resolveVariantId(payload.variant.sku);
-
+      const productResponse = await client.store.product.list({
+        variants: {
+          sku: payload.variant.sku,
+        },
+        limit: 1
+      });
+      if (productResponse.products.length === 0) {
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: payload,
+        });
+      }
+      const product = productResponse.products[0];
+      const variant = product.variants?.find((v) => v.sku === payload.variant.sku);
+      if (!variant) {
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: payload,
+        });
+      }
+      const variantId = variant.id;
       const response = await client.store.cart.createLineItem(
         medusaId.key,
         this.addPayload(payload, variantId),
@@ -284,13 +303,18 @@ export class MedusaCartCapability<
    * @param currency
    * @returns
    */
-  protected createCartPayload(payload: CartMutationCreateCart): StoreCreateCart {
+  protected async createCartPayload(payload: CartMutationCreateCart): Promise<StoreCreateCart> {
+
+    const newRegionId = (await this.medusaApi.getActiveRegion()).id;
+
+
     return {
         currency_code: (
             this.context.languageContext.currencyCode ||
             'EUR'
         ).toLowerCase(),
-        locale: this.context.languageContext.locale || 'en',
+        locale: this.context.languageContext.locale,
+        region_id: newRegionId,
         metadata: {
           name: payload.name,
         }
@@ -336,7 +360,7 @@ export class MedusaCartCapability<
       const client = await this.getClient();
 
       const response = await client.store.cart.create(
-        this.createCartPayload(payload),
+        await this.createCartPayload(payload),
         {
           fields: this.includedFields,
         }

@@ -175,7 +175,7 @@ export class FakeCategoryCapability<
       totalPages: 1,
     } satisfies CategoryPaginatedResult;
 
-    return success(this.factory.parseCategoryPaginatedResult(this.context, result));
+    return success(this.factory.parseCategoryPaginatedResult(this.context, result, _payload));
   }
 
   @Reactionary({
@@ -186,14 +186,17 @@ export class FakeCategoryCapability<
     payload: CategoryQueryForChildCategories,
   ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>>> {
     const items = this.childCategories.get(payload.parentId.key) || [];
+    const { pageNumber, pageSize } = payload.paginationOptions;
+    const start = (pageNumber - 1) * pageSize;
+    const pagedItems = items.slice(start, start + pageSize);
     const result = {
-      items,
-      pageSize: items.length,
-      pageNumber: 1,
+      items: pagedItems,
+      pageSize,
+      pageNumber,
       totalCount: items.length,
-      totalPages: 1,
+      totalPages: Math.ceil(items.length / pageSize),
     } satisfies CategoryPaginatedResult;
 
-    return success(this.factory.parseCategoryPaginatedResult(this.context, result));
+    return success(this.factory.parseCategoryPaginatedResult(this.context, result, payload));
   }
 }

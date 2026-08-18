@@ -1,5 +1,78 @@
 # Adding the personal touch
 
+Reactionary supports many mechanisms by which to make the customer journey unique to a customer. The foundational element is the Marketing Profile, which represents what we know about the user, from the CDP. 
+Different CDPs use different keys, and you may be creating a profile even as anonymous, that is then later combined with your registered users profile, so there is not a 1:1 between identity and marketing profile.
+
+To obtain the users marketing profile, you would use the `personalizationProfile` capability.
+
+NOTE of all capabilities, this is the only one where we always recommend at least providing the @reactionary/fake version, if you do not have a better source of the profile, as the personalizationProfile is used later when calling other systems to get recommendations or the like.
+
+You want to re-get the marketing profile after major account changes, like changing addresses, logging in or out, etc.
+
+
+```ts
+let profile: Profile | undefined = undefined;
+if (context.session.identityContext.identity.type === 'Registered') {
+  const profileResponse = client.profile.getProfile({ ... })
+  if (profileResponse.success) {
+    profile = profileResponse.value;
+  }
+}
+const personalizationProfileResponse = await client.personalizationProfile.getPersonalizationProfile({
+  identity: context.session.identityContext.identity,
+  profile
+})
+
+if (personalizationProfileResponse.success) {
+  session.set('personalizationProfile', personalizationProfileResponse.value);
+  console.log(personalizationProfileResponse.value.segments);
+  console.log(personalizationProfileResponse.value.blurb);
+}
+```
+The source of your segment information can be either your ecom, your CRM or your CDP. In some cases you want to identify the user by something you control, and in others you want to associate it by some preset cookie from an external source.
+
+In that case, you can (from NextJS maybe), read the frontend cookie, and get the external systems ID and pass it here.
+```ts
+const jar = await cookies();
+const hasExternalId = jar.get('cookieName')?.value;
+const externalIdentifier = hasExternalId ? {
+  key: hasExternalId
+} : undefined;
+
+const personalizationProfileResponse = await client.personalizationProfile.getPersonalizationProfile({
+  identity: context.session.identityContext.identity,
+  profile,
+  personalizationProfileIdentifier: externalIdentifier
+})
+```
+
+If the external identifier is sent, it is used instead of generating something from the identity or other session data.
+
+
+This allows for a nice pattern, where the backend tracks operational events (add-to-cart, remove-from-cart, etc etc), and frontend tracks UI events (seen-facets, opened-drawer), because the externalId is defined by the remote system after the first page has been loaded.
+
+If you have something you absolutely must track serverside, you can add chose to set the cookie yourself, based on the identifier generated from `identity` and `profile`:
+(after the above)
+
+```ts
+
+if (personalizationProfileResponse.success && !hasExternalId) {
+   jar.set('cookieName', personalizationProfileResponse.identifier.key)
+}
+```
+If your frontend follows standard tracker patterns, this cookie will then get picked up, and the value be used as the profile id .
+This allows your sites backend to dictate profile id on first render of a new user, and subsequently just pick it up to whatever it was set to.
+
+
+The same pattern can be used for analytics providers, although there you might need to also capture (and optionally set) a session id.
+
+
+Anyways, Once this is established you can pass this when getting product recommendations or product searches to get personalized results.
+You will also want to use this for your analytics basis, as generally you want analytics to be scoped to the CDPs identity space. Not your IdPs.
+
+
+## Product Recommendations
+
 Reactionary supports many mechanisms by which to make the customer journey unique to a customer. The main mechanism is via the `ProductRecommendationsProvider` which offers 7 unique ways to find some relevant products to display for the user.
 
 It is assumed, that any basic-direct-assign logic (ie editor has picked 4 products to show) is already handled at the CMS level. The Reactionary provider is for the usecase where you want a dynamic result back, based on the users behavior, tags, or whatever you have.
@@ -25,11 +98,11 @@ But, the point of this is, that you can either hardcode something on the PDP
 const recommendations = client.productRecommendations.getRecommendations({
   algorithm: 'similar',
   numberOfRecommendations: 8,
+  personalizationProfile: personalizationProfile,
   labels: [ 
     (
       isLoggedIn: 'Registered' : 'Guest',
       registeredThisSession? 'FirstSession': 'ReturningCustomer', 
-      customerSegments.map(x => x.name), 
       new Date().getHour() > 12? "Afternoon": "Morning",
       getTemperatureAround(context.clientIp) < 20: 'Cold': 'Warm' 
     )
@@ -43,6 +116,8 @@ const allProducts = Promise.all(
   // and draw them...
 }
 ```
+
+The labels you pass here, are the kind of "soft segments" you might decide to have, that are context dependent on the frontend alone. The recommendation provider will use the marketing profiles segments, in addition to these labels, if they are defined.
 
 Instead of using the full `client.product` you could have resolved it via the `.productSearch` to get a smaller data-footprint. However, since you are hopefully just about to navigate to one of these pages, it might be better for overall cache performance to use the full data model.
 

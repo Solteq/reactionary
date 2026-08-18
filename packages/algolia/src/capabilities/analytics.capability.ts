@@ -17,10 +17,13 @@ import {
 } from 'algoliasearch';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaProductSearchIdentifier } from '../schema/search.schema.js';
+import { getProductIndexNameForLocale } from '../core/index-utils.js';
+import { hash } from 'node:crypto';
 
 export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
   protected client: InsightsClient;
   protected config: AlgoliaConfiguration;
+  protected authenticatedUserToken: string | undefined = undefined;
 
   constructor(
     cache: Cache,
@@ -31,6 +34,13 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
 
     this.config = config;
     this.client = algoliasearch(this.config.appId, this.config.apiKey).initInsights({});
+    if (requestContext.session.identityContext.identity.type === 'Registered') {
+      this.authenticatedUserToken = hash('sha256', requestContext.session.identityContext.identity.id.userId);
+    }
+  }
+
+  protected override getResourceName(): string {
+    return 'algolia-analytics';
   }
 
   protected override async processProductAddToCart(
@@ -41,9 +51,10 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
         eventName: 'addToCart',
         eventType: 'conversion',
         eventSubtype: 'addToCart',
-        index: this.config.indexName,
+        index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
         objectIDs: [event.product.key],
-        userToken: this.context.session.identityContext.personalizationKey,
+        userToken: event.personalizationProfile?.identifier.key || 'anonymous',
+        authenticatedUserToken: this.authenticatedUserToken,
         queryID: (event.source.identifier as AlgoliaProductSearchIdentifier)
           .key,
       } satisfies AddedToCartObjectIDsAfterSearch;
@@ -51,7 +62,11 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
       await this.client.pushEvents({
         events: [algoliaEvent],
       });
+
+      return this.accepted();
     }
+
+    return this.rejected();
   }
 
   protected override async processProductSummaryClick(
@@ -61,9 +76,10 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
       const algoliaEvent = {
         eventName: 'click',
         eventType: 'click',
-        index: this.config.indexName,
+        index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
         objectIDs: [event.product.key],
-        userToken: this.context.session.identityContext.personalizationKey,
+        userToken: event.personalizationProfile?.identifier.key || 'anonymous',
+        authenticatedUserToken: this.authenticatedUserToken,
         positions: [event.position],
         queryID: (event.source.identifier as AlgoliaProductSearchIdentifier)
           .key,
@@ -72,7 +88,11 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
       await this.client.pushEvents({
         events: [algoliaEvent],
       });
+
+      return this.accepted();
     }
+
+    return this.rejected();
   }
 
   protected override async processProductSummaryView(
@@ -82,33 +102,39 @@ export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
       const algoliaEvent = {
         eventName: 'view',
         eventType: 'view',
-        index: this.config.indexName,
+        index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
         objectIDs: event.products.map((x) => x.key),
-        userToken: this.context.session.identityContext.personalizationKey,
+        userToken: event.personalizationProfile?.identifier.key || 'anonymous',
+        authenticatedUserToken: this.authenticatedUserToken,
       } satisfies ViewedObjectIDs;
 
       await this.client.pushEvents({
         events: [algoliaEvent],
       });
+      return this.accepted();
     }
+    return this.rejected();
   }
 
   protected override async processPurchase(
     event: AnalyticsMutationPurchaseEvent
-  ): Promise<void> {
+  ) {
     // TODO: Figure out how to handle the problem below. From the order we have the SKUs,
     // but in Algolia we have the products indexed, and we can't really resolve it here...
     const algoliaEvent = {
       eventName: 'purchase',
       eventType: 'conversion',
       eventSubtype: 'purchase',
-      index: this.config.indexName,
+      index: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
       objectIDs: event.order.items.map((x) => x.variant.sku),
-      userToken: this.context.session.identityContext.personalizationKey,
+      userToken: event.personalizationProfile?.identifier.key || 'anonymous',
+      authenticatedUserToken: this.authenticatedUserToken,
     } satisfies PurchasedObjectIDs;
 
     await this.client.pushEvents({
       events: [algoliaEvent],
     });
+
+    return this.accepted();
   }
 }

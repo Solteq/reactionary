@@ -78,14 +78,12 @@ export class MedusaProfileCapability<
 
     const client = await this.medusaApi.getClient();
     const customerResponse = await client.store.customer.retrieve({ fields: this.includedFields.join(',') });
-
     if (!customerResponse.customer) {
       return error<NotFoundError>({
         identifier: payload.identifier,
         type: 'NotFound',
       });
     }
-
     const model = this.factory.parseProfile(this.context, customerResponse.customer);
     return success(model);
   }

@@ -28,6 +28,7 @@ import type {
   ProductVariantOption,
 
   ProductSchema} from '@reactionary/core';
+import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
 
 export class CommercetoolsProductFactory<
   TProductSchema extends AnyProductSchema = typeof ProductSchema,
@@ -47,12 +48,13 @@ export class CommercetoolsProductFactory<
     data: ProductProjection,
   ): z.output<TProductSchema> {
     const identifier = { key: data.key || data.id } satisfies ProductIdentifier;
-    const name = data.name[context.languageContext.locale];
-    const slug = data.slug[context.languageContext.locale];
+    const localeStr = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
+    const name = data.name[localeStr];
+    const slug = data.slug[localeStr];
 
     let description = '';
     if (data.description) {
-      description = data.description[context.languageContext.locale];
+      description = data.description[localeStr];
     }
 
     const variantLevelAttributes =
@@ -125,7 +127,7 @@ export class CommercetoolsProductFactory<
     const identifier = {
       sku: variant.sku!,
     } satisfies ProductVariantIdentifier;
-
+    const localeStr = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
     const images = [
       ...(variant.images || []).map((img) =>
         ImageSchema.parse({
@@ -165,7 +167,7 @@ export class CommercetoolsProductFactory<
       barcode: '',
       ean: '',
       gtin: '',
-      name: product.name[context.languageContext.locale],
+      name: product.name[localeStr],
       options,
       upc: '',
     } satisfies ProductVariant;
@@ -194,10 +196,10 @@ export class CommercetoolsProductFactory<
     if (attr.value && Array.isArray(attr.value)) {
       attrValue = attr.value[0];
     }
-
+    const localeStr = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
     if (attr.value && typeof attr.value === 'object') {
-      if (context.languageContext.locale in attr.value) {
-        attrValue = attr.value[context.languageContext.locale];
+      if (localeStr in attr.value) {
+        attrValue = attr.value[localeStr];
       } else {
         attrValue = '-';
       }

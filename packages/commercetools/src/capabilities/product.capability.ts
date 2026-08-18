@@ -23,6 +23,7 @@ import type { Cache } from '@reactionary/core';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { NotFoundError } from '@reactionary/core';
 import type { CommercetoolsProductFactory } from '../factories/product/product.factory.js';
+import { getLanguageCodeFromLocale } from '../core/locale-utils.js';
 
 export class CommercetoolsProductCapability<
   TFactory extends ProductFactory = CommercetoolsProductFactory
@@ -78,12 +79,12 @@ export class CommercetoolsProductCapability<
     payload: ProductQueryBySlug
   ): Promise<Result<ProductFactoryOutput<TFactory>, NotFoundError>> {
     const client = await this.getClient();
+    const localeStr = getLanguageCodeFromLocale(this.context.languageContext.locale) || 'en';
 
     const remote = await client
       .get({
         queryArgs: {
-          // FIXME: Hardcoded locale
-          where: 'slug(en = :slug)',
+          where: `slug(${localeStr} = :slug)`,
           'var.slug': payload.slug,
         },
       })

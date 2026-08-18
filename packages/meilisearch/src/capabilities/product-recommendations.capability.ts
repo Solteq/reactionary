@@ -9,9 +9,10 @@ import {
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
 } from '@reactionary/core';
-import { MeiliSearch, type Hits, type RecordAny, type SearchParams, type SearchResponse, type SearchSimilarDocumentsParams } from 'meilisearch';
+import { Meilisearch, type SearchResponse, type SearchSimilarDocumentsParams } from 'meilisearch';
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
 import type { MeilisearchNativeRecord, MeilisearchNativeVariant } from '../schema/index.js';
+import { getProductIndexNameForLocale } from '../core/index-utils.js';
 
 
 /**
@@ -47,12 +48,13 @@ export class MeilisearchProductRecommendationsCapability extends ProductRecommen
   protected override async getSimilarProductsRecommendations(
     query: ProductRecommendationAlgorithmSimilarProductsQuery
   ): Promise<ProductRecommendation[]> {
-    const client = new MeiliSearch({
+    const client = new Meilisearch({
       host: this.config.apiUrl,
       apiKey: this.config.apiKey,
     });
 
-    const index = client.index(this.config.indexName);
+    const index = client.index(getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale));
+
 
     if (!this.config.useAIEmbedding) {
       console.warn('AI embedding is not enabled in configuration. Similar product recommendations will be based on keyword matching, which may not provide optimal results.');

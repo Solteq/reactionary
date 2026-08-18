@@ -76,10 +76,6 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
     const attributes = {
       'labels.scope': scope,
     };
-    const startTime = performance.now();
-    let status = 'ok';
-    let cacheStatus = 'miss';
-
     if (!original) {
       throw new Error(
         '@Reactionary decorator may only be applied to methods on classes extending BaseCapability.'
@@ -87,6 +83,10 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
     }
 
     descriptor.value = async function (this: BaseCapability, ...args: any[]) {
+      const startTime = performance.now();
+      let status = 'ok';
+      let cacheStatus = 'miss';
+
       return traceSpan(scope, async () => {
         meter.requestInProgress.add(1, attributes);
         try {
@@ -96,7 +96,9 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
             return input;
           }
 
-          const cacheKey = this.generateCacheKeyForQuery(scope, input.value);
+          const localeCacheKey = options.localeDependentCaching ? this.context.languageContext?.locale ?? 'all' : 'all';
+          const currencyCacheKey = options.currencyDependentCaching ? this.context.languageContext?.currencyCode ?? 'all' : 'all';
+          const cacheKey = this.generateCacheKeyForQuery(scope, input.value, localeCacheKey, currencyCacheKey);
           let fromCache = null;
 
           if (options.cache) {

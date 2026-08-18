@@ -5,6 +5,8 @@ import type {
   CategoryPaginatedResultSchema,
   CategorySchema,
   RequestContext,
+  CategoryQueryForTopCategories,
+  CategoryQueryForChildCategories,
 } from '@reactionary/core';
 import type * as z from 'zod';
 
@@ -34,6 +36,7 @@ export class FakeCategoryFactory<
   public parseCategoryPaginatedResult(
     _context: RequestContext,
     data: unknown,
+    query: CategoryQueryForTopCategories | CategoryQueryForChildCategories,
   ): z.output<TCategoryPaginatedSchema> {
     return this.categoryPaginatedResultSchema.parse(data);
   }

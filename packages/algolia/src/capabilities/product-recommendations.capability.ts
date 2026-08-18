@@ -12,6 +12,8 @@ import {
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
   ImageSchema,
+  type PersonalizationProfile,
+  type ProductRecommendationBaseQuery,
 } from '@reactionary/core';
 import {
   liteClient,
@@ -26,6 +28,7 @@ import {
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaProductRecommendationIdentifier } from '../schema/product-recommendation.schema.js';
 import type { AlgoliaNativeRecord, AlgoliaNativeVariant } from '../schema/search.schema.js';
+import { getProductIndexNameForLocale } from '../core/index-utils.js';
 
 
 /**
@@ -58,11 +61,16 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
     return 10;
   }
 
-  protected getQueryParametersForRecommendations(algorithm: string): RecommendSearchParams {
+  protected getQueryParametersForRecommendations(algorithm: string, query: ProductRecommendationBaseQuery ): RecommendSearchParams {
+    const ruleContexts = query.personalizationProfile ? [ ...query.personalizationProfile.segments.map(segment => 'segment_' + segment) ] : [];
+    if (query.labels) {
+      ruleContexts.push(...query.labels);
+    }
     return  {
-      userToken: this.context.session.identityContext?.personalizationKey || 'anonymous',
+      userToken: query.personalizationProfile?.identifier.key || 'anonymous',
       analytics: true,
       analyticsTags: ['reactionary', algorithm],
+      ruleContexts,
       clickAnalytics: true
     } satisfies RecommendSearchParams;
   }
@@ -86,12 +94,12 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
       const response = await this.client.getRecommendations({
         requests: [
           {
-            indexName: this.config.indexName,
+            indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
             model: 'bought-together',
             objectID: query.sourceProduct.key,
             maxRecommendations: query.numberOfRecommendations,
             threshold: this.getRecommendationThreshold('bought-together'),
-            queryParameters: this.getQueryParametersForRecommendations('bought-together')
+            queryParameters: this.getQueryParametersForRecommendations('bought-together', query)
           } satisfies BoughtTogetherQuery,
         ],
 
@@ -127,12 +135,12 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
       const response = await this.client.getRecommendations({
         requests: [
           {
-            indexName: this.config.indexName,
+            indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
             model: 'looking-similar',
             objectID: query.sourceProduct.key,
             maxRecommendations: query.numberOfRecommendations,
             threshold: this.getRecommendationThreshold('looking-similar'),
-            queryParameters: this.getQueryParametersForRecommendations('looking-similar')
+            queryParameters: this.getQueryParametersForRecommendations('looking-similar', query)
           } satisfies LookingSimilarQuery
         ],
       });
@@ -166,12 +174,12 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
       const response = await this.client.getRecommendations({
         requests: [
           {
-            indexName: this.config.indexName,
+            indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
             model: 'related-products',
             objectID: query.sourceProduct.key,
             maxRecommendations: query.numberOfRecommendations,
             threshold: this.getRecommendationThreshold('related-products'),
-            queryParameters: this.getQueryParametersForRecommendations('related-products')
+            queryParameters: this.getQueryParametersForRecommendations('related-products', query)
           } satisfies RelatedQuery,
         ],
       });
@@ -204,13 +212,13 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
       const response = await this.client.getRecommendations({
         requests: [
           {
-            indexName: this.config.indexName,
+            indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
             model: 'trending-items',
             facetName: 'categories',
             facetValue: query.sourceCategory.key,
             maxRecommendations: query.numberOfRecommendations,
             threshold: this.getRecommendationThreshold('trending-items'),
-            queryParameters: this.getQueryParametersForRecommendations('trending-items')
+            queryParameters: this.getQueryParametersForRecommendations('trending-items', query)
           } satisfies TrendingItemsQuery,
         ],
       });

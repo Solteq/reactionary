@@ -27,6 +27,13 @@ export class MedusaOrderSearchCapability<
 > extends OrderSearchCapability<OrderSearchFactoryOutput<TFactory>> {
   protected config: MedusaConfiguration;
   protected factory: OrderSearchFactoryWithOutput<TFactory>;
+  /**
+   * This controls which fields are always included when fetching a cart
+   * You can override this in a subclass to add more fields as needed.
+   *
+   * example: this.includedFields = [includedFields, '+discounts.*'].join(',');
+   */
+  protected includedFields: string = ['+items.*', '+shipping_address', '+billing_address'].join(',');
 
   constructor(
     config: MedusaConfiguration,
@@ -85,6 +92,7 @@ export class MedusaOrderSearchCapability<
 
     return {
       status: statusFilter,
+      fields: this.includedFields,
       limit: payload.search.paginationOptions.pageSize,
       offset:
         (payload.search.paginationOptions.pageNumber - 1) *

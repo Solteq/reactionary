@@ -3,9 +3,11 @@ import type { InferType } from '../../zod-utils.js';
 import { CategorySchema } from '../models/category.model.js';
 import { ProductSearchIdentifierSchema } from '../models/identifiers.model.js';
 import { BaseQuerySchema } from './base.query.js';
+import { PersonalizationProfileSchema } from '../models/personalization-profile.model.js';
 
 export const ProductSearchQueryByTermSchema = BaseQuerySchema.extend({
-    search: ProductSearchIdentifierSchema
+    search: ProductSearchIdentifierSchema,
+    personalizationProfile: PersonalizationProfileSchema.optional().meta({ description: 'The marketing profile of the user performing the search. This can be used to provide personalized search results based on the user\'s segments and other attributes defined in their marketing profile.' }),
 });
 
 export const ProductSearchQueryCreateNavigationFilterSchema = z.looseObject({

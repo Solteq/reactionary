@@ -14,7 +14,7 @@ export abstract class BaseCapability {
     this.cache = cache;
     this.context = context;
   }
-  
+
   public generateDependencyIdsForModel(model: unknown): Array<string> {
     // TODO: Messy because we can't guarantee that a model has an identifier (type-wise)
    const identifier = (model as any)?.identifier;
@@ -26,18 +26,18 @@ export abstract class BaseCapability {
    const h = hasher({ sort: true, coerce: false });
    const hash = h.hash(identifier);
 
-   return [hash];
+   return [hash ];
   }
 
-  protected generateCacheKeyForQuery(scope: string, query: object): string {
+  protected generateCacheKeyForQuery(scope: string, query: object, locale: string, currency: string): string {
     const h = hasher({ sort: true, coerce: false });
 
-    const queryHash = h.hash(query);
+    const queryHash = h.hash(query );
 
     // TODO: This really should include the internationalization parts as well (locale, currency, etc), or at least provide the option
     // for specifying in the decorator whether they do (eg categories don't really seem to depend on currency...)
 
-    return `${scope}:${queryHash}`;
+    return `${scope}:${queryHash}:${locale}:${currency}`;
   }
 
   /**

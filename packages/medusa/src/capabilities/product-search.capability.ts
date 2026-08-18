@@ -63,7 +63,7 @@ export class MedusaProductSearchCapability<
         }
 
         candidate = categoryResult.product_categories.find(
-          (cat) => cat.metadata?.['external_id'] === externalId
+          (cat) => cat.external_id === externalId
         );
         if (candidate) {
           break;
@@ -80,19 +80,19 @@ export class MedusaProductSearchCapability<
   }
 
 
-  protected queryByTermPayload(payload: ProductSearchQueryByTerm, categoryIdToFind: string | null): any {
+  protected queryByTermPayload(payload: ProductSearchQueryByTerm, categoryIdsToFind: string[] | null): any {
 
     const finalSearch = (payload.search.term || '').trim().replace('*', '');
 
     return {
       q: finalSearch,
-      ...(categoryIdToFind ? { category_id: categoryIdToFind } : {}),
+      ...(categoryIdsToFind?.length ? { category_id: categoryIdsToFind } : {}),
       limit: payload.search.paginationOptions.pageSize,
       fields: '+metadata.*,+external_id',
       offset:
         (payload.search.paginationOptions.pageNumber - 1) *
         payload.search.paginationOptions.pageSize,
-    }
+    };
   }
 
   public override async createCategoryNavigationFilter(
@@ -109,6 +109,23 @@ export class MedusaProductSearchCapability<
     return success(facetValueIdentifier);
   }
 
+  protected async getAllChildCategoryIds(id: string) {
+    const client = await this.medusaApi.getClient();
+    const { product_category } = await client.store.category.retrieve(id, {
+      include_descendants_tree: true,
+      fields: '*category_children',
+    });
+
+    const flatten = (
+      category: typeof product_category,
+    ): Array<string> => [
+      category.id,
+      ...(category.category_children ?? []).flatMap(flatten),
+    ];
+
+    return flatten(product_category);
+  }
+
 
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
@@ -123,7 +140,7 @@ export class MedusaProductSearchCapability<
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
     const client = await this.medusaApi.getClient();
 
-    let categoryIdToFind: string | null = null;
+    let categoryIdsToFind: string[] | null = null;
     if (payload.search.categoryFilter?.key) {
       debug(
         `Resolving category filter for key: ${payload.search.categoryFilter.key}`
@@ -132,10 +149,14 @@ export class MedusaProductSearchCapability<
       const category = await this.resolveCategoryIdByExternalId(
         payload.search.categoryFilter.key
       );
+
       if (category) {
-        categoryIdToFind = category.id;
+        categoryIdsToFind = await this.getAllChildCategoryIds(
+          category.id,
+        );
+
         debug(
-          `Resolved category filter key ${payload.search.categoryFilter.key} to id: ${categoryIdToFind}`
+          `Resolved category filter key ${payload.search.categoryFilter.key} to id: ${categoryIdsToFind}`,
         );
       } else {
         debug(
@@ -145,7 +166,9 @@ export class MedusaProductSearchCapability<
     }
 
 
-    const response = await client.store.product.list(this.queryByTermPayload(payload, categoryIdToFind));
+    const response = await client.store.product.list(
+      this.queryByTermPayload(payload, categoryIdsToFind),
+    );
 
     const result = this.factory.parseSearchResult(this.context, response, payload);
     if (debug.enabled) {

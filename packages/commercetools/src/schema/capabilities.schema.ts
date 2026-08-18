@@ -46,6 +46,9 @@ import type {
   StoreFactory,
   StoreFactoryWithOutput,
   StoreCapability,
+  PersonalizationProfileFactory,
+  PersonalizationProfileFactoryWithOutput,
+  PersonalizationProfileCapability,
   CompanyRegistrationCapability,
   CompanyCapability,
   EmployeeCapability,
@@ -86,6 +89,7 @@ export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
   category: true,
   store: true,
   profile: true,
+  personalizationProfile: true,
 })
   .extend({
     productSearch: EnabledCapabilitySchema.optional(),
@@ -101,6 +105,7 @@ export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
     category: EnabledCapabilitySchema.optional(),
     store: EnabledCapabilitySchema.optional(),
     profile: EnabledCapabilitySchema.optional(),
+    personalizationProfile: EnabledCapabilitySchema.optional(),
     companyRegistration: EnabledCapabilitySchema.optional(),
     company: EnabledCapabilitySchema.optional(),
     employee: EnabledCapabilitySchema.optional(),
@@ -189,6 +194,10 @@ export type CommercetoolsOrderSearchCapabilityConfig = CommercetoolsCapabilityCo
   OrderSearchFactoryWithOutput<OrderSearchFactory>,
   OrderSearchCapability
 >;
+export type CommercetoolsPersonalizationProfileCapabilityConfig = CommercetoolsCapabilityConfig<
+  PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
+  PersonalizationProfileCapability
+>;
 export type CommercetoolsCompanyRegistrationCapabilityConfig = CommercetoolsCapabilityConfig<
   CommercetoolsCompanyRegistrationFactory,
   CompanyRegistrationCapability
@@ -271,6 +280,10 @@ export type CommercetoolsCapabilityConfigMap<
   employeeInvitation: EnabledCapabilityConfig<
     CommercetoolsEmployeeInvitationFactory,
     EmployeeInvitationCapability
+  >;
+  personalizationProfile: EnabledCapabilityConfig<
+    PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
+    PersonalizationProfileCapability
   >;
 };
 

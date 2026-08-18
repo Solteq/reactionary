@@ -1,13 +1,13 @@
 import * as z from 'zod';
-import {
-  ProductSearchIdentifierSchema,
-  ProductIdentifierSchema,
-} from '../../models/identifiers.model.js';
-import { BaseMutationSchema } from '../base.mutation.js';
 import type { InferType } from '../../../zod-utils.js';
+import {
+  ProductIdentifierSchema,
+  ProductSearchIdentifierSchema,
+} from '../../models/identifiers.model.js';
+import { AnalyticsBaseMutationSchema } from './base-event.mutation.js';
 
 export const AnalyticsMutationProductAddToCartEventSchema =
-  BaseMutationSchema.extend({
+  AnalyticsBaseMutationSchema.extend({
     event: z.literal('product-cart-add'),
     source: z
       .discriminatedUnion('type', [

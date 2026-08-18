@@ -10,8 +10,11 @@ import {
   type CategoryIdentifier,
   type CategoryPaginatedResult,
   type RequestContext,
+  type CategoryQueryForTopCategories,
+  type CategoryQueryForChildCategories,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
 
 export class CommercetoolsCategoryFactory<
   TCategorySchema extends AnyCategorySchema = typeof CategorySchema,
@@ -34,11 +37,12 @@ export class CommercetoolsCategoryFactory<
     data: CTCategory,
   ): z.output<TCategorySchema> {
     const identifier = { key: data.key || '' } satisfies CategoryIdentifier;
+    const localeStr = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
     const result = {
       identifier,
-      name: data.name[context.languageContext.locale] || 'No Name',
-      slug: data.slug ? data.slug[context.languageContext.locale] || '' : '',
-      text: data.description ? data.description[context.languageContext.locale] || '' : '',
+      name: data.name[localeStr] || 'No Name',
+      slug: data.slug ? data.slug[localeStr] || '' : '',
+      text: data.description ? data.description[localeStr] || '' : '',
       parentCategory:
         data.parent && data.parent.obj && data.parent.obj?.key
           ? { key: data.parent.obj.key }
@@ -49,8 +53,8 @@ export class CommercetoolsCategoryFactory<
         .map((asset) => ({
           sourceUrl: asset.sources[0].uri,
           altText:
-            asset.description?.[context.languageContext.locale] ||
-            asset.name[context.languageContext.locale] ||
+            asset.description?.[localeStr] ||
+            asset.name[localeStr] ||
             '',
           height: asset.sources[0].dimensions?.h || 0,
           width: asset.sources[0].dimensions?.w || 0,
@@ -63,12 +67,13 @@ export class CommercetoolsCategoryFactory<
   public parseCategoryPaginatedResult(
     context: RequestContext,
     data: CategoryPagedQueryResponse,
+    query: CategoryQueryForTopCategories | CategoryQueryForChildCategories,
   ): z.output<TCategoryPaginatedSchema> {
     const result = {
-      pageNumber: Math.floor(data.offset / data.count) + 1,
-      pageSize: data.count,
+      pageNumber: query.paginationOptions.pageNumber,
+      pageSize: query.paginationOptions.pageSize,
       totalCount: data.total || 0,
-      totalPages: Math.ceil((data.total ?? 0) / data.count),
+      totalPages: Math.ceil((data.total ?? 0) / query.paginationOptions.pageSize),
       items: data.results.map((category) => this.parseCategory(context, category)),
     } satisfies CategoryPaginatedResult;
 

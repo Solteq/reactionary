@@ -167,6 +167,7 @@ export const ProductSearchIdentifierSchema = z.looseObject({
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
   categoryFilter: FacetValueIdentifierSchema.optional().meta({ description: 'An optional category filter applied to the search results.' }),
   company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search products within. This can be used to filter products by specific companies, which can be useful for B2B use cases.' }),
+//  personalizationProfile: PersonalizationProfileSchema.optional().meta({ description: 'The marketing profile of the user performing the search. This can be used to provide personalized search results based on the user\'s segments and other attributes defined in their marketing profile.' }),
 });
 
 
@@ -254,6 +255,13 @@ export const CartSearchIdentifierSchema = z.looseObject({
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
 });
 
+export const PersonalizationProfileIdentifierSchema = z.looseObject({
+    key: z.string().meta({ description: 'The unique identifier for the personalization profile.' }),
+});
+
+export const FeatureFlagIdentifierSchema = z.looseObject({
+    key: z.string().meta({ description: 'The unique identifier for the feature flag.' }),
+});
 
 
 export type CartSearchIdentifier = InferType<typeof CartSearchIdentifierSchema>;
@@ -308,7 +316,6 @@ export type ProductListItemSearchIdentifier = InferType<typeof ProductListItemSe
 export type ProductListType = InferType<typeof ProductListTypeSchema>;
 export type PromotionIdentifier = InferType<typeof PromotionIdentifierSchema>;
 
-
 export type EmployeeRole = InferType<typeof EmployeeRoleSchema>;
 export type EmployeeInvitationStatus = InferType<typeof EmployeeInvitationStatusSchema>;
 export type CompanyRegistrationRequestApprovalStatus = InferType<typeof CompanyRegistrationRequestApprovalStatusSchema>;
@@ -317,6 +324,10 @@ export type EmployeeSearchIdentifier = InferType<typeof EmployeeSearchIdentifier
 export type EmployeeInvitationIdentifier = InferType<typeof EmployeeInvitationIdentifierSchema>;
 export type EmployeeInvitationSearchIdentifier = InferType<typeof EmployeeInvitationSearchIdentifierSchema>;
 export type CompanySearchIdentifier = InferType<typeof CompanySearchIdentifierSchema>;
+
+export type PersonalizationProfileIdentifier = InferType<typeof PersonalizationProfileIdentifierSchema>;
+export type FeatureFlagIdentifier = InferType<typeof FeatureFlagIdentifierSchema>;
+
 export type IdentifierType =
   | ProductIdentifier
   | ProductVariantIdentifier
@@ -338,6 +349,7 @@ export type IdentifierType =
   | PaymentInstructionIdentifier
   | OrderIdentifier
   | OrderItemIdentifier
+  | PersonalizationProfileIdentifier
   | CompanyIdentifier
   | CompanyRegistrationRequestIdentifier
   | CheckoutIdentifier
@@ -355,5 +367,15 @@ export type IdentifierType =
   | ProductListItemIdentifier
   | ProductListSearchIdentifier
   | PromotionIdentifier
+  | EmployeeIdentifier
+  | EmployeeInvitationIdentifier
+  | EmployeeSearchIdentifier
+  | EmployeeInvitationSearchIdentifier
+  | FeatureFlagIdentifier
+  | CompanySearchIdentifier
+  | OrderSearchIdentifier
+  | CartSearchIdentifier
+  | CompanyRegistrationRequestIdentifier
+  | PersonalizationProfileIdentifier
 
   ;
