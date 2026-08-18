@@ -15,7 +15,7 @@ const testData = {
   },
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryProvider.MAGENTO])(
   'Product Capability - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;

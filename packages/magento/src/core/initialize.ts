@@ -12,6 +12,11 @@ import {
   PriceSchema,
   ProductSchema,
   ProductSearchResultSchema,
+  ProfileSchema,
+  OrderSearchResultSchema,
+  CheckoutSchema,
+  ShippingMethodSchema,
+  PaymentMethodSchema,
 } from '@reactionary/core';
 import { MagentoCartCapability } from '../capabilities/cart.capability.js';
 import { MagentoCategoryCapability } from '../capabilities/category.capability.js';
@@ -20,6 +25,9 @@ import { MagentoInventoryCapability } from '../capabilities/inventory.capability
 import { MagentoPriceCapability } from '../capabilities/price.capability.js';
 import { MagentoProductSearchCapability } from '../capabilities/product-search.capability.js';
 import { MagentoProductCapability } from '../capabilities/product.capability.js';
+import { MagentoProfileCapability } from '../capabilities/profile.capability.js';
+import { MagentoOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import { MagentoCheckoutCapability } from '../capabilities/checkout.capability.js';
 import {
   MagentoCapabilitiesSchema,
   type MagentoCapabilities,
@@ -36,8 +44,10 @@ import {
   MagentoPriceFactory,
   MagentoProductFactory,
   MagentoProductSearchFactory,
-} from '../factories/index.js';
-import {
+  MagentoProfileFactory,
+  MagentoOrderSearchFactory,
+  MagentoCheckoutFactory,
+} from '../factories/index.js';import {
   type MagentoClientFromCapabilities,
   resolveCapabilityWithFactory,
   resolveDirectCapability,
@@ -196,6 +206,65 @@ export function withMagentoCapabilities<T extends MagentoCapabilities>(
           config,
           magentoApi,
         },
+      );
+    }
+
+    if (caps.profile?.enabled) {
+      client.profile = resolveCapabilityWithFactory(
+        capabilities.profile,
+        {
+          factory: new MagentoProfileFactory(ProfileSchema),
+          capability: (args) =>
+            new MagentoProfileCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.orderSearch?.enabled) {
+      client.orderSearch = resolveCapabilityWithFactory(
+        capabilities.orderSearch,
+        {
+          factory: new MagentoOrderSearchFactory(OrderSearchResultSchema),
+          capability: (args) =>
+            new MagentoOrderSearchCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.checkout?.enabled) {
+      client.checkout = resolveCapabilityWithFactory(
+        capabilities.checkout,
+        {
+          factory: new MagentoCheckoutFactory(
+            CheckoutSchema,
+            ShippingMethodSchema,
+            PaymentMethodSchema,
+            config,
+          ),
+          capability: (args) =>
+            new MagentoCheckoutCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
       );
     }
 

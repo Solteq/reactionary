@@ -12,3 +12,7 @@ export * from './capabilities/inventory.capability.js';
 export * from './capabilities/price.capability.js';
 export * from './capabilities/identity.capability.js';
 export * from './capabilities/cart.capability.js';
+export * from './capabilities/profile.capability.js';
+export * from './capabilities/order-search.capability.js';
+export * from './capabilities/checkout.capability.js';
+export * from './capabilities/order-search.capability.js';

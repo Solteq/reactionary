@@ -8,7 +8,7 @@ const testData = {
   sku: '0766623301831',
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS])(
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MAGENTO])(
   'Order Search Capability - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;

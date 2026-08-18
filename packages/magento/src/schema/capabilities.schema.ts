@@ -18,6 +18,15 @@ import type {
   ProductSearchFactory,
   ProductSearchFactoryWithOutput,
   ProductSearchCapability,
+  ProfileFactory,
+  ProfileFactoryWithOutput,
+  ProfileCapability,
+  OrderSearchFactory,
+  OrderSearchFactoryWithOutput,
+  OrderSearchCapability,
+  CheckoutFactory,
+  CheckoutFactoryWithOutput,
+  CheckoutCapability,
   RequestContext,
   Cache,
 } from '@reactionary/core';
@@ -45,6 +54,9 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
   price: true,
   identity: true,
   cart: true,
+  profile: true,
+  orderSearch: true,
+  checkout: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -54,6 +66,9 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
     price: OverridableCapabilitySchema.optional(),
     inventory: OverridableCapabilitySchema.optional(),
     identity: DirectCapabilitySchema.optional(),
+    profile: OverridableCapabilitySchema.optional(),
+    orderSearch: OverridableCapabilitySchema.optional(),
+    checkout: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -113,6 +128,21 @@ export type MagentoInventoryCapabilityConfig = MagentoCapabilityConfig<
 export type MagentoIdentityCapabilityConfig =
   MagentoDirectCapabilityConfig<IdentityCapability>;
 
+export type MagentoProfileCapabilityConfig = MagentoCapabilityConfig<
+  ProfileFactoryWithOutput<ProfileFactory>,
+  ProfileCapability
+>;
+
+export type MagentoOrderSearchCapabilityConfig = MagentoCapabilityConfig<
+  OrderSearchFactoryWithOutput<OrderSearchFactory>,
+  OrderSearchCapability
+>;
+
+export type MagentoCheckoutCapabilityConfig = MagentoCapabilityConfig<
+  CheckoutFactoryWithOutput<CheckoutFactory>,
+  CheckoutCapability
+>;
+
 export type MagentoCapabilities<
   TProductFactory extends ProductFactory = ProductFactory,
   TProductCapability extends ProductCapability = ProductCapability,
@@ -127,6 +157,12 @@ export type MagentoCapabilities<
   TInventoryFactory extends InventoryFactory = InventoryFactory,
   TInventoryCapability extends InventoryCapability = InventoryCapability,
   TIdentityCapability extends IdentityCapability = IdentityCapability,
+  TProfileFactory extends ProfileFactory = ProfileFactory,
+  TProfileCapability extends ProfileCapability = ProfileCapability,
+  TOrderSearchFactory extends OrderSearchFactory = OrderSearchFactory,
+  TOrderSearchCapability extends OrderSearchCapability = OrderSearchCapability,
+  TCheckoutFactory extends CheckoutFactory = CheckoutFactory,
+  TCheckoutCapability extends CheckoutCapability = CheckoutCapability,
 > = {
   product?: MagentoCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MagentoCapabilityConfig<ProductSearchFactoryWithOutput<TProductSearchFactory>, TProductSearchCapability>;
@@ -135,4 +171,7 @@ export type MagentoCapabilities<
   price?: MagentoCapabilityConfig<PriceFactoryWithOutput<TPriceFactory>, TPriceCapability>;
   inventory?: MagentoCapabilityConfig<InventoryFactoryWithOutput<TInventoryFactory>, TInventoryCapability>;
   identity?: MagentoDirectCapabilityConfig<TIdentityCapability>;
+  profile?: MagentoCapabilityConfig<ProfileFactoryWithOutput<TProfileFactory>, TProfileCapability>;
+  orderSearch?: MagentoCapabilityConfig<OrderSearchFactoryWithOutput<TOrderSearchFactory>, TOrderSearchCapability>;
+  checkout?: MagentoCapabilityConfig<CheckoutFactoryWithOutput<TCheckoutFactory>, TCheckoutCapability>;
 };

@@ -39,7 +39,7 @@ import {
   error,
 } from '@reactionary/core';
 import createDebug from 'debug';
-import type { MagentoClient, RequestContextTokenStore } from '../core/client.js';
+import type { MagentoClient } from '../core/client.js';
 import type { MagentoConfiguration } from '../schema/configuration.schema.js';
 import { MagentoCartIdentifierSchema, type MagentoCartIdentifier } from '../schema/magento.schema.js';
 import type { MagentoCartFactory } from '../factories/cart/cart.factory.js';
@@ -92,6 +92,19 @@ export class MagentoCartCapability<
     }
   }
 
+  /**
+   * Fetches the cart (with merged totals) and parses it into the model. Shared
+   * by all mutations that return the resulting cart.
+   */
+  protected async respondWithCart(
+    key: string,
+  ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
+    const cartResponse = await this.getCartWithTotals(key);
+    return success(
+      this.factory.parseCart(this.context, { ...cartResponse, _requestedId: key }),
+    );
+  }
+
   @Reactionary({
     inputSchema: CartMutationItemAddSchema,
     outputSchema: CartSchema,
@@ -118,8 +131,7 @@ export class MagentoCartCapability<
 
       await this.magentoApi.addItemToCart(magentoId.key, item);
 
-      const cartResponse = await this.getCartWithTotals(magentoId.key);
-      return success(this.factory.parseCart(this.context, { ...cartResponse, _requestedId: magentoId.key }));
+      return this.respondWithCart(magentoId.key);
     } catch (err) {
       debug('Failed to add item to cart:', err);
       throw err;
@@ -137,8 +149,7 @@ export class MagentoCartCapability<
       const magentoId = payload.cart as MagentoCartIdentifier;
       await this.magentoApi.removeCartItem(magentoId.key, Number(payload.item.key));
 
-      const cartResponse = await this.getCartWithTotals(magentoId.key);
-      return success(this.factory.parseCart(this.context, { ...cartResponse, _requestedId: magentoId.key }));
+      return this.respondWithCart(magentoId.key);
     } catch (err) {
       debug('Failed to remove item from cart:', err);
       throw err;
@@ -161,8 +172,7 @@ export class MagentoCartCapability<
 
       await this.magentoApi.updateCartItem(magentoId.key, Number(payload.item.key), item);
 
-      const cartResponse = await this.getCartWithTotals(magentoId.key);
-      return success(this.factory.parseCart(this.context, { ...cartResponse, _requestedId: magentoId.key }));
+      return this.respondWithCart(magentoId.key);
     } catch (err) {
       debug('Failed to change quantity:', err);
       throw err;
@@ -176,8 +186,7 @@ export class MagentoCartCapability<
     Result<CartIdentifier, NotFoundError>
   > {
     try {
-      const tokenStore = (this.magentoApi as unknown as { tokenStore: RequestContextTokenStore }).tokenStore;
-      const activeCartId = await tokenStore.getItem('activeCartId');
+      const activeCartId = await this.magentoApi.getActiveCartId();
 
       if (activeCartId) {
         return success(
@@ -206,8 +215,7 @@ export class MagentoCartCapability<
   public override async deleteCart(
     _payload: CartMutationDeleteCart,
   ): Promise<Result<void>> {
-    const tokenStore = (this.magentoApi as unknown as { tokenStore: RequestContextTokenStore }).tokenStore;
-    await tokenStore.removeItem('activeCartId');
+    await this.magentoApi.clearActiveCartId();
     return success(undefined);
   }
 
@@ -222,8 +230,7 @@ export class MagentoCartCapability<
       const magentoId = payload.cart as MagentoCartIdentifier;
       await this.magentoApi.applyCoupon(magentoId.key, payload.couponCode);
 
-      const cartResponse = await this.getCartWithTotals(magentoId.key);
-      return success(this.factory.parseCart(this.context, { ...cartResponse, _requestedId: magentoId.key }));
+      return this.respondWithCart(magentoId.key);
     } catch (err) {
       debug('Failed to apply coupon:', err);
       throw err;
@@ -241,8 +248,7 @@ export class MagentoCartCapability<
       const magentoId = payload.cart as MagentoCartIdentifier;
       await this.magentoApi.removeCoupon(magentoId.key);
 
-      const cartResponse = await this.getCartWithTotals(magentoId.key);
-      return success(this.factory.parseCart(this.context, { ...cartResponse, _requestedId: magentoId.key }));
+      return this.respondWithCart(magentoId.key);
     } catch (err) {
       debug('Failed to remove coupon:', err);
       throw err;
@@ -267,8 +273,7 @@ export class MagentoCartCapability<
     _payload: CartQueryList,
   ): Promise<Result<CartPaginatedSearchResult>> {
 
-    const tokenStore = (this.magentoApi as unknown as { tokenStore: RequestContextTokenStore }).tokenStore;
-    const activeCartId = await tokenStore.getItem('activeCartId');
+    const activeCartId = await this.magentoApi.getActiveCartId();
 
     if (activeCartId) {
       const cartWithTotals = await this.getCartWithTotals(activeCartId);
@@ -293,8 +298,7 @@ export class MagentoCartCapability<
     _payload: CartMutationCreateCart,
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
     const identifier = await this.createNewCart();
-    const cartResponse = await this.getCartWithTotals((identifier as MagentoCartIdentifier).key);
-    return success(this.factory.parseCart(this.context, { ...cartResponse, _requestedId: (identifier as MagentoCartIdentifier).key }));
+    return this.respondWithCart((identifier as MagentoCartIdentifier).key);
   }
 
   @Reactionary({
@@ -313,8 +317,7 @@ export class MagentoCartCapability<
       key: cartId.replace(/^"|"$/g, ''),
     });
 
-    const tokenStore = (this.magentoApi as unknown as { tokenStore: RequestContextTokenStore }).tokenStore;
-    await tokenStore.setItem('activeCartId', identifier.key);
+    await this.magentoApi.setActiveCartId(identifier.key);
 
     return identifier;
   }

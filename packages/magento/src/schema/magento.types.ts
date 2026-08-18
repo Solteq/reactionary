@@ -216,3 +216,134 @@ export interface MagentoProductSearchResult {
   search_criteria?: Record<string, unknown>;
   total_count: number;
 }
+
+/**
+ * A Magento quote (checkout) address as accepted/returned by the checkout
+ * REST endpoints (estimate-shipping-methods, shipping-information, billing-address).
+ */
+export interface MagentoCheckoutAddress {
+  id?: number;
+  region?: string;
+  region_id?: number;
+  region_code?: string;
+  country_id?: string;
+  street?: string[];
+  company?: string;
+  telephone?: string;
+  postcode?: string;
+  city?: string;
+  firstname?: string;
+  lastname?: string;
+  email?: string;
+  same_as_billing?: number;
+  save_in_address_book?: number;
+}
+
+export interface MagentoShippingMethod {
+  carrier_code: string;
+  method_code: string;
+  carrier_title?: string;
+  method_title?: string;
+  amount: number;
+  base_amount?: number;
+  available: boolean;
+  error_message?: string;
+  price_excl_tax?: number;
+  price_incl_tax?: number;
+}
+
+export interface MagentoPaymentMethod {
+  code: string;
+  title: string;
+}
+
+export interface MagentoTotalSegment {
+  code: string;
+  title?: string;
+  value: number | null;
+}
+
+export interface MagentoCartTotals {
+  grand_total?: number;
+  base_grand_total?: number;
+  subtotal?: number;
+  base_subtotal?: number;
+  discount_amount?: number;
+  base_discount_amount?: number;
+  tax_amount?: number;
+  base_tax_amount?: number;
+  shipping_amount?: number;
+  base_shipping_amount?: number;
+  quote_currency_code?: string;
+  base_currency_code?: string;
+  items?: MagentoCartItem[];
+  total_segments?: MagentoTotalSegment[];
+}
+
+export interface MagentoShippingInformationResult {
+  payment_methods?: MagentoPaymentMethod[];
+  totals?: MagentoCartTotals;
+}
+
+/**
+ * The payment method payload for placing an order via payment-information.
+ */
+export interface MagentoPaymentMethodPayload {
+  method: string;
+  po_number?: string;
+  additional_data?: Record<string, string> | string[];
+}
+
+export interface MagentoPlaceOrderPayload {
+  email?: string;
+  paymentMethod: MagentoPaymentMethodPayload;
+  billingAddress?: MagentoCheckoutAddress;
+}
+
+export interface MagentoShippingInformationPayload {
+  addressInformation: {
+    shipping_address: MagentoCheckoutAddress;
+    billing_address?: MagentoCheckoutAddress;
+    shipping_method_code: string;
+    shipping_carrier_code: string;
+  };
+}
+
+/**
+ * A payment instruction the checkout capability keeps in the request session,
+ * because Magento does not persist pre-order payment intents on the quote.
+ */
+export interface MagentoStoredPaymentInstruction {
+  key: string;
+  method: string;
+  name: string;
+  paymentProcessor: string;
+  amountValue: number;
+  amountCurrency: string;
+  protocolData: Array<{ key: string; value: string }>;
+  status: string;
+}
+
+export interface MagentoStoredShippingInstruction {
+  shippingMethodKey: string;
+  carrierCode: string;
+  methodCode: string;
+  instructions: string;
+  pickupPoint: string;
+  consentForUnattendedDelivery: boolean;
+}
+
+/**
+ * Checkout state the capability persists in the request session to bridge the
+ * gap between the reactionary checkout model and Magento's stateless quote flow.
+ */
+export interface MagentoCheckoutState {
+  email?: string;
+  phone?: string;
+  billingAddress?: MagentoCheckoutAddress;
+  shippingAddress?: MagentoCheckoutAddress;
+  shippingInstruction?: MagentoStoredShippingInstruction;
+  paymentInstructions?: MagentoStoredPaymentInstruction[];
+  orderId?: string;
+}
+

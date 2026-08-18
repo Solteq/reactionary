@@ -8,6 +8,7 @@ export const MagentoConfigurationSchema = z.looseObject({
   rootCategoryId: z.string().default('2').meta({ description: 'The ID of the root category in Magento. Typically "2" for the default Magento setup.' }),
   allCurrencies: z.array(z.string()),
   storeCode: z.string().default(''),
+  authStoreCode: z.string().default('default').meta({ description: 'The store/website scope used for customer authentication and account operations (token, customers/me). Customers typically live on the default website, which may differ from the catalog storeCode.' }),
 });
 
 export type MagentoConfiguration = z.infer<typeof MagentoConfigurationSchema>;

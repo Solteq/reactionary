@@ -15,6 +15,7 @@ import {
   IdentityMutationLogoutSchema,
   type AnonymousIdentity,
   type RegisteredIdentity,
+  type GuestIdentity,
   type Result,
   success,
 } from '@reactionary/core';
@@ -50,25 +51,43 @@ export class MagentoIdentityCapability extends IdentityCapability {
   public override async getSelf(
     _payload: IdentityQuerySelf,
   ): Promise<Result<Identity>> {
-    try {
-      const client = await this.magentoApi.getClient();
-      const me = await client.store.customer.me();
+    const customerToken = await this.magentoApi.getCustomerToken();
 
+    if (customerToken) {
+      try {
+        const client = await this.magentoApi.getClient();
+        const me = await client.store.customer.me();
+
+        const identity = {
+          id: {
+            userId: String(me.id),
+          },
+          type: 'Registered',
+        } satisfies RegisteredIdentity;
+
+        this.updateIdentityContext(identity);
+        return success(identity);
+      } catch (err) {
+        debug('getSelf: customer token present but /me failed:', err);
+      }
+    }
+
+    const activeCartId = await this.magentoApi.getActiveCartId();
+    if (activeCartId) {
+      debug('Active cart found without customer token, treating as guest');
       const identity = {
+        type: 'Guest',
         id: {
-          userId: String(me.id),
+          userId: 'guest',
         },
-        type: 'Registered',
-      } satisfies RegisteredIdentity;
-
-      this.updateIdentityContext(identity);
-      return success(identity);
-    } catch (err) {
-      debug('getSelf failed, returning anonymous identity:', err);
-      const identity = this.createAnonymousIdentity();
+      } satisfies GuestIdentity;
       this.updateIdentityContext(identity);
       return success(identity);
     }
+
+    const identity = this.createAnonymousIdentity();
+    this.updateIdentityContext(identity);
+    return success(identity);
   }
 
   @Reactionary({

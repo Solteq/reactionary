@@ -6,6 +6,9 @@ import type {
   PriceFactory,
   ProductFactory,
   ProductSearchFactory,
+  ProfileFactory,
+  OrderSearchFactory,
+  CheckoutFactory,
 } from '@reactionary/core';
 import type { MagentoCapabilities } from '../schema/capabilities.schema.js';
 import type { MagentoCartFactory } from '../factories/cart/cart.factory.js';
@@ -14,6 +17,9 @@ import type { MagentoInventoryFactory } from '../factories/inventory/inventory.f
 import type { MagentoPriceFactory } from '../factories/price/price.factory.js';
 import type { MagentoProductFactory } from '../factories/product/product.factory.js';
 import type { MagentoProductSearchFactory } from '../factories/product-search/product-search.factory.js';
+import type { MagentoProfileFactory } from '../factories/profile/profile.factory.js';
+import type { MagentoOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
+import type { MagentoCheckoutFactory } from '../factories/checkout/checkout.factory.js';
 import type { MagentoCartCapability } from '../capabilities/cart.capability.js';
 import type { MagentoCategoryCapability } from '../capabilities/category.capability.js';
 import type { MagentoIdentityCapability } from '../capabilities/identity.capability.js';
@@ -21,6 +27,9 @@ import type { MagentoInventoryCapability } from '../capabilities/inventory.capab
 import type { MagentoPriceCapability } from '../capabilities/price.capability.js';
 import type { MagentoProductCapability } from '../capabilities/product.capability.js';
 import type { MagentoProductSearchCapability } from '../capabilities/product-search.capability.js';
+import type { MagentoProfileCapability } from '../capabilities/profile.capability.js';
+import type { MagentoOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import type { MagentoCheckoutCapability } from '../capabilities/checkout.capability.js';
 
 type OverridableCapabilityKey =
   | 'product'
@@ -28,7 +37,10 @@ type OverridableCapabilityKey =
   | 'cart'
   | 'category'
   | 'price'
-  | 'inventory';
+  | 'inventory'
+  | 'profile'
+  | 'orderSearch'
+  | 'checkout';
 
 type EnabledCapability<TCapability> =
   TCapability extends { enabled: true } ? true : false;
@@ -61,6 +73,9 @@ type FactoryContractMap = {
   category: CategoryFactory;
   price: PriceFactory;
   inventory: InventoryFactory;
+  profile: ProfileFactory;
+  orderSearch: OrderSearchFactory;
+  checkout: CheckoutFactory;
 };
 
 type DefaultFactoryMap = {
@@ -70,6 +85,9 @@ type DefaultFactoryMap = {
   category: MagentoCategoryFactory;
   price: MagentoPriceFactory;
   inventory: MagentoInventoryFactory;
+  profile: MagentoProfileFactory;
+  orderSearch: MagentoOrderSearchFactory;
+  checkout: MagentoCheckoutFactory;
 };
 
 type ResolvedFactoryMap<T extends MagentoCapabilities> = {
@@ -87,6 +105,9 @@ type DefaultCapabilityMap<T extends MagentoCapabilities> = {
   category: MagentoCategoryCapability<ResolvedFactoryMap<T>['category']>;
   price: MagentoPriceCapability<ResolvedFactoryMap<T>['price']>;
   inventory: MagentoInventoryCapability<ResolvedFactoryMap<T>['inventory']>;
+  profile: MagentoProfileCapability<ResolvedFactoryMap<T>['profile']>;
+  orderSearch: MagentoOrderSearchCapability<ResolvedFactoryMap<T>['orderSearch']>;
+  checkout: MagentoCheckoutCapability<ResolvedFactoryMap<T>['checkout']>;
   identity: MagentoIdentityCapability;
 };
 

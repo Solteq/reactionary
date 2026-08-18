@@ -3,7 +3,7 @@ import { describe, expect, it, beforeEach, assert } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
 import { IdentityIdentifierSchema, type Address, type Identity, type IdentityIdentifier, type Profile } from '@reactionary/core';
 
-describe.each([PrimaryProvider.MEDUSA, PrimaryProvider.COMMERCETOOLS])(
+describe.each([PrimaryProvider.MEDUSA, PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MAGENTO])(
   'Profile Capability - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;

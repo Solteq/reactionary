@@ -122,7 +122,6 @@ export function createClient(provider: PrimaryProvider) {
     if (provider === PrimaryProvider.MAGENTO) {
       builder = builder.withCapability(
         withMagentoCapabilities(getMagentoTestConfiguration(), {
-
           cart: { enabled: true  },
           product: { enabled: true },
           category: { enabled: true },
@@ -130,6 +129,9 @@ export function createClient(provider: PrimaryProvider) {
           inventory: { enabled: true },
           price: { enabled: true },
           productSearch: { enabled: true },
+          profile: { enabled: true },
+          orderSearch: { enabled: true },
+          checkout: { enabled: true },
         })
       );
     }
