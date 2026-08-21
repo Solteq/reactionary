@@ -8,7 +8,7 @@ const testData = {
   skuWithTiers: '0731304432500',
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA, , PrimaryProvider.MAGENTO])('Cart Capability  %s', (provider) => {>>>>>>> main
+describe.each([PrimaryProvider.COMMERCETOOLS,  PrimaryProvider.MEDUSA, PrimaryProvider.MAGENTO])('Cart Capability  %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(async () => {
