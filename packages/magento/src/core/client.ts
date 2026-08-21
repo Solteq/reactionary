@@ -91,7 +91,8 @@ class MagentoRest {
   async request<T>(
     method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
-    body?: unknown
+    body?: unknown,
+    options?: { allowNotFound?: boolean }
   ): Promise<T> {
     const url = this.normalizeUrl(path);
     const headers: Record<string, string> = {
@@ -104,6 +105,10 @@ class MagentoRest {
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+
+    if (res.status === 404 && options?.allowNotFound) {
+      return undefined as T;
+    }
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
@@ -221,6 +226,14 @@ export class Magento {
     order: {
       list: async (params: URLSearchParams) => {
         return this.adminRest.request<any>('GET', `/V1/orders?${params.toString()}`);
+      },
+      get: async (id: string) => {
+        return this.adminRest.request<any>(
+          'GET',
+          `/V1/orders/${encodeURIComponent(id)}`,
+          undefined,
+          { allowNotFound: true }
+        );
       },
     },
     checkout: {
@@ -462,6 +475,12 @@ export class MagentoClient {
   async searchOrders(params: URLSearchParams) {
     const client = await this.getClient();
     return client.store.order.list(params);
+  }
+
+  /** Returns undefined (not a thrown error) when Magento returns a 404 — no order with this entity_id. */
+  async getOrderById(id: string): Promise<any> {
+    const client = await this.getClient();
+    return client.store.order.get(id);
   }
 
   async getProductBySKU(sku: string) {
