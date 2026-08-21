@@ -6,6 +6,8 @@ import {
   type CategoryFactory,
   type CategoryPaginatedResult,
   type CategoryPaginatedResultSchema,
+  type CategoryQueryForChildCategories,
+  type CategoryQueryForTopCategories,
   type CategorySchema,
   type RequestContext,
 } from '@reactionary/core';
@@ -69,6 +71,7 @@ export class MagentoCategoryFactory<
   public parseCategoryPaginatedResult(
     context: RequestContext,
     data: MagentoCategoryPaginatedInput,
+    _query: CategoryQueryForTopCategories | CategoryQueryForChildCategories,
   ): z.output<TCategoryPaginatedSchema> {
     const items = (data.items || []).map((c) => this.parseCategory(context, c));
 

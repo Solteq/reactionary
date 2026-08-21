@@ -5,6 +5,8 @@ import type {
   MagentoCheckoutState,
   MagentoPaymentMethod,
   MagentoPlaceOrderPayload,
+  MagentoProductLink,
+  MagentoProductSearchResult,
   MagentoShippingInformationPayload,
   MagentoShippingInformationResult,
   MagentoShippingMethod,
@@ -181,6 +183,12 @@ export class Magento {
         return this.rest.request<any>(
           'GET',
           `/V1/products?${params.toString()}`
+        );
+      },
+      getLinks: async (sku: string, linkType: string) => {
+        return this.rest.request<MagentoProductLink[]>(
+          'GET',
+          `/V1/products/${encodeURIComponent(sku)}/links/${encodeURIComponent(linkType)}`
         );
       },
     },
@@ -463,6 +471,19 @@ export class MagentoClient {
 
   async resolveProductForSKU(sku: string) {
     return this.getProductBySKU(sku);
+  }
+
+  async searchProducts(params: URLSearchParams): Promise<MagentoProductSearchResult> {
+    const client = await this.getClient();
+    return client.store.product.search(params);
+  }
+
+  async getProductLinks(
+    sku: string,
+    linkType: string,
+  ): Promise<MagentoProductLink[]> {
+    const client = await this.getClient();
+    return client.store.product.getLinks(sku, linkType);
   }
 
   async createCart() {

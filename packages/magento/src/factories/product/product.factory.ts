@@ -16,6 +16,7 @@ import {
 import type * as z from 'zod';
 import type { MagentoConfiguration } from '../../schema/configuration.schema.js';
 import type { MagentoProduct } from '../../schema/magento.types.js';
+import { getProductKey, parseDamImages } from '../../utils/magento-product.js';
 
 function getCustomAttribute(product: MagentoProduct, code: string): string | undefined {
   if (!product.custom_attributes) return undefined;
@@ -56,9 +57,8 @@ export class MagentoProductFactory<
     data: MagentoProduct,
   ): z.output<TProductSchema> {
     const sku = data.sku;
-    const idKey = data.id !== undefined ? String(data.id) : sku;
 
-    const identifier = ProductIdentifierSchema.parse({ key: idKey });
+    const identifier = ProductIdentifierSchema.parse({ key: getProductKey(data) });
 
     const name = data.name || sku;
     const slug =
@@ -112,12 +112,7 @@ export class MagentoProductFactory<
 
     const upc = getCustomAttribute(product, 'upc') ?? '';
 
-    const images: Image[] = (product.media_gallery_entries ?? [])
-      .filter((m) => m.file.length > 0)
-      .map((m) => ({
-        sourceUrl: buildMagentoImageUrl(this.config, m.file),
-        altText: product.name || sku,
-      } satisfies Image));
+    const images = this.parseImages(product);
 
     const options: ProductVariantOption[] = [];
 
@@ -131,6 +126,24 @@ export class MagentoProductFactory<
       gtin: ean,
       barcode: ean,
     } satisfies ProductVariant;
+  }
+
+  protected parseImages(product: MagentoProduct): Image[] {
+    const altText = product.name || product.sku;
+
+    if (this.config.mediaSource === 'EXTERNAL') {
+      return parseDamImages(
+        getCustomAttribute(product, 'original_dam_reference'),
+        altText,
+      );
+    }
+
+    return (product.media_gallery_entries ?? [])
+      .filter((m) => m.file.length > 0)
+      .map((m) => ({
+        sourceUrl: buildMagentoImageUrl(this.config, m.file),
+        altText,
+      } satisfies Image));
   }
 
   protected createSynthAttribute(key: string, name: string, value: string): ProductAttribute {

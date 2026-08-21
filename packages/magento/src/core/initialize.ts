@@ -17,6 +17,7 @@ import {
   CheckoutSchema,
   ShippingMethodSchema,
   PaymentMethodSchema,
+  ProductAssociationSchema,
 } from '@reactionary/core';
 import { MagentoCartCapability } from '../capabilities/cart.capability.js';
 import { MagentoCategoryCapability } from '../capabilities/category.capability.js';
@@ -28,6 +29,8 @@ import { MagentoProductCapability } from '../capabilities/product.capability.js'
 import { MagentoProfileCapability } from '../capabilities/profile.capability.js';
 import { MagentoOrderSearchCapability } from '../capabilities/order-search.capability.js';
 import { MagentoCheckoutCapability } from '../capabilities/checkout.capability.js';
+import { MagentoProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import { MagentoProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import {
   MagentoCapabilitiesSchema,
   type MagentoCapabilities,
@@ -47,6 +50,7 @@ import {
   MagentoProfileFactory,
   MagentoOrderSearchFactory,
   MagentoCheckoutFactory,
+  MagentoProductAssociationsFactory,
 } from '../factories/index.js';import {
   type MagentoClientFromCapabilities,
   resolveCapabilityWithFactory,
@@ -265,6 +269,46 @@ export function withMagentoCapabilities<T extends MagentoCapabilities>(
             ),
         },
         buildCapabilityArgs,
+      );
+    }
+
+    if (caps.productAssociations?.enabled) {
+      client.productAssociations = resolveCapabilityWithFactory(
+        capabilities.productAssociations,
+        {
+          factory: new MagentoProductAssociationsFactory(
+            ProductAssociationSchema,
+            config,
+          ),
+          capability: (args) =>
+            new MagentoProductAssociationsCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.productRecommendations?.enabled) {
+      client.productRecommendations = resolveDirectCapability(
+        capabilities.productRecommendations,
+        (args) =>
+          new MagentoProductRecommendationsCapability(
+            args.config,
+            args.cache,
+            args.context,
+            args.magentoApi,
+          ),
+        {
+          cache,
+          context,
+          config,
+          magentoApi,
+        },
       );
     }
 

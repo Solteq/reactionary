@@ -9,6 +9,7 @@ import type {
   ProfileFactory,
   OrderSearchFactory,
   CheckoutFactory,
+  ProductAssociationsFactory,
 } from '@reactionary/core';
 import type { MagentoCapabilities } from '../schema/capabilities.schema.js';
 import type { MagentoCartFactory } from '../factories/cart/cart.factory.js';
@@ -20,6 +21,7 @@ import type { MagentoProductSearchFactory } from '../factories/product-search/pr
 import type { MagentoProfileFactory } from '../factories/profile/profile.factory.js';
 import type { MagentoOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
 import type { MagentoCheckoutFactory } from '../factories/checkout/checkout.factory.js';
+import type { MagentoProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
 import type { MagentoCartCapability } from '../capabilities/cart.capability.js';
 import type { MagentoCategoryCapability } from '../capabilities/category.capability.js';
 import type { MagentoIdentityCapability } from '../capabilities/identity.capability.js';
@@ -30,6 +32,8 @@ import type { MagentoProductSearchCapability } from '../capabilities/product-sea
 import type { MagentoProfileCapability } from '../capabilities/profile.capability.js';
 import type { MagentoOrderSearchCapability } from '../capabilities/order-search.capability.js';
 import type { MagentoCheckoutCapability } from '../capabilities/checkout.capability.js';
+import type { MagentoProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import type { MagentoProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 
 type OverridableCapabilityKey =
   | 'product'
@@ -40,16 +44,19 @@ type OverridableCapabilityKey =
   | 'inventory'
   | 'profile'
   | 'orderSearch'
-  | 'checkout';
+  | 'checkout'
+  | 'productAssociations';
+
+type DirectCapabilityKey = 'identity' | 'productRecommendations';
 
 type EnabledCapability<TCapability> =
   TCapability extends { enabled: true } ? true : false;
 
 type NormalizeConfiguredCapabilities<T extends MagentoCapabilities> =
-  Omit<T, OverridableCapabilityKey | 'identity'> & {
+  Omit<T, OverridableCapabilityKey | DirectCapabilityKey> & {
     [K in OverridableCapabilityKey]?: EnabledCapability<T[K]>;
   } & {
-    identity?: EnabledCapability<T['identity']>;
+    [K in DirectCapabilityKey]?: EnabledCapability<T[K]>;
   };
 
 type ExtractCapabilityFactory<TCapability, TContract, TDefaultFactory> =
@@ -76,6 +83,7 @@ type FactoryContractMap = {
   profile: ProfileFactory;
   orderSearch: OrderSearchFactory;
   checkout: CheckoutFactory;
+  productAssociations: ProductAssociationsFactory;
 };
 
 type DefaultFactoryMap = {
@@ -88,6 +96,7 @@ type DefaultFactoryMap = {
   profile: MagentoProfileFactory;
   orderSearch: MagentoOrderSearchFactory;
   checkout: MagentoCheckoutFactory;
+  productAssociations: MagentoProductAssociationsFactory;
 };
 
 type ResolvedFactoryMap<T extends MagentoCapabilities> = {
@@ -108,18 +117,20 @@ type DefaultCapabilityMap<T extends MagentoCapabilities> = {
   profile: MagentoProfileCapability<ResolvedFactoryMap<T>['profile']>;
   orderSearch: MagentoOrderSearchCapability<ResolvedFactoryMap<T>['orderSearch']>;
   checkout: MagentoCheckoutCapability<ResolvedFactoryMap<T>['checkout']>;
+  productAssociations: MagentoProductAssociationsCapability<ResolvedFactoryMap<T>['productAssociations']>;
+  productRecommendations: MagentoProductRecommendationsCapability;
   identity: MagentoIdentityCapability;
 };
 
 type CapabilityImplementationMap<T extends MagentoCapabilities> = {
-  [K in OverridableCapabilityKey | 'identity']: ExtractCapabilityImplementation<
+  [K in OverridableCapabilityKey | DirectCapabilityKey]: ExtractCapabilityImplementation<
     T[K],
     DefaultCapabilityMap<T>[K]
   >;
 };
 
 type EnabledCapabilityOverrideMap<T extends MagentoCapabilities> = {
-  [K in OverridableCapabilityKey | 'identity' as T[K] extends {
+  [K in OverridableCapabilityKey | DirectCapabilityKey as T[K] extends {
     enabled: true;
   }
     ? K
@@ -128,7 +139,7 @@ type EnabledCapabilityOverrideMap<T extends MagentoCapabilities> = {
 
 export type MagentoClientFromCapabilities<T extends MagentoCapabilities> = Omit<
   ClientFromCapabilities<NormalizeConfiguredCapabilities<T>>,
-  OverridableCapabilityKey | 'identity'
+  OverridableCapabilityKey | DirectCapabilityKey
 > &
   EnabledCapabilityOverrideMap<T>;
 

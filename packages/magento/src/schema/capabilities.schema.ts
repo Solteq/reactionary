@@ -27,6 +27,10 @@ import type {
   CheckoutFactory,
   CheckoutFactoryWithOutput,
   CheckoutCapability,
+  ProductAssociationsFactory,
+  ProductAssociationsFactoryWithOutput,
+  ProductAssociationsCapability,
+  ProductRecommendationsCapability,
   RequestContext,
   Cache,
 } from '@reactionary/core';
@@ -57,6 +61,8 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
   profile: true,
   orderSearch: true,
   checkout: true,
+  productAssociations: true,
+  productRecommendations: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -69,6 +75,8 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
     profile: OverridableCapabilitySchema.optional(),
     orderSearch: OverridableCapabilitySchema.optional(),
     checkout: OverridableCapabilitySchema.optional(),
+    productAssociations: OverridableCapabilitySchema.optional(),
+    productRecommendations: DirectCapabilitySchema.optional(),
   })
   .partial();
 
@@ -143,6 +151,14 @@ export type MagentoCheckoutCapabilityConfig = MagentoCapabilityConfig<
   CheckoutCapability
 >;
 
+export type MagentoProductAssociationsCapabilityConfig = MagentoCapabilityConfig<
+  ProductAssociationsFactoryWithOutput<ProductAssociationsFactory>,
+  ProductAssociationsCapability
+>;
+
+export type MagentoProductRecommendationsCapabilityConfig =
+  MagentoDirectCapabilityConfig<ProductRecommendationsCapability>;
+
 export type MagentoCapabilities<
   TProductFactory extends ProductFactory = ProductFactory,
   TProductCapability extends ProductCapability = ProductCapability,
@@ -163,6 +179,9 @@ export type MagentoCapabilities<
   TOrderSearchCapability extends OrderSearchCapability = OrderSearchCapability,
   TCheckoutFactory extends CheckoutFactory = CheckoutFactory,
   TCheckoutCapability extends CheckoutCapability = CheckoutCapability,
+  TProductAssociationsFactory extends ProductAssociationsFactory = ProductAssociationsFactory,
+  TProductAssociationsCapability extends ProductAssociationsCapability = ProductAssociationsCapability,
+  TProductRecommendationsCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
 > = {
   product?: MagentoCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MagentoCapabilityConfig<ProductSearchFactoryWithOutput<TProductSearchFactory>, TProductSearchCapability>;
@@ -174,4 +193,6 @@ export type MagentoCapabilities<
   profile?: MagentoCapabilityConfig<ProfileFactoryWithOutput<TProfileFactory>, TProfileCapability>;
   orderSearch?: MagentoCapabilityConfig<OrderSearchFactoryWithOutput<TOrderSearchFactory>, TOrderSearchCapability>;
   checkout?: MagentoCapabilityConfig<CheckoutFactoryWithOutput<TCheckoutFactory>, TCheckoutCapability>;
+  productAssociations?: MagentoCapabilityConfig<ProductAssociationsFactoryWithOutput<TProductAssociationsFactory>, TProductAssociationsCapability>;
+  productRecommendations?: MagentoDirectCapabilityConfig<TProductRecommendationsCapability>;
 };

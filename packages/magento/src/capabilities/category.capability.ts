@@ -213,7 +213,7 @@ export class MagentoCategoryCapability<
         ...response,
         pageSize,
         currentPage,
-      }),
+      }, payload),
     );
   }
 
@@ -246,7 +246,7 @@ export class MagentoCategoryCapability<
         ...response,
         pageSize,
         currentPage,
-      })
+      }, payload)
     );
   }
 

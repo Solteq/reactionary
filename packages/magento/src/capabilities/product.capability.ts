@@ -49,7 +49,7 @@ function buildProductsSearchUrl(
   params.set('searchCriteria[pageSize]', String(pageSize));
   params.set('searchCriteria[currentPage]', String(currentPage));
 
-  return `${b}/${storeCode}/rest/V1/products?${params.toString()}`;
+  return `${b}/rest/${storeCode}/V1/products?${params.toString()}`;
 }
 
 async function adminSearchProducts(
@@ -65,7 +65,8 @@ async function adminSearchProducts(
   }
 
   const url = buildProductsSearchUrl(config.baseUrl, config.storeCode, field, value, 'eq', 1, 1);
-
+  const t = `Bearer ${token}`; 
+  
   const res = await fetch(url, {
     method: 'GET',
     headers: {
@@ -116,8 +117,8 @@ export class MagentoProductCapability<
     }
 
     try {
-      if (/^\d+$/.test(key)) {
-        const result = await adminSearchProducts(this.config, 'entity_id', Number(key));
+      if (key.length > 0) {
+        const result = await adminSearchProducts(this.config, 'external_id', key);
         const product = result.items?.[0];
         if (!product) {
           return success(this.createEmptyProduct(key));

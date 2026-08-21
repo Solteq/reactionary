@@ -29,6 +29,7 @@ export interface MagentoExtensionAttributes {
   category_links?: MagentoCategoryLink[];
   website_ids?: number[];
   stock_item?: MagentoStockItem;
+  external_id?: string | number;
   [key: string]: unknown;
 }
 
@@ -215,6 +216,17 @@ export interface MagentoProductSearchResult {
   items: MagentoProduct[];
   search_criteria?: Record<string, unknown>;
   total_count: number;
+}
+
+/** The native Magento product link types. */
+export type MagentoProductLinkType = 'related' | 'upsell' | 'crosssell';
+
+export interface MagentoProductLink {
+  sku: string;
+  link_type: string;
+  linked_product_sku: string;
+  linked_product_type?: string;
+  position?: number;
 }
 
 /**

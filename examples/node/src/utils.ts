@@ -65,7 +65,9 @@ export function getMagentoTestConfiguration(): MagentoConfiguration {
     adminApiKey: process.env['MAGENTO_ADMIN_API_KEY'] || '',
     baseUrl: process.env['MAGENTO_BASE_URL'] || '',
     storeCode: process.env['MAGENTO_STORE_CODE'] || '',
+    authStoreCode: process.env['MAGENTO_AUTH_STORE_CODE'] || 'default',
     mediaUrl: process.env['MAGENTO_MEDIA_URL'] || undefined,
+    mediaSource: process.env['MAGENTO_MEDIA_SOURCE'] === 'EXTERNAL' ? 'EXTERNAL' : 'DEFAULT',
     defaultCurrency: process.env['MAGENTO_DEFAULT_CURRENCY'] || '',
     rootCategoryId: process.env['MAGENTO_ROOT_CATEGORY_ID'] || '2',
     allCurrencies: [],
@@ -161,6 +163,8 @@ export function createClient(provider: PrimaryProvider, contextOverrides: Partia
           profile: { enabled: true },
           orderSearch: { enabled: true },
           checkout: { enabled: true },
+          productAssociations: { enabled: true },
+          productRecommendations: { enabled: true },
         })
       );
     }
