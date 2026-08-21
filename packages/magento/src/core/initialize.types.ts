@@ -8,6 +8,7 @@ import type {
   ProductSearchFactory,
   ProfileFactory,
   OrderSearchFactory,
+  OrderFactory,
   CheckoutFactory,
   ProductAssociationsFactory,
 } from '@reactionary/core';
@@ -20,6 +21,7 @@ import type { MagentoProductFactory } from '../factories/product/product.factory
 import type { MagentoProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import type { MagentoProfileFactory } from '../factories/profile/profile.factory.js';
 import type { MagentoOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
+import type { MagentoOrderFactory } from '../factories/order/order.factory.js';
 import type { MagentoCheckoutFactory } from '../factories/checkout/checkout.factory.js';
 import type { MagentoProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
 import type { MagentoCartCapability } from '../capabilities/cart.capability.js';
@@ -31,6 +33,7 @@ import type { MagentoProductCapability } from '../capabilities/product.capabilit
 import type { MagentoProductSearchCapability } from '../capabilities/product-search.capability.js';
 import type { MagentoProfileCapability } from '../capabilities/profile.capability.js';
 import type { MagentoOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import type { MagentoOrderCapability } from '../capabilities/order.capability.js';
 import type { MagentoCheckoutCapability } from '../capabilities/checkout.capability.js';
 import type { MagentoProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import type { MagentoProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
@@ -44,6 +47,7 @@ type OverridableCapabilityKey =
   | 'inventory'
   | 'profile'
   | 'orderSearch'
+  | 'order'
   | 'checkout'
   | 'productAssociations';
 
@@ -82,6 +86,7 @@ type FactoryContractMap = {
   inventory: InventoryFactory;
   profile: ProfileFactory;
   orderSearch: OrderSearchFactory;
+  order: OrderFactory;
   checkout: CheckoutFactory;
   productAssociations: ProductAssociationsFactory;
 };
@@ -95,6 +100,7 @@ type DefaultFactoryMap = {
   inventory: MagentoInventoryFactory;
   profile: MagentoProfileFactory;
   orderSearch: MagentoOrderSearchFactory;
+  order: MagentoOrderFactory;
   checkout: MagentoCheckoutFactory;
   productAssociations: MagentoProductAssociationsFactory;
 };
@@ -116,6 +122,7 @@ type DefaultCapabilityMap<T extends MagentoCapabilities> = {
   inventory: MagentoInventoryCapability<ResolvedFactoryMap<T>['inventory']>;
   profile: MagentoProfileCapability<ResolvedFactoryMap<T>['profile']>;
   orderSearch: MagentoOrderSearchCapability<ResolvedFactoryMap<T>['orderSearch']>;
+  order: MagentoOrderCapability<ResolvedFactoryMap<T>['order']>;
   checkout: MagentoCheckoutCapability<ResolvedFactoryMap<T>['checkout']>;
   productAssociations: MagentoProductAssociationsCapability<ResolvedFactoryMap<T>['productAssociations']>;
   productRecommendations: MagentoProductRecommendationsCapability;

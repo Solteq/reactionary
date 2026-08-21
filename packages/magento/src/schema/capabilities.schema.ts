@@ -24,6 +24,9 @@ import type {
   OrderSearchFactory,
   OrderSearchFactoryWithOutput,
   OrderSearchCapability,
+  OrderFactory,
+  OrderFactoryWithOutput,
+  OrderCapability,
   CheckoutFactory,
   CheckoutFactoryWithOutput,
   CheckoutCapability,
@@ -60,6 +63,7 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
   cart: true,
   profile: true,
   orderSearch: true,
+  order: true,
   checkout: true,
   productAssociations: true,
   productRecommendations: true,
@@ -74,6 +78,7 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
     identity: DirectCapabilitySchema.optional(),
     profile: OverridableCapabilitySchema.optional(),
     orderSearch: OverridableCapabilitySchema.optional(),
+    order: OverridableCapabilitySchema.optional(),
     checkout: OverridableCapabilitySchema.optional(),
     productAssociations: OverridableCapabilitySchema.optional(),
     productRecommendations: DirectCapabilitySchema.optional(),
@@ -146,6 +151,11 @@ export type MagentoOrderSearchCapabilityConfig = MagentoCapabilityConfig<
   OrderSearchCapability
 >;
 
+export type MagentoOrderCapabilityConfig = MagentoCapabilityConfig<
+  OrderFactoryWithOutput<OrderFactory>,
+  OrderCapability
+>;
+
 export type MagentoCheckoutCapabilityConfig = MagentoCapabilityConfig<
   CheckoutFactoryWithOutput<CheckoutFactory>,
   CheckoutCapability
@@ -177,6 +187,8 @@ export type MagentoCapabilities<
   TProfileCapability extends ProfileCapability = ProfileCapability,
   TOrderSearchFactory extends OrderSearchFactory = OrderSearchFactory,
   TOrderSearchCapability extends OrderSearchCapability = OrderSearchCapability,
+  TOrderFactory extends OrderFactory = OrderFactory,
+  TOrderCapability extends OrderCapability = OrderCapability,
   TCheckoutFactory extends CheckoutFactory = CheckoutFactory,
   TCheckoutCapability extends CheckoutCapability = CheckoutCapability,
   TProductAssociationsFactory extends ProductAssociationsFactory = ProductAssociationsFactory,
@@ -192,6 +204,7 @@ export type MagentoCapabilities<
   identity?: MagentoDirectCapabilityConfig<TIdentityCapability>;
   profile?: MagentoCapabilityConfig<ProfileFactoryWithOutput<TProfileFactory>, TProfileCapability>;
   orderSearch?: MagentoCapabilityConfig<OrderSearchFactoryWithOutput<TOrderSearchFactory>, TOrderSearchCapability>;
+  order?: MagentoCapabilityConfig<OrderFactoryWithOutput<TOrderFactory>, TOrderCapability>;
   checkout?: MagentoCapabilityConfig<CheckoutFactoryWithOutput<TCheckoutFactory>, TCheckoutCapability>;
   productAssociations?: MagentoCapabilityConfig<ProductAssociationsFactoryWithOutput<TProductAssociationsFactory>, TProductAssociationsCapability>;
   productRecommendations?: MagentoDirectCapabilityConfig<TProductRecommendationsCapability>;

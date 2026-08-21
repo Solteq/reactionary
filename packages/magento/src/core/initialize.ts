@@ -14,6 +14,7 @@ import {
   ProductSearchResultSchema,
   ProfileSchema,
   OrderSearchResultSchema,
+  OrderSchema,
   CheckoutSchema,
   ShippingMethodSchema,
   PaymentMethodSchema,
@@ -28,6 +29,7 @@ import { MagentoProductSearchCapability } from '../capabilities/product-search.c
 import { MagentoProductCapability } from '../capabilities/product.capability.js';
 import { MagentoProfileCapability } from '../capabilities/profile.capability.js';
 import { MagentoOrderSearchCapability } from '../capabilities/order-search.capability.js';
+import { MagentoOrderCapability } from '../capabilities/order.capability.js';
 import { MagentoCheckoutCapability } from '../capabilities/checkout.capability.js';
 import { MagentoProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import { MagentoProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
@@ -49,9 +51,11 @@ import {
   MagentoProductSearchFactory,
   MagentoProfileFactory,
   MagentoOrderSearchFactory,
+  MagentoOrderFactory,
   MagentoCheckoutFactory,
   MagentoProductAssociationsFactory,
-} from '../factories/index.js';import {
+} from '../factories/index.js';
+import {
   type MagentoClientFromCapabilities,
   resolveCapabilityWithFactory,
   resolveDirectCapability,
@@ -238,6 +242,24 @@ export function withMagentoCapabilities<T extends MagentoCapabilities>(
           factory: new MagentoOrderSearchFactory(OrderSearchResultSchema),
           capability: (args) =>
             new MagentoOrderSearchCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.order?.enabled) {
+      client.order = resolveCapabilityWithFactory(
+        capabilities.order,
+        {
+          factory: new MagentoOrderFactory(OrderSchema),
+          capability: (args) =>
+            new MagentoOrderCapability(
               args.config,
               args.cache,
               args.context,
