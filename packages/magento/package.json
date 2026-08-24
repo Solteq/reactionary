@@ -1,7 +1,7 @@
 {
   "name": "@reactionary/magento",
   "version": "0.0.1",
-  "private": true,
+  "private": false,
   "type": "module",
   "main": "./index.js",
   "types": "./src/index.d.ts",
