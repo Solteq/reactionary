@@ -34,6 +34,9 @@ import type {
   ProductAssociationsFactoryWithOutput,
   ProductAssociationsCapability,
   ProductRecommendationsCapability,
+  ProductReviewsFactory,
+  ProductReviewsFactoryWithOutput,
+  ProductReviewsCapability,
   RequestContext,
   Cache,
 } from '@reactionary/core';
@@ -67,6 +70,7 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
   checkout: true,
   productAssociations: true,
   productRecommendations: true,
+  productReviews: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -82,6 +86,7 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
     checkout: OverridableCapabilitySchema.optional(),
     productAssociations: OverridableCapabilitySchema.optional(),
     productRecommendations: DirectCapabilitySchema.optional(),
+    productReviews: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -169,6 +174,11 @@ export type MagentoProductAssociationsCapabilityConfig = MagentoCapabilityConfig
 export type MagentoProductRecommendationsCapabilityConfig =
   MagentoDirectCapabilityConfig<ProductRecommendationsCapability>;
 
+export type MagentoProductReviewsCapabilityConfig = MagentoCapabilityConfig<
+  ProductReviewsFactoryWithOutput<ProductReviewsFactory>,
+  ProductReviewsCapability
+>;
+
 export type MagentoCapabilities<
   TProductFactory extends ProductFactory = ProductFactory,
   TProductCapability extends ProductCapability = ProductCapability,
@@ -194,6 +204,8 @@ export type MagentoCapabilities<
   TProductAssociationsFactory extends ProductAssociationsFactory = ProductAssociationsFactory,
   TProductAssociationsCapability extends ProductAssociationsCapability = ProductAssociationsCapability,
   TProductRecommendationsCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
+  TProductReviewsFactory extends ProductReviewsFactory = ProductReviewsFactory,
+  TProductReviewsCapability extends ProductReviewsCapability = ProductReviewsCapability,
 > = {
   product?: MagentoCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MagentoCapabilityConfig<ProductSearchFactoryWithOutput<TProductSearchFactory>, TProductSearchCapability>;
@@ -208,4 +220,5 @@ export type MagentoCapabilities<
   checkout?: MagentoCapabilityConfig<CheckoutFactoryWithOutput<TCheckoutFactory>, TCheckoutCapability>;
   productAssociations?: MagentoCapabilityConfig<ProductAssociationsFactoryWithOutput<TProductAssociationsFactory>, TProductAssociationsCapability>;
   productRecommendations?: MagentoDirectCapabilityConfig<TProductRecommendationsCapability>;
+  productReviews?: MagentoCapabilityConfig<ProductReviewsFactoryWithOutput<TProductReviewsFactory>, TProductReviewsCapability>;
 };

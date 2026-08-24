@@ -9,7 +9,7 @@ const testData = {
   },
 };
 
-describe.each([PrimaryProvider.FAKE, PrimaryProvider.COMMERCETOOLS])('Product Reviews - %s', (provider) => {
+describe.each([PrimaryProvider.FAKE, PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MAGENTO])('Product Reviews - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {

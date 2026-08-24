@@ -13,7 +13,7 @@ const testData = {
   },
 };
 
-describe.each([PrimaryProvider.MEDUSA])(
+describe.each([PrimaryProvider.MEDUSA, PrimaryProvider.MAGENTO])(
   'Product Recommendations - Collections - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;

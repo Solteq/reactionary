@@ -14,7 +14,7 @@ const testData = {
   }
 };
 
-describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA])(
+describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA, PrimaryProvider.MAGENTO])(
   'Product Search Capability - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
@@ -313,7 +313,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
 
 
-describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA])('Multilingual Product Search', (provider) => {
+describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA, PrimaryProvider.MAGENTO])('Multilingual Product Search', (provider) => {
   let client: ReturnType<typeof createClient>;
 
 
@@ -443,7 +443,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
 
 
-describe.each([ PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Facets', (provider) => {
+describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Facets', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   it('should only return one category facet even if there are multiple levels of category hierarchy', async () => {

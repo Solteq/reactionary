@@ -3,14 +3,28 @@ import type { RequestContext } from '@reactionary/core';
 import type {
   MagentoCheckoutAddress,
   MagentoCheckoutState,
+  MagentoCreateProductReviewInput,
+  MagentoCreateProductReviewResult,
+  MagentoGraphQLResponse,
   MagentoPaymentMethod,
   MagentoPlaceOrderPayload,
   MagentoProductLink,
+  MagentoProductReview,
+  MagentoProductReviewRatingMetadata,
+  MagentoProductReviewRatingsMetadataQueryResult,
+  MagentoProductReviewsQueryResult,
   MagentoProductSearchResult,
+  MagentoReviewableProduct,
   MagentoShippingInformationPayload,
   MagentoShippingInformationResult,
   MagentoShippingMethod,
 } from '../schema/magento.types.js';
+import {
+  CREATE_PRODUCT_REVIEW_MUTATION,
+  PRODUCT_RATING_SUMMARY_QUERY,
+  PRODUCT_REVIEWS_QUERY,
+  PRODUCT_REVIEW_RATINGS_METADATA_QUERY,
+} from './product-reviews.graphql.js';
 import createDebug from 'debug';
 
 const debug = createDebug('reactionary:magento');
@@ -126,6 +140,61 @@ class MagentoRest {
   }
 }
 
+/**
+ * Reviews and ratings are absent from the Magento REST API, so they are read
+ * and written over GraphQL. The store scope travels in the `Store` header
+ * rather than in the path, which is the one structural difference from REST.
+ */
+export class MagentoGraphQL {
+  constructor(
+    private endpoint: string,
+    private storeCode: string,
+    private getAuthHeader: () => Promise<Record<string, string>>
+  ) { }
+
+  async request<T>(
+    document: string,
+    variables?: Record<string, unknown>
+  ): Promise<T> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(await this.getAuthHeader()),
+    };
+    if (this.storeCode) {
+      headers['Store'] = this.storeCode;
+    }
+
+    const res = await fetch(this.endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query: document, variables }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(
+        `Magento GraphQL request failed: ${this.endpoint} → ${res.status}\n${text}`
+      );
+    }
+
+    // GraphQL reports failures with a 200 and a populated `errors` array.
+    const payload = (await res.json()) as MagentoGraphQLResponse<T>;
+    if (payload.errors && payload.errors.length > 0) {
+      throw new Error(
+        `Magento GraphQL request failed: ${payload.errors
+          .map((e) => e.message)
+          .join('; ')}`
+      );
+    }
+
+    if (payload.data === undefined || payload.data === null) {
+      throw new Error('Magento GraphQL response contained no data.');
+    }
+
+    return payload.data;
+  }
+}
+
 export class Magento {
   private authRest: MagentoRest;
   private adminRest: MagentoRest;
@@ -133,10 +202,20 @@ export class Magento {
     private rest: MagentoRest,
     private tokenStore: RequestContextTokenStore,
     authRest?: MagentoRest,
-    adminRest?: MagentoRest
+    adminRest?: MagentoRest,
+    private graphql?: MagentoGraphQL
   ) {
     this.authRest = authRest ?? rest;
     this.adminRest = adminRest ?? rest;
+  }
+
+  private get gql(): MagentoGraphQL {
+    if (!this.graphql) {
+      throw new Error(
+        'Magento GraphQL transport is not configured on this client.'
+      );
+    }
+    return this.graphql;
   }
 
   public auth = {
@@ -194,6 +273,31 @@ export class Magento {
         return this.rest.request<MagentoProductLink[]>(
           'GET',
           `/V1/products/${encodeURIComponent(sku)}/links/${encodeURIComponent(linkType)}`
+        );
+      },
+    },
+    productReviews: {
+      getSummary: async (sku: string) => {
+        return this.gql.request<MagentoProductReviewsQueryResult>(
+          PRODUCT_RATING_SUMMARY_QUERY,
+          { sku }
+        );
+      },
+      list: async (sku: string, pageSize: number, currentPage: number) => {
+        return this.gql.request<MagentoProductReviewsQueryResult>(
+          PRODUCT_REVIEWS_QUERY,
+          { sku, pageSize, currentPage }
+        );
+      },
+      getRatingsMetadata: async () => {
+        return this.gql.request<MagentoProductReviewRatingsMetadataQueryResult>(
+          PRODUCT_REVIEW_RATINGS_METADATA_QUERY
+        );
+      },
+      create: async (input: MagentoCreateProductReviewInput) => {
+        return this.gql.request<MagentoCreateProductReviewResult>(
+          CREATE_PRODUCT_REVIEW_MUTATION,
+          { input }
         );
       },
     },
@@ -354,6 +458,17 @@ export class Magento {
   };
 }
 
+/**
+ * Magento serves GraphQL from a fixed `/graphql` path next to the REST tree,
+ * unless the installation was reverse-proxied elsewhere.
+ */
+export function resolveGraphQLEndpoint(config: MagentoConfiguration): string {
+  if (config.graphqlUrl) {
+    return config.graphqlUrl;
+  }
+  return `${config.baseUrl.replace(/\/+$/, '')}/graphql`;
+}
+
 export class MagentoAdminClient {
   protected rest: MagentoRest;
   protected client: Magento;
@@ -367,8 +482,19 @@ export class MagentoAdminClient {
     };
     this.rest = new MagentoRest(config.baseUrl, config.storeCode, authHeader);
     const authRest = new MagentoRest(config.baseUrl, config.authStoreCode, authHeader);
+    const graphql = new MagentoGraphQL(
+      resolveGraphQLEndpoint(config),
+      config.storeCode,
+      authHeader
+    );
 
-    this.client = new Magento(this.rest, new RequestContextTokenStore(context), authRest);
+    this.client = new Magento(
+      this.rest,
+      new RequestContextTokenStore(context),
+      authRest,
+      undefined,
+      graphql
+    );
 
     if (debug.enabled) debug('MagentoAdminClient created');
   }
@@ -383,6 +509,7 @@ export class MagentoClient {
   protected rest: MagentoRest;
   protected authRest: MagentoRest;
   protected adminRest: MagentoRest;
+  protected graphql: MagentoGraphQL;
   protected client: Promise<Magento> | undefined;
 
   constructor(
@@ -418,6 +545,11 @@ export class MagentoClient {
       }
       return headers;
     });
+    this.graphql = new MagentoGraphQL(
+      resolveGraphQLEndpoint(this.config),
+      this.config.storeCode,
+      authHeader
+    );
 
     if (debug.enabled) debug('MagentoClient created');
   }
@@ -425,7 +557,13 @@ export class MagentoClient {
   public async getClient(): Promise<Magento> {
     if (!this.client) {
       this.client = Promise.resolve(
-        new Magento(this.rest, this.tokenStore, this.authRest, this.adminRest)
+        new Magento(
+          this.rest,
+          this.tokenStore,
+          this.authRest,
+          this.adminRest,
+          this.graphql
+        )
       );
     }
     return this.client;
@@ -503,6 +641,46 @@ export class MagentoClient {
   ): Promise<MagentoProductLink[]> {
     const client = await this.getClient();
     return client.store.product.getLinks(sku, linkType);
+  }
+
+  /** Returns null when no product matches the SKU in the current store scope. */
+  async getProductReviewSummary(
+    sku: string,
+  ): Promise<MagentoReviewableProduct | null> {
+    const client = await this.getClient();
+    const result = await client.store.productReviews.getSummary(sku);
+    return result.products?.items?.[0] ?? null;
+  }
+
+  /** Returns null when no product matches the SKU in the current store scope. */
+  async getProductReviews(
+    sku: string,
+    pageSize: number,
+    currentPage: number,
+  ): Promise<MagentoReviewableProduct | null> {
+    const client = await this.getClient();
+    const result = await client.store.productReviews.list(
+      sku,
+      pageSize,
+      currentPage,
+    );
+    return result.products?.items?.[0] ?? null;
+  }
+
+  async getProductReviewRatingsMetadata(): Promise<
+    MagentoProductReviewRatingMetadata[]
+  > {
+    const client = await this.getClient();
+    const result = await client.store.productReviews.getRatingsMetadata();
+    return result.productReviewRatingsMetadata?.items ?? [];
+  }
+
+  async createProductReview(
+    input: MagentoCreateProductReviewInput,
+  ): Promise<MagentoProductReview | null> {
+    const client = await this.getClient();
+    const result = await client.store.productReviews.create(input);
+    return result.createProductReview?.review ?? null;
   }
 
   async createCart() {

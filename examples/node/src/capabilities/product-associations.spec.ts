@@ -12,7 +12,7 @@ const testData = {
   },
 };
 
-describe.each([PrimaryProvider.FAKE, PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA] )(
+describe.each([PrimaryProvider.FAKE, PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA, PrimaryProvider.MAGENTO] )(
   'Product Associations - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;

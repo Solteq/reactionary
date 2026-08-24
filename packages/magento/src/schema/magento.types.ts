@@ -359,3 +359,104 @@ export interface MagentoCheckoutState {
   orderId?: string;
 }
 
+/**
+ * The Magento REST API exposes no review or rating surface at all, so the
+ * product reviews capability talks to the GraphQL endpoint instead. These are
+ * the slices of Magento's `ProductReview` schema that the capability consumes.
+ */
+export interface MagentoGraphQLError {
+  message: string;
+  path?: Array<string | number>;
+  extensions?: Record<string, unknown>;
+}
+
+export interface MagentoGraphQLResponse<TData> {
+  data?: TData;
+  errors?: MagentoGraphQLError[];
+}
+
+export interface MagentoProductReviewRatingBreakdown {
+  name: string;
+  value: string;
+}
+
+/**
+ * `average_rating` is a percentage (0-100), not a star count.
+ * Magento emits `created_at` as a MySQL datetime in UTC ("2024-05-04 12:00:00").
+ */
+export interface MagentoProductReview {
+  average_rating: number;
+  created_at: string;
+  nickname: string;
+  summary: string;
+  text: string;
+  ratings_breakdown?: MagentoProductReviewRatingBreakdown[];
+}
+
+export interface MagentoProductReviewsPageInfo {
+  page_size?: number;
+  current_page?: number;
+  total_pages?: number;
+}
+
+export interface MagentoProductReviews {
+  items: MagentoProductReview[];
+  page_info?: MagentoProductReviewsPageInfo;
+}
+
+/**
+ * `rating_summary` is a percentage (0-100) across all approved reviews.
+ * There is no rating distribution in the GraphQL schema.
+ */
+export interface MagentoReviewableProduct {
+  sku: string;
+  rating_summary?: number | null;
+  review_count?: number | null;
+  reviews?: MagentoProductReviews;
+}
+
+export interface MagentoProductReviewsQueryResult {
+  products?: {
+    items?: MagentoReviewableProduct[];
+  };
+}
+
+export interface MagentoProductReviewRatingValue {
+  value_id: string;
+  value: string;
+}
+
+export interface MagentoProductReviewRatingMetadata {
+  id: string;
+  name: string;
+  values: MagentoProductReviewRatingValue[];
+}
+
+export interface MagentoProductReviewRatingsMetadataQueryResult {
+  productReviewRatingsMetadata?: {
+    items?: MagentoProductReviewRatingMetadata[];
+  };
+}
+
+/**
+ * `value_id` is an opaque, store-specific id that has to be looked up through
+ * `productReviewRatingsMetadata` — the plain star count is not accepted.
+ */
+export interface MagentoCreateProductReviewRating {
+  id: string;
+  value_id: string;
+}
+
+export interface MagentoCreateProductReviewInput {
+  sku: string;
+  nickname: string;
+  summary: string;
+  text: string;
+  ratings: MagentoCreateProductReviewRating[];
+}
+
+export interface MagentoCreateProductReviewResult {
+  createProductReview?: {
+    review?: MagentoProductReview;
+  };
+}

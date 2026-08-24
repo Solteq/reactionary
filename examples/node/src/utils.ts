@@ -70,6 +70,8 @@ export function getMagentoTestConfiguration(): MagentoConfiguration {
     mediaSource: process.env['MAGENTO_MEDIA_SOURCE'] === 'EXTERNAL' ? 'EXTERNAL' : 'DEFAULT',
     defaultCurrency: process.env['MAGENTO_DEFAULT_CURRENCY'] || '',
     rootCategoryId: process.env['MAGENTO_ROOT_CATEGORY_ID'] || '2',
+    graphqlUrl: process.env['MAGENTO_GRAPHQL_URL'] || undefined,
+    reviewRatingCode: process.env['MAGENTO_REVIEW_RATING_CODE'] || undefined,
     allCurrencies: [],
   };
 }
@@ -165,6 +167,7 @@ export function createClient(provider: PrimaryProvider, contextOverrides: Partia
           checkout: { enabled: true },
           productAssociations: { enabled: true },
           productRecommendations: { enabled: true },
+          productReviews: { enabled: true },
         })
       );
     }
