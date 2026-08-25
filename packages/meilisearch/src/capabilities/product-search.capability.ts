@@ -90,16 +90,19 @@ export class MeilisearchProductSearchCapability<
 
     if (payload.personalizationProfile) {
       let blurb = payload.personalizationProfile.blurb || '';
-      if (blurb.length > 500) {
-        blurb = blurb.substring(0, 500);
-      }
-      if (!blurb) {
-        blurb = 'The customer is in the following segments: ' + payload.personalizationProfile.segments.join(', ');
-      }
-      if (blurb) {
+      const segments = payload.personalizationProfile.segments || [];
+
+      if (blurb || segments.length > 0) {
+        if (blurb.length > 500) {
+          blurb = blurb.substring(0, 500);
+        }
+        if (!blurb) {
+          blurb = 'The customer is in the following segments: ' + segments.join(', ');
+        }
         (searchOptions as any).personalize = {
           userContext: blurb
         };
+
       }
     }
     return searchOptions;
