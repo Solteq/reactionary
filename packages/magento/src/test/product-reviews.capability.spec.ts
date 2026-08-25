@@ -20,7 +20,7 @@ const config: MagentoConfiguration = {
   defaultCurrency: 'EUR',
   rootCategoryId: '2',
   allCurrencies: ['EUR'],
-  storeCode: 'default',
+  storeBaseCode: 'default',
   authStoreCode: 'default',
 };
 

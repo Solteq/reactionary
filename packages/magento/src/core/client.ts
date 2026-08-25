@@ -25,6 +25,9 @@ import {
   PRODUCT_REVIEWS_QUERY,
   PRODUCT_REVIEW_RATINGS_METADATA_QUERY,
 } from './product-reviews.graphql.js';
+import {
+  resolveMagentoStoreViewCodeForContext,
+} from '../utils/magento-store-view.js';
 import createDebug from 'debug';
 
 const debug = createDebug('reactionary:magento');
@@ -86,15 +89,38 @@ export class RequestContextTokenStore implements MagentoCustomStorage {
   }
 }
 
+/**
+ * The store scope a transport addresses. A resolver is passed wherever the
+ * scope depends on the request locale, so the store view is computed at call
+ * time rather than frozen when the client is built.
+ */
+export type MagentoStoreCode = string | (() => string);
+
+function toStoreCodeResolver(storeCode: MagentoStoreCode): () => string {
+  if (typeof storeCode === 'function') {
+    return () => {
+      const resolved = storeCode();
+      return typeof resolved === 'string' ? resolved : '';
+    };
+  }
+  return () => storeCode;
+}
+
 class MagentoRest {
-  protected apiUrl: string;
+  private resolveStoreCode: () => string;
   constructor(
     private baseUrl: string,
-    private storeCode: string,
+    storeCode: MagentoStoreCode,
     private getAuthHeader: () => Promise<Record<string, string>>
   ) {
-      this.apiUrl = `${this.baseUrl}/rest/${this.storeCode}`;
-   }
+    this.resolveStoreCode = toStoreCodeResolver(storeCode);
+  }
+
+  protected get apiUrl(): string {
+    const base = this.baseUrl.replace(/\/+$/, '');
+    const storeCode = this.resolveStoreCode();
+    return storeCode ? `${base}/rest/${encodeURIComponent(storeCode)}` : `${base}/rest`;
+  }
 
   private normalizeUrl(path: string) {
     const base = this.apiUrl.replace(/\/+$/, '');
@@ -146,11 +172,14 @@ class MagentoRest {
  * rather than in the path, which is the one structural difference from REST.
  */
 export class MagentoGraphQL {
+  private resolveStoreCode: () => string;
   constructor(
     private endpoint: string,
-    private storeCode: string,
+    storeCode: MagentoStoreCode,
     private getAuthHeader: () => Promise<Record<string, string>>
-  ) { }
+  ) {
+    this.resolveStoreCode = toStoreCodeResolver(storeCode);
+  }
 
   async request<T>(
     document: string,
@@ -160,8 +189,9 @@ export class MagentoGraphQL {
       'Content-Type': 'application/json',
       ...(await this.getAuthHeader()),
     };
-    if (this.storeCode) {
-      headers['Store'] = this.storeCode;
+    const storeCode = this.resolveStoreCode();
+    if (storeCode) {
+      headers['Store'] = storeCode;
     }
 
     const res = await fetch(this.endpoint, {
@@ -480,11 +510,17 @@ export class MagentoAdminClient {
       if (token) headers['Authorization'] = `Bearer ${token}`;
       return headers;
     };
-    this.rest = new MagentoRest(config.baseUrl, config.storeCode, authHeader);
+    // Resolved per call rather than per client, so a context whose locale is
+    // populated after construction still lands on the right store view.
+    const storeViewCode = () =>
+      resolveMagentoStoreViewCodeForContext(config.storeBaseCode, context);
+
+    this.rest = new MagentoRest(config.baseUrl, storeViewCode, authHeader);
+    // Customer auth lives on its own website scope and is never locale-suffixed.
     const authRest = new MagentoRest(config.baseUrl, config.authStoreCode, authHeader);
     const graphql = new MagentoGraphQL(
       resolveGraphQLEndpoint(config),
-      config.storeCode,
+      storeViewCode,
       authHeader
     );
 
@@ -536,9 +572,15 @@ export class MagentoClient {
       return headers;
     };
 
-    this.rest = new MagentoRest(this.config.baseUrl, this.config.storeCode, authHeader);
+    // Resolved per call rather than per client, so a context whose locale is
+    // populated after construction still lands on the right store view.
+    const storeViewCode = () =>
+      resolveMagentoStoreViewCodeForContext(this.config.storeBaseCode, context);
+
+    this.rest = new MagentoRest(this.config.baseUrl, storeViewCode, authHeader);
+    // Customer auth lives on its own website scope and is never locale-suffixed.
     this.authRest = new MagentoRest(this.config.baseUrl, this.config.authStoreCode, authHeader);
-    this.adminRest = new MagentoRest(this.config.baseUrl, this.config.storeCode, async () => {
+    this.adminRest = new MagentoRest(this.config.baseUrl, storeViewCode, async () => {
       const headers: Record<string, string> = {};
       if (this.config.adminApiKey) {
         headers['Authorization'] = `Bearer ${this.config.adminApiKey}`;
@@ -547,7 +589,7 @@ export class MagentoClient {
     });
     this.graphql = new MagentoGraphQL(
       resolveGraphQLEndpoint(this.config),
-      this.config.storeCode,
+      storeViewCode,
       authHeader
     );
 

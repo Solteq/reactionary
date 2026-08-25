@@ -64,7 +64,7 @@ export function getMagentoTestConfiguration(): MagentoConfiguration {
   return {
     adminApiKey: process.env['MAGENTO_ADMIN_API_KEY'] || '',
     baseUrl: process.env['MAGENTO_BASE_URL'] || '',
-    storeCode: process.env['MAGENTO_STORE_CODE'] || '',
+    storeBaseCode: process.env['MAGENTO_STORE_BASE_CODE'] || '',
     authStoreCode: process.env['MAGENTO_AUTH_STORE_CODE'] || 'default',
     mediaUrl: process.env['MAGENTO_MEDIA_URL'] || undefined,
     mediaSource: process.env['MAGENTO_MEDIA_SOURCE'] === 'EXTERNAL' ? 'EXTERNAL' : 'DEFAULT',

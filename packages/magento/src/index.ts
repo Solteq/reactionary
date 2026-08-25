@@ -7,6 +7,7 @@ export * from './core/client.js';
 export * from './factories/index.js';
 export * from './utils/magento-product.js';
 export * from './utils/magento-review.js';
+export * from './utils/magento-store-view.js';
 export * from './capabilities/product.capability.js';
 export * from './capabilities/product-search.capability.js';
 export * from './capabilities/category.capability.js';

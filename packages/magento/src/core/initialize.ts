@@ -43,7 +43,7 @@ import {
 } from '../schema/capabilities.schema.js';
 import {
   MagentoConfigurationSchema,
-  type MagentoConfiguration,
+  type MagentoConfigurationInput,
 } from '../schema/configuration.schema.js';
 import { MagentoClient } from './client.js';
 import {
@@ -67,7 +67,7 @@ import {
 } from './initialize.types.js';
 
 export function withMagentoCapabilities<T extends MagentoCapabilities>(
-  configuration: MagentoConfiguration,
+  configuration: MagentoConfigurationInput,
   capabilities: T,
 ) {
   return (

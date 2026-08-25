@@ -24,6 +24,7 @@ import createDebug from 'debug';
 import type { MagentoClient } from '../core/client.js';
 import type { MagentoConfiguration } from '../schema/configuration.schema.js';
 import type { MagentoProductFactory } from '../factories/product/product.factory.js';
+import { resolveMagentoStoreViewCodeForContext } from '../utils/magento-store-view.js';
 
 const debug = createDebug('reactionary:magento:product');
 
@@ -33,7 +34,7 @@ function normalizeBaseUrl(baseUrl: string): string {
 
 function buildProductsSearchUrl(
   baseUrl: string,
-  storeCode: string,
+  storeViewCode: string,
   field: string,
   value: string | number,
   condition: 'eq' | 'like' = 'eq',
@@ -49,11 +50,14 @@ function buildProductsSearchUrl(
   params.set('searchCriteria[pageSize]', String(pageSize));
   params.set('searchCriteria[currentPage]', String(currentPage));
 
-  return `${b}/rest/${storeCode}/V1/products?${params.toString()}`;
+  return storeViewCode
+    ? `${b}/rest/${encodeURIComponent(storeViewCode)}/V1/products?${params.toString()}`
+    : `${b}/rest/V1/products?${params.toString()}`;
 }
 
 async function adminSearchProducts(
   config: MagentoConfiguration,
+  context: RequestContext,
   field: string,
   value: string | number,
 ): Promise<{ items: Array<Record<string, unknown>>; total_count?: number }> {
@@ -64,7 +68,8 @@ async function adminSearchProducts(
     );
   }
 
-  const url = buildProductsSearchUrl(config.baseUrl, config.storeCode, field, value, 'eq', 1, 1);
+  const storeViewCode = resolveMagentoStoreViewCodeForContext(config.storeBaseCode, context);
+  const url = buildProductsSearchUrl(config.baseUrl, storeViewCode, field, value, 'eq', 1, 1);
   const t = `Bearer ${token}`; 
   
   const res = await fetch(url, {
@@ -118,7 +123,7 @@ export class MagentoProductCapability<
 
     try {
       if (key.length > 0) {
-        const result = await adminSearchProducts(this.config, 'external_id', key);
+        const result = await adminSearchProducts(this.config, this.context, 'external_id', key);
         const product = result.items?.[0];
         if (!product) {
           return success(this.createEmptyProduct(key));
@@ -148,7 +153,7 @@ export class MagentoProductCapability<
     }
 
     try {
-      const result = await adminSearchProducts(this.config, 'url_key', payload.slug);
+      const result = await adminSearchProducts(this.config, this.context, 'url_key', payload.slug);
       const product = result.items?.[0];
 
       if (!product) {
