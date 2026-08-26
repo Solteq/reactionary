@@ -127,7 +127,7 @@ class MagentoRest {
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new Error(
-        `Magento request failed: ${method} ${path} → ${res.status}\n${text}`
+        `Magento request failed: ${method} ${url} → ${res.status}\n${text}`
       );
     }
 
