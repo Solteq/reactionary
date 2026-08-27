@@ -211,8 +211,17 @@ export class MedusaCheckoutCapability<
       );
 
     const shippingMethods = [];
-
+    if (debug.enabled) {
+      debug(
+        `Found ${shippingMethodResponse.shipping_options.length} shipping methods for checkout with key: ${payload.checkout.key}`,
+        shippingMethodResponse.shipping_options
+      );
+    }
     for (const sm of shippingMethodResponse.shipping_options) {
+      if (!sm.calculated_price) {
+        console.warn(`Skipping shipping method ${sm.name}/${sm.provider.id} because it has no calculated price for checkout ${payload.checkout.key}`);
+        continue;
+      }
       shippingMethods.push(this.factory.parseShippingMethod(this.context, sm));
     }
 

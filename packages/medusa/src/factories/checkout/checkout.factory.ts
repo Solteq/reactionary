@@ -322,7 +322,7 @@ export class MedusaCheckoutFactory<
       price: MonetaryAmountSchema.parse({
         value: data.calculated_price.calculated_amount || 0,
         currency:
-          data.calculated_price.currency_code?.toUpperCase() as Currency,
+          data.calculated_price.currency_code?.toUpperCase() as Currency || _context.languageContext.currencyCode ,
       } satisfies MonetaryAmount),
       deliveryTime: '',
     } satisfies ShippingMethod;
