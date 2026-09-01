@@ -217,8 +217,20 @@ export class MedusaCheckoutCapability<
         shippingMethodResponse.shipping_options
       );
     }
+
+    // For shipping methods that are calculated, we need to calculate the price for the specific cart.
+    const calculatedPricesPromises = shippingMethodResponse.shipping_options.filter(x => x.price_type === 'calculated' && !x.calculated_price).map(async (sm) => {
+      const updatedSM = await client.store.fulfillment.calculate(sm.id, {
+        cart_id: payload.checkout.key,
+      });
+      sm.calculated_price = updatedSM.shipping_option.calculated_price;
+    });
+    if (calculatedPricesPromises.length > 0) {
+      await Promise.all(calculatedPricesPromises);
+    }
+
     for (const sm of shippingMethodResponse.shipping_options) {
-      if (!sm.calculated_price) {
+      if (!sm.calculated_price || (!sm.calculated_price.calculated_amount && !sm.calculated_price.original_amount)) {
         console.warn(`Skipping shipping method ${sm.name}/${sm.provider.id} because it has no calculated price for checkout ${payload.checkout.key}`);
         continue;
       }
