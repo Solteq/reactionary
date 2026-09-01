@@ -226,7 +226,15 @@ export class MedusaCheckoutCapability<
       sm.calculated_price = updatedSM.shipping_option.calculated_price;
     });
     if (calculatedPricesPromises.length > 0) {
+      if (debug.enabled) {
+        debug('Calculating prices for {0} shipping methods for checkout with key: {1}', [calculatedPricesPromises.length, payload.checkout.key]);
+      }
       await Promise.all(calculatedPricesPromises);
+
+      if (debug.enabled) {
+        debug('Finished calculating prices for {0} shipping methods for checkout with key: {1}', [calculatedPricesPromises.length, payload.checkout.key]);
+        debug(`Updated shipping methods for checkout with key: ${payload.checkout.key}`, shippingMethodResponse.shipping_options);
+      }
     }
 
     for (const sm of shippingMethodResponse.shipping_options) {
