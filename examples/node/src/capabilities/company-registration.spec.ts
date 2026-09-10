@@ -41,7 +41,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
     });
 
     describe('Unauthenticated sessions', () => {
-      it('cannot register an organiation as a guest user', async () => {
+      it('cannot register an organization as a guest user', async () => {
         const data = testData.request(Date.now().toString());
         const result = await client.companyRegistration.requestRegistration(data);
 
