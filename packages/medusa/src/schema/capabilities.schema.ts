@@ -8,6 +8,18 @@ import type {
   CheckoutFactory,
   CheckoutFactoryWithOutput,
   CheckoutCapability,
+  CompanyFactory,
+  CompanyFactoryWithOutput,
+  CompanyCapability,
+  CompanyRegistrationFactory,
+  CompanyRegistrationFactoryWithOutput,
+  CompanyRegistrationCapability,
+  EmployeeFactory,
+  EmployeeFactoryWithOutput,
+  EmployeeCapability,
+  EmployeeInvitationFactory,
+  EmployeeInvitationFactoryWithOutput,
+  EmployeeInvitationCapability,
   IdentityCapability,
   InventoryFactory,
   InventoryFactoryWithOutput,
@@ -71,6 +83,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
   profile: true,
   productAssociations: true,
   personalizationProfile: true,
+  company: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -83,6 +96,10 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     orderSearch: OverridableCapabilitySchema.optional(),
     inventory: OverridableCapabilitySchema.optional(),
     identity: DirectCapabilitySchema.optional(),
+    employee: OverridableCapabilitySchema.optional(),
+    employeeInvitation: OverridableCapabilitySchema.optional(),
+    company: OverridableCapabilitySchema.optional(),
+    companyRegistration: OverridableCapabilitySchema.optional(),
     profile: OverridableCapabilitySchema.optional(),
     productAssociations: OverridableCapabilitySchema.optional(),
     productRecommendations: DirectCapabilitySchema.optional(),
@@ -131,6 +148,26 @@ export type MedusaCartCapabilityConfig = MedusaCapabilityConfig<
 export type MedusaCheckoutCapabilityConfig = MedusaCapabilityConfig<
   CheckoutFactoryWithOutput<CheckoutFactory>,
   CheckoutCapability
+>;
+
+export type MedusaEmployeeCapabilityConfig = MedusaCapabilityConfig<
+  EmployeeFactoryWithOutput<EmployeeFactory>,
+  EmployeeCapability
+>;
+
+export type MedusaEmployeeInvitationCapabilityConfig = MedusaCapabilityConfig<
+  EmployeeInvitationFactoryWithOutput<EmployeeInvitationFactory>,
+  EmployeeInvitationCapability
+>;
+
+export type MedusaCompanyCapabilityConfig = MedusaCapabilityConfig<
+  CompanyFactoryWithOutput<CompanyFactory>,
+  CompanyCapability
+>;
+
+export type MedusaCompanyRegistrationCapabilityConfig = MedusaCapabilityConfig<
+  CompanyRegistrationFactoryWithOutput<CompanyRegistrationFactory>,
+  CompanyRegistrationCapability
 >;
 
 export type MedusaCategoryCapabilityConfig = MedusaCapabilityConfig<
@@ -188,6 +225,14 @@ export type MedusaCapabilities<
   TCartCapability extends CartCapability = CartCapability,
   TCheckoutFactory extends CheckoutFactory = CheckoutFactory,
   TCheckoutCapability extends CheckoutCapability = CheckoutCapability,
+  TEmployeeFactory extends EmployeeFactory = EmployeeFactory,
+  TEmployeeCapability extends EmployeeCapability = EmployeeCapability,
+  TEmployeeInvitationFactory extends EmployeeInvitationFactory = EmployeeInvitationFactory,
+  TEmployeeInvitationCapability extends EmployeeInvitationCapability = EmployeeInvitationCapability,
+  TCompanyFactory extends CompanyFactory = CompanyFactory,
+  TCompanyCapability extends CompanyCapability = CompanyCapability,
+  TCompanyRegistrationFactory extends CompanyRegistrationFactory = CompanyRegistrationFactory,
+  TCompanyRegistrationCapability extends CompanyRegistrationCapability = CompanyRegistrationCapability,
   TCategoryFactory extends CategoryFactory = CategoryFactory,
   TCategoryCapability extends CategoryCapability = CategoryCapability,
   TPriceFactory extends PriceFactory = PriceFactory,
@@ -216,6 +261,19 @@ export type MedusaCapabilities<
   checkout?: MedusaCapabilityConfig<
     CheckoutFactoryWithOutput<TCheckoutFactory>,
     TCheckoutCapability
+  >;
+  employee?: MedusaCapabilityConfig<
+    EmployeeFactoryWithOutput<TEmployeeFactory>,
+    TEmployeeCapability
+  >;
+  employeeInvitation?: MedusaCapabilityConfig<
+    EmployeeInvitationFactoryWithOutput<TEmployeeInvitationFactory>,
+    TEmployeeInvitationCapability
+  >;
+  company?: MedusaCapabilityConfig<CompanyFactoryWithOutput<TCompanyFactory>, TCompanyCapability>;
+  companyRegistration?: MedusaCapabilityConfig<
+    CompanyRegistrationFactoryWithOutput<TCompanyRegistrationFactory>,
+    TCompanyRegistrationCapability
   >;
   category?: MedusaCapabilityConfig<
     CategoryFactoryWithOutput<TCategoryFactory>,
