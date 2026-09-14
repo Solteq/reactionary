@@ -190,6 +190,10 @@ export function createClient(provider: PrimaryProvider, contextOverrides: Partia
           store: { enabled: true },
           profile: { enabled: true },
           personalizationProfile: { enabled: true },
+          employee: { enabled: true },
+          employeeInvitation: { enabled: true },
+          company: { enabled: true },
+          companyRegistration: { enabled: true },
         })
       );
     }
