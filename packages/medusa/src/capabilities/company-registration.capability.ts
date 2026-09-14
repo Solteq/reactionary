@@ -75,10 +75,9 @@ export class MedusaCompanyRegistrationCapability<
     };
   }
 
-  // ponytail: StoreCreateCompany doesn't accept dunsIdentifier/tinIdentifier from the registration
-  // payload - the backend won't let a self-registering company set those unverified. They're silently
-  // dropped. taxIdentifier IS accepted (and required) - it's the company's real, caller-chosen business
-  // identifier, distinct from the Medusa-internal company id used for the rest of the REST API.
+  // taxIdentifier, dunsIdentifier and tinIdentifier are all real, caller-chosen business identifiers
+  // accepted by StoreCreateCompany - distinct from the Medusa-internal company id used for the rest of
+  // the REST API (see resolveCompanyId in the employee/employeeInvitation capabilities).
   @Reactionary({
     inputSchema: CompanyRegistrationMutationRegisterSchema,
     outputSchema: CompanyRegistrationRequestSchema,
@@ -104,6 +103,8 @@ export class MedusaCompanyRegistrationCapability<
             email: payload.pointOfContact.email,
             phone: payload.pointOfContact.phone,
             tax_identifier: payload.taxIdentifier,
+            duns_identifier: payload.dunsIdentifier,
+            tin_identifier: payload.tinIdentifier,
             currency_code: this.context.languageContext.currencyCode.toLowerCase(),
           },
         },
