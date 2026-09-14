@@ -26,8 +26,8 @@ const testData = {
         email: `test-contact+${ts}@example.com`,
         phone: '+4512345678',
       },
-      dunsIdentifier: 'DUNS-123456789',
-      tinIdentifier: 'TIN-123456789',
+      dunsIdentifier: 'DUNS-' + ts,
+      tinIdentifier: 'TIN-' + ts,
     };
   },
 };
