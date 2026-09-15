@@ -26,6 +26,10 @@ export interface MedusaRawEmployeeInvitation {
   company_id: string;
   company?: { tax_identifier: string };
   validUntil?: string | Date | null;
+  // Only present on the response to POST .../employee-invitations (invite creation) - a deterministic
+  // HMAC of the invitation id + email, computed server-side and never persisted (see
+  // computeEmployeeInvitationToken on the backend). Absent from list/get/accept responses.
+  securityToken?: string;
 }
 
 /**
@@ -108,13 +112,12 @@ export class MedusaEmployeeInvitationFactory<
   ): z.output<TEmployeeIssuedInvitationSchema> {
     const invitation = this.parseEmployeeInvitation(context, data, payload);
 
-    // ponytail: the backend has no invitation secret to verify - this reuses the invitation's own id as
-    // a stand-in securityToken so the core contract is satisfied. It is not cryptographically enforced;
-    // acceptInvitation ignores whatever token is passed back in. Upgrade path: add a hashed-token column
-    // and a verification step to the backend if real enforcement is ever needed.
     const result = {
       ...invitation,
-      securityToken: data.id,
+      // ponytail: only the invite-creation response carries this (see MedusaRawEmployeeInvitation);
+      // empty string here would mean this was called from a path that doesn't have one, which shouldn't
+      // happen - the capability only calls parseEmployeeIssuedInvitation right after a create response.
+      securityToken: data.securityToken ?? '',
     } satisfies EmployeeIssuedInvitation;
 
     return this.employeeIssuedInvitationSchema.parse(result);

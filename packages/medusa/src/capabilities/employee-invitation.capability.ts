@@ -150,9 +150,6 @@ export class MedusaEmployeeInvitationCapability<
   ): Promise<Result<EmployeeInvitation>> {
     debug('acceptInvitation', payload);
     try {
-      // ponytail: the backend has no invitation secret to verify - payload.securityToken is accepted for
-      // core contract compatibility but intentionally unused here. Authorization comes entirely from the
-      // invitee's authenticated session, matched server-side against the invitation's email.
       const { invitationId } = parseInvitationKey(payload.invitationIdentifier.key);
 
       const client = await this.medusaApi.getClient();
@@ -160,6 +157,7 @@ export class MedusaEmployeeInvitationCapability<
         employee_invitation: MedusaRawEmployeeInvitation;
       }>(`/store/employee-invitations/${invitationId}/accept`, {
         method: 'POST',
+        body: { securityToken: payload.securityToken },
       });
 
       // this route returns the raw workflow result, not a query.graph response, so it never carries the
