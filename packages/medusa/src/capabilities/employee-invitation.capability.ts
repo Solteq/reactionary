@@ -148,7 +148,7 @@ export class MedusaEmployeeInvitationCapability<
   public async acceptInvitation(
     payload: EmployeeInvitationMutationAcceptInvitation,
   ): Promise<Result<EmployeeInvitation>> {
-    debug('acceptInvitation', payload);
+    debug('acceptInvitation', { invitationIdentifier: payload.invitationIdentifier });
     try {
       const { invitationId } = parseInvitationKey(payload.invitationIdentifier.key);
 
