@@ -52,7 +52,7 @@ export class MedusaEmployeeFactory<
   }
 
   public parseEmployee(
-    _context: RequestContext,
+    context: RequestContext,
     data: ParseEmployeeInput,
   ): z.output<TEmployeeSchema> {
     const customer = data.employee.customer;
@@ -63,6 +63,13 @@ export class MedusaEmployeeFactory<
       firstName: customer?.first_name ?? undefined,
       lastName: customer?.last_name ?? undefined,
       email: customer?.email ?? '',
+      spendingLimit:
+        data.employee.spending_limit === undefined
+          ? undefined
+          : {
+              value: data.employee.spending_limit,
+              currency: context.languageContext.currencyCode,
+            },
       role: this.parseRole(data.employee.role),
     } satisfies Employee;
 
