@@ -127,6 +127,21 @@ export class MedusaCompanyRegistrationCapability<
         body: { ...this.addressPayload(payload.billingAddress), type: 'billing', is_default: true },
       });
 
+      // Mirrors billing as a distinct, real shipping address (not just the implied
+      // ship-to-billing fallback) so a default shipping address always exists to
+      // demote to an alternate later - matching the Commercetools registration flow.
+      await client.client.fetch(`/store/companies/${companyId}/addresses`, {
+        method: 'POST',
+        body: {
+          ...this.addressPayload({
+            ...payload.billingAddress,
+            identifier: { nickName: 'default-shipping-address' },
+          }),
+          type: 'shipping',
+          is_default: true,
+        },
+      });
+
       const company = await this.fetchCompany(companyId);
       if (!company) {
         throw new Error(`Company ${companyId} disappeared right after being created`);
