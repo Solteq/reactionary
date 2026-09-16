@@ -96,7 +96,9 @@ export class MedusaCompanyFactory<
       addresses.find((a) => a.type === 'billing');
     const shippingAddresses = addresses.filter((a) => a.type === 'shipping');
     const shipping = shippingAddresses.find((a) => a.is_default);
-    const alternateShippingAddresses = shippingAddresses.map((a) => this.parseAddress(a));
+    const alternateShippingAddresses = shippingAddresses
+      .filter((a) => !a.is_default)
+      .map((a) => this.parseAddress(a));
 
     const result = {
       identifier: { taxIdentifier: data.tax_identifier },
