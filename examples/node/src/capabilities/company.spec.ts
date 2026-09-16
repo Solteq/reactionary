@@ -32,7 +32,7 @@ const testData = {
   },
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS])('Company - %s', (provider) => {
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Company - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
   let company: Company;
   let companyIdentifier: CompanyIdentifier;
