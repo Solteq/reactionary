@@ -72,7 +72,7 @@ export class MedusaEmployeeInvitationCapability<
     const client = await this.medusaApi.getClient();
     try {
       const response = await client.client.fetch<{ company: { id: string } }>(
-        `/store/companies/by-tax-identifier/${taxIdentifier}`,
+        `/store/companies/by-tax-identifier/${encodeURIComponent(taxIdentifier)}`,
         { method: 'GET' },
       );
       return response.company.id;
