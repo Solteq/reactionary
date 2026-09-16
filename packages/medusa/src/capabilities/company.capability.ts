@@ -87,7 +87,7 @@ export class MedusaCompanyCapability<
     const client = await this.medusaApi.getClient();
     try {
       const response = await client.client.fetch<{ company: MedusaRawCompany }>(
-        `/store/companies/by-tax-identifier/${taxIdentifier}`,
+        `/store/companies/by-tax-identifier/${encodeURIComponent(taxIdentifier)}`,
         { method: 'GET' },
       );
       return response.company;
