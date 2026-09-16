@@ -43,7 +43,7 @@ const testData = {
   wrongEmail: (ts: string) => `test-wrong-employee+${ts}@example.com`,
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS])(
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
   'Employees - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
