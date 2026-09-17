@@ -237,6 +237,10 @@ export class MedusaEmployeeInvitationCapability<
         // company.taxIdentifier. Upgrade path: add that field to this route's hardcoded field list.
         response = await client.client.fetch('/store/employee-invitations', {
           method: 'GET',
+          query: {
+            limit: pageSize,
+            offset: (pageNumber - 1) * pageSize,
+          },
         });
       } else {
         response = { employee_invitations: [], count: 0 };
