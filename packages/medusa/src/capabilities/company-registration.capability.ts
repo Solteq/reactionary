@@ -76,8 +76,8 @@ export class MedusaCompanyRegistrationCapability<
   }
 
   // taxIdentifier, dunsIdentifier and tinIdentifier are all real, caller-chosen business identifiers
-  // accepted by StoreCreateCompany - distinct from the Medusa-internal company id used for the rest of
-  // the REST API (see resolveCompanyId in the employee/employeeInvitation capabilities).
+  // accepted by StoreCreateCompanyRegistration - distinct from the Medusa-internal company id used for
+  // the rest of the REST API (see resolveCompanyId in the employee/employeeInvitation capabilities).
   @Reactionary({
     inputSchema: CompanyRegistrationMutationRegisterSchema,
     outputSchema: CompanyRegistrationRequestSchema,
@@ -88,14 +88,9 @@ export class MedusaCompanyRegistrationCapability<
     debug('requestRegistration', payload);
     try {
       const client = await this.medusaApi.getClient();
-      const customerResponse = await client.store.customer.retrieve();
-      if (!customerResponse.customer) {
-        throw new Error('Not authenticated');
-      }
-      const customerId = customerResponse.customer.id;
 
-      const createResponse = await client.client.fetch<{ companies: MedusaRawCompany[] }>(
-        '/store/companies',
+      const createResponse = await client.client.fetch<{ company: MedusaRawCompany }>(
+        '/store/company-registrations',
         {
           method: 'POST',
           body: {
@@ -106,48 +101,14 @@ export class MedusaCompanyRegistrationCapability<
             duns_identifier: payload.dunsIdentifier,
             tin_identifier: payload.tinIdentifier,
             currency_code: this.context.languageContext.currencyCode.toLowerCase(),
+            billing_address: this.addressPayload(payload.billingAddress),
           },
         },
       );
-      const companyId = createResponse.companies[0].id;
 
-      // ponytail: this backend never auto-enrolls the registering customer as an employee of the
-      // company they just created, so without this they'd be locked out of every subsequent
-      // company_admin-gated action (assignRole, inviteEmployee, ...). This works because ensureRole
-      // bypasses the role check while the company still has zero employees. It must happen BEFORE the
-      // address call below - validateCompanyAddressAccessStep requires the caller to already be an
-      // employee of the company (no "zero employees yet" bypass like ensureRole has).
-      await client.client.fetch(`/store/companies/${companyId}/employees`, {
-        method: 'POST',
-        body: { customer_id: customerId, role: 'admin' },
-      });
-
-      await client.client.fetch(`/store/companies/${companyId}/addresses`, {
-        method: 'POST',
-        body: { ...this.addressPayload(payload.billingAddress), type: 'billing', is_default: true },
-      });
-
-      // Mirrors billing as a distinct, real shipping address (not just the implied
-      // ship-to-billing fallback) so a default shipping address always exists to
-      // demote to an alternate later - matching the Commercetools registration flow.
-      await client.client.fetch(`/store/companies/${companyId}/addresses`, {
-        method: 'POST',
-        body: {
-          ...this.addressPayload({
-            ...payload.billingAddress,
-            identifier: { nickName: 'default-shipping-address' },
-          }),
-          type: 'shipping',
-          is_default: true,
-        },
-      });
-
-      const company = await this.fetchCompany(companyId);
-      if (!company) {
-        throw new Error(`Company ${companyId} disappeared right after being created`);
-      }
-
-      return success(this.factory.parseCompanyRegistrationRequest(this.context, company));
+      return success(
+        this.factory.parseCompanyRegistrationRequest(this.context, createResponse.company),
+      );
     } catch (err) {
       handleProviderError('request company registration', err);
     }
