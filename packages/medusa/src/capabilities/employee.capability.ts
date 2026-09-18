@@ -83,9 +83,12 @@ export class MedusaEmployeeCapability<
    */
   protected async fetchCompanyEmployees(
     companyId: string,
-    opts: { email?: string } = {},
+    opts: { email?: string; limit?: number; offset?: number } = {},
   ): Promise<{ employees: MedusaRawEmployee[]; count: number }> {
     const client = await this.medusaApi.getClient();
+    // ponytail: when `email` is set, this backend route ignores limit/offset and returns every match
+    // (harmless here since callers passing email don't also paginate). Upgrade path: ask the backend to
+    // honor pagination on the email-filtered branch too.
     const response = await client.client.fetch<{
       employees: MedusaRawEmployee[];
       count: number;
@@ -94,21 +97,30 @@ export class MedusaEmployeeCapability<
       query: {
         fields: EMPLOYEE_FIELDS,
         email: opts.email,
-        limit: 1000,
+        limit: opts.limit ?? 1000,
+        offset: opts.offset ?? 0,
       },
     });
-    // ponytail: the backend's list route returns metadata.count only for its email/q-filtered branches -
-    // the plain (unfiltered) branch queries employees as a nested relation and never sets it, so `count`
-    // comes back undefined there. Fall back to the actual array length.
-    return { employees: response.employees, count: response.count ?? response.employees.length };
+    return { employees: response.employees, count: response.count };
   }
 
   protected async findEmployeeByCustomerId(
     companyId: string,
     customerId: string,
   ): Promise<MedusaRawEmployee | undefined> {
-    const { employees } = await this.fetchCompanyEmployees(companyId);
-    return employees.find((employee) => employee.customer?.id === customerId);
+    const pageSize = 1000;
+    let offset = 0;
+    let count = Infinity;
+    while (offset < count) {
+      const page = await this.fetchCompanyEmployees(companyId, { limit: pageSize, offset });
+      const match = page.employees.find((employee) => employee.customer?.id === customerId);
+      if (match) {
+        return match;
+      }
+      count = page.count;
+      offset += pageSize;
+    }
+    return undefined;
   }
 
   @Reactionary({
@@ -125,13 +137,14 @@ export class MedusaEmployeeCapability<
         return error<NotFoundError>({ type: 'NotFound', identifier: payload.search.company });
       }
 
+      const { pageNumber, pageSize } = payload.search.paginationOptions;
       const { employees, count } = await this.fetchCompanyEmployees(companyId, {
         email: payload.search.email,
+        limit: pageSize,
+        offset: (pageNumber - 1) * pageSize,
       });
 
-      const { pageNumber, pageSize } = payload.search.paginationOptions;
-      const start = (pageNumber - 1) * pageSize;
-      const page = employees.slice(start, start + pageSize).map((employee) => ({
+      const page = employees.map((employee) => ({
         company: payload.search.company,
         employee,
       }));
