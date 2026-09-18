@@ -232,12 +232,11 @@ export class MedusaEmployeeInvitationCapability<
         );
       } else if (payload.search.email) {
         // ponytail: this backend route is invitee-facing only - it always scopes to the current
-        // session's own email server-side, so the caller must be authenticated as that invitee. It also
-        // doesn't fetch `company.tax_identifier`, so items from this branch parse with an empty
-        // company.taxIdentifier. Upgrade path: add that field to this route's hardcoded field list.
+        // session's own email server-side, so the caller must be authenticated as that invitee.
         response = await client.client.fetch('/store/employee-invitations', {
           method: 'GET',
           query: {
+            fields: EMPLOYEE_INVITATION_FIELDS,
             limit: pageSize,
             offset: (pageNumber - 1) * pageSize,
           },
