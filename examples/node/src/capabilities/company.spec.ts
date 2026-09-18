@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
-import { createClient, PrimaryProvider } from '../utils.js';
+import { createClient, PrimaryProvider, uniqueTestId } from '../utils.js';
 import type { Address, Company, CompanyIdentifier } from '@reactionary/core';
 
 const testData = {
@@ -43,7 +43,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Company 
     client = createClient(provider);
     const time = new Date().getTime();
     testOrg = testData.requestTemplate(time.toString());
-    identityUsername = `testuser+${Date.now()}@example.com`;
+    identityUsername = `testuser+${uniqueTestId()}@example.com`;
 
     const identity = await client.identity.register({
       username: identityUsername,

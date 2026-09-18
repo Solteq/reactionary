@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
-import { createClient, PrimaryProvider } from '../utils.js';
+import { createClient, PrimaryProvider, uniqueTestId } from '../utils.js';
 
 const testData = {
   request: (ts: string) =>  {
@@ -42,7 +42,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
 
     describe('Unauthenticated sessions', () => {
       it('cannot register an organization as a guest user', async () => {
-        const data = testData.request(Date.now().toString());
+        const data = testData.request(uniqueTestId());
         const result = await client.companyRegistration.requestRegistration(data);
 
         if (result.success) {
@@ -56,7 +56,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
     describe('authenticated sessions', () => {
       beforeEach(async () => {
         const identity = await client.identity.register({
-          username: `testuser+${Date.now()}@example.com`,
+          username: `testuser+${uniqueTestId()}@example.com`,
           password: 'password1235!'
         });
 
@@ -68,7 +68,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
       });
 
     it('should be able to register a company', async () => {
-      const data = testData.request(Date.now().toString());
+      const data = testData.request(uniqueTestId());
       const result = await client.companyRegistration.requestRegistration(data);
 
       if (!result.success) {
@@ -84,7 +84,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
 
 
     it('should be able to register a company and have it autoapproved', async () => {
-      const data = testData.request(Date.now().toString());
+      const data = testData.request(uniqueTestId());
       data.name = 'TestOrg AutoApprove ' + new Date().getTime();
       const result = await client.companyRegistration.requestRegistration(data);
 
@@ -118,7 +118,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
     }, 25000 );
 
     it('should be able to check the registration status of a company', async () => {
-      const data = testData.request(Date.now().toString());
+      const data = testData.request(uniqueTestId());
       const registrationResult = await client.companyRegistration.requestRegistration(data);
       if (!registrationResult.success) {
         assert.fail(JSON.stringify(registrationResult.error));

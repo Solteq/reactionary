@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
-import { createClient, PrimaryProvider } from '../utils.js';
+import { createClient, PrimaryProvider, uniqueTestId } from '../utils.js';
 import type {
   Company,
   EmployeeIssuedInvitation,
@@ -113,7 +113,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
     beforeEach(async () => {
       client = createClient(provider);
 
-      const time = Date.now().toString();
+      const time = uniqueTestId();
       testOrg = testData.requestTemplate(time);
       expect(testOrg.name.startsWith('TestOrg')).toBe(true);
 
@@ -157,7 +157,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
     }, 15000);
 
     it('should allow inviting a new employee to the company', async () => {
-      const inviteeEmail = testData.employeeEmail(Date.now().toString());
+      const inviteeEmail = testData.employeeEmail(uniqueTestId());
       const invite = await inviteEmployee(inviteeEmail, 'manager');
 
       expect(invite.email).toBe(inviteeEmail);
@@ -167,7 +167,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
     });
 
     it('should allow accepting an invitation with a token', async () => {
-      const inviteeEmail = testData.employeeEmail(Date.now().toString());
+      const inviteeEmail = testData.employeeEmail(uniqueTestId());
       const invite = await inviteEmployee(inviteeEmail, 'manager');
 
       const accepted = await registerAndAcceptInvitation(invite, inviteeEmail);
@@ -190,7 +190,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
     }, 20000);
 
     it('should not allow accepting the invitation with the wrong email', async () => {
-      const ts = Date.now().toString();
+      const ts = uniqueTestId();
       const invitedEmail = testData.employeeEmail(ts);
       const wrongEmail = testData.wrongEmail(ts);
       const invite = await inviteEmployee(invitedEmail, 'manager');
@@ -208,7 +208,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
     }, 20000);
 
     it('should not allow accepting the invitation with the wrong token', async () => {
-      const inviteeEmail = testData.employeeEmail(Date.now().toString());
+      const inviteeEmail = testData.employeeEmail(uniqueTestId());
       const invite = await inviteEmployee(inviteeEmail, 'manager');
 
       await client.identity.logout({});
@@ -224,7 +224,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
     }, 20000);
 
     it('allows admin to revoke the invitation', async () => {
-      const inviteeEmail = testData.employeeEmail(Date.now().toString());
+      const inviteeEmail = testData.employeeEmail(uniqueTestId());
       const invite = await inviteEmployee(inviteeEmail, 'manager');
 
       const revoked = await client.employeeInvitation.revokeInvitation({
@@ -245,7 +245,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
     }, 20000);
 
     it('allows admin to list all invitations for the company', async () => {
-      const inviteeEmail = testData.employeeEmail(Date.now().toString());
+      const inviteeEmail = testData.employeeEmail(uniqueTestId());
       const invite = await inviteEmployee(inviteeEmail, 'manager');
 
       const listResult = await client.employeeInvitation.listInvitations({
@@ -268,7 +268,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
     }, 20000)
 
     it('allows recipient to list all invitations relevant for them', async () => {
-      const inviteeEmail = testData.employeeEmail(Date.now().toString());
+      const inviteeEmail = testData.employeeEmail(uniqueTestId());
       const invite = await inviteEmployee(inviteeEmail, 'manager');
 
       await client.identity.logout({});

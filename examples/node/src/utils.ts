@@ -137,6 +137,13 @@ export function getCommercetoolsTestConfiguration() {
   } satisfies CommercetoolsConfiguration;
 }
 
+// Date.now() alone collides when vitest runs multiple spec files in parallel and their beforeEach
+// hooks register the same "testuser+<timestamp>@example.com" in the same millisecond. Add randomness
+// so concurrent spec files can't generate the same test identifier.
+export function uniqueTestId(): string {
+  return `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export enum PrimaryProvider {
   ALGOLIA = 'Algolia',
   COMMERCETOOLS = 'Commercetools',
