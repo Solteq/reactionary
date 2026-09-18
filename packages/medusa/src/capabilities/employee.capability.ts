@@ -77,13 +77,14 @@ export class MedusaEmployeeCapability<
   }
 
   /**
-   * ponytail: there's no `customer_id` filter on the backend's employee list route, so resolving an
-   * employee by customer id means scanning the company's employee list client-side. Upgrade path: ask
-   * the backend to add a `customer_id` filter to `StoreGetEmployeeParams`.
+   * ponytail: there's no `customer_id` or `role` filter on the backend's employee list route, so
+   * resolving an employee by customer id, or listing by role, means scanning the company's employee
+   * list client-side via iterateCompanyEmployeePages. Upgrade path: ask the backend to add `customer_id`
+   * and `role` filters to `StoreGetEmployeeParams`.
    */
   protected async fetchCompanyEmployees(
     companyId: string,
-    opts: { email?: string; limit?: number; offset?: number } = {},
+    opts: { email?: string; q?: string; limit?: number; offset?: number } = {},
   ): Promise<{ employees: MedusaRawEmployee[]; count: number }> {
     const client = await this.medusaApi.getClient();
     // ponytail: when `email` is set, this backend route ignores limit/offset and returns every match
@@ -97,6 +98,7 @@ export class MedusaEmployeeCapability<
       query: {
         fields: EMPLOYEE_FIELDS,
         email: opts.email,
+        q: opts.q,
         limit: opts.limit ?? 1000,
         offset: opts.offset ?? 0,
       },
@@ -104,21 +106,30 @@ export class MedusaEmployeeCapability<
     return { employees: response.employees, count: response.count };
   }
 
-  protected async findEmployeeByCustomerId(
+  protected async *iterateCompanyEmployeePages(
     companyId: string,
-    customerId: string,
-  ): Promise<MedusaRawEmployee | undefined> {
+    opts: { email?: string; q?: string } = {},
+  ): AsyncGenerator<MedusaRawEmployee[]> {
     const pageSize = 1000;
     let offset = 0;
     let count = Infinity;
     while (offset < count) {
-      const page = await this.fetchCompanyEmployees(companyId, { limit: pageSize, offset });
-      const match = page.employees.find((employee) => employee.customer?.id === customerId);
+      const page = await this.fetchCompanyEmployees(companyId, { ...opts, limit: pageSize, offset });
+      yield page.employees;
+      count = page.count;
+      offset += pageSize;
+    }
+  }
+
+  protected async findEmployeeByCustomerId(
+    companyId: string,
+    customerId: string,
+  ): Promise<MedusaRawEmployee | undefined> {
+    for await (const employees of this.iterateCompanyEmployeePages(companyId)) {
+      const match = employees.find((employee) => employee.customer?.id === customerId);
       if (match) {
         return match;
       }
-      count = page.count;
-      offset += pageSize;
     }
     return undefined;
   }
@@ -138,11 +149,31 @@ export class MedusaEmployeeCapability<
       }
 
       const { pageNumber, pageSize } = payload.search.paginationOptions;
-      const { employees, count } = await this.fetchCompanyEmployees(companyId, {
-        email: payload.search.email,
-        limit: pageSize,
-        offset: (pageNumber - 1) * pageSize,
-      });
+      // The backend's `q` param does one substring match across first+last name (and email) combined -
+      // not the independent per-field matching commercetools does - but it's a reasonable name search.
+      const q = [payload.search.firstName, payload.search.lastName].filter(Boolean).join(' ') || undefined;
+
+      let employees: MedusaRawEmployee[];
+      let count: number;
+      if (payload.search.role) {
+        // The backend has no `role` filter (see iterateCompanyEmployeePages), so filtering by role means
+        // scanning every page client-side and recomputing count/pagination from the filtered set.
+        const role = this.factory.mapRole(payload.search.role);
+        const matches: MedusaRawEmployee[] = [];
+        for await (const page of this.iterateCompanyEmployeePages(companyId, { email: payload.search.email, q })) {
+          matches.push(...page.filter((employee) => employee.role === role));
+        }
+        const start = (pageNumber - 1) * pageSize;
+        employees = matches.slice(start, start + pageSize);
+        count = matches.length;
+      } else {
+        ({ employees, count } = await this.fetchCompanyEmployees(companyId, {
+          email: payload.search.email,
+          q,
+          limit: pageSize,
+          offset: (pageNumber - 1) * pageSize,
+        }));
+      }
 
       const page = employees.map((employee) => ({
         company: payload.search.company,
