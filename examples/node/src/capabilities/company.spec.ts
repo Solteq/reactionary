@@ -137,7 +137,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Company 
     expect(response.value.tinIdentifier).toBe(testOrg.tinIdentifier);
     expect(response.value.status).toBe('active');
     expect(response.value.isSelfManagementOfShippingAddressesAllowed).toBe(
-      true,
+      false,
     );
     expect(response.value.isCustomAddressesAllowed).toBe(false);
     expect(response.value.billingAddress).toMatchObject({
