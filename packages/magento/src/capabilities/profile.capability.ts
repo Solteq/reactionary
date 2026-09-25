@@ -136,6 +136,8 @@ export class MagentoProfileCapability<
     const updated = await this.magentoApi.updateMe({
       ...customer,
       email: payload.email ?? customer.email,
+      firstname: payload.firstName ?? customer.firstname,
+      lastname: payload.lastName ?? customer.lastname,
       custom_attributes: customAttributes,
     });
 

@@ -85,6 +85,8 @@ export class MagentoProfileFactory<
         userId: String(customer.id),
       },
       email: customer.email,
+      firstName: customer.firstname,
+      lastName: customer.lastname,
       emailVerified: true,
       phone,
       phoneVerified: false,
