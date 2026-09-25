@@ -24,6 +24,7 @@ import createDebug from 'debug';
 import type { MagentoClient } from '../core/client.js';
 import type { MagentoConfiguration } from '../schema/configuration.schema.js';
 import type { MagentoProductFactory } from '../factories/product/product.factory.js';
+import type { MagentoProduct } from '../schema/magento.types.js';
 
 const debug = createDebug('reactionary:magento:product');
 
@@ -56,7 +57,8 @@ async function adminSearchProducts(
   config: MagentoConfiguration,
   field: string,
   value: string | number,
-): Promise<{ items: Array<Record<string, unknown>>; total_count?: number }> {
+  options?: { badRequestAsNoMatch?: boolean },
+): Promise<{ items: MagentoProduct[]; total_count?: number }> {
   const token = config.adminApiKey;
   if (!token) {
     throw new Error(
@@ -65,8 +67,7 @@ async function adminSearchProducts(
   }
 
   const url = buildProductsSearchUrl(config.baseUrl, config.storeCode, field, value, 'eq', 1, 1);
-  const t = `Bearer ${token}`; 
-  
+
   const res = await fetch(url, {
     method: 'GET',
     headers: {
@@ -75,6 +76,10 @@ async function adminSearchProducts(
     },
   });
 
+  if (res.status === 400 && options?.badRequestAsNoMatch) {
+    return { items: [] };
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(
@@ -82,7 +87,7 @@ async function adminSearchProducts(
     );
   }
 
-  return (await res.json()) as { items: Array<Record<string, unknown>>; total_count?: number };
+  return (await res.json()) as { items: MagentoProduct[]; total_count?: number };
 }
 
 export class MagentoProductCapability<
@@ -116,24 +121,38 @@ export class MagentoProductCapability<
       debug(`Fetching product by ID/key: ${key}`);
     }
 
-    try {
-      if (key.length > 0) {
-        const result = await adminSearchProducts(this.config, 'external_id', key);
-        const product = result.items?.[0];
-        if (!product) {
-          return success(this.createEmptyProduct(key));
-        }
-        return success(this.factory.parseProduct(this.context, product));
-      }
-
-      const product = await this.magentoApi.getProductBySKU(key);
-      return success(this.factory.parseProduct(this.context, product));
-    } catch (e) {
-      if (debug.enabled) {
-        debug(`Product with key ${key} not found. Error %O`, e);
-      }
+    const product = await this.findProductByKey(key);
+    if (!product) {
       return success(this.createEmptyProduct(key));
     }
+    return success(this.factory.parseProduct(this.context, product));
+  }
+
+  /**
+   * Mirrors the precedence `getProductKey()` uses when emitting keys:
+   * `external_id`, then the numeric entity id, then the SKU. Stores without an
+   * `external_id` attribute answer that filter with a 400, which is treated as
+   * no match. Resolves to `undefined` only when every lookup misses; any other
+   * failure is thrown.
+   */
+  protected async findProductByKey(key: string): Promise<MagentoProduct | undefined> {
+    if (key.length === 0) {
+      return undefined;
+    }
+
+    const byExternalId = await adminSearchProducts(this.config, 'external_id', key, {
+      badRequestAsNoMatch: true,
+    });
+    if (byExternalId.items?.[0]) {
+      return byExternalId.items[0];
+    }
+
+    if (/^\d+$/.test(key)) {
+      const byEntityId = await adminSearchProducts(this.config, 'entity_id', key);
+      return byEntityId.items?.[0];
+    }
+
+    return this.magentoApi.getProductBySKU(key, { allowNotFound: true });
   }
 
   @Reactionary({
@@ -147,27 +166,17 @@ export class MagentoProductCapability<
       debug(`Fetching product by slug(url_key): ${payload.slug}`);
     }
 
-    try {
-      const result = await adminSearchProducts(this.config, 'url_key', payload.slug);
-      const product = result.items?.[0];
+    const result = await adminSearchProducts(this.config, 'url_key', payload.slug);
+    const product = result.items?.[0];
 
-      if (!product) {
-        return error<NotFoundError>({
-          type: 'NotFound',
-          identifier: payload,
-        });
-      }
-
-      return success(this.factory.parseProduct(this.context, product));
-    } catch (e) {
-      if (debug.enabled) {
-        debug(`Slug lookup failed for ${payload.slug}. Error %O`, e);
-      }
+    if (!product) {
       return error<NotFoundError>({
         type: 'NotFound',
         identifier: payload,
       });
     }
+
+    return success(this.factory.parseProduct(this.context, product));
   }
 
   @Reactionary({
