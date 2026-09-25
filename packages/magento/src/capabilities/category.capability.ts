@@ -293,16 +293,9 @@ export class MagentoCategoryCapability<
    * is what `getCategoryKey` emits for categories without an `external_id`.
    */
   protected async findCategoryByKey(client: Magento, key: string): Promise<MagentoCategory | null> {
-    let category: MagentoCategory | null = null;
-    try {
-      category = await client.store.category.getByExternalId(key);
-    } catch (e) {
-      if (!isCategoryEntityIdKey(key) || !isMagentoBadRequest(e)) {
-        throw e;
-      }
-      debug('external_id lookup rejected, falling back to entity id', key);
-    }
-
+    const category: MagentoCategory | null = await client.store.category.getByExternalId(key, {
+      badRequestAsNoMatch: true,
+    });
     if (category || !isCategoryEntityIdKey(key)) {
       return category;
     }
@@ -349,9 +342,4 @@ export class MagentoCategoryCapability<
     }
     return paginatedResult;
   }
-}
-
-/** `MagentoRest.request` reports a non-2xx status only through the error message. */
-function isMagentoBadRequest(e: unknown): boolean {
-  return e instanceof Error && e.message.includes('→ 400');
 }
