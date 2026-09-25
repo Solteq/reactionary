@@ -75,7 +75,10 @@ const FLATRATE: MagentoShippingMethod = {
  * RequestContext and its own session-scoped checkout state, exactly like two
  * separate server actions would.
  */
-function createBackend(billingAddressStub: Record<string, unknown> | undefined) {
+function createBackend(
+  billingAddressStub: Record<string, unknown> | undefined,
+  backendConfig: MagentoConfiguration = config,
+) {
   const quote: MagentoCart = {
     id: 1,
     masked_id: CART_KEY,
@@ -114,11 +117,16 @@ function createBackend(billingAddressStub: Record<string, unknown> | undefined) 
       clearActiveCartId: vi.fn(async () => undefined),
     };
     const capability = new MagentoCheckoutCapability(
-      config,
+      backendConfig,
       new NoOpCache(),
       createInitialRequestContext(),
       magentoApi as unknown as MagentoClient,
-      new MagentoCheckoutFactory(CheckoutSchema, ShippingMethodSchema, PaymentMethodSchema, config),
+      new MagentoCheckoutFactory(
+        CheckoutSchema,
+        ShippingMethodSchema,
+        PaymentMethodSchema,
+        backendConfig,
+      ),
     );
     return { capability, magentoApi, session };
   }
@@ -284,8 +292,11 @@ describe('MagentoCheckoutCapability durability across requests', () => {
 });
 
 describe('MagentoCheckoutCapability.finalizeCheckout', () => {
-  async function readyCheckout(protocolData: Array<{ key: string; value: string }>) {
-    const backend = createBackend(MAGENTO_STUB);
+  async function readyCheckout(
+    protocolData: Array<{ key: string; value: string }>,
+    backendConfig: MagentoConfiguration = config,
+  ) {
+    const backend = createBackend(MAGENTO_STUB, backendConfig);
     const req = backend.request();
     await req.capability.initiateCheckoutForCart({
       cart: CART_INPUT,
@@ -350,6 +361,45 @@ describe('MagentoCheckoutCapability.finalizeCheckout', () => {
     expect(backend.placeOrder).toHaveBeenCalledWith(
       CART_KEY,
       expect.objectContaining({ paymentMethod: { method: 'psp' } }),
+    );
+  });
+
+  it('sends the configured checkout agreement ids with the payment method', async () => {
+    const { backend, capability } = await readyCheckout(
+      [{ key: 'transaction_id', value: 'tx-123' }],
+      { ...config, checkoutAgreementIds: ['3'] },
+    );
+
+    await capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+
+    expect(backend.placeOrder).toHaveBeenCalledWith(
+      CART_KEY,
+      expect.objectContaining({
+        paymentMethod: {
+          method: 'psp',
+          additional_data: { transaction_id: 'tx-123' },
+          extension_attributes: { agreement_ids: ['3'] },
+        },
+      }),
+    );
+  });
+
+  it('sends agreement ids even without protocolData', async () => {
+    const { backend, capability } = await readyCheckout([], {
+      ...config,
+      checkoutAgreementIds: ['3', '5'],
+    });
+
+    await capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+
+    expect(backend.placeOrder).toHaveBeenCalledWith(
+      CART_KEY,
+      expect.objectContaining({
+        paymentMethod: {
+          method: 'psp',
+          extension_attributes: { agreement_ids: ['3', '5'] },
+        },
+      }),
     );
   });
 });
