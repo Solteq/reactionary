@@ -31,7 +31,8 @@ import type { MagentoConfiguration } from '../schema/configuration.schema.js';
 import type { Magento, MagentoClient } from '../core/client.js';
 import type { MagentoCategoryFactory } from '../factories/category/category.factory.js';
 import createDebug from 'debug';
-import type { MagentoCategory, MagentoCategorySearchResult, MagentoCustomAttribute } from '../schema/magento.types.js';
+import type { MagentoCategory, MagentoCategorySearchResult } from '../schema/magento.types.js';
+import { getCategoryKey, isCategoryEntityIdKey } from '../utils/magento-category.js';
 
 const debug = createDebug('reactionary:magento:category');
 
@@ -65,7 +66,7 @@ export class MagentoCategoryCapability<
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
     const client = await this.magentoApi.getClient();
     try {
-      const response = await client.store.category.getByExternalId(payload.id.key);
+      const response = await this.findCategoryByKey(client, payload.id.key);
       if (!response) {
         return error<NotFoundError>({
           type: 'NotFound',
@@ -131,7 +132,7 @@ export class MagentoCategoryCapability<
 
 
 
-      const category = await client.store.category.getByExternalId(payload.id.key);
+      const category = await this.findCategoryByKey(client, payload.id.key);
       if (!category) {
         return error({
           type: 'NotFound',
@@ -270,15 +271,42 @@ export class MagentoCategoryCapability<
       return cachedValue;
     }
 
-    const response = await client.store.category.getByExternalId(key);
+    const response = await this.findCategoryByKey(client, key);
 
     if (!response) {
       return null;
     }
 
     const magentoId = String(response.id);
-    await this.cacheCategoryKeyToIdMapping(key, magentoId);
+    // Cache the category's own key: a numeric key may have matched by entity id
+    // although the category carries an external_id.
+    await this.cacheCategoryKeyToIdMapping(getCategoryKey(response), magentoId);
     return magentoId;
+  }
+
+  /**
+   * Resolves a category key (see `getCategoryKey`) to its Magento category.
+   *
+   * The key is looked up as an `external_id` first. When nothing matches — or
+   * the store has no `external_id` attribute at all, which stock Magento
+   * rejects with HTTP 400 — an all-digit key is read as the entity id, which
+   * is what `getCategoryKey` emits for categories without an `external_id`.
+   */
+  protected async findCategoryByKey(client: Magento, key: string): Promise<MagentoCategory | null> {
+    const category: MagentoCategory | null = await client.store.category.getByExternalId(key, {
+      badRequestAsNoMatch: true,
+    });
+    if (category || !isCategoryEntityIdKey(key)) {
+      return category;
+    }
+
+    const params = new URLSearchParams();
+    params.set('searchCriteria[filterGroups][0][filters][0][field]', 'entity_id');
+    params.set('searchCriteria[filterGroups][0][filters][0][value]', key);
+    params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'eq');
+    params.set('searchCriteria[pageSize]', '1');
+    const response: MagentoCategorySearchResult = await client.store.category.list(params);
+    return response.items?.[0] ?? null;
   }
 
   protected async translateMagentoIdToCategoryKey(magentoId: string): Promise<string | null> {
@@ -288,10 +316,9 @@ export class MagentoCategoryCapability<
     }
 
     const client = await this.magentoApi.getClient();
-    const response = await client.store.category.getById(magentoId);
-    const keyAttr = response.custom_attributes?.find((a: MagentoCustomAttribute) => a.attribute_code === 'external_id');
+    const response: MagentoCategory = await client.store.category.getById(magentoId);
 
-    const key = String(keyAttr?.value || '-');
+    const key = getCategoryKey(response);
     await this.cacheCategoryKeyToIdMapping(key, magentoId);
     return key;
   }
