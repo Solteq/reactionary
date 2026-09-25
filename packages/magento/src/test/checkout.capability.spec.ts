@@ -94,6 +94,10 @@ function createBackend(billingAddressStub: Record<string, unknown> | undefined) 
     async () => [FLATRATE],
   );
 
+  const setShippingInformation = vi.fn<MagentoClient['setShippingInformation']>(
+    async () => ({}),
+  );
+
   function request() {
     const session = new Map<string, MagentoCheckoutState>();
     const magentoApi = {
@@ -105,7 +109,7 @@ function createBackend(billingAddressStub: Record<string, unknown> | undefined) 
       }),
       setCheckoutBillingAddress,
       estimateShippingMethods,
-      setShippingInformation: vi.fn(async () => ({})),
+      setShippingInformation,
       placeOrder,
       clearActiveCartId: vi.fn(async () => undefined),
     };
@@ -119,7 +123,14 @@ function createBackend(billingAddressStub: Record<string, unknown> | undefined) 
     return { capability, magentoApi, session };
   }
 
-  return { quote, request, placeOrder, setCheckoutBillingAddress, estimateShippingMethods };
+  return {
+    quote,
+    request,
+    placeOrder,
+    setCheckoutBillingAddress,
+    estimateShippingMethods,
+    setShippingInformation,
+  };
 }
 
 /** What Magento returns for a fresh quote: country pre-filled, everything else null. */
@@ -197,22 +208,78 @@ describe('MagentoCheckoutCapability durability across requests', () => {
     }
   });
 
-  it('does not overwrite an explicit billing address with the shipping address', async () => {
+  it('uses a shipping address changed in a later request', async () => {
     const backend = createBackend(MAGENTO_STUB);
-    const { capability } = backend.request();
-    await capability.initiateCheckoutForCart({
-      cart: CART_INPUT,
-      notificationEmail: EMAIL,
-      billingAddress: { ...SHIPPING_ADDRESS, city: 'Tartu' },
-    });
-    backend.setCheckoutBillingAddress.mockClear();
-
-    await capability.setShippingAddress({
+    await backend
+      .request()
+      .capability.initiateCheckoutForCart({ cart: CART_INPUT, notificationEmail: EMAIL });
+    await backend.request().capability.setShippingAddress({
       checkout: { key: CART_KEY },
       shippingAddress: SHIPPING_ADDRESS,
     });
+    await backend.request().capability.setShippingAddress({
+      checkout: { key: CART_KEY },
+      shippingAddress: { ...SHIPPING_ADDRESS, city: 'Tartu' },
+    });
 
-    expect(backend.setCheckoutBillingAddress).not.toHaveBeenCalled();
+    await backend.request().capability.getAvailableShippingMethods({
+      checkout: { key: CART_KEY },
+    });
+    expect(backend.estimateShippingMethods).toHaveBeenLastCalledWith(
+      CART_KEY,
+      expect.objectContaining({ city: 'Tartu' }),
+    );
+
+    const selected = await backend.request().capability.setShippingInstruction({
+      checkout: { key: CART_KEY },
+      shippingInstruction: {
+        shippingMethod: { key: 'flatrate_flatrate' },
+        pickupPoint: '',
+        instructions: '',
+        consentForUnattendedDelivery: false,
+      },
+    });
+    expect(selected).toMatchObject({ success: true });
+    expect(backend.setShippingInformation).toHaveBeenLastCalledWith(CART_KEY, {
+      addressInformation: expect.objectContaining({
+        shipping_address: expect.objectContaining({ city: 'Tartu' }),
+      }),
+    });
+  });
+
+  it('keeps the saved quote address intact when only the email changes', async () => {
+    const savedAddress = {
+      id: 7,
+      customer_address_id: 3,
+      firstname: 'Jane',
+      lastname: 'Doe',
+      company: 'ACME',
+      street: ['Main St', '1'],
+      city: 'Tallinn',
+      region: 'Harju',
+      region_id: 12,
+      region_code: 'HAR',
+      postcode: '10111',
+      country_id: 'EE',
+      telephone: '5551234',
+      email: 'old@example.com',
+    };
+    const backend = createBackend(savedAddress);
+
+    await backend
+      .request()
+      .capability.initiateCheckoutForCart({ cart: CART_INPUT, notificationEmail: EMAIL });
+
+    expect(backend.setCheckoutBillingAddress).toHaveBeenCalledWith(
+      CART_KEY,
+      expect.objectContaining({
+        customer_address_id: 3,
+        company: 'ACME',
+        region_id: 12,
+        region_code: 'HAR',
+        email: EMAIL,
+      }),
+    );
   });
 });
 
