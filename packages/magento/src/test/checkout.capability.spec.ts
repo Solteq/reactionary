@@ -83,6 +83,7 @@ function createBackend(billingAddressStub: Record<string, unknown> | undefined) 
     customer: {},
     billing_address: billingAddressStub,
   };
+  const placeOrder = vi.fn<MagentoClient['placeOrder']>(async () => 1001);
   const setCheckoutBillingAddress = vi.fn(
     async (_cartId: string | null, address: MagentoCheckoutAddress) => {
       quote.billing_address = { ...address };
@@ -105,6 +106,7 @@ function createBackend(billingAddressStub: Record<string, unknown> | undefined) 
       setCheckoutBillingAddress,
       estimateShippingMethods,
       setShippingInformation: vi.fn(async () => ({})),
+      placeOrder,
       clearActiveCartId: vi.fn(async () => undefined),
     };
     const capability = new MagentoCheckoutCapability(
@@ -117,7 +119,7 @@ function createBackend(billingAddressStub: Record<string, unknown> | undefined) 
     return { capability, magentoApi, session };
   }
 
-  return { quote, request, setCheckoutBillingAddress, estimateShippingMethods };
+  return { quote, request, placeOrder, setCheckoutBillingAddress, estimateShippingMethods };
 }
 
 /** What Magento returns for a fresh quote: country pre-filled, everything else null. */
@@ -211,5 +213,76 @@ describe('MagentoCheckoutCapability durability across requests', () => {
     });
 
     expect(backend.setCheckoutBillingAddress).not.toHaveBeenCalled();
+  });
+});
+
+describe('MagentoCheckoutCapability.finalizeCheckout', () => {
+  async function readyCheckout(protocolData: Array<{ key: string; value: string }>) {
+    const backend = createBackend(MAGENTO_STUB);
+    const req = backend.request();
+    await req.capability.initiateCheckoutForCart({
+      cart: CART_INPUT,
+      notificationEmail: EMAIL,
+      billingAddress: SHIPPING_ADDRESS,
+    });
+    await req.capability.setShippingInstruction({
+      checkout: { key: CART_KEY },
+      shippingInstruction: {
+        shippingMethod: { key: 'flatrate_flatrate' },
+        pickupPoint: '',
+        instructions: '',
+        consentForUnattendedDelivery: false,
+      },
+    });
+    await req.capability.addPaymentInstruction({
+      checkout: { key: CART_KEY },
+      paymentInstruction: {
+        paymentMethod: { method: 'psp', name: 'PSP', paymentProcessor: 'psp' },
+        amount: { value: 10, currency: 'EUR' },
+        protocolData,
+      },
+    });
+    return { backend, capability: req.capability };
+  }
+
+  it('places the order only once when finalized twice', async () => {
+    const { backend, capability } = await readyCheckout([]);
+
+    const first = await capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+    const second = await capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+
+    expect(backend.placeOrder).toHaveBeenCalledTimes(1);
+    expect(first.success && first.value.resultingOrder?.key).toBe('1001');
+    expect(second.success && second.value.resultingOrder?.key).toBe('1001');
+  });
+
+  it('forwards payment protocolData as additional_data', async () => {
+    const { backend, capability } = await readyCheckout([
+      { key: 'transaction_id', value: 'tx-123' },
+      { key: 'provider', value: 'acme' },
+    ]);
+
+    await capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+
+    expect(backend.placeOrder).toHaveBeenCalledWith(
+      CART_KEY,
+      expect.objectContaining({
+        paymentMethod: {
+          method: 'psp',
+          additional_data: { transaction_id: 'tx-123', provider: 'acme' },
+        },
+      }),
+    );
+  });
+
+  it('omits additional_data when there is no protocolData', async () => {
+    const { backend, capability } = await readyCheckout([]);
+
+    await capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+
+    expect(backend.placeOrder).toHaveBeenCalledWith(
+      CART_KEY,
+      expect.objectContaining({ paymentMethod: { method: 'psp' } }),
+    );
   });
 });
