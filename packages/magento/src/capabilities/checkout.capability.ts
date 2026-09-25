@@ -60,6 +60,10 @@ function nonEmptyString(value: unknown): string | undefined {
   return typeof value === 'string' && value !== '' ? value : undefined;
 }
 
+function numberValue(value: unknown): number | undefined {
+  return typeof value === 'number' ? value : undefined;
+}
+
 /**
  * Reads a customer-entered address from a quote's raw `billing_address`.
  * Magento pre-creates a stub on every quote (country set, everything else
@@ -82,7 +86,11 @@ function parseQuoteAddress(
     lastname: nonEmptyString(raw['lastname']),
     street,
     city,
+    company: nonEmptyString(raw['company']),
     region: nonEmptyString(raw['region']),
+    region_id: numberValue(raw['region_id']),
+    region_code: nonEmptyString(raw['region_code']),
+    customer_address_id: numberValue(raw['customer_address_id']),
     postcode: nonEmptyString(raw['postcode']),
     country_id: nonEmptyString(raw['country_id']),
     telephone: nonEmptyString(raw['telephone']),
@@ -306,11 +314,10 @@ export class MagentoCheckoutCapability<
     );
 
     // Magento has no quote field for a shipping address without a shipping
-    // method, so until a separate billing address is given, keep it durable as
-    // the billing address, which setShippingInstruction defaults to it anyway.
-    if (!state.billingAddress) {
-      await this.persistBillingAddressOnQuote(cartKey, state.shippingAddress);
-    }
+    // method, so the billing address is the only place it survives until the
+    // next request. Trade-off: a differing explicit billing address is only
+    // kept for this request until setShippingInstruction stores both.
+    await this.persistBillingAddressOnQuote(cartKey, state.shippingAddress);
 
     await this.magentoApi.setCheckoutState(cartKey, state);
     return success(await this.buildCheckout(cartKey, state));
