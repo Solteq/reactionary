@@ -27,6 +27,16 @@ import type { MagentoProductSearchFactory } from '../factories/product-search/pr
 
 const debug = createDebug('reactionary:magento:search');
 
+/** Facet key {@link MagentoProductSearchCapability.createCategoryNavigationFilter} encodes categories with. */
+const CATEGORY_FACET_KEY = 'categories';
+const CATEGORY_FIELD = 'category_id';
+
+interface MagentoSearchFilter {
+  field: string;
+  value: string;
+  conditionType: 'eq' | 'in' | 'like';
+}
+
 export class MagentoProductSearchCapability<
   TFactory extends ProductSearchFactory = MagentoProductSearchFactory,
 > extends ProductSearchCapability<ProductSearchFactoryOutput<TFactory>> {
@@ -61,40 +71,30 @@ export class MagentoProductSearchCapability<
     const currentPage = payload.search.paginationOptions.pageNumber;
 
     const params = new URLSearchParams();
+    const filterGroups: MagentoSearchFilter[][] = [];
 
-    let filterGroupIndex = 0;
     if (finalSearch) {
-      params.set(
-        `searchCriteria[filterGroups][${filterGroupIndex}][filters][0][field]`,
-        'name',
-      );
-      params.set(
-        `searchCriteria[filterGroups][${filterGroupIndex}][filters][0][value]`,
-        `%${finalSearch}%`,
-      );
-      params.set(
-        `searchCriteria[filterGroups][${filterGroupIndex}][filters][0][condition_type]`,
-        'like',
-      );
-      filterGroupIndex++;
+      filterGroups.push([{ field: 'name', value: `%${finalSearch}%`, conditionType: 'like' }]);
     }
 
     if (payload.search.categoryFilter?.key) {
       debug(`Applying category filter: ${payload.search.categoryFilter.key}`);
-      params.set(
-        `searchCriteria[filterGroups][${filterGroupIndex}][filters][0][field]`,
-        'category_id',
-      );
-      params.set(
-        `searchCriteria[filterGroups][${filterGroupIndex}][filters][0][value]`,
-        payload.search.categoryFilter.key,
-      );
-      params.set(
-        `searchCriteria[filterGroups][${filterGroupIndex}][filters][0][condition_type]`,
-        'eq',
-      );
-      filterGroupIndex++;
+      filterGroups.push([
+        { field: CATEGORY_FIELD, value: payload.search.categoryFilter.key, conditionType: 'eq' },
+      ]);
     }
+
+    filterGroups.push(...this.getFacetFilterGroups(payload.search.facets));
+    filterGroups.push(...this.getStorefrontScopeFilterGroups());
+
+    filterGroups.forEach((filters, groupIndex) => {
+      filters.forEach((filter, filterIndex) => {
+        const prefix = `searchCriteria[filterGroups][${groupIndex}][filters][${filterIndex}]`;
+        params.set(`${prefix}[field]`, filter.field);
+        params.set(`${prefix}[value]`, filter.value);
+        params.set(`${prefix}[condition_type]`, filter.conditionType);
+      });
+    });
 
     params.set('searchCriteria[pageSize]', String(pageSize));
     params.set('searchCriteria[currentPage]', String(currentPage));
@@ -113,11 +113,54 @@ export class MagentoProductSearchCapability<
     return success(result);
   }
 
+  /**
+   * One filter group per facet code: Magento ORs the filters within a group and ANDs
+   * the groups, so values of one facet widen the result and distinct facets narrow it.
+   * The facet code is the Magento attribute code and the facet value key its (option) value.
+   *
+   * The category navigation facet created by {@link createCategoryNavigationFilter} is the
+   * exception: Magento's `category_id` filter (ProductCategoryFilter) ANDs the filters of a
+   * group, so its values are OR-ed through a single `category_id in (...)` filter instead.
+   */
+  protected getFacetFilterGroups(facets: FacetValueIdentifier[]): MagentoSearchFilter[][] {
+    const groups = new Map<string, MagentoSearchFilter[]>();
+    const categoryIds: string[] = [];
+    for (const facetValue of facets) {
+      if (facetValue.facet.key === CATEGORY_FACET_KEY) {
+        categoryIds.push(facetValue.key);
+        continue;
+      }
+      const field = facetValue.facet.key;
+      const group = groups.get(field) ?? [];
+      group.push({ field, value: facetValue.key, conditionType: 'eq' });
+      groups.set(field, group);
+    }
+    if (categoryIds.length > 0) {
+      groups.set(CATEGORY_FIELD, [
+        { field: CATEGORY_FIELD, value: categoryIds.join(','), conditionType: 'in' },
+      ]);
+    }
+    return [...groups.values()];
+  }
+
+  /**
+   * Restricts results to what a storefront may show: enabled products that are visible in
+   * the catalog (visibility 2 = Catalog, 4 = Catalog, Search). The admin REST product search
+   * does not apply this itself, so without it disabled products and "Not Visible
+   * Individually" (1) configurable children would be listed.
+   */
+  protected getStorefrontScopeFilterGroups(): MagentoSearchFilter[][] {
+    return [
+      [{ field: 'status', value: '1', conditionType: 'eq' }],
+      [{ field: 'visibility', value: '2,4', conditionType: 'in' }],
+    ];
+  }
+
   public override async createCategoryNavigationFilter(
     payload: ProductSearchQueryCreateNavigationFilter,
   ): Promise<Result<FacetValueIdentifier>> {
     const facetIdentifier = FacetIdentifierSchema.parse({
-      key: 'categories',
+      key: CATEGORY_FACET_KEY,
     });
     const facetValueIdentifier = FacetValueIdentifierSchema.parse({
       facet: facetIdentifier,
