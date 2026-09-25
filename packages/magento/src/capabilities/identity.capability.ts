@@ -122,6 +122,7 @@ export class MagentoIdentityCapability extends IdentityCapability {
     inputSchema: IdentityMutationRegisterSchema,
     outputSchema: IdentitySchema,
   })
+  /** Extra payload keys are forwarded to Magento (with admin rights when anonymous), so callers must whitelist user-supplied fields. */
   public override async register(
     payload: IdentityMutationRegister,
   ): Promise<Result<Identity>> {
@@ -130,9 +131,13 @@ export class MagentoIdentityCapability extends IdentityCapability {
     // The register schema is loose: extra keys (e.g. `dob`,
     // `custom_attributes`) are forwarded to the Magento customer entity.
     // `username` is mapped to `email` and `password` is sent alongside the
-    // customer object, so neither belongs inside it.
+    // customer object, so neither belongs inside it. `id` and `group_id` are
+    // stripped because the request may carry the admin token, which would
+    // let a caller pick a customer group or target an existing customer.
     const { username, password, ...rest } = payload;
     const { firstname, lastname, ...extra }: Record<string, unknown> = rest;
+    delete extra['id'];
+    delete extra['group_id'];
     const customer = {
       ...extra,
       email: username,

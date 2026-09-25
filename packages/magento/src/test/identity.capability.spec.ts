@@ -97,4 +97,37 @@ describe('MagentoIdentityCapability.register', () => {
       'secret',
     );
   });
+
+  it('does not forward id or group_id to the customer object', async () => {
+    const payload = {
+      username: 'jane@example.com',
+      password: 'secret',
+      firstname: 'Jane',
+      lastname: 'Doe',
+      id: 99,
+      group_id: 4,
+    };
+    await capability.register(payload);
+
+    expect(magentoApi.register).toHaveBeenCalledWith(
+      { email: 'jane@example.com', firstname: 'Jane', lastname: 'Doe' },
+      'secret',
+    );
+  });
+
+  it('overrides an email key in the payload with username', async () => {
+    const payload = {
+      username: 'jane@example.com',
+      password: 'secret',
+      firstname: 'Jane',
+      lastname: 'Doe',
+      email: 'attacker@example.com',
+    };
+    await capability.register(payload);
+
+    expect(magentoApi.register).toHaveBeenCalledWith(
+      { email: 'jane@example.com', firstname: 'Jane', lastname: 'Doe' },
+      'secret',
+    );
+  });
 });
