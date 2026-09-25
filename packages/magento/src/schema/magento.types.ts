@@ -305,6 +305,9 @@ export interface MagentoPaymentMethodPayload {
   method: string;
   po_number?: string;
   additional_data?: Record<string, string> | string[];
+  extension_attributes?: {
+    agreement_ids?: string[];
+  };
 }
 
 export interface MagentoPlaceOrderPayload {
