@@ -103,6 +103,9 @@ export class MagentoInventoryCapability<
    * Returns one inventory entry per MSI source (fulfillment center) holding
    * the SKU, e.g. for showing per-store stock on a PDP. Unknown SKUs yield an
    * empty array; Magento failures surface as an error result.
+   *
+   * `status` is derived from `quantity` by the shared inventory factory, so
+   * the MSI source item's own status flag is ignored (same as `getBySKU`).
    */
   @Reactionary({
     inputSchema: MagentoInventoryQueryBySKUAcrossFulfillmentCentersSchema,
@@ -113,10 +116,10 @@ export class MagentoInventoryCapability<
   ): Promise<Result<InventoryFactoryOutput<TFactory>[]>> {
     const sku = payload.variant.sku;
     const client = await this.magentoApi.getClient();
-    const response = await client.store.inventory.getSourceItemsBySKU(sku);
+    const items = await client.store.inventory.getSourceItemsBySKU(sku);
 
     return success(
-      (response.items ?? []).map((item) =>
+      items.map((item) =>
         this.factory.parseInventory(this.context, {
           sku,
           fulfillmentCenterKey: item.source_code,

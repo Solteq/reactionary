@@ -330,16 +330,35 @@ export class Magento {
       /**
        * Every MSI source item for a SKU. Source items are an admin resource,
        * so this always uses the admin token, even for a logged-in customer.
+       * Pages explicitly, since Magento's REST input limiting otherwise caps
+       * the result at its default page size.
        */
-      getSourceItemsBySKU: async (sku: string) => {
-        const params = new URLSearchParams();
-        params.set('searchCriteria[filterGroups][0][filters][0][field]', 'sku');
-        params.set('searchCriteria[filterGroups][0][filters][0][value]', sku);
-        params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'eq');
-        return this.adminRest.request<{ items?: MagentoSourceItem[] }>(
-          'GET',
-          `/V1/inventory/source-items?${params.toString()}`
-        );
+      getSourceItemsBySKU: async (sku: string): Promise<MagentoSourceItem[]> => {
+        const pageSize = 300; // Magento's default REST maximum page size.
+        const maxPages = 100;
+        const items: MagentoSourceItem[] = [];
+
+        for (let currentPage = 1; currentPage <= maxPages; currentPage++) {
+          const params = new URLSearchParams();
+          params.set('searchCriteria[filterGroups][0][filters][0][field]', 'sku');
+          params.set('searchCriteria[filterGroups][0][filters][0][value]', sku);
+          params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'eq');
+          params.set('searchCriteria[pageSize]', String(pageSize));
+          params.set('searchCriteria[currentPage]', String(currentPage));
+
+          const page = await this.adminRest.request<{
+            items?: MagentoSourceItem[];
+            total_count?: number;
+          }>('GET', `/V1/inventory/source-items?${params.toString()}`);
+
+          const pageItems = page.items ?? [];
+          items.push(...pageItems);
+          if (pageItems.length === 0 || items.length >= (page.total_count ?? 0)) {
+            break;
+          }
+        }
+
+        return items;
       },
     },
     order: {

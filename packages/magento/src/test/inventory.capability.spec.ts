@@ -79,6 +79,65 @@ describe('MagentoInventoryCapability.getBySKUAcrossFulfillmentCenters', () => {
     expect(url.searchParams.get('searchCriteria[filterGroups][0][filters][0][value]')).toBe('SKU-1');
     expect(url.searchParams.get('searchCriteria[filterGroups][0][filters][0][condition_type]')).toBe('eq');
     expect(url.searchParams.get('searchCriteria[filterGroups][1][filters][0][field]')).toBeNull();
+    expect(url.searchParams.get('searchCriteria[pageSize]')).toBe('300');
+    expect(url.searchParams.get('searchCriteria[currentPage]')).toBe('1');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('pages through source items until total_count is reached', async () => {
+    fetchSpy
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [
+            { sku: 'SKU-1', source_code: 'store_a', quantity: 1, status: 1 },
+            { sku: 'SKU-1', source_code: 'store_b', quantity: 2, status: 1 },
+          ],
+          total_count: 3,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [{ sku: 'SKU-1', source_code: 'store_c', quantity: 3, status: 1 }],
+          total_count: 3,
+        }),
+      );
+
+    const result = await capability.getBySKUAcrossFulfillmentCenters({
+      variant: { sku: 'SKU-1' },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.map((i) => i.identifier.fulfillmentCenter.key)).toEqual([
+        'store_a',
+        'store_b',
+        'store_c',
+      ]);
+    }
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const secondUrl = new URL(String(fetchSpy.mock.calls[1][0]));
+    expect(secondUrl.searchParams.get('searchCriteria[currentPage]')).toBe('2');
+  });
+
+  it('stops paging on an empty page even if total_count is not reached', async () => {
+    fetchSpy
+      .mockResolvedValueOnce(
+        jsonResponse({
+          items: [{ sku: 'SKU-1', source_code: 'store_a', quantity: 1, status: 1 }],
+          total_count: 5,
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ items: [], total_count: 5 }));
+
+    const result = await capability.getBySKUAcrossFulfillmentCenters({
+      variant: { sku: 'SKU-1' },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value).toHaveLength(1);
+    }
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
   it('returns an empty array for an unknown SKU', async () => {
