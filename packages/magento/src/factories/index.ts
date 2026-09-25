@@ -11,3 +11,4 @@ export * from './order/order.factory.js';
 export * from './checkout/checkout.factory.js';
 export * from './product-associations/product-associations.factory.js';
 export * from './product-reviews/product-reviews.factory.js';
+export * from './store/store.factory.js';

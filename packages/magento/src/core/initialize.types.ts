@@ -12,6 +12,7 @@ import type {
   CheckoutFactory,
   ProductAssociationsFactory,
   ProductReviewsFactory,
+  StoreFactory,
 } from '@reactionary/core';
 import type { MagentoCapabilities } from '../schema/capabilities.schema.js';
 import type { MagentoCartFactory } from '../factories/cart/cart.factory.js';
@@ -26,6 +27,7 @@ import type { MagentoOrderFactory } from '../factories/order/order.factory.js';
 import type { MagentoCheckoutFactory } from '../factories/checkout/checkout.factory.js';
 import type { MagentoProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
 import type { MagentoProductReviewsFactory } from '../factories/product-reviews/product-reviews.factory.js';
+import type { MagentoStoreFactory } from '../factories/store/store.factory.js';
 import type { MagentoCartCapability } from '../capabilities/cart.capability.js';
 import type { MagentoCategoryCapability } from '../capabilities/category.capability.js';
 import type { MagentoIdentityCapability } from '../capabilities/identity.capability.js';
@@ -40,6 +42,7 @@ import type { MagentoCheckoutCapability } from '../capabilities/checkout.capabil
 import type { MagentoProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import type { MagentoProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import type { MagentoProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
+import type { MagentoStoreCapability } from '../capabilities/store.capability.js';
 
 type OverridableCapabilityKey =
   | 'product'
@@ -53,7 +56,8 @@ type OverridableCapabilityKey =
   | 'order'
   | 'checkout'
   | 'productAssociations'
-  | 'productReviews';
+  | 'productReviews'
+  | 'store';
 
 type DirectCapabilityKey = 'identity' | 'productRecommendations';
 
@@ -94,6 +98,7 @@ type FactoryContractMap = {
   checkout: CheckoutFactory;
   productAssociations: ProductAssociationsFactory;
   productReviews: ProductReviewsFactory;
+  store: StoreFactory;
 };
 
 type DefaultFactoryMap = {
@@ -109,6 +114,7 @@ type DefaultFactoryMap = {
   checkout: MagentoCheckoutFactory;
   productAssociations: MagentoProductAssociationsFactory;
   productReviews: MagentoProductReviewsFactory;
+  store: MagentoStoreFactory;
 };
 
 type ResolvedFactoryMap<T extends MagentoCapabilities> = {
@@ -132,6 +138,7 @@ type DefaultCapabilityMap<T extends MagentoCapabilities> = {
   checkout: MagentoCheckoutCapability<ResolvedFactoryMap<T>['checkout']>;
   productAssociations: MagentoProductAssociationsCapability<ResolvedFactoryMap<T>['productAssociations']>;
   productReviews: MagentoProductReviewsCapability<ResolvedFactoryMap<T>['productReviews']>;
+  store: MagentoStoreCapability<ResolvedFactoryMap<T>['store']>;
   productRecommendations: MagentoProductRecommendationsCapability;
   identity: MagentoIdentityCapability;
 };
