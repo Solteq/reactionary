@@ -460,3 +460,31 @@ export interface MagentoCreateProductReviewResult {
     review?: MagentoProductReview;
   };
 }
+
+/**
+ * A Magento MSI inventory source (`GET /V1/inventory/sources`). Custom
+ * modules commonly add store-locator data under `extension_attributes`,
+ * which is left untyped for storefront subclasses to narrow.
+ */
+export interface MagentoSource {
+  source_code: string;
+  name: string;
+  enabled?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  country_id?: string | null;
+  region?: string | null;
+  city?: string | null;
+  street?: string | null;
+  postcode?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  contact_name?: string | null;
+  description?: string | null;
+  extension_attributes?: Record<string, unknown> | null;
+}
+
+export interface MagentoSourceSearchResult {
+  items?: MagentoSource[];
+  total_count?: number;
+}
