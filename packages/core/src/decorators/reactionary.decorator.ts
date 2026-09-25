@@ -209,9 +209,8 @@ export type ReactionaryOperationName<T> = {
  * });
  * ```
  *
- * The method must be declared on `capabilityClass` itself (not only
- * inherited), otherwise an error is thrown, since the inherited method is
- * already decorated.
+ * It must be applied on the class that declares the override: if the method
+ * is only inherited by `capabilityClass`, an error is thrown.
  */
 export function applyReactionary<T extends BaseCapability>(
   capabilityClass: { prototype: T },
