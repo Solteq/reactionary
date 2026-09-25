@@ -238,6 +238,9 @@ export class Magento {
     },
   };
 
+  // Catalog and inventory reads go through `adminRest`: these REST routes are
+  // admin-only (present in docs/api-admin.json, absent from api-customer.json
+  // and api-guest.json), so sending a shopper's customer token gets a 401.
   public store = {
     customer: {
       register: async (customer: any, password?: string) => {
@@ -258,19 +261,19 @@ export class Magento {
     },
     product: {
       getBySKU: async (sku: string) => {
-        return this.rest.request<any>(
+        return this.adminRest.request<any>(
           'GET',
           `/V1/products/${encodeURIComponent(sku)}`
         );
       },
       search: async (params: URLSearchParams) => {
-        return this.rest.request<any>(
+        return this.adminRest.request<any>(
           'GET',
           `/V1/products?${params.toString()}`
         );
       },
       getLinks: async (sku: string, linkType: string) => {
-        return this.rest.request<MagentoProductLink[]>(
+        return this.adminRest.request<MagentoProductLink[]>(
           'GET',
           `/V1/products/${encodeURIComponent(sku)}/links/${encodeURIComponent(linkType)}`
         );
@@ -303,7 +306,7 @@ export class Magento {
     },
     category: {
       getById: async (categoryId: string) => {
-        return this.rest.request<any>('GET', `/V1/categories/${encodeURIComponent(categoryId)}`);
+        return this.adminRest.request<any>('GET', `/V1/categories/${encodeURIComponent(categoryId)}`);
       },
       getByExternalId: async (externalId: string) => {
 
@@ -312,19 +315,19 @@ export class Magento {
         params.set('searchCriteria[filterGroups][0][filters][0][value]', externalId);
         params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'eq');
         params.set('searchCriteria[pageSize]', '1');
-        const response = await this.rest.request<any>('GET', `/V1/categories/list?${params.toString()}`);
+        const response = await this.adminRest.request<any>('GET', `/V1/categories/list?${params.toString()}`);
         return response.items?.[0] || null;
       },
       list: async (params: URLSearchParams) => {
-        return this.rest.request<any>('GET', `/V1/categories/list?${params.toString()}`);
+        return this.adminRest.request<any>('GET', `/V1/categories/list?${params.toString()}`);
       },
     },
     inventory: {
       getStockStatus: async (sku: string) => {
-        return this.rest.request<any>('GET', `/V1/stockStatuses/${encodeURIComponent(sku)}`);
+        return this.adminRest.request<any>('GET', `/V1/stockStatuses/${encodeURIComponent(sku)}`);
       },
       getSourceItems: async (params: URLSearchParams) => {
-        return this.rest.request<any>('GET', `/V1/inventory/source-items?${params.toString()}`);
+        return this.adminRest.request<any>('GET', `/V1/inventory/source-items?${params.toString()}`);
       },
     },
     order: {
