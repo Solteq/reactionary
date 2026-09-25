@@ -127,17 +127,21 @@ export class MagentoIdentityCapability extends IdentityCapability {
   ): Promise<Result<Identity>> {
     debug('Registering new user:', payload.username);
 
+    // The register schema is loose: extra keys (e.g. `dob`,
+    // `custom_attributes`) are forwarded to the Magento customer entity.
+    // `username` is mapped to `email` and `password` is sent alongside the
+    // customer object, so neither belongs inside it.
+    const { username, password, ...rest } = payload;
+    const { firstname, lastname, ...extra }: Record<string, unknown> = rest;
     const customer = {
-      email: payload.username,
-      firstname: (payload as Record<string, unknown>)['firstname'] || 'User',
-      lastname: (payload as Record<string, unknown>)['lastname'] || 'Account',
+      ...extra,
+      email: username,
+      firstname: firstname || 'User',
+      lastname: lastname || 'Account',
     };
 
-    await this.magentoApi.register(customer, payload.password);
+    await this.magentoApi.register(customer, password);
 
-    return this.login({
-      username: payload.username,
-      password: payload.password,
-    });
+    return this.login({ username, password });
   }
 }
