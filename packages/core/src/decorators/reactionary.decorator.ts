@@ -179,6 +179,60 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
 }
 
 /**
+ * The names of the operations on a capability — its async, `Result`-returning
+ * methods — which are the only members `@Reactionary` is meant for.
+ */
+export type ReactionaryOperationName<T> = {
+  [K in keyof T]-?: T[K] extends (...args: never[]) => Promise<Result<unknown>>
+    ? K
+    : never;
+}[keyof T] &
+  string;
+
+/**
+ * Applies `@Reactionary` to a method without decorator syntax, for consumers
+ * that don't enable `experimentalDecorators`.
+ *
+ * `@Reactionary` wraps the concrete method it is declared on, so a subclass
+ * overriding a decorated operation silently loses tracing, metrics, input /
+ * output validation, caching and the conversion of thrown errors into a
+ * `Generic` error result. Call this once after the subclass declaration to
+ * restore them on the override:
+ *
+ * ```ts
+ * class MyProductCapability extends MagentoProductCapability {
+ *   public override async getById(payload: ProductQueryById) { ... }
+ * }
+ * applyReactionary(MyProductCapability, 'getById', {
+ *   inputSchema: ProductQueryByIdSchema,
+ *   outputSchema: MyProductSchema,
+ * });
+ * ```
+ *
+ * The method must be declared on `capabilityClass` itself (not only
+ * inherited), otherwise an error is thrown, since the inherited method is
+ * already decorated.
+ */
+export function applyReactionary<T extends BaseCapability>(
+  capabilityClass: { prototype: T },
+  methodName: ReactionaryOperationName<T>,
+  options: Partial<ReactionaryDecoratorOptions>
+): void {
+  const target = capabilityClass.prototype;
+  const descriptor = Object.getOwnPropertyDescriptor(target, methodName);
+  if (!descriptor) {
+    throw new Error(
+      `applyReactionary: "${methodName}" is not declared on ${target.constructor.name} itself.`
+    );
+  }
+  Object.defineProperty(
+    target,
+    methodName,
+    Reactionary(options)(target, methodName, descriptor)
+  );
+}
+
+/**
  * Utility function to handle input validation.
  */
 export function validateInput<T>(
