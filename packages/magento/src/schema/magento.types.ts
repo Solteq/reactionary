@@ -249,6 +249,7 @@ export interface MagentoCheckoutAddress {
   email?: string;
   same_as_billing?: number;
   save_in_address_book?: number;
+  customer_address_id?: number;
 }
 
 export interface MagentoShippingMethod {
