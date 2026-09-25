@@ -116,17 +116,29 @@ export class MagentoProductSearchCapability<
   /**
    * One filter group per facet code: Magento ORs the filters within a group and ANDs
    * the groups, so values of one facet widen the result and distinct facets narrow it.
-   * The facet code is the Magento attribute code and the facet value key its (option) value;
-   * the category navigation facet created by {@link createCategoryNavigationFilter} maps onto `category_id`.
+   * The facet code is the Magento attribute code and the facet value key its (option) value.
+   *
+   * The category navigation facet created by {@link createCategoryNavigationFilter} is the
+   * exception: Magento's `category_id` filter (ProductCategoryFilter) ANDs the filters of a
+   * group, so its values are OR-ed through a single `category_id in (...)` filter instead.
    */
   protected getFacetFilterGroups(facets: FacetValueIdentifier[]): MagentoSearchFilter[][] {
     const groups = new Map<string, MagentoSearchFilter[]>();
+    const categoryIds: string[] = [];
     for (const facetValue of facets) {
-      const field =
-        facetValue.facet.key === CATEGORY_FACET_KEY ? CATEGORY_FIELD : facetValue.facet.key;
+      if (facetValue.facet.key === CATEGORY_FACET_KEY) {
+        categoryIds.push(facetValue.key);
+        continue;
+      }
+      const field = facetValue.facet.key;
       const group = groups.get(field) ?? [];
       group.push({ field, value: facetValue.key, conditionType: 'eq' });
       groups.set(field, group);
+    }
+    if (categoryIds.length > 0) {
+      groups.set(CATEGORY_FIELD, [
+        { field: CATEGORY_FIELD, value: categoryIds.join(','), conditionType: 'in' },
+      ]);
     }
     return [...groups.values()];
   }

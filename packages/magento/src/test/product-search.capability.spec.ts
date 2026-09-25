@@ -123,17 +123,18 @@ describe('MagentoProductSearchCapability.queryByTerm', () => {
     });
   });
 
-  it('maps the category navigation facet onto category_id', async () => {
+  it('maps category navigation facets onto a single category_id in-filter', async () => {
     const categoryFacet = await capability.createCategoryNavigationFilter({
       categoryPath: [CategorySchema.parse({ identifier: { key: '12' } })],
     });
     expect(categoryFacet.success).toBe(true);
     if (!categoryFacet.success) return;
 
-    const params = await sentParams(query({ facets: [categoryFacet.value] }));
+    const params = await sentParams(query({ facets: [categoryFacet.value, facet('categories', '14')] }));
 
+    // Magento's category_id filter ANDs filters within a group, so the OR has to be a single `in`.
     expect(params).toEqual({
-      ...filterGroup(0, [['category_id', '12', 'eq']]),
+      ...filterGroup(0, [['category_id', '12,14', 'in']]),
       ...storefrontScope(1),
       ...pagination,
     });
