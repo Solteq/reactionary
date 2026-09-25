@@ -11,6 +11,7 @@ export const MagentoConfigurationSchema = z.looseObject({
   graphqlUrl: z.string().optional().meta({ description: 'The GraphQL endpoint. Defaults to `{baseUrl}/graphql`. Reviews and ratings have no REST equivalent in Magento, so the product reviews capability goes through GraphQL.' }),
   reviewRatingCode: z.string().optional().meta({ description: 'The name of the Magento review rating (as listed by `productReviewRatingsMetadata`) that carries the overall star rating. Defaults to "Rating"; the first available rating is used as a fallback.' }),
   storeCode: z.string().default(''),
+  checkoutAgreementIds: z.array(z.string()).optional().meta({ description: 'Ids of the Magento terms and conditions (Magento_CheckoutAgreements) the shopper accepts when placing an order. Required by stores with "Enable Terms and Conditions" on, which otherwise reject order placement. Sent as the payment method\'s `extension_attributes.agreement_ids`.' }),
   authStoreCode: z.string().default('default').meta({ description: 'The store/website scope used for customer authentication and account operations (token, customers/me). Customers typically live on the default website, which may differ from the catalog storeCode.' }),
 });
 

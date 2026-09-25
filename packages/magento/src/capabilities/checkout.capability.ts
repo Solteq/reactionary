@@ -498,20 +498,23 @@ export class MagentoCheckoutCapability<
 
   /**
    * Forwards the payment instruction's protocol data (e.g. a PSP transaction
-   * id) as Magento's `additional_data`, which payment methods read on placement.
+   * id) as Magento's `additional_data`, which payment methods read on placement,
+   * and the configured terms and conditions ids as `agreement_ids`, without
+   * which stores with terms and conditions enabled reject the order.
    */
   protected toMagentoPaymentMethod(
     instruction: MagentoStoredPaymentInstruction,
   ): MagentoPaymentMethodPayload {
-    if (instruction.protocolData.length === 0) {
-      return { method: instruction.method };
-    }
-    return {
-      method: instruction.method,
-      additional_data: Object.fromEntries(
+    const payload: MagentoPaymentMethodPayload = { method: instruction.method };
+    if (instruction.protocolData.length > 0) {
+      payload.additional_data = Object.fromEntries(
         instruction.protocolData.map(({ key, value }) => [key, value]),
-      ),
-    };
+      );
+    }
+    if (this.config.checkoutAgreementIds) {
+      payload.extension_attributes = { agreement_ids: this.config.checkoutAgreementIds };
+    }
+    return payload;
   }
 
   protected async buildOrderedCheckout(
