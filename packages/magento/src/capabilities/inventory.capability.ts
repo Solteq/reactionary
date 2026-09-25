@@ -13,7 +13,12 @@ import {
   type Result,
   success,
 } from '@reactionary/core';
+import * as z from 'zod';
 import type { MagentoConfiguration } from '../schema/configuration.schema.js';
+import {
+  type MagentoInventoryQueryBySKUAcrossFulfillmentCenters,
+  MagentoInventoryQueryBySKUAcrossFulfillmentCentersSchema,
+} from '../schema/magento.schema.js';
 import type { MagentoClient } from '../core/client.js';
 import type { MagentoInventoryFactory } from '../factories/inventory/inventory.factory.js';
 import createDebug from 'debug';
@@ -92,5 +97,33 @@ export class MagentoInventoryCapability<
         }),
       );
     }
+  }
+
+  /**
+   * Returns one inventory entry per MSI source (fulfillment center) holding
+   * the SKU, e.g. for showing per-store stock on a PDP. Unknown SKUs yield an
+   * empty array; Magento failures surface as an error result.
+   */
+  @Reactionary({
+    inputSchema: MagentoInventoryQueryBySKUAcrossFulfillmentCentersSchema,
+    outputSchema: z.array(InventorySchema),
+  })
+  public async getBySKUAcrossFulfillmentCenters(
+    payload: MagentoInventoryQueryBySKUAcrossFulfillmentCenters,
+  ): Promise<Result<InventoryFactoryOutput<TFactory>[]>> {
+    const sku = payload.variant.sku;
+    const client = await this.magentoApi.getClient();
+    const response = await client.store.inventory.getSourceItemsBySKU(sku);
+
+    return success(
+      (response.items ?? []).map((item) =>
+        this.factory.parseInventory(this.context, {
+          sku,
+          fulfillmentCenterKey: item.source_code,
+          quantity: item.quantity,
+          status: item.status === 1 ? 'inStock' : 'outOfStock',
+        }),
+      ),
+    );
   }
 }

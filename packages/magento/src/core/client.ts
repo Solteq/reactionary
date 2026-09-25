@@ -18,6 +18,7 @@ import type {
   MagentoShippingInformationPayload,
   MagentoShippingInformationResult,
   MagentoShippingMethod,
+  MagentoSourceItem,
 } from '../schema/magento.types.js';
 import {
   CREATE_PRODUCT_REVIEW_MUTATION,
@@ -325,6 +326,20 @@ export class Magento {
       },
       getSourceItems: async (params: URLSearchParams) => {
         return this.rest.request<any>('GET', `/V1/inventory/source-items?${params.toString()}`);
+      },
+      /**
+       * Every MSI source item for a SKU. Source items are an admin resource,
+       * so this always uses the admin token, even for a logged-in customer.
+       */
+      getSourceItemsBySKU: async (sku: string) => {
+        const params = new URLSearchParams();
+        params.set('searchCriteria[filterGroups][0][filters][0][field]', 'sku');
+        params.set('searchCriteria[filterGroups][0][filters][0][value]', sku);
+        params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'eq');
+        return this.adminRest.request<{ items?: MagentoSourceItem[] }>(
+          'GET',
+          `/V1/inventory/source-items?${params.toString()}`
+        );
       },
     },
     order: {
