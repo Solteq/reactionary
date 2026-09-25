@@ -50,6 +50,7 @@ import type {
   MagentoCartTotals,
   MagentoCheckoutAddress,
   MagentoCheckoutState,
+  MagentoPaymentMethodPayload,
   MagentoStoredPaymentInstruction,
 } from '../schema/magento.types.js';
 
@@ -465,6 +466,11 @@ export class MagentoCheckoutCapability<
     const cartKey = payload.checkout.key;
     const state = await this.loadCheckoutState(cartKey);
 
+    // A repeated submit must not attempt a second order.
+    if (state.orderId) {
+      return success(await this.buildOrderedCheckout(cartKey, state));
+    }
+
     const paymentInstruction = state.paymentInstructions?.[0];
     if (!paymentInstruction || !state.shippingInstruction) {
       throw new CheckoutNotReadyForFinalizationError(payload.checkout);
@@ -472,9 +478,7 @@ export class MagentoCheckoutCapability<
 
     const orderId = await this.magentoApi.placeOrder(cartKey, {
       email: state.email,
-      paymentMethod: {
-        method: paymentInstruction.method,
-      },
+      paymentMethod: this.toMagentoPaymentMethod(paymentInstruction),
       billingAddress: state.billingAddress,
     });
 
@@ -482,10 +486,35 @@ export class MagentoCheckoutCapability<
     await this.magentoApi.setCheckoutState(cartKey, state);
     await this.magentoApi.clearActiveCartId();
 
+    return success(await this.buildOrderedCheckout(cartKey, state));
+  }
+
+  /**
+   * Forwards the payment instruction's protocol data (e.g. a PSP transaction
+   * id) as Magento's `additional_data`, which payment methods read on placement.
+   */
+  protected toMagentoPaymentMethod(
+    instruction: MagentoStoredPaymentInstruction,
+  ): MagentoPaymentMethodPayload {
+    if (instruction.protocolData.length === 0) {
+      return { method: instruction.method };
+    }
+    return {
+      method: instruction.method,
+      additional_data: Object.fromEntries(
+        instruction.protocolData.map(({ key, value }) => [key, value]),
+      ),
+    };
+  }
+
+  protected async buildOrderedCheckout(
+    cartKey: string,
+    state: MagentoCheckoutState,
+  ): Promise<CheckoutFactoryCheckoutOutput<TFactory>> {
     // The quote is consumed once the order is placed, so the cart may no longer
     // be retrievable; fall back to a minimal representation carrying the order.
     try {
-      return success(await this.buildCheckout(cartKey, state));
+      return await this.buildCheckout(cartKey, state);
     } catch (err) {
       debug('Cart no longer retrievable after order placement: %O', err);
       const data: MagentoCheckoutData = {
@@ -493,7 +522,7 @@ export class MagentoCheckoutCapability<
         state,
         requestedKey: cartKey,
       };
-      return success(this.factory.parseCheckout(this.context, data));
+      return this.factory.parseCheckout(this.context, data);
     }
   }
 }
