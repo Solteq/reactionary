@@ -1,6 +1,7 @@
 import type {
   StoreProductCategory,
   StoreProductCategoryListResponse,
+  StoreProductImage,
 } from '@medusajs/types';
 import {
   CategoryIdentifierSchema,
@@ -14,6 +15,7 @@ import {
   type RequestContext,
   type CategoryQueryForTopCategories,
   type CategoryQueryForChildCategories,
+  type Image,
 } from '@reactionary/core';
 import type * as z from 'zod';
 
@@ -45,6 +47,17 @@ export class MedusaCategoryFactory<
     const name = data.name;
     const slug = data.handle;
     const text = data.description || '';
+    const images: Image[] =  [];
+
+    if (data.metadata) {
+      const metaDataImages = data.metadata['images'] as StoreProductImage[] || [];
+      images.push(...metaDataImages.map((img) => {
+          return {
+            sourceUrl: img.url,
+            altText: name || '',
+          } satisfies Image;
+      }));
+    }
     const parentCategory = data.parent_category_id
       ? { key: data.parent_category?.external_id || '' }
       : undefined;
@@ -55,7 +68,7 @@ export class MedusaCategoryFactory<
       slug,
       text,
       parentCategory,
-      images: [],
+      images,
     } satisfies Category;
 
     return this.categorySchema.parse(result);
