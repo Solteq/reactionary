@@ -27,6 +27,42 @@ export class FakePriceCapability<
   protected faker: Faker;
   protected factory: PriceFactoryWithOutput<TFactory>;
 
+  protected EXCHANGE_RATES: Record<string, number> = {
+    USD: 1,
+    // USD-base rates published on 2026-09-28.
+    ALL: 80.77663447,
+    AMD: 364.40085393,
+    AZN: 1.70002087,
+    BAM: 1.71729191,
+    BYN: 3.02436738,
+    CHF: 0.82937207,
+    CZK: 21.40268821,
+    DKK: 6.56376981,
+    EUR: 0.87803741,
+    FOK: 6.56376981,
+    GBP: 0.75495717,
+    GEL: 2.59828739,
+    GGP: 0.75495717,
+    GIP: 0.75495717,
+    HUF: 321.3111657,
+    IMP: 0.75495717,
+    ISK: 120.29041481,
+    JEP: 0.75495717,
+    MDL: 17.7583979,
+    MKD: 54.07860616,
+    NOK: 9.51139889,
+    PLN: 3.83998104,
+    RON: 4.6300027,
+    RSD: 103.15758559,
+    RUB: 84.38052987,
+    SEK: 9.92541411,
+    TRY: 48.97845183,
+    UAH: 44.79455454,
+  };
+  protected CURRENCY_DECIMAL_PLACES: Record<string, number> = {
+    ISK: 0,
+  };
+
   constructor(
     config: FakeConfiguration,
     cache: Cache,
@@ -54,20 +90,23 @@ export class FakePriceCapability<
       }
     }
 
+    const currency = this.context.languageContext.currencyCode;
+    price = this.roundCurrencyAmount(price * (this.EXCHANGE_RATES[currency] ?? 1), currency);
+
     const tiers = [];
     if (variantSku.includes('with-tiers')) {
       tiers.push({
         minimumQuantity: this.faker.number.int({ min: 2, max: 5 }),
         price: {
-          value: price * 0.8,
-          currency: this.context.languageContext.currencyCode,
+          value: this.roundCurrencyAmount(price * 0.8, currency),
+          currency,
         },
       });
       tiers.push({
         minimumQuantity: this.faker.number.int({ min: 6, max: 10 }),
         price: {
-          value: price * 0.6,
-          currency: this.context.languageContext.currencyCode,
+          value: this.roundCurrencyAmount(price * 0.6, currency),
+          currency,
         },
       });
     }
@@ -80,11 +119,17 @@ export class FakePriceCapability<
       },
       unitPrice: {
         value: price,
-        currency: this.context.languageContext.currencyCode,
+        currency,
       },
       onSale,
       tieredPrices: tiers,
     };
+  }
+
+  protected roundCurrencyAmount(amount: number, currency: string): number {
+    const decimalPlaces = this.CURRENCY_DECIMAL_PLACES[currency] ?? 2;
+    const multiplier = 10 ** decimalPlaces;
+    return Math.round((amount + Number.EPSILON) * multiplier) / multiplier;
   }
 
   @Reactionary({

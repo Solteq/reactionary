@@ -65,6 +65,59 @@ describe('Fake Price Provider', () => {
     expect(result.value.tieredPrices[0].price.currency).toBe(reqCtx.languageContext.currencyCode);
   });
 
+  it('should convert unit and tier prices to the selected European currency', async () => {
+    reqCtx.languageContext.currencyCode = 'USD';
+    const usdResult = await provider.getListPrice({
+      variant: { sku: testData.skuWithTiers },
+    });
+    if (!usdResult.success) {
+      assert.fail();
+    }
+
+    reqCtx.languageContext.currencyCode = 'EUR';
+
+    const result = await provider.getListPrice({
+      variant: { sku: testData.skuWithTiers },
+    });
+
+    if (!result.success) {
+      assert.fail();
+    }
+
+    expect(result.value.unitPrice.currency).toBe('EUR');
+    expect(result.value.unitPrice.value).toBe(
+      Math.round(usdResult.value.unitPrice.value * 0.87803741 * 100) / 100,
+    );
+    expect(result.value.tieredPrices[0].price.currency).toBe('EUR');
+    expect(result.value.tieredPrices[0].price.value).toBe(
+      Math.round(result.value.unitPrice.value * 0.8 * 100) / 100,
+    );
+  });
+
+  it('should round Icelandic króna prices to whole units', async () => {
+    reqCtx.languageContext.currencyCode = 'USD';
+    const usdResult = await provider.getListPrice({
+      variant: { sku: testData.skuWithoutTiers },
+    });
+    if (!usdResult.success) {
+      assert.fail();
+    }
+
+    reqCtx.languageContext.currencyCode = 'ISK';
+    const result = await provider.getListPrice({
+      variant: { sku: testData.skuWithoutTiers },
+    });
+
+    if (!result.success) {
+      assert.fail();
+    }
+
+    expect(result.value.unitPrice.currency).toBe('ISK');
+    expect(result.value.unitPrice.value).toBe(
+      Math.round(usdResult.value.unitPrice.value * 120.29041481),
+    );
+  });
+
   it('should return a placeholder price for an unknown SKU', async () => {
     const result = await provider.getListPrice({
       variant: { sku: 'unknown-sku' },
