@@ -20,6 +20,7 @@ import {
 } from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import type { FakeInventoryFactory } from '../factories/inventory/inventory.factory.js';
+import { calcSeed } from '../utilities/seed.js';
 
 export class FakeInventoryCapability<
   TFactory extends InventoryFactory = FakeInventoryFactory,
@@ -46,18 +47,18 @@ export class FakeInventoryCapability<
   public override async getBySKU(
     payload: InventoryQueryBySKU,
   ): Promise<Result<InventoryFactoryOutput<TFactory>, NotFoundError>> {
-    let hash = 0;
-    for (let i = 0; i < payload.variant.sku.length; i++) {
-      hash = (hash << 5) - hash + payload.variant.sku.charCodeAt(i);
-      hash &= hash;
-    }
+    const seedString = payload.variant.sku + (payload.fulfilmentCenter?.key ?? '');
+    const seed = calcSeed(seedString);
 
     const generator = new Faker({
-      seed: hash || 42,
+      seed,
       locale: [en, base],
     });
 
-    const quantity = generator.number.int({ min: 0, max: 100 });
+    // we will assume 10% of goods are out of stock
+    const isOutOfStock = generator.datatype.boolean({ probability: 0.1 });
+
+    const quantity = isOutOfStock ? 0: generator.number.int({ min: 1, max: 100 });
     const status: InventoryStatus = quantity > 0 ? 'inStock' : 'outOfStock';
 
     const result = {
