@@ -62,6 +62,12 @@ export class FakePriceCapability<
   protected CURRENCY_DECIMAL_PLACES: Record<string, number> = {
     ISK: 0,
   };
+  protected CURRENCY_PRICE_ENDINGS: Record<string, number[]> = {
+    DKK: [0, 50, 95],
+    EUR: [0, 90, 95],
+    NOK: [0, 90],
+    SEK: [0, 90],
+  };
 
   constructor(
     config: FakeConfiguration,
@@ -127,6 +133,17 @@ export class FakePriceCapability<
   }
 
   protected roundCurrencyAmount(amount: number, currency: string): number {
+    const endings = this.CURRENCY_PRICE_ENDINGS[currency];
+    if (endings) {
+      const wholeAmount = Math.floor(amount);
+      const candidates = [wholeAmount, wholeAmount + 1].flatMap((whole) =>
+        endings.map((ending) => whole + ending / 100),
+      );
+      return candidates.reduce((closest, candidate) =>
+        Math.abs(candidate - amount) < Math.abs(closest - amount) ? candidate : closest,
+      );
+    }
+
     const decimalPlaces = this.CURRENCY_DECIMAL_PLACES[currency] ?? 2;
     const multiplier = 10 ** decimalPlaces;
     return Math.round((amount + Number.EPSILON) * multiplier) / multiplier;
