@@ -198,7 +198,7 @@ export class ReactionaryMCPServer {
         title: tool.entrypoint.title,
         description: tool.entrypoint.description,
         inputSchema,
-        outputSchema: toMcpSchema(tool.entrypoint.outputSchema),
+        outputSchema: toMcpOutputSchema(tool.entrypoint.outputSchema),
       },
       async (args: unknown): Promise<CallToolResult> => {
         const result = await callReactionaryTool(
@@ -280,6 +280,20 @@ function toMcpSchema(schema: z.ZodType) {
       io: 'input',
     }) as Record<string, unknown>,
   );
+}
+
+function toMcpOutputSchema(schema: z.ZodType) {
+  return toMcpSchema(z.object({
+    value: normalizeOutputValueSchema(schema),
+  }));
+}
+
+function normalizeOutputValueSchema(schema: z.ZodType): z.ZodType {
+  if (schema instanceof z.ZodVoid || schema instanceof z.ZodUndefined) {
+    return z.null();
+  }
+
+  return schema.nullable();
 }
 
 function prepareForJsonSchema(schema: z.ZodType): z.ZodType {
@@ -425,12 +439,18 @@ function resultToCallToolResult(result: Result<unknown>): CallToolResult {
   }
 
   return {
+    structuredContent: toMcpStructuredContent(result.value),
     content: [
       {
         type: 'text',
-        text: JSON.stringify(result.value),
+        text: JSON.stringify(toMcpStructuredContent(result.value)),
       },
     ],
-    structuredContent: result.value,
+  };
+}
+
+function toMcpStructuredContent(value: unknown): Record<string, unknown> {
+  return {
+    value: value ?? null,
   };
 }
