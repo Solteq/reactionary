@@ -12,7 +12,15 @@ import {
   toNodeHandler,
   type NodeMcpRequestHandler,
 } from '@modelcontextprotocol/node';
-import type { Result } from '@reactionary/core';
+import {
+  createInitialRequestContext,
+  MemoryCache,
+  SessionSchema,
+  type Cache,
+  type RequestContext,
+  type Result,
+  type Session,
+} from '@reactionary/core';
 import * as z from 'zod';
 import {
   discoverReactionaryMCPTools,
@@ -26,10 +34,16 @@ import {
   REACTIONARY_SHOPPING_AGENT_GUIDE_URI,
 } from './shopping-agent-guide.js';
 
+export type ReactionaryMCPClientFactory = (
+  requestContext: RequestContext,
+) => ReactionaryMCPClient;
+
 export interface ReactionaryMCPServerOptions
   extends DiscoverReactionaryMCPToolsOptions {
   name?: string;
   version?: string;
+  sessionCache?: Cache;
+  sessionTtlSeconds?: number;
   handler?: Pick<
     CreateMcpHandlerOptions,
     | 'bus'
@@ -44,13 +58,18 @@ export interface ReactionaryMCPServerOptions
 
 export class ReactionaryMCPServer {
   private readonly handler: McpHttpHandler;
+  private readonly sessionStore: ReactionaryMCPSessionStore;
 
   constructor(
-    private readonly client: ReactionaryMCPClient,
+    private readonly clientFactory: ReactionaryMCPClientFactory,
     private readonly options: ReactionaryMCPServerOptions = {},
   ) {
+    this.sessionStore = new ReactionaryMCPSessionStore(
+      this.options.sessionCache ?? new MemoryCache(),
+      this.options.sessionTtlSeconds ?? 60 * 60 * 24,
+    );
     this.handler = createMcpHandler(
-      () => this.createServer(),
+      (ctx) => this.createServer(getMcpSessionId(ctx.requestInfo)),
       this.options.handler,
     );
   }
@@ -59,15 +78,25 @@ export class ReactionaryMCPServer {
     request: Request,
     options?: Parameters<McpHttpHandler['fetch']>[1],
   ): Promise<Response> {
-    return this.handler.fetch(request, options);
+    const sessionId = getOrCreateMcpSessionId(request);
+    const sessionRequest = withMcpSessionId(request, sessionId);
+
+    return this.handler.fetch(sessionRequest, options).then((response) => {
+      response.headers.set(MCP_SESSION_ID_HEADER, sessionId);
+      return response;
+    });
   }
 
   public getHandler(): McpHttpHandler {
-    return this.handler;
+    return {
+      ...this.handler,
+      fetch: (request, options) => this.fetch(request, options),
+      close: () => this.close(),
+    };
   }
 
   public toNodeHandler(): NodeMcpRequestHandler {
-    return toNodeHandler(this.handler);
+    return toNodeHandler(this.getHandler());
   }
 
   public close(): Promise<void> {
@@ -75,10 +104,22 @@ export class ReactionaryMCPServer {
   }
 
   public discoverTools(): ReactionaryMCPTool[] {
-    return discoverReactionaryMCPTools(this.client, this.options);
+    return this.discoverToolsForClient(
+      this.clientFactory(createInitialRequestContext()),
+    );
   }
 
-  private createServer(): McpServer {
+  private async createServer(sessionId: string | undefined): Promise<McpServer> {
+    const restoredSession = sessionId
+      ? await this.sessionStore.get(sessionId)
+      : undefined;
+    const requestContext = createInitialRequestContext();
+
+    if (restoredSession) {
+      requestContext.session = restoredSession;
+    }
+
+    const client = this.clientFactory(requestContext);
     const server = new McpServer({
       name: this.options.name ?? '@reactionary/mcp',
       version: this.options.version ?? '0.0.1',
@@ -86,11 +127,17 @@ export class ReactionaryMCPServer {
 
     this.registerShoppingAgentGuide(server);
 
-    for (const tool of this.discoverTools()) {
-      this.registerTool(server, tool);
+    for (const tool of this.discoverToolsForClient(client)) {
+      this.registerTool(server, tool, sessionId, requestContext);
     }
 
     return server;
+  }
+
+  private discoverToolsForClient(
+    client: ReactionaryMCPClient,
+  ): ReactionaryMCPTool[] {
+    return discoverReactionaryMCPTools(client, this.options);
   }
 
   private registerShoppingAgentGuide(server: McpServer): void {
@@ -135,7 +182,12 @@ export class ReactionaryMCPServer {
     );
   }
 
-  private registerTool(server: McpServer, tool: ReactionaryMCPTool): void {
+  private registerTool(
+    server: McpServer,
+    tool: ReactionaryMCPTool,
+    sessionId: string | undefined,
+    requestContext: RequestContext,
+  ): void {
     const inputSchema = acceptsUndefined(tool.entrypoint.inputSchema)
       ? undefined
       : toMcpSchema(tool.entrypoint.inputSchema);
@@ -153,10 +205,69 @@ export class ReactionaryMCPServer {
           tool,
           inputSchema ? args : undefined,
         );
+
+        if (sessionId) {
+          await this.sessionStore.put(sessionId, requestContext.session);
+        }
+
         return resultToCallToolResult(result);
       },
     );
   }
+}
+
+const MCP_SESSION_ID_HEADER = 'mcp-session-id';
+const SESSION_CACHE_KEY_PREFIX = 'reactionary:mcp:session';
+
+class ReactionaryMCPSessionStore {
+  public constructor(
+    private readonly cache: Cache,
+    private readonly ttlSeconds: number,
+  ) {}
+
+  public async get(sessionId: string): Promise<Session | undefined> {
+    return (
+      (await this.cache.get(
+        this.getCacheKey(sessionId),
+        SessionSchema,
+      )) ?? undefined
+    );
+  }
+
+  public async put(sessionId: string, session: Session): Promise<void> {
+    await this.cache.invalidate([this.getDependencyId(sessionId)]);
+    await this.cache.put(this.getCacheKey(sessionId), session, {
+      ttlSeconds: this.ttlSeconds,
+      dependencyIds: [this.getDependencyId(sessionId)],
+    });
+  }
+
+  private getCacheKey(sessionId: string): string {
+    return `${SESSION_CACHE_KEY_PREFIX}:${sessionId}`;
+  }
+
+  private getDependencyId(sessionId: string): string {
+    return `${SESSION_CACHE_KEY_PREFIX}:${sessionId}`;
+  }
+}
+
+function getMcpSessionId(request: Request | undefined): string | undefined {
+  return request?.headers.get(MCP_SESSION_ID_HEADER) ?? undefined;
+}
+
+function getOrCreateMcpSessionId(request: Request): string {
+  return getMcpSessionId(request) ?? crypto.randomUUID();
+}
+
+function withMcpSessionId(request: Request, sessionId: string): Request {
+  if (getMcpSessionId(request) === sessionId) {
+    return request;
+  }
+
+  const headers = new Headers(request.headers);
+  headers.set(MCP_SESSION_ID_HEADER, sessionId);
+
+  return new Request(request, { headers });
 }
 
 function acceptsUndefined(schema: z.ZodType): boolean {

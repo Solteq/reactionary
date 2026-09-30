@@ -54,16 +54,10 @@ export function createReactionaryClientFromEnv(
   options: CreateReactionaryClientFromEnvOptions = {},
 ): ReactionaryMCPClientFromEnv {
   const env = options.env ?? process.env;
-  const enabledSystems = providerSystems.filter((system) =>
-    isEnvEnabled(env[`ENABLED_${system}`]),
-  );
+  const enabledSystems = getEnabledReactionaryMCPProviderSystems(env);
 
   if (enabledSystems.length === 0) {
-    throw new Error(
-      `No Reactionary provider system is enabled. Set one of ${providerSystems
-        .map((system) => `ENABLED_${system}=true`)
-        .join(', ')}.`,
-    );
+    throw new Error(getNoEnabledProviderSystemsMessage());
   }
 
   const context = {
@@ -174,24 +168,13 @@ export function createReactionaryClientFromEnv(
             productRecommendations: { enabled: true },
           }),
         );
-        builder = builder.withCapability(
-          withMedusaCapabilities(getMedusaConfiguration(env), {
-            cart: { enabled: true },
-            identity: { enabled: true },
-          }),
-        );
+       
         break;
       case 'UNOMI':
         builder = builder.withCapability(
           withUnomiCapabilities(getUnomiConfiguration(env), {
             personalizationProfile: { enabled: true },
             analytics: { enabled: false },
-          }),
-        );
-        builder = builder.withCapability(
-          withMedusaCapabilities(getMedusaConfiguration(env), {
-            cart: { enabled: true },
-            identity: { enabled: true },
           }),
         );
         break;
@@ -202,6 +185,20 @@ export function createReactionaryClientFromEnv(
     client: builder.build(),
     enabledSystems,
   };
+}
+
+export function getEnabledReactionaryMCPProviderSystems(
+  env: NodeJS.ProcessEnv = process.env,
+): ReactionaryMCPProviderSystem[] {
+  return providerSystems.filter((system) =>
+    isEnvEnabled(env[`ENABLED_${system}`]),
+  );
+}
+
+export function getNoEnabledProviderSystemsMessage(): string {
+  return `No Reactionary provider system is enabled. Set one of ${providerSystems
+    .map((system) => `ENABLED_${system}=true`)
+    .join(', ')}.`;
 }
 
 function isEnvEnabled(value: string | undefined): boolean {

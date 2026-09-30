@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 import { createServer } from 'node:http';
 import { ReactionaryMCPServer } from './lib/reactionary-mcp-server.js';
-import { createReactionaryClientFromEnv } from './lib/env-client-builder.js';
+import {
+  createReactionaryClientFromEnv,
+  getEnabledReactionaryMCPProviderSystems,
+  getNoEnabledProviderSystemsMessage,
+} from './lib/env-client-builder.js';
 import { loadProjectRootEnv } from './lib/load-project-root-env.js';
 
 loadProjectRootEnv(import.meta.url);
@@ -14,16 +18,27 @@ interface CliOptions {
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2), process.env);
-  const { client, enabledSystems } = createReactionaryClientFromEnv();
-  const mcp = new ReactionaryMCPServer(client, {
-    name: process.env['MCP_SERVER_NAME'] || '@reactionary/mcp',
-    version: process.env['MCP_SERVER_VERSION'] || '0.0.1',
-    handler: {
-      onerror: (error) => {
-        console.error(error);
+  const enabledSystems = getEnabledReactionaryMCPProviderSystems();
+
+  if (enabledSystems.length === 0) {
+    throw new Error(getNoEnabledProviderSystemsMessage());
+  }
+
+  const mcp = new ReactionaryMCPServer(
+    (requestContext) =>
+      createReactionaryClientFromEnv({
+        contextOverrides: requestContext,
+      }).client,
+    {
+      name: process.env['MCP_SERVER_NAME'] || '@reactionary/mcp',
+      version: process.env['MCP_SERVER_VERSION'] || '0.0.1',
+      handler: {
+        onerror: (error) => {
+          console.error(error);
+        },
       },
     },
-  });
+  );
   const mcpHandler = mcp.toNodeHandler();
 
   const server = createServer(async (request, response) => {
