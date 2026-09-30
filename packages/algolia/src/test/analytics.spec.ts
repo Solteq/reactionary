@@ -26,6 +26,7 @@ describe('Analytics event tracking', async () => {
     appId: 'test-app-id',
     indexName: 'products',
     useRecommendationsForBots: false,
+    useBaseIndexNameForEnglishLocale: true,
   } satisfies AlgoliaConfiguration;
   const cache = new NoOpCache();
   const context = createInitialRequestContext();

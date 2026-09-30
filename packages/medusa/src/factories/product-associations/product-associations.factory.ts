@@ -1,7 +1,6 @@
 import type { StoreProduct, StoreProductVariant } from '@medusajs/types';
 import {
   ImageSchema,
-  ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
   ProductVariantIdentifierSchema,
   type AnyProductAssociationSchema,
@@ -16,7 +15,7 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
-import { safeBoolConvert, safeStringConvert } from '../../utils/medusa-helpers.js';
+import { parseProductSearchComplianceData } from '../../utils/product-compliance.js';
 
 export interface MedusaProductAssociationFactoryInput {
   product: StoreProduct,
@@ -65,20 +64,7 @@ export class MedusaProductAssociationsFactory<
   }
 
   protected parseComplianceData(product: StoreProduct): ProductSearchResultItemComplianceData {
-    const data = product;
-    // Implement parsing logic for compliance data if needed
-    if (!data.metadata) {
-      return ProductSearchResultItemComplianceDataSchema.parse({});
-    }
-    const complianceData = {
-      ce_marking: safeBoolConvert(data.metadata?.['compliance_data_ce_marking']),
-      weee_symbol: safeBoolConvert(data.metadata?.['compliance_data_weee_symbol']),
-      energy_class: safeStringConvert(data.metadata?.['compliance_data_energy_class']),
-      garan_label: safeStringConvert(data.metadata?.['compliance_data_garan_label']),
-      is_organic: safeBoolConvert(data.metadata?.['compliance_data_organic_is_organic']),
-      organic_certification_type: safeStringConvert(data.metadata?.['compliance_data_organic_certification_type']),
-    };
-    return ProductSearchResultItemComplianceDataSchema.parse(complianceData);
+    return parseProductSearchComplianceData(product);
   }
 
   protected parseVariant(

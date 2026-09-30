@@ -50,6 +50,7 @@ const config = {
   apiKey: 'ALGOLIA_API_KEY',
   indexName: 'ALGOLIA_INDEX',
   useRecommendationsForBots: false,
+  useBaseIndexNameForEnglishLocale: true,
 } satisfies AlgoliaConfiguration;
 
 const client = new ClientBuilder(createInitialRequestContext())
