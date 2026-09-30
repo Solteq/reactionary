@@ -162,10 +162,12 @@ export class MedusaProductFactory<
         'reactionaryaccessories',
         'reactionaryreplacements',
         'reactionaryspareparts',
-        'compliance_data',
       ];
       for (const [key, value] of Object.entries(_body.metadata)) {
         if (keysToExclude.includes(key)) {
+          continue;
+        }
+        if (key.startsWith('compliance_data')) {
           continue;
         }
         sharedAttributes.push(
