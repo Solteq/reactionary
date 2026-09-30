@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { BaseCapability } from '../capabilities/base.capability.js';
+import {
+  BaseCapability,
+  getReactionaryEntrypoints,
+} from '../capabilities/base.capability.js';
 import type { RequestContext } from '../schemas/session.schema.js';
 import type { Cache } from '../cache/cache.interface.js';
 import {
@@ -66,6 +69,75 @@ export function createTestableCapability(
 }
 
 describe('@Reactionary decorator', () => {
+  describe('Entrypoint metadata', () => {
+    it('exposes runtime metadata for decorated methods', () => {
+      const inputSchema = z.object({ value: z.string() });
+      const outputSchema = z.object({ result: z.string() });
+      const capability = createTestableCapability({
+        cache: true,
+        inputSchema,
+        outputSchema,
+        title: 'Decorated function',
+        description: 'A decorated function exposed as metadata',
+      });
+
+      const entrypoints = getReactionaryEntrypoints(capability);
+
+      expect(entrypoints).toHaveLength(1);
+      expect(entrypoints[0]).toMatchObject({
+        capabilityName: 'TestableCapability',
+        methodName: 'decoratedFunction',
+        title: 'Decorated function',
+        description: 'A decorated function exposed as metadata',
+        cache: true,
+      });
+      expect(entrypoints[0].inputSchema).toBe(inputSchema);
+      expect(entrypoints[0].outputSchema).toBe(outputSchema);
+    });
+
+    it('prefers redecorated subclass method metadata over base metadata', () => {
+      const baseInputSchema = z.object({ base: z.string() });
+      const subclassInputSchema = z.object({ subclass: z.string() });
+      const baseOutputSchema = z.object({ baseResult: z.string() });
+      const subclassOutputSchema = z.object({ subclassResult: z.string() });
+
+      class BaseDecoratedCapability extends BaseCapability {
+        @Reactionary({
+          inputSchema: baseInputSchema,
+          outputSchema: baseOutputSchema,
+        })
+        public async decoratedFunction(): Promise<Result<unknown>> {
+          return success({ baseResult: 'base' });
+        }
+
+        protected getResourceName(): string {
+          return 'redecorated-capability';
+        }
+      }
+
+      class SubclassDecoratedCapability extends BaseDecoratedCapability {
+        @Reactionary({
+          inputSchema: subclassInputSchema,
+          outputSchema: subclassOutputSchema,
+        })
+        public override async decoratedFunction(): Promise<Result<unknown>> {
+          return success({ subclassResult: 'subclass' });
+        }
+      }
+
+      const capability = new SubclassDecoratedCapability(
+        new MemoryCache(),
+        createInitialRequestContext(),
+      );
+
+      const entrypoints = getReactionaryEntrypoints(capability);
+
+      expect(entrypoints).toHaveLength(1);
+      expect(entrypoints[0].inputSchema).toBe(subclassInputSchema);
+      expect(entrypoints[0].outputSchema).toBe(subclassOutputSchema);
+    });
+  });
+
   describe('Input validation', () => {
     it('should reject invalid input with a failure', async () => {
       const capability = createTestableCapability({

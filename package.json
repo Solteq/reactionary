@@ -13,6 +13,8 @@
     "@commercetools/ts-client": "^4.9.1",
     "@faker-js/faker": "^9.8.0",
     "@medusajs/js-sdk": "^2.18.0",
+    "@modelcontextprotocol/node": "2.1.0",
+    "@modelcontextprotocol/server": "2.2.0",
     "@opentelemetry/api": "^1.9.0",
     "algoliasearch": "^5.48.0",
     "debug": "^4.4.3",
