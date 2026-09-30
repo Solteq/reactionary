@@ -99,7 +99,7 @@ export const ProductSchema = BaseModelSchema.extend({
     options: z.array(ProductOptionSchema).meta({ description: 'A list of options available for the product, such as size or color. Can be empty if product is single-sku' }),
     mainVariant: ProductVariantSchema.describe('The primary SKU for the product'),
     variants: z.array(ProductVariantSchema).default([]).meta({ description: 'A list of all SKUs for the product. Can be empty or omitted if product is single-sku' }),
-    complianceData: ProductComplianceDataSchema.describe('Compliance information for the product, including certifications and regulatory markings.'),
+    complianceData: ProductComplianceDataSchema.optional().describe('Compliance information for the product, including certifications and regulatory markings.'),
 }).describe('A product is a wrapper around sellable items. It contains all the shared information for a set of SKUs. All products have at least one SKU, but can potentially have hundreds.');
 
 
