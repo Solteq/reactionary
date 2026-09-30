@@ -215,6 +215,8 @@ function getAlgoliaConfiguration(env: NodeJS.ProcessEnv) {
     indexName: env['ALGOLIA_INDEX'] || '',
     useRecommendationsForBots:
       env['ALGOLIA_USE_RECOMMENDATIONS_FOR_BOTS'] === 'true',
+    useBaseIndexNameForEnglishLocale:
+      env['ALGOLIA_USE_BASE_INDEX_NAME_FOR_ENGLISH_LOCALE'] === 'true',
   };
 }
 
@@ -246,7 +248,6 @@ function getUnomiConfiguration(env: NodeJS.ProcessEnv) {
 }
 
 function getMedusaConfiguration(env: NodeJS.ProcessEnv) {
-  console.error(env);
   return {
     publishable_key: env['MEDUSA_PUBLISHABLE_KEY'] || '',
     adminApiKey: env['MEDUSA_ADMIN_KEY'] || '',
