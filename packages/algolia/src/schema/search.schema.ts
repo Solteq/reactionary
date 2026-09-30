@@ -1,4 +1,4 @@
-import { ProductSearchIdentifierSchema, ProductSearchResultSchema, type ProductComplianceData, type ProductSearchResultItemComplianceData } from '@reactionary/core';
+import { ProductSearchIdentifierSchema, ProductSearchResultSchema, type ProductSearchResultItemComplianceData } from '@reactionary/core';
 import * as z from 'zod';
 
 export const AlgoliaProductSearchIdentifierSchema = ProductSearchIdentifierSchema.extend({
