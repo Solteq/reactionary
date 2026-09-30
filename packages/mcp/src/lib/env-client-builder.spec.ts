@@ -39,10 +39,13 @@ describe('createReactionaryClientFromEnv', () => {
   });
 
   it('serves MCP initialize for a fake-backed client', async () => {
-    const { client } = createReactionaryClientFromEnv({
-      env: { ENABLED_FAKE: 'true' },
-    });
-    const server = new ReactionaryMCPServer(client);
+    const server = new ReactionaryMCPServer(
+      (requestContext) =>
+        createReactionaryClientFromEnv({
+          env: { ENABLED_FAKE: 'true' },
+          contextOverrides: requestContext,
+        }).client,
+    );
     const response = await server.fetch(
       new Request('http://127.0.0.1/mcp', {
         method: 'POST',
@@ -72,10 +75,13 @@ describe('createReactionaryClientFromEnv', () => {
   });
 
   it('exposes the shopping guide as an MCP resource and prompt', async () => {
-    const { client } = createReactionaryClientFromEnv({
-      env: { ENABLED_FAKE: 'true' },
-    });
-    const server = new ReactionaryMCPServer(client);
+    const server = new ReactionaryMCPServer(
+      (requestContext) =>
+        createReactionaryClientFromEnv({
+          env: { ENABLED_FAKE: 'true' },
+          contextOverrides: requestContext,
+        }).client,
+    );
 
     const resources = await callMcp(server, 'resources/list');
     expect(resources).toContain(REACTIONARY_SHOPPING_AGENT_GUIDE_URI);
