@@ -8,6 +8,8 @@ import {
   ImageSchema,
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
+  ProductSearchResultItemComplianceDataSchema,
+  type ProductSearchResultItemComplianceData,
 } from '@reactionary/core';
 import { Meilisearch, type SearchResponse, type SearchSimilarDocumentsParams } from 'meilisearch';
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
@@ -101,9 +103,13 @@ export class MeilisearchProductRecommendationsCapability extends ProductRecommen
       name: body.name || body.objectID,
       slug: body.slug || body.objectID,
       variants: [...(body.variants || [])].map(variant => this.parseVariant(variant, body)),
+      complianceData: this.parseComplianceData(body),
     } satisfies ProductSearchResultItem;
 
     return product;
+  }
+  protected parseComplianceData(body: MeilisearchNativeRecord): ProductSearchResultItemComplianceData {
+    return body.complianceData ??   ProductSearchResultItemComplianceDataSchema.parse( {});
   }
 
   protected  parseVariant(variant: MeilisearchNativeVariant, product: MeilisearchNativeRecord): ProductSearchResultItemVariant {

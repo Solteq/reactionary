@@ -1,6 +1,7 @@
 import type { StoreProduct, StoreProductVariant } from '@medusajs/types';
 import {
   ImageSchema,
+  ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
   ProductVariantIdentifierSchema,
   type AnyProductAssociationSchema,
@@ -9,11 +10,13 @@ import {
   type ProductAssociationsFactory,
   type ProductAssociationsIdentifier,
   type ProductSearchResultItem,
+  type ProductSearchResultItemComplianceData,
   type ProductSearchResultItemVariant,
   type ProductVariantIdentifier,
   type RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { safeBoolConvert, safeStringConvert } from '../../utils/medusa-helpers.js';
 
 export interface MedusaProductAssociationFactoryInput {
   product: StoreProduct,
@@ -49,6 +52,7 @@ export class MedusaProductAssociationsFactory<
       name,
       slug,
       variants,
+      complianceData: this.parseComplianceData(data.product),
     } satisfies ProductSearchResultItem;
 
     const result = {
@@ -58,6 +62,23 @@ export class MedusaProductAssociationsFactory<
     } satisfies ProductAssociation;
 
     return this.productAssociationSchema.parse(result);
+  }
+
+  protected parseComplianceData(product: StoreProduct): ProductSearchResultItemComplianceData {
+    const data = product;
+    // Implement parsing logic for compliance data if needed
+    if (!data.metadata) {
+      return ProductSearchResultItemComplianceDataSchema.parse({});
+    }
+    const complianceData = {
+      ce_marking: safeBoolConvert(data.metadata?.['compliance_data_ce_marking']),
+      weee_symbol: safeBoolConvert(data.metadata?.['compliance_data_weee_symbol']),
+      energy_class: safeStringConvert(data.metadata?.['compliance_data_energy_class']),
+      garan_label: safeStringConvert(data.metadata?.['compliance_data_garan_label']),
+      is_organic: safeBoolConvert(data.metadata?.['compliance_data_organic_is_organic']),
+      organic_certification_type: safeStringConvert(data.metadata?.['compliance_data_organic_certification_type']),
+    };
+    return ProductSearchResultItemComplianceDataSchema.parse(complianceData);
   }
 
   protected parseVariant(

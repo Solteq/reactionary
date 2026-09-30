@@ -1,9 +1,11 @@
 import type { ProductProjection, ProductVariant as CTProductVariant } from '@commercetools/platform-sdk';
 import type {
-  ProductAssociationSchema} from '@reactionary/core';
+  ProductAssociationSchema,
+  ProductSearchResultItemComplianceData} from '@reactionary/core';
 import {
   ImageSchema,
   ProductOptionIdentifierSchema,
+  ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
   ProductVariantIdentifierSchema,
   ProductVariantOptionSchema,
@@ -63,6 +65,7 @@ export class CommercetoolsProductAssociationsFactory<
       name: data.name[localeStr] || data.id,
       slug: data.slug?.[localeStr] || data.id,
       variants,
+      complianceData: this.buildProductComplianceData(data),
     } satisfies ProductSearchResultItem;
   }
 
@@ -101,4 +104,9 @@ export class CommercetoolsProductAssociationsFactory<
       options: mappedOption,
     } satisfies Partial<ProductSearchResultItemVariant>);
   }
+  protected  buildProductComplianceData(data: ProductProjection): ProductSearchResultItemComplianceData {
+    return ProductSearchResultItemComplianceDataSchema.parse({});
+  }
+
 }
+

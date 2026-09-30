@@ -87,3 +87,18 @@ export function handleProviderError(action: string, error: unknown): never {
     }`
   );
 }
+
+
+export  function safeBoolConvert(val?: unknown): boolean {
+    if (!val) {
+      return false;
+    }
+    return String(val).toLowerCase() === 'true';
+  }
+
+export function safeStringConvert(val?: unknown, defaultValue?: string): string | undefined {
+    if (!val) {
+      return defaultValue;
+    }
+    return String(val);
+  }

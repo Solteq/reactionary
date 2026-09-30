@@ -3,6 +3,7 @@ import {
   error,
   ImageSchema,
   ProductRecommendationsCapability,
+  ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
   ProductVariantIdentifierSchema,
   success,
@@ -11,6 +12,7 @@ import {
   type ProductRecommendation,
   type ProductRecommendationsByCollectionQuery,
   type ProductSearchResultItem,
+  type ProductSearchResultItemComplianceData,
   type ProductSearchResultItemVariant,
   type ProductVariantIdentifier,
   type RequestContext,
@@ -19,6 +21,7 @@ import {
 import createDebug from 'debug';
 import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
+import { safeBoolConvert, safeStringConvert } from '../utils/medusa-helpers.js';
 
 const debug = createDebug('reactionary:medusa:product-recommendations');
 
@@ -142,10 +145,27 @@ export class MedusaProductRecommendationsCapability extends ProductRecommendatio
        name,
        slug,
        variants,
+       complianceData: this.buildProductComplianceData(_body),
      } satisfies ProductSearchResultItem;
 
      return result;
    }
+  protected buildProductComplianceData(product: StoreProduct): ProductSearchResultItemComplianceData {
+    const data = product;
+    // Implement parsing logic for compliance data if needed
+    if (!data.metadata) {
+      return ProductSearchResultItemComplianceDataSchema.parse({});
+    }
+    const complianceData = {
+      ce_marking: safeBoolConvert(data.metadata?.['compliance_data_ce_marking']),
+      weee_symbol: safeBoolConvert(data.metadata?.['compliance_data_weee_symbol']),
+      energy_class: safeStringConvert(data.metadata?.['compliance_data_energy_class']),
+      garan_label: safeStringConvert(data.metadata?.['compliance_data_garan_label']),
+      is_organic: safeBoolConvert(data.metadata?.['compliance_data_organic_is_organic']),
+      organic_certification_type: safeStringConvert(data.metadata?.['compliance_data_organic_certification_type']),
+    };
+    return ProductSearchResultItemComplianceDataSchema.parse(complianceData);
+  }
 
    protected parseVariant(
      variant: StoreProductVariant,

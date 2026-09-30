@@ -5,7 +5,7 @@ import { MemoryCache, type ProductSearchQueryCreateNavigationFilter } from '@rea
 
 const testData = {
   searchTerm: 'Bag',
-  searchTermWithLanguage: 'Task',
+  searchTermWithLanguage: 'kenwood',
   category: {
     lvl0: 'Work Tools & Hardware',
     lvl1: 'Work Tools & Hardware > Hand Tools',
@@ -313,11 +313,11 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
 
 
-describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA, PrimaryProvider.MAGENTO])('Multilingual Product Search', (provider) => {
+describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA, PrimaryProvider.MAGENTO])('Multilingual Product Search %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
 
-  it('can get results in other languages', async () => {
+  it.only('can get results in other languages', async () => {
     client = createClient(provider, {
       languageContext: {
         locale: 'en-US',
@@ -347,7 +347,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
     const altLanguageClient = createClient(provider, {
       languageContext: {
         locale: 'da-DK',
-        currencyCode: 'EUR'
+        currencyCode: 'DKK'
       },
     });
 

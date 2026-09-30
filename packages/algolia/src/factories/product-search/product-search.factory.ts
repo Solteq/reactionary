@@ -7,6 +7,7 @@ import type {
   ProductSearchResultFacet,
   ProductSearchResultFacetValue,
   ProductSearchResultItem,
+  ProductSearchResultItemComplianceData,
   ProductSearchResultItemVariant,
   RequestContext,
 } from '@reactionary/core';
@@ -16,6 +17,7 @@ import {
   ImageSchema,
   ProductSearchResultFacetSchema,
   ProductSearchResultFacetValueSchema,
+  ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
 } from '@reactionary/core';
 import type * as z from 'zod';
@@ -101,11 +103,16 @@ export class AlgoliaProductSearchFactory<
     return this.productSearchResultSchema.parse(result);
   }
 
+  protected parseComplianceData(data: AlgoliaNativeRecord): ProductSearchResultItemComplianceData {
+    return data.complianceData  ?? ProductSearchResultItemComplianceDataSchema.parse({});
+  }
+
   protected parseSingle(body: AlgoliaNativeRecord): ProductSearchResultItem {
     return {
       identifier: { key: body.objectID },
       name: body.name || body.objectID,
       slug: body.slug || body.objectID,
+      complianceData: this.parseComplianceData(body),
       variants: [...(body.variants || [])].map((variant) =>
         this.parseVariant(variant, body),
       ),

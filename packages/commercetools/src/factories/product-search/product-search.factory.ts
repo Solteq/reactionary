@@ -6,6 +6,7 @@ import type {
   ProductVariant as CTProductVariant,
 } from '@commercetools/platform-sdk';
 import type {
+  ProductSearchResultItemComplianceData,
   ProductSearchResultSchema} from '@reactionary/core';
 import {
   FacetIdentifierSchema,
@@ -14,6 +15,7 @@ import {
   ProductOptionIdentifierSchema,
   ProductSearchResultFacetSchema,
   ProductSearchResultFacetValueSchema,
+  ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
   ProductVariantIdentifierSchema,
   ProductVariantOptionSchema,
@@ -101,10 +103,14 @@ export class CommercetoolsProductSearchFactory<
       identifier,
       name,
       slug,
+      complianceData: this.parseComplianceData(data),
       variants,
     } satisfies ProductSearchResultItem;
 
     return result;
+  }
+  protected parseComplianceData(data: ProductProjection): ProductSearchResultItemComplianceData {
+    return ProductSearchResultItemComplianceDataSchema.parse({});
   }
 
   protected parseFacet(

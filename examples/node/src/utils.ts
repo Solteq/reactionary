@@ -9,7 +9,7 @@ import {
 
 import type { CommercetoolsConfiguration } from '@reactionary/commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
-import { withAlgoliaCapabilities } from '@reactionary/algolia';
+import { withAlgoliaCapabilities, type AlgoliaConfiguration } from '@reactionary/algolia';
 import { withMagentoCapabilities } from '@reactionary/magento';
 import type { MagentoConfiguration } from '@reactionary/magento';
 import { withMedusaCapabilities } from '@reactionary/medusa';
@@ -24,7 +24,8 @@ export function getAlgoliaTestConfiguration() {
     appId: process.env['ALGOLIA_APP_ID'] || '',
     indexName: process.env['ALGOLIA_INDEX'] || '',
     useRecommendationsForBots: process.env['ALGOLIA_USE_RECOMMENDATIONS_FOR_BOTS'] === 'true',
-  };
+    useBaseIndexNameForEnglishLocale: true,
+  } satisfies AlgoliaConfiguration;
 }
 
 export function getMeilisearchTestConfiguration() {

@@ -9,6 +9,7 @@ import {
   type AnyProductSchema,
   type Image,
   type Product,
+  type ProductComplianceData,
   type ProductAttribute,
   type ProductAttributeIdentifier,
   type ProductAttributeValueIdentifier,
@@ -19,11 +20,14 @@ import {
   type ProductVariant,
   type ProductVariantOption,
   type RequestContext,
+  ProductComplianceDataSchema,
 } from '@reactionary/core';
 import type * as z from 'zod';
 import createDebug from 'debug';
+import { safeBoolConvert, safeStringConvert } from '../../utils/medusa-helpers.js';
 
 const debug = createDebug('reactionary:medusa:product');
+
 
 export class MedusaProductFactory<
   TProductSchema extends AnyProductSchema = typeof ProductSchema,
@@ -157,6 +161,7 @@ export class MedusaProductFactory<
         'reactionaryaccessories',
         'reactionaryreplacements',
         'reactionaryspareparts',
+        'compliance_data',
       ];
       for (const [key, value] of Object.entries(_body.metadata)) {
         if (keysToExclude.includes(key)) {
@@ -168,6 +173,50 @@ export class MedusaProductFactory<
       }
     }
     return sharedAttributes;
+  }
+
+
+  public parseComplianceData(
+    context: RequestContext,
+    body: StoreProduct,
+  ): ProductComplianceData {
+    if (!body.metadata) {
+      return ProductComplianceDataSchema.parse({});
+    }
+
+    const complianceData = {
+      ce_marking: safeBoolConvert(body.metadata?.['compliance_data_ce_marking']),
+      weee_symbol: safeBoolConvert(body.metadata?.['compliance_data_weee_symbol']),
+      energy_class: safeStringConvert(body.metadata?.['compliance_data_energy_class']),
+      garan_label: safeStringConvert(body.metadata?.['compliance_data_garan_label']),
+
+      safety_warnings: safeStringConvert(body.metadata?.['compliance_data_safety_warnings']),
+      composition: safeStringConvert(body.metadata?.['compliance_data_composition']),
+      additional_disclosures: safeStringConvert(body.metadata?.['compliance_data_additional_disclosures']),
+
+      organic: {
+        is_organic: safeBoolConvert(body.metadata?.['compliance_data_organic_is_organic']),
+        certification_type: safeStringConvert(body.metadata?.['compliance_data_organic_certification_type']),
+        control_body_code: safeStringConvert(body.metadata?.['compliance_data_organic_control_body_code']),
+        agriculture_origin: safeStringConvert(body.metadata?.['compliance_data_organic_agriculture_origin']),
+        certificate_url: safeStringConvert(body.metadata?.['compliance_data_organic_certificate_url']),
+      },
+      traceability: {
+        product_identifier: safeStringConvert(body.metadata?.['compliance_data_traceability_product_identifier']),
+        manufacturer: {
+          name: safeStringConvert(body.metadata?.['compliance_data_traceability_manufacturer_name']),
+          postal_address: safeStringConvert(body.metadata?.['compliance_data_traceability_manufacturer_postal_address']),
+          electronic_address: safeStringConvert(body.metadata?.['compliance_data_traceability_manufacturer_electronic_address']),
+        },
+        eu_responsible_person: {
+          name: safeStringConvert(body.metadata?.['compliance_data_traceability_eu_responsible_person_name']),
+          postal_address: safeStringConvert(body.metadata?.['compliance_data_traceability_eu_responsible_person_postal_address']),
+          electronic_address: safeStringConvert(body.metadata?.['compliance_data_traceability_eu_responsible_person_electronic_address']),
+        },
+      },
+    } satisfies ProductComplianceData;
+
+    return ProductComplianceDataSchema.parse(complianceData);
   }
 
   public parseProduct(
@@ -187,6 +236,10 @@ export class MedusaProductFactory<
         .map((id) => CategoryIdentifierSchema.parse({ key: id || '' })) || []),
     );
     const sharedAttributes = this.parseAttributes(context, data);
+
+
+    const complianceData = this.parseComplianceData(context, data);
+
 
     if (!data.variants) {
       debug('Product has no variants', data);
@@ -217,6 +270,7 @@ export class MedusaProductFactory<
       sharedAttributes,
       slug,
       variants: otherVariants,
+      complianceData: complianceData
     } satisfies Product;
 
     return this.productSchema.parse(result);

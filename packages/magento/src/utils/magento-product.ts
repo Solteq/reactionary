@@ -1,9 +1,11 @@
 import {
   ImageSchema,
+  ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
   ProductVariantIdentifierSchema,
   type Image,
   type ProductSearchResultItem,
+  type ProductSearchResultItemComplianceData,
   type ProductSearchResultItemVariant,
   type ProductVariantIdentifier,
 } from '@reactionary/core';
@@ -180,5 +182,10 @@ export function buildProductSearchResultItem(
       getCustomAttribute(product, 'url_path') ??
       '',
     variants,
+    complianceData: buildProductComplianceData(product),
   } satisfies ProductSearchResultItem;
 }
+function buildProductComplianceData(product: MagentoProduct): ProductSearchResultItemComplianceData {
+  return ProductSearchResultItemComplianceDataSchema.parse({});
+}
+
