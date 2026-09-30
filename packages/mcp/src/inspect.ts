@@ -37,7 +37,7 @@ async function main(): Promise<void> {
     inspectorProcess.kill('SIGTERM');
   });
 
-  await waitForServerStartup();
+  await waitForServerStartup(serverProcess, serverUrl);
 
   inspectorProcess = spawn(getPnpmCommand(), [
     'dlx',
@@ -69,17 +69,92 @@ function getPnpmCommand(): string {
   return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 }
 
-function waitForServerStartup(): Promise<void> {
-  const delayMs = process.env['MCP_INSPECTOR_STARTUP_DELAY_MS']
-    ? Number.parseInt(process.env['MCP_INSPECTOR_STARTUP_DELAY_MS'], 10)
-    : 1000;
+async function waitForServerStartup(
+  child: ChildProcess,
+  url: string,
+): Promise<void> {
+  const timeoutMs = process.env['MCP_INSPECTOR_STARTUP_TIMEOUT_MS']
+    ? Number.parseInt(process.env['MCP_INSPECTOR_STARTUP_TIMEOUT_MS'], 10)
+    : 10000;
 
-  if (!Number.isInteger(delayMs) || delayMs < 0) {
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1) {
     throw new Error(
-      `Invalid MCP_INSPECTOR_STARTUP_DELAY_MS: ${process.env['MCP_INSPECTOR_STARTUP_DELAY_MS']}`,
+      `Invalid MCP_INSPECTOR_STARTUP_TIMEOUT_MS: ${process.env['MCP_INSPECTOR_STARTUP_TIMEOUT_MS']}`,
     );
   }
 
+  await Promise.race([
+    waitForReadyResponse(url, timeoutMs),
+    waitForEarlyExit(child),
+  ]);
+}
+
+async function waitForReadyResponse(
+  url: string,
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          accept: 'application/json, text/event-stream',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 0,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2025-06-18',
+            capabilities: {},
+            clientInfo: {
+              name: '@reactionary/mcp inspector launcher',
+              version: '0.0.0',
+            },
+          },
+        }),
+      });
+
+      if (response.ok) {
+        return;
+      }
+
+      lastError = new Error(
+        `Readiness request failed with HTTP ${response.status}`,
+      );
+    } catch (error) {
+      lastError = error;
+    }
+
+    await delay(100);
+  }
+
+  throw new Error(
+    `Timed out waiting for Reactionary MCP server at ${url}: ${formatError(lastError)}`,
+  );
+}
+
+function waitForEarlyExit(child: ChildProcess): Promise<never> {
+  return new Promise((_, reject) => {
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      reject(
+        new Error(
+          `Reactionary MCP server exited before it was ready: ${formatExit(
+            code,
+            signal,
+          )}`,
+        ),
+      );
+    });
+  });
+}
+
+function delay(delayMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, delayMs);
   });
@@ -111,6 +186,10 @@ function formatExit(
   }
 
   return `code ${code ?? 0}`;
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 main().catch(async (error: unknown) => {

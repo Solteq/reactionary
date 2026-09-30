@@ -1,7 +1,10 @@
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { createReactionaryClientFromEnv } from './env-client-builder.js';
+import {
+  createReactionaryClientFromEnv,
+  parseCommaSeparatedEnvList,
+} from './env-client-builder.js';
 import { resolveProjectRootEnvPath } from './load-project-root-env.js';
 import { ReactionaryMCPServer } from './reactionary-mcp-server.js';
 import {
@@ -21,6 +24,14 @@ describe('createReactionaryClientFromEnv', () => {
     expect(() => createReactionaryClientFromEnv({ env: {} })).toThrow(
       'No Reactionary provider system is enabled',
     );
+  });
+
+  it('filters empty comma-separated env list entries', () => {
+    expect(parseCommaSeparatedEnvList(' facets.name , ,facets.brand,')).toEqual([
+      'facets.name',
+      'facets.brand',
+    ]);
+    expect(parseCommaSeparatedEnvList(undefined)).toEqual([]);
   });
 
   it('builds an MCP-discoverable client for enabled fake capabilities', () => {

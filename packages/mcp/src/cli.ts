@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
 import { ReactionaryMCPServer } from './lib/reactionary-mcp-server.js';
 import {
   createReactionaryClientFromEnv,
@@ -8,8 +9,6 @@ import {
 } from './lib/env-client-builder.js';
 import { loadProjectRootEnv } from './lib/load-project-root-env.js';
 
-loadProjectRootEnv(import.meta.url);
-
 interface CliOptions {
   host: string;
   port: number;
@@ -17,6 +16,8 @@ interface CliOptions {
 }
 
 async function main(): Promise<void> {
+  loadProjectRootEnv(import.meta.url);
+
   const options = parseOptions(process.argv.slice(2), process.env);
   const enabledSystems = getEnabledReactionaryMCPProviderSystems();
 
@@ -101,7 +102,10 @@ async function main(): Promise<void> {
   });
 }
 
-function parseOptions(args: string[], env: NodeJS.ProcessEnv): CliOptions {
+export function parseOptions(
+  args: string[],
+  env: NodeJS.ProcessEnv,
+): CliOptions {
   const values = new Map<string, string>();
 
   for (let index = 0; index < args.length; index += 1) {
@@ -125,7 +129,12 @@ function parseOptions(args: string[], env: NodeJS.ProcessEnv): CliOptions {
   const host = values.get('host') ?? env['MCP_HOST'] ?? '127.0.0.1';
   const path = values.get('path') ?? env['MCP_PATH'] ?? '/mcp';
   const rawPort = values.get('port') ?? env['MCP_PORT'] ?? env['PORT'] ?? '3000';
-  const port = Number.parseInt(rawPort, 10);
+
+  if (!/^\d+$/.test(rawPort)) {
+    throw new Error(`Invalid port: ${rawPort}`);
+  }
+
+  const port = Number(rawPort);
 
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error(`Invalid port: ${rawPort}`);
@@ -138,7 +147,9 @@ function parseOptions(args: string[], env: NodeJS.ProcessEnv): CliOptions {
   return { host, port, path };
 }
 
-main().catch((error: unknown) => {
-  console.error(error);
-  process.exit(1);
-});
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((error: unknown) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

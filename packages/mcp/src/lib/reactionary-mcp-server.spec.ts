@@ -68,6 +68,20 @@ class TestSessionCapability extends BaseCapability {
   }
 }
 
+class TestVoidCapability extends BaseCapability {
+  @Reactionary({
+    inputSchema: z.undefined(),
+    outputSchema: z.void(),
+  })
+  public async ping(): Promise<Result<unknown>> {
+    return success(undefined);
+  }
+
+  protected getResourceName(): string {
+    return 'voidTest';
+  }
+}
+
 describe('ReactionaryMCPServer', () => {
   it('discovers decorated capability methods as MCP tools', () => {
     const server = new ReactionaryMCPServer(createTestClient);
@@ -140,6 +154,23 @@ describe('ReactionaryMCPServer', () => {
     );
 
     await expect(getResponse.text()).resolves.toContain('session-value');
+    await server.close();
+  });
+
+  it('returns protocol-valid structured content for void tools', async () => {
+    const server = new ReactionaryMCPServer((requestContext) => ({
+      voidTest: new TestVoidCapability(new MemoryCache(), requestContext),
+    }));
+
+    const response = await callMcpResponse(server, 'tools/call', {
+      name: 'voidTest.ping',
+      arguments: {},
+    });
+    const body = await response.text();
+
+    expect(body).toContain('"structuredContent":{"value":null}');
+    expect(body).toContain('"text":"{\\"value\\":null}"');
+
     await server.close();
   });
 

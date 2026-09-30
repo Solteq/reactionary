@@ -146,15 +146,37 @@ There are two important details:
    - fields with unsafe defaults remain optional to preserve the "can be omitted" intent
    - descriptions/metadata are copied when schemas are rebuilt for JSON Schema generation
 
-### Monetary default note
+### Monetary and cost default note
 
-Core monetary defaults were adjusted so empty monetary amounts parse as:
+Core monetary amounts remain strict: a raw money object must include both `value` and `currency`. Empty provider data such as `{}` should fail output validation rather than silently becoming a real price.
+
+Some aggregate cart/checkout cost-breakdown fields still use a temporary placeholder default:
 
 ```json
 { "value": 0, "currency": "EUR" }
 ```
 
-This is a temporary compatibility fallback. It should eventually be replaced by configured/request-context currency handling or explicit "unknown monetary amount" modeling.
+That fallback is intentionally placed on the parent cost-breakdown fields, not on `MonetaryAmountSchema` itself. It should eventually be replaced by configured/request-context currency handling or explicit "unknown monetary amount" modeling.
+
+## Tool result envelope
+
+Successful MCP tool calls return structured content in a consistent envelope:
+
+```json
+{
+  "value": {}
+}
+```
+
+Void-returning capabilities use:
+
+```json
+{
+  "value": null
+}
+```
+
+This keeps successful `undefined`, scalar, array, and object results protocol-valid and aligned with the advertised MCP output schema.
 
 ## MCP session handling
 

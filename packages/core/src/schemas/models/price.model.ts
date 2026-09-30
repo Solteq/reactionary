@@ -5,9 +5,8 @@ import { CurrencySchema } from './currency.model.js';
 import type { InferType } from '../../zod-utils.js';
 
 export const MonetaryAmountSchema = z.looseObject({
-    // TODO: Replace this hardcoded fallback with a configured/request-context currency.
-    value: z.number().default(0).meta({ description: 'The monetary amount in decimal-precision.' }),
-    currency: CurrencySchema.default('EUR').describe('The currency associated with the amount, as a ISO 4217 standardized code.')
+    value: z.number().meta({ description: 'The monetary amount in decimal-precision.' }),
+    currency: CurrencySchema.describe('The currency associated with the amount, as a ISO 4217 standardized code.')
 });
 
 export const TieredPriceSchema = z.looseObject({

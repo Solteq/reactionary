@@ -309,10 +309,7 @@ function getCommercetoolsConfiguration(
     clientId: env['CTP_CLIENT_ID'] || '',
     clientSecret: env['CTP_CLIENT_SECRET'] || '',
     projectKey: env['CTP_PROJECT_KEY'] || '',
-    scopes: (env['CTP_SCOPES'] || '')
-      .split(',')
-      .map((scope) => scope.trim())
-      .filter((scope) => scope.length > 0),
+    scopes: parseCommaSeparatedEnvList(env['CTP_SCOPES']),
     paymentMethods: [
       {
         identifier: {
@@ -324,10 +321,19 @@ function getCommercetoolsConfiguration(
         description: 'Stripe payment gateway',
       },
     ],
-    facetFieldsForSearch: (env['CTP_FACET_FIELDS_FOR_SEARCH'] || '').split(','),
+    facetFieldsForSearch: parseCommaSeparatedEnvList(
+      env['CTP_FACET_FIELDS_FOR_SEARCH'],
+    ),
     adminClientId: env['CTP_ADMIN_CLIENT_ID'] || undefined,
     adminClientSecret: env['CTP_ADMIN_CLIENT_SECRET'] || undefined,
     listPriceChannelKey: env['CTP_LIST_PRICE_CHANNEL_KEY'] || undefined,
     customerPriceChannelKey: env['CTP_CUSTOMER_PRICE_CHANNEL_KEY'] || undefined,
   };
+}
+
+export function parseCommaSeparatedEnvList(value: string | undefined): string[] {
+  return (value || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
 }
