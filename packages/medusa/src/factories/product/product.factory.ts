@@ -24,7 +24,8 @@ import {
 } from '@reactionary/core';
 import type * as z from 'zod';
 import createDebug from 'debug';
-import { safeBoolConvert, safeStringConvert } from '../../utils/medusa-helpers.js';
+import { safeStringConvert } from '../../utils/medusa-helpers.js';
+import { parseProductSearchComplianceData } from '../../utils/product-compliance.js';
 
 const debug = createDebug('reactionary:medusa:product');
 
@@ -184,19 +185,20 @@ export class MedusaProductFactory<
       return ProductComplianceDataSchema.parse({});
     }
 
+    const shared = parseProductSearchComplianceData(body);
     const complianceData = {
-      ce_marking: safeBoolConvert(body.metadata?.['compliance_data_ce_marking']),
-      weee_symbol: safeBoolConvert(body.metadata?.['compliance_data_weee_symbol']),
-      energy_class: safeStringConvert(body.metadata?.['compliance_data_energy_class']),
-      garan_label: safeStringConvert(body.metadata?.['compliance_data_garan_label']),
+      ce_marking: shared.ce_marking,
+      weee_symbol: shared.weee_symbol,
+      energy_class: shared.energy_class,
+      garan_duration: shared.garan_duration,
 
       safety_warnings: safeStringConvert(body.metadata?.['compliance_data_safety_warnings']),
       composition: safeStringConvert(body.metadata?.['compliance_data_composition']),
       additional_disclosures: safeStringConvert(body.metadata?.['compliance_data_additional_disclosures']),
 
       organic: {
-        is_organic: safeBoolConvert(body.metadata?.['compliance_data_organic_is_organic']),
-        certification_type: safeStringConvert(body.metadata?.['compliance_data_organic_certification_type']),
+        is_organic: shared.is_organic ?? false,
+        certification_type: shared.organic_certification_type,
         control_body_code: safeStringConvert(body.metadata?.['compliance_data_organic_control_body_code']),
         agriculture_origin: safeStringConvert(body.metadata?.['compliance_data_organic_agriculture_origin']),
         certificate_url: safeStringConvert(body.metadata?.['compliance_data_organic_certificate_url']),
@@ -216,7 +218,7 @@ export class MedusaProductFactory<
       },
     } satisfies ProductComplianceData;
 
-    return ProductComplianceDataSchema.parse(complianceData);
+    return complianceData;
   }
 
   public parseProduct(

@@ -12,7 +12,7 @@ export const ProductComplianceDataSchema = z.looseObject({
   ce_marking: z.boolean().default(false).meta({ description: 'Indicates whether CE marking can be shown on the product' }),
   weee_symbol: z.boolean().default(false).meta({ description: 'Indicates whether the WEEE symbol can be shown on the product' }),
   energy_class: z.string().optional().meta({ description: 'The energy class of the product, as required by EU regulations. A,B,C,D,E,F,G, etc' }),
-  garan_label: z.string().optional().meta({ description: 'The duration of the guarantee in months as by the EU Garan scheme. Only set if above 24.' }),
+  garan_duration: z.number().optional().meta({ description: 'The duration of the guarantee in months as by the EU Garan scheme. Only set if above 24.' }),
 
   safety_warnings: z.string().optional().meta({ description: 'Any safety warnings associated with the product as required by EU regulations.' }),
   composition: z.string().optional().meta({ description: 'The composition of the product as required by EU regulations.' }),
