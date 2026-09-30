@@ -1,4 +1,5 @@
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { createReactionaryClientFromEnv } from './env-client-builder.js';
 import { resolveProjectRootEnvPath } from './load-project-root-env.js';
@@ -12,7 +13,7 @@ import { discoverReactionaryMCPTools } from './tool-discovery.js';
 describe('createReactionaryClientFromEnv', () => {
   it('resolves the repo root .env path from the MCP source tree', () => {
     expect(resolveProjectRootEnvPath(import.meta.url)).toBe(
-      join(process.cwd(), '.env'),
+      join(resolve(dirname(fileURLToPath(import.meta.url)), '../../../..'), '.env'),
     );
   });
 
