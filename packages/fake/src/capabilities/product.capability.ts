@@ -117,7 +117,7 @@ export class FakeProductCapability<
         organic: {
           is_organic: isOrganic,
           certificate_url:  isOrganic ? generator.internet.url() : undefined,
-          agriculture_origin: isOrganic ? generator.address.country() : undefined,
+          agriculture_origin: isOrganic ? generator.location.country() : undefined,
           control_body_code: isOrganic ? 'DKK-OEK-' + generator.number.int({ min: 1000, max: 9999 })   : undefined,
           certification_type: isOrganic ? ['EU_ORGANIC_LEAF', 'GOTS', 'ECOCERT'].at(generator.number.int({ min: 0, max: 2 })) : undefined,
         },
