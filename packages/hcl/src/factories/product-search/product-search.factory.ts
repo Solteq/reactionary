@@ -1,18 +1,19 @@
-import type {
-  AnyProductSearchResultSchema,
-  FacetIdentifier,
-  FacetValueIdentifier,
-  ProductSearchFactory,
-  ProductSearchResult,
-  ProductSearchResultFacet,
-  ProductSearchResultFacetValue,
-  ProductSearchResultItem,
-  ProductSearchResultItemVariant,
-  RequestContext,
-  ProductSearchQueryByTerm,
+import {
+  type AnyProductSearchResultSchema,
+  type FacetIdentifier,
+  type FacetValueIdentifier,
+  type ProductSearchFactory,
+  type ProductSearchResult,
+  type ProductSearchResultFacet,
+  type ProductSearchResultFacetValue,
+  type ProductSearchResultItem,
+  type ProductSearchResultItemVariant,
+  type RequestContext,
+  type ProductSearchQueryByTerm,
+  ProductSearchResultItemComplianceDataSchema,
 } from '@reactionary/core';
 import type * as z from 'zod';
-import type { ProductSearchResultSchema } from '@reactionary/core';
+import type { ProductSearchResultItemComplianceData, ProductSearchResultSchema } from '@reactionary/core';
 import type {
   HclFacet,
   HclProductQueryResponse,
@@ -60,6 +61,10 @@ export class HclProductSearchFactory<
     return this.productSearchResultSchema.parse(result);
   }
 
+  protected parseComplianceData(data: HclProductSearchItem): ProductSearchResultItemComplianceData {
+    return ProductSearchResultItemComplianceDataSchema.parse({});
+  }
+
   protected parseSearchItem(p: HclProductSearchItem): ProductSearchResultItem {
     const slug =
       p.seo?.href?.split('/').filter(Boolean).pop() ??
@@ -85,6 +90,7 @@ export class HclProductSearchFactory<
       name: p.name ?? '',
       slug,
       variants,
+      complianceData: this.parseComplianceData(p),
     } satisfies ProductSearchResultItem;
   }
 

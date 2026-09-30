@@ -18,6 +18,8 @@ import {
   type ProductSearchResultFacetValue,
   ProductSearchResultFacetValueSchema,
   type ProductSearchResultItem,
+  type ProductSearchResultItemComplianceData,
+  ProductSearchResultItemComplianceDataSchema,
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
   ProductSearchResultSchema,
@@ -156,12 +158,16 @@ export class MeilisearchProductSearchCapability<
     return success(facetValueIdentifier);
   }
 
+  protected parseComplianceData(data: MeilisearchNativeRecord): ProductSearchResultItemComplianceData {
+    return data.complianceData ?? ProductSearchResultItemComplianceDataSchema.parse({});
+  }
 
   protected parseSingle(body: MeilisearchNativeRecord) {
     const product = {
       identifier: { key: body.objectID },
       name: body.name || body.objectID,
       slug: body.slug || body.objectID,
+      complianceData: this.parseComplianceData(body),
       variants: [...(body.variants || [])].map(variant => this.parseVariant(variant, body)),
     } satisfies ProductSearchResultItem;
 

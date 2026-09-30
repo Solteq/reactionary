@@ -17,6 +17,8 @@ import {
   type ProductOption,
   type ProductVariant,
   type RequestContext,
+  ProductComplianceDataSchema,
+  type ProductComplianceData,
 } from '@reactionary/core';
 import type * as z from 'zod';
 import type {
@@ -177,6 +179,12 @@ export class HclProductFactory<
     this.productSchema = productSchema;
   }
 
+
+  protected parseComplianceData(context: RequestContext, data: HclProductResponse): ProductComplianceData {
+    return ProductComplianceDataSchema.parse({});
+  }
+
+
   public parseProduct(
     _context: RequestContext,
     data: HclProductResponse,
@@ -228,6 +236,7 @@ export class HclProductFactory<
       options,
       mainVariant,
       variants,
+      complianceData: this.parseComplianceData(_context, data),
     } satisfies Product;
 
     return this.productSchema.parse(result);

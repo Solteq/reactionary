@@ -1,4 +1,4 @@
-import { ProductSearchIdentifierSchema, ProductSearchResultSchema } from '@reactionary/core';
+import { ProductSearchIdentifierSchema, ProductSearchResultSchema, type ProductComplianceData } from '@reactionary/core';
 import * as z from 'zod';
 
 export const AlgoliaProductSearchIdentifierSchema = ProductSearchIdentifierSchema.extend({
@@ -24,4 +24,5 @@ export interface AlgoliaNativeRecord {
   slug?:string;
   name?: string;
   variants: Array<AlgoliaNativeVariant>;
+  complianceData?: ProductComplianceData;
 }
