@@ -1,7 +1,11 @@
 import type { Tracer } from '@opentelemetry/api';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import * as z from 'zod';
-import type { BaseCapability } from '../capabilities/index.js';
+import type { BaseCapability } from '../capabilities/base.capability.js';
+import {
+  REACTIONARY_ENTRYPOINT_METADATA,
+  type ReactionaryEntrypointMethod,
+} from './reactionary.metadata.js';
 import { getReactionaryMeter } from '../metrics/metrics.js';
 import { error, success, type Result } from '../schemas/result.js';
 import type {
@@ -56,6 +60,16 @@ export class ReactionaryDecoratorOptions {
    * The schema for the primary output type, for validation purposes
    */
   public outputSchema: z.ZodType = z.unknown();
+
+  /**
+   * Optional human-readable title for external surfaces such as MCP tools.
+   */
+  public title: string | undefined = undefined;
+
+  /**
+   * Optional human-readable description for external surfaces such as MCP tools.
+   */
+  public description: string | undefined = undefined;
 }
 
 /**
@@ -90,21 +104,33 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
       return traceSpan(scope, async () => {
         meter.requestInProgress.add(1, attributes);
         try {
-          const input = validateInput(args[0], configuration.inputSchema);
+          const input = validateInput(
+            args[0],
+            configuration.inputSchema,
+          );
 
           if (!input.success) {
             return input;
           }
 
-          const localeCacheKey = options.localeDependentCaching ? this.context.languageContext?.locale ?? 'all' : 'all';
-          const currencyCacheKey = options.currencyDependentCaching ? this.context.languageContext?.currencyCode ?? 'all' : 'all';
-          const cacheKey = this.generateCacheKeyForQuery(scope, input.value, localeCacheKey, currencyCacheKey);
+          const localeCacheKey = configuration.localeDependentCaching
+            ? this.context.languageContext?.locale ?? 'all'
+            : 'all';
+          const currencyCacheKey = configuration.currencyDependentCaching
+            ? this.context.languageContext?.currencyCode ?? 'all'
+            : 'all';
+          const cacheKey = this.generateCacheKeyForQuery(
+            scope,
+            input.value,
+            localeCacheKey,
+            currencyCacheKey,
+          );
           let fromCache = null;
 
-          if (options.cache) {
+          if (configuration.cache) {
             fromCache = await this.cache.get(
               cacheKey,
-              options.outputSchema as any
+              configuration.outputSchema as any
             );
           }
 
@@ -117,7 +143,7 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
             if (r.success) {
               const dependencyIds = this.generateDependencyIdsForModel(r.value);
 
-              if (options.cache) {
+              if (configuration.cache) {
                 this.cache.put(cacheKey, r.value, {
                   ttlSeconds: configuration.cacheTimeToLiveInSeconds,
                   dependencyIds: dependencyIds,
@@ -172,6 +198,20 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
           meter.requestDuration.record(duration, finalAttributes);
         }
       });
+    };
+
+    (descriptor.value as ReactionaryEntrypointMethod)[
+      REACTIONARY_ENTRYPOINT_METADATA
+    ] = {
+      methodName: propertyKey.toString(),
+      inputSchema: configuration.inputSchema,
+      outputSchema: configuration.outputSchema,
+      title: configuration.title,
+      description: configuration.description,
+      cache: configuration.cache,
+      localeDependentCaching: configuration.localeDependentCaching,
+      currencyDependentCaching: configuration.currencyDependentCaching,
+      cacheTimeToLiveInSeconds: configuration.cacheTimeToLiveInSeconds,
     };
 
     return descriptor;
