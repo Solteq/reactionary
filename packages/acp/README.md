@@ -21,7 +21,9 @@ If the adapter is mounted under `/acp`, both `/checkout_sessions/...` and `/acp/
 
 ## Product feed generation
 
-`GET /product_feeds/{id}/products` generates a product feed from the configured feed definition whose key matches `{id}`.
+`GET /product_feeds/{id}/products` generates an ACP-compatible product feed from the configured feed definition whose key matches `{id}`.
+
+The feed enumeration and serialization pipeline is shared with `@reactionary/feeds`; this adapter keeps the ACP-compatible route shape while delegating normalization and ACP product feed output to the reusable feed package.
 
 Each feed definition provides:
 
@@ -149,5 +151,7 @@ new ReactionaryACPServer(createClient, {
 - ACP payment data is passed as checkout payment-instruction protocol data with key `delegated_payment_token`.
 - Fulfillment options are sourced from `checkout.getAvailableShippingMethods`.
 - Payment provider information is sourced from `checkout.getAvailablePaymentMethods`, with a configurable fallback through `paymentProvider`.
+
+Use `@reactionary/feeds` directly when you want Google Merchant, sitemap XML, or PriceRunner outputs from the same feed definitions.
 
 Product-feed upsert/push APIs and order webhooks are separate ACP surfaces and are not implemented yet.

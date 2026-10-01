@@ -28,6 +28,7 @@
       "@reactionary/mcp": ["packages/mcp/src/index.ts"],
       "@reactionary/ucp": ["packages/ucp/src/index.ts"],
       "@reactionary/acp": ["packages/acp/src/index.ts"],
+      "@reactionary/feeds": ["packages/feeds/src/index.ts"],
       "@reactionary/magento": ["packages/magento/src/index.ts"],
       "@reactionary/hcl": ["packages/hcl/src/index.ts"],
       "@reactionary/bazaarvoice": ["packages/bazaarvoice/src/index.ts"],

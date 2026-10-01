@@ -1,17 +1,18 @@
 {
-  "name": "@reactionary/acp",
+  "name": "@reactionary/feeds",
   "version": "0.0.1",
   "type": "module",
   "main": "./index.js",
   "types": "./src/index.d.ts",
+  "bin": {
+    "reactionary-feeds": "./cli.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Solteq/reactionary.git"
   },
   "dependencies": {
-    "@reactionary/core": "0.0.1",
-    "@reactionary/feeds": "0.0.1",
-    "zod": "4.1.9"
+    "@reactionary/core": "0.0.1"
   },
   "devDependencies": {
     "vitest": "^4.0.9"
