@@ -1,8 +1,11 @@
 import {
+  BaseCapability,
   createInitialRequestContext,
+  getReactionaryEntrypoints,
   MemoryCache,
   SessionSchema,
   type Cache,
+  type ReactionaryEntrypointMetadata,
   type RequestContext,
   type Result,
   type Session,
@@ -25,46 +28,8 @@ const UCPActionRequestSchema = z.object({
 type UCPActionRequest = z.infer<typeof UCPActionRequestSchema>;
 
 type UCPResult = Result<unknown, unknown>;
-type UCPActionInvoker<TClient> = (
-  client: TClient,
-  payload: unknown,
-) => Promise<UCPResult>;
 
-export interface ReactionaryUCPClient {
-  productSearch?: {
-    queryByTerm?(payload: unknown): Promise<UCPResult>;
-  };
-  product?: {
-    getById?(payload: unknown): Promise<UCPResult>;
-    getBySlug?(payload: unknown): Promise<UCPResult>;
-    getBySKU?(payload: unknown): Promise<UCPResult>;
-  };
-  cart?: {
-    getById?(payload: unknown): Promise<UCPResult>;
-    getActiveCartId?(payload: unknown): Promise<UCPResult>;
-    add?(payload: unknown): Promise<UCPResult>;
-    remove?(payload: unknown): Promise<UCPResult>;
-    changeQuantity?(payload: unknown): Promise<UCPResult>;
-    listCarts?(payload: unknown): Promise<UCPResult>;
-    createCart?(payload: unknown): Promise<UCPResult>;
-    deleteCart?(payload: unknown): Promise<UCPResult>;
-    renameCart?(payload: unknown): Promise<UCPResult>;
-    applyCouponCode?(payload: unknown): Promise<UCPResult>;
-    removeCouponCode?(payload: unknown): Promise<UCPResult>;
-    changeCurrency?(payload: unknown): Promise<UCPResult>;
-  };
-  checkout?: {
-    initiateCheckoutForCart?(payload: unknown): Promise<UCPResult>;
-    getById?(payload: unknown): Promise<UCPResult>;
-    setShippingAddress?(payload: unknown): Promise<UCPResult>;
-    getAvailableShippingMethods?(payload: unknown): Promise<UCPResult>;
-    getAvailablePaymentMethods?(payload: unknown): Promise<UCPResult>;
-    addPaymentInstruction?(payload: unknown): Promise<UCPResult>;
-    removePaymentInstruction?(payload: unknown): Promise<UCPResult>;
-    setShippingInstruction?(payload: unknown): Promise<UCPResult>;
-    finalizeCheckout?(payload: unknown): Promise<UCPResult>;
-  };
-}
+export type ReactionaryUCPClient = object;
 
 export type ReactionaryUCPClientFactory<TClient extends ReactionaryUCPClient = ReactionaryUCPClient> = (
   requestContext: RequestContext,
@@ -74,8 +39,14 @@ export interface ReactionaryUCPAction {
   name: string;
   title: string;
   description: string;
-  capability: keyof ReactionaryUCPClient;
+  capability: string;
   method: string;
+  inputSchema?: Record<string, unknown>;
+  outputSchema: Record<string, unknown>;
+  mutates: boolean;
+  idempotent: boolean;
+  requiresAuth: boolean;
+  riskLevel: 'low' | 'medium' | 'high';
 }
 
 export interface ReactionaryUCPServerOptions {
@@ -194,7 +165,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
         }, { status: 404 });
       }
 
-      const result = await action.invoke(client, parseResult.value.payload ?? {});
+      const result = await invokeUCPAction(action, parseResult.value.payload ?? {});
       return jsonResponse({
         action: action.definition.name,
         ...result,
@@ -215,256 +186,454 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
   }
 }
 
-interface UCPActionDefinition<TClient extends ReactionaryUCPClient> {
+interface UCPDiscoveredAction {
   definition: ReactionaryUCPAction;
-  invoke: UCPActionInvoker<TClient>;
+  capability: BaseCapability;
+  entrypoint: ReactionaryEntrypointMetadata;
 }
 
-const UCP_ACTION_DEFINITIONS: ReadonlyArray<UCPActionDefinition<ReactionaryUCPClient>> = [
-  createActionDefinition({
+interface UCPActionMetadataOverride {
+  name?: string;
+  title?: string;
+  description?: string;
+  mutates?: boolean;
+  idempotent?: boolean;
+  requiresAuth?: boolean;
+  riskLevel?: ReactionaryUCPAction['riskLevel'];
+}
+
+const UCP_ACTION_OVERRIDES: Record<string, UCPActionMetadataOverride> = {
+  'product-search.queryByTerm': {
     name: 'product.search',
     title: 'Search products',
     description: 'Search the product catalog by term, facets, filters, and pagination options.',
-    capability: 'productSearch',
-    method: 'queryByTerm',
-  }),
-  createActionDefinition({
+    mutates: false,
+    idempotent: true,
+    requiresAuth: false,
+    riskLevel: 'low',
+  },
+  'product.getById': {
     name: 'product.get_by_id',
     title: 'Get product by id',
     description: 'Fetch full product details by product identifier.',
-    capability: 'product',
-    method: 'getById',
-  }),
-  createActionDefinition({
+    mutates: false,
+    idempotent: true,
+    requiresAuth: false,
+    riskLevel: 'low',
+  },
+  'product.getBySlug': {
     name: 'product.get_by_slug',
     title: 'Get product by slug',
     description: 'Fetch full product details by storefront slug.',
-    capability: 'product',
-    method: 'getBySlug',
-  }),
-  createActionDefinition({
+    mutates: false,
+    idempotent: true,
+    requiresAuth: false,
+    riskLevel: 'low',
+  },
+  'product.getBySKU': {
     name: 'product.get_by_sku',
     title: 'Get product by SKU',
     description: 'Fetch full product details using a variant SKU.',
-    capability: 'product',
-    method: 'getBySKU',
-  }),
-  createActionDefinition({
+    mutates: false,
+    idempotent: true,
+    requiresAuth: false,
+    riskLevel: 'low',
+  },
+  'cart.getById': {
     name: 'cart.get',
     title: 'Get cart',
     description: 'Fetch a cart by identifier.',
-    capability: 'cart',
-    method: 'getById',
-  }),
-  createActionDefinition({
+    mutates: false,
+    idempotent: true,
+    requiresAuth: false,
+    riskLevel: 'low',
+  },
+  'cart.getActiveCartId': {
     name: 'cart.get_active_id',
     title: 'Get active cart id',
     description: 'Fetch the active cart identifier for the current session.',
-    capability: 'cart',
-    method: 'getActiveCartId',
-  }),
-  createActionDefinition({
+    mutates: false,
+    idempotent: true,
+    requiresAuth: false,
+    riskLevel: 'low',
+  },
+  'cart.listCarts': {
     name: 'cart.list',
     title: 'List carts',
     description: 'List carts available to the current session or identity.',
-    capability: 'cart',
-    method: 'listCarts',
-  }),
-  createActionDefinition({
+    mutates: false,
+    idempotent: true,
+    requiresAuth: false,
+    riskLevel: 'low',
+  },
+  'cart.createCart': {
     name: 'cart.create',
     title: 'Create cart',
     description: 'Create a cart for the current session or identity.',
-    capability: 'cart',
-    method: 'createCart',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'medium',
+  },
+  'cart.add': {
     name: 'cart.add_item',
     title: 'Add item to cart',
     description: 'Add a product variant to a cart, creating a cart if required by the provider.',
-    capability: 'cart',
-    method: 'add',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'medium',
+  },
+  'cart.remove': {
     name: 'cart.remove_item',
     title: 'Remove item from cart',
     description: 'Remove an item from a cart.',
-    capability: 'cart',
-    method: 'remove',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'medium',
+  },
+  'cart.changeQuantity': {
     name: 'cart.change_quantity',
     title: 'Change cart item quantity',
     description: 'Change the quantity of an item in a cart.',
-    capability: 'cart',
-    method: 'changeQuantity',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'medium',
+  },
+  'cart.deleteCart': {
     name: 'cart.delete',
     title: 'Delete cart',
     description: 'Delete a cart.',
-    capability: 'cart',
-    method: 'deleteCart',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'high',
+  },
+  'cart.renameCart': {
     name: 'cart.rename',
     title: 'Rename cart',
     description: 'Rename a cart.',
-    capability: 'cart',
-    method: 'renameCart',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'low',
+  },
+  'cart.applyCouponCode': {
     name: 'cart.apply_coupon',
     title: 'Apply coupon',
     description: 'Apply a coupon code to a cart.',
-    capability: 'cart',
-    method: 'applyCouponCode',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'medium',
+  },
+  'cart.removeCouponCode': {
     name: 'cart.remove_coupon',
     title: 'Remove coupon',
     description: 'Remove a coupon code from a cart.',
-    capability: 'cart',
-    method: 'removeCouponCode',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'medium',
+  },
+  'cart.changeCurrency': {
     name: 'cart.change_currency',
     title: 'Change cart currency',
     description: 'Change the currency of a cart.',
-    capability: 'cart',
-    method: 'changeCurrency',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'medium',
+  },
+  'checkout.initiateCheckoutForCart': {
     name: 'checkout.initiate',
     title: 'Initiate checkout',
     description: 'Create a checkout snapshot from a cart.',
-    capability: 'checkout',
-    method: 'initiateCheckoutForCart',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'medium',
+  },
+  'checkout.getById': {
     name: 'checkout.get',
     title: 'Get checkout',
     description: 'Fetch a checkout by identifier.',
-    capability: 'checkout',
-    method: 'getById',
-  }),
-  createActionDefinition({
+    mutates: false,
+    idempotent: true,
+    requiresAuth: false,
+    riskLevel: 'low',
+  },
+  'checkout.setShippingAddress': {
     name: 'checkout.set_shipping_address',
     title: 'Set checkout shipping address',
     description: 'Set or update the shipping address for a checkout.',
-    capability: 'checkout',
-    method: 'setShippingAddress',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'medium',
+  },
+  'checkout.getAvailableShippingMethods': {
     name: 'checkout.list_shipping_methods',
     title: 'List checkout shipping methods',
     description: 'List shipping methods available for a checkout.',
-    capability: 'checkout',
-    method: 'getAvailableShippingMethods',
-  }),
-  createActionDefinition({
+    mutates: false,
+    idempotent: true,
+    requiresAuth: false,
+    riskLevel: 'low',
+  },
+  'checkout.getAvailablePaymentMethods': {
     name: 'checkout.list_payment_methods',
     title: 'List checkout payment methods',
     description: 'List payment methods available for a checkout.',
-    capability: 'checkout',
-    method: 'getAvailablePaymentMethods',
-  }),
-  createActionDefinition({
+    mutates: false,
+    idempotent: true,
+    requiresAuth: false,
+    riskLevel: 'low',
+  },
+  'checkout.addPaymentInstruction': {
     name: 'checkout.add_payment_instruction',
     title: 'Add checkout payment instruction',
-    description: 'Add a payment instruction to a checkout.',
-    capability: 'checkout',
-    method: 'addPaymentInstruction',
-  }),
-  createActionDefinition({
+    description: 'Add a delegated payment instruction to a checkout.',
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'high',
+  },
+  'checkout.removePaymentInstruction': {
     name: 'checkout.remove_payment_instruction',
     title: 'Remove checkout payment instruction',
     description: 'Remove a payment instruction from a checkout.',
-    capability: 'checkout',
-    method: 'removePaymentInstruction',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'medium',
+  },
+  'checkout.setShippingInstruction': {
     name: 'checkout.set_shipping_instruction',
     title: 'Set checkout shipping instruction',
     description: 'Set the selected shipping method and pickup information for a checkout.',
-    capability: 'checkout',
-    method: 'setShippingInstruction',
-  }),
-  createActionDefinition({
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'medium',
+  },
+  'checkout.finalizeCheckout': {
     name: 'checkout.finalize',
     title: 'Finalize checkout',
     description: 'Finalize a checkout and submit the order.',
-    capability: 'checkout',
-    method: 'finalizeCheckout',
-  }),
-];
-
-function createActionDefinition(
-  definition: ReactionaryUCPAction,
-): UCPActionDefinition<ReactionaryUCPClient> {
-  return {
-    definition,
-    invoke: (client, payload) =>
-      invokeCapabilityAction(client, definition.capability, definition.method, payload),
-  };
-}
+    mutates: true,
+    idempotent: false,
+    requiresAuth: false,
+    riskLevel: 'high',
+  },
+};
 
 function getAvailableActions<TClient extends ReactionaryUCPClient>(
   client: TClient,
 ): ReactionaryUCPAction[] {
-  return UCP_ACTION_DEFINITIONS
-    .filter((action) => isActionAvailable(client, action.definition))
-    .map((action) => action.definition);
+  return discoverUCPActions(client).map((action) => action.definition);
 }
 
 function getAvailableActionDefinition<TClient extends ReactionaryUCPClient>(
   client: TClient,
   actionName: string,
-): UCPActionDefinition<TClient> | undefined {
-  const action = UCP_ACTION_DEFINITIONS.find(
-    (definition) => definition.definition.name === actionName &&
-      isActionAvailable(client, definition.definition),
+): UCPDiscoveredAction | undefined {
+  return discoverUCPActions(client).find(
+    (action) => action.definition.name === actionName,
   );
-
-  return action as UCPActionDefinition<TClient> | undefined;
 }
 
-function isActionAvailable<TClient extends ReactionaryUCPClient>(
-  client: TClient,
-  action: ReactionaryUCPAction,
-): boolean {
-  return getCapabilityMethod(client[action.capability], action.method) !== undefined;
-}
-
-async function invokeCapabilityAction(
+function discoverUCPActions(
   client: ReactionaryUCPClient,
-  capabilityName: keyof ReactionaryUCPClient,
-  methodName: string,
+): UCPDiscoveredAction[] {
+  return Object.values(client).flatMap((value) => {
+    if (!(value instanceof BaseCapability)) {
+      return [];
+    }
+
+    return getReactionaryEntrypoints(value).map((entrypoint) => {
+      const definition = createUCPActionDefinition(entrypoint);
+      return {
+        definition,
+        capability: value,
+        entrypoint,
+      };
+    });
+  });
+}
+
+function createUCPActionDefinition(
+  entrypoint: ReactionaryEntrypointMetadata,
+): ReactionaryUCPAction {
+  const override = getActionMetadataOverride(entrypoint);
+  return {
+    name: override.name ?? `${entrypoint.capabilityName}.${entrypoint.methodName}`,
+    title: override.title ?? entrypoint.title ?? `${entrypoint.capabilityName}.${entrypoint.methodName}`,
+    description: override.description ?? entrypoint.description ?? '',
+    capability: entrypoint.capabilityName,
+    method: entrypoint.methodName,
+    inputSchema: acceptsUndefined(entrypoint.inputSchema)
+      ? undefined
+      : toUcpJsonSchema(entrypoint.inputSchema, 'input'),
+    outputSchema: toUcpJsonSchema(entrypoint.outputSchema, 'output'),
+    mutates: override.mutates ?? !entrypoint.cache,
+    idempotent: override.idempotent ?? entrypoint.cache,
+    requiresAuth: override.requiresAuth ?? false,
+    riskLevel: override.riskLevel ?? (entrypoint.cache ? 'low' : 'medium'),
+  };
+}
+
+function getActionMetadataOverride(
+  entrypoint: ReactionaryEntrypointMetadata,
+): UCPActionMetadataOverride {
+  return UCP_ACTION_OVERRIDES[
+    `${entrypoint.capabilityName}.${entrypoint.methodName}`
+  ] ?? {};
+}
+
+async function invokeUCPAction(
+  action: UCPDiscoveredAction,
   payload: unknown,
 ): Promise<UCPResult> {
-  const capability = client[capabilityName];
-  const method = getCapabilityMethod(capability, methodName);
-  if (!method) {
-    throw new Error(`UCP action target is unavailable: ${String(capabilityName)}.${methodName}`);
+  const method: unknown = Reflect.get(
+    action.capability,
+    action.entrypoint.methodName,
+  );
+
+  if (typeof method !== 'function') {
+    throw new Error(`UCP action target is unavailable: ${action.definition.name}`);
   }
 
-  return method(payload);
+  const input = acceptsUndefined(action.entrypoint.inputSchema)
+    ? undefined
+    : payload;
+  const result: unknown = await Reflect.apply(method, action.capability, [input]);
+
+  if (!isReactionaryResult(result)) {
+    throw new Error(
+      `UCP action target did not return a Reactionary Result: ${action.definition.name}`,
+    );
+  }
+
+  return result;
 }
 
-function getCapabilityMethod(
-  capability: unknown,
-  methodName: string,
-): ((payload: unknown) => Promise<UCPResult>) | undefined {
-  if (typeof capability !== 'object' || capability === null) {
-    return undefined;
+function isReactionaryResult(value: unknown): value is UCPResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'success' in value &&
+    typeof value.success === 'boolean'
+  );
+}
+
+function acceptsUndefined(schema: z.ZodType): boolean {
+  return schema.safeParse(undefined).success;
+}
+
+function toUcpJsonSchema(
+  schema: z.ZodType,
+  io: 'input' | 'output',
+): Record<string, unknown> {
+  return z.toJSONSchema(prepareForJsonSchema(schema), { io }) as Record<string, unknown>;
+}
+
+function prepareForJsonSchema(schema: z.ZodType): z.ZodType {
+  const def = getZodDef(schema);
+
+  switch (def.type) {
+    case 'default':
+      return applySafeDefault(schema, prepareForJsonSchema(def.innerType));
+    case 'object':
+      return copyMetadata(schema, z.looseObject(prepareShapeForJsonSchema(def.shape)));
+    case 'array':
+      return copyMetadata(schema, z.array(prepareForJsonSchema(def.element)));
+    case 'optional':
+      return copyMetadata(schema, prepareForJsonSchema(def.innerType).optional());
+    case 'nullable':
+      return copyMetadata(schema, prepareForJsonSchema(def.innerType).nullable());
+    case 'union':
+      return copyMetadata(schema, prepareUnionForJsonSchema(def.options));
+    default:
+      return schema;
+  }
+}
+
+function applySafeDefault(
+  schema: z.ZodType,
+  preparedInnerType: z.ZodType,
+): z.ZodType {
+  const defaultValue = getSafeDefaultValue(schema);
+
+  if (!defaultValue.success) {
+    return copyMetadata(schema, preparedInnerType.optional());
   }
 
-  const methods = capability as Record<string, unknown>;
-  const method = methods[methodName];
-  if (typeof method !== 'function') {
-    return undefined;
+  return copyMetadata(
+    schema,
+    preparedInnerType.default(defaultValue.value),
+  );
+}
+
+type SafeDefaultValue =
+  | { success: true; value: unknown }
+  | { success: false };
+
+function getSafeDefaultValue(schema: z.ZodType): SafeDefaultValue {
+  try {
+    return {
+      success: true,
+      value: getZodDef(schema).defaultValue,
+    };
+  } catch {
+    return { success: false };
+  }
+}
+
+function copyMetadata(
+  source: z.ZodType,
+  target: z.ZodType,
+): z.ZodType {
+  const metadata = source.meta();
+  return metadata ? target.meta(metadata) : target;
+}
+
+interface ZodDef {
+  type: string;
+  innerType: z.ZodType;
+  shape: Record<string, z.ZodType>;
+  element: z.ZodType;
+  options: z.ZodType[];
+  defaultValue: unknown;
+}
+
+function getZodDef(schema: z.ZodType): ZodDef {
+  return (schema as z.ZodType & { _zod: { def: ZodDef } })._zod.def;
+}
+
+function prepareShapeForJsonSchema(
+  shape: Record<string, z.ZodType>,
+): Record<string, z.ZodType> {
+  return Object.fromEntries(
+    Object.entries(shape).map(([key, value]) => [
+      key,
+      prepareForJsonSchema(value),
+    ]),
+  );
+}
+
+function prepareUnionForJsonSchema(options: z.ZodType[]): z.ZodType {
+  const preparedOptions = options.map(prepareForJsonSchema);
+
+  if (preparedOptions.length < 2) {
+    return preparedOptions[0] ?? z.unknown();
   }
 
-  return method as (payload: unknown) => Promise<UCPResult>;
+  return z.union(
+    preparedOptions as [z.ZodType, z.ZodType, ...z.ZodType[]],
+  );
 }
 
 async function parseActionRequest(
