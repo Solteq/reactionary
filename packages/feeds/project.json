@@ -13,16 +13,37 @@
   "tags": [],
   "targets": {
     "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/packages/feeds"],
+      "options": {
+        "commands": [
+          "nx run feeds:build-lib --excludeTaskDependencies",
+          "nx run feeds:build-cli --excludeTaskDependencies"
+        ],
+        "parallel": false
+      }
+    },
+    "build-lib": {
       "executor": "@nx/esbuild:esbuild",
       "outputs": ["{options.outputPath}"],
       "options": {
         "outputPath": "dist/packages/feeds",
         "main": "packages/feeds/src/index.ts",
-        "additionalEntryPoints": ["packages/feeds/src/cli.ts"],
         "tsConfig": "packages/feeds/tsconfig.lib.json",
-        "assets": ["packages/feeds/*.md"],
+        "assets": [
+          "packages/feeds/*.md",
+          "packages/feeds/bin/**/*",
+          "packages/feeds/documentation/**/*"
+        ],
         "format": ["esm"],
         "bundle": false
+      }
+    },
+    "build-cli": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/packages/feeds/cli.cjs"],
+      "options": {
+        "command": "pnpm exec esbuild packages/feeds/src/cli.ts --bundle --platform=node --format=cjs --packages=bundle --outfile=dist/packages/feeds/cli.cjs --external:fsevents --log-level=warning"
       }
     },
     "nx-release-publish": {

@@ -1,5 +1,5 @@
 import type { ReactionaryFeedTransformer } from '../feed-transformer.js';
-import { escapeXml } from './shared.js';
+import { toSitemapXml } from '../sitemap-xml.js';
 
 export const sitemapFeedTransformer: ReactionaryFeedTransformer = {
   id: 'sitemap-feed',
@@ -10,17 +10,20 @@ export const sitemapFeedTransformer: ReactionaryFeedTransformer = {
     fileExtension: 'xml',
   },
   async *transform(products) {
-    yield '<?xml version="1.0" encoding="UTF-8"?>\n';
-    yield '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
-
-    for await (const product of products) {
-      if (!product.url) {
-        continue;
-      }
-
-      yield `  <url><loc>${escapeXml(product.url)}</loc></url>\n`;
-    }
-
-    yield '</urlset>\n';
+    yield toSitemapXml(toProductSitemapEntries(products));
   },
 };
+
+async function *toProductSitemapEntries(
+  products: Parameters<ReactionaryFeedTransformer['transform']>[0],
+) {
+  for await (const product of products) {
+    if (!product.url) {
+      continue;
+    }
+
+    yield {
+      url: product.url,
+    };
+  }
+}

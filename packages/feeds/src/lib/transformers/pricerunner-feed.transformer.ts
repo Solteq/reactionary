@@ -1,8 +1,7 @@
+import { create } from 'xmlbuilder2';
 import type { ReactionaryFeedTransformer } from '../feed-transformer.js';
 import type { ReactionaryFeedProduct, ReactionaryFeedVariant } from '../feed-types.js';
 import {
-  cdata,
-  escapeXml,
   formatMoney,
   primaryImage,
   productDescription,
@@ -17,50 +16,59 @@ export const pricerunnerFeedTransformer: ReactionaryFeedTransformer = {
     fileExtension: 'xml',
   },
   async *transform(products) {
-    yield '<?xml version="1.0" encoding="UTF-8"?>\n';
-    yield '<Products>\n';
+    const document = create({ version: '1.0', encoding: 'UTF-8' });
+    const root = document.ele('Products');
 
     for await (const product of products) {
       for (const variant of product.variants) {
-        yield toPriceRunnerProduct(product, variant);
+        appendPriceRunnerProduct(root, product, variant);
       }
     }
 
-    yield '</Products>\n';
+    yield `${document.end({ prettyPrint: true })}\n`;
   },
 };
 
-function toPriceRunnerProduct(
+function appendPriceRunnerProduct(
+  root: ReturnType<ReturnType<typeof create>['ele']>,
   product: ReactionaryFeedProduct,
   variant: ReactionaryFeedVariant,
-): string {
+): void {
   const ean = variant.barcodes.find((barcode) => barcode.type === 'ean')?.value
     ?? variant.barcodes.find((barcode) => barcode.type === 'gtin')?.value;
-  const lines = [
-    '  <Product>',
-    tag('ProductId', variant.id),
-    cdataTag('ProductName', variant.title || product.title),
-    variant.price ? tag('Price', formatMoney(variant.price) ?? '') : '',
-    tag('StockStatus', variant.availability?.available ? 'in stock' : 'out of stock'),
-    product.brand ? cdataTag('Brand', product.brand) : '',
-    tag('Msku', variant.id),
-    ean ? tag('Ean', ean) : '',
-    variant.url ? tag('Url', variant.url) : product.url ? tag('Url', product.url) : '',
-    primaryImage(product, variant) ? tag('ImageUrl', primaryImage(product, variant) ?? '') : '',
-    cdataTag('Description', variant.description ?? productDescription(product)),
-    tag('Condition', 'New'),
-    tag('GroupId', product.id),
-    ...variant.options.map((option) => cdataTag(option.name, option.value)),
-    '  </Product>',
-  ];
+  const url = variant.url ?? product.url;
+  const image = primaryImage(product, variant);
+  const productElement = root.ele('Product');
 
-  return `${lines.filter(Boolean).join('\n')}\n`;
-}
-
-function tag(name: string, value: string): string {
-  return `\t<${name}>${escapeXml(value)}</${name}>`;
-}
-
-function cdataTag(name: string, value: string): string {
-  return `\t<${name}>${cdata(value)}</${name}>`;
+  productElement.ele('ProductId').txt(variant.id).up();
+  productElement.ele('ProductName').dat(variant.title || product.title).up();
+  if (variant.price) {
+    productElement.ele('Price').txt(formatMoney(variant.price) ?? '').up();
+  }
+  productElement
+    .ele('StockStatus')
+    .txt(variant.availability?.available ? 'in stock' : 'out of stock')
+    .up();
+  if (product.brand) {
+    productElement.ele('Brand').dat(product.brand).up();
+  }
+  productElement.ele('Msku').txt(variant.id).up();
+  if (ean) {
+    productElement.ele('Ean').txt(ean).up();
+  }
+  if (url) {
+    productElement.ele('Url').txt(url).up();
+  }
+  if (image) {
+    productElement.ele('ImageUrl').txt(image).up();
+  }
+  productElement
+    .ele('Description')
+    .dat(variant.description ?? productDescription(product))
+    .up();
+  productElement.ele('Condition').txt('New').up();
+  productElement.ele('GroupId').txt(product.id).up();
+  for (const option of variant.options) {
+    productElement.ele(option.name).dat(option.value).up();
+  }
 }

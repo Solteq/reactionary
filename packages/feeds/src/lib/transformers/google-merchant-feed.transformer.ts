@@ -1,7 +1,7 @@
+import { create } from 'xmlbuilder2';
 import type { ReactionaryFeedTransformer } from '../feed-transformer.js';
 import type { ReactionaryFeedProduct, ReactionaryFeedVariant } from '../feed-types.js';
 import {
-  escapeXml,
   googleMoney,
   primaryImage,
   productDescription,
@@ -16,47 +16,60 @@ export const googleMerchantFeedTransformer: ReactionaryFeedTransformer = {
     fileExtension: 'xml',
   },
   async *transform(products) {
-    yield '<?xml version="1.0" encoding="UTF-8"?>\n';
-    yield '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n';
-    yield '<channel>\n';
-    yield '<title>Reactionary Product Feed</title>\n';
+    const document = create({ version: '1.0', encoding: 'UTF-8' });
+    const channel = document
+      .ele('rss', {
+        version: '2.0',
+        'xmlns:g': 'http://base.google.com/ns/1.0',
+      })
+      .ele('channel');
+    channel.ele('title').txt('Reactionary Product Feed').up();
 
     for await (const product of products) {
       for (const variant of product.variants) {
-        yield toGoogleItem(product, variant);
+        appendGoogleItem(channel, product, variant);
       }
     }
 
-    yield '</channel>\n';
-    yield '</rss>\n';
+    yield `${document.end({ prettyPrint: true })}\n`;
   },
 };
 
-function toGoogleItem(
+function appendGoogleItem(
+  channel: ReturnType<ReturnType<ReturnType<typeof create>['ele']>['ele']>,
   product: ReactionaryFeedProduct,
   variant: ReactionaryFeedVariant,
-): string {
-  const lines = [
-    '<item>',
-    tag('g:id', variant.id),
-    tag('g:item_group_id', product.id),
-    tag('title', variant.title || product.title),
-    tag('description', variant.description ?? productDescription(product)),
-    variant.url ? tag('link', variant.url) : product.url ? tag('link', product.url) : '',
-    primaryImage(product, variant) ? tag('g:image_link', primaryImage(product, variant) ?? '') : '',
-    tag('g:availability', variant.availability?.available ? 'in stock' : 'out of stock'),
-    variant.price ? tag('g:price', googleMoney(variant.price) ?? '') : '',
-    product.brand ? tag('g:brand', product.brand) : '',
-    variant.barcodes.find((barcode) => barcode.type === 'gtin')?.value
-      ? tag('g:gtin', variant.barcodes.find((barcode) => barcode.type === 'gtin')?.value ?? '')
-      : '',
-    tag('g:condition', 'new'),
-    '</item>',
-  ];
+): void {
+  const item = channel.ele('item');
+  const image = primaryImage(product, variant);
+  const link = variant.url ?? product.url;
+  const gtin = variant.barcodes.find((barcode) => barcode.type === 'gtin')?.value;
 
-  return `${lines.filter(Boolean).join('\n')}\n`;
-}
-
-function tag(name: string, value: string): string {
-  return `<${name}>${escapeXml(value)}</${name}>`;
+  item.ele('g:id').txt(variant.id).up();
+  item.ele('g:item_group_id').txt(product.id).up();
+  item.ele('title').txt(variant.title || product.title).up();
+  item
+    .ele('description')
+    .txt(variant.description ?? productDescription(product))
+    .up();
+  if (link) {
+    item.ele('link').txt(link).up();
+  }
+  if (image) {
+    item.ele('g:image_link').txt(image).up();
+  }
+  item
+    .ele('g:availability')
+    .txt(variant.availability?.available ? 'in stock' : 'out of stock')
+    .up();
+  if (variant.price) {
+    item.ele('g:price').txt(googleMoney(variant.price) ?? '').up();
+  }
+  if (product.brand) {
+    item.ele('g:brand').txt(product.brand).up();
+  }
+  if (gtin) {
+    item.ele('g:gtin').txt(gtin).up();
+  }
+  item.ele('g:condition').txt('new').up();
 }

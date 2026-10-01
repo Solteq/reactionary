@@ -20,6 +20,8 @@ import {
 import {
   ReactionaryFeedGenerator,
   acpProductFeedTransformer,
+  type ReactionaryFeedInventoryOptions,
+  type ReactionaryFeedProcessingOptions,
 } from '@reactionary/feeds';
 import type {
   IncomingHttpHeaders,
@@ -114,7 +116,9 @@ export interface ACPLink {
   url: string;
 }
 
-export interface ACPProductFeedOptions {
+export interface ACPProductFeedOptions
+  extends ReactionaryFeedInventoryOptions,
+    ReactionaryFeedProcessingOptions {
   feeds: Record<string, ACPProductFeedDefinition>;
 }
 
@@ -124,6 +128,7 @@ export interface ACPProductFeedDefinition {
   pageSize?: number;
   maxPages?: number;
   productUrlBase?: string;
+  fulfillmentCenterKeys?: string[];
   fulfillmentCenterKey?: string;
 }
 
@@ -318,7 +323,10 @@ export class ReactionaryACPServer<
       });
     }
 
-    const generator = new ReactionaryFeedGenerator(client);
+    const generator = new ReactionaryFeedGenerator(client, {
+      defaultFulfillmentCenterKeys: this.options.productFeed?.defaultFulfillmentCenterKeys,
+      productConcurrency: this.options.productFeed?.productConcurrency,
+    });
     const output = acpProductFeedTransformer.transform(
       generator.products(feed, requestContext),
       {
