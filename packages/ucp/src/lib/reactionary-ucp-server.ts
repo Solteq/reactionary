@@ -3,7 +3,6 @@ import {
   MemoryCache,
   type RequestContext,
 } from '@reactionary/core';
-import { getAvailableActionDefinition, getAvailableActions, getRequestMetadata, invokeUCPAction, parseActionRequest } from './reactionary-ucp-actions.js';
 import {
   type ReactionaryUCPClient,
   type ReactionaryUCPClientFactory,
@@ -27,7 +26,6 @@ export type {
   ReactionaryUCPProfileOptions,
   ReactionaryUCPServerOptions,
 };
-export type { ReactionaryUCPAction } from './reactionary-ucp-actions.js';
 
 export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = ReactionaryUCPClient> {
   private readonly sessionStore: ReactionaryUCPSessionStore;
@@ -130,102 +128,14 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
       throw error;
     }
 
-    if (request.method === 'GET' || request.method === 'HEAD') {
-      return jsonResponse({
-        name: this.options.name ?? '@reactionary/ucp',
-        version: this.options.version ?? '0.0.1',
-        protocol: 'ucp',
-        status: 'ready',
-        actions: getAvailableActions(client),
-      }, { omitBody: request.method === 'HEAD' });
-    }
-
-    if (request.method === 'POST') {
-      return this.handleActionRequest(request, client, sessionId);
-    }
-
     return jsonResponse({
       error: {
-        code: 'METHOD_NOT_ALLOWED',
-        message: `Unsupported method: ${request.method}`,
+        code: 'NOT_FOUND',
+        message: `No UCP route matched ${request.method} ${route.path}.`,
       },
     }, {
-      status: 405,
-      headers: {
-        allow: 'GET, HEAD, OPTIONS, POST, PUT',
-      },
+      status: 404,
+      omitBody: request.method === 'HEAD',
     });
-  }
-
-  private async handleActionRequest(
-    request: Request,
-    client: TClient,
-    sessionId: string,
-  ): Promise<Response> {
-    const parseResult = await parseActionRequest(request);
-    if (!parseResult.success) {
-      return jsonResponse({
-        error: parseResult.error,
-      }, { status: 400 });
-    }
-
-    const action = getAvailableActionDefinition(client, parseResult.value.action);
-    if (!action) {
-      return jsonResponse({
-        ...getRequestMetadata(parseResult.value),
-        error: {
-          code: 'UCP_ACTION_NOT_AVAILABLE',
-          message: `UCP action is not available: ${parseResult.value.action}`,
-        },
-      }, { status: 404 });
-    }
-
-    if (parseResult.value.idempotency_key && action.definition.mutates) {
-      const cached = await this.sessionStore.getIdempotencyRecord(
-        sessionId,
-        parseResult.value.idempotency_key,
-      );
-
-      if (cached) {
-        if (cached.action !== action.definition.name) {
-          return jsonResponse({
-            ...getRequestMetadata(parseResult.value),
-            error: {
-              code: 'IDEMPOTENCY_KEY_CONFLICT',
-              message:
-                'The supplied idempotency_key was already used for a different UCP action in this session.',
-            },
-          }, { status: 409 });
-        }
-
-        return jsonResponse({
-          ...getRequestMetadata(parseResult.value),
-          ...cached.response,
-        });
-      }
-    }
-
-    const result = await invokeUCPAction(action, parseResult.value.payload ?? {});
-    const actionResultBody = {
-      action: action.definition.name,
-      ...result,
-    };
-    const responseBody = {
-      ...getRequestMetadata(parseResult.value),
-      ...actionResultBody,
-    };
-
-    if (parseResult.value.idempotency_key && action.definition.mutates) {
-      await this.sessionStore.putIdempotencyRecord(
-        sessionId,
-        parseResult.value.idempotency_key,
-        {
-          action: action.definition.name,
-          response: actionResultBody,
-        },
-      );
-    }
-
-    return jsonResponse(responseBody);
   }
 }

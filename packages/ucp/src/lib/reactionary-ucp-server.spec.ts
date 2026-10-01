@@ -5,6 +5,9 @@ import {
   Reactionary,
   success,
   type Cache,
+  type Cart,
+  type Checkout,
+  type ProductSearchResult,
   type RequestContext,
   type Result,
 } from '@reactionary/core';
@@ -25,8 +28,11 @@ const TestCartOutputSchema = z.looseObject({
 
 class TestProductSearchCapability extends BaseCapability {
   @Reactionary({
-    inputSchema: z.object({
-      term: z.string().meta({ description: 'Configured project search term' }),
+    inputSchema: z.looseObject({
+      term: z.string().optional().meta({ description: 'Configured project search term' }),
+      search: z.looseObject({
+        term: z.string().meta({ description: 'Configured project search term' }),
+      }).optional(),
     }),
     outputSchema: z.object({
       items: z.array(z.object({
@@ -37,9 +43,23 @@ class TestProductSearchCapability extends BaseCapability {
     title: 'Configured product search',
     description: 'Searches products using the configured client schema',
   })
-  public async queryByTerm(payload: unknown): Promise<Result<unknown>> {
+  public async queryByTerm(payload: unknown): Promise<Result<ProductSearchResult>> {
     this.context.session['test.lastSearch'] = payload;
     return success({
+      pageNumber: 1,
+      pageSize: 10,
+      totalCount: 1,
+      totalPages: 1,
+      facets: [],
+      identifier: {
+        term: 'test',
+        facets: [],
+        filters: [],
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 10,
+        },
+      },
       items: [
         {
           identifier: { key: 'product-1' },
@@ -49,6 +69,10 @@ class TestProductSearchCapability extends BaseCapability {
         },
       ],
     });
+  }
+
+  public async createCategoryNavigationFilter(): Promise<Result<never>> {
+    throw new Error('Not implemented in UCP tests.');
   }
 
   protected getResourceName(): string {
@@ -74,7 +98,7 @@ class TestCartCapability extends BaseCapability {
       identifier: z.object({ key: z.string() }),
     }),
   })
-  public async add(): Promise<Result<unknown>> {
+  public async add(): Promise<Result<Cart>> {
     this.onAdd?.();
     return success(createTestCart('cart-created'));
   }
@@ -85,7 +109,7 @@ class TestCartCapability extends BaseCapability {
     }),
     outputSchema: TestCartOutputSchema,
   })
-  public async createCart(): Promise<Result<unknown>> {
+  public async createCart(): Promise<Result<Cart>> {
     return success(createTestCart('cart-created'));
   }
 
@@ -95,7 +119,15 @@ class TestCartCapability extends BaseCapability {
     }),
     outputSchema: TestCartOutputSchema,
   })
-  public async getById(): Promise<Result<unknown>> {
+  public async getById(): Promise<Result<Cart>> {
+    return success(createTestCart('cart-created'));
+  }
+
+  public async remove(): Promise<Result<Cart>> {
+    return success(createTestCart('cart-created'));
+  }
+
+  public async changeQuantity(): Promise<Result<Cart>> {
     return success(createTestCart('cart-created'));
   }
 
@@ -117,33 +149,41 @@ class TestCartCapability extends BaseCapability {
 class TestCartReconciliationCapability extends BaseCapability {
   public readonly calls: unknown[] = [];
 
-  public async getById(): Promise<Result<unknown>> {
+  public async getById(): Promise<Result<Cart>> {
     return success(createTestCart('cart-reconcile', [
       createTestCartItem('item-remove', 'sku-remove', 1),
       createTestCartItem('item-change', 'sku-change', 1),
     ]));
   }
 
-  public async remove(payload: unknown): Promise<Result<unknown>> {
+  public async remove(payload: unknown): Promise<Result<Cart>> {
     this.calls.push({ method: 'remove', payload });
     return success(createTestCart('cart-reconcile', [
       createTestCartItem('item-change', 'sku-change', 1),
     ]));
   }
 
-  public async changeQuantity(payload: unknown): Promise<Result<unknown>> {
+  public async changeQuantity(payload: unknown): Promise<Result<Cart>> {
     this.calls.push({ method: 'changeQuantity', payload });
     return success(createTestCart('cart-reconcile', [
       createTestCartItem('item-change', 'sku-change', 3),
     ]));
   }
 
-  public async add(payload: unknown): Promise<Result<unknown>> {
+  public async add(payload: unknown): Promise<Result<Cart>> {
     this.calls.push({ method: 'add', payload });
     return success(createTestCart('cart-reconcile', [
       createTestCartItem('item-change', 'sku-change', 3),
       createTestCartItem('item-add', 'sku-add', 2),
     ]));
+  }
+
+  public async createCart(): Promise<Result<Cart>> {
+    return success(createTestCart('cart-reconcile'));
+  }
+
+  public async deleteCart(): Promise<Result<void>> {
+    return success(undefined);
   }
 
   protected getResourceName(): string {
@@ -154,12 +194,20 @@ class TestCartReconciliationCapability extends BaseCapability {
 class TestCheckoutUpdateCapability extends BaseCapability {
   public addPaymentInstructionPayload: unknown;
 
-  public async getById(): Promise<Result<unknown>> {
+  public async getById(): Promise<Result<Checkout>> {
     return success(createTestCheckout('checkout-update'));
   }
 
-  public async addPaymentInstruction(payload: unknown): Promise<Result<unknown>> {
+  public async addPaymentInstruction(payload: unknown): Promise<Result<Checkout>> {
     this.addPaymentInstructionPayload = payload;
+    return success(createTestCheckout('checkout-update'));
+  }
+
+  public async finalizeCheckout(): Promise<Result<Checkout>> {
+    return success(createTestCheckout('checkout-update'));
+  }
+
+  public async initiateCheckoutForCart(): Promise<Result<Checkout>> {
     return success(createTestCheckout('checkout-update'));
   }
 
@@ -170,17 +218,16 @@ class TestCheckoutUpdateCapability extends BaseCapability {
 
 function createTestCart(
   id: string,
-  items: unknown[] = [],
-): unknown {
+  items: Cart['items'] = [],
+): Cart {
   return {
     identifier: { key: id },
+    user: { userId: 'test-user' },
+    name: '',
     items,
-    price: {
-      grandTotal: {
-        value: 1234,
-        currency: 'EUR',
-      },
-    },
+    price: createTestCostBreakdown(1234),
+    appliedPromotions: [],
+    description: '',
   };
 }
 
@@ -188,35 +235,52 @@ function createTestCartItem(
   id: string,
   sku: string,
   quantity: number,
-): unknown {
+): Cart['items'][number] {
   return {
     identifier: { key: id },
+    product: { key: 'product-1' },
     variant: { sku },
     quantity,
     price: {
-      unitPrice: {
-        value: 100,
-        currency: 'EUR',
-      },
-      totalPrice: {
-        value: 100 * quantity,
-        currency: 'EUR',
-      },
+      unitPrice: createTestAmount(100),
+      unitDiscount: createTestAmount(0),
+      totalPrice: createTestAmount(100 * quantity),
+      totalDiscount: createTestAmount(0),
     },
   };
 }
 
-function createTestCheckout(id: string): unknown {
+function createTestCheckout(id: string): Checkout {
   return {
     identifier: { key: id },
+    originalCartReference: { key: 'cart-created' },
     items: [],
-    price: {
-      grandTotal: {
-        value: 1234,
-        currency: 'EUR',
-      },
+    price: createTestCostBreakdown(1234),
+    name: '',
+    description: '',
+    pointOfContact: {
+      email: 'test@example.com',
     },
+    paymentInstructions: [],
     readyForFinalization: false,
+  };
+}
+
+function createTestCostBreakdown(total: number): Cart['price'] {
+  return {
+    totalTax: createTestAmount(0),
+    totalDiscount: createTestAmount(0),
+    totalSurcharge: createTestAmount(0),
+    totalShipping: createTestAmount(0),
+    totalProductPrice: createTestAmount(total),
+    grandTotal: createTestAmount(total),
+  };
+}
+
+function createTestAmount(value: number): Cart['price']['grandTotal'] {
+  return {
+    value,
+    currency: 'EUR',
   };
 }
 
@@ -228,23 +292,19 @@ describe('ReactionaryUCPServer', () => {
     expect(typeof server.toNodeHandler()).toBe('function');
   });
 
-  it('serves a framework readiness response', async () => {
-    const server = new ReactionaryUCPServer(() => ({}), {
-      name: 'test-ucp',
-      version: '1.2.3',
-    });
+  it('returns not found for unmatched routes', async () => {
+    const server = new ReactionaryUCPServer(() => ({}));
 
     const response = await server.fetch(new Request('http://127.0.0.1/ucp'));
     const body = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(404);
     expect(response.headers.get('ucp-session-id')).toBeTruthy();
     expect(body).toEqual({
-      name: 'test-ucp',
-      version: '1.2.3',
-      protocol: 'ucp',
-      status: 'ready',
-      actions: [],
+      error: {
+        code: 'NOT_FOUND',
+        message: 'No UCP route matched GET /ucp.',
+      },
     });
   });
 
@@ -629,222 +689,7 @@ describe('ReactionaryUCPServer', () => {
     });
   });
 
-  it('discovers available UCP actions from client capabilities', async () => {
-    const server = new ReactionaryUCPServer((requestContext) => ({
-      productSearch: new TestProductSearchCapability(new MemoryCache(), requestContext),
-      cart: new TestCartCapability(new MemoryCache(), requestContext),
-    }));
-
-    const response = await server.fetch(new Request('http://127.0.0.1/ucp'));
-    const body = await response.json() as {
-      actions: Array<{
-        name: string;
-        capability: string;
-        method: string;
-        title: string;
-        inputSchema?: Record<string, unknown>;
-        outputSchema: Record<string, unknown>;
-      }>;
-    };
-
-    expect(body.actions).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        name: 'product.search',
-        capability: 'product-search',
-        method: 'queryByTerm',
-        title: 'Search products',
-        inputSchema: expect.objectContaining({
-          type: 'object',
-          properties: expect.objectContaining({
-            term: expect.objectContaining({
-              description: 'Configured project search term',
-            }),
-          }),
-        }),
-        outputSchema: expect.objectContaining({
-          type: 'object',
-          properties: expect.objectContaining({
-            items: expect.any(Object),
-          }),
-        }),
-      }),
-      expect.objectContaining({
-        name: 'cart.add_item',
-        capability: 'cart',
-        method: 'add',
-      }),
-    ]));
-  });
-
-  it('invokes an available UCP action', async () => {
-    const server = new ReactionaryUCPServer((requestContext) => ({
-      productSearch: new TestProductSearchCapability(new MemoryCache(), requestContext),
-    }));
-
-    const response = await server.fetch(
-      new Request('http://127.0.0.1/ucp', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'product.search',
-          payload: {
-            term: 'shoes',
-          },
-        }),
-      }),
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body).toMatchObject({
-      action: 'product.search',
-      success: true,
-      value: {
-        items: [
-          {
-            identifier: { key: 'product-1' },
-            name: 'Test product',
-          },
-        ],
-      },
-    });
-  });
-
-  it('echoes request ids and replays mutating actions by idempotency key within a session', async () => {
-    let addCalls = 0;
-    const server = new ReactionaryUCPServer(
-      (requestContext) => ({
-        cart: new TestCartCapability(
-          new MemoryCache(),
-          requestContext,
-          () => {
-            addCalls += 1;
-          },
-        ),
-      }),
-      { sessionCache: new MemoryCache() },
-    );
-    const payload = {
-      action: 'cart.add_item',
-      idempotency_key: 'add-sku-1',
-      payload: {
-        sku: 'sku-1',
-        quantity: 1,
-      },
-    };
-
-    const firstResponse = await server.fetch(
-      new Request('http://127.0.0.1/ucp', {
-        method: 'POST',
-        body: JSON.stringify({
-          request_id: 'request-1',
-          ...payload,
-        }),
-      }),
-    );
-    const sessionId = firstResponse.headers.get('ucp-session-id');
-    const firstBody = await firstResponse.json();
-
-    const secondResponse = await server.fetch(
-      new Request('http://127.0.0.1/ucp', {
-        method: 'POST',
-        headers: {
-          'ucp-session-id': sessionId ?? '',
-        },
-        body: JSON.stringify({
-          request_id: 'request-2',
-          ...payload,
-        }),
-      }),
-    );
-    const secondBody = await secondResponse.json();
-
-    expect(addCalls).toBe(1);
-    expect(firstBody).toMatchObject({
-      request_id: 'request-1',
-      idempotency_key: 'add-sku-1',
-      action: 'cart.add_item',
-      success: true,
-    });
-    expect(secondBody).toMatchObject({
-      request_id: 'request-2',
-      idempotency_key: 'add-sku-1',
-      action: 'cart.add_item',
-      success: true,
-      value: {
-        identifier: { key: 'cart-created' },
-      },
-    });
-  });
-
-  it('rejects idempotency key reuse for a different mutating action', async () => {
-    const server = new ReactionaryUCPServer(
-      (requestContext) => ({
-        cart: new TestCartCapability(new MemoryCache(), requestContext),
-      }),
-      { sessionCache: new MemoryCache() },
-    );
-
-    const firstResponse = await server.fetch(
-      new Request('http://127.0.0.1/ucp', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'cart.add_item',
-          idempotency_key: 'cart-mutation-1',
-          payload: {
-            sku: 'sku-1',
-            quantity: 1,
-          },
-        }),
-      }),
-    );
-    const sessionId = firstResponse.headers.get('ucp-session-id');
-
-    const secondResponse = await server.fetch(
-      new Request('http://127.0.0.1/ucp', {
-        method: 'POST',
-        headers: {
-          'ucp-session-id': sessionId ?? '',
-        },
-        body: JSON.stringify({
-          action: 'cart.create',
-          idempotency_key: 'cart-mutation-1',
-          payload: {
-            key: 'new-cart',
-          },
-        }),
-      }),
-    );
-    const secondBody = await secondResponse.json();
-
-    expect(secondResponse.status).toBe(409);
-    expect(secondBody).toMatchObject({
-      idempotency_key: 'cart-mutation-1',
-      error: {
-        code: 'IDEMPOTENCY_KEY_CONFLICT',
-      },
-    });
-  });
-
-  it('returns a structured error for invalid UCP action requests', async () => {
-    const server = new ReactionaryUCPServer(() => ({}));
-
-    const response = await server.fetch(
-      new Request('http://127.0.0.1/ucp', {
-        method: 'POST',
-        body: JSON.stringify({ payload: {} }),
-      }),
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(body).toMatchObject({
-      error: {
-        code: 'INVALID_UCP_ACTION_REQUEST',
-      },
-    });
-  });
-
-  it('returns a structured error for unavailable UCP actions', async () => {
+  it('does not expose a generic POST action endpoint', async () => {
     const server = new ReactionaryUCPServer(() => ({}));
 
     const response = await server.fetch(
@@ -861,7 +706,7 @@ describe('ReactionaryUCPServer', () => {
     expect(response.status).toBe(404);
     expect(body).toMatchObject({
       error: {
-        code: 'UCP_ACTION_NOT_AVAILABLE',
+        code: 'NOT_FOUND',
       },
     });
   });
