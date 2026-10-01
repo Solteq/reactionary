@@ -3,6 +3,7 @@ import type {
   Checkout,
   MonetaryAmount,
   Product,
+  ProductSearchResult,
   ProductSearchResultItem,
   ProductSearchResultItemVariant,
   ProductVariant,
@@ -218,14 +219,20 @@ async function handleCatalogSearch(
     return createUCPError('not_available', 'Product search capability is not available.');
   }
 
+  const pageSize = getLimit(body);
+  const offset = getPaginationOffset(body);
+  if (offset === undefined) {
+    return createUCPError('invalid_request', 'Catalog search pagination cursor must be a non-negative integer offset.');
+  }
+
   const result = await client.productSearch.queryByTerm({
     search: {
       term: body.query ?? '',
       facets: [],
       filters: [],
       paginationOptions: {
-        pageNumber: 1,
-        pageSize: getLimit(body),
+        pageNumber: offsetToPageNumber(offset, pageSize),
+        pageSize,
       },
     },
   });
@@ -237,6 +244,7 @@ async function handleCatalogSearch(
   return {
     ucp: createUcpSuccessMetadata(),
     products: result.value.items.map((product) => toUcpProduct(product)),
+    pagination: toUcpPagination(result.value),
   };
 }
 
@@ -843,6 +851,41 @@ function createUCPError<TResponse>(
 
 function getLimit(body: UCPCatalogSearchRequest): number {
   return body.pagination?.limit ?? 10;
+}
+
+function getPaginationOffset(
+  body: UCPCatalogSearchRequest,
+): number | undefined {
+  const cursor = body.pagination?.cursor;
+  if (cursor === undefined) {
+    return 0;
+  }
+
+  if (!/^(0|[1-9]\d*)$/.test(cursor)) {
+    return undefined;
+  }
+
+  return Number(cursor);
+}
+
+function offsetToPageNumber(
+  offset: number,
+  pageSize: number,
+): number {
+  return Math.floor(offset / pageSize) + 1;
+}
+
+function toUcpPagination(
+  result: ProductSearchResult,
+): components['schemas']['response'] {
+  const nextOffset = result.pageNumber * result.pageSize;
+  const hasNextPage = nextOffset < result.totalCount;
+
+  return {
+    ...(hasNextPage ? { cursor: String(nextOffset) } : {}),
+    has_next_page: hasNextPage,
+    total_count: result.totalCount,
+  };
 }
 
 export class UCPHttpError extends Error {

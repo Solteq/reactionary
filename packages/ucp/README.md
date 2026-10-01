@@ -123,6 +123,8 @@ The first REST implementation maps the endpoints that fit Reactionary's current 
 | `POST /checkout-sessions/{id}/complete` | `checkout.finalizeCheckout` |
 | `GET /orders/{id}` | `order.getById` |
 
+`POST /catalog/search` treats the UCP `pagination.cursor` as an opaque offset encoded as a base-10 string. When present, that offset is converted to Reactionary's page-based `paginationOptions.pageNumber` using the requested `pagination.limit` as `pageSize`. Search responses include `pagination.cursor` only when another page is available; the returned cursor is the next page boundary offset.
+
 `PUT /carts/{id}` is implemented as a best-effort reconciliation against the current authoritative cart. It fetches the cart, removes existing SKUs absent from the request, changes quantities for existing SKUs, adds new SKUs, and returns the latest cart from the final mutation.
 
 `PUT /checkout-sessions/{id}` is implemented as a constrained composed update. Today it applies selected delegated payment instruments through `checkout.addPaymentInstruction` and returns the updated checkout. UCP fields that do not yet have a Reactionary checkout mutation, such as buyer/contact replacement or full payment-instruction replacement, are intentionally ignored rather than represented as successful core updates.
