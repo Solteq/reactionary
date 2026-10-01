@@ -8,6 +8,7 @@ The package keeps Reactionary core protocol-neutral: host applications mount thi
 
 The adapter implements the merchant-hosted ACP checkout endpoints:
 
+- `GET /product_feeds/{id}/products`
 - `POST /checkout_sessions`
 - `POST /checkout_sessions/{checkout_session_id}`
 - `GET /checkout_sessions/{checkout_session_id}`
@@ -17,6 +18,35 @@ The adapter implements the merchant-hosted ACP checkout endpoints:
 It also serves a readiness document from `GET` / `HEAD`.
 
 If the adapter is mounted under `/acp`, both `/checkout_sessions/...` and `/acp/checkout_sessions/...` paths are understood. Set `basePath` when mounting somewhere else.
+
+## Product feed generation
+
+`GET /product_feeds/{id}/products` generates a product feed from the configured feed definition whose key matches `{id}`.
+
+Each feed definition provides:
+
+- `languageContext` — applied to the `RequestContext` before the Reactionary client is created.
+- `search` — a `ProductSearchIdentifierSchema`-compatible search object passed to `productSearch.queryByTerm`.
+- `productUrlBase` — either a base URL that the product slug is resolved against, or a URL template supporting `{lang}` and `{slug}` placeholders.
+
+By default it returns the ACP JSON shape:
+
+```json
+{
+  "target_country": "FI",
+  "products": []
+}
+```
+
+`target_country` is derived from `languageContext.locale` when the locale includes a region, e.g. `fi-FI` -> `FI`.
+
+For file generation, request JSONL:
+
+```bash
+curl "https://example.com/acp/product_feeds/default/products?format=jsonl" > products.jsonl
+```
+
+The first implementation streams the response directly instead of generating a download URL. That keeps the adapter stateless and lets callers pipe the result to a file, object storage upload, or feed-ingestion job. A signed download URL can be layered on later by a host application or a storage-backed feed job.
 
 ## Required Reactionary capabilities
 
@@ -35,6 +65,11 @@ Required operations:
 - `checkout.setShippingInstruction`
 - `checkout.addPaymentInstruction`
 - `checkout.finalizeCheckout`
+- `productSearch.queryByTerm`
+- `product.getBySKU`
+- `price.getListPrice`
+- `price.getCustomerPrice`
+- `inventory.getBySKU`
 
 This is deliberate because Reactionary clients can be built with different capability sets. A partially capable client should fail fast instead of advertising ACP checkout.
 
@@ -81,6 +116,26 @@ new ReactionaryACPServer(createClient, {
   sessionCache: redisCache,
   sessionTtlSeconds: 60 * 60,
   checkoutSessionTtlSeconds: 60 * 60,
+  productFeed: {
+    feeds: {
+      finnish: {
+        languageContext: {
+          locale: 'fi-FI',
+          currencyCode: 'EUR',
+        },
+        search: {
+          term: '',
+          facets: [],
+          filters: ['market:fi'],
+          paginationOptions: {
+            pageNumber: 1,
+            pageSize: 50,
+          },
+        },
+        productUrlBase: 'https://shop.example/{lang}/products/{slug}',
+      },
+    },
+  },
 });
 ```
 
@@ -88,8 +143,11 @@ new ReactionaryACPServer(createClient, {
 
 - ACP item `id` maps to Reactionary `ProductVariantIdentifier.sku`.
 - ACP amounts are returned as integer minor units.
+- ACP product feed variant `price` comes from `price.getCustomerPrice`, which includes active customer/global campaign prices and can fall back to list prices in providers.
+- ACP product feed variant `list_price` comes from `price.getListPrice`.
+- ACP product feed availability comes from `inventory.getBySKU`.
 - ACP payment data is passed as checkout payment-instruction protocol data with key `delegated_payment_token`.
 - Fulfillment options are sourced from `checkout.getAvailableShippingMethods`.
 - Payment provider information is sourced from `checkout.getAvailablePaymentMethods`, with a configurable fallback through `paymentProvider`.
 
-Product-feed ingestion and order webhooks are separate ACP surfaces and are not implemented in this checkout adapter yet.
+Product-feed upsert/push APIs and order webhooks are separate ACP surfaces and are not implemented yet.

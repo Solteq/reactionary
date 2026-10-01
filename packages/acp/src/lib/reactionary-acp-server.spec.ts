@@ -3,6 +3,10 @@ import {
   success,
   type Cart,
   type Checkout,
+  type Inventory,
+  type Price,
+  type Product,
+  type ProductSearchResult,
   type RequestContext,
 } from '@reactionary/core';
 import { describe, expect, it } from 'vitest';
@@ -153,9 +157,86 @@ describe('ReactionaryACPServer', () => {
       },
     });
   });
+
+  it('streams generated product feeds as JSONL', async () => {
+    const observedLanguageContexts: RequestContext['languageContext'][] = [];
+    const observedSearches: unknown[] = [];
+    const server = new ReactionaryACPServer((requestContext) => {
+      observedLanguageContexts.push({ ...requestContext.languageContext });
+      return createTestClient({ observedSearches });
+    }, {
+      productFeed: {
+        feeds: {
+          finnish: {
+            languageContext: {
+              locale: 'fi-FI',
+              currencyCode: 'EUR',
+            },
+            search: {
+              term: 'shoes',
+              facets: [],
+              filters: ['market:fi'],
+              paginationOptions: {
+                pageNumber: 1,
+                pageSize: 25,
+              },
+            },
+            productUrlBase: 'https://shop.example/{lang}/products/{slug}',
+          },
+        },
+      },
+    });
+
+    const response = await server.fetch(
+      new Request(
+        'http://127.0.0.1/product_feeds/finnish/products?format=jsonl',
+      ),
+    );
+    const lines = (await response.text()).trim().split('\n');
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('application/x-ndjson');
+    expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({
+      id: 'product-1',
+      title: 'Test product',
+      url: 'https://shop.example/fi/products/test-product',
+      variants: [
+        {
+          id: 'sku-1',
+          title: 'Test variant',
+          price: {
+            amount: 800,
+            currency: 'EUR',
+          },
+          list_price: {
+            amount: 1000,
+            currency: 'EUR',
+          },
+          availability: {
+            available: true,
+            status: 'in_stock',
+          },
+        },
+      ],
+    });
+    expect(observedLanguageContexts[1]).toEqual({
+      locale: 'fi-FI',
+      currencyCode: 'EUR',
+    });
+    expect(observedSearches[0]).toMatchObject({
+      term: 'shoes',
+      filters: ['market:fi'],
+      paginationOptions: {
+        pageNumber: 1,
+        pageSize: 25,
+      },
+    });
+  });
 });
 
-function createTestClient(): ReactionaryACPClient {
+function createTestClient(options: {
+  observedSearches?: unknown[];
+} = {}): ReactionaryACPClient {
   let cartCounter = 0;
   let checkoutCounter = 0;
   const carts = new Map<string, Cart>();
@@ -262,6 +343,30 @@ function createTestClient(): ReactionaryACPClient {
         return success(finalized);
       },
     },
+    productSearch: {
+      async queryByTerm(payload) {
+        options.observedSearches?.push((payload as { search: unknown }).search);
+        return success(createProductSearchResult());
+      },
+    },
+    product: {
+      async getBySKU() {
+        return success(createProduct());
+      },
+    },
+    price: {
+      async getListPrice() {
+        return success(createPrice(10));
+      },
+      async getCustomerPrice() {
+        return success(createPrice(8));
+      },
+    },
+    inventory: {
+      async getBySKU() {
+        return success(createInventory());
+      },
+    },
   };
 }
 
@@ -319,6 +424,98 @@ function createCheckout(id: string, cart: Cart): Checkout {
     billingAddress: null,
     paymentInstructions: [],
     readyForFinalization: true,
+  };
+}
+
+function createProductSearchResult(): ProductSearchResult {
+  return {
+    identifier: {
+      term: '',
+      facets: [],
+      filters: [],
+      paginationOptions: {
+        pageNumber: 1,
+        pageSize: 50,
+      },
+    },
+    pageNumber: 1,
+    pageSize: 50,
+    totalCount: 1,
+    totalPages: 1,
+    facets: [],
+    items: [
+      {
+        identifier: { key: 'product-1' },
+        name: 'Test product',
+        slug: 'test-product',
+        variants: [
+          {
+            variant: { sku: 'sku-1' },
+            image: {
+              sourceUrl: 'https://cdn.example/sku-1.png',
+              altText: 'Test variant',
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function createProduct(): Product {
+  return {
+    identifier: { key: 'product-1' },
+    name: 'Test product',
+    slug: 'test-product',
+    description: 'Short description',
+    longDescription: 'Long description',
+    brand: 'Reactionary',
+    manufacturer: 'Reactionary',
+    parentCategories: [],
+    published: true,
+    sharedAttributes: [],
+    options: [],
+    mainVariant: {
+      identifier: { sku: 'sku-1' },
+      name: 'Test variant',
+      images: [
+        {
+          sourceUrl: 'https://cdn.example/sku-1.png',
+          altText: 'Test variant',
+        },
+      ],
+      ean: '',
+      gtin: '',
+      upc: '',
+      barcode: '',
+      options: [],
+    },
+    variants: [],
+  };
+}
+
+function createPrice(value: number): Price {
+  return {
+    identifier: {
+      variant: { sku: 'sku-1' },
+    },
+    unitPrice: {
+      value,
+      currency: 'EUR',
+    },
+    onSale: false,
+    tieredPrices: [],
+  };
+}
+
+function createInventory(): Inventory {
+  return {
+    identifier: {
+      variant: { sku: 'sku-1' },
+      fulfillmentCenter: { key: '' },
+    },
+    quantity: 5,
+    status: 'inStock',
   };
 }
 
