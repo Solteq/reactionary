@@ -3,17 +3,24 @@
   "version": "0.0.1",
   "main": "index.js",
   "types": "src/index.d.ts",
+  "scripts": {
+    "ucp:express": "node --loader @swc-node/register/esm src/ucp-express-server.ts"
+  },
   "dependencies": {
-    "@reactionary/core": "0.0.1",
-    "@reactionary/commercetools": "0.0.1",
     "@reactionary/algolia": "0.0.1",
+    "@reactionary/commercetools": "0.0.1",
+    "@reactionary/core": "0.0.1",
+    "@reactionary/fake": "0.0.1",
+    "@reactionary/magento": "0.0.1",
+    "@reactionary/mcp": "0.0.1",
     "@reactionary/medusa": "0.0.1",
     "@reactionary/meilisearch": "0.0.1",
+    "@reactionary/ucp": "0.0.1",
     "@reactionary/unomi": "0.0.1",
-    "@reactionary/magento": "0.0.1",
-    "@reactionary/fake": "0.0.1"
+    "express": "^5.2.1"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "vitest": "^4.0.9"
   },
   "type": "module"
