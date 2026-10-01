@@ -8,6 +8,11 @@ import type {
 } from 'node:http';
 import { createDefaultFeedRegistry } from './default-registry.js';
 import { ReactionaryFeedGenerator } from './feed-generator.js';
+import { ReactionarySitemapGenerator } from './sitemap-generator.js';
+import {
+  toSitemapIndexXml,
+  toSitemapXml,
+} from './sitemap-xml.js';
 import type {
   ReactionaryFeedTransformer,
   ReactionaryFeedTransformerRegistry,
@@ -16,11 +21,17 @@ import type {
   ReactionaryFeedClient,
   ReactionaryFeedClientFactory,
   ReactionaryFeedDefinition,
+  ReactionaryFeedInventoryOptions,
+  ReactionaryFeedProcessingOptions,
+  ReactionarySitemapOptions,
 } from './feed-types.js';
 
-export interface ReactionaryFeedServerOptions {
+export interface ReactionaryFeedServerOptions
+  extends ReactionaryFeedInventoryOptions,
+    ReactionaryFeedProcessingOptions {
   basePath?: string;
   feeds: Record<string, ReactionaryFeedDefinition>;
+  sitemaps?: ReactionarySitemapOptions;
   registry?: ReactionaryFeedTransformerRegistry;
 }
 
@@ -85,6 +96,15 @@ export class ReactionaryFeedServer<
     }
 
     const route = parseFeedRoute(request, this.options.basePath);
+    const sitemapRoute = parseSitemapRoute(request, this.options.sitemaps);
+
+    if (sitemapRoute.kind === 'index') {
+      return this.generateSitemapIndexResponse(request);
+    }
+
+    if (sitemapRoute.kind === 'source') {
+      return this.generateSitemapResponse(request, sitemapRoute.sourceId);
+    }
 
     if (route.kind === 'feeds') {
       return jsonResponse({
@@ -136,7 +156,10 @@ export class ReactionaryFeedServer<
     const requestContext = createInitialRequestContext();
     requestContext.languageContext = feed.languageContext;
     const client = this.clientFactory(requestContext);
-    const generator = new ReactionaryFeedGenerator(client);
+    const generator = new ReactionaryFeedGenerator(client, {
+      defaultFulfillmentCenterKeys: this.options.defaultFulfillmentCenterKeys,
+      productConcurrency: this.options.productConcurrency,
+    });
     const output = transformer.transform(
       generator.products(feed, requestContext),
       {
@@ -156,6 +179,80 @@ export class ReactionaryFeedServer<
       },
     );
   }
+
+  private async generateSitemapIndexResponse(request: Request): Promise<Response> {
+    const sitemaps = this.options.sitemaps;
+
+    if (!sitemaps) {
+      return jsonResponse({
+        error: 'Sitemaps are not configured.',
+      }, { status: 404, omitBody: request.method === 'HEAD' });
+    }
+
+    const baseUrl = trimTrailingSlash(sitemaps.baseUrl);
+    const sourceIds = getIncludedSitemapSourceIds(sitemaps);
+    const xml = await toSitemapIndexXml(
+      sourceIds.map((sourceId) => `${baseUrl}/sitemaps/${encodeURIComponent(sourceId)}.xml`),
+    );
+
+    return xmlResponse(xml, {
+      omitBody: request.method === 'HEAD',
+    });
+  }
+
+  private async generateSitemapResponse(
+    request: Request,
+    sourceId: string,
+  ): Promise<Response> {
+    const sitemaps = this.options.sitemaps;
+
+    if (!sitemaps) {
+      return jsonResponse({
+        error: 'Sitemaps are not configured.',
+      }, { status: 404, omitBody: request.method === 'HEAD' });
+    }
+
+    if (!getIncludedSitemapSourceIds(sitemaps).includes(sourceId)) {
+      return jsonResponse({
+        error: `Sitemap source not found: ${sourceId}`,
+      }, { status: 404, omitBody: request.method === 'HEAD' });
+    }
+
+    const source = sitemaps.sources[sourceId];
+
+    if (!source) {
+      return jsonResponse({
+        error: `Sitemap source not found: ${sourceId}`,
+      }, { status: 404, omitBody: request.method === 'HEAD' });
+    }
+
+    const requestContext = createInitialRequestContext();
+    const languageContext = source.type === 'products'
+      ? this.options.feeds[source.feed]?.languageContext
+      : source.languageContext;
+
+    if (languageContext) {
+      requestContext.languageContext = languageContext;
+    }
+
+    const client = this.clientFactory(requestContext);
+    const generator = new ReactionarySitemapGenerator(
+      client,
+      this.options.feeds,
+      {
+        defaultFulfillmentCenterKeys: this.options.defaultFulfillmentCenterKeys,
+        productConcurrency: this.options.productConcurrency,
+      },
+    );
+    const xml = await toSitemapXml(generator.entries(source, requestContext));
+
+    return xmlResponse(xml, {
+      headers: {
+        'content-disposition': `attachment; filename="${sourceId}.xml"`,
+      },
+      omitBody: request.method === 'HEAD',
+    });
+  }
 }
 
 type FeedRoute =
@@ -163,6 +260,37 @@ type FeedRoute =
   | { kind: 'transformers' }
   | { kind: 'output'; feedId: string; transformerId: string }
   | { kind: 'not-found' };
+
+type SitemapRoute =
+  | { kind: 'index' }
+  | { kind: 'source'; sourceId: string }
+  | { kind: 'not-found' };
+
+function parseSitemapRoute(
+  request: Request,
+  sitemaps: ReactionarySitemapOptions | undefined,
+): SitemapRoute {
+  if (!sitemaps) {
+    return { kind: 'not-found' };
+  }
+
+  const pathname = new URL(request.url).pathname;
+
+  if (pathname === '/sitemaps.xml') {
+    return { kind: 'index' };
+  }
+
+  const match = /^\/sitemaps\/([^/]+)\.xml$/.exec(pathname);
+
+  if (match) {
+    return {
+      kind: 'source',
+      sourceId: decodeURIComponent(match[1] ?? ''),
+    };
+  }
+
+  return { kind: 'not-found' };
+}
 
 function parseFeedRoute(request: Request, basePath = '/feeds'): FeedRoute {
   const pathname = getProtocolPathname(request, basePath);
@@ -242,6 +370,31 @@ function jsonResponse(
       ...options.headers,
     },
   });
+}
+
+function xmlResponse(
+  body: string,
+  options: {
+    headers?: Record<string, string>;
+    omitBody?: boolean;
+  } = {},
+): Response {
+  return new Response(options.omitBody ? null : body, {
+    headers: {
+      'content-type': 'application/xml; charset=utf-8',
+      ...options.headers,
+    },
+  });
+}
+
+function getIncludedSitemapSourceIds(
+  sitemaps: ReactionarySitemapOptions,
+): string[] {
+  return sitemaps.include ?? Object.keys(sitemaps.sources);
+}
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, '');
 }
 
 async function toWebRequest(request: IncomingMessage): Promise<Request> {

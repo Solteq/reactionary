@@ -1,6 +1,9 @@
 import type {
+  Category,
   Inventory,
   Product,
+  ProductRatingSummary,
+  ProductReview,
   ProductSearchResult,
   RequestContext,
 } from '@reactionary/core';
@@ -8,10 +11,14 @@ import {
   assertReactionaryFeedClient,
   type ReactionaryFeedAvailability,
   type ReactionaryFeedBarcode,
+  type ReactionaryFeedCategory,
   type ReactionaryFeedClient,
   type ReactionaryFeedDefinition,
+  type ReactionaryFeedGeneratorOptions,
   type ReactionaryFeedImage,
   type ReactionaryFeedProduct,
+  type ReactionaryFeedRatingSummary,
+  type ReactionaryFeedReview,
   type ReactionaryFeedVariant,
   type ValidatedReactionaryFeedClient,
 } from './feed-types.js';
@@ -19,7 +26,10 @@ import {
 export class ReactionaryFeedGenerator {
   private readonly client: ValidatedReactionaryFeedClient;
 
-  public constructor(client: ReactionaryFeedClient) {
+  public constructor(
+    client: ReactionaryFeedClient,
+    private readonly options: ReactionaryFeedGeneratorOptions = {},
+  ) {
     assertReactionaryFeedClient(client);
     this.client = client;
   }
@@ -33,7 +43,19 @@ export class ReactionaryFeedGenerator {
     const pageSize =
       feed.pageSize ?? feed.search.paginationOptions.pageSize ?? 50;
     const maxPages = feed.maxPages ?? 100;
+    const productConcurrency = normalizeProductConcurrency(
+      this.options.productConcurrency,
+    );
+    const startedAt = Date.now();
+    let processedProducts = 0;
+    let totalProducts: number | undefined = undefined;
     let pageNumber = 1;
+
+    this.reportProgress({
+      phase: 'searching',
+      processedProducts,
+      elapsedMs: Date.now() - startedAt,
+    });
 
     while (pageNumber <= maxPages) {
       const result = await unwrapFeedResult(
@@ -48,21 +70,62 @@ export class ReactionaryFeedGenerator {
           },
         }),
       );
+      totalProducts = estimateTotalProducts(result, pageSize, maxPages);
+      const totalPages = Math.min(result.totalPages, maxPages);
 
-      for (const item of result.items) {
-        const product = await this.toFeedProduct(item, feed);
+      this.reportProgress({
+        phase: 'generating',
+        processedProducts,
+        totalProducts,
+        pageNumber,
+        totalPages,
+        elapsedMs: Date.now() - startedAt,
+      });
 
-        if (product) {
-          yield product;
+      for (const batch of chunks(result.items, productConcurrency)) {
+        const products = await Promise.all(
+          batch.map((item) => this.toFeedProduct(item, feed)),
+        );
+
+        for (const product of products) {
+          if (product) {
+            processedProducts += 1;
+            this.reportProgress({
+              phase: 'generating',
+              processedProducts,
+              totalProducts,
+              pageNumber,
+              totalPages,
+              elapsedMs: Date.now() - startedAt,
+            });
+            yield product;
+          }
         }
       }
 
       if (pageNumber >= result.totalPages || result.items.length === 0) {
+        this.reportProgress({
+          phase: 'completed',
+          processedProducts,
+          totalProducts,
+          pageNumber,
+          totalPages,
+          elapsedMs: Date.now() - startedAt,
+        });
         return;
       }
 
       pageNumber += 1;
     }
+
+    this.reportProgress({
+      phase: 'completed',
+      processedProducts,
+      totalProducts,
+      pageNumber: pageNumber - 1,
+      totalPages: totalProducts === undefined ? undefined : maxPages,
+      elapsedMs: Date.now() - startedAt,
+    });
   }
 
   private async toFeedProduct(
@@ -88,6 +151,12 @@ export class ReactionaryFeedGenerator {
       ...toFeedImages(product?.mainVariant.images ?? []),
       ...item.variants.flatMap((variant) => toFeedImages([variant.image])),
     ]);
+    const [categoryPath, reviewData] = product
+      ? await Promise.all([
+          this.getCategoryPath(product),
+          this.getReviewData(product),
+        ])
+      : [undefined, undefined];
 
     return {
       id: product?.identifier.key ?? item.identifier.key,
@@ -96,6 +165,9 @@ export class ReactionaryFeedGenerator {
       url: toProductUrl(product?.slug ?? item.slug, feed),
       brand: product?.brand,
       manufacturer: product?.manufacturer,
+      ...(categoryPath && categoryPath.length > 0 ? { categoryPath } : {}),
+      ...(reviewData?.ratingSummary ? { ratingSummary: reviewData.ratingSummary } : {}),
+      ...(reviewData?.reviews?.length ? { reviews: reviewData.reviews } : {}),
       images,
       variants,
     };
@@ -110,16 +182,11 @@ export class ReactionaryFeedGenerator {
     const variant = product?.variants.find(
       (productVariant) => productVariant.identifier.sku === sku,
     ) ?? product?.mainVariant;
-    const [customerPriceResult, listPriceResult, inventoryResult] =
+    const [customerPriceResult, listPriceResult, inventory] =
       await Promise.all([
         this.client.price.getCustomerPrice({ variant: { sku } }),
         this.client.price.getListPrice({ variant: { sku } }),
-        this.client.inventory.getBySKU({
-          variant: { sku },
-          fulfilmentCenter: {
-            key: feed.fulfillmentCenterKey ?? '',
-          },
-        }),
+        this.getInventoryBySKU(sku, feed),
       ]);
     const customerPrice = customerPriceResult.success
       ? {
@@ -133,8 +200,8 @@ export class ReactionaryFeedGenerator {
           currency: listPriceResult.value.unitPrice.currency,
         }
       : undefined;
-    const availability = inventoryResult.success
-      ? toFeedAvailability(inventoryResult.value)
+    const availability = inventory
+      ? toFeedAvailability(inventory)
       : undefined;
 
     return {
@@ -142,6 +209,11 @@ export class ReactionaryFeedGenerator {
       title: variant?.name || item.name,
       description: product?.description,
       url: toProductUrl(product?.slug ?? item.slug, feed),
+      ...(variant?.ean ? { ean: variant.ean } : {}),
+      ...(variant?.gtin ? { gtin: variant.gtin } : {}),
+      ...(variant?.upc ? { upc: variant.upc } : {}),
+      ...(variant?.barcode ? { barcode: variant.barcode } : {}),
+      manufacturerPartNumber: sku,
       images: uniqueImages(toFeedImages(variant?.images ?? [])),
       price: customerPrice,
       listPrice,
@@ -154,6 +226,105 @@ export class ReactionaryFeedGenerator {
     };
   }
 
+  private async getInventoryBySKU(
+    sku: string,
+    feed: ReactionaryFeedDefinition,
+  ): Promise<Inventory | undefined> {
+    const fulfillmentCenterKeys = getFulfillmentCenterKeys(
+      feed,
+      this.options.defaultFulfillmentCenterKeys,
+    );
+    const inventoryResults = await Promise.all(
+      fulfillmentCenterKeys.map((fulfillmentCenterKey) =>
+        this.client.inventory.getBySKU({
+          variant: { sku },
+          fulfilmentCenter: {
+            key: fulfillmentCenterKey,
+          },
+        }),
+      ),
+    );
+    const inventories = inventoryResults
+      .filter((result) => result.success)
+      .map((result) => result.value);
+
+    if (inventories.length === 0) {
+      return undefined;
+    }
+
+    if (inventories.length === 1) {
+      return inventories[0];
+    }
+
+    return combineInventory(sku, inventories);
+  }
+
+  private async getCategoryPath(
+    product: Product,
+  ): Promise<ReactionaryFeedCategory[] | undefined> {
+    const category = this.client.category;
+    const getBreadcrumbPathToCategory = category?.getBreadcrumbPathToCategory;
+    const parentCategory = product.parentCategories[0];
+
+    if (!getBreadcrumbPathToCategory || !parentCategory) {
+      return undefined;
+    }
+
+    const result = await getBreadcrumbPathToCategory.call(category, {
+      id: parentCategory,
+    });
+
+    if (!result.success) {
+      throw new Error(JSON.stringify(result.error));
+    }
+
+    return result.value.map(toFeedCategory);
+  }
+
+  private async getReviewData(
+    product: Product,
+  ): Promise<{
+    ratingSummary?: ReactionaryFeedRatingSummary;
+    reviews?: ReactionaryFeedReview[];
+  } | undefined> {
+    const productReviews = this.client.productReviews;
+
+    if (!productReviews) {
+      return undefined;
+    }
+
+    const [summaryResult, reviewsResult] = await Promise.all([
+      productReviews.getRatingSummary({
+        product: product.identifier,
+      }),
+      productReviews.findReviews({
+        product: product.identifier,
+        paginationOptions: {
+          pageNumber: 1,
+          pageSize: 3,
+        },
+      }),
+    ]);
+
+    if (!summaryResult.success) {
+      throw new Error(JSON.stringify(summaryResult.error));
+    }
+
+    if (!reviewsResult.success) {
+      throw new Error(JSON.stringify(reviewsResult.error));
+    }
+
+    return {
+      ratingSummary: toFeedRatingSummary(summaryResult.value),
+      reviews: reviewsResult.value.items.map(toFeedReview),
+    };
+  }
+
+  private reportProgress(
+    progress: Parameters<NonNullable<ReactionaryFeedGeneratorOptions['onProgress']>>[0],
+  ): void {
+    this.options.onProgress?.(progress);
+  }
 }
 
 async function unwrapFeedResult<T>(
@@ -176,6 +347,66 @@ function toFeedAvailability(inventory: Inventory): ReactionaryFeedAvailability {
   };
 }
 
+function toFeedCategory(category: Category): ReactionaryFeedCategory {
+  return {
+    id: category.identifier.key,
+    name: category.name,
+    ...(category.slug ? { slug: category.slug } : {}),
+  };
+}
+
+function toFeedRatingSummary(
+  summary: ProductRatingSummary,
+): ReactionaryFeedRatingSummary {
+  return {
+    averageRating: summary.averageRating,
+    ...(summary.totalRatings !== undefined
+      ? { totalRatings: summary.totalRatings }
+      : {}),
+    ...(summary.ratingDistribution
+      ? { ratingDistribution: summary.ratingDistribution as Record<string, number> }
+      : {}),
+  };
+}
+
+function toFeedReview(review: ProductReview): ReactionaryFeedReview {
+  return {
+    id: review.identifier.key,
+    authorName: review.authorName,
+    rating: review.rating,
+    title: review.title,
+    content: review.content,
+    createdAt: review.createdAt,
+    verified: review.verified,
+  };
+}
+
+function estimateTotalProducts(
+  result: ProductSearchResult,
+  pageSize: number,
+  maxPages: number,
+): number {
+  return Math.min(result.totalCount, Math.min(result.totalPages, maxPages) * pageSize);
+}
+
+function normalizeProductConcurrency(value: number | undefined): number {
+  if (!value || !Number.isFinite(value)) {
+    return 10;
+  }
+
+  return Math.max(1, Math.floor(value));
+}
+
+function chunks<T>(items: T[], size: number): T[][] {
+  const result: T[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    result.push(items.slice(index, index + size));
+  }
+
+  return result;
+}
+
 function toFeedAvailabilityStatus(
   status: Inventory['status'],
 ): ReactionaryFeedAvailability['status'] {
@@ -192,6 +423,63 @@ function toFeedAvailabilityStatus(
     default:
       return 'out_of_stock';
   }
+}
+
+function getFulfillmentCenterKeys(
+  feed: ReactionaryFeedDefinition,
+  defaultFulfillmentCenterKeys: string[] | undefined,
+): string[] {
+  const keys = feed.fulfillmentCenterKeys?.length
+    ? feed.fulfillmentCenterKeys
+    : feed.fulfillmentCenterKey
+      ? [feed.fulfillmentCenterKey]
+      : defaultFulfillmentCenterKeys?.length
+        ? defaultFulfillmentCenterKeys
+        : [''];
+
+  return [...new Set(keys.map((key) => key.trim()))];
+}
+
+function combineInventory(
+  sku: string,
+  inventories: Inventory[],
+): Inventory {
+  return {
+    identifier: {
+      variant: { sku },
+      fulfillmentCenter: {
+        key: inventories.map((inventory) =>
+          inventory.identifier.fulfillmentCenter.key,
+        ).join(','),
+      },
+    },
+    quantity: inventories.reduce((total, inventory) => total + inventory.quantity, 0),
+    status: getCombinedInventoryStatus(inventories),
+  };
+}
+
+function getCombinedInventoryStatus(
+  inventories: Inventory[],
+): Inventory['status'] {
+  if (inventories.some((inventory) =>
+    inventory.status === 'inStock' && inventory.quantity > 0,
+  )) {
+    return 'inStock';
+  }
+
+  if (inventories.some((inventory) => inventory.status === 'onBackOrder')) {
+    return 'onBackOrder';
+  }
+
+  if (inventories.some((inventory) => inventory.status === 'preOrder')) {
+    return 'preOrder';
+  }
+
+  if (inventories.every((inventory) => inventory.status === 'discontinued')) {
+    return 'discontinued';
+  }
+
+  return 'outOfStock';
 }
 
 function toFeedImages(

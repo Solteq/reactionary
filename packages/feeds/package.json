@@ -5,14 +5,25 @@
   "main": "./index.js",
   "types": "./src/index.d.ts",
   "bin": {
-    "reactionary-feeds": "./cli.js"
+    "reactionary-feeds": "./bin/reactionary-feeds"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Solteq/reactionary.git"
   },
   "dependencies": {
-    "@reactionary/core": "0.0.1"
+    "@reactionary/algolia": "0.0.1",
+    "@reactionary/commercetools": "0.0.1",
+    "@reactionary/core": "0.0.1",
+    "@reactionary/fake": "0.0.1",
+    "@reactionary/magento": "0.0.1",
+    "@reactionary/medusa": "0.0.1",
+    "@reactionary/meilisearch": "0.0.1",
+    "@reactionary/unomi": "0.0.1",
+    "commander": "^15.0.0",
+    "dotenv": "^17.2.2",
+    "sitemap": "^9.0.1",
+    "xmlbuilder2": "^4.0.3"
   },
   "devDependencies": {
     "vitest": "^4.0.9"
