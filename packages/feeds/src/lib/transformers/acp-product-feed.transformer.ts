@@ -3,10 +3,15 @@ import {
 } from '../feed-generator.js';
 import type { ReactionaryFeedTransformer } from '../feed-transformer.js';
 import type {
+  ReactionaryFeedAvailability,
   ReactionaryFeedProduct,
   ReactionaryFeedVariant,
 } from '../feed-types.js';
-import { toMinorUnits } from './shared.js';
+import {
+  formatMoney,
+  primaryImage,
+  productDescription,
+} from './shared.js';
 
 export const acpProductFeedTransformer: ReactionaryFeedTransformer<{
   format?: 'jsonl' | 'json';
@@ -25,7 +30,7 @@ export const acpProductFeedTransformer: ReactionaryFeedTransformer<{
     if (context.options.format === 'json') {
       const collected: unknown[] = [];
       for await (const product of products) {
-        collected.push(toACPProduct(product));
+        collected.push(...toACPRows(product, context.feed));
       }
 
       yield JSON.stringify({
@@ -38,75 +43,149 @@ export const acpProductFeedTransformer: ReactionaryFeedTransformer<{
     }
 
     for await (const product of products) {
-      yield `${JSON.stringify(toACPProduct(product))}\n`;
+      for (const row of toACPRows(product, context.feed)) {
+        yield `${JSON.stringify(row)}\n`;
+      }
     }
   },
 };
 
-function toACPProduct(product: ReactionaryFeedProduct): Record<string, unknown> {
+function toACPRows(
+  product: ReactionaryFeedProduct,
+  feed: Parameters<ReactionaryFeedTransformer['transform']>[1]['feed'],
+): Array<Record<string, unknown>> {
+  return product.variants.map((variant) =>
+    toACPRow(product, variant, feed),
+  );
+}
+
+function toACPRow(
+  product: ReactionaryFeedProduct,
+  variant: ReactionaryFeedVariant,
+  feed: Parameters<ReactionaryFeedTransformer['transform']>[1]['feed'],
+): Record<string, unknown> {
+  const primaryImageUrl = primaryImage(product, variant);
+  const additionalImageUrls = getAdditionalImageUrls(product, variant, primaryImageUrl);
+  const variation = getVariationFields(product, variant);
+  const priceFields = getPriceFields(variant);
+  const gtin = variant.gtin || variant.ean || variant.upc || undefined;
+
   return {
-    id: product.id,
-    title: product.title,
-    ...(product.description ? { description: { plain: product.description } } : {}),
-    ...(product.url ? { url: product.url } : {}),
-    ...(product.images.length > 0
+    item_id: variant.id,
+    ...variation,
+    title: variant.title || product.title,
+    description: variant.description ?? productDescription(product),
+    ...(variant.url ?? product.url ? { url: variant.url ?? product.url } : {}),
+    ...(product.brand ? { brand: product.brand } : {}),
+    is_eligible_search: true,
+    ...(feed.sellerName ? { seller_name: feed.sellerName } : {}),
+    ...(product.manufacturer ? { manufacturer: product.manufacturer } : {}),
+    ...(product.categoryPath?.length
       ? {
-          media: product.images.map((image) => ({
-            url: image.url,
-            ...(image.altText ? { alt_text: image.altText } : {}),
-          })),
+          product_category: product.categoryPath.map((category) => category.name).join(' > '),
         }
       : {}),
-    variants: product.variants.map(toACPVariant),
+    ...(product.ratingSummary
+      ? {
+          ...(product.ratingSummary.totalRatings !== undefined
+            ? { review_count: product.ratingSummary.totalRatings }
+            : {}),
+          ...(product.ratingSummary.totalRatings
+            ? { star_rating: product.ratingSummary.averageRating.toFixed(2) }
+            : {}),
+        }
+      : {}),
+    ...(primaryImageUrl ? { image_url: primaryImageUrl } : {}),
+    ...(additionalImageUrls.length > 0
+      ? { additional_image_urls: additionalImageUrls }
+      : {}),
+    availability: toACPAvailability(variant.availability?.status),
+    ...priceFields,
+    ...(gtin ? { gtin } : {}),
+    ...(variant.manufacturerPartNumber
+      ? { mpn: variant.manufacturerPartNumber }
+      : {}),
   };
 }
 
-function toACPVariant(variant: ReactionaryFeedVariant): Record<string, unknown> {
+function getVariationFields(
+  product: ReactionaryFeedProduct,
+  variant: ReactionaryFeedVariant,
+): Record<string, unknown> {
+  if (
+    product.variants.length <= 1 ||
+    product.id === variant.id ||
+    variant.options.length === 0
+  ) {
+    return {};
+  }
+
+  const variantDict = Object.fromEntries(
+    variant.options.map((option) => [option.name, option.value]),
+  );
+
   return {
-    id: variant.id,
-    title: variant.title,
-    ...(variant.description ? { description: { plain: variant.description } } : {}),
-    ...(variant.url ? { url: variant.url } : {}),
-    ...(variant.barcodes.length > 0 ? { barcodes: variant.barcodes } : {}),
-    ...(variant.price
-      ? {
-          price: {
-            amount: toMinorUnits(variant.price.value),
-            currency: variant.price.currency.toUpperCase(),
-          },
-        }
-      : {}),
-    ...(variant.listPrice
-      ? {
-          list_price: {
-            amount: toMinorUnits(variant.listPrice.value),
-            currency: variant.listPrice.currency.toUpperCase(),
-          },
-        }
-      : {}),
-    ...(variant.availability
-      ? {
-          availability: {
-            available: variant.availability.available,
-            status: variant.availability.status,
-          },
-        }
-      : {}),
-    ...(variant.options.length > 0
-      ? {
-          variant_options: variant.options.map((option) => ({
-            name: option.name,
-            value: option.value,
-          })),
-        }
-      : {}),
-    ...(variant.images.length > 0
-      ? {
-          media: variant.images.map((image) => ({
-            url: image.url,
-            ...(image.altText ? { alt_text: image.altText } : {}),
-          })),
-        }
+    group_id: product.id,
+    listing_has_variations: true,
+    variant_dict: variantDict,
+  };
+}
+
+function getPriceFields(
+  variant: ReactionaryFeedVariant,
+): Record<string, unknown> {
+  if (
+    variant.price &&
+    variant.listPrice &&
+    variant.price.currency.toUpperCase() === variant.listPrice.currency.toUpperCase() &&
+    variant.price.value > 0 &&
+    variant.listPrice.value > variant.price.value
+  ) {
+    return {
+      price: formatMoney(variant.listPrice),
+      sale_price: formatMoney(variant.price),
+    };
+  }
+
+  return {
+    ...(variant.price ?? variant.listPrice
+      ? { price: formatMoney(variant.price ?? variant.listPrice) }
       : {}),
   };
+}
+
+function toACPAvailability(
+  status: ReactionaryFeedAvailability['status'] | undefined,
+): string {
+  switch (status) {
+    case 'in_stock':
+    case 'out_of_stock':
+    case 'backorder':
+      return status;
+    case 'preorder':
+      return 'pre_order';
+    default:
+      return 'unknown';
+  }
+}
+
+function getAdditionalImageUrls(
+  product: ReactionaryFeedProduct,
+  variant: ReactionaryFeedVariant,
+  primaryImageUrl: string | undefined,
+): string[] {
+  const urls = [
+    ...variant.images.map((image) => image.url),
+    ...product.images.map((image) => image.url),
+  ];
+  const unique = new Set<string>();
+
+  return urls.filter((url) => {
+    if (url === primaryImageUrl || unique.has(url)) {
+      return false;
+    }
+
+    unique.add(url);
+    return true;
+  });
 }

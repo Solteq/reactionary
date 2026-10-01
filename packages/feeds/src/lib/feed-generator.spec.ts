@@ -1,10 +1,15 @@
 import {
   createInitialRequestContext,
   success,
+  type Category,
+  type CategoryPaginatedResult,
   type Inventory,
   type Price,
   type Product,
+  type ProductRatingSummary,
+  type ProductReviewPaginatedResult,
   type ProductSearchResult,
+  type Store,
 } from '@reactionary/core';
 import { describe, expect, it } from 'vitest';
 import { ReactionaryFeedGenerator } from './feed-generator.js';
@@ -17,6 +22,8 @@ import type {
   ReactionaryFeedClient,
   ReactionaryFeedDefinition,
   ReactionaryFeedProduct,
+  ReactionaryFeedProgress,
+  ReactionarySitemapOptions,
 } from './feed-types.js';
 
 describe('ReactionaryFeedGenerator', () => {
@@ -35,6 +42,23 @@ describe('ReactionaryFeedGenerator', () => {
         title: 'Test product',
         url: 'https://shop.example/fi/products/test-product',
         brand: 'Reactionary',
+        categoryPath: [
+          {
+            id: 'parent',
+            name: 'Parent Category',
+            slug: 'parent-category',
+          },
+        ],
+        ratingSummary: {
+          averageRating: 4.5,
+          totalRatings: 12,
+        },
+        reviews: [
+          {
+            id: 'review-1',
+            rating: 5,
+          },
+        ],
         variants: [
           {
             id: 'sku-1',
@@ -71,6 +95,145 @@ describe('ReactionaryFeedGenerator', () => {
       'Reactionary feed generator cannot initialize because the client is missing required operations',
     );
   });
+
+  it('uses default fulfillment center keys for inventory requests', async () => {
+    const observedInventoryQueries: unknown[] = [];
+    const requestContext = createInitialRequestContext();
+    const generator = new ReactionaryFeedGenerator(createTestClient({
+      observedInventoryQueries,
+      inventoryByFulfillmentCenterKey: {
+        east: createInventory('east', 0, 'outOfStock'),
+        west: createInventory('west', 4, 'inStock'),
+      },
+    }), {
+      defaultFulfillmentCenterKeys: ['east', 'west'],
+    });
+
+    const products = await collect(generator.products(testFeed, requestContext));
+
+    expect(observedInventoryQueries).toMatchObject([
+      {
+        fulfilmentCenter: {
+          key: 'east',
+        },
+      },
+      {
+        fulfilmentCenter: {
+          key: 'west',
+        },
+      },
+    ]);
+    expect(products[0]?.variants[0]?.availability).toMatchObject({
+      available: true,
+      quantity: 4,
+      status: 'in_stock',
+    });
+  });
+
+  it('lets a feed override default fulfillment center keys', async () => {
+    const observedInventoryQueries: unknown[] = [];
+    const requestContext = createInitialRequestContext();
+    const generator = new ReactionaryFeedGenerator(createTestClient({
+      observedInventoryQueries,
+    }), {
+      defaultFulfillmentCenterKeys: ['default'],
+    });
+
+    await collect(generator.products({
+      ...testFeed,
+      fulfillmentCenterKeys: ['feed-a', 'feed-b'],
+    }, requestContext));
+
+    expect(observedInventoryQueries).toMatchObject([
+      {
+        fulfilmentCenter: {
+          key: 'feed-a',
+        },
+      },
+      {
+        fulfilmentCenter: {
+          key: 'feed-b',
+        },
+      },
+    ]);
+  });
+
+  it('keeps the legacy singular fulfillment center key working', async () => {
+    const observedInventoryQueries: unknown[] = [];
+    const requestContext = createInitialRequestContext();
+    const generator = new ReactionaryFeedGenerator(createTestClient({
+      observedInventoryQueries,
+    }));
+
+    await collect(generator.products({
+      ...testFeed,
+      fulfillmentCenterKey: 'legacy',
+    }, requestContext));
+
+    expect(observedInventoryQueries).toMatchObject([
+      {
+        fulfilmentCenter: {
+          key: 'legacy',
+        },
+      },
+    ]);
+  });
+
+  it('reports feed generation progress', async () => {
+    const progress: ReactionaryFeedProgress[] = [];
+    const requestContext = createInitialRequestContext();
+    const generator = new ReactionaryFeedGenerator(createTestClient(), {
+      onProgress: (event) => progress.push(event),
+    });
+
+    await collect(generator.products(testFeed, requestContext));
+
+    expect(progress).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        phase: 'searching',
+        processedProducts: 0,
+      }),
+      expect.objectContaining({
+        phase: 'generating',
+        processedProducts: 1,
+        totalProducts: 1,
+        pageNumber: 1,
+        totalPages: 1,
+      }),
+      expect.objectContaining({
+        phase: 'completed',
+        processedProducts: 1,
+        totalProducts: 1,
+      }),
+    ]));
+  });
+
+  it('normalizes products with bounded concurrency', async () => {
+    let activeProductLookups = 0;
+    let maxActiveProductLookups = 0;
+    const requestContext = createInitialRequestContext();
+    const generator = new ReactionaryFeedGenerator(createTestClient({
+      searchItemCount: 5,
+      async beforeProductLookup() {
+        activeProductLookups += 1;
+        maxActiveProductLookups = Math.max(
+          maxActiveProductLookups,
+          activeProductLookups,
+        );
+        await delay(5);
+      },
+      afterProductLookup() {
+        activeProductLookups -= 1;
+      },
+    }), {
+      productConcurrency: 2,
+    });
+
+    const products = await collect(generator.products(testFeed, requestContext));
+
+    expect(products).toHaveLength(5);
+    expect(maxActiveProductLookups).toBe(2);
+  });
 });
 
 describe('feed transformers', () => {
@@ -86,20 +249,23 @@ describe('feed transformers', () => {
 
     expect(output.trim().split('\n')).toHaveLength(1);
     expect(JSON.parse(output)).toMatchObject({
-      id: 'product-1',
-      variants: [
-        {
-          id: 'sku-1',
-          price: {
-            amount: 800,
-            currency: 'EUR',
-          },
-          list_price: {
-            amount: 1000,
-            currency: 'EUR',
-          },
-        },
-      ],
+      item_id: 'sku-1',
+      title: 'Test variant',
+      description: 'Test description',
+      url: 'https://shop.example/fi/products/test-product',
+      brand: 'Reactionary',
+      manufacturer: 'Solteq',
+      seller_name: 'Reactionary Shop',
+      is_eligible_search: true,
+      product_category: 'Parent Category > Child Category',
+      review_count: 12,
+      star_rating: '4.50',
+      image_url: 'https://cdn.example/product.jpg',
+      availability: 'in_stock',
+      price: '10.00 EUR',
+      sale_price: '8.00 EUR',
+      gtin: '00012345678905',
+      mpn: 'sku-1',
     });
   });
 
@@ -113,7 +279,7 @@ describe('feed transformers', () => {
       },
     ));
 
-    expect(output).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+    expect(output).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"');
     expect(output).toContain('<loc>https://shop.example/fi/products/test-product</loc>');
   });
 
@@ -132,6 +298,30 @@ describe('feed transformers', () => {
     expect(output).toContain('<g:price>8.00 EUR</g:price>');
   });
 
+  it('escapes Google Merchant XML text through the builder', async () => {
+    const output = await render(googleMerchantFeedTransformer.transform(
+      asAsyncIterable([
+        {
+          ...testFeedProduct,
+          title: 'R&D <Test>',
+          variants: [
+            {
+              ...testFeedProduct.variants[0],
+              title: 'Size 42 & "wide"',
+            },
+          ],
+        },
+      ]),
+      {
+        feedId: 'finnish',
+        feed: testFeed,
+        options: undefined,
+      },
+    ));
+
+    expect(output).toContain('<title>Size 42 &amp; "wide"</title>');
+  });
+
   it('writes PriceRunner XML', async () => {
     const output = await render(pricerunnerFeedTransformer.transform(
       asAsyncIterable([testFeedProduct]),
@@ -145,6 +335,29 @@ describe('feed transformers', () => {
     expect(output).toContain('<Products>');
     expect(output).toContain('<ProductId>sku-1</ProductId>');
     expect(output).toContain('<Price>8.00 EUR</Price>');
+  });
+
+  it('writes PriceRunner descriptive text as CDATA through the builder', async () => {
+    const output = await render(pricerunnerFeedTransformer.transform(
+      asAsyncIterable([
+        {
+          ...testFeedProduct,
+          variants: [
+            {
+              ...testFeedProduct.variants[0],
+              title: 'R&D <Test>',
+            },
+          ],
+        },
+      ]),
+      {
+        feedId: 'finnish',
+        feed: testFeed,
+        options: undefined,
+      },
+    ));
+
+    expect(output).toContain('<ProductName><![CDATA[R&D <Test>]]></ProductName>');
   });
 });
 
@@ -187,8 +400,90 @@ describe('ReactionaryFeedServer', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('application/x-ndjson');
-    expect(await response.text()).toContain('"id":"product-1"');
+    expect(await response.text()).toContain('"item_id":"sku-1"');
     expect(observedLanguageContexts[0]).toEqual(testFeed.languageContext);
+  });
+
+  it('serves a sitemap index for included source ids', async () => {
+    const server = new ReactionaryFeedServer(() => createTestClient(), {
+      feeds: {
+        finnish: testFeed,
+      },
+      sitemaps: {
+        ...testSitemaps,
+        include: ['categories-fi', 'stores-fi'],
+      },
+    });
+
+    const response = await server.fetch(
+      new Request('http://127.0.0.1/sitemaps.xml'),
+    );
+    const output = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(output).toContain('<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+    expect(output).toContain('<loc>https://shop.example/sitemaps/categories-fi.xml</loc>');
+    expect(output).toContain('<loc>https://shop.example/sitemaps/stores-fi.xml</loc>');
+    expect(output).not.toContain('products-fi.xml');
+  });
+
+  it('serves product, category, and store sitemap sources', async () => {
+    const observedStoreQueries: unknown[] = [];
+    const server = new ReactionaryFeedServer(() => createTestClient({
+      observedStoreQueries,
+    }), {
+      feeds: {
+        finnish: testFeed,
+      },
+      sitemaps: testSitemaps,
+    });
+
+    const product = await server.fetch(
+      new Request('http://127.0.0.1/sitemaps/products-fi.xml'),
+    );
+    const categories = await server.fetch(
+      new Request('http://127.0.0.1/sitemaps/categories-fi.xml'),
+    );
+    const stores = await server.fetch(
+      new Request('http://127.0.0.1/sitemaps/stores-fi.xml'),
+    );
+
+    await expect(product.text()).resolves.toContain(
+      '<loc>https://shop.example/fi/products/test-product</loc>',
+    );
+    await expect(categories.text()).resolves.toContain(
+      '<loc>https://shop.example/fi/categories/parent-category</loc>',
+    );
+    await expect(stores.text()).resolves.toContain(
+      '<loc>https://shop.example/fi/stores/helsinki-store</loc>',
+    );
+    expect(observedStoreQueries[0]).toEqual({
+      longitude: 12,
+      latitude: 55,
+      distance: 100,
+      limit: 10,
+    });
+  });
+
+  it('does not serve sitemap sources excluded by configuration', async () => {
+    const server = new ReactionaryFeedServer(() => createTestClient(), {
+      feeds: {
+        finnish: testFeed,
+      },
+      sitemaps: {
+        ...testSitemaps,
+        include: ['products-fi'],
+      },
+    });
+
+    const response = await server.fetch(
+      new Request('http://127.0.0.1/sitemaps/categories-fi.xml'),
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Sitemap source not found: categories-fi',
+    });
   });
 });
 
@@ -207,6 +502,7 @@ const testFeed: ReactionaryFeedDefinition = {
     },
   },
   productUrlBase: 'https://shop.example/{lang}/products/{slug}',
+  sellerName: 'Reactionary Shop',
 };
 
 const testFeedProduct: ReactionaryFeedProduct = {
@@ -216,6 +512,40 @@ const testFeedProduct: ReactionaryFeedProduct = {
   url: 'https://shop.example/fi/products/test-product',
   brand: 'Reactionary',
   manufacturer: 'Solteq',
+  categoryPath: [
+    {
+      id: 'parent',
+      name: 'Parent Category',
+      slug: 'parent-category',
+    },
+    {
+      id: 'child',
+      name: 'Child Category',
+      slug: 'child-category',
+    },
+  ],
+  ratingSummary: {
+    averageRating: 4.5,
+    totalRatings: 12,
+    ratingDistribution: {
+      '1': 0,
+      '2': 1,
+      '3': 1,
+      '4': 3,
+      '5': 7,
+    },
+  },
+  reviews: [
+    {
+      id: 'review-1',
+      authorName: 'Ada Lovelace',
+      rating: 5,
+      title: 'Great product',
+      content: 'Works exactly as expected.',
+      createdAt: '2025-01-01T00:00:00.000Z',
+      verified: true,
+    },
+  ],
   images: [
     {
       url: 'https://cdn.example/product.jpg',
@@ -240,9 +570,26 @@ const testFeedProduct: ReactionaryFeedProduct = {
         available: true,
         status: 'in_stock',
       },
+      ean: '1234567890123',
+      gtin: '00012345678905',
+      upc: '042100005264',
+      barcode: '1234567890123',
+      manufacturerPartNumber: 'sku-1',
       barcodes: [
         {
           type: 'ean',
+          value: '1234567890123',
+        },
+        {
+          type: 'gtin',
+          value: '00012345678905',
+        },
+        {
+          type: 'upc',
+          value: '042100005264',
+        },
+        {
+          type: 'barcode',
           value: '1234567890123',
         },
       ],
@@ -256,48 +603,121 @@ const testFeedProduct: ReactionaryFeedProduct = {
   ],
 };
 
+const testSitemaps: ReactionarySitemapOptions = {
+  baseUrl: 'https://shop.example',
+  sources: {
+    'products-fi': {
+      type: 'products',
+      feed: 'finnish',
+      changefreq: 'daily',
+      priority: 0.8,
+    },
+    'categories-fi': {
+      type: 'categories',
+      languageContext: testFeed.languageContext,
+      urlTemplate: 'https://shop.example/{lang}/categories/{slug}',
+      pageSize: 10,
+      maxDepth: 2,
+      changefreq: 'weekly',
+    },
+    'stores-fi': {
+      type: 'stores',
+      languageContext: testFeed.languageContext,
+      urlTemplate: 'https://shop.example/{lang}/stores/{slug}',
+      proximity: {
+        longitude: 12,
+        latitude: 55,
+        distance: 100,
+        limit: 10,
+      },
+      changefreq: 'monthly',
+    },
+  },
+};
+
 function createTestClient(options: {
   observedSearches?: unknown[];
+  observedStoreQueries?: unknown[];
+  observedInventoryQueries?: unknown[];
+  inventoryByFulfillmentCenterKey?: Record<string, Inventory | undefined>;
+  searchItemCount?: number;
+  beforeProductLookup?: () => Promise<void>;
+  afterProductLookup?: () => void;
 } = {}): ReactionaryFeedClient {
   return {
     productSearch: {
       async queryByTerm(payload) {
         const search = (payload as { search: unknown }).search;
         options.observedSearches?.push(search);
+        const itemCount = options.searchItemCount ?? 1;
 
         return success<ProductSearchResult>({
           pageNumber: 1,
           pageSize: 25,
-          totalCount: 1,
+          totalCount: itemCount,
           totalPages: 1,
           identifier: testFeed.search,
           facets: [],
-          items: [
-            {
-              identifier: {
-                key: 'product-1',
-              },
-              name: 'Search product',
-              slug: 'search-product',
-              variants: [
-                {
-                  variant: {
-                    sku: 'sku-1',
-                  },
-                  image: {
-                    sourceUrl: 'https://cdn.example/search.jpg',
-                    altText: 'Search product',
-                  },
-                },
-              ],
-            },
-          ],
+          items: Array.from({ length: itemCount }, (_, index) =>
+            createSearchItem(index + 1),
+          ),
         });
       },
     },
     product: {
-      async getBySKU() {
-        return success(createProduct());
+      async getBySKU(payload) {
+        await options.beforeProductLookup?.();
+
+        try {
+          const sku = (payload as { variant: { sku: string } }).variant.sku;
+          return success(createProduct(sku));
+        } finally {
+          options.afterProductLookup?.();
+        }
+      },
+    },
+    productReviews: {
+      async getRatingSummary() {
+        return success<ProductRatingSummary>({
+          identifier: {
+            product: {
+              key: 'product-1',
+            },
+          },
+          averageRating: 4.5,
+          totalRatings: 12,
+          ratingDistribution: {
+            '1': 0,
+            '2': 1,
+            '3': 1,
+            '4': 3,
+            '5': 7,
+          },
+        });
+      },
+      async findReviews() {
+        return success<ProductReviewPaginatedResult>({
+          pageNumber: 1,
+          pageSize: 3,
+          totalCount: 1,
+          totalPages: 1,
+          items: [
+            {
+              identifier: {
+                key: 'review-1',
+              },
+              product: {
+                key: 'product-1',
+              },
+              authorName: 'Ada Lovelace',
+              rating: 5,
+              title: 'Great product',
+              content: 'Works exactly as expected.',
+              createdAt: '2025-01-01T00:00:00.000Z',
+              verified: true,
+            },
+          ],
+        });
       },
     },
     price: {
@@ -309,25 +729,130 @@ function createTestClient(options: {
       },
     },
     inventory: {
-      async getBySKU() {
-        return success<Inventory>({
-          identifier: {
-            variant: {
-              sku: 'sku-1',
+      async getBySKU(payload) {
+        options.observedInventoryQueries?.push(payload);
+        const fulfillmentCenterKey = (payload as {
+          fulfilmentCenter: { key: string };
+        }).fulfilmentCenter.key;
+
+        return success<Inventory>(
+          options.inventoryByFulfillmentCenterKey?.[fulfillmentCenterKey]
+            ?? createInventory(fulfillmentCenterKey, 4, 'inStock'),
+        );
+      },
+    },
+    category: {
+      async getBreadcrumbPathToCategory() {
+        return success<Category[]>([
+          createCategory('parent', 'Parent Category', 'parent-category'),
+        ]);
+      },
+      async findTopCategories() {
+        return success<CategoryPaginatedResult>({
+          pageNumber: 1,
+          pageSize: 10,
+          totalCount: 1,
+          totalPages: 1,
+          items: [
+            createCategory('parent', 'Parent Category', 'parent-category'),
+          ],
+        });
+      },
+      async findChildCategories(payload) {
+        const parentId = (payload as {
+          parentId: { key: string };
+        }).parentId.key;
+
+        return success<CategoryPaginatedResult>({
+          pageNumber: 1,
+          pageSize: 10,
+          totalCount: parentId === 'parent' ? 1 : 0,
+          totalPages: 1,
+          items: parentId === 'parent'
+            ? [
+                createCategory('child', 'Child Category', 'child-category'),
+              ]
+            : [],
+        });
+      },
+    },
+    store: {
+      async queryByProximity(payload) {
+        options.observedStoreQueries?.push(payload);
+
+        return success<Store[]>([
+          {
+            identifier: {
+              key: 'store-1',
             },
+            name: 'Helsinki Store',
             fulfillmentCenter: {
-              key: '',
+              key: 'helsinki',
             },
           },
-          quantity: 4,
-          status: 'inStock',
-        });
+        ]);
       },
     },
   };
 }
 
-function createProduct(): Product {
+function createSearchItem(index: number): ProductSearchResult['items'][number] {
+  return {
+    identifier: {
+      key: `product-${index}`,
+    },
+    name: 'Search product',
+    slug: 'search-product',
+    variants: [
+      {
+        variant: {
+          sku: `sku-${index}`,
+        },
+        image: {
+          sourceUrl: 'https://cdn.example/search.jpg',
+          altText: 'Search product',
+        },
+      },
+    ],
+  };
+}
+
+function createInventory(
+  fulfillmentCenterKey: string,
+  quantity: number,
+  status: Inventory['status'],
+): Inventory {
+  return {
+    identifier: {
+      variant: {
+        sku: 'sku-1',
+      },
+      fulfillmentCenter: {
+        key: fulfillmentCenterKey,
+      },
+    },
+    quantity,
+    status,
+  };
+}
+
+function createCategory(
+  key: string,
+  name: string,
+  slug: string,
+): Category {
+  return {
+    identifier: {
+      key,
+    },
+    name,
+    slug,
+    text: '',
+    images: [],
+  };
+}
+
+function createProduct(sku = 'sku-1'): Product {
   return {
     identifier: {
       key: 'product-1',
@@ -338,19 +863,23 @@ function createProduct(): Product {
     longDescription: 'Long description',
     brand: 'Reactionary',
     manufacturer: 'Solteq',
-    parentCategories: [],
+    parentCategories: [
+      {
+        key: 'parent',
+      },
+    ],
     published: true,
     sharedAttributes: [],
     options: [],
-    mainVariant: createVariant(),
-    variants: [createVariant()],
+    mainVariant: createVariant(sku),
+    variants: [createVariant(sku)],
   };
 }
 
-function createVariant(): Product['mainVariant'] {
+function createVariant(sku = 'sku-1'): Product['mainVariant'] {
   return {
     identifier: {
-      sku: 'sku-1',
+      sku,
     },
     name: 'Test variant',
     images: [
@@ -360,9 +889,9 @@ function createVariant(): Product['mainVariant'] {
       },
     ],
     ean: '1234567890123',
-    gtin: '',
-    upc: '',
-    barcode: '',
+    gtin: '00012345678905',
+    upc: '042100005264',
+    barcode: '1234567890123',
     options: [
       {
         identifier: {
@@ -422,4 +951,10 @@ async function render(iterable: AsyncIterable<string | Uint8Array>): Promise<str
 
 async function *asAsyncIterable<T>(items: T[]): AsyncIterable<T> {
   yield* items;
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }

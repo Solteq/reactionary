@@ -4,19 +4,6 @@ import type {
   ReactionaryFeedVariant,
 } from '../feed-types.js';
 
-export function escapeXml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;');
-}
-
-export function cdata(value: string): string {
-  return `<![CDATA[${value.replaceAll(']]>', ']]]]><![CDATA[>')}]]>`;
-}
-
 export function toMinorUnits(value: number): number {
   return Math.max(Math.round(value * 100), 0);
 }
