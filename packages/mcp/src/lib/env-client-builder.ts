@@ -3,6 +3,7 @@ import {
   NoOpCache,
   createInitialRequestContext,
   type Cache,
+  type Client,
   type RequestContext,
 } from '@reactionary/core';
 import { withAlgoliaCapabilities } from '@reactionary/algolia';
@@ -36,7 +37,7 @@ export interface CreateReactionaryClientFromEnvOptions {
 }
 
 export interface ReactionaryMCPClientFromEnv {
-  client: ReactionaryMCPClient;
+  client: Client;
   enabledSystems: ReactionaryMCPProviderSystem[];
 }
 

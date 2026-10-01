@@ -11,6 +11,9 @@
       "options": {
         "outputPath": "dist/examples/node",
         "main": "examples/node/src/index.ts",
+        "additionalEntryPoints": [
+          "examples/node/src/ucp-express-server.ts"
+        ],
         "tsConfig": "examples/node/tsconfig.lib.json",
         "assets": ["examples/node/*.md"],
         "format": ["esm"],
