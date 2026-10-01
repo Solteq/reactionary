@@ -62,6 +62,64 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
   orderId: z.string().optional(),
 });
 
+export const ACPDescriptionSchema = z.object({
+  plain: z.string().optional(),
+  html: z.string().optional(),
+  markdown: z.string().optional(),
+});
+
+export const ACPMediaSchema = z.object({
+  url: z.string(),
+  alt_text: z.string().optional(),
+});
+
+export const ACPFeedPriceSchema = z.object({
+  amount: z.int(),
+  currency: z.string().length(3),
+});
+
+export const ACPAvailabilitySchema = z.object({
+  available: z.boolean().optional(),
+  status: z.string().optional(),
+});
+
+export const ACPBarcodeSchema = z.object({
+  type: z.string(),
+  value: z.string(),
+});
+
+export const ACPVariantOptionSchema = z.object({
+  name: z.string(),
+  value: z.string(),
+});
+
+export const ACPFeedVariantSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: ACPDescriptionSchema.optional(),
+  url: z.string().optional(),
+  barcodes: z.array(ACPBarcodeSchema).optional(),
+  price: ACPFeedPriceSchema.optional(),
+  list_price: ACPFeedPriceSchema.optional(),
+  availability: ACPAvailabilitySchema.optional(),
+  variant_options: z.array(ACPVariantOptionSchema).optional(),
+  media: z.array(ACPMediaSchema).optional(),
+});
+
+export const ACPFeedProductSchema = z.object({
+  id: z.string(),
+  title: z.string().optional(),
+  description: ACPDescriptionSchema.optional(),
+  url: z.string().optional(),
+  media: z.array(ACPMediaSchema).optional(),
+  variants: z.array(ACPFeedVariantSchema).min(1),
+});
+
+export const ACPProductFeedResponseSchema = z.object({
+  target_country: z.string().length(2).optional(),
+  products: z.array(ACPFeedProductSchema),
+});
+
 export type ACPItem = z.infer<typeof ACPItemSchema>;
 export type ACPBuyer = z.infer<typeof ACPBuyerSchema>;
 export type ACPAddress = z.infer<typeof ACPAddressSchema>;
@@ -78,3 +136,6 @@ export type ACPPaymentData = z.infer<typeof ACPPaymentDataSchema>;
 export type ACPCheckoutSessionState = z.infer<
   typeof ACPCheckoutSessionStateSchema
 >;
+export type ACPFeedProduct = z.infer<typeof ACPFeedProductSchema>;
+export type ACPFeedVariant = z.infer<typeof ACPFeedVariantSchema>;
+export type ACPProductFeedResponse = z.infer<typeof ACPProductFeedResponseSchema>;

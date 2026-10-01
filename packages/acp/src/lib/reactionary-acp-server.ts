@@ -5,9 +5,15 @@ import {
   type Cache,
   type Cart,
   type Checkout,
+  type Inventory,
+  type LanguageContext,
   type PaymentMethod,
+  type Price,
+  type Product,
+  type ProductSearchResult,
   type RequestContext,
   type Result,
+  type SearchIdentifier,
   type Session,
   type ShippingMethod,
 } from '@reactionary/core';
@@ -25,6 +31,8 @@ import {
   type ACPCheckoutSessionState,
   type ACPCompleteCheckoutSessionRequest,
   type ACPCreateCheckoutSessionRequest,
+  type ACPFeedProduct,
+  type ACPFeedVariant,
   type ACPItem,
   type ACPUpdateCheckoutSessionRequest,
 } from './acp-schemas.js';
@@ -50,11 +58,28 @@ export interface ReactionaryACPClient {
     addPaymentInstruction(payload: unknown): Promise<Result<Checkout>>;
     finalizeCheckout(payload: unknown): Promise<Result<Checkout>>;
   };
+  productSearch?: {
+    queryByTerm(payload: unknown): Promise<Result<ProductSearchResult>>;
+  };
+  product?: {
+    getBySKU(payload: unknown): Promise<Result<Product>>;
+  };
+  price?: {
+    getListPrice(payload: unknown): Promise<Result<Price>>;
+    getCustomerPrice(payload: unknown): Promise<Result<Price>>;
+  };
+  inventory?: {
+    getBySKU(payload: unknown): Promise<Result<Inventory>>;
+  };
 }
 
 type ValidatedReactionaryACPClient = ReactionaryACPClient & {
   cart: NonNullable<ReactionaryACPClient['cart']>;
   checkout: NonNullable<ReactionaryACPClient['checkout']>;
+  productSearch: NonNullable<ReactionaryACPClient['productSearch']>;
+  product: NonNullable<ReactionaryACPClient['product']>;
+  price: NonNullable<ReactionaryACPClient['price']>;
+  inventory: NonNullable<ReactionaryACPClient['inventory']>;
 };
 
 export type ReactionaryACPClientFactory<
@@ -72,6 +97,7 @@ export interface ReactionaryACPServerOptions {
   checkoutSessionTtlSeconds?: number;
   paymentProvider?: ACPPaymentProvider;
   links?: ACPLink[];
+  productFeed?: ACPProductFeedOptions;
 }
 
 export type ACPPaymentProcessor = 'stripe' | 'adyen' | 'braintree';
@@ -84,6 +110,19 @@ export interface ACPPaymentProvider {
 export interface ACPLink {
   type: 'terms_of_use' | 'privacy_policy' | 'seller_shop_policies';
   url: string;
+}
+
+export interface ACPProductFeedOptions {
+  feeds: Record<string, ACPProductFeedDefinition>;
+}
+
+export interface ACPProductFeedDefinition {
+  languageContext: LanguageContext;
+  search: SearchIdentifier;
+  pageSize?: number;
+  maxPages?: number;
+  productUrlBase?: string;
+  fulfillmentCenterKey?: string;
 }
 
 export interface ReactionaryACPHttpHandler {
@@ -120,6 +159,12 @@ export class ReactionaryACPServer<
   public async fetch(request: Request): Promise<Response> {
     const sessionId = getOrCreateSessionId(request);
     const requestContext = await this.createRequestContext(sessionId);
+    const requestedFeed = this.getRequestedProductFeed(request);
+
+    if (requestedFeed) {
+      requestContext.languageContext = requestedFeed.feed.languageContext;
+    }
+
     const client = this.clientFactory(requestContext);
     assertACPClient(client);
 
@@ -177,6 +222,28 @@ export class ReactionaryACPServer<
     }
 
     if (request.method === 'GET' || request.method === 'HEAD') {
+      const productFeedId = getProductFeedId(request, this.options.basePath);
+
+      if (productFeedId) {
+        const feed = this.getProductFeedDefinition(productFeedId);
+
+        if (!feed) {
+          return acpErrorResponse(404, {
+            type: 'invalid_request',
+            code: 'missing',
+            message: `Product feed not found: ${productFeedId}`,
+          });
+        }
+
+        return this.getProductFeed(
+          request,
+          productFeedId,
+          feed,
+          client,
+          request.method === 'HEAD',
+        );
+      }
+
       const checkoutSessionId = getCheckoutSessionId(
         request,
         this.options.basePath,
@@ -224,8 +291,212 @@ export class ReactionaryACPServer<
         'GET /checkout_sessions/{checkout_session_id}',
         'POST /checkout_sessions/{checkout_session_id}/complete',
         'POST /checkout_sessions/{checkout_session_id}/cancel',
+        'GET /product_feeds/{id}/products',
       ],
     };
+  }
+
+  private async getProductFeed(
+    request: Request,
+    feedId: string,
+    feed: ACPProductFeedDefinition,
+    client: ValidatedReactionaryACPClient,
+    omitBody: boolean,
+  ): Promise<Response> {
+    const format = new URL(request.url).searchParams.get('format') ?? 'json';
+
+    if (format === 'jsonl') {
+      return new Response(
+        omitBody
+          ? null
+          : createProductFeedJsonlStream(this.iterProductFeedProducts(client, feed)),
+        {
+          headers: {
+            'content-type': 'application/x-ndjson; charset=utf-8',
+            'content-disposition': `attachment; filename="${feedId}.products.jsonl"`,
+          },
+        },
+      );
+    }
+
+    if (format !== 'json') {
+      return acpErrorResponse(400, {
+        type: 'invalid_request',
+        code: 'invalid',
+        message: `Unsupported product feed format: ${format}`,
+        param: '$.format',
+      });
+    }
+
+    const products = await collectAsync(this.iterProductFeedProducts(client, feed));
+
+    return jsonResponse({
+      ...(getTargetCountry(feed.languageContext)
+        ? { target_country: getTargetCountry(feed.languageContext) }
+        : {}),
+      products,
+    }, {
+      headers: {
+        'content-disposition': `attachment; filename="${feedId}.products.json"`,
+      },
+      omitBody,
+    });
+  }
+
+  private async *iterProductFeedProducts(
+    client: ValidatedReactionaryACPClient,
+    feed: ACPProductFeedDefinition,
+  ): AsyncGenerator<ACPFeedProduct> {
+    const pageSize =
+      feed.pageSize ?? feed.search.paginationOptions.pageSize ?? 50;
+    const maxPages = feed.maxPages ?? 100;
+    let pageNumber = 1;
+
+    while (pageNumber <= maxPages) {
+      const result = await unwrapACPResult(
+        client.productSearch.queryByTerm({
+          search: {
+            ...feed.search,
+            paginationOptions: {
+              ...feed.search.paginationOptions,
+              pageNumber,
+              pageSize,
+            },
+          },
+        }),
+      );
+
+      for (const item of result.items) {
+        const product = await this.toACPFeedProduct(item, client, feed);
+
+        if (product) {
+          yield product;
+        }
+      }
+
+      if (pageNumber >= result.totalPages || result.items.length === 0) {
+        return;
+      }
+
+      pageNumber += 1;
+    }
+  }
+
+  private async toACPFeedProduct(
+    item: ProductSearchResult['items'][number],
+    client: ValidatedReactionaryACPClient,
+    feed: ACPProductFeedDefinition,
+  ): Promise<ACPFeedProduct | undefined> {
+    const firstVariant = item.variants[0]?.variant;
+
+    if (!firstVariant) {
+      return undefined;
+    }
+
+    const productResult = await client.product.getBySKU({
+      variant: firstVariant,
+    });
+    const product = productResult.success ? productResult.value : undefined;
+    const variants = await Promise.all(
+      item.variants.map((variant) =>
+        this.toACPFeedVariant(item, product, variant.variant.sku, client, feed),
+      ),
+    );
+    const media = uniqueMedia([
+      ...toACPMedia(product?.mainVariant.images ?? []),
+      ...item.variants.flatMap((variant) => toACPMedia([variant.image])),
+    ]);
+
+    return {
+      id: product?.identifier.key ?? item.identifier.key,
+      title: product?.name ?? item.name,
+      description: toACPDescription(
+        product?.description || product?.longDescription,
+      ),
+      url: this.toProductUrl(product?.slug ?? item.slug, feed),
+      ...(media.length > 0 ? { media } : {}),
+      variants,
+    };
+  }
+
+  private async toACPFeedVariant(
+    item: ProductSearchResult['items'][number],
+    product: Product | undefined,
+    sku: string,
+    client: ValidatedReactionaryACPClient,
+    feed: ACPProductFeedDefinition,
+  ): Promise<ACPFeedVariant> {
+    const variant = product?.variants.find(
+      (productVariant) => productVariant.identifier.sku === sku,
+    ) ?? product?.mainVariant;
+    const [customerPriceResult, listPriceResult, inventoryResult] = await Promise.all([
+      client.price.getCustomerPrice({ variant: { sku } }),
+      client.price.getListPrice({ variant: { sku } }),
+      client.inventory.getBySKU({
+        variant: { sku },
+        fulfilmentCenter: {
+          key: feed.fulfillmentCenterKey ?? '',
+        },
+      }),
+    ]);
+    const customerPrice = customerPriceResult.success
+      ? toACPFeedPrice(customerPriceResult.value)
+      : undefined;
+    const listPrice = listPriceResult.success
+      ? toACPFeedPrice(listPriceResult.value)
+      : undefined;
+    const inventory = inventoryResult.success
+      ? toACPAvailability(inventoryResult.value)
+      : undefined;
+    const media = uniqueMedia(toACPMedia(variant?.images ?? []));
+
+    return {
+      id: sku,
+      title: variant?.name || item.name,
+      description: toACPDescription(product?.description),
+      url: this.toProductUrl(product?.slug ?? item.slug, feed),
+      barcodes: toACPBarcodes(variant),
+      ...(customerPrice ? { price: customerPrice } : {}),
+      ...(listPrice ? { list_price: listPrice } : {}),
+      ...(inventory ? { availability: inventory } : {}),
+      variant_options: variant?.options.map((option) => ({
+        name: option.name,
+        value: option.value.label || option.value.identifier.key,
+      })),
+      ...(media.length > 0 ? { media } : {}),
+    };
+  }
+
+  private toProductUrl(
+    slug: string | undefined,
+    feed: ACPProductFeedDefinition,
+  ): string | undefined {
+    if (!slug || !feed.productUrlBase) {
+      return undefined;
+    }
+
+    if (feed.productUrlBase.includes('{slug}') || feed.productUrlBase.includes('{lang}')) {
+      return feed.productUrlBase
+        .replaceAll('{lang}', getLanguage(feed.languageContext))
+        .replaceAll('{slug}', encodeURIComponent(slug));
+    }
+
+    return new URL(slug, feed.productUrlBase).href;
+  }
+
+  private getRequestedProductFeed(
+    request: Request,
+  ): { id: string; feed: ACPProductFeedDefinition } | undefined {
+    const id = getProductFeedId(request, this.options.basePath);
+    const feed = id ? this.getProductFeedDefinition(id) : undefined;
+
+    return id && feed ? { id, feed } : undefined;
+  }
+
+  private getProductFeedDefinition(
+    feedId: string,
+  ): ACPProductFeedDefinition | undefined {
+    return this.options.productFeed?.feeds[feedId];
   }
 
   private async handlePost(
@@ -723,6 +994,16 @@ function getCheckoutSessionId(
   return match?.[1];
 }
 
+function getProductFeedId(
+  request: Request,
+  basePath: string | undefined,
+): string | undefined {
+  const pathname = getProtocolPathname(request, basePath);
+  const match = /^\/product_feeds\/([^/]+)\/products$/.exec(pathname);
+
+  return match?.[1];
+}
+
 function isCheckoutSessionCompleteRequest(
   request: Request,
   basePath: string | undefined,
@@ -830,6 +1111,11 @@ function getMissingACPClientOperations(client: ReactionaryACPClient): string[] {
     ['checkout.setShippingInstruction', client.checkout?.setShippingInstruction],
     ['checkout.addPaymentInstruction', client.checkout?.addPaymentInstruction],
     ['checkout.finalizeCheckout', client.checkout?.finalizeCheckout],
+    ['productSearch.queryByTerm', client.productSearch?.queryByTerm],
+    ['product.getBySKU', client.product?.getBySKU],
+    ['price.getListPrice', client.price?.getListPrice],
+    ['price.getCustomerPrice', client.price?.getCustomerPrice],
+    ['inventory.getBySKU', client.inventory?.getBySKU],
   ]
     .filter(([, operation]) => typeof operation !== 'function')
     .map(([name]) => name as string);
@@ -983,6 +1269,135 @@ function toPaymentMethodIdentifier(
 
 function toMinorUnits(value: number): number {
   return Math.max(Math.round(value * 100), 0);
+}
+
+function getTargetCountry(
+  languageContext: LanguageContext,
+): string | undefined {
+  const [, region] = languageContext.locale.split('-');
+  return region?.toUpperCase();
+}
+
+function getLanguage(languageContext: LanguageContext): string {
+  const [language] = languageContext.locale.split('-');
+  return language.toLowerCase();
+}
+
+function createProductFeedJsonlStream(
+  products: AsyncIterable<ACPFeedProduct>,
+): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  const iterator = products[Symbol.asyncIterator]();
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      const next = await iterator.next();
+
+      if (next.done) {
+        controller.close();
+        return;
+      }
+
+      controller.enqueue(encoder.encode(`${JSON.stringify(next.value)}\n`));
+    },
+    async cancel() {
+      await iterator.return?.();
+    },
+  });
+}
+
+async function collectAsync<T>(iterable: AsyncIterable<T>): Promise<T[]> {
+  const items: T[] = [];
+
+  for await (const item of iterable) {
+    items.push(item);
+  }
+
+  return items;
+}
+
+function toACPFeedPrice(price: Price): { amount: number; currency: string } {
+  return {
+    amount: toMinorUnits(price.unitPrice.value),
+    currency: price.unitPrice.currency.toUpperCase(),
+  };
+}
+
+function toACPAvailability(inventory: Inventory): {
+  available: boolean;
+  status: string;
+} {
+  return {
+    available: inventory.status === 'inStock' && inventory.quantity > 0,
+    status: toACPAvailabilityStatus(inventory.status),
+  };
+}
+
+function toACPAvailabilityStatus(status: Inventory['status']): string {
+  switch (status) {
+    case 'inStock':
+      return 'in_stock';
+    case 'onBackOrder':
+      return 'backorder';
+    case 'preOrder':
+      return 'preorder';
+    case 'discontinued':
+      return 'discontinued';
+    case 'outOfStock':
+    default:
+      return 'out_of_stock';
+  }
+}
+
+function toACPMedia(
+  images: Array<{ sourceUrl: string; altText: string }>,
+): Array<{ url: string; alt_text?: string }> {
+  return images
+    .filter((image) => image.sourceUrl.length > 0)
+    .map((image) => ({
+      url: image.sourceUrl,
+      ...(image.altText ? { alt_text: image.altText } : {}),
+    }));
+}
+
+function uniqueMedia(
+  media: Array<{ url: string; alt_text?: string }>,
+): Array<{ url: string; alt_text?: string }> {
+  const seen = new Set<string>();
+
+  return media.filter((item) => {
+    if (seen.has(item.url)) {
+      return false;
+    }
+
+    seen.add(item.url);
+    return true;
+  });
+}
+
+function toACPDescription(
+  text: string | undefined,
+): { plain: string } | undefined {
+  return text ? { plain: text } : undefined;
+}
+
+function toACPBarcodes(
+  variant: Product['mainVariant'] | undefined,
+): Array<{ type: string; value: string }> | undefined {
+  if (!variant) {
+    return undefined;
+  }
+
+  const barcodes = [
+    ['ean', variant.ean],
+    ['gtin', variant.gtin],
+    ['upc', variant.upc],
+    ['barcode', variant.barcode],
+  ]
+    .filter(([, value]) => value.length > 0)
+    .map(([type, value]) => ({ type, value }));
+
+  return barcodes.length > 0 ? barcodes : undefined;
 }
 
 async function toWebRequest(request: IncomingMessage): Promise<Request> {
