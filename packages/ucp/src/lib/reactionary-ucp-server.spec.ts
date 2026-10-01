@@ -7,6 +7,7 @@ import {
   type Cache,
   type Cart,
   type Checkout,
+  type FacetValueIdentifier,
   type ProductSearchResult,
   type RequestContext,
   type Result,
@@ -28,6 +29,7 @@ const TestCartOutputSchema = z.looseObject({
 
 class TestProductSearchCapability extends BaseCapability {
   public lastPayload: unknown;
+  public lastCategoryPath: unknown;
 
   @Reactionary({
     inputSchema: z.looseObject({
@@ -77,8 +79,20 @@ class TestProductSearchCapability extends BaseCapability {
     });
   }
 
-  public async createCategoryNavigationFilter(): Promise<Result<never>> {
-    throw new Error('Not implemented in UCP tests.');
+  public async createCategoryNavigationFilter(
+    payload: unknown,
+  ): Promise<Result<FacetValueIdentifier>> {
+    this.lastCategoryPath = payload;
+    const parsed = z.looseObject({
+      categoryPath: z.array(z.looseObject({
+        name: z.string(),
+      })),
+    }).parse(payload);
+
+    return success({
+      facet: { key: 'categories' },
+      key: parsed.categoryPath.map((category) => category.name).join(' > '),
+    });
   }
 
   protected getResourceName(): string {
@@ -454,6 +468,14 @@ describe('ReactionaryUCPServer', () => {
         method: 'POST',
         body: JSON.stringify({
           query: 'shirt',
+          filters: {
+            categories: ['Apparel > Shirts'],
+            price: {
+              min: 1000,
+            },
+            brand: ['Reactionary', 'Solteq'],
+            in_stock: true,
+          },
           pagination: {
             cursor: '5',
             limit: 5,
@@ -481,9 +503,33 @@ describe('ReactionaryUCPServer', () => {
         has_next_page: true,
         total_count: 12,
       },
+      messages: [
+        {
+          type: 'warning',
+          code: 'price_filter_ignored',
+          path: '$.filters.price',
+        },
+      ],
+    });
+    expect(productSearch.lastCategoryPath).toMatchObject({
+      categoryPath: [
+        {
+          identifier: { key: 'Apparel' },
+          name: 'Apparel',
+        },
+        {
+          identifier: { key: 'Shirts' },
+          name: 'Shirts',
+        },
+      ],
     });
     expect(productSearch.lastPayload).toMatchObject({
       search: {
+        categoryFilter: {
+          facet: { key: 'categories' },
+          key: 'Apparel > Shirts',
+        },
+        filters: ['brand:Reactionary', 'brand:Solteq', 'in_stock:true'],
         paginationOptions: {
           pageNumber: 2,
           pageSize: 5,
