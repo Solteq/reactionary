@@ -60,7 +60,11 @@ new ReactionaryUCPServer(createClient, {
 
 ## Action discovery
 
-The server discovers actions from the capabilities exposed by the client returned from the factory. For example, a client with `productSearch.queryByTerm` and `cart.add` exposes `product.search` and `cart.add_item`.
+The server discovers actions from decorated Reactionary capabilities exposed by the client returned from the factory. This uses the same runtime metadata path as `@reactionary/mcp`: capabilities that extend `BaseCapability` and annotate methods with `@Reactionary({ inputSchema, outputSchema })` become UCP actions.
+
+The advertised schemas are generated from the **configured capability instance**, not from hardcoded UCP schema references. If a project overrides a capability or factory schema, UCP discovery reflects that configured schema.
+
+For example, a configured client with `product-search.queryByTerm` and `cart.add` exposes `product.search` and `cart.add_item`.
 
 ```json
 {
@@ -73,8 +77,23 @@ The server discovers actions from the capabilities exposed by the client returne
       "name": "product.search",
       "title": "Search products",
       "description": "Search the product catalog by term, facets, filters, and pagination options.",
-      "capability": "productSearch",
-      "method": "queryByTerm"
+      "capability": "product-search",
+      "method": "queryByTerm",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "term": {
+            "type": "string"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object"
+      },
+      "mutates": false,
+      "idempotent": true,
+      "requiresAuth": false,
+      "riskLevel": "low"
     }
   ]
 }
@@ -122,11 +141,11 @@ Unavailable actions return `404 UCP_ACTION_NOT_AVAILABLE`. Invalid requests retu
 
 ## Default action names
 
-The current default surface mirrors existing Reactionary capability methods:
+The current default aliases mirror existing Reactionary capability methods. Any decorated capability method without a friendly alias is still discoverable as `<capability>.<method>`.
 
 | UCP action | Reactionary capability method |
 | --- | --- |
-| `product.search` | `productSearch.queryByTerm` |
+| `product.search` | `product-search.queryByTerm` |
 | `product.get_by_id` | `product.getById` |
 | `product.get_by_slug` | `product.getBySlug` |
 | `product.get_by_sku` | `product.getBySKU` |
