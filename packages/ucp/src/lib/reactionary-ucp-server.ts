@@ -19,13 +19,22 @@ import * as z from 'zod';
 
 const UCP_SESSION_ID_HEADER = 'ucp-session-id';
 const SESSION_CACHE_KEY_PREFIX = 'reactionary:ucp:session';
+const IDEMPOTENCY_CACHE_KEY_PREFIX = 'reactionary:ucp:idempotency';
 type ProtocolHeaders = Headers | Record<string, string>;
 const UCPActionRequestSchema = z.object({
+  request_id: z.string().min(1).optional(),
   action: z.string().min(1),
   payload: z.unknown().optional(),
+  idempotency_key: z.string().min(1).optional(),
+});
+const UCPActionResponseSchema = z.looseObject({});
+const UCPIdempotencyRecordSchema = z.looseObject({
+  action: z.string(),
+  response: UCPActionResponseSchema,
 });
 
 type UCPActionRequest = z.infer<typeof UCPActionRequestSchema>;
+type UCPIdempotencyRecord = z.infer<typeof UCPIdempotencyRecordSchema>;
 
 type UCPResult = Result<unknown, unknown>;
 
@@ -84,7 +93,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
     const requestContext = await this.createRequestContext(sessionId);
     const client = this.clientFactory(requestContext);
 
-    const response = await this.handleRequest(request, client);
+    const response = await this.handleRequest(request, client, sessionId);
     await this.sessionStore.put(sessionId, requestContext.session);
     response.headers.set(UCP_SESSION_ID_HEADER, sessionId);
 
@@ -125,6 +134,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
   private async handleRequest(
     request: Request,
     client: TClient,
+    sessionId: string,
   ): Promise<Response> {
     if (request.method === 'OPTIONS') {
       return new Response(null, {
@@ -158,6 +168,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
       const action = getAvailableActionDefinition(client, parseResult.value.action);
       if (!action) {
         return jsonResponse({
+          ...getRequestMetadata(parseResult.value),
           error: {
             code: 'UCP_ACTION_NOT_AVAILABLE',
             message: `UCP action is not available: ${parseResult.value.action}`,
@@ -165,11 +176,53 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
         }, { status: 404 });
       }
 
+      if (parseResult.value.idempotency_key && action.definition.mutates) {
+        const cached = await this.sessionStore.getIdempotencyRecord(
+          sessionId,
+          parseResult.value.idempotency_key,
+        );
+
+        if (cached) {
+          if (cached.action !== action.definition.name) {
+            return jsonResponse({
+              ...getRequestMetadata(parseResult.value),
+              error: {
+                code: 'IDEMPOTENCY_KEY_CONFLICT',
+                message:
+                  'The supplied idempotency_key was already used for a different UCP action in this session.',
+              },
+            }, { status: 409 });
+          }
+
+          return jsonResponse({
+            ...getRequestMetadata(parseResult.value),
+            ...cached.response,
+          });
+        }
+      }
+
       const result = await invokeUCPAction(action, parseResult.value.payload ?? {});
-      return jsonResponse({
+      const actionResultBody = {
         action: action.definition.name,
         ...result,
-      });
+      };
+      const responseBody = {
+        ...getRequestMetadata(parseResult.value),
+        ...actionResultBody,
+      };
+
+      if (parseResult.value.idempotency_key && action.definition.mutates) {
+        await this.sessionStore.putIdempotencyRecord(
+          sessionId,
+          parseResult.value.idempotency_key,
+          {
+            action: action.definition.name,
+            response: actionResultBody,
+          },
+        );
+      }
+
+      return jsonResponse(responseBody);
     }
 
     return jsonResponse({
@@ -676,6 +729,18 @@ async function parseActionRequest(
   };
 }
 
+function getRequestMetadata(
+  request: UCPActionRequest,
+): {
+  request_id?: string;
+  idempotency_key?: string;
+} {
+  return {
+    ...(request.request_id ? { request_id: request.request_id } : {}),
+    ...(request.idempotency_key ? { idempotency_key: request.idempotency_key } : {}),
+  };
+}
+
 class ReactionaryUCPSessionStore {
   public constructor(
     private readonly cache: Cache,
@@ -699,12 +764,50 @@ class ReactionaryUCPSessionStore {
     });
   }
 
+  public async getIdempotencyRecord(
+    sessionId: string,
+    idempotencyKey: string,
+  ): Promise<UCPIdempotencyRecord | undefined> {
+    return (
+      (await this.cache.get(
+        this.getIdempotencyCacheKey(sessionId, idempotencyKey),
+        UCPIdempotencyRecordSchema,
+      )) ?? undefined
+    );
+  }
+
+  public async putIdempotencyRecord(
+    sessionId: string,
+    idempotencyKey: string,
+    record: UCPIdempotencyRecord,
+  ): Promise<void> {
+    await this.cache.put(
+      this.getIdempotencyCacheKey(sessionId, idempotencyKey),
+      record,
+      {
+        ttlSeconds: this.ttlSeconds,
+        dependencyIds: [this.getIdempotencyDependencyId(sessionId)],
+      },
+    );
+  }
+
   private getCacheKey(sessionId: string): string {
     return `${SESSION_CACHE_KEY_PREFIX}:${sessionId}`;
   }
 
   private getDependencyId(sessionId: string): string {
     return `${SESSION_CACHE_KEY_PREFIX}:${sessionId}`;
+  }
+
+  private getIdempotencyCacheKey(
+    sessionId: string,
+    idempotencyKey: string,
+  ): string {
+    return `${IDEMPOTENCY_CACHE_KEY_PREFIX}:${sessionId}:${encodeURIComponent(idempotencyKey)}`;
+  }
+
+  private getIdempotencyDependencyId(sessionId: string): string {
+    return `${IDEMPOTENCY_CACHE_KEY_PREFIX}:${sessionId}`;
   }
 }
 
