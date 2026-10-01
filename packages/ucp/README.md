@@ -125,6 +125,13 @@ The first REST implementation maps the endpoints that fit Reactionary's current 
 
 `POST /catalog/search` treats the UCP `pagination.cursor` as an opaque offset encoded as a base-10 string. When present, that offset is converted to Reactionary's page-based `paginationOptions.pageNumber` using the requested `pagination.limit` as `pageSize`. Search responses include `pagination.cursor` only when another page is available; the returned cursor is the next page boundary offset.
 
+UCP catalog search filters are mapped to Reactionary search inputs where possible:
+
+- `filters.categories[0]` is treated as a breadcrumb string separated by `>` and resolved through `product-search.createCategoryNavigationFilter` when available. The resolved value is passed as Reactionary `categoryFilter`.
+- Additional category values are ignored for now because Reactionary search has a single `categoryFilter`; the response includes a warning message when this happens.
+- `filters.price` is ignored for now because Reactionary product search has no provider-neutral price filter; the response includes a warning message.
+- Other extension filter keys are passed through as Reactionary string filters in `key:value` form. Array values produce one filter string per item.
+
 `PUT /carts/{id}` is implemented as a best-effort reconciliation against the current authoritative cart. It fetches the cart, removes existing SKUs absent from the request, changes quantities for existing SKUs, adds new SKUs, and returns the latest cart from the final mutation.
 
 `PUT /checkout-sessions/{id}` is implemented as a constrained composed update. Today it applies selected delegated payment instruments through `checkout.addPaymentInstruction` and returns the updated checkout. UCP fields that do not yet have a Reactionary checkout mutation, such as buyer/contact replacement or full payment-instruction replacement, are intentionally ignored rather than represented as successful core updates.

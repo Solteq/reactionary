@@ -1,6 +1,8 @@
 import type {
   Cart,
+  Category,
   Checkout,
+  FacetValueIdentifier,
   MonetaryAmount,
   Product,
   ProductSearchResult,
@@ -38,6 +40,7 @@ type UCPOrderResponse = UCPOrder | UCPErrorResponse;
 type UCPProduct = components['schemas']['product'];
 type UCPVariant = components['schemas']['variant'];
 type UCPLineItem = components['schemas']['line_item'];
+type UCPMessage = components['schemas']['message'];
 
 export async function handleRestRequest(
   request: Request,
@@ -224,16 +227,18 @@ async function handleCatalogSearch(
   if (offset === undefined) {
     return createUCPError('invalid_request', 'Catalog search pagination cursor must be a non-negative integer offset.');
   }
+  const filterMapping = await getSearchFilterMapping(client, body.filters);
 
   const result = await client.productSearch.queryByTerm({
     search: {
       term: body.query ?? '',
       facets: [],
-      filters: [],
+      filters: filterMapping.filters,
       paginationOptions: {
         pageNumber: offsetToPageNumber(offset, pageSize),
         pageSize,
       },
+      ...(filterMapping.categoryFilter ? { categoryFilter: filterMapping.categoryFilter } : {}),
     },
   });
 
@@ -245,6 +250,7 @@ async function handleCatalogSearch(
     ucp: createUcpSuccessMetadata(),
     products: result.value.items.map((product) => toUcpProduct(product)),
     pagination: toUcpPagination(result.value),
+    ...(filterMapping.messages.length > 0 ? { messages: filterMapping.messages } : {}),
   };
 }
 
@@ -849,8 +855,151 @@ function createUCPError<TResponse>(
   } as TResponse;
 }
 
+function createUcpWarning(
+  code: string,
+  content: string,
+  path: string,
+): UCPMessage {
+  return {
+    type: 'warning',
+    code,
+    path,
+    content,
+    content_type: 'plain',
+    presentation: 'notice',
+  };
+}
+
 function getLimit(body: UCPCatalogSearchRequest): number {
   return body.pagination?.limit ?? 10;
+}
+
+async function getSearchFilterMapping(
+  client: ReactionaryUCPClient,
+  filters: UCPCatalogSearchRequest['filters'],
+): Promise<{
+  categoryFilter?: FacetValueIdentifier;
+  filters: string[];
+  messages: UCPMessage[];
+}> {
+  if (!filters) {
+    return {
+      filters: [],
+      messages: [],
+    };
+  }
+
+  const messages: UCPMessage[] = [];
+  const categoryFilter = await getCategoryFilter(client, filters.categories, messages);
+
+  if (filters.price) {
+    messages.push(createUcpWarning(
+      'price_filter_ignored',
+      'Price filters are not supported by Reactionary product search yet and were ignored.',
+      '$.filters.price',
+    ));
+  }
+
+  return {
+    ...(categoryFilter ? { categoryFilter } : {}),
+    filters: getExtensionFilters(filters),
+    messages,
+  };
+}
+
+async function getCategoryFilter(
+  client: ReactionaryUCPClient,
+  categories: string[] | undefined,
+  messages: UCPMessage[],
+): Promise<FacetValueIdentifier | undefined> {
+  const [category, ...additionalCategories] = categories ?? [];
+  if (!category) {
+    return undefined;
+  }
+
+  if (additionalCategories.length > 0) {
+    messages.push(createUcpWarning(
+      'additional_categories_ignored',
+      'Reactionary product search currently supports one category filter; additional UCP category filters were ignored.',
+      '$.filters.categories',
+    ));
+  }
+
+  const productSearch = client.productSearch;
+  if (!productSearch?.createCategoryNavigationFilter) {
+    return {
+      facet: { key: 'categories' },
+      key: category,
+    };
+  }
+
+  const result = await productSearch.createCategoryNavigationFilter({
+    categoryPath: toReactionaryCategoryPath(category),
+  });
+
+  if (!result.success) {
+    messages.push(createUcpWarning(
+      'category_filter_ignored',
+      `Category filter could not be resolved and was ignored: ${category}`,
+      '$.filters.categories[0]',
+    ));
+    return undefined;
+  }
+
+  return result.value;
+}
+
+function toReactionaryCategoryPath(
+  category: string,
+): Category[] {
+  return category
+    .split('>')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .map((part) => ({
+      identifier: { key: part },
+      name: part,
+      slug: '',
+      text: '',
+      images: [],
+    }));
+}
+
+function getExtensionFilters(
+  filters: UCPCatalogSearchRequest['filters'],
+): string[] {
+  if (!filters) {
+    return [];
+  }
+
+  return Object.entries(filters)
+    .filter(([key]) => key !== 'categories' && key !== 'price')
+    .flatMap(([key, value]) => toReactionaryFilterStrings(key, value));
+}
+
+function toReactionaryFilterStrings(
+  key: string,
+  value: unknown,
+): string[] {
+  if (value === undefined || value === null) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => toReactionaryFilterStrings(key, item));
+  }
+
+  return [`${key}:${formatFilterValue(value)}`];
+}
+
+function formatFilterValue(
+  value: unknown,
+): string {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  return JSON.stringify(value);
 }
 
 function getPaginationOffset(

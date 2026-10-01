@@ -1,4 +1,4 @@
-import type { Cache, Cart, Checkout, Client, Order, Product, ProductSearchResult, RequestContext, Result } from '@reactionary/core';
+import type { Cache, Cart, Checkout, Client, FacetValueIdentifier, Order, Product, ProductSearchResult, RequestContext, Result } from '@reactionary/core';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { components } from './ucp-shopping.openapi.js';
 
@@ -30,6 +30,7 @@ type UCPMethod<TMethod extends (payload: never) => Promise<unknown>, TValue> = (
 
 export type ReactionaryUCPClient = object & {
   productSearch?: {
+    createCategoryNavigationFilter?: UCPMethod<Client['productSearch']['createCategoryNavigationFilter'], FacetValueIdentifier>;
     queryByTerm: UCPMethod<Client['productSearch']['queryByTerm'], ProductSearchResult>;
   };
   product?: {
