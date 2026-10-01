@@ -3,6 +3,7 @@ import {
   MemoryCache,
   Reactionary,
   success,
+  type Cache,
   type RequestContext,
   type Result,
 } from '@reactionary/core';
@@ -42,6 +43,14 @@ class TestProductSearchCapability extends BaseCapability {
 }
 
 class TestCartCapability extends BaseCapability {
+  public constructor(
+    cache: Cache,
+    context: RequestContext,
+    private readonly onAdd?: () => void,
+  ) {
+    super(cache, context);
+  }
+
   @Reactionary({
     inputSchema: z.object({
       sku: z.string(),
@@ -52,7 +61,20 @@ class TestCartCapability extends BaseCapability {
     }),
   })
   public async add(): Promise<Result<unknown>> {
+    this.onAdd?.();
     return success({ identifier: { key: 'cart-1' } });
+  }
+
+  @Reactionary({
+    inputSchema: z.object({
+      key: z.string(),
+    }),
+    outputSchema: z.object({
+      identifier: z.object({ key: z.string() }),
+    }),
+  })
+  public async createCart(): Promise<Result<unknown>> {
+    return success({ identifier: { key: 'cart-created' } });
   }
 
   protected getResourceName(): string {
@@ -191,6 +213,122 @@ describe('ReactionaryUCPServer', () => {
             name: 'Test product',
           },
         ],
+      },
+    });
+  });
+
+  it('echoes request ids and replays mutating actions by idempotency key within a session', async () => {
+    let addCalls = 0;
+    const server = new ReactionaryUCPServer(
+      (requestContext) => ({
+        cart: new TestCartCapability(
+          new MemoryCache(),
+          requestContext,
+          () => {
+            addCalls += 1;
+          },
+        ),
+      }),
+      { sessionCache: new MemoryCache() },
+    );
+    const payload = {
+      action: 'cart.add_item',
+      idempotency_key: 'add-sku-1',
+      payload: {
+        sku: 'sku-1',
+        quantity: 1,
+      },
+    };
+
+    const firstResponse = await server.fetch(
+      new Request('http://127.0.0.1/ucp', {
+        method: 'POST',
+        body: JSON.stringify({
+          request_id: 'request-1',
+          ...payload,
+        }),
+      }),
+    );
+    const sessionId = firstResponse.headers.get('ucp-session-id');
+    const firstBody = await firstResponse.json();
+
+    const secondResponse = await server.fetch(
+      new Request('http://127.0.0.1/ucp', {
+        method: 'POST',
+        headers: {
+          'ucp-session-id': sessionId ?? '',
+        },
+        body: JSON.stringify({
+          request_id: 'request-2',
+          ...payload,
+        }),
+      }),
+    );
+    const secondBody = await secondResponse.json();
+
+    expect(addCalls).toBe(1);
+    expect(firstBody).toMatchObject({
+      request_id: 'request-1',
+      idempotency_key: 'add-sku-1',
+      action: 'cart.add_item',
+      success: true,
+    });
+    expect(secondBody).toMatchObject({
+      request_id: 'request-2',
+      idempotency_key: 'add-sku-1',
+      action: 'cart.add_item',
+      success: true,
+      value: {
+        identifier: { key: 'cart-1' },
+      },
+    });
+  });
+
+  it('rejects idempotency key reuse for a different mutating action', async () => {
+    const server = new ReactionaryUCPServer(
+      (requestContext) => ({
+        cart: new TestCartCapability(new MemoryCache(), requestContext),
+      }),
+      { sessionCache: new MemoryCache() },
+    );
+
+    const firstResponse = await server.fetch(
+      new Request('http://127.0.0.1/ucp', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'cart.add_item',
+          idempotency_key: 'cart-mutation-1',
+          payload: {
+            sku: 'sku-1',
+            quantity: 1,
+          },
+        }),
+      }),
+    );
+    const sessionId = firstResponse.headers.get('ucp-session-id');
+
+    const secondResponse = await server.fetch(
+      new Request('http://127.0.0.1/ucp', {
+        method: 'POST',
+        headers: {
+          'ucp-session-id': sessionId ?? '',
+        },
+        body: JSON.stringify({
+          action: 'cart.create',
+          idempotency_key: 'cart-mutation-1',
+          payload: {
+            key: 'new-cart',
+          },
+        }),
+      }),
+    );
+    const secondBody = await secondResponse.json();
+
+    expect(secondResponse.status).toBe(409);
+    expect(secondBody).toMatchObject({
+      idempotency_key: 'cart-mutation-1',
+      error: {
+        code: 'IDEMPOTENCY_KEY_CONFLICT',
       },
     });
   });

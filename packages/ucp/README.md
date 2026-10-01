@@ -105,6 +105,7 @@ For example, a configured client with `product-search.queryByTerm` and `cart.add
 
 ```json
 {
+  "request_id": "agent-request-1",
   "action": "product.search",
   "payload": {
     "term": "shoes",
@@ -122,6 +123,7 @@ Responses preserve the Reactionary `Result` shape and include the invoked action
 
 ```json
 {
+  "request_id": "agent-request-1",
   "action": "product.search",
   "success": true,
   "value": {
@@ -138,6 +140,30 @@ Responses preserve the Reactionary `Result` shape and include the invoked action
 ```
 
 Unavailable actions return `404 UCP_ACTION_NOT_AVAILABLE`. Invalid requests return `400 INVALID_UCP_ACTION_REQUEST`.
+
+## Request IDs and idempotency
+
+`request_id` is optional and echoed in the response so agents can correlate calls and responses.
+
+Mutating actions also support an optional `idempotency_key`:
+
+```json
+{
+  "request_id": "agent-request-2",
+  "action": "cart.add_item",
+  "idempotency_key": "add-sku-1",
+  "payload": {
+    "sku": "sku-1",
+    "quantity": 1
+  }
+}
+```
+
+When a mutating action is called with an `idempotency_key`, the action outcome is cached in the current UCP session storage. Repeating the same mutating action with the same key in the same session replays the cached outcome instead of invoking the provider again. The replay still echoes the current `request_id`.
+
+Reusing the same idempotency key for a different mutating action in the same session returns `409 IDEMPOTENCY_KEY_CONFLICT`.
+
+Idempotency records use the same TTL and cache backend as UCP session state. For the intended agent flow, a session is expected to be short-lived and contain a small number of requests.
 
 ## Default action names
 
