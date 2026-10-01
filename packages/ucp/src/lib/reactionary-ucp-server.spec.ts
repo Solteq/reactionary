@@ -27,6 +27,8 @@ const TestCartOutputSchema = z.looseObject({
 });
 
 class TestProductSearchCapability extends BaseCapability {
+  public lastPayload: unknown;
+
   @Reactionary({
     inputSchema: z.looseObject({
       term: z.string().optional().meta({ description: 'Configured project search term' }),
@@ -44,20 +46,24 @@ class TestProductSearchCapability extends BaseCapability {
     description: 'Searches products using the configured client schema',
   })
   public async queryByTerm(payload: unknown): Promise<Result<ProductSearchResult>> {
+    this.lastPayload = payload;
     this.context.session['test.lastSearch'] = payload;
+    const pageNumber = getSearchPageNumber(payload);
+    const pageSize = getSearchPageSize(payload);
+
     return success({
-      pageNumber: 1,
-      pageSize: 10,
-      totalCount: 1,
-      totalPages: 1,
+      pageNumber,
+      pageSize,
+      totalCount: 12,
+      totalPages: 3,
       facets: [],
       identifier: {
         term: 'test',
         facets: [],
         filters: [],
         paginationOptions: {
-          pageNumber: 1,
-          pageSize: 10,
+          pageNumber,
+          pageSize,
         },
       },
       items: [
@@ -78,6 +84,30 @@ class TestProductSearchCapability extends BaseCapability {
   protected getResourceName(): string {
     return 'product-search';
   }
+}
+
+function getSearchPageNumber(payload: unknown): number {
+  const parsed = z.looseObject({
+    search: z.looseObject({
+      paginationOptions: z.looseObject({
+        pageNumber: z.number(),
+      }),
+    }),
+  }).safeParse(payload);
+
+  return parsed.success ? parsed.data.search.paginationOptions.pageNumber : 1;
+}
+
+function getSearchPageSize(payload: unknown): number {
+  const parsed = z.looseObject({
+    search: z.looseObject({
+      paginationOptions: z.looseObject({
+        pageSize: z.number(),
+      }),
+    }),
+  }).safeParse(payload);
+
+  return parsed.success ? parsed.data.search.paginationOptions.pageSize : 10;
 }
 
 class TestCartCapability extends BaseCapability {
@@ -404,8 +434,9 @@ describe('ReactionaryUCPServer', () => {
   });
 
   it('serves canonical UCP catalog search over REST', async () => {
-    const server = new ReactionaryUCPServer((requestContext) => ({
-      productSearch: new TestProductSearchCapability(new MemoryCache(), requestContext),
+    const productSearch = new TestProductSearchCapability(new MemoryCache(), createInitialRequestContext());
+    const server = new ReactionaryUCPServer(() => ({
+      productSearch,
     }), {
       profile: {
         endpoint: 'https://shop.example.com/ucp',
@@ -424,6 +455,7 @@ describe('ReactionaryUCPServer', () => {
         body: JSON.stringify({
           query: 'shirt',
           pagination: {
+            cursor: '5',
             limit: 5,
           },
         }),
@@ -444,6 +476,19 @@ describe('ReactionaryUCPServer', () => {
           variants: [],
         },
       ],
+      pagination: {
+        cursor: '10',
+        has_next_page: true,
+        total_count: 12,
+      },
+    });
+    expect(productSearch.lastPayload).toMatchObject({
+      search: {
+        paginationOptions: {
+          pageNumber: 2,
+          pageSize: 5,
+        },
+      },
     });
   });
 
