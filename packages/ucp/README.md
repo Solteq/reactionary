@@ -2,7 +2,7 @@
 
 Framework shell for exposing Reactionary through a Universal Commerce Protocol (UCP) HTTP surface.
 
-This package exposes a thin Universal Commerce Protocol (UCP) HTTP surface on top of an instantiated Reactionary client. It serves the UCP discovery profile, a canonical Shopping REST surface, and a small Reactionary-native action catalog for diagnostics and project-specific extensions.
+This package exposes a thin Universal Commerce Protocol (UCP) HTTP surface on top of an instantiated Reactionary client. It serves the UCP discovery profile and a canonical Shopping REST surface.
 
 ## Design goals
 
@@ -71,9 +71,8 @@ new ReactionaryUCPServer(createClient, {
 
 - `GET /.well-known/ucp` returns a UCP discovery profile for the official Shopping REST service.
 - Canonical Shopping REST endpoints are available below the configured `profile.endpoint` path.
-- `GET` / `HEAD` on the mounted handler returns a diagnostic readiness document with the available Reactionary action catalog.
 - `OPTIONS` returns allowed methods.
-- `POST` on the mounted handler invokes a diagnostic Reactionary-native action.
+- Unmatched routes return `404 NOT_FOUND`.
 
 ## UCP discovery profile
 
@@ -135,141 +134,12 @@ REST requests may include:
 - `Request-Id`: echoed in the response header.
 - `Idempotency-Key`: supported for mutating REST endpoints and stored in the UCP session cache. Reusing a key with a different mutation payload returns `409`.
 
-## Action discovery
-
-The diagnostic action catalog discovers actions from decorated Reactionary capabilities exposed by the client returned from the factory. This uses the same runtime metadata path as `@reactionary/mcp`: capabilities that extend `BaseCapability` and annotate methods with `@Reactionary({ inputSchema, outputSchema })` become UCP actions.
-
-The advertised schemas are generated from the **configured capability instance**, not from hardcoded UCP schema references. If a project overrides a capability or factory schema, UCP discovery reflects that configured schema.
-
-For example, a configured client with `product-search.queryByTerm` and `cart.add` exposes `product.search` and `cart.add_item`.
-
-```json
-{
-  "name": "@reactionary/ucp",
-  "version": "0.0.1",
-  "protocol": "ucp",
-  "status": "ready",
-  "actions": [
-    {
-      "name": "product.search",
-      "title": "Search products",
-      "description": "Search the product catalog by term, facets, filters, and pagination options.",
-      "capability": "product-search",
-      "method": "queryByTerm",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "term": {
-            "type": "string"
-          }
-        }
-      },
-      "outputSchema": {
-        "type": "object"
-      },
-      "mutates": false,
-      "idempotent": true,
-      "requiresAuth": false,
-      "riskLevel": "low"
-    }
-  ]
-}
-```
-
-## Invoking actions
-
-`POST` accepts an action name and a payload. The payload is passed through to the corresponding Reactionary capability method.
-
-```json
-{
-  "request_id": "agent-request-1",
-  "action": "product.search",
-  "payload": {
-    "term": "shoes",
-    "facets": [],
-    "filters": [],
-    "paginationOptions": {
-      "pageNumber": 1,
-      "pageSize": 10
-    }
-  }
-}
-```
-
-Responses preserve the Reactionary `Result` shape and include the invoked action name:
-
-```json
-{
-  "request_id": "agent-request-1",
-  "action": "product.search",
-  "success": true,
-  "value": {
-    "items": []
-  },
-  "meta": {
-    "trace": "",
-    "cache": {
-      "hit": false,
-      "key": ""
-    }
-  }
-}
-```
-
-Unavailable actions return `404 UCP_ACTION_NOT_AVAILABLE`. Invalid requests return `400 INVALID_UCP_ACTION_REQUEST`.
-
 ## Request IDs and idempotency
 
-`request_id` is optional and echoed in the response so agents can correlate calls and responses.
+`Request-Id` is optional and echoed in the response header so agents can correlate calls and responses.
 
-Mutating actions also support an optional `idempotency_key`:
+Mutating REST endpoints also support an optional `Idempotency-Key` header. When a mutating REST request is called with an `Idempotency-Key`, the response is cached in the current UCP session storage. Repeating the same mutating request with the same key and payload in the same session replays the cached response instead of invoking the provider again.
 
-```json
-{
-  "request_id": "agent-request-2",
-  "action": "cart.add_item",
-  "idempotency_key": "add-sku-1",
-  "payload": {
-    "sku": "sku-1",
-    "quantity": 1
-  }
-}
-```
-
-When a mutating action is called with an `idempotency_key`, the action outcome is cached in the current UCP session storage. Repeating the same mutating action with the same key in the same session replays the cached outcome instead of invoking the provider again. The replay still echoes the current `request_id`.
-
-Reusing the same idempotency key for a different mutating action in the same session returns `409 IDEMPOTENCY_KEY_CONFLICT`.
+Reusing the same idempotency key for a different mutating REST route or payload in the same session returns `409 idempotency_key_conflict`.
 
 Idempotency records use the same TTL and cache backend as UCP session state. For the intended agent flow, a session is expected to be short-lived and contain a small number of requests.
-
-## Default action names
-
-The current default aliases mirror existing Reactionary capability methods. Any decorated capability method without a friendly alias is still discoverable as `<capability>.<method>`.
-
-| UCP action | Reactionary capability method |
-| --- | --- |
-| `product.search` | `product-search.queryByTerm` |
-| `product.get_by_id` | `product.getById` |
-| `product.get_by_slug` | `product.getBySlug` |
-| `product.get_by_sku` | `product.getBySKU` |
-| `cart.get` | `cart.getById` |
-| `cart.get_active_id` | `cart.getActiveCartId` |
-| `cart.list` | `cart.listCarts` |
-| `cart.create` | `cart.createCart` |
-| `cart.add_item` | `cart.add` |
-| `cart.remove_item` | `cart.remove` |
-| `cart.change_quantity` | `cart.changeQuantity` |
-| `cart.delete` | `cart.deleteCart` |
-| `cart.rename` | `cart.renameCart` |
-| `cart.apply_coupon` | `cart.applyCouponCode` |
-| `cart.remove_coupon` | `cart.removeCouponCode` |
-| `cart.change_currency` | `cart.changeCurrency` |
-| `checkout.initiate` | `checkout.initiateCheckoutForCart` |
-| `checkout.get` | `checkout.getById` |
-| `checkout.set_shipping_address` | `checkout.setShippingAddress` |
-| `checkout.list_shipping_methods` | `checkout.getAvailableShippingMethods` |
-| `checkout.list_payment_methods` | `checkout.getAvailablePaymentMethods` |
-| `checkout.add_payment_instruction` | `checkout.addPaymentInstruction` |
-| `checkout.remove_payment_instruction` | `checkout.removePaymentInstruction` |
-| `checkout.set_shipping_instruction` | `checkout.setShippingInstruction` |
-| `checkout.finalize` | `checkout.finalizeCheckout` |

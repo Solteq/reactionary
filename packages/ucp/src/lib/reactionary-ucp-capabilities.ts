@@ -12,10 +12,12 @@ export function getCapability(
   client: ReactionaryUCPClient,
   name: string,
 ): BaseCapability | undefined {
-  return Object.values(client).find((value) => (
+  const capability = Object.values(client).find((value) => (
     value instanceof BaseCapability &&
     getCapabilityResourceName(value) === name
   ));
+
+  return capability instanceof BaseCapability ? capability : undefined;
 }
 
 function getCapabilityResourceName(

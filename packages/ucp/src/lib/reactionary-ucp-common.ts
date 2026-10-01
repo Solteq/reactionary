@@ -1,4 +1,4 @@
-import type { Cache, RequestContext } from '@reactionary/core';
+import type { Cache, Cart, Checkout, Client, Order, Product, ProductSearchResult, RequestContext, Result } from '@reactionary/core';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { components } from './ucp-shopping.openapi.js';
 
@@ -24,15 +24,42 @@ export interface ReactionaryUCPProfile {
   };
 }
 
-export type ReactionaryUCPClient = object;
+type UCPMethod<TMethod extends (payload: never) => Promise<unknown>, TValue> = (
+  payload: Parameters<TMethod>[0],
+) => Promise<Result<TValue, unknown>>;
+
+export type ReactionaryUCPClient = object & {
+  productSearch?: {
+    queryByTerm: UCPMethod<Client['productSearch']['queryByTerm'], ProductSearchResult>;
+  };
+  product?: {
+    getById: UCPMethod<Client['product']['getById'], Product>;
+    getBySKU: UCPMethod<Client['product']['getBySKU'], Product>;
+  };
+  cart?: {
+    add: UCPMethod<Client['cart']['add'], Cart>;
+    changeQuantity: UCPMethod<Client['cart']['changeQuantity'], Cart>;
+    createCart: UCPMethod<Client['cart']['createCart'], Cart>;
+    deleteCart: UCPMethod<Client['cart']['deleteCart'], void>;
+    getById: UCPMethod<Client['cart']['getById'], Cart>;
+    remove: UCPMethod<Client['cart']['remove'], Cart>;
+  };
+  checkout?: {
+    addPaymentInstruction: UCPMethod<Client['checkout']['addPaymentInstruction'], Checkout>;
+    finalizeCheckout: UCPMethod<Client['checkout']['finalizeCheckout'], Checkout>;
+    getById: UCPMethod<Client['checkout']['getById'], Checkout>;
+    initiateCheckoutForCart: UCPMethod<Client['checkout']['initiateCheckoutForCart'], Checkout>;
+  };
+  order?: {
+    getById: UCPMethod<Client['order']['getById'], Order>;
+  };
+};
 
 export type ReactionaryUCPClientFactory<TClient extends ReactionaryUCPClient = ReactionaryUCPClient> = (
   requestContext: RequestContext,
 ) => TClient;
 
 export interface ReactionaryUCPServerOptions {
-  name?: string;
-  version?: string;
   sessionCache?: Cache;
   sessionTtlSeconds?: number;
   profile?: ReactionaryUCPProfileOptions;

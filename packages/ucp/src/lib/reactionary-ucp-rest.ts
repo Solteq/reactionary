@@ -1,19 +1,14 @@
 import type {
-  BaseCapability,
   Cart,
   Checkout,
   MonetaryAmount,
-  Order,
   Product,
   ProductSearchResultItem,
   ProductSearchResultItemVariant,
   ProductVariant,
-  ProductSearchResult,
-  Result,
 } from '@reactionary/core';
 import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPClient } from './reactionary-ucp-common.js';
-import { getCapability } from './reactionary-ucp-capabilities.js';
 import { jsonResponse } from './reactionary-ucp-http.js';
 import type { ReactionaryUCPSessionStore } from './reactionary-ucp-session-store.js';
 
@@ -42,7 +37,6 @@ type UCPOrderResponse = UCPOrder | UCPErrorResponse;
 type UCPProduct = components['schemas']['product'];
 type UCPVariant = components['schemas']['variant'];
 type UCPLineItem = components['schemas']['line_item'];
-type UCPResult = Result<unknown, unknown>;
 
 export async function handleRestRequest(
   request: Request,
@@ -220,21 +214,21 @@ async function handleCatalogSearch(
   client: ReactionaryUCPClient,
   body: UCPCatalogSearchRequest,
 ): Promise<UCPCatalogSearchResponse> {
-  const capability = getCapability(client, 'product-search');
-  if (!capability) {
+  if (!client.productSearch) {
     return createUCPError('not_available', 'Product search capability is not available.');
   }
 
-  const result = await callReactionaryCapability<ProductSearchResult>(
-    capability,
-    'queryByTerm',
-    {
+  const result = await client.productSearch.queryByTerm({
+    search: {
       term: body.query ?? '',
+      facets: [],
+      filters: [],
       paginationOptions: {
+        pageNumber: 1,
         pageSize: getLimit(body),
       },
     },
-  );
+  });
 
   if (!result.success) {
     return createUCPError('search_failed', 'Catalog search failed.');
@@ -285,16 +279,11 @@ async function handleCreateCart(
   client: ReactionaryUCPClient,
   body: UCPCart,
 ): Promise<UCPCartResponse> {
-  const cartCapability = getCapability(client, 'cart');
-  if (!cartCapability) {
+  if (!client.cart) {
     return createUCPError('not_available', 'Cart capability is not available.');
   }
 
-  const createResult = await callReactionaryCapability<Cart>(
-    cartCapability,
-    'createCart',
-    {},
-  );
+  const createResult = await client.cart.createCart({});
 
   if (!createResult.success) {
     return createUCPError('cart_create_failed', 'Cart creation failed.');
@@ -306,17 +295,13 @@ async function handleCreateCart(
       return createUCPError('cart_add_failed', 'Unable to add cart line item without an item id.');
     }
 
-    const addResult = await callReactionaryCapability<Cart>(
-      cartCapability,
-      'add',
-      {
-        cart: cart.identifier,
-        variant: {
-          sku: lineItem.item.id,
-        },
-        quantity: lineItem.quantity,
+    const addResult = await client.cart.add({
+      cart: cart.identifier,
+      variant: {
+        sku: lineItem.item.id,
       },
-    );
+      quantity: lineItem.quantity,
+    });
 
     if (!addResult.success) {
       return createUCPError('cart_add_failed', `Unable to add item to cart: ${lineItem.item.id}`);
@@ -332,16 +317,11 @@ async function handleGetCart(
   client: ReactionaryUCPClient,
   cartId: string,
 ): Promise<UCPCartResponse> {
-  const cartCapability = getCapability(client, 'cart');
-  if (!cartCapability) {
+  if (!client.cart) {
     return createUCPError('not_available', 'Cart capability is not available.');
   }
 
-  const result = await callReactionaryCapability<Cart>(
-    cartCapability,
-    'getById',
-    { cart: { key: cartId } },
-  );
+  const result = await client.cart.getById({ cart: { key: cartId } });
 
   if (!result.success) {
     return createUCPError('not_found', `Cart was not found: ${cartId}`);
@@ -355,16 +335,11 @@ async function handleUpdateCart(
   cartId: string,
   body: UCPCart,
 ): Promise<UCPCartResponse> {
-  const cartCapability = getCapability(client, 'cart');
-  if (!cartCapability) {
+  if (!client.cart) {
     return createUCPError('not_available', 'Cart capability is not available.');
   }
 
-  const current = await callReactionaryCapability<Cart>(
-    cartCapability,
-    'getById',
-    { cart: { key: cartId } },
-  );
+  const current = await client.cart.getById({ cart: { key: cartId } });
 
   if (!current.success) {
     return createUCPError('not_found', `Cart was not found: ${cartId}`);
@@ -381,14 +356,10 @@ async function handleUpdateCart(
     const desiredItem = desiredItems.get(sku);
 
     if (!desiredItem) {
-      const removeResult = await callReactionaryCapability<Cart>(
-        cartCapability,
-        'remove',
-        {
-          cart: current.value.identifier,
-          item: existingItem.identifier,
-        },
-      );
+      const removeResult = await client.cart.remove({
+        cart: current.value.identifier,
+        item: existingItem.identifier,
+      });
 
       if (!removeResult.success) {
         return createUCPError('cart_update_failed', `Unable to remove item from cart: ${sku}`);
@@ -399,15 +370,11 @@ async function handleUpdateCart(
     }
 
     if (existingItem.quantity !== desiredItem.quantity) {
-      const quantityResult = await callReactionaryCapability<Cart>(
-        cartCapability,
-        'changeQuantity',
-        {
-          cart: current.value.identifier,
-          item: existingItem.identifier,
-          quantity: desiredItem.quantity,
-        },
-      );
+      const quantityResult = await client.cart.changeQuantity({
+        cart: current.value.identifier,
+        item: existingItem.identifier,
+        quantity: desiredItem.quantity,
+      });
 
       if (!quantityResult.success) {
         return createUCPError('cart_update_failed', `Unable to change quantity for cart item: ${sku}`);
@@ -423,17 +390,13 @@ async function handleUpdateCart(
       continue;
     }
 
-    const addResult = await callReactionaryCapability<Cart>(
-      cartCapability,
-      'add',
-      {
-        cart: current.value.identifier,
-        variant: {
-          sku: desiredItem.item.id,
-        },
-        quantity: desiredItem.quantity,
+    const addResult = await client.cart.add({
+      cart: current.value.identifier,
+      variant: {
+        sku: desiredItem.item.id,
       },
-    );
+      quantity: desiredItem.quantity,
+    });
 
     if (!addResult.success) {
       return createUCPError('cart_update_failed', `Unable to add item to cart: ${desiredItem.item.id}`);
@@ -449,21 +412,12 @@ async function handleCancelCart(
   client: ReactionaryUCPClient,
   cartId: string,
 ): Promise<UCPCartResponse> {
-  const cartCapability = getCapability(client, 'cart');
-  if (!cartCapability) {
+  if (!client.cart) {
     return createUCPError('not_available', 'Cart capability is not available.');
   }
 
-  const current = await callReactionaryCapability<Cart>(
-    cartCapability,
-    'getById',
-    { cart: { key: cartId } },
-  );
-  const deleted = await callReactionaryCapability<void>(
-    cartCapability,
-    'deleteCart',
-    { cart: { key: cartId } },
-  );
+  const current = await client.cart.getById({ cart: { key: cartId } });
+  const deleted = await client.cart.deleteCart({ cart: { key: cartId } });
 
   if (!deleted.success) {
     return createUCPError('cart_cancel_failed', `Unable to cancel cart: ${cartId}`);
@@ -476,8 +430,7 @@ async function handleCreateCheckout(
   client: ReactionaryUCPClient,
   body: UCPCheckoutRequest,
 ): Promise<UCPCheckoutResponse> {
-  const checkoutCapability = getCapability(client, 'checkout');
-  if (!checkoutCapability) {
+  if (!client.checkout) {
     return createUCPError('not_available', 'Checkout capability is not available.');
   }
 
@@ -489,11 +442,7 @@ async function handleCreateCheckout(
     return createUCPError('invalid_request', 'A checkout session requires cart_id or line_items.');
   }
 
-  const result = await callReactionaryCapability<Checkout>(
-    checkoutCapability,
-    'initiateCheckoutForCart',
-    { cart },
-  );
+  const result = await client.checkout.initiateCheckoutForCart({ cart });
 
   if (!result.success) {
     return createUCPError('checkout_create_failed', 'Checkout session creation failed.');
@@ -506,16 +455,11 @@ async function handleGetCheckout(
   client: ReactionaryUCPClient,
   checkoutId: string,
 ): Promise<UCPCheckoutResponse> {
-  const checkoutCapability = getCapability(client, 'checkout');
-  if (!checkoutCapability) {
+  if (!client.checkout) {
     return createUCPError('not_available', 'Checkout capability is not available.');
   }
 
-  const result = await callReactionaryCapability<Checkout>(
-    checkoutCapability,
-    'getById',
-    { identifier: { key: checkoutId } },
-  );
+  const result = await client.checkout.getById({ identifier: { key: checkoutId } });
 
   if (!result.success) {
     return createUCPError('not_found', `Checkout was not found: ${checkoutId}`);
@@ -529,16 +473,11 @@ async function handleUpdateCheckout(
   checkoutId: string,
   body: UCPCheckoutRequest,
 ): Promise<UCPCheckoutResponse> {
-  const checkoutCapability = getCapability(client, 'checkout');
-  if (!checkoutCapability) {
+  if (!client.checkout) {
     return createUCPError('not_available', 'Checkout capability is not available.');
   }
 
-  const current = await callReactionaryCapability<Checkout>(
-    checkoutCapability,
-    'getById',
-    { identifier: { key: checkoutId } },
-  );
+  const current = await client.checkout.getById({ identifier: { key: checkoutId } });
 
   if (!current.success) {
     return createUCPError('not_found', `Checkout was not found: ${checkoutId}`);
@@ -547,26 +486,22 @@ async function handleUpdateCheckout(
   let checkout = current.value;
   const selectedInstrument = body.payment?.instruments?.find((instrument) => instrument.selected);
   if (selectedInstrument) {
-    const paymentResult = await callReactionaryCapability<Checkout>(
-      checkoutCapability,
-      'addPaymentInstruction',
-      {
-        checkout: checkout.identifier,
-        paymentInstruction: {
-          amount: checkout.price.grandTotal,
-          paymentMethod: {
-            method: selectedInstrument.type,
-            name: selectedInstrument.id,
-            paymentProcessor: selectedInstrument.handler_id,
-          },
-          protocolData: [
-            { key: 'ucp_payment_instrument_id', value: selectedInstrument.id },
-            { key: 'ucp_payment_handler_id', value: selectedInstrument.handler_id },
-            { key: 'ucp_payment_instrument_type', value: selectedInstrument.type },
-          ],
+    const paymentResult = await client.checkout.addPaymentInstruction({
+      checkout: checkout.identifier,
+      paymentInstruction: {
+        amount: checkout.price.grandTotal,
+        paymentMethod: {
+          method: selectedInstrument.type,
+          name: selectedInstrument.id,
+          paymentProcessor: selectedInstrument.handler_id,
         },
+        protocolData: [
+          { key: 'ucp_payment_instrument_id', value: selectedInstrument.id },
+          { key: 'ucp_payment_handler_id', value: selectedInstrument.handler_id },
+          { key: 'ucp_payment_instrument_type', value: selectedInstrument.type },
+        ],
       },
-    );
+    });
 
     if (!paymentResult.success) {
       return createUCPError('checkout_update_failed', 'Unable to add selected payment instruction.');
@@ -582,16 +517,11 @@ async function handleCompleteCheckout(
   client: ReactionaryUCPClient,
   checkoutId: string,
 ): Promise<UCPCheckoutResponse> {
-  const checkoutCapability = getCapability(client, 'checkout');
-  if (!checkoutCapability) {
+  if (!client.checkout) {
     return createUCPError('not_available', 'Checkout capability is not available.');
   }
 
-  const result = await callReactionaryCapability<Checkout>(
-    checkoutCapability,
-    'finalizeCheckout',
-    { checkout: { key: checkoutId } },
-  );
+  const result = await client.checkout.finalizeCheckout({ checkout: { key: checkoutId } });
 
   if (!result.success) {
     return createUCPError('checkout_complete_failed', 'Checkout completion failed.');
@@ -604,16 +534,11 @@ async function handleGetOrder(
   client: ReactionaryUCPClient,
   orderId: string,
 ): Promise<UCPOrderResponse> {
-  const orderCapability = getCapability(client, 'order');
-  if (!orderCapability) {
+  if (!client.order) {
     return createUCPError('not_available', 'Order capability is not available.');
   }
 
-  const result = await callReactionaryCapability<Order>(
-    orderCapability,
-    'getById',
-    { orderId },
-  );
+  const result = await client.order.getById({ order: { key: orderId } });
 
   if (!result.success) {
     return createUCPError('not_found', `Order was not found: ${orderId}`);
@@ -639,16 +564,11 @@ async function getReactionaryCart(
   client: ReactionaryUCPClient,
   cartId: string,
 ): Promise<Cart | undefined> {
-  const cartCapability = getCapability(client, 'cart');
-  if (!cartCapability) {
+  if (!client.cart) {
     return undefined;
   }
 
-  const result = await callReactionaryCapability<Cart>(
-    cartCapability,
-    'getById',
-    { cart: { key: cartId } },
-  );
+  const result = await client.cart.getById({ cart: { key: cartId } });
 
   return result.success ? result.value : undefined;
 }
@@ -676,72 +596,18 @@ async function getReactionaryProduct(
   client: ReactionaryUCPClient,
   id: string,
 ): Promise<Product | undefined> {
-  const productCapability = getCapability(client, 'product');
-  if (!productCapability) {
+  if (!client.product) {
     return undefined;
   }
 
-  const byId = await callReactionaryCapability<Product>(
-    productCapability,
-    'getById',
-    { id },
-  );
+  const byId = await client.product.getById({ identifier: { key: id } });
   if (byId.success) {
     return byId.value;
   }
 
-  const bySku = await callReactionaryCapability<Product>(
-    productCapability,
-    'getBySKU',
-    { sku: id },
-  );
+  const bySku = await client.product.getBySKU({ variant: { sku: id } });
 
   return bySku.success ? bySku.value : undefined;
-}
-
-async function callReactionaryCapability<TResult>(
-  capability: BaseCapability,
-  methodName: string,
-  payload: unknown,
-): Promise<Result<TResult, unknown>> {
-  const method: unknown = Reflect.get(capability, methodName);
-  if (typeof method !== 'function') {
-    return {
-      success: false,
-      meta: {
-        trace: '',
-      },
-      error: {
-        type: 'notSupported',
-        message: `Capability method is not available: ${methodName}`,
-      },
-    };
-  }
-
-  const result: unknown = await Reflect.apply(method, capability, [payload]);
-  if (!isReactionaryResult(result)) {
-    return {
-      success: false,
-      meta: {
-        trace: '',
-      },
-      error: {
-        type: 'invalidResult',
-        message: `Capability method did not return a Result: ${methodName}`,
-      },
-    };
-  }
-
-  return result as Result<TResult, unknown>;
-}
-
-function isReactionaryResult(value: unknown): value is UCPResult {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'success' in value &&
-    typeof value.success === 'boolean'
-  );
 }
 
 function toUcpProduct(
