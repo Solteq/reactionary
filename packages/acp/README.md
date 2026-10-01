@@ -1,16 +1,42 @@
 # @reactionary/acp
 
-Framework shell for exposing Reactionary through an Agentic Commerce Protocol (ACP) HTTP surface.
+HTTP adapter for exposing Reactionary checkout capabilities through the Agentic Commerce Protocol (ACP) checkout surface.
 
-This package intentionally does **not** implement the ACP action set yet. It establishes the hosting/runtime shape so ACP actions can be added without changing how applications mount the adapter.
+The package keeps Reactionary core protocol-neutral: host applications mount this adapter and provide a request-scoped Reactionary client factory.
 
-## Design goals
+## Implemented surface
 
-- Keep Reactionary core protocol-neutral.
-- Accept a Reactionary client factory instead of a singleton client.
-- Create a fresh `RequestContext` per request.
-- Persist only `RequestContext.session` between requests for the same ACP session.
-- Let host applications mount the handler in Next.js, Node, Express, or another HTTP framework.
+The adapter implements the merchant-hosted ACP checkout endpoints:
+
+- `POST /checkout_sessions`
+- `POST /checkout_sessions/{checkout_session_id}`
+- `GET /checkout_sessions/{checkout_session_id}`
+- `POST /checkout_sessions/{checkout_session_id}/complete`
+- `POST /checkout_sessions/{checkout_session_id}/cancel`
+
+It also serves a readiness document from `GET` / `HEAD`.
+
+If the adapter is mounted under `/acp`, both `/checkout_sessions/...` and `/acp/checkout_sessions/...` paths are understood. Set `basePath` when mounting somewhere else.
+
+## Required Reactionary capabilities
+
+The server validates the supplied client during construction and on every request. If the client does not expose the operations required by ACP checkout, the server does not initialize.
+
+Required operations:
+
+- `cart.createCart`
+- `cart.add`
+- `cart.getById`
+- `checkout.initiateCheckoutForCart`
+- `checkout.getById`
+- `checkout.setShippingAddress`
+- `checkout.getAvailableShippingMethods`
+- `checkout.getAvailablePaymentMethods`
+- `checkout.setShippingInstruction`
+- `checkout.addPaymentInstruction`
+- `checkout.finalizeCheckout`
+
+This is deliberate because Reactionary clients can be built with different capability sets. A partially capable client should fail fast instead of advertising ACP checkout.
 
 ## Usage
 
@@ -41,21 +67,29 @@ createServer((request, response) => {
 
 ## Session handling
 
-The server uses the `acp-session-id` header. If the request does not include one, the server creates a new session id and returns it in the response.
+The server uses two pieces of state:
 
-Session state is stored through the Reactionary `Cache` interface. The default is `MemoryCache`, which is useful for local development only.
+- `RequestContext.session`, keyed by the `acp-session-id` header.
+- ACP checkout-session state, keyed by `checkout_session_id`.
+
+If the request does not include `acp-session-id`, the server creates a new one and returns it in the response.
+
+State is stored through the Reactionary `Cache` interface. The default is `MemoryCache`, which is useful for local development only.
 
 ```ts
 new ReactionaryACPServer(createClient, {
   sessionCache: redisCache,
   sessionTtlSeconds: 60 * 60,
+  checkoutSessionTtlSeconds: 60 * 60,
 });
 ```
 
-## Current behavior
+## Mapping notes
 
-- `GET` / `HEAD` returns a readiness document.
-- `OPTIONS` returns allowed methods.
-- `POST` returns `501 ACP_ACTIONS_NOT_IMPLEMENTED`.
+- ACP item `id` maps to Reactionary `ProductVariantIdentifier.sku`.
+- ACP amounts are returned as integer minor units.
+- ACP payment data is passed as checkout payment-instruction protocol data with key `delegated_payment_token`.
+- Fulfillment options are sourced from `checkout.getAvailableShippingMethods`.
+- Payment provider information is sourced from `checkout.getAvailablePaymentMethods`, with a configurable fallback through `paymentProvider`.
 
-The next implementation step is to pin the ACP operation shape and add the default search/cart/checkout actions.
+Product-feed ingestion and order webhooks are separate ACP surfaces and are not implemented in this checkout adapter yet.
