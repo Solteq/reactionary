@@ -2,7 +2,7 @@
 
 Framework shell for exposing Reactionary through a Universal Commerce Protocol (UCP) HTTP surface.
 
-This package intentionally does **not** implement the UCP action set yet. It establishes the hosting/runtime shape so UCP actions can be added without changing how applications mount the adapter.
+This package exposes a thin Universal Commerce Protocol (UCP) HTTP surface on top of an instantiated Reactionary client. The first implementation keeps the wire format small and explicit: `GET` discovers available actions from the capabilities present on the client, and `POST` invokes one action with a JSON payload.
 
 ## Design goals
 
@@ -54,8 +54,100 @@ new ReactionaryUCPServer(createClient, {
 
 ## Current behavior
 
-- `GET` / `HEAD` returns a readiness document.
+- `GET` / `HEAD` returns a readiness document with the available action catalog.
 - `OPTIONS` returns allowed methods.
-- `POST` returns `501 UCP_ACTIONS_NOT_IMPLEMENTED`.
+- `POST` invokes an available UCP action.
 
-The next implementation step is to pin the UCP operation shape and add the default search/cart/checkout actions.
+## Action discovery
+
+The server discovers actions from the capabilities exposed by the client returned from the factory. For example, a client with `productSearch.queryByTerm` and `cart.add` exposes `product.search` and `cart.add_item`.
+
+```json
+{
+  "name": "@reactionary/ucp",
+  "version": "0.0.1",
+  "protocol": "ucp",
+  "status": "ready",
+  "actions": [
+    {
+      "name": "product.search",
+      "title": "Search products",
+      "description": "Search the product catalog by term, facets, filters, and pagination options.",
+      "capability": "productSearch",
+      "method": "queryByTerm"
+    }
+  ]
+}
+```
+
+## Invoking actions
+
+`POST` accepts an action name and a payload. The payload is passed through to the corresponding Reactionary capability method.
+
+```json
+{
+  "action": "product.search",
+  "payload": {
+    "term": "shoes",
+    "facets": [],
+    "filters": [],
+    "paginationOptions": {
+      "pageNumber": 1,
+      "pageSize": 10
+    }
+  }
+}
+```
+
+Responses preserve the Reactionary `Result` shape and include the invoked action name:
+
+```json
+{
+  "action": "product.search",
+  "success": true,
+  "value": {
+    "items": []
+  },
+  "meta": {
+    "trace": "",
+    "cache": {
+      "hit": false,
+      "key": ""
+    }
+  }
+}
+```
+
+Unavailable actions return `404 UCP_ACTION_NOT_AVAILABLE`. Invalid requests return `400 INVALID_UCP_ACTION_REQUEST`.
+
+## Default action names
+
+The current default surface mirrors existing Reactionary capability methods:
+
+| UCP action | Reactionary capability method |
+| --- | --- |
+| `product.search` | `productSearch.queryByTerm` |
+| `product.get_by_id` | `product.getById` |
+| `product.get_by_slug` | `product.getBySlug` |
+| `product.get_by_sku` | `product.getBySKU` |
+| `cart.get` | `cart.getById` |
+| `cart.get_active_id` | `cart.getActiveCartId` |
+| `cart.list` | `cart.listCarts` |
+| `cart.create` | `cart.createCart` |
+| `cart.add_item` | `cart.add` |
+| `cart.remove_item` | `cart.remove` |
+| `cart.change_quantity` | `cart.changeQuantity` |
+| `cart.delete` | `cart.deleteCart` |
+| `cart.rename` | `cart.renameCart` |
+| `cart.apply_coupon` | `cart.applyCouponCode` |
+| `cart.remove_coupon` | `cart.removeCouponCode` |
+| `cart.change_currency` | `cart.changeCurrency` |
+| `checkout.initiate` | `checkout.initiateCheckoutForCart` |
+| `checkout.get` | `checkout.getById` |
+| `checkout.set_shipping_address` | `checkout.setShippingAddress` |
+| `checkout.list_shipping_methods` | `checkout.getAvailableShippingMethods` |
+| `checkout.list_payment_methods` | `checkout.getAvailablePaymentMethods` |
+| `checkout.add_payment_instruction` | `checkout.addPaymentInstruction` |
+| `checkout.remove_payment_instruction` | `checkout.removePaymentInstruction` |
+| `checkout.set_shipping_instruction` | `checkout.setShippingInstruction` |
+| `checkout.finalize` | `checkout.finalizeCheckout` |
