@@ -257,10 +257,12 @@ export class Magento {
       },
     },
     product: {
-      getBySKU: async (sku: string) => {
+      getBySKU: async (sku: string, options?: { allowNotFound?: boolean }) => {
         return this.rest.request<any>(
           'GET',
-          `/V1/products/${encodeURIComponent(sku)}`
+          `/V1/products/${encodeURIComponent(sku)}`,
+          undefined,
+          options
         );
       },
       search: async (params: URLSearchParams) => {
@@ -621,9 +623,10 @@ export class MagentoClient {
     return client.store.order.get(id);
   }
 
-  async getProductBySKU(sku: string) {
+  /** With `allowNotFound`, resolves to `undefined` instead of throwing on a 404. */
+  async getProductBySKU(sku: string, options?: { allowNotFound?: boolean }) {
     const client = await this.getClient();
-    return client.store.product.getBySKU(sku);
+    return client.store.product.getBySKU(sku, options);
   }
 
   async resolveProductForSKU(sku: string) {
