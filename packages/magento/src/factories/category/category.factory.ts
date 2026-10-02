@@ -13,6 +13,7 @@ import {
 } from '@reactionary/core';
 import type * as z from 'zod';
 import type { MagentoCategory, MagentoCategorySearchResult } from '../../schema/magento.types.js';
+import { getCategoryKey } from '../../utils/magento-category.js';
 
 export interface MagentoCategoryPaginatedInput extends MagentoCategorySearchResult {
   pageSize: number;
@@ -40,7 +41,7 @@ export class MagentoCategoryFactory<
     data: MagentoCategory,
   ): z.output<TCategorySchema> {
     const identifier = CategoryIdentifierSchema.parse({
-      key: String(data.custom_attributes?.find((a) => a.attribute_code === 'external_id')?.value || data.id),
+      key: getCategoryKey(data),
     });
 
     const name = data.name || '';

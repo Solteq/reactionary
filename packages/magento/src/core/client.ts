@@ -106,7 +106,7 @@ class MagentoRest {
     method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
     body?: unknown,
-    options?: { allowNotFound?: boolean }
+    options?: { allowNotFound?: boolean; badRequestAsNoMatch?: boolean }
   ): Promise<T> {
     const url = this.normalizeUrl(path);
     const headers: Record<string, string> = {
@@ -122,6 +122,10 @@ class MagentoRest {
 
     if (res.status === 404 && options?.allowNotFound) {
       return undefined as T;
+    }
+
+    if (res.status === 400 && options?.badRequestAsNoMatch) {
+      return null as T;
     }
 
     if (!res.ok) {
@@ -305,15 +309,24 @@ export class Magento {
       getById: async (categoryId: string) => {
         return this.rest.request<any>('GET', `/V1/categories/${encodeURIComponent(categoryId)}`);
       },
-      getByExternalId: async (externalId: string) => {
+      /**
+       * `badRequestAsNoMatch` resolves to null when Magento rejects the filter
+       * with HTTP 400, as stock Magento does because it has no `external_id`.
+       */
+      getByExternalId: async (externalId: string, options?: { badRequestAsNoMatch?: boolean }) => {
 
         const params = new URLSearchParams();
         params.set('searchCriteria[filterGroups][0][filters][0][field]', 'external_id');
         params.set('searchCriteria[filterGroups][0][filters][0][value]', externalId);
         params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'eq');
         params.set('searchCriteria[pageSize]', '1');
-        const response = await this.rest.request<any>('GET', `/V1/categories/list?${params.toString()}`);
-        return response.items?.[0] || null;
+        const response = await this.rest.request<any>(
+          'GET',
+          `/V1/categories/list?${params.toString()}`,
+          undefined,
+          options
+        );
+        return response?.items?.[0] || null;
       },
       list: async (params: URLSearchParams) => {
         return this.rest.request<any>('GET', `/V1/categories/list?${params.toString()}`);
