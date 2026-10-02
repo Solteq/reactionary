@@ -1,15 +1,20 @@
-import {
-  ClientBuilder,
-  NoOpCache,
-  createInitialRequestContext,
-  type Cache,
-  type RequestContext,
-} from '@reactionary/core';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { config } from 'dotenv';
 import { withAlgoliaCapabilities } from '@reactionary/algolia';
 import {
   withCommercetoolsCapabilities,
   type CommercetoolsConfiguration,
 } from '@reactionary/commercetools';
+import {
+  ClientBuilder,
+  NoOpCache,
+  createInitialRequestContext,
+  type Cache,
+  type Client,
+  type RequestContext,
+} from '@reactionary/core';
 import { withFakeCapabilities, type FakeConfiguration } from '@reactionary/fake';
 import { withMagentoCapabilities, type MagentoConfiguration } from '@reactionary/magento';
 import { withMedusaCapabilities } from '@reactionary/medusa';
@@ -18,9 +23,8 @@ import {
   type MeilisearchConfiguration,
 } from '@reactionary/meilisearch';
 import { withUnomiCapabilities } from '@reactionary/unomi';
-import type { ReactionaryMCPClient } from './tool-discovery.js';
 
-export type ReactionaryMCPProviderSystem =
+export type ReactionaryUCPProviderSystem =
   | 'ALGOLIA'
   | 'COMMERCETOOLS'
   | 'FAKE'
@@ -29,18 +33,18 @@ export type ReactionaryMCPProviderSystem =
   | 'MEILISEARCH'
   | 'UNOMI';
 
-export interface CreateReactionaryClientFromEnvOptions {
+export interface CreateReactionaryUCPClientFromEnvOptions {
   env?: NodeJS.ProcessEnv;
   contextOverrides?: Partial<RequestContext>;
   cache?: Cache;
 }
 
-export interface ReactionaryMCPClientFromEnv {
-  client: ReactionaryMCPClient;
-  enabledSystems: ReactionaryMCPProviderSystem[];
+export interface ReactionaryUCPClientFromEnv {
+  client: Client;
+  enabledSystems: ReactionaryUCPProviderSystem[];
 }
 
-const providerSystems: ReactionaryMCPProviderSystem[] = [
+const providerSystems: ReactionaryUCPProviderSystem[] = [
   'FAKE',
   'MAGENTO',
   'MEDUSA',
@@ -50,11 +54,13 @@ const providerSystems: ReactionaryMCPProviderSystem[] = [
   'UNOMI',
 ];
 
-export function createReactionaryClientFromEnv(
-  options: CreateReactionaryClientFromEnvOptions = {},
-): ReactionaryMCPClientFromEnv {
+const workspaceRootMarkers = ['nx.json', 'pnpm-workspace.yaml'];
+
+export function createReactionaryUCPClientFromEnv(
+  options: CreateReactionaryUCPClientFromEnvOptions = {},
+): ReactionaryUCPClientFromEnv {
   const env = options.env ?? process.env;
-  const enabledSystems = getEnabledReactionaryMCPProviderSystems(env);
+  const enabledSystems = getEnabledReactionaryUCPProviderSystems(env);
 
   if (enabledSystems.length === 0) {
     throw new Error(getNoEnabledProviderSystemsMessage());
@@ -168,7 +174,6 @@ export function createReactionaryClientFromEnv(
             productRecommendations: { enabled: true },
           }),
         );
-       
         break;
       case 'UNOMI':
         builder = builder.withCapability(
@@ -187,9 +192,9 @@ export function createReactionaryClientFromEnv(
   };
 }
 
-export function getEnabledReactionaryMCPProviderSystems(
+export function getEnabledReactionaryUCPProviderSystems(
   env: NodeJS.ProcessEnv = process.env,
-): ReactionaryMCPProviderSystem[] {
+): ReactionaryUCPProviderSystem[] {
   return providerSystems.filter((system) =>
     isEnvEnabled(env[`ENABLED_${system}`]),
   );
@@ -199,6 +204,53 @@ export function getNoEnabledProviderSystemsMessage(): string {
   return `No Reactionary provider system is enabled. Set one of ${providerSystems
     .map((system) => `ENABLED_${system}=true`)
     .join(', ')}.`;
+}
+
+export function loadProjectRootEnv(
+  from: string | URL = import.meta.url,
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  const envPath = env['DOTENV_CONFIG_PATH'] ?? resolveProjectRootEnvPath(from);
+
+  if (!envPath) {
+    config();
+    return;
+  }
+
+  const result = config({ path: envPath });
+  if (!result.error) {
+    return;
+  }
+
+  const errorCode = (result.error as NodeJS.ErrnoException).code;
+  if (errorCode === 'ENOENT' && env['DOTENV_CONFIG_PATH'] === undefined) {
+    return;
+  }
+
+  throw result.error;
+}
+
+export function resolveProjectRootEnvPath(
+  from: string | URL = import.meta.url,
+): string | undefined {
+  let currentDirectory = dirname(fileURLToPath(from));
+
+  while (true) {
+    if (
+      workspaceRootMarkers.some((marker) =>
+        existsSync(join(currentDirectory, marker)),
+      )
+    ) {
+      return join(currentDirectory, '.env');
+    }
+
+    const parentDirectory = dirname(currentDirectory);
+    if (parentDirectory === currentDirectory) {
+      return undefined;
+    }
+
+    currentDirectory = parentDirectory;
+  }
 }
 
 function isEnvEnabled(value: string | undefined): boolean {
@@ -331,7 +383,7 @@ function getCommercetoolsConfiguration(
   };
 }
 
-export function parseCommaSeparatedEnvList(value: string | undefined): string[] {
+function parseCommaSeparatedEnvList(value: string | undefined): string[] {
   return (value || '')
     .split(',')
     .map((entry) => entry.trim())

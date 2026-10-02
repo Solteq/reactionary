@@ -12,11 +12,11 @@
     "@reactionary/core": "0.0.1",
     "@reactionary/fake": "0.0.1",
     "@reactionary/magento": "0.0.1",
-    "@reactionary/mcp": "0.0.1",
     "@reactionary/medusa": "0.0.1",
     "@reactionary/meilisearch": "0.0.1",
     "@reactionary/ucp": "0.0.1",
     "@reactionary/unomi": "0.0.1",
+    "dotenv": "^17.2.2",
     "express": "^5.2.1"
   },
   "devDependencies": {

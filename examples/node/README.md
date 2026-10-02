@@ -8,7 +8,7 @@ Run `nx build examples-node` to build the library.
 
 ## UCP Express server
 
-`src/ucp-express-server.ts` is a small Express host for `@reactionary/ucp`. It loads `.env` with the same project-root dotenv helper as `@reactionary/mcp` and creates the Reactionary client through `createReactionaryClientFromEnv`.
+`src/ucp-express-server.ts` is a small Express host for `@reactionary/ucp`. It loads `.env` from the project root and creates the Reactionary client from provider environment variables using the same conventions as `@reactionary/mcp`, without depending on the MCP package.
 
 Run it with:
 
@@ -42,7 +42,7 @@ UCP profile metadata comes from:
 | `UCP_MERCHANT_CONTACT_PHONE` | Optional merchant contact phone |
 | `UCP_PUBLIC_KEYS_JSON` | Optional JSON array of public JWK objects |
 
-Enable Reactionary providers with the same variables as `@reactionary/mcp`, for example:
+Enable Reactionary providers with the same environment variable names as `@reactionary/mcp`, for example:
 
 ```dotenv
 ENABLED_MEDUSA=true

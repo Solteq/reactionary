@@ -2,11 +2,11 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import {
-  createReactionaryClientFromEnv,
-  getEnabledReactionaryMCPProviderSystems,
+  createReactionaryUCPClientFromEnv,
+  getEnabledReactionaryUCPProviderSystems,
   getNoEnabledProviderSystemsMessage,
   loadProjectRootEnv,
-} from '@reactionary/mcp';
+} from './ucp-env-client.js';
 import {
   ReactionaryUCPServer,
   type ReactionaryUCPProfile,
@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   loadProjectRootEnv(import.meta.url);
 
   const options = parseOptions(process.argv.slice(2), process.env);
-  const enabledSystems = getEnabledReactionaryMCPProviderSystems();
+  const enabledSystems = getEnabledReactionaryUCPProviderSystems();
 
   if (enabledSystems.length === 0) {
     throw new Error(getNoEnabledProviderSystemsMessage());
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
 
   const ucp = new ReactionaryUCPServer(
     (requestContext) =>
-      createReactionaryClientFromEnv({
+      createReactionaryUCPClientFromEnv({
         contextOverrides: requestContext,
       }).client,
     {
