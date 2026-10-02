@@ -4,14 +4,18 @@ import type { components } from './ucp-shopping.openapi.js';
 
 type UCPService = components['schemas']['base'];
 type UCPCapability = components['schemas']['$defs-base'];
-type UCPPaymentHandler = components['schemas']['payment_handler_$defs-base'];
+// The generated payment handler type intersects with Record<string, never>, which no object literal can satisfy.
+export type UCPPaymentHandler = components['schemas']['entity'] & {
+  available_instruments?: components['schemas']['available_payment_instrument'][];
+};
+export type UCPPaymentHandlers = Record<string, UCPPaymentHandler[]>;
 
 export interface ReactionaryUCPProfile {
   ucp: {
     version: string;
     services: Record<string, UCPService[]>;
     capabilities: Record<string, UCPCapability[]>;
-    payment_handlers?: Record<string, UCPPaymentHandler[]>;
+    payment_handlers?: UCPPaymentHandlers;
   };
   keys: Array<Record<string, unknown>>;
   merchant: {

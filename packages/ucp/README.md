@@ -83,7 +83,9 @@ The official discovery profile is served from `/.well-known/ucp`. The profile ad
 - capabilities derived from the configured Reactionary client
 - configured merchant metadata
 - configured public keys
-- configured payment handlers, if supplied
+- configured payment handlers (`profile.paymentHandlers`), if supplied; the same handlers are echoed in checkout responses' `ucp.payment_handlers`
+
+Payment handlers are static configuration. The handler `id` is forwarded as `paymentMethod.paymentProcessor` when a payment instrument is selected, so it must match a payment provider id in the backend (for example Medusa's `pp_system_default`).
 
 Capability advertisement is intentionally derived from the instantiated client:
 
