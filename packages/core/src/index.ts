@@ -5,4 +5,5 @@ export * from './factories/index.js';
 export * from './capabilities/index.js';
 export * from './schemas/index.js';
 export * from './initialization.js';
+export * from './metrics/protocol.js';
 export type { InferType } from './zod-utils.js';

@@ -16,6 +16,7 @@ import {
   createInitialRequestContext,
   MemoryCache,
   SessionSchema,
+  traceProtocolInvocation,
   type Cache,
   type RequestContext,
   type Result,
@@ -200,18 +201,32 @@ export class ReactionaryMCPServer {
         inputSchema,
         outputSchema: toMcpOutputSchema(tool.entrypoint.outputSchema),
       },
-      async (args: unknown): Promise<CallToolResult> => {
-        const result = await callReactionaryTool(
-          tool,
-          inputSchema ? args : undefined,
-        );
+      async (args: unknown): Promise<CallToolResult> =>
+        traceProtocolInvocation(
+          {
+            protocol: 'mcp',
+            operation: `tools/${tool.name}`,
+            attributes: {
+              'labels.capability': tool.entrypoint.capabilityName,
+              'labels.method': tool.entrypoint.methodName,
+            },
+          },
+          async () => {
+            const result = await callReactionaryTool(
+              tool,
+              inputSchema ? args : undefined,
+            );
 
-        if (sessionId) {
-          await this.sessionStore.put(sessionId, requestContext.session);
-        }
+            if (sessionId) {
+              await this.sessionStore.put(sessionId, requestContext.session);
+            }
 
-        return resultToCallToolResult(result);
-      },
+            return resultToCallToolResult(result);
+          },
+          (callToolResult) => ({
+            'labels.status': callToolResult.isError ? 'error' : 'success',
+          }),
+        ),
     );
   }
 }

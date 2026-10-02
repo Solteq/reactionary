@@ -1,6 +1,8 @@
 import {
   createInitialRequestContext,
+  getHttpProtocolResultAttributes,
   MemoryCache,
+  traceProtocolInvocation,
   SessionSchema,
   type Cache,
   type Cart,
@@ -193,6 +195,18 @@ export class ReactionaryACPServer<
   }
 
   public async fetch(request: Request): Promise<Response> {
+    return traceProtocolInvocation(
+      {
+        protocol: 'acp',
+        operation: `${request.method} ${getAcpOperationPath(request, this.options.basePath)}`,
+        attributes: { 'http.request.method': request.method },
+      },
+      () => this.handleFetch(request),
+      getHttpProtocolResultAttributes,
+    );
+  }
+
+  private async handleFetch(request: Request): Promise<Response> {
     const sessionId = getOrCreateSessionId(request);
     const requestContext = await this.createRequestContext(sessionId);
     const requestedFeed = this.getRequestedProductFeed(request);
@@ -1302,4 +1316,12 @@ async function sendWebResponse(
   }
 
   response.end();
+}
+
+function getAcpOperationPath(request: Request, basePath: string | undefined): string {
+  const pathname = getProtocolPathname(request, basePath);
+
+  return pathname
+    .replace(/^\/checkout_sessions\/[^/]+/, '/checkout_sessions/{id}')
+    .replace(/^\/product_feeds\/[^/]+/, '/product_feeds/{id}');
 }
