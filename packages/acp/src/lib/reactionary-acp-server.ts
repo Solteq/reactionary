@@ -102,7 +102,36 @@ export interface ReactionaryACPServerOptions {
   paymentProvider?: ACPPaymentProvider;
   links?: ACPLink[];
   productFeed?: ACPProductFeedOptions;
+  discovery?: ACPDiscoveryOptions;
 }
+
+export interface ACPDiscoveryOptions {
+  apiVersion?: string;
+  supportedVersions?: string[];
+  apiBaseUrl?: string;
+  documentationUrl?: string;
+  supportedCurrencies?: string[];
+  supportedLocales?: string[];
+}
+
+export interface ACPDiscoveryResponse {
+  protocol: {
+    name: 'acp';
+    version: string;
+    supported_versions: string[];
+    documentation_url?: string;
+  };
+  api_base_url: string;
+  transports: ['rest'];
+  capabilities: {
+    services: Array<'checkout' | 'feeds'>;
+    supported_currencies?: string[];
+    supported_locales?: string[];
+  };
+}
+
+const ACP_DISCOVERY_PATHS = ['/.well-known/acp.json', '/.well-known/acp'];
+const ACP_DEFAULT_API_VERSION = '2026-01-30';
 
 export type ACPPaymentProcessor = 'stripe' | 'adyen' | 'braintree';
 
@@ -228,6 +257,16 @@ export class ReactionaryACPServer<
       });
     }
 
+    if (
+      (request.method === 'GET' || request.method === 'HEAD') &&
+      ACP_DISCOVERY_PATHS.includes(new URL(request.url).pathname)
+    ) {
+      return jsonResponse(this.getDiscoveryDocument(request), {
+        headers: { 'cache-control': 'public, max-age=3600' },
+        omitBody: request.method === 'HEAD',
+      });
+    }
+
     if (request.method === 'GET' || request.method === 'HEAD') {
       const productFeedId = getProductFeedId(request, this.options.basePath);
 
@@ -285,6 +324,37 @@ export class ReactionaryACPServer<
         allow: 'GET, HEAD, OPTIONS, POST',
       },
     });
+  }
+
+  private getDiscoveryDocument(request: Request): ACPDiscoveryResponse {
+    const discovery = this.options.discovery ?? {};
+    const version = discovery.apiVersion ?? ACP_DEFAULT_API_VERSION;
+    const supportedVersions = discovery.supportedVersions ?? [version];
+    const basePath = (this.options.basePath ?? '/acp').replace(/\/$/, '');
+    const apiBaseUrl =
+      discovery.apiBaseUrl ?? `${new URL(request.url).origin}${basePath}`;
+
+    return {
+      protocol: {
+        name: 'acp',
+        version,
+        supported_versions: supportedVersions,
+        ...(discovery.documentationUrl
+          ? { documentation_url: discovery.documentationUrl }
+          : {}),
+      },
+      api_base_url: apiBaseUrl,
+      transports: ['rest'],
+      capabilities: {
+        services: this.options.productFeed ? ['checkout', 'feeds'] : ['checkout'],
+        ...(discovery.supportedCurrencies
+          ? { supported_currencies: discovery.supportedCurrencies }
+          : {}),
+        ...(discovery.supportedLocales
+          ? { supported_locales: discovery.supportedLocales }
+          : {}),
+      },
+    };
   }
 
   private getReadinessDocument(): Record<string, unknown> {

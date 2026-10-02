@@ -38,6 +38,7 @@ UCP profile metadata comes from:
 | --- | --- |
 | `UCP_MERCHANT_NAME` | Merchant name in `/.well-known/ucp` |
 | `UCP_MERCHANT_URL` | Merchant URL in `/.well-known/ucp` |
+| `UCP_PAYMENT_HANDLERS_JSON` | JSON object of `ucp.payment_handlers` advertised in `/.well-known/ucp` and checkout responses. Each handler `id` must match the backend payment provider id. |
 | `UCP_MERCHANT_CONTACT_EMAIL` | Merchant contact email |
 | `UCP_MERCHANT_CONTACT_PHONE` | Optional merchant contact phone |
 | `UCP_PUBLIC_KEYS_JSON` | Optional JSON array of public JWK objects |

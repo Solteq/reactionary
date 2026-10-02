@@ -19,6 +19,10 @@ It also serves a readiness document from `GET` / `HEAD`.
 
 If the adapter is mounted under `/acp`, both `/checkout_sessions/...` and `/acp/checkout_sessions/...` paths are understood. Set `basePath` when mounting somewhere else.
 
+## Discovery
+
+`GET /.well-known/acp.json` (alias `/.well-known/acp`) serves the ACP discovery document with `Cache-Control: public, max-age=3600`. It advertises the `checkout` service, plus `feeds` when `productFeed` is configured. `api_base_url` defaults to the request origin plus `basePath` (default `/acp`); override it and other fields with the `discovery` option. The host application must route the well-known path to this handler. Payment handlers are not part of ACP discovery; they are negotiated per checkout session.
+
 ## Product feed generation
 
 `GET /product_feeds/{id}/products` generates an ACP-compatible product feed from the configured feed definition whose key matches `{id}`.
