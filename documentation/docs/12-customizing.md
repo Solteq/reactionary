@@ -144,6 +144,25 @@ class PharmacyCommercetoolsProductSearchCapability extends CommercetoolsProductS
 ```
 
 
+#### Overriding a decorated operation without decorator support
+
+Public operations are wrapped with the `@Reactionary(...)` decorator, which provides tracing, metrics, input/output schema validation, caching, and turns thrown errors into a `Generic` error `Result`. The decorator wraps the concrete method it is declared on, so when you override the operation itself (rather than only its `<functionName>Payload` extension point), your override loses all of that. In a project with `experimentalDecorators` enabled, decorate the override with `@Reactionary(...)` again. Most applications (e.g. Next.js storefronts) don't enable decorator syntax; for those, call `applyReactionary` once after the class declaration. The method name is type-checked against the capability's operations.
+
+```ts
+import { applyReactionary, ProductSearchResultSchema } from '@reactionary/core';
+
+class PharmacyCommercetoolsProductSearchCapability extends CommercetoolsProductSearchCapability<CommercetoolsProductSearchFactory> {
+  public override async queryByTerm(payload: PharmacyProductSearchQueryByTerm) {
+    // ...fully custom implementation
+  }
+}
+
+applyReactionary(PharmacyCommercetoolsProductSearchCapability, 'queryByTerm', {
+  inputSchema: PharmacyProductSearchQueryByTermSchema,
+  outputSchema: ProductSearchResultSchema,
+});
+```
+
 Finally, you wire the new Capability up in the client initialization like so:
 
 ```ts
