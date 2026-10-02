@@ -56,6 +56,52 @@ describe('ReactionaryACPServer', () => {
     );
   });
 
+  it('serves an ACP discovery document at the well-known paths', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient());
+
+    for (const path of ['/.well-known/acp.json', '/.well-known/acp']) {
+      const response = await server.fetch(new Request(`https://shop.example.com${path}`));
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('cache-control')).toBe('public, max-age=3600');
+      expect(await json<Record<string, unknown>>(response)).toEqual({
+        protocol: {
+          name: 'acp',
+          version: '2026-01-30',
+          supported_versions: ['2026-01-30'],
+        },
+        api_base_url: 'https://shop.example.com/acp',
+        transports: ['rest'],
+        capabilities: { services: ['checkout'] },
+      });
+    }
+  });
+
+  it('honours discovery options and omits the HEAD body', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      discovery: {
+        apiBaseUrl: 'https://api.example.com/acp',
+        supportedVersions: ['2025-09-29', '2026-01-30'],
+        supportedCurrencies: ['EUR'],
+      },
+    });
+
+    const response = await server.fetch(
+      new Request('https://shop.example.com/.well-known/acp.json'),
+    );
+    expect(await json<Record<string, unknown>>(response)).toMatchObject({
+      api_base_url: 'https://api.example.com/acp',
+      protocol: { supported_versions: ['2025-09-29', '2026-01-30'] },
+      capabilities: { supported_currencies: ['EUR'] },
+    });
+
+    const head = await server.fetch(
+      new Request('https://shop.example.com/.well-known/acp.json', { method: 'HEAD' }),
+    );
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe('');
+  });
+
   it('persists request context session state by ACP session id', async () => {
     const observedSessions: RequestContext['session'][] = [];
     const server = new ReactionaryACPServer(
