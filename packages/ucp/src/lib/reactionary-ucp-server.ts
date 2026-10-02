@@ -115,6 +115,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
         route.path,
         sessionId,
         this.sessionStore,
+        this.options.profile?.paymentHandlers,
       );
 
       if (restResponse) {

@@ -8,6 +8,8 @@ import { getCapability, hasCapability } from './reactionary-ucp-capabilities.js'
 
 type UCPCapability = components['schemas']['$defs-base'];
 
+const UCP_DOCS_BASE_URL = 'https://ucp.dev/2026-08-25';
+
 export function getRequestRoute(
   request: Request,
   profile: ReactionaryUCPProfileOptions | undefined,
@@ -41,6 +43,8 @@ export function createUCPProfile(
             version: '2026-08-25',
             transport: 'rest',
             endpoint,
+            spec: `${UCP_DOCS_BASE_URL}/specification/overview/`,
+            schema: `${UCP_DOCS_BASE_URL}/services/shopping/rest.openapi.json`,
           },
         ],
       },
@@ -64,34 +68,36 @@ function createUcpCapabilities(
   const capabilities: Record<string, UCPCapability[]> = {};
 
   if (hasCapability(client, 'product-search')) {
-    capabilities['dev.ucp.shopping.catalog.search'] = [createUcpCapability()];
+    capabilities['dev.ucp.shopping.catalog.search'] = [createUcpCapability('catalog/search', 'catalog_search')];
   }
 
   if (hasCapability(client, 'product')) {
-    capabilities['dev.ucp.shopping.catalog.lookup'] = [createUcpCapability()];
+    capabilities['dev.ucp.shopping.catalog.lookup'] = [createUcpCapability('catalog/lookup', 'catalog_lookup')];
   }
 
   if (hasCapability(client, 'cart')) {
-    capabilities['dev.ucp.shopping.cart'] = [createUcpCapability()];
+    capabilities['dev.ucp.shopping.cart'] = [createUcpCapability('cart', 'cart')];
     const cart = getCapability(client, 'cart');
     if (cart && typeof Reflect.get(cart, 'applyCouponCode') === 'function') {
-      capabilities['dev.ucp.shopping.discount'] = [createUcpCapability()];
+      capabilities['dev.ucp.shopping.discount'] = [createUcpCapability('extensions/discount', 'discount')];
     }
   }
 
   if (hasCapability(client, 'checkout')) {
-    capabilities['dev.ucp.shopping.checkout'] = [createUcpCapability()];
+    capabilities['dev.ucp.shopping.checkout'] = [createUcpCapability('checkout', 'checkout')];
   }
 
   if (hasCapability(client, 'order')) {
-    capabilities['dev.ucp.shopping.order'] = [createUcpCapability()];
+    capabilities['dev.ucp.shopping.order'] = [createUcpCapability('order', 'order')];
   }
 
   return capabilities;
 }
 
-function createUcpCapability(): UCPCapability {
+function createUcpCapability(specPath: string, schemaName: string): UCPCapability {
   return {
     version: '2026-08-25',
+    spec: `${UCP_DOCS_BASE_URL}/specification/shopping/${specPath}/`,
+    schema: `${UCP_DOCS_BASE_URL}/schemas/shopping/${schemaName}.json`,
   };
 }

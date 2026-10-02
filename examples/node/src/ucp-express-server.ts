@@ -139,6 +139,7 @@ export function parseOptions(
         },
       },
       keys: parsePublicKeys(env['UCP_PUBLIC_KEYS_JSON']),
+      ...parsePaymentHandlers(env['UCP_PAYMENT_HANDLERS_JSON']),
     },
   };
 }
@@ -201,6 +202,41 @@ function parsePublicKeys(
   }
 
   return parsed;
+}
+
+function parsePaymentHandlers(
+  value: string | undefined,
+): Pick<ReactionaryUCPProfileOptions, 'paymentHandlers'> {
+  if (!value) {
+    return {};
+  }
+
+  const parsed: unknown = JSON.parse(value);
+  if (!isPaymentHandlers(parsed)) {
+    throw new Error(
+      'UCP_PAYMENT_HANDLERS_JSON must be a JSON object mapping handler names to arrays of handlers with "version" and "id".',
+    );
+  }
+
+  return { paymentHandlers: parsed };
+}
+
+function isPaymentHandlers(
+  value: unknown,
+): value is NonNullable<ReactionaryUCPProfileOptions['paymentHandlers']> {
+  return (
+    isRecord(value) &&
+    Object.values(value).every(
+      (handlers) =>
+        Array.isArray(handlers) &&
+        handlers.every(
+          (handler) =>
+            isRecord(handler) &&
+            typeof handler['version'] === 'string' &&
+            typeof handler['id'] === 'string',
+        ),
+    )
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -379,6 +379,39 @@ describe('ReactionaryUCPServer', () => {
     expect(observedSessions[1]?.['test.marker']).toBe('saved');
   });
 
+  it('advertises configured payment handlers in the profile', async () => {
+    const server = new ReactionaryUCPServer(
+      (requestContext) => ({
+        cart: new TestCartCapability(new MemoryCache(), requestContext),
+      }),
+      {
+        profile: {
+          endpoint: 'https://shop.example.com/ucp',
+          merchant: {
+            name: 'Example shop',
+            url: 'https://shop.example.com',
+            contact: { email: 'support@example.com' },
+          },
+          keys: [],
+          paymentHandlers: {
+            'dev.example.manual': [{ version: '2026-08-25', id: 'pp_system_default' }],
+          },
+        },
+      },
+    );
+
+    const response = await server.fetch(new Request('https://shop.example.com/.well-known/ucp'));
+    const body: unknown = await response.json();
+
+    expect(body).toMatchObject({
+      ucp: {
+        payment_handlers: {
+          'dev.example.manual': [{ version: '2026-08-25', id: 'pp_system_default' }],
+        },
+      },
+    });
+  });
+
   it('serves a UCP discovery profile at the well-known path', async () => {
     const server = new ReactionaryUCPServer(
       (requestContext) => ({
@@ -420,6 +453,8 @@ describe('ReactionaryUCPServer', () => {
               version: '2026-08-25',
               transport: 'rest',
               endpoint: 'https://shop.example.com/ucp',
+              spec: 'https://ucp.dev/2026-08-25/specification/overview/',
+              schema: 'https://ucp.dev/2026-08-25/services/shopping/rest.openapi.json',
             },
           ],
         },
@@ -432,6 +467,8 @@ describe('ReactionaryUCPServer', () => {
           'dev.ucp.shopping.cart': [
             {
               version: '2026-08-25',
+              spec: 'https://ucp.dev/2026-08-25/specification/shopping/cart/',
+              schema: 'https://ucp.dev/2026-08-25/schemas/shopping/cart.json',
             },
           ],
         },
@@ -602,6 +639,10 @@ describe('ReactionaryUCPServer', () => {
       currency: 'EUR',
       totals: [
         {
+          type: 'subtotal',
+          amount: 1234,
+        },
+        {
           type: 'total',
           amount: 1234,
         },
@@ -721,6 +762,9 @@ describe('ReactionaryUCPServer', () => {
           contact: { email: 'support@example.com' },
         },
         keys: [],
+        paymentHandlers: {
+          'dev.example.manual': [{ version: '2026-08-25', id: 'stripe' }],
+        },
       },
     });
 
@@ -755,6 +799,13 @@ describe('ReactionaryUCPServer', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      ucp: {
+        payment_handlers: {
+          'dev.example.manual': [{ version: '2026-08-25', id: 'stripe' }],
+        },
+      },
+    });
     expect(checkout.addPaymentInstructionPayload).toEqual({
       checkout: { key: 'checkout-update' },
       paymentInstruction: {

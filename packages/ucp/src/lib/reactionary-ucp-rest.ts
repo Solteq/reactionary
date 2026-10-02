@@ -2,6 +2,7 @@ import type {
   Cart,
   Category,
   Checkout,
+  CostBreakDown,
   FacetValueIdentifier,
   MonetaryAmount,
   Product,
@@ -11,7 +12,7 @@ import type {
   ProductVariant,
 } from '@reactionary/core';
 import type { components } from './ucp-shopping.openapi.js';
-import type { ReactionaryUCPClient } from './reactionary-ucp-common.js';
+import type { ReactionaryUCPClient, UCPPaymentHandlers } from './reactionary-ucp-common.js';
 import { jsonResponse } from './reactionary-ucp-http.js';
 import type { ReactionaryUCPSessionStore } from './reactionary-ucp-session-store.js';
 
@@ -48,6 +49,7 @@ export async function handleRestRequest(
   path: string,
   sessionId: string,
   sessionStore: ReactionaryUCPSessionStore,
+  paymentHandlers: UCPPaymentHandlers = {},
 ): Promise<Response | undefined> {
   if (request.method === 'POST' && path === '/catalog/search') {
     return jsonResponse(await handleCatalogSearch(client, await parseJsonBody<UCPCatalogSearchRequest>(request)));
@@ -109,13 +111,13 @@ export async function handleRestRequest(
       'REST POST /checkout-sessions',
       body,
       sessionStore,
-      async () => jsonResponse(await handleCreateCheckout(client, body), { status: 201 }),
+      async () => jsonResponse(await handleCreateCheckout(client, body, paymentHandlers), { status: 201 }),
     );
   }
 
   const checkoutMatch = /^\/checkout-sessions\/([^/]+)$/.exec(path);
   if (checkoutMatch && request.method === 'GET') {
-    return jsonResponse(await handleGetCheckout(client, decodeURIComponent(checkoutMatch[1])));
+    return jsonResponse(await handleGetCheckout(client, decodeURIComponent(checkoutMatch[1]), paymentHandlers));
   }
   if (checkoutMatch && request.method === 'PUT') {
     const body = await parseJsonBody<UCPCheckoutRequest>(request);
@@ -125,7 +127,7 @@ export async function handleRestRequest(
       `REST PUT /checkout-sessions/${decodeURIComponent(checkoutMatch[1])}`,
       body,
       sessionStore,
-      async () => jsonResponse(await handleUpdateCheckout(client, decodeURIComponent(checkoutMatch[1]), body)),
+      async () => jsonResponse(await handleUpdateCheckout(client, decodeURIComponent(checkoutMatch[1]), body, paymentHandlers)),
     );
   }
 
@@ -137,7 +139,7 @@ export async function handleRestRequest(
       `REST POST /checkout-sessions/${decodeURIComponent(checkoutCompleteMatch[1])}/complete`,
       {},
       sessionStore,
-      async () => jsonResponse(await handleCompleteCheckout(client, decodeURIComponent(checkoutCompleteMatch[1]))),
+      async () => jsonResponse(await handleCompleteCheckout(client, decodeURIComponent(checkoutCompleteMatch[1]), paymentHandlers)),
     );
   }
 
@@ -443,6 +445,7 @@ async function handleCancelCart(
 async function handleCreateCheckout(
   client: ReactionaryUCPClient,
   body: UCPCheckoutRequest,
+  paymentHandlers: UCPPaymentHandlers,
 ): Promise<UCPCheckoutResponse> {
   if (!client.checkout) {
     return createUCPError('not_available', 'Checkout capability is not available.');
@@ -462,12 +465,13 @@ async function handleCreateCheckout(
     return createUCPError('checkout_create_failed', 'Checkout session creation failed.');
   }
 
-  return toUcpCheckout(result.value);
+  return toUcpCheckout(result.value, paymentHandlers);
 }
 
 async function handleGetCheckout(
   client: ReactionaryUCPClient,
   checkoutId: string,
+  paymentHandlers: UCPPaymentHandlers,
 ): Promise<UCPCheckoutResponse> {
   if (!client.checkout) {
     return createUCPError('not_available', 'Checkout capability is not available.');
@@ -479,13 +483,14 @@ async function handleGetCheckout(
     return createUCPError('not_found', `Checkout was not found: ${checkoutId}`);
   }
 
-  return toUcpCheckout(result.value);
+  return toUcpCheckout(result.value, paymentHandlers);
 }
 
 async function handleUpdateCheckout(
   client: ReactionaryUCPClient,
   checkoutId: string,
   body: UCPCheckoutRequest,
+  paymentHandlers: UCPPaymentHandlers,
 ): Promise<UCPCheckoutResponse> {
   if (!client.checkout) {
     return createUCPError('not_available', 'Checkout capability is not available.');
@@ -524,12 +529,13 @@ async function handleUpdateCheckout(
     checkout = paymentResult.value;
   }
 
-  return toUcpCheckout(checkout);
+  return toUcpCheckout(checkout, paymentHandlers);
 }
 
 async function handleCompleteCheckout(
   client: ReactionaryUCPClient,
   checkoutId: string,
+  paymentHandlers: UCPPaymentHandlers,
 ): Promise<UCPCheckoutResponse> {
   if (!client.checkout) {
     return createUCPError('not_available', 'Checkout capability is not available.');
@@ -541,7 +547,7 @@ async function handleCompleteCheckout(
     return createUCPError('checkout_complete_failed', 'Checkout completion failed.');
   }
 
-  return toUcpCheckout(result.value, 'completed');
+  return toUcpCheckout(result.value, paymentHandlers, 'completed');
 }
 
 async function handleGetOrder(
@@ -565,7 +571,7 @@ async function handleGetOrder(
     permalink_url: '',
     line_items: [],
     currency: getMoneyCurrency(result.value.price?.grandTotal),
-    totals: toUcpTotals(result.value.price?.grandTotal),
+    totals: toUcpCostTotals(result.value.price),
     fulfillment: {
       expectations: [],
       events: [],
@@ -724,7 +730,7 @@ function toUcpCart(
     id: cart.identifier.key,
     line_items: cart.items.map(toUcpCartLineItem),
     currency: getMoneyCurrency(cart.price?.grandTotal),
-    totals: toUcpTotals(cart.price?.grandTotal),
+    totals: toUcpCostTotals(cart.price),
     ucp: createUcpSuccessMetadata(),
   };
 }
@@ -766,6 +772,7 @@ function toUcpCartLineItem(
 
 function toUcpCheckout(
   checkout: Checkout,
+  paymentHandlers: UCPPaymentHandlers,
   status?: UCPCheckout['status'],
 ): UCPCheckout {
   return {
@@ -773,9 +780,9 @@ function toUcpCheckout(
     status: status ?? (checkout.readyForFinalization ? 'ready_for_complete' : 'incomplete'),
     line_items: checkout.items.map(toUcpCartLineItem),
     currency: getMoneyCurrency(checkout.price?.grandTotal),
-    totals: toUcpTotals(checkout.price?.grandTotal),
+    totals: toUcpCostTotals(checkout.price),
     links: [],
-    ucp: createUcpCheckoutSuccessMetadata(),
+    ucp: createUcpCheckoutSuccessMetadata(paymentHandlers),
   };
 }
 
@@ -783,6 +790,30 @@ function toUcpDescription(
   text: string | undefined,
 ): components['schemas']['description'] {
   return text ? { plain: text } : { plain: '' };
+}
+
+function toUcpCostTotals(
+  price: CostBreakDown,
+): components['schemas']['total'][] {
+  const totals: components['schemas']['total'][] = [
+    { type: 'subtotal', amount: getMoneyValue(price.totalProductPrice) },
+  ];
+  const optionalTotals: Array<[string, number]> = [
+    ['discount', -Math.abs(getMoneyValue(price.totalDiscount))],
+    ['fulfillment', getMoneyValue(price.totalShipping)],
+    ['tax', getMoneyValue(price.totalTax)],
+    ['fee', getMoneyValue(price.totalSurcharge)],
+  ];
+
+  for (const [type, amount] of optionalTotals) {
+    if (amount !== 0) {
+      totals.push({ type, amount });
+    }
+  }
+
+  totals.push({ type: 'total', amount: getMoneyValue(price.grandTotal) });
+
+  return totals;
 }
 
 function toUcpTotals(
@@ -825,12 +856,38 @@ function createUcpSuccessMetadata(): components['schemas']['ucp_$defs-base'] & {
   };
 }
 
-function createUcpCheckoutSuccessMetadata(): components['schemas']['response_checkout_schema'] {
+type UCPCheckoutPaymentHandlers = components['schemas']['response_checkout_schema']['payment_handlers'];
+
+function createUcpCheckoutSuccessMetadata(
+  paymentHandlers: UCPPaymentHandlers,
+): components['schemas']['response_checkout_schema'] {
+  const candidate: unknown = paymentHandlers;
+
   return {
     version: '2026-08-25',
     status: 'success',
-    payment_handlers: {},
+    payment_handlers: isUcpCheckoutPaymentHandlers(candidate) ? candidate : {},
   };
+}
+
+// The generated handler type is unsatisfiable by object literals, so validate the runtime shape instead of casting.
+function isUcpCheckoutPaymentHandlers(
+  value: unknown,
+): value is UCPCheckoutPaymentHandlers {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Object.values(value).every(
+      (handlers: unknown) =>
+        Array.isArray(handlers) &&
+        handlers.every(
+          (handler: unknown) =>
+            typeof handler === 'object' &&
+            handler !== null &&
+            typeof Reflect.get(handler, 'version') === 'string',
+        ),
+    )
+  );
 }
 
 function createUCPError<TResponse>(
