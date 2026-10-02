@@ -18,6 +18,7 @@ import type {
   MagentoShippingInformationPayload,
   MagentoShippingInformationResult,
   MagentoShippingMethod,
+  MagentoSourceSearchResult,
 } from '../schema/magento.types.js';
 import {
   CREATE_PRODUCT_REVIEW_MUTATION,
@@ -326,6 +327,12 @@ export class Magento {
       getSourceItems: async (params: URLSearchParams) => {
         return this.rest.request<any>('GET', `/V1/inventory/source-items?${params.toString()}`);
       },
+      searchSources: async (params: URLSearchParams) => {
+        return this.adminRest.request<MagentoSourceSearchResult>(
+          'GET',
+          `/V1/inventory/sources?${params.toString()}`
+        );
+      },
     },
     order: {
       list: async (params: URLSearchParams) => {
@@ -619,6 +626,14 @@ export class MagentoClient {
   async getOrderById(id: string): Promise<any> {
     const client = await this.getClient();
     return client.store.order.get(id);
+  }
+
+  /** MSI sources are admin-only, so this always uses the admin token. */
+  async searchInventorySources(
+    params: URLSearchParams
+  ): Promise<MagentoSourceSearchResult> {
+    const client = await this.getClient();
+    return client.store.inventory.searchSources(params);
   }
 
   async getProductBySKU(sku: string) {

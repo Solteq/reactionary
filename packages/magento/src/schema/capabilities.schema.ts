@@ -37,6 +37,9 @@ import type {
   ProductReviewsFactory,
   ProductReviewsFactoryWithOutput,
   ProductReviewsCapability,
+  StoreFactory,
+  StoreFactoryWithOutput,
+  StoreCapability,
   RequestContext,
   Cache,
 } from '@reactionary/core';
@@ -71,6 +74,7 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
   productAssociations: true,
   productRecommendations: true,
   productReviews: true,
+  store: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -87,6 +91,7 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
     productAssociations: OverridableCapabilitySchema.optional(),
     productRecommendations: DirectCapabilitySchema.optional(),
     productReviews: OverridableCapabilitySchema.optional(),
+    store: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -179,6 +184,11 @@ export type MagentoProductReviewsCapabilityConfig = MagentoCapabilityConfig<
   ProductReviewsCapability
 >;
 
+export type MagentoStoreCapabilityConfig = MagentoCapabilityConfig<
+  StoreFactoryWithOutput<StoreFactory>,
+  StoreCapability
+>;
+
 export type MagentoCapabilities<
   TProductFactory extends ProductFactory = ProductFactory,
   TProductCapability extends ProductCapability = ProductCapability,
@@ -206,6 +216,8 @@ export type MagentoCapabilities<
   TProductRecommendationsCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
   TProductReviewsFactory extends ProductReviewsFactory = ProductReviewsFactory,
   TProductReviewsCapability extends ProductReviewsCapability = ProductReviewsCapability,
+  TStoreFactory extends StoreFactory = StoreFactory,
+  TStoreCapability extends StoreCapability = StoreCapability,
 > = {
   product?: MagentoCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MagentoCapabilityConfig<ProductSearchFactoryWithOutput<TProductSearchFactory>, TProductSearchCapability>;
@@ -221,4 +233,5 @@ export type MagentoCapabilities<
   productAssociations?: MagentoCapabilityConfig<ProductAssociationsFactoryWithOutput<TProductAssociationsFactory>, TProductAssociationsCapability>;
   productRecommendations?: MagentoDirectCapabilityConfig<TProductRecommendationsCapability>;
   productReviews?: MagentoCapabilityConfig<ProductReviewsFactoryWithOutput<TProductReviewsFactory>, TProductReviewsCapability>;
+  store?: MagentoCapabilityConfig<StoreFactoryWithOutput<TStoreFactory>, TStoreCapability>;
 };
