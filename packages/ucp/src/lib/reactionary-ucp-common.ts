@@ -1,6 +1,7 @@
 import type { Cache, Cart, Checkout, Client, FacetValueIdentifier, Order, Product, ProductSearchResult, RequestContext, Result } from '@reactionary/core';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { components } from './ucp-shopping.openapi.js';
+import type { ReactionaryUCPIdentityOptions } from './reactionary-ucp-identity.js';
 
 type UCPService = components['schemas']['base'];
 type UCPCapability = components['schemas']['$defs-base'];
@@ -68,6 +69,7 @@ export interface ReactionaryUCPServerOptions {
   sessionCache?: Cache;
   sessionTtlSeconds?: number;
   profile?: ReactionaryUCPProfileOptions;
+  identity?: ReactionaryUCPIdentityOptions;
 }
 
 export interface ReactionaryUCPProfileOptions {

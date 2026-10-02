@@ -31,8 +31,23 @@ export function getRequestRoute(
 export function createUCPProfile(
   client: ReactionaryUCPClient,
   profile: ReactionaryUCPProfileOptions | undefined,
+  identityScopes?: string[],
 ): ReactionaryUCPProfile {
   const endpoint = profile?.endpoint ?? 'http://localhost/ucp';
+  const capabilities = profile?.capabilities ?? createUcpCapabilities(client);
+
+  if (identityScopes) {
+    capabilities['dev.ucp.common.identity_linking'] = [
+      {
+        version: '2026-08-25',
+        spec: `${UCP_DOCS_BASE_URL}/specification/common/identity-linking/`,
+        schema: `${UCP_DOCS_BASE_URL}/schemas/common/identity_linking.json`,
+        config: {
+          scopes: identityScopes,
+        },
+      },
+    ];
+  }
 
   return {
     ucp: {
@@ -48,7 +63,7 @@ export function createUCPProfile(
           },
         ],
       },
-      capabilities: profile?.capabilities ?? createUcpCapabilities(client),
+      capabilities,
       ...(profile?.paymentHandlers ? { payment_handlers: profile.paymentHandlers } : {}),
     },
     keys: profile?.keys ?? [],

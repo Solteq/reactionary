@@ -13,6 +13,7 @@ import {
   type ReactionaryUCPServerOptions,
 } from './reactionary-ucp-common.js';
 import { getOrCreateSessionId, jsonResponse, sendWebResponse, toWebRequest, UCP_SESSION_ID_HEADER } from './reactionary-ucp-http.js';
+import { ReactionaryUCPIdentity, type UCPBearerResolution } from './reactionary-ucp-identity.js';
 import { createUCPProfile, getRequestRoute } from './reactionary-ucp-profile.js';
 import { handleRestRequest, UCPHttpError } from './reactionary-ucp-rest.js';
 import { ReactionaryUCPSessionStore } from './reactionary-ucp-session-store.js';
@@ -29,24 +30,46 @@ export type {
 
 export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = ReactionaryUCPClient> {
   private readonly sessionStore: ReactionaryUCPSessionStore;
+  public readonly identity?: ReactionaryUCPIdentity;
 
   public constructor(
     private readonly clientFactory: ReactionaryUCPClientFactory<TClient>,
     private readonly options: ReactionaryUCPServerOptions = {},
   ) {
+    const cache = this.options.sessionCache ?? new MemoryCache();
     this.sessionStore = new ReactionaryUCPSessionStore(
-      this.options.sessionCache ?? new MemoryCache(),
+      cache,
       this.options.sessionTtlSeconds ?? 60 * 60 * 24,
     );
+
+    if (this.options.identity) {
+      this.identity = new ReactionaryUCPIdentity(this.options.identity, cache);
+    }
   }
 
   public async fetch(request: Request): Promise<Response> {
+    return this.handleFetch(request);
+  }
+
+  private async handleFetch(request: Request): Promise<Response> {
     const sessionId = getOrCreateSessionId(request);
-    const requestContext = await this.createRequestContext(sessionId);
+    const bearerResolution = await this.identity?.resolveBearer(request);
+
+    if (bearerResolution instanceof Response) {
+      return bearerResolution;
+    }
+
+    const requestContext = await this.createRequestContext(sessionId, bearerResolution);
     const client = this.clientFactory(requestContext);
 
-    const response = await this.handleRequest(request, client, sessionId);
-    await this.sessionStore.put(sessionId, requestContext.session);
+    const response = await this.handleRequest(request, client, sessionId, bearerResolution);
+
+    if (bearerResolution) {
+      await this.identity?.persistBearerSession(bearerResolution, requestContext.session);
+    } else {
+      await this.sessionStore.put(sessionId, requestContext.session);
+    }
+
     response.headers.set(UCP_SESSION_ID_HEADER, sessionId);
 
     const requestId = request.headers.get('Request-Id');
@@ -77,9 +100,16 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
 
   private async createRequestContext(
     sessionId: string,
+    bearerResolution?: UCPBearerResolution,
   ): Promise<RequestContext> {
-    const restoredSession = await this.sessionStore.get(sessionId);
     const requestContext = createInitialRequestContext();
+
+    if (bearerResolution) {
+      requestContext.session = bearerResolution.session;
+      return requestContext;
+    }
+
+    const restoredSession = await this.sessionStore.get(sessionId);
 
     if (restoredSession) {
       requestContext.session = restoredSession;
@@ -92,6 +122,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
     request: Request,
     client: TClient,
     sessionId: string,
+    bearerResolution?: UCPBearerResolution,
   ): Promise<Response> {
     const route = getRequestRoute(request, this.options.profile);
 
@@ -105,7 +136,21 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
     }
 
     if (route.path === '/.well-known/ucp' && request.method === 'GET') {
-      return jsonResponse(createUCPProfile(client, this.options.profile));
+      return jsonResponse(createUCPProfile(client, this.options.profile, this.identity?.getScopeNames()));
+    }
+
+    if (this.identity) {
+      const identityResponse = await this.identity.handleHttp(request, route.path);
+
+      if (identityResponse) {
+        return identityResponse;
+      }
+
+      const accessResponse = this.identity.checkAccess(request.method, route.path, bearerResolution);
+
+      if (accessResponse) {
+        return accessResponse;
+      }
     }
 
     try {

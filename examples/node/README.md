@@ -38,6 +38,11 @@ UCP profile metadata comes from:
 | --- | --- |
 | `UCP_MERCHANT_NAME` | Merchant name in `/.well-known/ucp` |
 | `UCP_MERCHANT_URL` | Merchant URL in `/.well-known/ucp` |
+| `UCP_OAUTH_LOGIN_URL` | Storefront login page; enables UCP identity linking when set together with `UCP_OAUTH_CLIENTS_JSON` |
+| `UCP_OAUTH_CLIENTS_JSON` | JSON array of OAuth clients: `[{"clientId":"...","clientSecret":"...","redirectUris":["..."]}]` |
+| `UCP_OAUTH_STATE_SECRET` | Secret (32+ chars) sealing OAuth state into self-contained tokens |
+| `UCP_OAUTH_ISSUER` | OAuth issuer (defaults to the endpoint origin) |
+| `UCP_OAUTH_INTERNAL_KEY` | Server-to-server key for `POST /oauth/complete` in split deployments |
 | `UCP_PAYMENT_HANDLERS_JSON` | JSON object of `ucp.payment_handlers` advertised in `/.well-known/ucp` and checkout responses. Each handler `id` must match the backend payment provider id. |
 | `UCP_MERCHANT_CONTACT_EMAIL` | Merchant contact email |
 | `UCP_MERCHANT_CONTACT_PHONE` | Optional merchant contact phone |

@@ -145,6 +145,150 @@ REST requests may include:
 - `Request-Id`: echoed in the response header.
 - `Idempotency-Key`: supported for mutating REST endpoints and stored in the UCP session cache. Reusing a key with a different mutation payload returns `409`.
 
+## Identity linking (OAuth 2.0)
+
+Setting the optional `identity` server option turns the UCP server into a small OAuth 2.0 authorization server implementing UCP's `dev.ucp.common.identity_linking`, so an agent can act for a logged-in shopper. The agent never sees credentials; the shopper logs in on the storefront's existing login page, and the resulting Reactionary `Session` is stored behind opaque, hashed bearer tokens.
+
+```ts
+const server = new ReactionaryUCPServer(createClient, {
+  sessionCache: redisCache, // optional enhancer, see below
+  profile: { /* ... */ },
+  identity: {
+    issuer: 'https://shop.example.com',
+    loginUrl: 'https://shop.example.com/account/login',
+    stateSecret: process.env.UCP_OAUTH_STATE_SECRET, // 32+ chars; must be identical on all instances
+    internalApiKey: process.env.UCP_OAUTH_INTERNAL_KEY, // only for split deployments
+    clients: [
+      {
+        clientId: 'openai-shopping',
+        clientSecret: process.env.OPENAI_CLIENT_SECRET, // omit for public clients (PKCE-only)
+        redirectUris: ['https://agents.example-platform.com/oauth/callback'],
+      },
+    ],
+  },
+});
+```
+
+What this serves:
+
+- `GET /.well-known/oauth-authorization-server` (RFC 8414 metadata)
+- `GET {endpoint}/oauth/authorize` — validates client, exact `redirect_uri`, and PKCE S256 (mandatory for all clients), then redirects to `loginUrl` with `?ucp_request_id=...`
+- `GET|POST {endpoint}/oauth/consent` — consent page (override with `renderConsentPage`) that mints the single-use authorization code
+- `POST {endpoint}/oauth/token` — `authorization_code` and `refresh_token` grants
+- `POST {endpoint}/oauth/revoke` — RFC 7009; revoking a refresh token kills its access tokens
+- `POST {endpoint}/oauth/complete` — internal server-to-server completion (requires `internalApiKey`)
+
+All OAuth state (authorization requests, codes, access and refresh tokens) is sealed into self-contained AES-256-GCM blobs encrypted with `stateSecret` — nothing needs to be stored for the flow to be correct, tokens survive restarts, and multiple instances only need the same `stateSecret`. The `sessionCache` is a pure enhancer; when present it adds:
+
+- **single-use enforcement** of authorization codes and consent grants (without it, replay is bounded only by the 60s code TTL plus PKCE and client auth)
+- **instant revocation** (`/oauth/revoke` keeps a deny-list; without a shared durable cache, revocation is best-effort until the token expires)
+- **session freshness** (backend-session changes during bearer requests are written to a cache overlay; without it, requests fall back to the session sealed at link time)
+
+Gated routes (default: `GET /orders/*` requires `dev.ucp.shopping.order:read`, configurable via `scopes`) answer `401` with `WWW-Authenticate: Bearer error="identity_required"` or `403 insufficient_scope`. When the stored backend session has expired, the agent receives `401` and must re-link — there is no silent re-login and no password is ever stored.
+
+The profile at `/.well-known/ucp` automatically advertises `dev.ucp.common.identity_linking` with `config.scopes`.
+
+### Storefront integration
+
+The storefront owns the login UI; the library owns everything else. After its normal login succeeds, the storefront tells the UCP server "this request id belongs to this customer and session" and sends the browser to the returned `continueUrl`. There are two transports for that hand-off:
+
+- **Embedded** (storefront mounts the UCP handler in-process): call `server.identity.completeAuthorization(...)` directly.
+- **Split deployment** (UCP runs as its own Express server): `POST {endpoint}/oauth/complete` with the `x-ucp-internal-key` header, server-to-server. No shared storage is needed — state travels in sealed blobs — and the browser never sees the internal key.
+
+The login page must honour the `ucp_request_id` query parameter: keep it through the login flow and hand it to the continue route below.
+
+#### Next.js (App Router)
+
+`app/ucp/oauth/continue/route.ts` — the storefront's only new code:
+
+```ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getReactionarySession } from '../../../lib/session'; // however the storefront restores its Session
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const requestId = request.nextUrl.searchParams.get('ucp_request_id');
+  const { customerId, session } = await getReactionarySession(request);
+
+  if (!requestId || !customerId) {
+    return NextResponse.redirect(new URL('/account/login', request.url));
+  }
+
+  // Split deployment: hand the session to the standalone UCP server.
+  const response = await fetch(`${process.env.UCP_BASE_URL}/oauth/complete`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-ucp-internal-key': process.env.UCP_OAUTH_INTERNAL_KEY ?? '',
+    },
+    body: JSON.stringify({ request_id: requestId, customer_id: customerId, session }),
+  });
+
+  const { continue_url: continueUrl } = (await response.json()) as { continue_url: string };
+  return NextResponse.redirect(continueUrl);
+}
+```
+
+Embedded variant (UCP server mounted in the same Next.js app): replace the `fetch` with
+
+```ts
+const { continueUrl } = await ucpServer.identity.completeAuthorization({
+  requestId,
+  customerId,
+  session,
+});
+return NextResponse.redirect(continueUrl);
+```
+
+And the login page forwards the parameter, e.g. `app/account/login/page.tsx` redirects to `/ucp/oauth/continue?ucp_request_id=...` after a successful sign-in when the parameter is present.
+
+#### SvelteKit
+
+`src/routes/ucp/oauth/continue/+server.ts`:
+
+```ts
+import { redirect } from '@sveltejs/kit';
+import { UCP_BASE_URL, UCP_OAUTH_INTERNAL_KEY } from '$env/static/private';
+import type { RequestHandler } from './$types';
+
+export const GET: RequestHandler = async ({ url, locals }) => {
+  const requestId = url.searchParams.get('ucp_request_id');
+  const { customerId, session } = locals; // however the storefront restores its Session
+
+  if (!requestId || !customerId) {
+    redirect(302, '/account/login');
+  }
+
+  const response = await fetch(`${UCP_BASE_URL}/oauth/complete`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-ucp-internal-key': UCP_OAUTH_INTERNAL_KEY,
+    },
+    body: JSON.stringify({ request_id: requestId, customer_id: customerId, session }),
+  });
+
+  const { continue_url: continueUrl } = (await response.json()) as { continue_url: string };
+  redirect(302, continueUrl);
+};
+```
+
+#### Standalone Express UCP server
+
+Redirect hops in a split deployment:
+
+```text
+agent -> UCP /oauth/authorize -> storefront /account/login?ucp_request_id=...
+      -> storefront /ucp/oauth/continue (reads own session, POSTs /oauth/complete with internal key)
+      -> UCP /oauth/consent (approve/deny) -> agent redirect_uri?code=...&iss=...
+```
+
+Requirements:
+
+- No shared storage is required between the storefront and the UCP server: state travels inside sealed blobs. Give the UCP server a Redis-backed `sessionCache` to get single-use code enforcement and instant revocation across instances.
+- All UCP instances must share the same `stateSecret`; rotating it invalidates every outstanding token and link-in-progress.
+- Set `internalApiKey` (e.g. from `UCP_OAUTH_INTERNAL_KEY`) on the UCP server and in the storefront's environment. It is a server-to-server secret; never expose it to the browser.
+- `issuer` is the public origin; `baseUrl` defaults to `{issuer}/ucp` and must match where the UCP endpoint is actually served.
+
 ## Request IDs and idempotency
 
 `Request-Id` is optional and echoed in the response header so agents can correlate calls and responses.

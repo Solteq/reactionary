@@ -9,6 +9,7 @@ import {
 } from './ucp-env-client.js';
 import {
   ReactionaryUCPServer,
+  type ReactionaryUCPIdentityOptions,
   type ReactionaryUCPProfile,
   type ReactionaryUCPProfileOptions,
 } from '@reactionary/ucp';
@@ -19,6 +20,7 @@ interface ExpressUCPOptions {
   path: string;
   endpoint: string;
   profile: ReactionaryUCPProfileOptions;
+  identity?: ReactionaryUCPIdentityOptions;
 }
 
 async function main(): Promise<void> {
@@ -38,6 +40,7 @@ async function main(): Promise<void> {
       }).client,
     {
       profile: options.profile,
+      ...(options.identity ? { identity: options.identity } : {}),
     },
   );
   const ucpHandler = ucp.toNodeHandler();
@@ -121,11 +124,14 @@ export function parseOptions(
     env['UCP_PUBLIC_URL'] ??
     `http://${host}:${port}${path}`;
 
+  const identity = parseIdentityOptions(env, endpoint);
+
   return {
     host,
     port,
     path,
     endpoint,
+    ...(identity ? { identity } : {}),
     profile: {
       endpoint,
       merchant: {
@@ -202,6 +208,54 @@ function parsePublicKeys(
   }
 
   return parsed;
+}
+
+function parseIdentityOptions(
+  env: NodeJS.ProcessEnv,
+  endpoint: string,
+): ReactionaryUCPIdentityOptions | undefined {
+  const loginUrl = env['UCP_OAUTH_LOGIN_URL'];
+  const clientsJson = env['UCP_OAUTH_CLIENTS_JSON'];
+  const stateSecret = env['UCP_OAUTH_STATE_SECRET'];
+
+  if (!loginUrl || !clientsJson) {
+    return undefined;
+  }
+
+  if (!stateSecret) {
+    throw new Error('UCP_OAUTH_STATE_SECRET is required when UCP identity linking is enabled.');
+  }
+
+  const parsed: unknown = JSON.parse(clientsJson);
+
+  if (!Array.isArray(parsed) || !parsed.every(isIdentityClient)) {
+    throw new Error(
+      'UCP_OAUTH_CLIENTS_JSON must be a JSON array of clients with "clientId" and "redirectUris".',
+    );
+  }
+
+  return {
+    issuer: env['UCP_OAUTH_ISSUER'] ?? new URL(endpoint).origin,
+    baseUrl: endpoint,
+    stateSecret,
+    loginUrl,
+    clients: parsed,
+    ...(env['UCP_OAUTH_INTERNAL_KEY']
+      ? { internalApiKey: env['UCP_OAUTH_INTERNAL_KEY'] }
+      : {}),
+  };
+}
+
+function isIdentityClient(
+  value: unknown,
+): value is ReactionaryUCPIdentityOptions['clients'][number] {
+  return (
+    isRecord(value) &&
+    typeof value['clientId'] === 'string' &&
+    Array.isArray(value['redirectUris']) &&
+    value['redirectUris'].every((uri) => typeof uri === 'string') &&
+    (value['clientSecret'] === undefined || typeof value['clientSecret'] === 'string')
+  );
 }
 
 function parsePaymentHandlers(
