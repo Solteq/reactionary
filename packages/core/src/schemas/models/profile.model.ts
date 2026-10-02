@@ -19,6 +19,8 @@ export const AddressSchema = BaseModelSchema.extend({
 export const ProfileSchema = BaseModelSchema.extend({
     identifier: IdentityIdentifierSchema,
     email: z.email(),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
     phone: z.string(),
     emailVerified: z.boolean(),
     phoneVerified: z.boolean(),

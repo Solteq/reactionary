@@ -8,6 +8,8 @@ export const ProfileMutationUpdateSchema = BaseMutationSchema.extend({
     identifier: IdentityIdentifierSchema,
     email: z.email().meta({ description: 'The main contact email of the profile' }),
     phone: z.string().meta({ description: 'The main phone number of the profile' }),
+    firstName: z.string().optional().meta({ description: 'The first name of the profile holder. Left unchanged when omitted' }),
+    lastName: z.string().optional().meta({ description: 'The last name of the profile holder. Left unchanged when omitted' }),
 });
 
 export const ProfileMutationAddShippingAddressSchema = BaseMutationSchema.extend({
