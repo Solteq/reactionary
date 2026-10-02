@@ -1,6 +1,8 @@
 import {
   createInitialRequestContext,
+  getHttpProtocolResultAttributes,
   MemoryCache,
+  traceProtocolInvocation,
   type RequestContext,
 } from '@reactionary/core';
 import {
@@ -48,7 +50,17 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
   }
 
   public async fetch(request: Request): Promise<Response> {
-    return this.handleFetch(request);
+    const route = getRequestRoute(request, this.options.profile);
+
+    return traceProtocolInvocation(
+      {
+        protocol: 'ucp',
+        operation: `${request.method} ${getUcpOperationPath(route.path)}`,
+        attributes: { 'http.request.method': request.method },
+      },
+      () => this.handleFetch(request),
+      getHttpProtocolResultAttributes,
+    );
   }
 
   private async handleFetch(request: Request): Promise<Response> {
@@ -184,4 +196,11 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
       omitBody: request.method === 'HEAD',
     });
   }
+}
+
+function getUcpOperationPath(path: string): string {
+  return path
+    .replace(/^\/carts\/[^/]+/, '/carts/{id}')
+    .replace(/^\/checkout-sessions\/[^/]+/, '/checkout-sessions/{id}')
+    .replace(/^\/orders\/[^/]+/, '/orders/{id}');
 }
