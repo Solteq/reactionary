@@ -630,28 +630,19 @@ describe.each(combinations)('UCP e2e - $backend + $search', ({ backend, search }
           expectUcpSuccess(ready.body);
           expect(ready.body.status, describeUcpError(ready.body)).toBe('ready_for_complete');
 
-          // 5. Completing creates the real checkout; the payment is deferred
-          // until the PSP authorizes it out-of-band.
-          const pending = await session.sendJson<UcpCheckoutResponse>(
+          // 5. Completing creates the real checkout and its Stripe payment, then
+          // waits for the PSP's authorization webhook — simulated here while the
+          // request is in flight — before finalizing the order.
+          const completing = session.sendJson<UcpCheckoutResponse>(
             'POST',
             `${UCP_BASE_URL}/checkout-sessions/${checkoutId}/complete`,
             {},
           );
-
-          expectUcpSuccess(pending.body);
-          expect(pending.body.status).toBe('complete_in_progress');
-
           await simulateCommercetoolsPaymentAuthorizationForCart(cart.body.id ?? '');
-
-          // 6. Completing again finalizes and places the order.
-          const completed = await session.sendJson<UcpCheckoutResponse>(
-            'POST',
-            `${UCP_BASE_URL}/checkout-sessions/${checkoutId}/complete`,
-            {},
-          );
+          const completed = await completing;
 
           expectUcpSuccess(completed.body);
-          expect(completed.body.status).toBe('completed');
+          expect(completed.body.status, describeUcpError(completed.body)).toBe('completed');
           expect(completed.body.id).toBe(checkoutId);
           const orderId = completed.body.order?.id;
           expect(orderId, 'expected the completed checkout to reference the placed order').toBeTruthy();

@@ -243,6 +243,7 @@ describe('ReactionaryACPServer', () => {
     const notReady = new Set<string>(['all']);
     const server = new ReactionaryACPServer(() => createTestClient({ initiated, notReady }), {
       sessionCache: new MemoryCache(),
+      paymentAuthorizationWait: { timeoutMs: 0 },
     });
     const address = {
       name: 'Ada Lovelace',
@@ -289,6 +290,42 @@ describe('ReactionaryACPServer', () => {
       status: 'completed',
       order: { id: 'order-1', checkout_session_id: created.id },
     });
+  });
+
+  it('waits for an asynchronous payment authorization before answering', async () => {
+    const notReady = new Set<string>(['all']);
+    const server = new ReactionaryACPServer(() => createTestClient({ notReady }), {
+      sessionCache: new MemoryCache(),
+      paymentAuthorizationWait: { timeoutMs: 2_000, intervalMs: 10 },
+    });
+    const created = await json<{ id: string }>(await server.fetch(
+      jsonRequest('http://127.0.0.1/checkout_sessions', {
+        items: [{ id: 'sku-1', quantity: 1 }],
+        fulfillment_address: {
+          name: 'Ada Lovelace',
+          line_one: '1 Computing Street',
+          city: 'London',
+          state: 'London',
+          country: 'GB',
+          postal_code: 'SW1A 1AA',
+        },
+      }),
+    ));
+    await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, { fulfillment_option_id: 'standard' }),
+    );
+
+    // The PSP webhook records the authorization while completion is waiting.
+    setTimeout(() => notReady.clear(), 50);
+
+    const completed = await json<Record<string, unknown>>(await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, {
+        buyer: { name: 'Ada Lovelace', email: 'ada@example.com' },
+        payment_data: { token: 'spt_test', provider: 'stripe' },
+      }),
+    ));
+
+    expect(completed).toMatchObject({ status: 'completed' });
   });
 
   it('streams generated product feeds as JSONL', async () => {

@@ -51,10 +51,13 @@ session as protocol-owned state over a reactionary **cart**:
   (`placeholderEmail` option, default `pending@checkout.invalid` — `.invalid`
   is a reserved, undeliverable TLD). The placeholder never reaches the real
   checkout: completion requires a real email.
-- **Completion** creates the real checkout, applies shipping and payment, and
-  finalizes it. A payment awaiting asynchronous PSP authorization leaves the
-  session `complete_in_progress` (UCP) / `in_progress` (ACP); a repeated
-  complete retries finalization and is idempotent once the order exists.
+- **Completion** creates the real checkout, applies shipping and payment, then
+  **polls** the checkout until the payment is authorized (on commercetools,
+  adding the payment creates a Stripe PaymentIntent and the Stripe webhook
+  records the authorization) and finalizes it. The wait is configurable
+  (`paymentAuthorizationWait`, default 10s timeout / 1s interval; `0`
+  disables it). If it times out, the session answers `complete_in_progress`
+  (UCP) / `in_progress` (ACP) and a later complete retries.
 - **Session resumption**: agents address sessions by id and rarely echo the
   protocol session header, but backends scope carts to the session's
   (anonymous) identity, so a session id resumes the backend session that
@@ -73,14 +76,14 @@ Both suites contain a journey that goes all the way to a real order and then
 
 - UCP: cart → session with only a destination (options quoted via the
   placeholder email) → buyer + shipping option → payment instrument → complete
-  (`complete_in_progress`) → PSP authorization → complete (`completed`).
+  → `completed`.
 - ACP: session from a feed item without buyer → buyer + address (options
-  quoted) → option → complete with delegated token (`in_progress`) → PSP
-  authorization → complete (`completed`).
+  quoted) → option → complete with delegated token → `completed`.
 
-The **deferred payment** step is played by `ct-psp-simulator.ts`, which adds a
-successful `Authorization` transaction to the commercetools payment the way a
-PSP webhook would, using the admin API client
+The payment intent is never confirmed by a real buyer in a test, so the Stripe
+webhook never fires on its own. `ct-psp-simulator.ts` plays it instead: while
+`/complete` is polling, it adds a successful `Authorization` transaction to the
+commercetools payment, as the webhook would, using the admin API client
 (`CTP_ADMIN_CLIENT_ID`/`CTP_ADMIN_CLIENT_SECRET`; the storefront client lacks
 the `view_payments`/`manage_payments` scopes).
 

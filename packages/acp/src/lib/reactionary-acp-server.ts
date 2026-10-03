@@ -112,9 +112,25 @@ export interface ReactionaryACPServerOptions {
    * one. Never used for the real checkout created on completion.
    */
   placeholderEmail?: string;
+  /**
+   * How long checkout completion waits for an asynchronous payment
+   * authorization (e.g. a PSP webhook) before answering `in_progress`.
+   * Defaults to 10s timeout, polled every 1s; a timeout of 0 disables it.
+   */
+  paymentAuthorizationWait?: Partial<ACPPaymentAuthorizationWait>;
 }
 
 export const DEFAULT_ACP_PLACEHOLDER_EMAIL = 'pending@checkout.invalid';
+
+export interface ACPPaymentAuthorizationWait {
+  timeoutMs: number;
+  intervalMs: number;
+}
+
+export const DEFAULT_ACP_PAYMENT_AUTHORIZATION_WAIT: ACPPaymentAuthorizationWait = {
+  timeoutMs: 10_000,
+  intervalMs: 1_000,
+};
 
 export interface ACPDiscoveryOptions {
   apiVersion?: string;
@@ -631,8 +647,15 @@ export class ReactionaryACPServer<
     }
 
     if (current.status !== 'completed' && current.checkoutId) {
-      const checkout = await unwrapACPResult(
-        client.checkout.getById({ identifier: { key: current.checkoutId } }),
+      const checkoutId = current.checkoutId;
+      const wait = {
+        ...DEFAULT_ACP_PAYMENT_AUTHORIZATION_WAIT,
+        ...this.options.paymentAuthorizationWait,
+      };
+      const checkout = await pollUntil(
+        () => unwrapACPResult(client.checkout.getById({ identifier: { key: checkoutId } })),
+        (candidate) => Boolean(candidate.resultingOrder || candidate.readyForFinalization),
+        wait,
       );
 
       if (checkout.resultingOrder) {
@@ -912,6 +935,22 @@ function toShippingInstruction(
       consentForUnattendedDelivery: false,
     },
   };
+}
+
+async function pollUntil<T>(
+  read: () => Promise<T>,
+  done: (value: T) => boolean,
+  wait: ACPPaymentAuthorizationWait,
+): Promise<T> {
+  const deadline = Date.now() + wait.timeoutMs;
+  let value = await read();
+
+  while (!done(value) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, Math.min(wait.intervalMs, Math.max(deadline - Date.now(), 0))));
+    value = await read();
+  }
+
+  return value;
 }
 
 class ACPHttpError extends Error {

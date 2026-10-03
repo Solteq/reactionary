@@ -17,7 +17,7 @@ import {
 import { getOrCreateSessionId, jsonResponse, sendWebResponse, toWebRequest, UCP_SESSION_ID_HEADER } from './reactionary-ucp-http.js';
 import { ReactionaryUCPIdentity, type UCPBearerResolution } from './reactionary-ucp-identity.js';
 import { resolveLanguageContext } from './reactionary-ucp-localization.js';
-import { DEFAULT_UCP_PLACEHOLDER_EMAIL } from './reactionary-ucp-checkout-session.js';
+import { DEFAULT_UCP_PAYMENT_AUTHORIZATION_WAIT, DEFAULT_UCP_PLACEHOLDER_EMAIL } from './reactionary-ucp-checkout-session.js';
 import { createUCPError, UCP_VERSION } from './reactionary-ucp-mapping.js';
 import { createUCPProfile, getRequestRoute } from './reactionary-ucp-profile.js';
 import { handleRestRequest, UCPHttpError } from './reactionary-ucp-rest.js';
@@ -216,6 +216,10 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
         {
           paymentHandlers: this.options.profile?.paymentHandlers ?? {},
           placeholderEmail: this.options.placeholderEmail ?? DEFAULT_UCP_PLACEHOLDER_EMAIL,
+          paymentAuthorizationWait: {
+            ...DEFAULT_UCP_PAYMENT_AUTHORIZATION_WAIT,
+            ...this.options.paymentAuthorizationWait,
+          },
           identity: requestContext.session.identityContext.identity,
         },
       );

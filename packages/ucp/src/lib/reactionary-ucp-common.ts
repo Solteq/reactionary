@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPIdentityOptions } from './reactionary-ucp-identity.js';
 import type { ReactionaryUCPLocalizationOptions } from './reactionary-ucp-localization.js';
+import type { UCPPaymentAuthorizationWait } from './reactionary-ucp-checkout-session.js';
 
 type UCPService = components['schemas']['base'];
 type UCPCapability = components['schemas']['$defs-base'];
@@ -91,6 +92,12 @@ export interface ReactionaryUCPServerOptions {
    * `pending@checkout.invalid` — `.invalid` is a reserved, undeliverable TLD.
    */
   placeholderEmail?: string;
+  /**
+   * How long checkout completion waits for an asynchronous payment
+   * authorization (e.g. a PSP webhook) before answering
+   * `complete_in_progress`. Defaults to 10s timeout, polled every 1s.
+   */
+  paymentAuthorizationWait?: Partial<UCPPaymentAuthorizationWait>;
 }
 
 export interface ReactionaryUCPProfileOptions {

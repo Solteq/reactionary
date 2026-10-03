@@ -66,18 +66,29 @@ export async function simulateCommercetoolsPaymentAuthorizationForEmail(
   await authorizeLatestCheckout(`cartState = "Active" and billingAddress(email = "${email}") and paymentInfo is defined`);
 }
 
-async function authorizeLatestCheckout(where: string): Promise<void> {
-  const checkouts = await createAdminApiRoot()
-    .carts()
-    .get({ queryArgs: { where, sort: 'createdAt desc', limit: 1 } })
-    .execute();
-  const paymentIds = (checkouts.body.results[0]?.paymentInfo?.payments ?? []).map((payment) => payment.id);
+/**
+ * Waits for the checkout's payment to appear (completion creates it) and
+ * authorizes it, like a webhook arriving while completion is in flight.
+ */
+async function authorizeLatestCheckout(where: string, timeoutMs = 30_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
 
-  if (paymentIds.length === 0) {
-    throw new Error(`No payment found on a checkout matching: ${where}`);
+  while (Date.now() < deadline) {
+    const checkouts = await createAdminApiRoot()
+      .carts()
+      .get({ queryArgs: { where, sort: 'createdAt desc', limit: 1 } })
+      .execute();
+    const paymentIds = (checkouts.body.results[0]?.paymentInfo?.payments ?? []).map((payment) => payment.id);
+
+    if (paymentIds.length > 0) {
+      await simulateCommercetoolsPaymentAuthorization(paymentIds);
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
-  await simulateCommercetoolsPaymentAuthorization(paymentIds);
+  throw new Error(`No payment appeared on a checkout matching: ${where}`);
 }
 
 function createAdminApiRoot() {

@@ -30,6 +30,37 @@ export type UCPCheckoutRequest = UCPCheckout & { cart_id?: string };
 export const DEFAULT_UCP_PLACEHOLDER_EMAIL = 'pending@checkout.invalid';
 
 /**
+ * How long completion waits for the payment service provider to authorize
+ * the payment (typically recorded on the backend by a PSP webhook) before
+ * answering `complete_in_progress`. A timeout of 0 disables waiting.
+ */
+export interface UCPPaymentAuthorizationWait {
+  timeoutMs: number;
+  intervalMs: number;
+}
+
+export const DEFAULT_UCP_PAYMENT_AUTHORIZATION_WAIT: UCPPaymentAuthorizationWait = {
+  timeoutMs: 10_000,
+  intervalMs: 1_000,
+};
+
+async function pollUntil<T>(
+  read: () => Promise<T>,
+  done: (value: T) => boolean,
+  wait: UCPPaymentAuthorizationWait,
+): Promise<T> {
+  const deadline = Date.now() + wait.timeoutMs;
+  let value = await read();
+
+  while (!done(value) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, Math.min(wait.intervalMs, Math.max(deadline - Date.now(), 0))));
+    value = await read();
+  }
+
+  return value;
+}
+
+/**
  * A UCP checkout session is a mutable, progressively filled resource, while a
  * reactionary checkout is a frozen snapshot of a finished cart. Sessions are
  * therefore UCP-owned state over a reactionary cart: views are priced with a
@@ -42,6 +73,7 @@ export interface UCPCheckoutSessionContext {
   sessionId: string;
   paymentHandlers: UCPPaymentHandlers;
   placeholderEmail: string;
+  paymentAuthorizationWait: UCPPaymentAuthorizationWait;
   /** Email of the session's registered identity, if logged in. */
   getIdentityEmail(): Promise<string | undefined>;
   createCart(lineItems: UCPLineItem[]): Promise<Cart | UCPErrorResponse>;
@@ -627,7 +659,12 @@ async function finalizeIfReady(
   const checkoutCapability = context.client.checkout;
 
   if (state.status !== 'completed' && checkoutCapability && state.finalCheckoutId) {
-    const current = await checkoutCapability.getById({ identifier: { key: state.finalCheckoutId } });
+    const finalCheckoutId = state.finalCheckoutId;
+    const current = await pollUntil(
+      () => checkoutCapability.getById({ identifier: { key: finalCheckoutId } }),
+      (result) => !result.success || Boolean(result.value.resultingOrder || result.value.readyForFinalization),
+      context.paymentAuthorizationWait,
+    );
 
     if (current.success && current.value.resultingOrder) {
       state.status = 'completed';
