@@ -6,7 +6,6 @@ import {
   success,
   type Cache,
   type Cart,
-  type Checkout,
   type FacetValueIdentifier,
   type ProductSearchResult,
   type RequestContext,
@@ -235,31 +234,6 @@ class TestCartReconciliationCapability extends BaseCapability {
   }
 }
 
-class TestCheckoutUpdateCapability extends BaseCapability {
-  public addPaymentInstructionPayload: unknown;
-
-  public async getById(): Promise<Result<Checkout>> {
-    return success(createTestCheckout('checkout-update'));
-  }
-
-  public async addPaymentInstruction(payload: unknown): Promise<Result<Checkout>> {
-    this.addPaymentInstructionPayload = payload;
-    return success(createTestCheckout('checkout-update'));
-  }
-
-  public async finalizeCheckout(): Promise<Result<Checkout>> {
-    return success(createTestCheckout('checkout-update'));
-  }
-
-  public async initiateCheckoutForCart(): Promise<Result<Checkout>> {
-    return success(createTestCheckout('checkout-update'));
-  }
-
-  protected getResourceName(): string {
-    return 'checkout';
-  }
-}
-
 function createTestCart(
   id: string,
   items: Cart['items'] = [],
@@ -291,22 +265,6 @@ function createTestCartItem(
       totalPrice: createTestAmount(100 * quantity),
       totalDiscount: createTestAmount(0),
     },
-  };
-}
-
-function createTestCheckout(id: string): Checkout {
-  return {
-    identifier: { key: id },
-    originalCartReference: { key: 'cart-created' },
-    items: [],
-    price: createTestCostBreakdown(1234),
-    name: '',
-    description: '',
-    pointOfContact: {
-      email: 'test@example.com',
-    },
-    paymentInstructions: [],
-    readyForFinalization: false,
   };
 }
 
@@ -637,14 +595,15 @@ describe('ReactionaryUCPServer', () => {
         status: 'success',
       },
       currency: 'EUR',
+      // UCP amounts are ISO 4217 minor units: 1234.00 EUR.
       totals: [
         {
           type: 'subtotal',
-          amount: 1234,
+          amount: 123400,
         },
         {
           type: 'total',
-          amount: 1234,
+          amount: 123400,
         },
       ],
     });
@@ -748,86 +707,6 @@ describe('ReactionaryUCPServer', () => {
           quantity: 2,
         },
       ],
-    });
-  });
-
-  it('composes canonical UCP checkout replacement over REST', async () => {
-    const checkout = new TestCheckoutUpdateCapability(new MemoryCache(), createInitialRequestContext());
-    const server = new ReactionaryUCPServer(() => ({ checkout }), {
-      profile: {
-        endpoint: 'https://shop.example.com/ucp',
-        merchant: {
-          name: 'Example shop',
-          url: 'https://shop.example.com',
-          contact: { email: 'support@example.com' },
-        },
-        keys: [],
-        paymentHandlers: {
-          'dev.example.manual': [{ version: '2026-08-25', id: 'stripe' }],
-        },
-      },
-    });
-
-    const response = await server.fetch(
-      new Request('https://shop.example.com/ucp/checkout-sessions/checkout-update', {
-        method: 'PUT',
-        body: JSON.stringify({
-          id: 'checkout-update',
-          status: 'incomplete',
-          line_items: [],
-          currency: 'EUR',
-          totals: [],
-          links: [],
-          payment: {
-            instruments: [
-              {
-                id: 'instrument-1',
-                handler_id: 'stripe',
-                type: 'card',
-                selected: true,
-              },
-            ],
-          },
-          ucp: {
-            version: '2026-08-25',
-            status: 'success',
-            payment_handlers: {},
-          },
-        }),
-      }),
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body).toMatchObject({
-      ucp: {
-        payment_handlers: {
-          'dev.example.manual': [{ version: '2026-08-25', id: 'stripe' }],
-        },
-      },
-    });
-    expect(checkout.addPaymentInstructionPayload).toEqual({
-      checkout: { key: 'checkout-update' },
-      paymentInstruction: {
-        amount: {
-          value: 1234,
-          currency: 'EUR',
-        },
-        paymentMethod: {
-          method: 'card',
-          name: 'instrument-1',
-          paymentProcessor: 'stripe',
-        },
-        protocolData: [
-          { key: 'ucp_payment_instrument_id', value: 'instrument-1' },
-          { key: 'ucp_payment_handler_id', value: 'stripe' },
-          { key: 'ucp_payment_instrument_type', value: 'card' },
-        ],
-      },
-    });
-    expect(body).toMatchObject({
-      id: 'checkout-update',
-      status: 'incomplete',
     });
   });
 

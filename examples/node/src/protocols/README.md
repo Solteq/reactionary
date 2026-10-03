@@ -35,30 +35,58 @@ npx vitest run --project node src/protocols
 The tests hit live services, so they are not part of the offline CI test
 target (`examples/*` has no `test:offline` target).
 
+## Checkout sessions over carts
+
+A reactionary checkout is a frozen snapshot of a finished cart, while UCP and
+ACP checkout sessions are mutable and filled in progressively (line items,
+buyer, address, shipping choice, payment). Both servers therefore keep the
+session as protocol-owned state over a reactionary **cart**:
+
+- **Views** are priced with a *transient* reactionary checkout, created as
+  soon as an address is known and discarded again (commercetools replicates
+  the cart per checkout, so the copy is deleted; on Medusa/Magento/HCL the
+  checkout is the cart itself). Shipping options come from that checkout.
+- **Email**: backends need one to quote, so transient checkouts use the buyer's
+  email, else the logged-in identity's profile email, else a placeholder
+  (`placeholderEmail` option, default `pending@checkout.invalid` — `.invalid`
+  is a reserved, undeliverable TLD). The placeholder never reaches the real
+  checkout: completion requires a real email.
+- **Completion** creates the real checkout, applies shipping and payment, and
+  finalizes it. A payment awaiting asynchronous PSP authorization leaves the
+  session `complete_in_progress` (UCP) / `in_progress` (ACP); a repeated
+  complete retries finalization and is idempotent once the order exists.
+- **Session resumption**: agents address sessions by id and rarely echo the
+  protocol session header, but backends scope carts to the session's
+  (anonymous) identity, so a session id resumes the backend session that
+  created it.
+- **UCP fulfillment extension** (minimal): destinations and
+  `selected_option_id` are read from `fulfillment.methods[]`, and options are
+  returned in `fulfillment.methods[].groups[].options[]`.
+
+The inefficiency (one backend checkout initiation per priced view) is accepted
+in exchange for keeping the reactionary checkout a frozen point in time.
+
 ## Order placement
 
-The UCP suite contains one journey that goes all the way to a real order
-("places a real order and verifies it through the order capability"): cart with
-two items → checkout session with buyer + billing address → shipping method
-selection → payment instrument → deferred-payment authorization → complete →
-**independent verification through `client.order.getById`** that the order
-exists in the backend.
+Both suites contain a journey that goes all the way to a real order and then
+**independently verifies it through `client.order.getById`**:
 
-Two steps deserve explanation:
+- UCP: cart → session with only a destination (options quoted via the
+  placeholder email) → buyer + shipping option → payment instrument → complete
+  (`complete_in_progress`) → PSP authorization → complete (`completed`).
+- ACP: session from a feed item without buyer → buyer + address (options
+  quoted) → option → complete with delegated token (`in_progress`) → PSP
+  authorization → complete (`completed`).
 
-- **Deferred payment**: adding a payment instruction leaves the payment
-  `pending`; in production the PSP authorizes it out-of-band (webhook). The
-  test plays the PSP's role via `ct-psp-simulator.ts`, which adds a successful
-  `Authorization` transaction to the commercetools payment using the admin API
-  client (`CTP_ADMIN_CLIENT_ID`/`CTP_ADMIN_CLIENT_SECRET`; the storefront
-  client lacks the `view_payments`/`manage_payments` scopes).
-- **Shipping selection** goes through the reactionary checkout capability
-  directly (joining the protocol session), because the UCP base shopping
-  service has no fulfillment routes.
+The **deferred payment** step is played by `ct-psp-simulator.ts`, which adds a
+successful `Authorization` transaction to the commercetools payment the way a
+PSP webhook would, using the admin API client
+(`CTP_ADMIN_CLIENT_ID`/`CTP_ADMIN_CLIENT_SECRET`; the storefront client lacks
+the `view_payments`/`manage_payments` scopes).
 
-The journey currently runs for commercetools only: medusa gates finalization on
-the payment collection being authorized, which only its PSP integrations can
-do, so there is no equivalent out-of-band lever yet.
+These journeys run for commercetools only: medusa gates finalization on the
+payment collection being authorized, which only its PSP integrations can do, so
+there is no equivalent out-of-band lever yet.
 
 ## Locale & currency negotiation
 
@@ -96,21 +124,14 @@ mapping must be supplied as configuration.
 These were found while building the suites and are limitations of the core /
 provider capability surface, not of the UCP/ACP protocol layers:
 
-1. **Commercetools checkout requires a billing address with email at
-   initiation.** `CheckoutMutationInitiateCheckoutSchema` declares
-   `billingAddress` and `notificationEmail` optional, but the commercetools
-   capability only persists the notification email as part of
-   `setBillingAddress`, and `CommercetoolsCheckoutFactory.parseCheckout` maps
-   `pointOfContact.email` from `billingAddress.email`, which the core
-   `CheckoutSchema` validates as a mandatory well-formed email. Consequently
-   `initiateCheckoutForCart` without a billing address always fails against
-   commercetools (ZodError on `pointOfContact.email`). The UCP e2e checkout
-   journey therefore always supplies buyer details and a billing address.
+1. **Checkouts cannot exist without a buyer email** on commercetools and
+   Medusa (and Magento guests): their factories emit `pointOfContact.email: ''`,
+   which the core `CheckoutSchema` rejects. The protocol layers work around this
+   with the placeholder email for transient pricing (see above).
 2. **Commercetools inventory lookups need a fulfillment center.**
    `inventory.getBySKU` with an empty fulfillment-center key logs
    `Error fetching inventory by SKU and Fulfillment Center` and the ACP product
    feed reports `availability: "unknown"` for every item. The ACP journey
    accepts `unknown` availability as purchasable for this reason.
-3. **UCP checkout cancellation is unmapped.** `POST
-   /checkout-sessions/{id}/cancel` returns 501 by design: the core checkout
-   capability has no cancellation operation to map it onto.
+3. **Checkout line items are frozen** in reactionary, while protocol sessions
+   change them; handled by keeping sessions over carts (see above).
