@@ -70,6 +70,9 @@ The UCP server accepts a `localization` option mapping buyer signals to a
 - `Accept-Language` tags (quality-ordered; a `da` rule matches `da-DK`), then
 - an optional `fallback`.
 
+`DEFAULT_UCP_LOCALIZATION_RULES` ships a default map (Sweden → SEK, Norway →
+NOK, Denmark → DKK, Finland → EUR, English → USD), which these suites use.
+
 The negotiated context is stored in the UCP session and reused for all later
 requests of that session, deliberately **not** renegotiated: backends fix a
 cart's locale and currency at creation (e.g. commercetools), so drifting the

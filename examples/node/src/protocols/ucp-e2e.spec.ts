@@ -485,28 +485,28 @@ describe.each(combinations)('UCP e2e - $backend + $search', ({ backend, search }
         const skus = await findSearchResultSkus(createUcpSession(server));
         const [sku] = await findAddableSkus(createUcpSession(server), skus, 1);
 
-        // An English-speaking buyer's first request settles the session on EUR...
-        const euroSession = createUcpSession(server);
-        const euroCart = await euroSession.sendJson<UcpCartResponse>(
+        // An English-speaking buyer's first request settles the session on USD...
+        const usdSession = createUcpSession(server);
+        const usdCart = await usdSession.sendJson<UcpCartResponse>(
           'POST',
           `${UCP_BASE_URL}/carts`,
           { line_items: [toCartLineItem(sku, 1)] },
           { 'accept-language': 'en' },
         );
 
-        expectUcpSuccess(euroCart.body);
-        expect(euroCart.body.currency).toBe('EUR');
+        expectUcpSuccess(usdCart.body);
+        expect(usdCart.body.currency).toBe('USD');
 
         // ...and the negotiated context sticks for the rest of that session,
         // even when a later request carries a different language header.
-        const fetched = await euroSession.sendJson<UcpCartResponse>(
+        const fetched = await usdSession.sendJson<UcpCartResponse>(
           'PUT',
-          `${UCP_BASE_URL}/carts/${euroCart.body.id}`,
+          `${UCP_BASE_URL}/carts/${usdCart.body.id}`,
           { line_items: [toCartLineItem(sku, 2)] },
           { 'accept-language': 'da' },
         );
         expectUcpSuccess(fetched.body);
-        expect(fetched.body.currency).toBe('EUR');
+        expect(fetched.body.currency).toBe('USD');
 
         // A Danish buyer's session lands on DKK.
         const danishSession = createUcpSession(server);
