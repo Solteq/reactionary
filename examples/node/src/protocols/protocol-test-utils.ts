@@ -210,6 +210,13 @@ export function createUcpServerHarness(
           'dev.reactionary.manual': [{ version: '2026-08-25', id: 'manual' }],
         },
       },
+      localization: {
+        rules: [
+          { country: 'DK', languageContext: { locale: 'da-DK', currencyCode: 'DKK' } },
+          { language: 'da', languageContext: { locale: 'da-DK', currencyCode: 'DKK' } },
+          { language: 'en', languageContext: { locale: 'en-US', currencyCode: 'EUR' } },
+        ],
+      },
     },
   );
 

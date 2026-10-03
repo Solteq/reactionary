@@ -16,6 +16,7 @@ import {
 } from './reactionary-ucp-common.js';
 import { getOrCreateSessionId, jsonResponse, sendWebResponse, toWebRequest, UCP_SESSION_ID_HEADER } from './reactionary-ucp-http.js';
 import { ReactionaryUCPIdentity, type UCPBearerResolution } from './reactionary-ucp-identity.js';
+import { resolveLanguageContext } from './reactionary-ucp-localization.js';
 import { createUCPProfile, getRequestRoute } from './reactionary-ucp-profile.js';
 import { handleRestRequest, UCPHttpError } from './reactionary-ucp-rest.js';
 import { ReactionaryUCPSessionStore } from './reactionary-ucp-session-store.js';
@@ -72,6 +73,16 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
     }
 
     const requestContext = await this.createRequestContext(sessionId, bearerResolution);
+    const negotiatedLanguageContext = await resolveLanguageContext(
+      request,
+      requestContext.session,
+      this.options.localization,
+    );
+
+    if (negotiatedLanguageContext) {
+      requestContext.languageContext = negotiatedLanguageContext;
+    }
+
     const client = this.clientFactory(requestContext);
 
     const response = await this.handleRequest(request, client, sessionId, bearerResolution);
