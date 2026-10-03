@@ -229,10 +229,27 @@ export function createAcpServer(
   backend: ProtocolBackend,
   search: ProtocolSearchEngine = ProtocolSearchEngine.NATIVE,
 ): ReactionaryACPServer {
-  const { languageContext } = createInitialRequestContext();
+  return createAcpServerHarness(backend, search).server;
+}
 
-  return new ReactionaryACPServer(
-    (requestContext) => createProtocolClient(backend, search, requestContext),
+export interface AcpServerHarness {
+  server: ReactionaryACPServer;
+  /** See {@link UcpServerHarness.createCompanionClient}. */
+  createCompanionClient(): ReturnType<typeof createProtocolClient>;
+}
+
+export function createAcpServerHarness(
+  backend: ProtocolBackend,
+  search: ProtocolSearchEngine = ProtocolSearchEngine.NATIVE,
+): AcpServerHarness {
+  const { languageContext } = createInitialRequestContext();
+  let lastContext: Partial<RequestContext> = {};
+
+  const server = new ReactionaryACPServer(
+    (requestContext) => {
+      lastContext = requestContext;
+      return createProtocolClient(backend, search, requestContext);
+    },
     {
       sessionCache: new MemoryCache(),
       links: [{ type: 'terms_of_use', url: 'https://shop.example.com/terms' }],
@@ -257,6 +274,11 @@ export function createAcpServer(
       },
     },
   );
+
+  return {
+    server,
+    createCompanionClient: () => createProtocolClient(backend, search, lastContext),
+  };
 }
 
 interface FetchProtocolServer {

@@ -1,11 +1,8 @@
 import type {
   Cart,
   Category,
-  Checkout,
-  CheckoutMutationInitiateCheckout,
-  CostBreakDown,
   FacetValueIdentifier,
-  MonetaryAmount,
+  Identity,
   Product,
   ProductSearchResult,
   ProductSearchResultItem,
@@ -16,6 +13,25 @@ import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPClient, UCPPaymentHandlers } from './reactionary-ucp-common.js';
 import { jsonResponse } from './reactionary-ucp-http.js';
 import type { ReactionaryUCPSessionStore } from './reactionary-ucp-session-store.js';
+import {
+  cancelCheckoutSession,
+  completeCheckoutSession,
+  createCheckoutSession,
+  getCheckoutSession,
+  updateCheckoutSession,
+  type UCPCheckoutRequest,
+  type UCPCheckoutSessionContext,
+} from './reactionary-ucp-checkout-session.js';
+import {
+  createUCPError,
+  createUcpSuccessMetadata,
+  createUcpWarning,
+  getMoneyCurrency,
+  toUcpCartLineItem,
+  toUcpCostTotals,
+  type UCPLineItem,
+  type UCPMessage,
+} from './reactionary-ucp-mapping.js';
 
 type UCPErrorResponse = components['schemas']['error_response'];
 type UCPCart = Omit<components['schemas']['cart'], 'currency' | 'id' | 'line_items' | 'totals' | 'ucp' | '$defs'> & {
@@ -26,11 +42,6 @@ type UCPCart = Omit<components['schemas']['cart'], 'currency' | 'id' | 'line_ite
   ucp: components['schemas']['response_cart_schema'];
 };
 type UCPCartResponse = UCPCart | UCPErrorResponse;
-type UCPCheckout = components['schemas']['checkout'];
-type UCPCheckoutRequest = UCPCheckout & {
-  cart_id?: string;
-};
-type UCPCheckoutResponse = components['schemas']['checkout_response'];
 type UCPCatalogSearchRequest = components['schemas']['catalog_search_request'];
 type UCPCatalogSearchResponse = components['schemas']['catalog_search_response'];
 type UCPCatalogLookupRequest = components['schemas']['catalog_lookup_request'];
@@ -41,8 +52,6 @@ type UCPOrder = Omit<components['schemas']['order'], '$defs'>;
 type UCPOrderResponse = UCPOrder | UCPErrorResponse;
 type UCPProduct = components['schemas']['product'];
 type UCPVariant = components['schemas']['variant'];
-type UCPLineItem = components['schemas']['line_item'];
-type UCPMessage = components['schemas']['message'];
 
 export async function handleRestRequest(
   request: Request,
@@ -50,8 +59,10 @@ export async function handleRestRequest(
   path: string,
   sessionId: string,
   sessionStore: ReactionaryUCPSessionStore,
-  paymentHandlers: UCPPaymentHandlers = {},
+  options: UCPRestOptions,
 ): Promise<Response | undefined> {
+  const checkoutContext = createCheckoutSessionContext(client, sessionId, sessionStore, options);
+
   if (request.method === 'POST' && path === '/catalog/search') {
     return jsonResponse(await handleCatalogSearch(client, await parseJsonBody<UCPCatalogSearchRequest>(request)));
   }
@@ -72,7 +83,15 @@ export async function handleRestRequest(
       'REST POST /carts',
       body,
       sessionStore,
-      async () => createdResponse(await handleCreateCart(client, body)),
+      async () => {
+        const cart = await handleCreateCart(client, body);
+
+        if (isUcpCart(cart)) {
+          await sessionStore.bindResource(cart.id, sessionId);
+        }
+
+        return createdResponse(cart);
+      },
     );
   }
 
@@ -112,13 +131,13 @@ export async function handleRestRequest(
       'REST POST /checkout-sessions',
       body,
       sessionStore,
-      async () => createdResponse(await handleCreateCheckout(client, body, paymentHandlers)),
+      async () => createdResponse(await createCheckoutSession(checkoutContext, body)),
     );
   }
 
   const checkoutMatch = /^\/checkout-sessions\/([^/]+)$/.exec(path);
   if (checkoutMatch && request.method === 'GET') {
-    return jsonResponse(await handleGetCheckout(client, decodeURIComponent(checkoutMatch[1]), paymentHandlers));
+    return checkoutResponse(await getCheckoutSession(checkoutContext, decodeURIComponent(checkoutMatch[1])));
   }
   if (checkoutMatch && request.method === 'PUT') {
     const body = await parseJsonBody<UCPCheckoutRequest>(request);
@@ -128,19 +147,20 @@ export async function handleRestRequest(
       `REST PUT /checkout-sessions/${decodeURIComponent(checkoutMatch[1])}`,
       body,
       sessionStore,
-      async () => jsonResponse(await handleUpdateCheckout(client, decodeURIComponent(checkoutMatch[1]), body, paymentHandlers)),
+      async () => checkoutResponse(await updateCheckoutSession(checkoutContext, decodeURIComponent(checkoutMatch[1]), body)),
     );
   }
 
   const checkoutCompleteMatch = /^\/checkout-sessions\/([^/]+)\/complete$/.exec(path);
   if (checkoutCompleteMatch && request.method === 'POST') {
+    const body = await parseJsonBody<UCPCheckoutRequest>(request);
     return withRestIdempotency(
       request,
       sessionId,
       `REST POST /checkout-sessions/${decodeURIComponent(checkoutCompleteMatch[1])}/complete`,
-      {},
+      body,
       sessionStore,
-      async () => jsonResponse(await handleCompleteCheckout(client, decodeURIComponent(checkoutCompleteMatch[1]), paymentHandlers)),
+      async () => checkoutResponse(await completeCheckoutSession(checkoutContext, decodeURIComponent(checkoutCompleteMatch[1]), body)),
     );
   }
 
@@ -152,7 +172,7 @@ export async function handleRestRequest(
       `REST POST /checkout-sessions/${decodeURIComponent(checkoutCancelMatch[1])}/cancel`,
       {},
       sessionStore,
-      async () => jsonResponse(createUCPError('not_implemented', 'Checkout cancellation is not represented by Reactionary checkout capabilities yet.'), { status: 501 }),
+      async () => checkoutResponse(await cancelCheckoutSession(checkoutContext, decodeURIComponent(checkoutCancelMatch[1]))),
     );
   }
 
@@ -164,11 +184,90 @@ export async function handleRestRequest(
   return undefined;
 }
 
+export interface UCPRestOptions {
+  paymentHandlers: UCPPaymentHandlers;
+  placeholderEmail: string;
+  identity: Identity;
+}
+
+function createCheckoutSessionContext(
+  client: ReactionaryUCPClient,
+  sessionId: string,
+  sessionStore: ReactionaryUCPSessionStore,
+  options: UCPRestOptions,
+): UCPCheckoutSessionContext {
+  let identityEmail: Promise<string | undefined> | undefined;
+
+  return {
+    client,
+    store: sessionStore,
+    sessionId,
+    paymentHandlers: options.paymentHandlers,
+    placeholderEmail: options.placeholderEmail,
+    getIdentityEmail() {
+      identityEmail ??= getRegisteredIdentityEmail(client, options.identity);
+      return identityEmail;
+    },
+    async createCart(lineItems: UCPLineItem[]) {
+      const created = await handleCreateCart(client, {
+        id: '',
+        line_items: lineItems,
+        currency: '',
+        totals: [],
+        ucp: createUcpSuccessMetadata(),
+      });
+
+      if (!isUcpCart(created)) {
+        return created;
+      }
+
+      return (await getReactionaryCart(client, created.id))
+        ?? createUCPError('not_found', `Cart was not found: ${created.id}`);
+    },
+    async reconcileCart(cartId: string, lineItems: UCPLineItem[]) {
+      const updated = await handleUpdateCart(client, cartId, {
+        id: cartId,
+        line_items: lineItems,
+        currency: '',
+        totals: [],
+        ucp: createUcpSuccessMetadata(),
+      });
+
+      return isUcpCart(updated) ? undefined : updated;
+    },
+  };
+}
+
+async function getRegisteredIdentityEmail(
+  client: ReactionaryUCPClient,
+  identity: Identity,
+): Promise<string | undefined> {
+  if (identity.type !== 'Registered' || !client.profile) {
+    return undefined;
+  }
+
+  const profile = await client.profile.getById({ identifier: identity.id });
+
+  return profile.success && profile.value.email ? profile.value.email : undefined;
+}
+
 function getAgentProfile(request: Request): string | undefined {
   const agent = request.headers.get('UCP-Agent');
   const profile = agent ? /profile="([^"]*)"/.exec(agent)?.[1] : undefined;
 
   return profile ? `agent:${profile}` : undefined;
+}
+
+const CHECKOUT_ERROR_STATUSES: Record<string, number> = {
+  not_found: 404,
+  checkout_not_modifiable: 409,
+};
+
+/** Maps resourceless checkout errors to transport status; in-band messages on a resource stay 200. */
+function checkoutResponse(body: { ucp: { status?: string }; messages?: Array<{ type: string; code?: string }> }): Response {
+  const code = body.ucp.status === 'error' ? body.messages?.[0]?.code : undefined;
+
+  return jsonResponse(body, { status: (code && CHECKOUT_ERROR_STATUSES[code]) || 200 });
 }
 
 function createdResponse(body: { ucp: { status?: string } }): Response {
@@ -466,135 +565,6 @@ async function handleCancelCart(
   return current.success ? toUcpCart(current.value) : createEmptyUcpCart(cartId);
 }
 
-async function handleCreateCheckout(
-  client: ReactionaryUCPClient,
-  body: UCPCheckoutRequest,
-  paymentHandlers: UCPPaymentHandlers,
-): Promise<UCPCheckoutResponse> {
-  if (!client.checkout) {
-    return createUCPError('not_available', 'Checkout capability is not available.');
-  }
-
-  const cartOrError = body.cart_id
-    ? await getReactionaryCart(client, body.cart_id)
-    : await createCartForCheckout(client, body);
-
-  if (!cartOrError) {
-    return createUCPError('invalid_request', 'A checkout session requires cart_id or line_items.');
-  }
-
-  if (!isReactionaryCart(cartOrError)) {
-    return cartOrError;
-  }
-
-  const cart = cartOrError;
-
-  const billingAddress = toReactionaryBillingAddress(getSelectedPaymentInstrument(body)?.billing_address);
-  const result = await client.checkout.initiateCheckoutForCart({
-    cart,
-    ...(billingAddress ? { billingAddress } : {}),
-    ...(body.buyer?.email ? { notificationEmail: body.buyer.email } : {}),
-    ...(body.buyer?.phone_number ? { notificationPhone: body.buyer.phone_number } : {}),
-  });
-
-  if (!result.success) {
-    return createUCPError('checkout_create_failed', 'Checkout session creation failed.');
-  }
-
-  return toUcpCheckout(result.value, paymentHandlers);
-}
-
-async function handleGetCheckout(
-  client: ReactionaryUCPClient,
-  checkoutId: string,
-  paymentHandlers: UCPPaymentHandlers,
-): Promise<UCPCheckoutResponse> {
-  if (!client.checkout) {
-    return createUCPError('not_available', 'Checkout capability is not available.');
-  }
-
-  const result = await client.checkout.getById({ identifier: { key: checkoutId } });
-
-  if (!result.success) {
-    return createUCPError('not_found', `Checkout was not found: ${checkoutId}`);
-  }
-
-  return toUcpCheckout(result.value, paymentHandlers);
-}
-
-async function handleUpdateCheckout(
-  client: ReactionaryUCPClient,
-  checkoutId: string,
-  body: UCPCheckoutRequest,
-  paymentHandlers: UCPPaymentHandlers,
-): Promise<UCPCheckoutResponse> {
-  if (!client.checkout) {
-    return createUCPError('not_available', 'Checkout capability is not available.');
-  }
-
-  const current = await client.checkout.getById({ identifier: { key: checkoutId } });
-
-  if (!current.success) {
-    return createUCPError('not_found', `Checkout was not found: ${checkoutId}`);
-  }
-
-  let checkout = current.value;
-  const selectedInstrument = body.payment?.instruments?.find((instrument) => instrument.selected);
-  if (selectedInstrument) {
-    const paymentResult = await client.checkout.addPaymentInstruction({
-      checkout: checkout.identifier,
-      paymentInstruction: {
-        amount: checkout.price.grandTotal,
-        paymentMethod: {
-          method: selectedInstrument.type,
-          name: selectedInstrument.id,
-          paymentProcessor: selectedInstrument.handler_id,
-        },
-        protocolData: [
-          { key: 'ucp_payment_instrument_id', value: selectedInstrument.id },
-          { key: 'ucp_payment_handler_id', value: selectedInstrument.handler_id },
-          { key: 'ucp_payment_instrument_type', value: selectedInstrument.type },
-        ],
-      },
-    });
-
-    if (!paymentResult.success) {
-      return createUCPError('checkout_update_failed', 'Unable to add selected payment instruction.');
-    }
-
-    checkout = paymentResult.value;
-  }
-
-  return toUcpCheckout(checkout, paymentHandlers);
-}
-
-async function handleCompleteCheckout(
-  client: ReactionaryUCPClient,
-  checkoutId: string,
-  paymentHandlers: UCPPaymentHandlers,
-): Promise<UCPCheckoutResponse> {
-  if (!client.checkout) {
-    return createUCPError('not_available', 'Checkout capability is not available.');
-  }
-
-  // Pass the fetched identifier through: provider-specific identifiers can
-  // carry more than the key (commercetools needs the version to create the
-  // order from the cart).
-  const current = await client.checkout.getById({ identifier: { key: checkoutId } });
-
-  if (!current.success) {
-    return createUCPError('not_found', `Checkout was not found: ${checkoutId}`);
-  }
-
-  const result = await client.checkout.finalizeCheckout({ checkout: current.value.identifier });
-
-  if (!result.success) {
-    return createUCPError('checkout_complete_failed', 'Checkout completion failed.');
-  }
-
-  return toUcpCheckout(result.value, paymentHandlers, 'completed');
-}
-
 async function handleGetOrder(
   client: ReactionaryUCPClient,
   orderId: string,
@@ -625,37 +595,8 @@ async function handleGetOrder(
   };
 }
 
-type UCPPostalAddress = components['schemas']['postal_address'];
-type UCPSelectedPaymentInstrument = NonNullable<
-  NonNullable<UCPCheckout['payment']>['instruments']
->[number];
 
-function getSelectedPaymentInstrument(
-  checkout: UCPCheckout,
-): UCPSelectedPaymentInstrument | undefined {
-  const instruments = checkout.payment?.instruments ?? [];
 
-  return instruments.find((instrument) => instrument.selected) ?? instruments[0];
-}
-
-function toReactionaryBillingAddress(
-  address: UCPPostalAddress | undefined,
-): CheckoutMutationInitiateCheckout['billingAddress'] | undefined {
-  if (!address) {
-    return undefined;
-  }
-
-  return {
-    firstName: address.first_name ?? '',
-    lastName: address.last_name ?? '',
-    streetAddress: address.street_address ?? '',
-    streetNumber: '',
-    city: address.address_locality ?? '',
-    region: address.address_region ?? '',
-    postalCode: address.postal_code ?? '',
-    countryCode: address.address_country ?? '',
-  };
-}
 
 async function getReactionaryCart(
   client: ReactionaryUCPClient,
@@ -668,29 +609,6 @@ async function getReactionaryCart(
   const result = await client.cart.getById({ cart: { key: cartId } });
 
   return result.success ? result.value : undefined;
-}
-
-async function createCartForCheckout(
-  client: ReactionaryUCPClient,
-  checkout: UCPCheckout,
-): Promise<Cart | UCPErrorResponse | undefined> {
-  if (!checkout.line_items?.length) {
-    return undefined;
-  }
-
-  const cartResponse = await handleCreateCart(client, {
-    id: '',
-    line_items: checkout.line_items,
-    currency: checkout.currency,
-    totals: checkout.totals,
-    ucp: createUcpSuccessMetadata(),
-  });
-
-  return isUcpCart(cartResponse) ? getReactionaryCart(client, cartResponse.id) : cartResponse;
-}
-
-function isReactionaryCart(value: Cart | UCPErrorResponse): value is Cart {
-  return 'identifier' in value;
 }
 
 async function getReactionaryProduct(
@@ -834,41 +752,6 @@ function isUcpCart(
   return 'id' in response && 'line_items' in response && 'currency' in response;
 }
 
-function toUcpCartLineItem(
-  lineItem: Cart['items'][number] | Checkout['items'][number],
-): UCPLineItem {
-  const sku = lineItem.variant.sku || lineItem.identifier.key;
-
-  return {
-    id: lineItem.identifier.key,
-    item: {
-      id: sku,
-      title: sku,
-      price: getMoneyValue(lineItem.price.unitPrice),
-    },
-    quantity: lineItem.quantity,
-    totals: toUcpTotals(lineItem.price.totalPrice),
-  };
-}
-
-function toUcpCheckout(
-  checkout: Checkout,
-  paymentHandlers: UCPPaymentHandlers,
-  status?: UCPCheckout['status'],
-): UCPCheckout {
-  return {
-    id: checkout.identifier.key,
-    status: status ?? (checkout.readyForFinalization ? 'ready_for_complete' : 'incomplete'),
-    line_items: checkout.items.map(toUcpCartLineItem),
-    currency: getMoneyCurrency(checkout.price?.grandTotal),
-    totals: toUcpCostTotals(checkout.price),
-    links: [],
-    ...(checkout.resultingOrder
-      ? { order: { id: checkout.resultingOrder.key, permalink_url: '' } }
-      : {}),
-    ucp: createUcpCheckoutSuccessMetadata(paymentHandlers),
-  };
-}
 
 function toUcpDescription(
   text: string | undefined,
@@ -876,52 +759,9 @@ function toUcpDescription(
   return text ? { plain: text } : { plain: '' };
 }
 
-function toUcpCostTotals(
-  price: CostBreakDown,
-): components['schemas']['total'][] {
-  const totals: components['schemas']['total'][] = [
-    { type: 'subtotal', amount: getMoneyValue(price.totalProductPrice) },
-  ];
-  const optionalTotals: Array<[string, number]> = [
-    ['discount', -Math.abs(getMoneyValue(price.totalDiscount))],
-    ['fulfillment', getMoneyValue(price.totalShipping)],
-    ['tax', getMoneyValue(price.totalTax)],
-    ['fee', getMoneyValue(price.totalSurcharge)],
-  ];
 
-  for (const [type, amount] of optionalTotals) {
-    if (amount !== 0) {
-      totals.push({ type, amount });
-    }
-  }
 
-  totals.push({ type: 'total', amount: getMoneyValue(price.grandTotal) });
 
-  return totals;
-}
-
-function toUcpTotals(
-  amount: MonetaryAmount,
-): components['schemas']['total'][] {
-  return [
-    {
-      type: 'total',
-      amount: getMoneyValue(amount),
-    },
-  ];
-}
-
-function getMoneyValue(
-  amount: MonetaryAmount,
-): number {
-  return amount.value;
-}
-
-function getMoneyCurrency(
-  amount: MonetaryAmount,
-): string {
-  return amount.currency;
-}
 
 function createUcpPrice(
   amount = 0,
@@ -933,91 +773,11 @@ function createUcpPrice(
   };
 }
 
-function createUcpSuccessMetadata(): components['schemas']['ucp_$defs-base'] & { status: 'success' } {
-  return {
-    version: '2026-08-25',
-    status: 'success',
-  };
-}
 
-type UCPCheckoutPaymentHandlers = components['schemas']['response_checkout_schema']['payment_handlers'];
 
-function createUcpCheckoutSuccessMetadata(
-  paymentHandlers: UCPPaymentHandlers,
-): components['schemas']['response_checkout_schema'] {
-  const candidate: unknown = paymentHandlers;
 
-  return {
-    version: '2026-08-25',
-    status: 'success',
-    payment_handlers: isUcpCheckoutPaymentHandlers(candidate) ? candidate : {},
-  };
-}
 
-// The generated handler type is unsatisfiable by object literals, so validate the runtime shape instead of casting.
-function isUcpCheckoutPaymentHandlers(
-  value: unknown,
-): value is UCPCheckoutPaymentHandlers {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    Object.values(value).every(
-      (handlers: unknown) =>
-        Array.isArray(handlers) &&
-        handlers.every(
-          (handler: unknown) =>
-            typeof handler === 'object' &&
-            handler !== null &&
-            typeof Reflect.get(handler, 'version') === 'string',
-        ),
-    )
-  );
-}
 
-function createUCPError<TResponse>(
-  code: string,
-  message: string,
-  path?: string,
-): TResponse {
-  // The schema's message container is the flat message_error object, carrying
-  // the mandatory severity: resources that do not exist cannot be retried
-  // against, everything else can be resolved by adjusting the request.
-  const unrecoverable = code.endsWith('not_found')
-    || code === 'not_available'
-    || code === 'not_implemented';
-
-  return {
-    ucp: {
-      version: '2026-08-25',
-      status: 'error',
-    },
-    messages: [
-      {
-        type: 'error',
-        code,
-        ...(path ? { path } : {}),
-        content_type: 'plain',
-        content: message,
-        severity: unrecoverable ? 'unrecoverable' : 'recoverable',
-      },
-    ],
-  } as TResponse;
-}
-
-function createUcpWarning(
-  code: string,
-  content: string,
-  path: string,
-): UCPMessage {
-  return {
-    type: 'warning',
-    code,
-    path,
-    content,
-    content_type: 'plain',
-    presentation: 'notice',
-  };
-}
 
 function getLimit(body: UCPCatalogSearchRequest): number {
   return body.pagination?.limit ?? 10;

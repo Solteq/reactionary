@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { assert, describe, expect, it } from 'vitest';
 import type { ReactionaryACPServer } from '@reactionary/acp';
+import { simulateCommercetoolsPaymentAuthorizationForEmail } from './ct-psp-simulator.js';
 import {
   ACP_BASE_URL,
   ACP_FEED_ID,
@@ -8,6 +9,7 @@ import {
   ProtocolBackend,
   ProtocolSearchEngine,
   createAcpServer,
+  createAcpServerHarness,
   createAcpSession,
   getProtocolBackends,
   getProtocolSearchEngines,
@@ -126,6 +128,7 @@ async function readProductFeed(server: ReactionaryACPServer): Promise<AcpFeedIte
 async function createCheckoutSessionFromFeed(
   session: ProtocolSession,
   feedItems: AcpFeedItem[],
+  details: Record<string, unknown> = { buyer, fulfillment_address: fulfillmentAddress },
 ): Promise<{ checkoutSession: AcpCheckoutSession; sku: string }> {
   // Prefer items that are explicitly in stock, but fall back to items with an
   // unknown availability: commercetools reports 'unknown' when no inventory
@@ -145,8 +148,7 @@ async function createCheckoutSessionFromFeed(
       `${ACP_BASE_URL}/checkout_sessions`,
       {
         items: [{ id: sku, quantity: 1 }],
-        buyer,
-        fulfillment_address: fulfillmentAddress,
+        ...details,
       },
     );
 
@@ -294,6 +296,85 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
 
         expect(cancelAgain.status).toBe(405);
       }, PROTOCOL_TEST_TIMEOUT);
+
+      // See the UCP suite: only commercetools lets the test play the PSP's
+      // out-of-band authorization role.
+      it.skipIf(backend !== ProtocolBackend.COMMERCETOOLS)(
+        'places a real order from the feed and verifies it through the order capability',
+        async () => {
+          const harness = createAcpServerHarness(backend, search);
+          const session = createAcpSession(harness.server);
+          const email = `ada+${crypto.randomUUID()}@example.com`;
+          const orderBuyer = { name: 'Ada Lovelace', email };
+
+          // 1. The agent opens a session with just the item; the buyer is unknown.
+          const feedItems = await readProductFeed(harness.server);
+          const { checkoutSession: created } = await createCheckoutSessionFromFeed(session, feedItems, {});
+
+          expect(created.status).toBe('not_ready_for_payment');
+          expect(created.fulfillment_options).toEqual([]);
+
+          // 2. Buyer details and the shipping address arrive; options are quoted.
+          const withAddress = await session.sendJson<AcpCheckoutSession>(
+            'POST',
+            `${ACP_BASE_URL}/checkout_sessions/${created.id}`,
+            { buyer: orderBuyer, fulfillment_address: fulfillmentAddress },
+          );
+
+          expect(withAddress.status).toBe(200);
+          const option = withAddress.body.fulfillment_options.find((candidate) => candidate.type === 'shipping');
+          expect(option, 'expected a shipping option for the address').toBeDefined();
+          expect(withAddress.body.status).toBe('not_ready_for_payment');
+
+          // 3. The buyer picks the option; the session becomes payable.
+          const ready = await session.sendJson<AcpCheckoutSession>(
+            'POST',
+            `${ACP_BASE_URL}/checkout_sessions/${created.id}`,
+            { fulfillment_option_id: option?.id },
+          );
+
+          expect(ready.body.status).toBe('ready_for_payment');
+
+          // 4. Completing with the delegated payment token places the real
+          // checkout; authorization is still pending at the PSP.
+          const completePayload = {
+            buyer: orderBuyer,
+            payment_data: { token: 'spt_test', provider: 'stripe' },
+          };
+          const pending = await session.sendJson<AcpCheckoutSession>(
+            'POST',
+            `${ACP_BASE_URL}/checkout_sessions/${created.id}/complete`,
+            completePayload,
+          );
+
+          expect(pending.status).toBe(200);
+          expect(pending.body.status).toBe('in_progress');
+
+          await simulateCommercetoolsPaymentAuthorizationForEmail(email);
+
+          // 5. Completing again finalizes and places the order.
+          const completed = await session.sendJson<AcpCheckoutSession & { order?: { id: string } }>(
+            'POST',
+            `${ACP_BASE_URL}/checkout_sessions/${created.id}/complete`,
+            completePayload,
+          );
+
+          expect(completed.body.status).toBe('completed');
+          const orderId = completed.body.order?.id;
+          expect(orderId, 'expected the completed session to reference the placed order').toBeTruthy();
+
+          // 6. Independently verify the order through the reactionary order capability.
+          const order = await harness.createCompanionClient().order.getById({ order: { key: orderId ?? '' } });
+
+          if (!order.success) {
+            assert.fail(`Order lookup failed: ${JSON.stringify(order.error)}`);
+          }
+
+          expect(order.value.identifier.key).toBe(orderId);
+          expect(order.value.price.grandTotal.value).toBeGreaterThan(0);
+        },
+        PROTOCOL_TEST_TIMEOUT,
+      );
 
       it('rejects malformed and unknown checkout session requests', async () => {
         const session = createAcpSession(server);

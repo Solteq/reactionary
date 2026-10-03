@@ -53,6 +53,8 @@ export interface ReactionaryACPClient {
     createCart(payload: unknown): Promise<Result<Cart>>;
     add(payload: unknown): Promise<Result<Cart>>;
     getById(payload: unknown): Promise<Result<Cart>>;
+    // Optional: used to discard transient pricing checkouts that are cart copies.
+    deleteCart?(payload: unknown): Promise<Result<void>>;
   };
   checkout?: {
     initiateCheckoutForCart(payload: unknown): Promise<Result<Checkout>>;
@@ -105,7 +107,14 @@ export interface ReactionaryACPServerOptions {
   links?: ACPLink[];
   productFeed?: ACPProductFeedOptions;
   discovery?: ACPDiscoveryOptions;
+  /**
+   * Email used to price transient checkouts before the buyer has supplied
+   * one. Never used for the real checkout created on completion.
+   */
+  placeholderEmail?: string;
 }
+
+export const DEFAULT_ACP_PLACEHOLDER_EMAIL = 'pending@checkout.invalid';
 
 export interface ACPDiscoveryOptions {
   apiVersion?: string;
@@ -207,7 +216,7 @@ export class ReactionaryACPServer<
   }
 
   private async handleFetch(request: Request): Promise<Response> {
-    const sessionId = getOrCreateSessionId(request);
+    const sessionId = await this.resolveSessionId(request);
     const requestContext = await this.createRequestContext(sessionId);
     const requestedFeed = this.getRequestedProductFeed(request);
 
@@ -218,12 +227,26 @@ export class ReactionaryACPServer<
     const client = this.clientFactory(requestContext);
     assertACPClient(client);
 
-    const response = await this.handleRequest(request, client, requestContext)
+    const response = await this.handleRequest(request, client, requestContext, sessionId)
       .catch((error: unknown) => toACPErrorResponse(error));
     await this.sessionStore.put(sessionId, requestContext.session);
     response.headers.set(ACP_SESSION_ID_HEADER, sessionId);
 
     return response;
+  }
+
+  /**
+   * Requests addressing a checkout session resume the session that created
+   * it: agents need not echo the ACP session header, but backends scope carts
+   * to that session's (anonymous) identity.
+   */
+  private async resolveSessionId(request: Request): Promise<string> {
+    const checkoutSessionId = getCheckoutSessionId(request, this.options.basePath);
+    const state = checkoutSessionId
+      ? await this.checkoutSessionStore.get(checkoutSessionId)
+      : undefined;
+
+    return state?.sessionId ?? getOrCreateSessionId(request);
   }
 
   public getHandler(): ReactionaryACPHttpHandler {
@@ -261,6 +284,7 @@ export class ReactionaryACPServer<
     request: Request,
     client: ValidatedReactionaryACPClient,
     requestContext: RequestContext,
+    sessionId: string,
   ): Promise<Response> {
     if (request.method === 'OPTIONS') {
       return new Response(null, {
@@ -324,7 +348,7 @@ export class ReactionaryACPServer<
     }
 
     if (request.method === 'POST') {
-      return this.handlePost(request, client, requestContext);
+      return this.handlePost(request, client, requestContext, sessionId);
     }
 
     return jsonResponse({
@@ -453,6 +477,7 @@ export class ReactionaryACPServer<
     request: Request,
     client: ValidatedReactionaryACPClient,
     requestContext: RequestContext,
+    sessionId: string,
   ): Promise<Response> {
     const checkoutSessionId = getCheckoutSessionId(
       request,
@@ -464,6 +489,7 @@ export class ReactionaryACPServer<
         await parseJsonBody(request, ACPCreateCheckoutSessionRequestSchema),
         client,
         requestContext,
+        sessionId,
       );
     }
 
@@ -491,31 +517,20 @@ export class ReactionaryACPServer<
     input: ACPCreateCheckoutSessionRequest,
     client: ValidatedReactionaryACPClient,
     requestContext: RequestContext,
+    sessionId: string,
   ): Promise<Response> {
     const cart = await this.createCartForItems(input.items, client);
-    const checkout = await unwrapACPResult(
-      client.checkout.initiateCheckoutForCart({
-        cart,
-        billingAddress: input.fulfillment_address
-          ? toReactionaryAddress(input.fulfillment_address)
-          : undefined,
-        notificationEmail: input.buyer?.email,
-        notificationPhone: input.buyer?.phone_number,
-      }),
-    );
     const state: ACPCheckoutSessionState = {
       id: `checkout_session_${crypto.randomUUID()}`,
+      sessionId,
       cartId: cart.identifier.key,
-      checkoutId: checkout.identifier.key,
-      status: getCheckoutStatus(checkout),
+      status: 'not_ready_for_payment',
       buyer: input.buyer,
       fulfillmentAddress: input.fulfillment_address,
     };
 
-    await this.checkoutSessionStore.put(state.id, state);
-
     return jsonResponse(
-      await this.toACPCheckoutSession(state, checkout, client, requestContext),
+      await this.toACPCheckoutSession(state, client, requestContext),
       { status: 201 },
     );
   }
@@ -527,71 +542,27 @@ export class ReactionaryACPServer<
     requestContext: RequestContext,
   ): Promise<Response> {
     const state = await this.getRequiredCheckoutSessionState(checkoutSessionId);
-    let checkout = await this.getReactionaryCheckout(state, client);
-    let cartId = state.cartId;
 
-    if (input.items) {
-      const cart = await this.createCartForItems(input.items, client);
-      checkout = await unwrapACPResult(
-        client.checkout.initiateCheckoutForCart({
-          cart,
-          billingAddress: input.fulfillment_address
-            ? toReactionaryAddress(input.fulfillment_address)
-            : state.fulfillmentAddress
-              ? toReactionaryAddress(state.fulfillmentAddress)
-              : undefined,
-          notificationEmail: input.buyer?.email ?? state.buyer?.email,
-          notificationPhone:
-            input.buyer?.phone_number ?? state.buyer?.phone_number,
-        }),
-      );
-      cartId = cart.identifier.key;
-    }
-
-    if (input.fulfillment_address) {
-      checkout = await unwrapACPResult(
-        client.checkout.setShippingAddress({
-          checkout: checkout.identifier,
-          shippingAddress: toReactionaryAddress(input.fulfillment_address),
-        }),
-      );
-    }
-
-    if (input.fulfillment_option_id) {
-      checkout = await unwrapACPResult(
-        client.checkout.setShippingInstruction({
-          checkout: checkout.identifier,
-          shippingInstruction: {
-            shippingMethod: { key: input.fulfillment_option_id },
-            pickupPoint: '',
-            instructions: '',
-            consentForUnattendedDelivery: false,
-          },
-        }),
-      );
+    if (state.checkoutId || state.status === 'canceled') {
+      return acpErrorResponse(405, {
+        type: 'invalid_request',
+        code: 'invalid',
+        message: 'The checkout session can no longer be modified.',
+      });
     }
 
     const updatedState: ACPCheckoutSessionState = {
       ...state,
-      cartId,
-      checkoutId: checkout.identifier.key,
-      status: getCheckoutStatus(checkout),
+      cartId: input.items
+        ? (await this.createCartForItems(input.items, client)).identifier.key
+        : state.cartId,
       buyer: input.buyer ?? state.buyer,
-      fulfillmentAddress:
-        input.fulfillment_address ?? state.fulfillmentAddress,
-      fulfillmentOptionId:
-        input.fulfillment_option_id ?? state.fulfillmentOptionId,
+      fulfillmentAddress: input.fulfillment_address ?? state.fulfillmentAddress,
+      fulfillmentOptionId: input.fulfillment_option_id ?? state.fulfillmentOptionId,
     };
 
-    await this.checkoutSessionStore.put(checkoutSessionId, updatedState);
-
     return jsonResponse(
-      await this.toACPCheckoutSession(
-        updatedState,
-        checkout,
-        client,
-        requestContext,
-      ),
+      await this.toACPCheckoutSession(updatedState, client, requestContext),
     );
   }
 
@@ -610,14 +581,17 @@ export class ReactionaryACPServer<
       });
     }
 
-    const checkout = await this.getReactionaryCheckout(state, client);
-
     return jsonResponse(
-      await this.toACPCheckoutSession(state, checkout, client),
+      await this.toACPCheckoutSession(state, client),
       { omitBody },
     );
   }
 
+  /**
+   * Creates the real checkout from the session state and finalizes it. A
+   * payment the PSP has not authorized yet leaves the session `in_progress`;
+   * a repeated complete retries finalization.
+   */
   private async completeCheckoutSession(
     checkoutSessionId: string,
     input: ACPCompleteCheckoutSessionRequest,
@@ -633,40 +607,45 @@ export class ReactionaryACPServer<
       });
     }
 
-    let checkout = await this.getReactionaryCheckout(state, client);
-    checkout = await unwrapACPResult(
-      client.checkout.addPaymentInstruction({
-        checkout: checkout.identifier,
-        paymentInstruction: {
-          amount: checkout.price.grandTotal,
-          paymentMethod: toPaymentMethodIdentifier(input.payment_data.provider),
-          protocolData: [
-            {
-              key: 'delegated_payment_token',
-              value: input.payment_data.token,
-            },
-          ],
-        },
-      }),
-    );
-    checkout = await unwrapACPResult(
-      client.checkout.finalizeCheckout({
-        checkout: checkout.identifier,
-      }),
-    );
+    const buyer = input.buyer ?? state.buyer;
+    let current: ACPCheckoutSessionState = { ...state, buyer };
 
-    const completedState: ACPCheckoutSessionState = {
-      ...state,
-      status: 'completed',
-      buyer: input.buyer ?? state.buyer,
-      orderId: checkout.resultingOrder?.key,
-    };
+    if (!current.checkoutId) {
+      const view = await this.priceSession(current, client);
 
-    await this.checkoutSessionStore.put(checkoutSessionId, completedState);
+      if (view.status !== 'ready_for_payment') {
+        return acpErrorResponse(400, {
+          type: 'invalid_request',
+          code: 'invalid',
+          message: 'The checkout session is missing the buyer email, fulfillment address or fulfillment option.',
+        });
+      }
 
-    return jsonResponse(
-      await this.toACPCheckoutSession(completedState, checkout, client),
-    );
+      const checkout = await this.placeCheckout(current, input, client);
+      current = {
+        ...current,
+        checkoutId: checkout.identifier.key,
+        status: 'in_progress',
+      };
+      await this.checkoutSessionStore.put(current.id, current);
+    }
+
+    if (current.status !== 'completed' && current.checkoutId) {
+      const checkout = await unwrapACPResult(
+        client.checkout.getById({ identifier: { key: current.checkoutId } }),
+      );
+
+      if (checkout.resultingOrder) {
+        current = { ...current, status: 'completed', orderId: checkout.resultingOrder.key };
+      } else if (checkout.readyForFinalization) {
+        const finalized = await unwrapACPResult(
+          client.checkout.finalizeCheckout({ checkout: checkout.identifier }),
+        );
+        current = { ...current, status: 'completed', orderId: finalized.resultingOrder?.key };
+      }
+    }
+
+    return jsonResponse(await this.toACPCheckoutSession(current, client));
   }
 
   private async cancelCheckoutSession(
@@ -675,7 +654,7 @@ export class ReactionaryACPServer<
   ): Promise<Response> {
     const state = await this.getRequiredCheckoutSessionState(checkoutSessionId);
 
-    if (state.status === 'completed' || state.status === 'canceled') {
+    if (state.checkoutId || state.status === 'completed' || state.status === 'canceled') {
       return acpErrorResponse(405, {
         type: 'invalid_request',
         code: 'invalid',
@@ -683,16 +662,8 @@ export class ReactionaryACPServer<
       });
     }
 
-    const canceledState: ACPCheckoutSessionState = {
-      ...state,
-      status: 'canceled',
-    };
-    const checkout = await this.getReactionaryCheckout(canceledState, client);
-
-    await this.checkoutSessionStore.put(checkoutSessionId, canceledState);
-
     return jsonResponse(
-      await this.toACPCheckoutSession(canceledState, checkout, client),
+      await this.toACPCheckoutSession({ ...state, status: 'canceled' }, client),
     );
   }
 
@@ -731,55 +702,133 @@ export class ReactionaryACPServer<
     return state;
   }
 
-  private async getReactionaryCheckout(
+  private async placeCheckout(
     state: ACPCheckoutSessionState,
+    input: ACPCompleteCheckoutSessionRequest,
     client: ValidatedReactionaryACPClient,
   ): Promise<Checkout> {
+    const cart = await unwrapACPResult(client.cart.getById({ cart: { key: state.cartId } }));
+    let checkout = await unwrapACPResult(
+      client.checkout.initiateCheckoutForCart({
+        cart,
+        billingAddress: state.fulfillmentAddress
+          ? toReactionaryAddress(state.fulfillmentAddress)
+          : undefined,
+        notificationEmail: state.buyer?.email,
+        notificationPhone: state.buyer?.phone_number,
+      }),
+    );
+
+    if (state.fulfillmentOptionId) {
+      checkout = await unwrapACPResult(
+        client.checkout.setShippingInstruction(toShippingInstruction(checkout, state.fulfillmentOptionId)),
+      );
+    }
+
     return unwrapACPResult(
-      client.checkout.getById({
-        identifier: { key: state.checkoutId },
+      client.checkout.addPaymentInstruction({
+        checkout: checkout.identifier,
+        paymentInstruction: {
+          amount: checkout.price.grandTotal,
+          paymentMethod: toPaymentMethodIdentifier(input.payment_data.provider),
+          protocolData: [
+            {
+              key: 'delegated_payment_token',
+              value: input.payment_data.token,
+            },
+          ],
+        },
       }),
     );
   }
 
+  /**
+   * Prices the open session with a transient checkout, which is discarded
+   * again: a reactionary checkout is a frozen snapshot, while an ACP session
+   * keeps changing until completion. Backends need an email to quote, so a
+   * placeholder stands in until the buyer supplies one.
+   */
+  private async priceSession(
+    state: ACPCheckoutSessionState,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<ACPSessionView> {
+    const cart = await unwrapACPResult(client.cart.getById({ cart: { key: state.cartId } }));
+
+    if (!state.fulfillmentAddress || state.status === 'canceled') {
+      return { cart, price: cart.price, options: [], status: state.status === 'canceled' ? 'canceled' : 'not_ready_for_payment' };
+    }
+
+    let checkout = await unwrapACPResult(
+      client.checkout.initiateCheckoutForCart({
+        cart,
+        billingAddress: toReactionaryAddress(state.fulfillmentAddress),
+        notificationEmail: state.buyer?.email ?? this.options.placeholderEmail ?? DEFAULT_ACP_PLACEHOLDER_EMAIL,
+        notificationPhone: state.buyer?.phone_number,
+      }),
+    );
+
+    try {
+      const shippingMethods = await client.checkout.getAvailableShippingMethods({ checkout: checkout.identifier });
+      const options = shippingMethods.success ? shippingMethods.value : [];
+      const selected = options.find((option) => option.identifier.key === state.fulfillmentOptionId);
+
+      if (selected) {
+        const withShipping = await client.checkout.setShippingInstruction(
+          toShippingInstruction(checkout, selected.identifier.key),
+        );
+        checkout = withShipping.success ? withShipping.value : checkout;
+      }
+
+      const ready = Boolean(state.buyer?.email) && (options.length === 0 || Boolean(selected));
+
+      return {
+        cart,
+        checkout,
+        price: checkout.price,
+        options,
+        status: ready ? 'ready_for_payment' : 'not_ready_for_payment',
+      };
+    } finally {
+      // Where the checkout is a copy of the cart (e.g. commercetools), the
+      // copy would otherwise linger; where it is the cart itself, keep it.
+      if (checkout.identifier.key !== cart.identifier.key && client.cart.deleteCart) {
+        await client.cart.deleteCart({ cart: checkout.identifier });
+      }
+    }
+  }
+
   private async toACPCheckoutSession(
     state: ACPCheckoutSessionState,
-    checkout: Checkout,
     client: ValidatedReactionaryACPClient,
     requestContext = createInitialRequestContext(),
   ): Promise<Record<string, unknown>> {
-    const fulfillmentOptions = await this.getFulfillmentOptions(
-      checkout,
-      client,
-    );
+    const view = state.checkoutId
+      ? await this.getPlacedView(state, client)
+      : await this.priceSession(state, client);
+    const persisted: ACPCheckoutSessionState = { ...state, status: view.status };
+
+    await this.checkoutSessionStore.put(persisted.id, persisted);
 
     return {
-      id: state.id,
-      ...(state.buyer ? { buyer: state.buyer } : {}),
-      payment_provider: await this.getPaymentProvider(checkout, client),
-      status: state.status === 'completed' || state.status === 'canceled'
-        ? state.status
-        : getCheckoutStatus(checkout),
-      currency: getCurrency(checkout, requestContext),
-      line_items: checkout.items.map(toACPLineItem),
-      ...(state.fulfillmentAddress
-        ? { fulfillment_address: state.fulfillmentAddress }
+      id: persisted.id,
+      ...(persisted.buyer ? { buyer: persisted.buyer } : {}),
+      payment_provider: await this.getPaymentProvider(view.checkout, client),
+      status: persisted.status,
+      currency: getCurrency(view.price, requestContext),
+      line_items: (view.checkout?.items ?? view.cart?.items ?? []).map(toACPLineItem),
+      ...(persisted.fulfillmentAddress
+        ? { fulfillment_address: persisted.fulfillmentAddress }
         : {}),
-      fulfillment_options: fulfillmentOptions,
-      ...(state.fulfillmentOptionId
-        ? { fulfillment_option_id: state.fulfillmentOptionId }
-        : checkout.shippingInstruction?.shippingMethod.key
-          ? {
-              fulfillment_option_id:
-                checkout.shippingInstruction.shippingMethod.key,
-            }
-          : {}),
-      totals: toACPTotals(checkout),
-      ...(state.orderId
+      fulfillment_options: view.options.map(toACPFulfillmentOption),
+      ...(persisted.fulfillmentOptionId
+        ? { fulfillment_option_id: persisted.fulfillmentOptionId }
+        : {}),
+      totals: toACPTotals(view.price),
+      ...(persisted.orderId
         ? {
             order: {
-              id: state.orderId,
-              checkout_session_id: state.id,
+              id: persisted.orderId,
+              checkout_session_id: persisted.id,
               permalink_url: '',
             },
           }
@@ -789,34 +838,37 @@ export class ReactionaryACPServer<
     };
   }
 
-  private async getFulfillmentOptions(
-    checkout: Checkout,
+  private async getPlacedView(
+    state: ACPCheckoutSessionState,
     client: ValidatedReactionaryACPClient,
-  ): Promise<Record<string, unknown>[]> {
-    const result = await client.checkout.getAvailableShippingMethods({
-      checkout: checkout.identifier,
-    });
+  ): Promise<ACPSessionView> {
+    const checkout = await unwrapACPResult(
+      client.checkout.getById({ identifier: { key: state.checkoutId ?? '' } }),
+    );
 
-    if (!result.success) {
-      return [];
-    }
-
-    return result.value.map(toACPFulfillmentOption);
+    return {
+      checkout,
+      price: checkout.price,
+      options: [],
+      status: state.status === 'completed' || checkout.resultingOrder ? 'completed' : 'in_progress',
+    };
   }
 
   private async getPaymentProvider(
-    checkout: Checkout,
+    checkout: Checkout | undefined,
     client: ValidatedReactionaryACPClient,
   ): Promise<ACPPaymentProvider> {
     if (this.options.paymentProvider) {
       return this.options.paymentProvider;
     }
 
-    const result = await client.checkout.getAvailablePaymentMethods({
-      checkout: checkout.identifier,
-    });
+    const result = checkout
+      ? await client.checkout.getAvailablePaymentMethods({
+          checkout: checkout.identifier,
+        })
+      : undefined;
 
-    if (result.success) {
+    if (result?.success) {
       const supported = result.value.find((method) =>
         ['stripe', 'adyen', 'braintree'].includes(
           method.identifier.paymentProcessor,
@@ -837,6 +889,29 @@ export class ReactionaryACPServer<
       supported_payment_methods: ['card'],
     };
   }
+}
+
+interface ACPSessionView {
+  cart?: Cart;
+  checkout?: Checkout;
+  price: Checkout['price'];
+  options: ShippingMethod[];
+  status: ACPCheckoutSessionState['status'];
+}
+
+function toShippingInstruction(
+  checkout: Checkout,
+  fulfillmentOptionId: string,
+): { checkout: Checkout['identifier']; shippingInstruction: { shippingMethod: { key: string }; pickupPoint: string; instructions: string; consentForUnattendedDelivery: boolean } } {
+  return {
+    checkout: checkout.identifier,
+    shippingInstruction: {
+      shippingMethod: { key: fulfillmentOptionId },
+      pickupPoint: '',
+      instructions: '',
+      consentForUnattendedDelivery: false,
+    },
+  };
 }
 
 class ACPHttpError extends Error {
@@ -1085,25 +1160,17 @@ async function unwrapACPResult<T>(resultPromise: Promise<Result<T>>): Promise<T>
   return result.value;
 }
 
-function getCheckoutStatus(
-  checkout: Checkout,
-): ACPCheckoutSessionState['status'] {
-  return checkout.readyForFinalization
-    ? 'ready_for_payment'
-    : 'not_ready_for_payment';
-}
-
 function getCurrency(
-  checkout: Checkout,
+  price: Checkout['price'],
   requestContext: RequestContext,
 ): string {
   return (
-    checkout.price.grandTotal.currency ??
+    price.grandTotal.currency ??
     requestContext.languageContext.currencyCode
   ).toLowerCase();
 }
 
-function toACPLineItem(item: Checkout['items'][number]): Record<string, unknown> {
+function toACPLineItem(item: Checkout['items'][number] | Cart['items'][number]): Record<string, unknown> {
   const baseAmount = toMinorUnits(item.price.unitPrice.value * item.quantity);
   const discount = toMinorUnits(item.price.totalDiscount.value);
   const total = toMinorUnits(item.price.totalPrice.value);
@@ -1122,13 +1189,13 @@ function toACPLineItem(item: Checkout['items'][number]): Record<string, unknown>
   };
 }
 
-function toACPTotals(checkout: Checkout): Record<string, unknown>[] {
-  const base = toMinorUnits(checkout.price.totalProductPrice.value);
-  const discount = toMinorUnits(checkout.price.totalDiscount.value);
+function toACPTotals(price: Checkout['price']): Record<string, unknown>[] {
+  const base = toMinorUnits(price.totalProductPrice.value);
+  const discount = toMinorUnits(price.totalDiscount.value);
   const subtotal = Math.max(base - discount, 0);
-  const fulfillment = toMinorUnits(checkout.price.totalShipping.value);
-  const tax = toMinorUnits(checkout.price.totalTax.value);
-  const total = toMinorUnits(checkout.price.grandTotal.value);
+  const fulfillment = toMinorUnits(price.totalShipping.value);
+  const tax = toMinorUnits(price.totalTax.value);
+  const total = toMinorUnits(price.grandTotal.value);
 
   return [
     {
