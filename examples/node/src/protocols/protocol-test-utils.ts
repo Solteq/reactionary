@@ -168,12 +168,34 @@ export function createProtocolClient(
 
 export const UCP_BASE_URL = 'https://shop.example.com/ucp';
 
+export interface UcpServerHarness {
+  server: ReactionaryUCPServer;
+  /**
+   * Builds a reactionary client that joins the session of the server's most
+   * recent request. Backends scope resources to the (anonymous) session —
+   * commercetools carts live under /me — so independent capability calls must
+   * share the protocol session to see what the protocol flow created.
+   */
+  createCompanionClient(): ReturnType<typeof createProtocolClient>;
+}
+
 export function createUcpServer(
   backend: ProtocolBackend,
   search: ProtocolSearchEngine,
 ): ReactionaryUCPServer {
-  return new ReactionaryUCPServer(
-    (requestContext) => createProtocolClient(backend, search, requestContext),
+  return createUcpServerHarness(backend, search).server;
+}
+
+export function createUcpServerHarness(
+  backend: ProtocolBackend,
+  search: ProtocolSearchEngine,
+): UcpServerHarness {
+  let lastContext: Partial<RequestContext> = {};
+  const server = new ReactionaryUCPServer(
+    (requestContext) => {
+      lastContext = requestContext;
+      return createProtocolClient(backend, search, requestContext);
+    },
     {
       sessionCache: new MemoryCache(),
       profile: {
@@ -190,6 +212,11 @@ export function createUcpServer(
       },
     },
   );
+
+  return {
+    server,
+    createCompanionClient: () => createProtocolClient(backend, search, lastContext),
+  };
 }
 
 export const ACP_BASE_URL = 'https://shop.example.com/acp';

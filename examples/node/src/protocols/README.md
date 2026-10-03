@@ -35,11 +35,35 @@ npx vitest run --project node src/protocols
 The tests hit live services, so they are not part of the offline CI test
 target (`examples/*` has no `test:offline` target).
 
+## Order placement
+
+The UCP suite contains one journey that goes all the way to a real order
+("places a real order and verifies it through the order capability"): cart with
+two items → checkout session with buyer + billing address → shipping method
+selection → payment instrument → deferred-payment authorization → complete →
+**independent verification through `client.order.getById`** that the order
+exists in the backend.
+
+Two steps deserve explanation:
+
+- **Deferred payment**: adding a payment instruction leaves the payment
+  `pending`; in production the PSP authorizes it out-of-band (webhook). The
+  test plays the PSP's role via `ct-psp-simulator.ts`, which adds a successful
+  `Authorization` transaction to the commercetools payment using the admin API
+  client (`CTP_ADMIN_CLIENT_ID`/`CTP_ADMIN_CLIENT_SECRET`; the storefront
+  client lacks the `view_payments`/`manage_payments` scopes).
+- **Shipping selection** goes through the reactionary checkout capability
+  directly (joining the protocol session), because the UCP base shopping
+  service has no fulfillment routes.
+
+The journey currently runs for commercetools only: medusa gates finalization on
+the payment collection being authorized, which only its PSP integrations can
+do, so there is no equivalent out-of-band lever yet.
+
 ## Deliberately out of scope
 
-- **Payment completion** (`POST /checkout-sessions/{id}/complete`, ACP
-  `/checkout_sessions/{id}/complete` on an active session): requires a live
-  payment service provider interaction / delegated payment token.
+- **Delegated payment tokens** (ACP `/checkout_sessions/{id}/complete` on an
+  active session): requires a live payment service provider issuing the token.
 - **UCP identity linking (OAuth)**: requires interactive browser login.
 
 ## Known core capability surface limitations (documented, not fixed here)

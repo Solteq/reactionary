@@ -1,11 +1,14 @@
 import 'dotenv/config';
+import type { Result } from '@reactionary/core';
 import { assert, describe, expect, it } from 'vitest';
+import { simulateCommercetoolsPaymentAuthorization } from './ct-psp-simulator.js';
 import {
   PROTOCOL_TEST_TIMEOUT,
   ProtocolBackend,
   ProtocolSearchEngine,
   UCP_BASE_URL,
   createUcpServer,
+  createUcpServerHarness,
   createUcpSession,
   getProtocolBackends,
   getProtocolSearchEngines,
@@ -107,7 +110,19 @@ interface UcpCheckoutResponse {
   line_items?: UcpLineItem[];
   currency?: string;
   totals?: UcpTotal[];
+  order?: {
+    id: string;
+    permalink_url?: string;
+  };
   messages?: UcpResponseMessage[];
+}
+
+function unwrap<T>(result: Result<T, unknown>): T {
+  if (!result.success) {
+    assert.fail(`Capability call failed: ${JSON.stringify(result.error)}`);
+  }
+
+  return result.value;
 }
 
 function describeUcpError(body: { messages?: UcpResponseMessage[] }): string {
@@ -462,9 +477,164 @@ describe.each(combinations)('UCP e2e - $backend + $search', ({ backend, search }
         expectUcpSuccess(fetched.body);
         expect(fetched.body.id).toBe(checkout.body.id);
         expect(fetched.body.line_items?.[0].item.id).toBe(sku);
-        // Completing the checkout is not exercised: it requires a real payment
-        // service provider interaction, which an unattended e2e test cannot do.
+        // This journey stops before payment; the order-placement test below
+        // carries a checkout all the way to a real order.
       }, PROTOCOL_TEST_TIMEOUT);
+
+      // Only commercetools supports this today: the e2e test can play the
+      // payment service provider's role by adding the Authorization
+      // transaction out-of-band (as a PSP webhook would). Medusa gates
+      // finalization on the payment collection being authorized, which only
+      // its PSP integrations can do, so it has no equivalent lever yet.
+      it.skipIf(backend !== ProtocolBackend.COMMERCETOOLS)(
+        'places a real order and verifies it through the order capability',
+        async () => {
+          const harness = createUcpServerHarness(backend, search);
+          const session = createUcpSession(harness.server);
+          const candidates = await findSearchResultSkus(session);
+          const [firstSku, secondSku] = await findAddableSkus(session, candidates, 2);
+
+          // 1. Build a cart with two items.
+          const cart = await session.sendJson<UcpCartResponse>('POST', `${UCP_BASE_URL}/carts`, {
+            line_items: [toCartLineItem(firstSku, 1), toCartLineItem(secondSku, 1)],
+          });
+
+          expect(cart.status).toBe(201);
+          expectUcpSuccess(cart.body);
+          expect(cart.body.line_items?.length).toBe(2);
+
+          // 2. Open a checkout session with buyer details and billing address.
+          const created = await session.sendJson<UcpCheckoutResponse>(
+            'POST',
+            `${UCP_BASE_URL}/checkout-sessions`,
+            {
+              cart_id: cart.body.id,
+              buyer: {
+                first_name: 'John',
+                last_name: 'Doe',
+                email: 'sample@example.com',
+                phone_number: '+4512345678',
+              },
+              payment: {
+                instruments: [
+                  {
+                    id: 'instrument-1',
+                    handler_id: 'stripe',
+                    type: 'card',
+                    selected: false,
+                    billing_address: {
+                      first_name: 'John',
+                      last_name: 'Doe',
+                      street_address: '123 Main St',
+                      address_locality: 'Anytown',
+                      address_region: '',
+                      postal_code: '12345',
+                      address_country: 'DK',
+                    },
+                  },
+                ],
+              },
+            },
+          );
+
+          expect(created.status).toBe(201);
+          expectUcpSuccess(created.body);
+          const checkoutId = created.body.id;
+          expect(checkoutId).toBeTruthy();
+
+          // 3. Select a shipping method. The UCP base shopping service has no
+          // fulfillment routes (fulfillment is a separate UCP capability that
+          // the server does not implement yet), so this step goes through the
+          // reactionary checkout capability directly, joining the protocol
+          // session since backends scope carts to the (anonymous) session.
+          const client = harness.createCompanionClient();
+          let checkout = unwrap(
+            await client.checkout.getById({ identifier: { key: checkoutId ?? '' } }),
+          );
+          const shippingMethods = unwrap(
+            await client.checkout.getAvailableShippingMethods({ checkout: checkout.identifier }),
+          );
+          expect(shippingMethods.length).toBeGreaterThan(0);
+
+          checkout = unwrap(
+            await client.checkout.setShippingInstruction({
+              checkout: checkout.identifier,
+              shippingInstruction: {
+                shippingMethod: shippingMethods[0].identifier,
+                instructions: '',
+                pickupPoint: '',
+                consentForUnattendedDelivery: false,
+              },
+            }),
+          );
+
+          // 4. Attach the payment instrument, now that the total is final.
+          const paid = await session.sendJson<UcpCheckoutResponse>(
+            'PUT',
+            `${UCP_BASE_URL}/checkout-sessions/${checkoutId}`,
+            {
+              id: checkoutId,
+              status: 'incomplete',
+              line_items: [],
+              currency: created.body.currency ?? 'EUR',
+              totals: [],
+              links: [],
+              payment: {
+                instruments: [
+                  {
+                    id: 'instrument-1',
+                    handler_id: 'stripe',
+                    type: 'card',
+                    selected: true,
+                  },
+                ],
+              },
+              ucp: { version: '2026-08-25', status: 'success' },
+            },
+          );
+
+          expectUcpSuccess(paid.body);
+
+          // 5. The payment is deferred: it sits on the checkout as pending
+          // until the PSP authorizes it out-of-band. Simulate that callback.
+          checkout = unwrap(
+            await client.checkout.getById({ identifier: { key: checkoutId ?? '' } }),
+          );
+          expect(checkout.paymentInstructions.length).toBeGreaterThan(0);
+          await simulateCommercetoolsPaymentAuthorization(
+            checkout.paymentInstructions.map((instruction) => instruction.identifier.key),
+          );
+
+          // 6. The checkout session now reports itself completable.
+          const ready = await session.get<UcpCheckoutResponse>(
+            `${UCP_BASE_URL}/checkout-sessions/${checkoutId}`,
+          );
+          expectUcpSuccess(ready.body);
+          expect(ready.body.status).toBe('ready_for_complete');
+
+          // 7. Complete the checkout, which places the order.
+          const completed = await session.sendJson<UcpCheckoutResponse>(
+            'POST',
+            `${UCP_BASE_URL}/checkout-sessions/${checkoutId}/complete`,
+            {},
+          );
+
+          expectUcpSuccess(completed.body);
+          expect(completed.body.status).toBe('completed');
+          const orderId = completed.body.order?.id;
+          expect(orderId, 'expected the completed checkout to reference the placed order').toBeTruthy();
+
+          // 8. Independently verify through the reactionary order capability
+          // that a real order now exists in the backend.
+          const order = unwrap(
+            await client.order.getById({ order: { key: orderId ?? '' } }),
+          );
+
+          expect(order.identifier.key).toBe(orderId);
+          expect(order.price.grandTotal.value).toBeGreaterThan(0);
+        },
+        PROTOCOL_TEST_TIMEOUT,
+      );
     });
   });
 });
