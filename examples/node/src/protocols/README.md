@@ -52,9 +52,10 @@ session as protocol-owned state over a reactionary **cart**:
   is a reserved, undeliverable TLD). The placeholder never reaches the real
   checkout: completion requires a real email.
 - **Completion** creates the real checkout, applies shipping and payment, then
-  **polls** the checkout until the payment is authorized (on commercetools,
-  adding the payment creates a Stripe PaymentIntent and the Stripe webhook
-  records the authorization) and finalizes it. The wait is configurable
+  **polls** the checkout until the backend reports it `readyForFinalization`
+  (which implies the payment is authorized — on commercetools, adding the
+  payment creates a Stripe PaymentIntent and the Stripe webhook records the
+  authorization) and finalizes it. The wait is configurable
   (`paymentAuthorizationWait`, default 10s timeout / 1s interval; `0`
   disables it). If it times out, the session answers `complete_in_progress`
   (UCP) / `in_progress` (ACP) and a later complete retries.
