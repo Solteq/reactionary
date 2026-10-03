@@ -30,9 +30,10 @@ export type UCPCheckoutRequest = UCPCheckout & { cart_id?: string };
 export const DEFAULT_UCP_PLACEHOLDER_EMAIL = 'pending@checkout.invalid';
 
 /**
- * How long completion waits for the payment service provider to authorize
- * the payment (typically recorded on the backend by a PSP webhook) before
- * answering `complete_in_progress`. A timeout of 0 disables waiting.
+ * How long completion waits for the placed checkout to become
+ * `readyForFinalization` — which implies an authorized payment, typically
+ * recorded on the backend by a PSP webhook — before answering
+ * `complete_in_progress`. A timeout of 0 disables waiting.
  */
 export interface UCPPaymentAuthorizationWait {
   timeoutMs: number;

@@ -113,9 +113,10 @@ export interface ReactionaryACPServerOptions {
    */
   placeholderEmail?: string;
   /**
-   * How long checkout completion waits for an asynchronous payment
-   * authorization (e.g. a PSP webhook) before answering `in_progress`.
-   * Defaults to 10s timeout, polled every 1s; a timeout of 0 disables it.
+   * How long checkout completion waits for the placed checkout to become
+   * `readyForFinalization` (i.e. its payment authorized, e.g. by a PSP
+   * webhook) before answering `in_progress`. Defaults to 10s timeout,
+   * polled every 1s; a timeout of 0 disables it.
    */
   paymentAuthorizationWait?: Partial<ACPPaymentAuthorizationWait>;
 }
