@@ -7,6 +7,7 @@
     "ucp:express": "node --loader @swc-node/register/esm src/ucp-express-server.ts"
   },
   "dependencies": {
+    "@reactionary/acp": "0.0.1",
     "@reactionary/algolia": "0.0.1",
     "@reactionary/commercetools": "0.0.1",
     "@reactionary/core": "0.0.1",

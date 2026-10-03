@@ -2,6 +2,7 @@ import type {
   Cart,
   Category,
   Checkout,
+  CheckoutMutationInitiateCheckout,
   CostBreakDown,
   FacetValueIdentifier,
   MonetaryAmount,
@@ -432,8 +433,12 @@ async function handleCancelCart(
     return createUCPError('not_available', 'Cart capability is not available.');
   }
 
+  // Pass the fetched identifier through: provider-specific identifiers can
+  // carry more than the key (commercetools needs the cart version to delete).
   const current = await client.cart.getById({ cart: { key: cartId } });
-  const deleted = await client.cart.deleteCart({ cart: { key: cartId } });
+  const deleted = await client.cart.deleteCart({
+    cart: current.success ? current.value.identifier : { key: cartId },
+  });
 
   if (!deleted.success) {
     return createUCPError('cart_cancel_failed', `Unable to cancel cart: ${cartId}`);
@@ -459,7 +464,13 @@ async function handleCreateCheckout(
     return createUCPError('invalid_request', 'A checkout session requires cart_id or line_items.');
   }
 
-  const result = await client.checkout.initiateCheckoutForCart({ cart });
+  const billingAddress = toReactionaryBillingAddress(getSelectedPaymentInstrument(body)?.billing_address);
+  const result = await client.checkout.initiateCheckoutForCart({
+    cart,
+    ...(billingAddress ? { billingAddress } : {}),
+    ...(body.buyer?.email ? { notificationEmail: body.buyer.email } : {}),
+    ...(body.buyer?.phone_number ? { notificationPhone: body.buyer.phone_number } : {}),
+  });
 
   if (!result.success) {
     return createUCPError('checkout_create_failed', 'Checkout session creation failed.');
@@ -577,6 +588,38 @@ async function handleGetOrder(
       events: [],
     },
     messages: [],
+  };
+}
+
+type UCPPostalAddress = components['schemas']['postal_address'];
+type UCPSelectedPaymentInstrument = NonNullable<
+  NonNullable<UCPCheckout['payment']>['instruments']
+>[number];
+
+function getSelectedPaymentInstrument(
+  checkout: UCPCheckout,
+): UCPSelectedPaymentInstrument | undefined {
+  const instruments = checkout.payment?.instruments ?? [];
+
+  return instruments.find((instrument) => instrument.selected) ?? instruments[0];
+}
+
+function toReactionaryBillingAddress(
+  address: UCPPostalAddress | undefined,
+): CheckoutMutationInitiateCheckout['billingAddress'] | undefined {
+  if (!address) {
+    return undefined;
+  }
+
+  return {
+    firstName: address.first_name ?? '',
+    lastName: address.last_name ?? '',
+    streetAddress: address.street_address ?? '',
+    streetNumber: '',
+    city: address.address_locality ?? '',
+    region: address.address_region ?? '',
+    postalCode: address.postal_code ?? '',
+    countryCode: address.address_country ?? '',
   };
 }
 
