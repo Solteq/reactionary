@@ -1,6 +1,10 @@
 import { MemoryCache, type LanguageContext } from '@reactionary/core';
 import { describe, expect, it } from 'vitest';
-import { parseAcceptLanguage, type ReactionaryUCPLocalizationOptions } from './reactionary-ucp-localization.js';
+import {
+  DEFAULT_UCP_LOCALIZATION_RULES,
+  parseAcceptLanguage,
+  type ReactionaryUCPLocalizationOptions,
+} from './reactionary-ucp-localization.js';
 import { ReactionaryUCPServer } from './reactionary-ucp-server.js';
 
 const localization: ReactionaryUCPLocalizationOptions = {
@@ -83,6 +87,28 @@ describe('ReactionaryUCPServer localization', () => {
     );
 
     expect(plain.observed[0]).toEqual({ locale: 'da-DK', currencyCode: 'DKK' });
+  });
+
+  it('ships a default Nordic rule set', async () => {
+    const cases = [
+      { headers: { 'accept-language': 'sv' }, expected: { locale: 'sv-SE', currencyCode: 'SEK' } },
+      { headers: { 'accept-language': 'nb-NO' }, expected: { locale: 'nb-NO', currencyCode: 'NOK' } },
+      { headers: { 'accept-language': 'da' }, expected: { locale: 'da-DK', currencyCode: 'DKK' } },
+      { headers: { 'accept-language': 'fi' }, expected: { locale: 'fi-FI', currencyCode: 'EUR' } },
+      { headers: { 'accept-language': 'en-GB' }, expected: { locale: 'en-US', currencyCode: 'USD' } },
+    ];
+
+    for (const [index, testCase] of cases.entries()) {
+      const { server, observed } = createObservingServer({
+        localization: { rules: DEFAULT_UCP_LOCALIZATION_RULES },
+      });
+
+      await server.fetch(new Request('http://127.0.0.1/ucp', { headers: testCase.headers }));
+
+      expect(observed[0], `case ${index}: ${JSON.stringify(testCase.headers)}`).toEqual(
+        testCase.expected,
+      );
+    }
   });
 
   it('sticks to the negotiated context for the rest of the session', async () => {

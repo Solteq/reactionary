@@ -7,7 +7,7 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import { ReactionaryACPServer } from '@reactionary/acp';
-import { ReactionaryUCPServer } from '@reactionary/ucp';
+import { DEFAULT_UCP_LOCALIZATION_RULES, ReactionaryUCPServer } from '@reactionary/ucp';
 import { withAlgoliaCapabilities } from '@reactionary/algolia';
 import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
 import { withMagentoCapabilities } from '@reactionary/magento';
@@ -211,11 +211,7 @@ export function createUcpServerHarness(
         },
       },
       localization: {
-        rules: [
-          { country: 'DK', languageContext: { locale: 'da-DK', currencyCode: 'DKK' } },
-          { language: 'da', languageContext: { locale: 'da-DK', currencyCode: 'DKK' } },
-          { language: 'en', languageContext: { locale: 'en-US', currencyCode: 'EUR' } },
-        ],
+        rules: DEFAULT_UCP_LOCALIZATION_RULES,
       },
     },
   );

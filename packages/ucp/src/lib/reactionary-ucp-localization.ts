@@ -20,6 +20,26 @@ export interface ReactionaryUCPLocalizationOptions {
   fallback?: LanguageContext;
 }
 
+/**
+ * Default Nordic-oriented mapping: Sweden → SEK, Norway → NOK, Denmark → DKK,
+ * Finland → EUR, and English-speaking buyers → USD. Country signals match
+ * first; the language rules catch buyers whose requests only carry
+ * Accept-Language.
+ */
+export const DEFAULT_UCP_LOCALIZATION_RULES: ReactionaryUCPLocalizationRule[] = [
+  { country: 'SE', languageContext: { locale: 'sv-SE', currencyCode: 'SEK' } },
+  { country: 'NO', languageContext: { locale: 'nb-NO', currencyCode: 'NOK' } },
+  { country: 'DK', languageContext: { locale: 'da-DK', currencyCode: 'DKK' } },
+  { country: 'FI', languageContext: { locale: 'fi-FI', currencyCode: 'EUR' } },
+  { language: 'sv', languageContext: { locale: 'sv-SE', currencyCode: 'SEK' } },
+  { language: 'nb', languageContext: { locale: 'nb-NO', currencyCode: 'NOK' } },
+  { language: 'nn', languageContext: { locale: 'nb-NO', currencyCode: 'NOK' } },
+  { language: 'no', languageContext: { locale: 'nb-NO', currencyCode: 'NOK' } },
+  { language: 'da', languageContext: { locale: 'da-DK', currencyCode: 'DKK' } },
+  { language: 'fi', languageContext: { locale: 'fi-FI', currencyCode: 'EUR' } },
+  { language: 'en', languageContext: { locale: 'en-US', currencyCode: 'USD' } },
+];
+
 const SESSION_LANGUAGE_CONTEXT_KEY = 'dev.ucp.languageContext';
 
 /**
