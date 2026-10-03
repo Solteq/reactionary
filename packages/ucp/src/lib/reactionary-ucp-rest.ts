@@ -72,7 +72,7 @@ export async function handleRestRequest(
       'REST POST /carts',
       body,
       sessionStore,
-      async () => jsonResponse(await handleCreateCart(client, body), { status: 201 }),
+      async () => createdResponse(await handleCreateCart(client, body)),
     );
   }
 
@@ -112,7 +112,7 @@ export async function handleRestRequest(
       'REST POST /checkout-sessions',
       body,
       sessionStore,
-      async () => jsonResponse(await handleCreateCheckout(client, body, paymentHandlers), { status: 201 }),
+      async () => createdResponse(await handleCreateCheckout(client, body, paymentHandlers)),
     );
   }
 
@@ -164,6 +164,17 @@ export async function handleRestRequest(
   return undefined;
 }
 
+function getAgentProfile(request: Request): string | undefined {
+  const agent = request.headers.get('UCP-Agent');
+  const profile = agent ? /profile="([^"]*)"/.exec(agent)?.[1] : undefined;
+
+  return profile ? `agent:${profile}` : undefined;
+}
+
+function createdResponse(body: { ucp: { status?: string } }): Response {
+  return jsonResponse(body, { status: body.ucp.status === 'error' ? 200 : 201 });
+}
+
 async function withRestIdempotency(
   request: Request,
   sessionId: string,
@@ -177,11 +188,15 @@ async function withRestIdempotency(
     return createResponse();
   }
 
+  // Agents identify themselves by their UCP-Agent profile and rarely echo our
+  // session header, so their keys are scoped to the profile; anonymous
+  // callers fall back to the UCP session.
+  const scope = getAgentProfile(request) ?? sessionId;
   const fingerprint = JSON.stringify(payload);
-  const cached = await sessionStore.getIdempotencyRecord(sessionId, idempotencyKey);
+  const cached = await sessionStore.getIdempotencyRecord(scope, idempotencyKey);
   if (cached) {
     if (cached.action !== action || cached.fingerprint !== fingerprint) {
-      return jsonResponse(createUCPError('idempotency_key_conflict', 'The supplied Idempotency-Key was already used for a different UCP REST mutation in this session.'), { status: 409 });
+      return jsonResponse(createUCPError('idempotency_key_conflict', 'The supplied Idempotency-Key was already used for a different UCP REST mutation.'), { status: 409 });
     }
 
     return jsonResponse(cached.response, { status: cached.status ?? 200 });
@@ -189,7 +204,7 @@ async function withRestIdempotency(
 
   const response = await createResponse();
   const responseBody = await response.clone().json() as Record<string, unknown>;
-  await sessionStore.putIdempotencyRecord(sessionId, idempotencyKey, {
+  await sessionStore.putIdempotencyRecord(scope, idempotencyKey, {
     action,
     fingerprint,
     status: response.status,
@@ -321,7 +336,11 @@ async function handleCreateCart(
     });
 
     if (!addResult.success) {
-      return createUCPError('cart_add_failed', `Unable to add item to cart: ${lineItem.item.id}`);
+      return createUCPError(
+        'item_unavailable',
+        `Item is not available for purchase: ${lineItem.item.id}`,
+        `$.line_items[${body['line_items'].indexOf(lineItem)}]`,
+      );
     }
 
     cart = addResult.value;
@@ -456,13 +475,19 @@ async function handleCreateCheckout(
     return createUCPError('not_available', 'Checkout capability is not available.');
   }
 
-  const cart = body.cart_id
+  const cartOrError = body.cart_id
     ? await getReactionaryCart(client, body.cart_id)
     : await createCartForCheckout(client, body);
 
-  if (!cart) {
+  if (!cartOrError) {
     return createUCPError('invalid_request', 'A checkout session requires cart_id or line_items.');
   }
+
+  if (!isReactionaryCart(cartOrError)) {
+    return cartOrError;
+  }
+
+  const cart = cartOrError;
 
   const billingAddress = toReactionaryBillingAddress(getSelectedPaymentInstrument(body)?.billing_address);
   const result = await client.checkout.initiateCheckoutForCart({
@@ -648,7 +673,7 @@ async function getReactionaryCart(
 async function createCartForCheckout(
   client: ReactionaryUCPClient,
   checkout: UCPCheckout,
-): Promise<Cart | undefined> {
+): Promise<Cart | UCPErrorResponse | undefined> {
   if (!checkout.line_items?.length) {
     return undefined;
   }
@@ -661,7 +686,11 @@ async function createCartForCheckout(
     ucp: createUcpSuccessMetadata(),
   });
 
-  return isUcpCart(cartResponse) ? getReactionaryCart(client, cartResponse.id) : undefined;
+  return isUcpCart(cartResponse) ? getReactionaryCart(client, cartResponse.id) : cartResponse;
+}
+
+function isReactionaryCart(value: Cart | UCPErrorResponse): value is Cart {
+  return 'identifier' in value;
 }
 
 async function getReactionaryProduct(
@@ -948,7 +977,15 @@ function isUcpCheckoutPaymentHandlers(
 function createUCPError<TResponse>(
   code: string,
   message: string,
+  path?: string,
 ): TResponse {
+  // The schema's message container is the flat message_error object, carrying
+  // the mandatory severity: resources that do not exist cannot be retried
+  // against, everything else can be resolved by adjusting the request.
+  const unrecoverable = code.endsWith('not_found')
+    || code === 'not_available'
+    || code === 'not_implemented';
+
   return {
     ucp: {
       version: '2026-08-25',
@@ -956,12 +993,12 @@ function createUCPError<TResponse>(
     },
     messages: [
       {
-        message: {
-          type: 'error',
-          content_type: 'plain',
-          content: message,
-          code,
-        },
+        type: 'error',
+        code,
+        ...(path ? { path } : {}),
+        content_type: 'plain',
+        content: message,
+        severity: unrecoverable ? 'unrecoverable' : 'recoverable',
       },
     ],
   } as TResponse;
