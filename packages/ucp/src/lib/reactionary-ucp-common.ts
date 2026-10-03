@@ -1,7 +1,9 @@
-import type { Cache, Cart, Checkout, Client, FacetValueIdentifier, Order, Product, ProductSearchResult, RequestContext, Result } from '@reactionary/core';
+import type { Cache, Cart, Checkout, Client, FacetValueIdentifier, Order, Product, ProductSearchResult, Profile, RequestContext, Result, ShippingMethod } from '@reactionary/core';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPIdentityOptions } from './reactionary-ucp-identity.js';
+import type { ReactionaryUCPLocalizationOptions } from './reactionary-ucp-localization.js';
+import type { UCPPaymentAuthorizationWait } from './reactionary-ucp-checkout-session.js';
 
 type UCPService = components['schemas']['base'];
 type UCPCapability = components['schemas']['$defs-base'];
@@ -55,9 +57,16 @@ export type ReactionaryUCPClient = object & {
     finalizeCheckout: UCPMethod<Client['checkout']['finalizeCheckout'], Checkout>;
     getById: UCPMethod<Client['checkout']['getById'], Checkout>;
     initiateCheckoutForCart: UCPMethod<Client['checkout']['initiateCheckoutForCart'], Checkout>;
+    // Optional so clients without fulfillment support keep satisfying the type.
+    getAvailableShippingMethods?: UCPMethod<Client['checkout']['getAvailableShippingMethods'], ShippingMethod[]>;
+    setShippingAddress?: UCPMethod<Client['checkout']['setShippingAddress'], Checkout>;
+    setShippingInstruction?: UCPMethod<Client['checkout']['setShippingInstruction'], Checkout>;
   };
   order?: {
     getById: UCPMethod<Client['order']['getById'], Order>;
+  };
+  profile?: {
+    getById: UCPMethod<Client['profile']['getById'], Profile>;
   };
 };
 
@@ -70,6 +79,26 @@ export interface ReactionaryUCPServerOptions {
   sessionTtlSeconds?: number;
   profile?: ReactionaryUCPProfileOptions;
   identity?: ReactionaryUCPIdentityOptions;
+  /**
+   * Maps buyer signals (UCP `context.address_country`, `Accept-Language`) to a
+   * language context. Without it, every request uses the client factory's
+   * initial context. The negotiated context sticks to the UCP session.
+   */
+  localization?: ReactionaryUCPLocalizationOptions;
+  /**
+   * Email used to price transient checkouts before the buyer has supplied
+   * one (backends require an email to quote shipping and tax). Never used for
+   * the real checkout created on completion. Defaults to
+   * `pending@checkout.invalid` — `.invalid` is a reserved, undeliverable TLD.
+   */
+  placeholderEmail?: string;
+  /**
+   * How long checkout completion waits for the placed checkout to become
+   * `readyForFinalization` (i.e. its payment authorized, e.g. by a PSP
+   * webhook) before answering `complete_in_progress`. Defaults to 10s
+   * timeout, polled every 1s.
+   */
+  paymentAuthorizationWait?: Partial<UCPPaymentAuthorizationWait>;
 }
 
 export interface ReactionaryUCPProfileOptions {

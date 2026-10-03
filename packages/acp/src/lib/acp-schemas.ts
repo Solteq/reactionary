@@ -48,11 +48,15 @@ export const ACPCompleteCheckoutSessionRequestSchema = z.object({
 
 export const ACPCheckoutSessionStateSchema = z.looseObject({
   id: z.string(),
+  // The ACP session owning the backend cart, resumed for later requests.
+  sessionId: z.string().optional(),
   cartId: z.string(),
-  checkoutId: z.string(),
+  // Set once completion has created the real reactionary checkout.
+  checkoutId: z.string().optional(),
   status: z.enum([
     'not_ready_for_payment',
     'ready_for_payment',
+    'in_progress',
     'completed',
     'canceled',
   ]),

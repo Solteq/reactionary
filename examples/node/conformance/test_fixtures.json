@@ -1,0 +1,18 @@
+{
+  "test_fixtures": {
+    "valid_item": {
+      "sku": "7313020065489",
+      "expected_price": 74.93,
+      "quantity": 1
+    }
+  },
+  "shipping_locations": {
+    "domestic_destination": {
+      "street": "123 Main St",
+      "city": "Anytown",
+      "state": "",
+      "postal_code": "12345",
+      "country": "DK"
+    }
+  }
+}

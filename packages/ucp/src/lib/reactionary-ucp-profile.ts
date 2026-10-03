@@ -91,15 +91,16 @@ function createUcpCapabilities(
   }
 
   if (hasCapability(client, 'cart')) {
+    // The discount extension is not implemented over REST yet, so it is not advertised.
     capabilities['dev.ucp.shopping.cart'] = [createUcpCapability('cart', 'cart')];
-    const cart = getCapability(client, 'cart');
-    if (cart && typeof Reflect.get(cart, 'applyCouponCode') === 'function') {
-      capabilities['dev.ucp.shopping.discount'] = [createUcpCapability('extensions/discount', 'discount')];
-    }
   }
 
   if (hasCapability(client, 'checkout')) {
     capabilities['dev.ucp.shopping.checkout'] = [createUcpCapability('checkout', 'checkout')];
+    const checkout = getCapability(client, 'checkout');
+    if (checkout && typeof Reflect.get(checkout, 'getAvailableShippingMethods') === 'function') {
+      capabilities['dev.ucp.shopping.fulfillment'] = [createUcpCapability('extensions/fulfillment', 'fulfillment')];
+    }
   }
 
   if (hasCapability(client, 'order')) {

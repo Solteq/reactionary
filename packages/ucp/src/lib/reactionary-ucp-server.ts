@@ -16,6 +16,9 @@ import {
 } from './reactionary-ucp-common.js';
 import { getOrCreateSessionId, jsonResponse, sendWebResponse, toWebRequest, UCP_SESSION_ID_HEADER } from './reactionary-ucp-http.js';
 import { ReactionaryUCPIdentity, type UCPBearerResolution } from './reactionary-ucp-identity.js';
+import { resolveLanguageContext } from './reactionary-ucp-localization.js';
+import { DEFAULT_UCP_PAYMENT_AUTHORIZATION_WAIT, DEFAULT_UCP_PLACEHOLDER_EMAIL } from './reactionary-ucp-checkout-session.js';
+import { createUCPError, UCP_VERSION } from './reactionary-ucp-mapping.js';
 import { createUCPProfile, getRequestRoute } from './reactionary-ucp-profile.js';
 import { handleRestRequest, UCPHttpError } from './reactionary-ucp-rest.js';
 import { ReactionaryUCPSessionStore } from './reactionary-ucp-session-store.js';
@@ -64,17 +67,30 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
   }
 
   private async handleFetch(request: Request): Promise<Response> {
-    const sessionId = getOrCreateSessionId(request);
     const bearerResolution = await this.identity?.resolveBearer(request);
 
     if (bearerResolution instanceof Response) {
       return bearerResolution;
     }
 
+    const sessionId = bearerResolution
+      ? getOrCreateSessionId(request)
+      : await this.resolveSessionId(request);
+
     const requestContext = await this.createRequestContext(sessionId, bearerResolution);
+    const negotiatedLanguageContext = await resolveLanguageContext(
+      request,
+      requestContext.session,
+      this.options.localization,
+    );
+
+    if (negotiatedLanguageContext) {
+      requestContext.languageContext = negotiatedLanguageContext;
+    }
+
     const client = this.clientFactory(requestContext);
 
-    const response = await this.handleRequest(request, client, sessionId, bearerResolution);
+    const response = await this.handleRequest(request, client, requestContext, sessionId, bearerResolution);
 
     if (bearerResolution) {
       await this.identity?.persistBearerSession(bearerResolution, requestContext.session);
@@ -110,6 +126,21 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
     return Promise.resolve();
   }
 
+  /**
+   * Requests addressing a cart or checkout session resume the session that
+   * created it: agents rarely echo the UCP session header, but backends scope
+   * carts to that session's (anonymous) identity.
+   */
+  private async resolveSessionId(request: Request): Promise<string> {
+    const route = getRequestRoute(request, this.options.profile);
+    const resourceId = /^\/(?:carts|checkout-sessions)\/([^/]+)/.exec(route.path)?.[1];
+    const boundSessionId = resourceId
+      ? await this.sessionStore.getResourceSession(decodeURIComponent(resourceId))
+      : undefined;
+
+    return boundSessionId ?? getOrCreateSessionId(request);
+  }
+
   private async createRequestContext(
     sessionId: string,
     bearerResolution?: UCPBearerResolution,
@@ -133,6 +164,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
   private async handleRequest(
     request: Request,
     client: TClient,
+    requestContext: RequestContext,
     sessionId: string,
     bearerResolution?: UCPBearerResolution,
   ): Promise<Response> {
@@ -165,6 +197,15 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
       }
     }
 
+    const agentVersion = getAgentVersion(request);
+    // Versions are YYYY-MM-DD dates, so lexical order is chronological.
+    if (agentVersion && agentVersion > UCP_VERSION) {
+      return jsonResponse(
+        createUCPError('version_unsupported', `UCP version ${agentVersion} is not supported; this business supports ${UCP_VERSION}.`),
+        { status: 422 },
+      );
+    }
+
     try {
       const restResponse = await handleRestRequest(
         request,
@@ -172,7 +213,15 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
         route.path,
         sessionId,
         this.sessionStore,
-        this.options.profile?.paymentHandlers,
+        {
+          paymentHandlers: this.options.profile?.paymentHandlers ?? {},
+          placeholderEmail: this.options.placeholderEmail ?? DEFAULT_UCP_PLACEHOLDER_EMAIL,
+          paymentAuthorizationWait: {
+            ...DEFAULT_UCP_PAYMENT_AUTHORIZATION_WAIT,
+            ...this.options.paymentAuthorizationWait,
+          },
+          identity: requestContext.session.identityContext.identity,
+        },
       );
 
       if (restResponse) {
@@ -196,6 +245,12 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
       omitBody: request.method === 'HEAD',
     });
   }
+}
+
+function getAgentVersion(request: Request): string | undefined {
+  const agent = request.headers.get('UCP-Agent');
+
+  return agent ? /version="([^"]*)"/.exec(agent)?.[1] : undefined;
 }
 
 function getUcpOperationPath(path: string): string {

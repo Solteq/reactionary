@@ -154,13 +154,15 @@ describe('ReactionaryACPServer', () => {
     const created = await json<{ id: string }>(createResponse);
 
     expect(createResponse.status).toBe(201);
+    // Payable only once a fulfillment option has been picked.
     expect(created).toMatchObject({
-      status: 'ready_for_payment',
+      status: 'not_ready_for_payment',
       currency: 'eur',
       payment_provider: {
         provider: 'stripe',
         supported_payment_methods: ['card'],
       },
+      fulfillment_options: [{ id: 'standard' }],
       line_items: [
         {
           item: {
@@ -170,6 +172,17 @@ describe('ReactionaryACPServer', () => {
           total: 2000,
         },
       ],
+    });
+
+    const updateResponse = await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, {
+        fulfillment_option_id: 'standard',
+      }),
+    );
+    await expect(updateResponse.json()).resolves.toMatchObject({
+      id: created.id,
+      status: 'ready_for_payment',
+      fulfillment_option_id: 'standard',
     });
 
     const getResponse = await server.fetch(
@@ -202,6 +215,117 @@ describe('ReactionaryACPServer', () => {
         checkout_session_id: created.id,
       },
     });
+  });
+
+  it('creates a session without buyer data and no backend checkout', async () => {
+    const initiated: unknown[] = [];
+    const server = new ReactionaryACPServer(() => createTestClient({ initiated }), {
+      sessionCache: new MemoryCache(),
+    });
+
+    const response = await server.fetch(
+      jsonRequest('http://127.0.0.1/checkout_sessions', {
+        items: [{ id: 'sku-1', quantity: 1 }],
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      status: 'not_ready_for_payment',
+      fulfillment_options: [],
+      line_items: [{ item: { id: 'sku-1', quantity: 1 } }],
+    });
+    expect(initiated).toEqual([]);
+  });
+
+  it('prices with a placeholder email and stays in progress until the payment is authorized', async () => {
+    const initiated: unknown[] = [];
+    const notReady = new Set<string>(['all']);
+    const server = new ReactionaryACPServer(() => createTestClient({ initiated, notReady }), {
+      sessionCache: new MemoryCache(),
+      paymentAuthorizationWait: { timeoutMs: 0 },
+    });
+    const address = {
+      name: 'Ada Lovelace',
+      line_one: '1 Computing Street',
+      city: 'London',
+      state: 'London',
+      country: 'GB',
+      postal_code: 'SW1A 1AA',
+    };
+
+    const created = await json<{ id: string; status: string }>(await server.fetch(
+      jsonRequest('http://127.0.0.1/checkout_sessions', {
+        items: [{ id: 'sku-1', quantity: 1 }],
+        fulfillment_address: address,
+      }),
+    ));
+
+    expect(created.status).toBe('not_ready_for_payment');
+    expect(initiated).toEqual(['pending@checkout.invalid']);
+
+    await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, {
+        fulfillment_option_id: 'standard',
+      }),
+    );
+
+    const payload = {
+      buyer: { name: 'Ada Lovelace', email: 'ada@example.com' },
+      payment_data: { token: 'spt_test', provider: 'stripe' },
+    };
+    const pending = await json<Record<string, unknown>>(await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, payload),
+    ));
+
+    expect(pending, JSON.stringify(pending)).toMatchObject({ status: 'in_progress' });
+    expect(initiated.at(-1)).toBe('ada@example.com');
+
+    notReady.clear();
+    const completed = await json<Record<string, unknown>>(await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, payload),
+    ));
+
+    expect(completed).toMatchObject({
+      status: 'completed',
+      order: { id: 'order-1', checkout_session_id: created.id },
+    });
+  });
+
+  it('waits for an asynchronous payment authorization before answering', async () => {
+    const notReady = new Set<string>(['all']);
+    const server = new ReactionaryACPServer(() => createTestClient({ notReady }), {
+      sessionCache: new MemoryCache(),
+      paymentAuthorizationWait: { timeoutMs: 2_000, intervalMs: 10 },
+    });
+    const created = await json<{ id: string }>(await server.fetch(
+      jsonRequest('http://127.0.0.1/checkout_sessions', {
+        items: [{ id: 'sku-1', quantity: 1 }],
+        fulfillment_address: {
+          name: 'Ada Lovelace',
+          line_one: '1 Computing Street',
+          city: 'London',
+          state: 'London',
+          country: 'GB',
+          postal_code: 'SW1A 1AA',
+        },
+      }),
+    ));
+    await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, { fulfillment_option_id: 'standard' }),
+    );
+
+    // The PSP webhook records the authorization while completion is waiting.
+    setTimeout(() => notReady.clear(), 50);
+
+    const completed = await json<Record<string, unknown>>(await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, {
+        buyer: { name: 'Ada Lovelace', email: 'ada@example.com' },
+        payment_data: { token: 'spt_test', provider: 'stripe' },
+      }),
+    ));
+
+    expect(completed).toMatchObject({ status: 'completed' });
   });
 
   it('streams generated product feeds as JSONL', async () => {
@@ -266,7 +390,13 @@ describe('ReactionaryACPServer', () => {
 
 function createTestClient(options: {
   observedSearches?: unknown[];
+  initiated?: unknown[];
+  notReady?: Set<string>;
 } = {}): ReactionaryACPClient {
+  const withReadiness = (checkout: Checkout): Checkout => ({
+    ...checkout,
+    readyForFinalization: !options.notReady?.has('all'),
+  });
   let cartCounter = 0;
   let checkoutCounter = 0;
   const carts = new Map<string, Cart>();
@@ -311,7 +441,8 @@ function createTestClient(options: {
     checkout: {
       async initiateCheckoutForCart(payload) {
         checkoutCounter += 1;
-        const initPayload = payload as { cart: Cart };
+        const initPayload = payload as { cart: Cart; notificationEmail?: string };
+        options.initiated?.push(initPayload.notificationEmail);
         const checkout = createCheckout(
           `checkout-${checkoutCounter}`,
           initPayload.cart,
@@ -321,10 +452,10 @@ function createTestClient(options: {
       },
       async getById(payload) {
         const getPayload = payload as { identifier: { key: string } };
-        return success(
+        return success(withReadiness(
           checkouts.get(getPayload.identifier.key) ??
             createCheckout('missing', createCart('missing', [])),
-        );
+        ));
       },
       async setShippingAddress(payload) {
         const checkout = getCheckoutFromPayload(checkouts, payload);
