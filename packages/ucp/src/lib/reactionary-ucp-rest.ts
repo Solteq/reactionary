@@ -21,6 +21,7 @@ import {
   updateCheckoutSession,
   type UCPCheckoutRequest,
   type UCPCheckoutSessionContext,
+  type UCPPaymentAuthorizationWait,
 } from './reactionary-ucp-checkout-session.js';
 import {
   createUCPError,
@@ -187,6 +188,7 @@ export async function handleRestRequest(
 export interface UCPRestOptions {
   paymentHandlers: UCPPaymentHandlers;
   placeholderEmail: string;
+  paymentAuthorizationWait: UCPPaymentAuthorizationWait;
   identity: Identity;
 }
 
@@ -204,6 +206,7 @@ function createCheckoutSessionContext(
     sessionId,
     paymentHandlers: options.paymentHandlers,
     placeholderEmail: options.placeholderEmail,
+    paymentAuthorizationWait: options.paymentAuthorizationWait,
     getIdentityEmail() {
       identityEmail ??= getRegisteredIdentityEmail(client, options.identity);
       return identityEmail;

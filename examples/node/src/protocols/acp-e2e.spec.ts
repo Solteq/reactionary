@@ -336,29 +336,21 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           expect(ready.body.status).toBe('ready_for_payment');
 
           // 4. Completing with the delegated payment token places the real
-          // checkout; authorization is still pending at the PSP.
+          // checkout and its Stripe payment, then waits for the PSP's
+          // authorization webhook — simulated while the request is in flight.
           const completePayload = {
             buyer: orderBuyer,
             payment_data: { token: 'spt_test', provider: 'stripe' },
           };
-          const pending = await session.sendJson<AcpCheckoutSession>(
+          const completing = session.sendJson<AcpCheckoutSession & { order?: { id: string } }>(
             'POST',
             `${ACP_BASE_URL}/checkout_sessions/${created.id}/complete`,
             completePayload,
           );
-
-          expect(pending.status).toBe(200);
-          expect(pending.body.status).toBe('in_progress');
-
           await simulateCommercetoolsPaymentAuthorizationForEmail(email);
+          const completed = await completing;
 
-          // 5. Completing again finalizes and places the order.
-          const completed = await session.sendJson<AcpCheckoutSession & { order?: { id: string } }>(
-            'POST',
-            `${ACP_BASE_URL}/checkout_sessions/${created.id}/complete`,
-            completePayload,
-          );
-
+          expect(completed.status).toBe(200);
           expect(completed.body.status).toBe('completed');
           const orderId = completed.body.order?.id;
           expect(orderId, 'expected the completed session to reference the placed order').toBeTruthy();

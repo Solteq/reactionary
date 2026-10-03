@@ -213,6 +213,7 @@ export function createUcpServerHarness(
       localization: {
         rules: DEFAULT_UCP_LOCALIZATION_RULES,
       },
+      paymentAuthorizationWait: { timeoutMs: 30_000, intervalMs: 500 },
     },
   );
 
@@ -252,6 +253,7 @@ export function createAcpServerHarness(
     },
     {
       sessionCache: new MemoryCache(),
+      paymentAuthorizationWait: { timeoutMs: 30_000, intervalMs: 500 },
       links: [{ type: 'terms_of_use', url: 'https://shop.example.com/terms' }],
       productFeed: {
         feeds: {

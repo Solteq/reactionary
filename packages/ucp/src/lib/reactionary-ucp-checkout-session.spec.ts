@@ -251,7 +251,10 @@ interface UcpCheckoutBody {
   };
 }
 
-function createServer(backend: FakeBackend, options: { registeredEmail?: string } = {}) {
+function createServer(
+  backend: FakeBackend,
+  options: { registeredEmail?: string; authorizationTimeoutMs?: number } = {},
+) {
   return new ReactionaryUCPServer(
     (requestContext) => {
       if (options.registeredEmail) {
@@ -264,6 +267,7 @@ function createServer(backend: FakeBackend, options: { registeredEmail?: string 
     },
     {
       sessionCache: new MemoryCache(),
+      paymentAuthorizationWait: { timeoutMs: options.authorizationTimeoutMs ?? 0, intervalMs: 10 },
       profile: {
         endpoint: BASE,
         merchant: { name: 'Shop', url: 'https://shop.example.com', contact: { email: 'a@example.com' } },
@@ -416,6 +420,35 @@ describe('UCP checkout sessions', () => {
     expect(fetched.status).toBe('completed');
     expect(fetched.order?.id).toBe(completed.order?.id);
     expect(backend.checkouts.size).toBe(1);
+  });
+
+  it('waits for an asynchronous payment authorization before answering', async () => {
+    const backend = new FakeBackend();
+    const server = createServer(backend, { authorizationTimeoutMs: 2_000 });
+    const created = await send(server, 'POST', '/checkout-sessions', {
+      line_items: lineItems,
+      buyer: { email: 'ada@example.com' },
+      fulfillment: fulfillment('standard'),
+      payment: selectedInstrument,
+    });
+
+    // The PSP webhook records the authorization shortly after the payment is added.
+    const authorize = setInterval(() => {
+      for (const checkout of backend.checkouts.values()) {
+        if (checkout.paymentInstructions.length > 0) {
+          backend.authorized.add(checkout.identifier.key);
+        }
+      }
+    }, 20);
+
+    try {
+      const completed = await send(server, 'POST', `/checkout-sessions/${created.id}/complete`, {});
+
+      expect(completed.status).toBe('completed');
+      expect(completed.order?.id).toBeTruthy();
+    } finally {
+      clearInterval(authorize);
+    }
   });
 
   it('refuses to complete without a buyer email', async () => {
