@@ -552,7 +552,16 @@ async function handleCompleteCheckout(
     return createUCPError('not_available', 'Checkout capability is not available.');
   }
 
-  const result = await client.checkout.finalizeCheckout({ checkout: { key: checkoutId } });
+  // Pass the fetched identifier through: provider-specific identifiers can
+  // carry more than the key (commercetools needs the version to create the
+  // order from the cart).
+  const current = await client.checkout.getById({ identifier: { key: checkoutId } });
+
+  if (!current.success) {
+    return createUCPError('not_found', `Checkout was not found: ${checkoutId}`);
+  }
+
+  const result = await client.checkout.finalizeCheckout({ checkout: current.value.identifier });
 
   if (!result.success) {
     return createUCPError('checkout_complete_failed', 'Checkout completion failed.');
@@ -825,6 +834,9 @@ function toUcpCheckout(
     currency: getMoneyCurrency(checkout.price?.grandTotal),
     totals: toUcpCostTotals(checkout.price),
     links: [],
+    ...(checkout.resultingOrder
+      ? { order: { id: checkout.resultingOrder.key, permalink_url: '' } }
+      : {}),
     ucp: createUcpCheckoutSuccessMetadata(paymentHandlers),
   };
 }
