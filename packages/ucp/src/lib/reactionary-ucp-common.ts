@@ -2,6 +2,7 @@ import type { Cache, Cart, Checkout, Client, FacetValueIdentifier, Order, Produc
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPIdentityOptions } from './reactionary-ucp-identity.js';
+import type { ReactionaryUCPLocalizationOptions } from './reactionary-ucp-localization.js';
 
 type UCPService = components['schemas']['base'];
 type UCPCapability = components['schemas']['$defs-base'];
@@ -70,6 +71,12 @@ export interface ReactionaryUCPServerOptions {
   sessionTtlSeconds?: number;
   profile?: ReactionaryUCPProfileOptions;
   identity?: ReactionaryUCPIdentityOptions;
+  /**
+   * Maps buyer signals (UCP `context.address_country`, `Accept-Language`) to a
+   * language context. Without it, every request uses the client factory's
+   * initial context. The negotiated context sticks to the UCP session.
+   */
+  localization?: ReactionaryUCPLocalizationOptions;
 }
 
 export interface ReactionaryUCPProfileOptions {

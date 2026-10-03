@@ -481,6 +481,61 @@ describe.each(combinations)('UCP e2e - $backend + $search', ({ backend, search }
         // carries a checkout all the way to a real order.
       }, PROTOCOL_TEST_TIMEOUT);
 
+      it('negotiates locale and currency from buyer signals, per session', async () => {
+        const skus = await findSearchResultSkus(createUcpSession(server));
+        const [sku] = await findAddableSkus(createUcpSession(server), skus, 1);
+
+        // An English-speaking buyer's first request settles the session on EUR...
+        const euroSession = createUcpSession(server);
+        const euroCart = await euroSession.sendJson<UcpCartResponse>(
+          'POST',
+          `${UCP_BASE_URL}/carts`,
+          { line_items: [toCartLineItem(sku, 1)] },
+          { 'accept-language': 'en' },
+        );
+
+        expectUcpSuccess(euroCart.body);
+        expect(euroCart.body.currency).toBe('EUR');
+
+        // ...and the negotiated context sticks for the rest of that session,
+        // even when a later request carries a different language header.
+        const fetched = await euroSession.sendJson<UcpCartResponse>(
+          'PUT',
+          `${UCP_BASE_URL}/carts/${euroCart.body.id}`,
+          { line_items: [toCartLineItem(sku, 2)] },
+          { 'accept-language': 'da' },
+        );
+        expectUcpSuccess(fetched.body);
+        expect(fetched.body.currency).toBe('EUR');
+
+        // A Danish buyer's session lands on DKK.
+        const danishSession = createUcpSession(server);
+        const danishCart = await danishSession.sendJson<UcpCartResponse>(
+          'POST',
+          `${UCP_BASE_URL}/carts`,
+          { line_items: [toCartLineItem(sku, 1)] },
+          { 'accept-language': 'da-DK,en;q=0.5' },
+        );
+
+        expectUcpSuccess(danishCart.body);
+        expect(danishCart.body.currency).toBe('DKK');
+
+        // The UCP context country signal outranks the language header.
+        const countrySession = createUcpSession(server);
+        const countryCart = await countrySession.sendJson<UcpCartResponse>(
+          'POST',
+          `${UCP_BASE_URL}/carts`,
+          {
+            line_items: [toCartLineItem(sku, 1)],
+            context: { address_country: 'DK' },
+          },
+          { 'accept-language': 'en' },
+        );
+
+        expectUcpSuccess(countryCart.body);
+        expect(countryCart.body.currency).toBe('DKK');
+      }, PROTOCOL_TEST_TIMEOUT);
+
       // Only commercetools supports this today: the e2e test can play the
       // payment service provider's role by adding the Authorization
       // transaction out-of-band (as a PSP webhook would). Medusa gates

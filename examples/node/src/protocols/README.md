@@ -60,6 +60,27 @@ The journey currently runs for commercetools only: medusa gates finalization on
 the payment collection being authorized, which only its PSP integrations can
 do, so there is no equivalent out-of-band lever yet.
 
+## Locale & currency negotiation
+
+The UCP server accepts a `localization` option mapping buyer signals to a
+`languageContext`, mirroring the mapping frontends maintain today:
+
+- the UCP `context.address_country` buyer signal in request payloads (matched
+  first — it is the stronger signal per the UCP spec), then
+- `Accept-Language` tags (quality-ordered; a `da` rule matches `da-DK`), then
+- an optional `fallback`.
+
+The negotiated context is stored in the UCP session and reused for all later
+requests of that session, deliberately **not** renegotiated: backends fix a
+cart's locale and currency at creation (e.g. commercetools), so drifting the
+context mid-session would detach it from the session's carts and checkouts. A
+buyer who switches locale effectively starts a new session.
+
+Neither the core store model (`{identifier, name, fulfillmentCenter}`) nor the
+providers expose a locale/currency catalogue yet — `LanguageContextSchema` has
+a standing TODO about a configured store currency — so the mapping must be
+supplied as configuration for now.
+
 ## Deliberately out of scope
 
 - **Delegated payment tokens** (ACP `/checkout_sessions/{id}/complete` on an
