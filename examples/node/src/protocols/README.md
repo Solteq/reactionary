@@ -79,10 +79,11 @@ cart's locale and currency at creation (e.g. commercetools), so drifting the
 context mid-session would detach it from the session's carts and checkouts. A
 buyer who switches locale effectively starts a new session.
 
-Neither the core store model (`{identifier, name, fulfillmentCenter}`) nor the
-providers expose a locale/currency catalogue yet — `LanguageContextSchema` has
-a standing TODO about a configured store currency — so the mapping must be
-supplied as configuration for now.
+Core has no concept that could carry a locale/currency catalogue: the `Store`
+model represents a *physical* store (hence its fulfillment center), not a
+webstore or market, and `LanguageContextSchema` has a standing TODO about a
+configured project currency. Until a webstore/market concept exists, the
+mapping must be supplied as configuration.
 
 ## Deliberately out of scope
 
