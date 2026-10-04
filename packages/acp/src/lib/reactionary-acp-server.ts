@@ -749,21 +749,35 @@ export class ReactionaryACPServer<
       );
     }
 
-    return unwrapACPResult(
-      client.checkout.addPaymentInstruction({
-        checkout: checkout.identifier,
-        paymentInstruction: {
-          amount: checkout.price.grandTotal,
-          paymentMethod: toPaymentMethodIdentifier(input.payment_data.provider),
-          protocolData: [
-            {
-              key: 'delegated_payment_token',
-              value: input.payment_data.token,
-            },
-          ],
-        },
-      }),
-    );
+    // The delegated token is passed verbatim; the backend's payment
+    // integration for the provider confirms the payment with it.
+    const paid = await client.checkout.addPaymentInstruction({
+      checkout: checkout.identifier,
+      paymentInstruction: {
+        amount: checkout.price.grandTotal,
+        paymentMethod: toPaymentMethodIdentifier(input.payment_data.provider),
+        protocolData: [
+          {
+            key: 'delegated_payment_token',
+            value: input.payment_data.token,
+          },
+          {
+            key: 'delegated_payment_provider',
+            value: input.payment_data.provider,
+          },
+        ],
+      },
+    });
+
+    if (!paid.success) {
+      throw new ACPHttpError(400, {
+        type: 'processing_error',
+        code: 'payment_declined',
+        message: 'The payment could not be authorized with the delegated payment token.',
+      });
+    }
+
+    return paid.value;
   }
 
   /**
