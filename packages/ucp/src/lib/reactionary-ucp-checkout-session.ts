@@ -240,7 +240,9 @@ export async function completeCheckoutSession(
       return response;
     }
 
-    const placement = await placeFinalCheckout(context, state);
+    // The payment credential is used for the real checkout only, never stored.
+    const credential = getSelectedPaymentInstrument(body)?.credential;
+    const placement = await placeFinalCheckout(context, state, credential);
 
     if (placement.failure) {
       return addMessages(response, [placement.failure], 'incomplete');
@@ -585,6 +587,7 @@ function toUcpFulfillment(
 async function placeFinalCheckout(
   context: UCPCheckoutSessionContext,
   state: UCPCheckoutSessionState,
+  credential: unknown,
 ): Promise<{ failure?: UCPMessage; messages: UCPMessage[] }> {
   const checkoutCapability = context.client.checkout;
   const address = state.destination ?? state.billingAddress;
@@ -627,6 +630,9 @@ async function placeFinalCheckout(
         { key: 'ucp_payment_instrument_id', value: instrument.id },
         { key: 'ucp_payment_handler_id', value: instrument.handler_id },
         { key: 'ucp_payment_instrument_type', value: instrument.type },
+        // Passed verbatim: the credential's shape is defined by the payment
+        // handler, and the backend's payment integration interprets it.
+        ...(credential ? [{ key: 'ucp_payment_credential', value: JSON.stringify(credential) }] : []),
       ],
     },
   });

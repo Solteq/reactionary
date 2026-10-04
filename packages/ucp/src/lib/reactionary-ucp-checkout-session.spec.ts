@@ -451,6 +451,30 @@ describe('UCP checkout sessions', () => {
     }
   });
 
+  it('forwards the payment credential from complete without storing it', async () => {
+    const backend = new FakeBackend();
+    const server = createServer(backend);
+    const created = await send(server, 'POST', '/checkout-sessions', {
+      line_items: lineItems,
+      buyer: { email: 'ada@example.com' },
+      fulfillment: fulfillment('standard'),
+      payment: selectedInstrument,
+    });
+    const credential = { type: 'stripe_payment_method', token: 'pm_card_visa' };
+
+    await send(server, 'POST', `/checkout-sessions/${created.id}/complete`, {
+      payment: { instruments: [{ ...selectedInstrument.instruments[0], credential }] },
+    });
+    const fetched = await send(server, 'GET', `/checkout-sessions/${created.id}`);
+
+    const [finalCheckout] = [...backend.checkouts.values()];
+    expect(finalCheckout.paymentInstructions[0].protocolData).toContainEqual({
+      key: 'ucp_payment_credential',
+      value: JSON.stringify(credential),
+    });
+    expect(JSON.stringify(fetched)).not.toContain('pm_card_visa');
+  });
+
   it('refuses to complete without a buyer email', async () => {
     const backend = new FakeBackend();
     const server = createServer(backend);

@@ -339,6 +339,17 @@ export class CommercetoolsCheckoutCapability<
             },
             fields: {
               commerceToolsCartId: payload.checkout.key,
+              // Protocol data (e.g. agentic delegated payment tokens) is passed
+              // verbatim for the project's payment extensions to interpret.
+              ...(payload.paymentInstruction.protocolData.length > 0
+                ? {
+                    reactionaryProtocolData: JSON.stringify(
+                      Object.fromEntries(
+                        payload.paymentInstruction.protocolData.map((entry) => [entry.key, entry.value]),
+                      ),
+                    ),
+                  }
+                : {}),
             },
           },
         },

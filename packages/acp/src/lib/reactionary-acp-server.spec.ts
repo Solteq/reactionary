@@ -1,6 +1,8 @@
 import {
   MemoryCache,
+  error,
   success,
+  type GenericError,
   type Cart,
   type Checkout,
   type Inventory,
@@ -328,6 +330,53 @@ describe('ReactionaryACPServer', () => {
     expect(completed).toMatchObject({ status: 'completed' });
   });
 
+  it('passes the delegated token verbatim and reports declines', async () => {
+    const payments: unknown[] = [];
+    const createServer = (declinePayments: boolean) => new ReactionaryACPServer(
+      () => createTestClient({ payments, declinePayments }),
+      { sessionCache: new MemoryCache(), paymentAuthorizationWait: { timeoutMs: 0 } },
+    );
+    const openSession = async (server: ReactionaryACPServer) => {
+      const created = await json<{ id: string }>(await server.fetch(
+        jsonRequest('http://127.0.0.1/checkout_sessions', {
+          items: [{ id: 'sku-1', quantity: 1 }],
+          buyer: { name: 'Ada Lovelace', email: 'ada@example.com' },
+          fulfillment_address: {
+            name: 'Ada Lovelace',
+            line_one: '1 Computing Street',
+            city: 'London',
+            state: 'London',
+            country: 'GB',
+            postal_code: 'SW1A 1AA',
+          },
+        }),
+      ));
+      await server.fetch(jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, { fulfillment_option_id: 'standard' }));
+      return created.id;
+    };
+    const complete = { payment_data: { token: 'spt_123', provider: 'stripe' } };
+
+    const server = createServer(false);
+    await server.fetch(jsonRequest(`http://127.0.0.1/checkout_sessions/${await openSession(server)}/complete`, complete));
+
+    expect(payments[0]).toMatchObject({
+      paymentInstruction: {
+        protocolData: [
+          { key: 'delegated_payment_token', value: 'spt_123' },
+          { key: 'delegated_payment_provider', value: 'stripe' },
+        ],
+      },
+    });
+
+    const declining = createServer(true);
+    const declined = await declining.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${await openSession(declining)}/complete`, complete),
+    );
+
+    expect(declined.status).toBe(400);
+    await expect(declined.json()).resolves.toMatchObject({ code: 'payment_declined' });
+  });
+
   it('streams generated product feeds as JSONL', async () => {
     const observedLanguageContexts: RequestContext['languageContext'][] = [];
     const observedSearches: unknown[] = [];
@@ -392,6 +441,8 @@ function createTestClient(options: {
   observedSearches?: unknown[];
   initiated?: unknown[];
   notReady?: Set<string>;
+  payments?: unknown[];
+  declinePayments?: boolean;
 } = {}): ReactionaryACPClient {
   const withReadiness = (checkout: Checkout): Checkout => ({
     ...checkout,
@@ -491,6 +542,10 @@ function createTestClient(options: {
         return success(checkout);
       },
       async addPaymentInstruction(payload) {
+        options.payments?.push(payload);
+        if (options.declinePayments) {
+          return error<GenericError>({ type: 'Generic', message: 'card declined' });
+        }
         const checkout = getCheckoutFromPayload(checkouts, payload);
         return success(checkout);
       },
