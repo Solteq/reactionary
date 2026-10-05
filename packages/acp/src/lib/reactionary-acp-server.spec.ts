@@ -15,6 +15,8 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import { describe, expect, it } from 'vitest';
+import type { ReactionaryFeedClient } from '@reactionary/feeds';
+import { ReactionaryACPFeedPublisher } from './acp-feed-publisher.js';
 import { createTokenizedCardHandler } from './acp-payment-handlers.js';
 import {
   ReactionaryACPServer,
@@ -113,9 +115,7 @@ describe('ReactionaryACPServer', () => {
   });
 
   it('advertises only services from the closed discovery enum', async () => {
-    const server = new ReactionaryACPServer(() => createTestClient(), {
-      productFeed: { feeds: {} },
-    });
+    const server = new ReactionaryACPServer(() => createTestClient());
     const discovery = await json<{ capabilities: { services: string[] } }>(
       await server.fetch(new Request('https://shop.example.com/.well-known/acp.json')),
     );
@@ -1062,67 +1062,70 @@ describe('ReactionaryACPServer', () => {
     });
   });
 
-  it('streams generated product feeds as JSONL', async () => {
+  it('publishes feed products to the agent-hosted Feed API in batches', async () => {
+    const requests: Array<{ method: string; url: string; headers: Headers; body: unknown }> = [];
     const observedLanguageContexts: RequestContext['languageContext'][] = [];
-    const observedSearches: unknown[] = [];
-    const server = new ReactionaryACPServer((requestContext) => {
+    const fakeAgent: typeof fetch = async (input, init) => {
+      const request = new Request(input, init);
+      const body: unknown = request.method === 'GET' ? undefined : await request.json();
+      requests.push({ method: request.method, url: request.url, headers: request.headers, body });
+
+      return request.method === 'POST'
+        ? Response.json({ id: 'feed_123', target_country: 'FI' }, { status: 201 })
+        : Response.json({ id: 'feed_123', accepted: true });
+    };
+    const publisher = new ReactionaryACPFeedPublisher((requestContext) => {
       observedLanguageContexts.push({ ...requestContext.languageContext });
-      return createTestClient({ observedSearches });
+      return createTestClient();
     }, {
-      productFeed: {
-        feeds: {
-          finnish: {
-            languageContext: {
-              locale: 'fi-FI',
-              currencyCode: 'EUR',
-            },
-            search: {
-              term: 'shoes',
-              facets: [],
-              filters: ['market:fi'],
-              paginationOptions: {
-                pageNumber: 1,
-                pageSize: 25,
-              },
-            },
-            productUrlBase: 'https://shop.example/{lang}/products/{slug}',
-          },
+      feedApiBaseUrl: 'https://agent.example/api/',
+      apiKey: 'merchant-key',
+      fetch: fakeAgent,
+      batchSize: 1,
+      feeds: {
+        finnish: {
+          languageContext: { locale: 'fi-FI', currencyCode: 'EUR' },
+          search: { term: 'shoes', facets: [], filters: [], paginationOptions: { pageNumber: 1, pageSize: 25 } },
+          productUrlBase: 'https://shop.example/{lang}/products/{slug}',
         },
       },
     });
 
-    const response = await server.fetch(
-      new Request(
-        'http://127.0.0.1/product_feeds/finnish/products?format=jsonl',
-      ),
-    );
-    const lines = (await response.text()).trim().split('\n');
+    const metadata = await publisher.createFeed('finnish');
+    const result = await publisher.publish('finnish', metadata.id);
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get('content-type')).toContain('application/x-ndjson');
-    expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({
-      id: 'product-1',
-      url: 'https://shop.example/fi/products/test-product',
-      variants: [{
-        id: 'sku-1',
-        title: 'Test variant',
-        availability: { available: true, status: 'in_stock' },
-        price: { amount: 800, currency: 'EUR' },
-        list_price: { amount: 1000, currency: 'EUR' },
+    expect(metadata).toEqual({ id: 'feed_123', target_country: 'FI' });
+    expect(result).toEqual({ feedId: 'feed_123', products: 1, batches: 1 });
+    expect(observedLanguageContexts[0]).toEqual({ locale: 'fi-FI', currencyCode: 'EUR' });
+    expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([
+      'POST https://agent.example/api/feeds',
+      'PATCH https://agent.example/api/feeds/feed_123/products',
+    ]);
+    expect(requests[0]?.body).toEqual({ target_country: 'FI' });
+    expect(requests[1]?.headers.get('authorization')).toBe('Bearer merchant-key');
+    expect(requests[1]?.headers.get('api-version')).toBe('2026-04-17');
+    expect(requests[1]?.headers.get('idempotency-key')).toBeTruthy();
+    expect(requests[1]?.body).toMatchObject({
+      products: [{
+        id: 'product-1',
+        url: 'https://shop.example/fi/products/test-product',
+        variants: [{
+          id: 'sku-1',
+          availability: { available: true, status: 'in_stock' },
+          price: { amount: 800, currency: 'EUR' },
+          list_price: { amount: 1000, currency: 'EUR' },
+        }],
       }],
     });
-    expect(observedLanguageContexts[1]).toEqual({
-      locale: 'fi-FI',
-      currencyCode: 'EUR',
-    });
-    expect(observedSearches[0]).toMatchObject({
-      term: 'shoes',
-      filters: ['market:fi'],
-      paginationOptions: {
-        pageNumber: 1,
-        pageSize: 25,
-      },
-    });
+  });
+
+  it('no longer serves a merchant-hosted product feed', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient());
+    const response = await server.fetch(new Request('http://127.0.0.1/product_feeds/finnish/products'));
+    const readiness = await json<{ actions: string[] }>(await server.fetch(new Request('http://127.0.0.1/acp')));
+
+    expect(await response.json()).not.toHaveProperty('products');
+    expect(readiness.actions).not.toContain('GET /product_feeds/{id}/products');
   });
 });
 
@@ -1138,7 +1141,7 @@ function createTestClient(options: {
   cartCalls?: string[];
   inPlaceCartUpdates?: boolean;
   failCartCreation?: boolean;
-} = {}): ReactionaryACPClient {
+} = {}): ReactionaryACPClient & ReactionaryFeedClient {
   const withReadiness = (checkout: Checkout): Checkout => ({
     ...checkout,
     readyForFinalization: !options.notReady?.has('all'),

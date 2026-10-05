@@ -8,6 +8,7 @@ import {
 } from '@reactionary/core';
 import {
   ACP_API_VERSION,
+  ReactionaryACPFeedPublisher,
   ReactionaryACPServer,
   createBearerTokenAuthenticator,
   createTokenizedCardHandler,
@@ -243,13 +244,14 @@ export interface AcpServerHarness {
   server: ReactionaryACPServer;
   /** See {@link UcpServerHarness.createCompanionClient}. */
   createCompanionClient(): ReturnType<typeof createProtocolClient>;
+  /** The ACP Feed API products the merchant would push to an agent. */
+  readFeedProducts(): Promise<unknown[]>;
 }
 
 export function createAcpServerHarness(
   backend: ProtocolBackend,
   search: ProtocolSearchEngine = ProtocolSearchEngine.NATIVE,
 ): AcpServerHarness {
-  const { languageContext } = createInitialRequestContext();
   let lastContext: Partial<RequestContext> = {};
 
   const server = new ReactionaryACPServer(
@@ -264,32 +266,66 @@ export function createAcpServerHarness(
       paymentHandlers: [createTokenizedCardHandler({ psp: 'stripe', merchantId: 'acct_e2e' })],
       links: [{ type: 'terms_of_use', url: 'https://shop.example.com/terms' }],
       orderPermalinkUrl: 'https://shop.example.com/orders/{orderId}',
-      productFeed: {
-        feeds: {
-          [ACP_FEED_ID]: {
-            languageContext,
-            search: {
-              term: 'Bag',
-              facets: [],
-              filters: [],
-              paginationOptions: {
-                pageNumber: 1,
-                pageSize: 5,
-              },
-            },
-            pageSize: 5,
-            maxPages: 1,
-            productUrlBase: 'https://shop.example.com/products/{slug}',
-          },
-        },
-      },
     },
   );
 
   return {
     server,
     createCompanionClient: () => createProtocolClient(backend, search, lastContext),
+    readFeedProducts: () => publishAcpFeed(backend, search),
   };
+}
+
+/**
+ * Publishes the e2e feed through the ACP feed publisher to an in-memory
+ * stand-in for the agent's Feed API, returning the products it received.
+ */
+async function publishAcpFeed(
+  backend: ProtocolBackend,
+  search: ProtocolSearchEngine,
+): Promise<unknown[]> {
+  const received: unknown[] = [];
+  const agentFeedApi: typeof fetch = async (input, init) => {
+    const request = new Request(input, init);
+
+    if (request.method === 'PATCH') {
+      const body = (await request.json()) as { products: unknown[] };
+      received.push(...body.products);
+      return Response.json({ id: ACP_FEED_ID, accepted: true });
+    }
+
+    return Response.json({ id: ACP_FEED_ID }, { status: 201 });
+  };
+  const publisher = new ReactionaryACPFeedPublisher(
+    (requestContext) => createProtocolClient(backend, search, requestContext),
+    {
+      feedApiBaseUrl: 'https://agent.example.com/api',
+      apiKey: 'e2e-merchant-key',
+      fetch: agentFeedApi,
+      feeds: {
+        [ACP_FEED_ID]: {
+          languageContext: createInitialRequestContext().languageContext,
+          search: {
+            term: 'Bag',
+            facets: [],
+            filters: [],
+            paginationOptions: {
+              pageNumber: 1,
+              pageSize: 5,
+            },
+          },
+          pageSize: 5,
+          maxPages: 1,
+          productUrlBase: 'https://shop.example.com/products/{slug}',
+        },
+      },
+    },
+  );
+  const feed = await publisher.createFeed(ACP_FEED_ID);
+
+  await publisher.publish(ACP_FEED_ID, feed.id);
+
+  return received;
 }
 
 interface FetchProtocolServer {

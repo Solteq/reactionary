@@ -8,7 +8,6 @@ The package keeps Reactionary core protocol-neutral: host applications mount thi
 
 The adapter implements the merchant-hosted ACP checkout endpoints:
 
-- `GET /product_feeds/{id}/products`
 - `POST /checkout_sessions`
 - `POST /checkout_sessions/{checkout_session_id}`
 - `GET /checkout_sessions/{checkout_session_id}`
@@ -35,36 +34,30 @@ Every checkout `POST` must carry an `Idempotency-Key` (at most 255 characters), 
 
 `GET /.well-known/acp.json` (alias `/.well-known/acp`) serves the ACP discovery document with `Cache-Control: public, max-age=3600`. It advertises protocol version `2026-04-17` and the `checkout` service (the services enum is closed per version: `checkout`, `orders`, `delegate_payment`, `carts`), the `intervention_types` of the `interventions` option, and the extensions the server implements. `api_base_url` defaults to the request origin plus `basePath` (default `/acp`); override it and other fields with the `discovery` option. The host application must route the well-known path to this handler. Payment handlers are not part of ACP discovery; they are negotiated per checkout session.
 
-## Product feed generation
+## Product feeds
 
-`GET /product_feeds/{id}/products` generates an ACP-compatible product feed from the configured feed definition whose key matches `{id}`.
+ACP feeds are **pushed** by the merchant to the agent's Feed API (2026-04-17); agents never pull feeds from merchants. `ReactionaryACPFeedPublisher` generates the feed with `@reactionary/feeds` and pushes it:
 
-The feed enumeration and serialization pipeline is shared with `@reactionary/feeds`; this adapter keeps the ACP-compatible route shape while delegating normalization and ACP product feed output to the reusable feed package.
+```ts
+import { ReactionaryACPFeedPublisher } from '@reactionary/acp';
 
-Each feed definition provides:
+const publisher = new ReactionaryACPFeedPublisher(createClient, {
+  feedApiBaseUrl: 'https://agent.example/api',
+  apiKey: process.env.ACP_FEED_API_KEY,
+  feeds: {
+    finnish: {
+      languageContext: { locale: 'fi-FI', currencyCode: 'EUR' },
+      search: { term: '', facets: [], filters: ['market:fi'], paginationOptions: { pageNumber: 1, pageSize: 50 } },
+      productUrlBase: 'https://shop.example/{lang}/products/{slug}',
+    },
+  },
+});
 
-- `languageContext` — applied to the `RequestContext` before the Reactionary client is created.
-- `search` — a `ProductSearchIdentifierSchema`-compatible search object passed to `productSearch.queryByTerm`.
-- `productUrlBase` — either a base URL that the product slug is resolved against, or a URL template supporting `{lang}` and `{slug}` placeholders.
-
-By default it returns the ACP JSON shape:
-
-```json
-{
-  "target_country": "FI",
-  "products": []
-}
+const feed = await publisher.createFeed('finnish'); // POST /feeds
+await publisher.publish('finnish', feed.id);        // PATCH /feeds/{id}/products, in batches
 ```
 
-`target_country` is derived from `languageContext.locale` when the locale includes a region, e.g. `fi-FI` -> `FI`.
-
-For file generation, request JSONL:
-
-```bash
-curl "https://example.com/acp/product_feeds/default/products?format=jsonl" > products.jsonl
-```
-
-The first implementation streams the response directly instead of generating a download URL. That keeps the adapter stateless and lets callers pipe the result to a file, object storage upload, or feed-ingestion job. A signed download URL can be layered on later by a host application or a storage-backed feed job.
+Each feed definition provides the `languageContext` the products are generated in, the `search` passed to `productSearch.queryByTerm`, and `productUrlBase` (a base URL or a template with `{lang}` and `{slug}`). Products are ACP `Product` records with their variants (see the `acp-product-feed` transformer in `@reactionary/feeds`). Upserts never remove products; for a full replacement, use file ingestion: the `@reactionary/feeds` CLI writes `products.jsonl` (`acp-product-feed`) and `metadata.json` (`acp-feed-metadata`).
 
 ## Required Reactionary capabilities
 
@@ -82,11 +75,7 @@ Required operations:
 - `checkout.setShippingInstruction`
 - `checkout.addPaymentInstruction`
 - `checkout.finalizeCheckout`
-- `productSearch.queryByTerm`
 - `product.getBySKU`
-- `price.getListPrice`
-- `price.getCustomerPrice`
-- `inventory.getBySKU`
 
 This is deliberate because Reactionary clients can be built with different capability sets. A partially capable client should fail fast instead of advertising ACP checkout.
 
@@ -133,26 +122,6 @@ new ReactionaryACPServer(createClient, {
   sessionCache: redisCache,
   sessionTtlSeconds: 60 * 60,
   checkoutSessionTtlSeconds: 60 * 60,
-  productFeed: {
-    feeds: {
-      finnish: {
-        languageContext: {
-          locale: 'fi-FI',
-          currencyCode: 'EUR',
-        },
-        search: {
-          term: '',
-          facets: [],
-          filters: ['market:fi'],
-          paginationOptions: {
-            pageNumber: 1,
-            pageSize: 50,
-          },
-        },
-        productUrlBase: 'https://shop.example/{lang}/products/{slug}',
-      },
-    },
-  },
 });
 ```
 
@@ -171,9 +140,7 @@ new ReactionaryACPServer(createClient, {
 - The create request's `currency` sets the request context currency for the session's lifetime.
 - ACP amounts are returned as integer minor units.
 - Line items report `item.id` (the SKU), `quantity`, `unit_amount` and a `totals[]` breakdown (`items_base_amount`, `discount`, `subtotal`, `total`), plus `name`, `description`, `images`, `product_id`, `sku` and `variant_options` from `product.getBySKU`. Per-line tax is not known to the cart and is not reported.
-- ACP product feed variant `price` comes from `price.getCustomerPrice`, which includes active customer/global campaign prices and can fall back to list prices in providers.
-- ACP product feed variant `list_price` comes from `price.getListPrice`.
-- ACP product feed availability comes from `inventory.getBySKU`.
+- Feed variant `price` comes from `price.getCustomerPrice` (active customer/global campaign prices, falling back to list prices in providers), `list_price` from `price.getListPrice` when it is higher, and availability from `inventory.getBySKU`.
 - Completion takes `payment_data { handler_id, instrument { type, credential { type, token } }, billing_address? }`. The handler must be one advertised in `paymentHandlers`; the credential token is passed to the backend as payment-instruction protocol data `delegated_payment_token` (with `delegated_payment_provider` = the handler's PSP, plus `acp_payment_handler_id`, `acp_payment_instrument_type`, `acp_payment_credential_type`). `billing_address` becomes the checkout's billing address. Raw card credentials are refused unless `acceptRawCardCredentials` is set; purchase-order payments are not supported.
 - The `links` option lists policy links (`terms_of_use`, `privacy_policy`, `return_policy`, `shipping_policy`, `contact_us`, `about_us`, `faq`, `support`, with an optional `title`) returned on every session.
 - Fulfillment options are sourced from `checkout.getAvailableShippingMethods` as `shipping` options with a distinct `title`, the delivery estimate as `description`, the `carrier`, and the cost as `totals[]`.
@@ -181,4 +148,4 @@ new ReactionaryACPServer(createClient, {
 
 Use `@reactionary/feeds` directly when you want Google Merchant, sitemap XML, or PriceRunner outputs from the same feed definitions.
 
-Product-feed upsert/push APIs and order webhooks are separate ACP surfaces and are not implemented yet.
+Order webhooks are a separate ACP surface and are not implemented yet.
