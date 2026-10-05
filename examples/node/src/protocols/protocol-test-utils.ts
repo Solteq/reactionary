@@ -263,6 +263,7 @@ export function createAcpServerHarness(
       authenticate: createBearerTokenAuthenticator({ e2e: ACP_E2E_TOKEN }),
       paymentHandlers: [createTokenizedCardHandler({ psp: 'stripe', merchantId: 'acct_e2e' })],
       links: [{ type: 'terms_of_use', url: 'https://shop.example.com/terms' }],
+      orderPermalinkUrl: 'https://shop.example.com/orders/{orderId}',
       productFeed: {
         feeds: {
           [ACP_FEED_ID]: {

@@ -132,6 +132,13 @@ export interface ReactionaryACPServerOptions {
    */
   authenticate?: (request: Request) => ACPAgent | undefined | Promise<ACPAgent | undefined>;
   /**
+   * The buyer-facing order page, as a URL template with an `{orderId}`
+   * placeholder, e.g. `https://shop.example/account/orders/{orderId}`. Orders
+   * MUST carry a permalink; without this option it is left out and a warning
+   * is logged.
+   */
+  orderPermalinkUrl?: string;
+  /**
    * Payment handlers advertised in `capabilities.payment.handlers`, e.g.
    * `createTokenizedCardHandler(...)`. Each maps to the backend payment
    * method its payments are placed with.
@@ -329,6 +336,12 @@ export class ReactionaryACPServer<
     );
     assertACPClient(this.clientFactory(createInitialRequestContext()));
     assertPaymentHandlers(this.options.paymentHandlers ?? []);
+
+    if (!this.options.orderPermalinkUrl) {
+      console.warn('ACP: orders are returned without permalink_url; configure `orderPermalinkUrl` (ACP requires a permalink).');
+    } else if (!this.options.orderPermalinkUrl.includes('{orderId}')) {
+      throw new Error('ACP orderPermalinkUrl must contain an {orderId} placeholder.');
+    }
 
     if (!this.options.authenticate) {
       console.warn('ACP: checkout endpoints are unauthenticated; configure `authenticate` (ACP requires agents to authenticate).');
@@ -1191,9 +1204,12 @@ export class ReactionaryACPServer<
       ...(persisted.orderId
         ? {
             order: {
+              type: 'order',
               id: persisted.orderId,
               checkout_session_id: persisted.id,
-              permalink_url: '',
+              ...(this.options.orderPermalinkUrl
+                ? { permalink_url: toOrderPermalinkUrl(this.options.orderPermalinkUrl, persisted.orderId) }
+                : {}),
             },
           }
         : {}),
@@ -1649,6 +1665,10 @@ function getProductFeedId(
   const match = /^\/product_feeds\/([^/]+)\/products$/.exec(pathname);
 
   return match?.[1];
+}
+
+function toOrderPermalinkUrl(template: string, orderId: string): string {
+  return template.replaceAll('{orderId}', encodeURIComponent(orderId));
 }
 
 /** Responses echo Request-Id and, on POSTs, Idempotency-Key (checkout RFC §3.1). */

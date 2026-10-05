@@ -373,7 +373,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
               instrument: { type: 'card', credential: { type: 'spt', token: 'pm_card_visa' } },
             },
           };
-          const completed = await session.sendJson<AcpCheckoutSession & { order?: { id: string } }>(
+          const completed = await session.sendJson<AcpCheckoutSession & { order?: { id: string; permalink_url?: string } }>(
             'POST',
             `${ACP_BASE_URL}/checkout_sessions/${created.id}/complete`,
             completePayload,
@@ -383,6 +383,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           expect(completed.body.status).toBe('completed');
           const orderId = completed.body.order?.id;
           expect(orderId, 'expected the completed session to reference the placed order').toBeTruthy();
+          expect(completed.body.order?.permalink_url).toBe(`https://shop.example.com/orders/${orderId}`);
 
           // 6. Independently verify the order through the reactionary order capability.
           const order = await harness.createCompanionClient().order.getById({ order: { key: orderId ?? '' } });
