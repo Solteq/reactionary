@@ -29,6 +29,7 @@ import {
   type ReactionaryFeedProcessingOptions,
 } from '@reactionary/feeds';
 import { createHash, timingSafeEqual } from 'node:crypto';
+import type * as z from 'zod';
 import type {
   IncomingHttpHeaders,
   IncomingMessage,
@@ -925,19 +926,21 @@ export class ReactionaryACPServer<
     client: ValidatedReactionaryACPClient,
   ): Promise<Cart> {
     let cart = await unwrapACPResult(client.cart.createCart({}));
-    const quantities = new Map<string, number>();
+    const quantities = new Map<string, { quantity: number; index: number }>();
 
-    for (const item of items) {
-      quantities.set(item.id, (quantities.get(item.id) ?? 0) + (item.quantity ?? 1));
+    for (const [index, item] of items.entries()) {
+      const current = quantities.get(item.id);
+      quantities.set(item.id, { quantity: (current?.quantity ?? 0) + (item.quantity ?? 1), index: current?.index ?? index });
     }
 
-    for (const [sku, quantity] of quantities) {
+    for (const [sku, { quantity, index }] of quantities) {
       cart = await unwrapACPResult(
         client.cart.add({
           cart: cart.identifier,
           variant: { sku },
           quantity,
         }),
+        `$.line_items[${index}].id`,
       );
     }
 
@@ -1558,17 +1561,42 @@ function getProtocolPathname(
 
 async function parseJsonBody<T>(
   request: Request,
-  schema: { parse(value: unknown): T },
+  schema: z.ZodType<T>,
 ): Promise<T> {
+  let body: unknown;
+
   try {
-    return schema.parse(await request.json());
-  } catch (error) {
+    body = await request.json();
+  } catch {
     throw new ACPHttpError(400, {
       type: 'invalid_request',
-      code: 'invalid',
-      message: error instanceof Error ? error.message : 'Invalid request body',
+      code: 'invalid_json',
+      message: 'The request body must be valid JSON.',
     });
   }
+
+  const parsed = schema.safeParse(body);
+
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+
+    throw new ACPHttpError(400, {
+      type: 'invalid_request',
+      code: issue?.code === 'invalid_type' && /received undefined/.test(issue.message) ? 'missing' : 'invalid',
+      message: issue?.message ?? 'Invalid request body',
+      ...(issue ? { param: toJsonPath(issue.path) } : {}),
+    });
+  }
+
+  return parsed.data;
+}
+
+/** An RFC 9535 JSONPath for a validation issue path, e.g. `$.line_items[0].id`. */
+function toJsonPath(path: PropertyKey[]): string {
+  return path.reduce<string>(
+    (jsonPath, segment) => typeof segment === 'number' ? `${jsonPath}[${segment}]` : `${jsonPath}.${String(segment)}`,
+    '$',
+  );
 }
 
 function jsonResponse(
@@ -1628,10 +1656,12 @@ function toACPErrorResponse(error: unknown): Response {
     return jsonResponse(error.body, { status: error.status, headers: error.headers });
   }
 
+  console.error('ACP: request failed:', error);
+
   return acpErrorResponse(500, {
     type: 'processing_error',
     code: 'internal_error',
-    message: error instanceof Error ? error.message : String(error),
+    message: 'An unexpected error occurred.',
   });
 }
 
@@ -1657,18 +1687,44 @@ function getMissingACPClientOperations(client: ReactionaryACPClient): string[] {
     .map(([name]) => name as string);
 }
 
-async function unwrapACPResult<T>(resultPromise: Promise<Result<T>>): Promise<T> {
+/**
+ * The value of a backend result. Failures are reported without backend
+ * internals: invalid input or a missing resource the request referred to
+ * (at `param`) is the agent's error; anything else is a server-side
+ * processing error, logged for the operator.
+ */
+async function unwrapACPResult<T>(
+  resultPromise: Promise<Result<T>>,
+  param?: string,
+): Promise<T> {
   const result = await resultPromise;
 
-  if (!result.success) {
+  if (result.success) {
+    return result.value;
+  }
+
+  const errorType: unknown = typeof result.error === 'object' && result.error !== null
+    ? Reflect.get(result.error, 'type')
+    : undefined;
+
+  if (param && (errorType === 'NotFound' || errorType === 'InvalidInput')) {
     throw new ACPHttpError(400, {
-      type: 'processing_error',
-      code: 'reactionary_error',
-      message: JSON.stringify(result.error),
+      type: 'invalid_request',
+      code: errorType === 'NotFound' ? 'not_found' : 'invalid',
+      message: errorType === 'NotFound'
+        ? 'The referenced resource does not exist.'
+        : 'The request was rejected by the commerce backend.',
+      param,
     });
   }
 
-  return result.value;
+  console.error('ACP: commerce backend operation failed:', result.error);
+
+  throw new ACPHttpError(502, {
+    type: 'processing_error',
+    code: 'backend_error',
+    message: 'The commerce backend could not process the request.',
+  });
 }
 
 function getCurrency(
