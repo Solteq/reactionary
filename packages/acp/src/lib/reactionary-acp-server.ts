@@ -160,12 +160,22 @@ export interface ReactionaryACPServerOptions {
    */
   interventions?: ACPInterventionOptions;
   /**
+   * Checks line items against these fulfillment centers' combined stock,
+   * reporting `out_of_stock` per line item. Unset, stock is left to the
+   * backend.
+   */
+  inventory?: ACPInventoryOptions;
+  /**
    * How long checkout completion waits for the placed checkout to become
    * `readyForFinalization` (i.e. its payment authorized, e.g. by a PSP
    * webhook) before answering `in_progress`. Defaults to 10s timeout,
    * polled every 1s; a timeout of 0 disables it.
    */
   paymentAuthorizationWait?: Partial<ACPPaymentAuthorizationWait>;
+}
+
+export interface ACPInventoryOptions {
+  fulfillmentCenterKeys: string[];
 }
 
 /** An authenticated agent (platform) calling the checkout API. */
@@ -861,10 +871,13 @@ export class ReactionaryACPServer<
       const view = await this.priceSession(current, client);
 
       if (view.status !== 'ready_for_payment') {
+        const blocking = view.messages?.find((message) => message.type === 'error');
+
         return acpErrorResponse(400, {
           type: 'invalid_request',
-          code: 'invalid',
-          message: 'The checkout session is missing the buyer email, fulfillment address or fulfillment option.',
+          code: blocking?.code ?? 'invalid',
+          message: blocking?.content ?? 'The checkout session is not ready for payment.',
+          ...(blocking?.param ? { param: blocking.param } : {}),
         });
       }
 
@@ -1039,10 +1052,21 @@ export class ReactionaryACPServer<
   ): Promise<ACPSessionView> {
     const cart = await unwrapACPResult(client.cart.getById({ cart: { key: state.cartId } }));
 
+    if (state.status === 'canceled') {
+      return { cart, price: cart.price, options: [], messages: [], status: 'canceled' };
+    }
+
+    const stockMessages = await this.getStockMessages(cart, client);
     const address = state.fulfillmentDetails?.address;
 
-    if (!address || state.status === 'canceled') {
-      return { cart, price: cart.price, options: [], status: state.status === 'canceled' ? 'canceled' : 'not_ready_for_payment' };
+    if (!address) {
+      return {
+        cart,
+        price: cart.price,
+        options: [],
+        messages: [...stockMessages, ...getInputMessages(state, [], false)],
+        status: 'not_ready_for_payment',
+      };
     }
 
     let checkout = await unwrapACPResult(
@@ -1072,10 +1096,12 @@ export class ReactionaryACPServer<
         checkout = withShipping.success ? withShipping.value : checkout;
       }
 
-      const messages = this.getInterventionMessages(state);
-      const ready = Boolean(getContactEmail(state))
-        && (options.length === 0 || Boolean(selected))
-        && messages.length === 0;
+      const messages = [
+        ...stockMessages,
+        ...this.getInterventionMessages(state),
+        ...getInputMessages(state, options, true),
+      ];
+      const ready = messages.every((message) => message.type !== 'error');
 
       return {
         messages,
@@ -1201,6 +1227,57 @@ export class ReactionaryACPServer<
   }
 
   /**
+   * An out_of_stock error per line item requesting more than the configured
+   * fulfillment centers hold (as in the UCP adapter). Back-ordered and
+   * pre-ordered items are always purchasable; without configured centers,
+   * stock is left to the backend.
+   */
+  private async getStockMessages(cart: Cart, client: ValidatedReactionaryACPClient): Promise<ACPMessage[]> {
+    const fulfillmentCenterKeys = this.options.inventory?.fulfillmentCenterKeys ?? [];
+
+    if (fulfillmentCenterKeys.length === 0) {
+      return [];
+    }
+
+    const messages = await Promise.all(cart.items.map(async (item, index): Promise<ACPMessage | undefined> => {
+      const results = await Promise.all(fulfillmentCenterKeys.map((key) => client.inventory.getBySKU({
+        variant: item.variant,
+        fulfilmentCenter: { key },
+      })));
+      const inventories = results.flatMap((result) => (result.success ? [result.value] : []));
+
+      if (
+        inventories.length === 0
+        || inventories.some((inventory) => inventory.status === 'onBackOrder' || inventory.status === 'preOrder')
+      ) {
+        return undefined;
+      }
+
+      const available = inventories.reduce(
+        (total, inventory) => total + (inventory.status === 'inStock' ? Math.max(inventory.quantity, 0) : 0),
+        0,
+      );
+
+      if (item.quantity <= available) {
+        return undefined;
+      }
+
+      const sku = item.variant.sku;
+
+      return {
+        type: 'error',
+        code: 'out_of_stock',
+        param: `$.line_items[${index}]`,
+        content_type: 'plain',
+        content: available > 0 ? `Only ${available} of ${sku} are in stock.` : `${sku} is out of stock.`,
+        resolution: 'requires_buyer_input',
+      };
+    }));
+
+    return messages.filter((message) => message !== undefined);
+  }
+
+  /**
    * Required interventions the agent cannot perform block the session when
    * they always apply (checkout RFC §5, intervention_required).
    */
@@ -1287,6 +1364,54 @@ interface ACPMessage {
   param?: string;
   content_type: 'plain' | 'markdown';
   content: string;
+  /** Who resolves it: the agent via the API, or the buyer. */
+  resolution?: 'recoverable' | 'requires_buyer_input' | 'requires_buyer_review';
+}
+
+/**
+ * What the session still needs before payment: each missing or invalid
+ * input as an error message at its JSONPath, so the agent can ask the buyer
+ * or correct its request.
+ */
+function getInputMessages(
+  state: ACPCheckoutSessionState,
+  options: ShippingMethod[],
+  hasAddress: boolean,
+): ACPMessage[] {
+  const messages: ACPMessage[] = [];
+  const missing = (param: string, content: string): ACPMessage => ({
+    type: 'error',
+    code: 'missing',
+    param,
+    content_type: 'plain',
+    content,
+    resolution: 'requires_buyer_input',
+  });
+
+  if (!getContactEmail(state)) {
+    messages.push(missing('$.buyer.email', 'A buyer email is required.'));
+  }
+
+  if (!hasAddress) {
+    messages.push(missing('$.fulfillment_details.address', 'A shipping address is required.'));
+  }
+
+  const selected = options.some((option) => option.identifier.key === state.fulfillmentOptionId);
+
+  if (state.fulfillmentOptionId && hasAddress && !selected) {
+    messages.push({
+      type: 'error',
+      code: 'invalid',
+      param: '$.selected_fulfillment_options[0].option_id',
+      content_type: 'plain',
+      content: `Fulfillment option '${state.fulfillmentOptionId}' is not available for this checkout.`,
+      resolution: 'recoverable',
+    });
+  } else if (options.length > 0 && !state.fulfillmentOptionId) {
+    messages.push(missing('$.selected_fulfillment_options', 'A fulfillment option must be selected.'));
+  }
+
+  return messages;
 }
 
 function getSupportedInterventions(
