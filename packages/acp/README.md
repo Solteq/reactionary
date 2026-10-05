@@ -14,6 +14,15 @@ The adapter implements the merchant-hosted ACP checkout endpoints:
 - `POST /checkout_sessions/{checkout_session_id}/complete`
 - `POST /checkout_sessions/{checkout_session_id}/cancel`
 
+and the cart capability:
+
+- `POST /carts`
+- `GET /carts/{id}`
+- `PUT /carts/{id}` (full replacement of line items)
+- `POST /carts/{id}/cancel`
+
+Carts are pre-checkout baskets over a backend cart: no status (canceled or expired carts answer 404), no payment and no capability negotiation; totals are estimates. They expire after `checkoutSessionTtlSeconds`, refreshed on update, and are visible only to the agent that created them.
+
 It also serves a readiness document from `GET` / `HEAD`.
 
 If the adapter is mounted under `/acp`, both `/checkout_sessions/...` and `/acp/checkout_sessions/...` paths are understood. Set `basePath` when mounting somewhere else.
@@ -32,7 +41,7 @@ Every checkout `POST` must carry an `Idempotency-Key` (at most 255 characters), 
 
 ## Discovery
 
-`GET /.well-known/acp.json` (alias `/.well-known/acp`) serves the ACP discovery document with `Cache-Control: public, max-age=3600`. It advertises protocol version `2026-04-17` and the `checkout` service (the services enum is closed per version: `checkout`, `orders`, `delegate_payment`, `carts`), the `intervention_types` of the `interventions` option, and the extensions the server implements. `api_base_url` defaults to the request origin plus `basePath` (default `/acp`); override it and other fields with the `discovery` option. The host application must route the well-known path to this handler. Payment handlers are not part of ACP discovery; they are negotiated per checkout session.
+`GET /.well-known/acp.json` (alias `/.well-known/acp`) serves the ACP discovery document with `Cache-Control: public, max-age=3600`. It advertises protocol version `2026-04-17` and the `checkout` and `carts` services (the services enum is closed per version: `checkout`, `orders`, `delegate_payment`, `carts`), the `intervention_types` of the `interventions` option, and the extensions the server implements. `api_base_url` defaults to the request origin plus `basePath` (default `/acp`); override it and other fields with the `discovery` option. The host application must route the well-known path to this handler. Payment handlers are not part of ACP discovery; they are negotiated per checkout session.
 
 ## Product feeds
 

@@ -35,6 +35,10 @@ import {
   ACPOrderRecordSchema,
   ACPAffiliateAttributionSchema,
   ACPCancelCheckoutSessionRequestSchema,
+  ACPCartCreateRequestSchema,
+  ACPCartStateSchema,
+  ACPCartUpdateRequestSchema,
+  type ACPCartState,
   type ACPAffiliateAttribution,
   ACP_AUTHENTICATED_OUTCOMES,
   type ACPCancelCheckoutSessionRequest,
@@ -70,6 +74,7 @@ const ACP_SESSION_ID_HEADER = 'acp-session-id';
 const SESSION_CACHE_KEY_PREFIX = 'reactionary:acp:session';
 const CHECKOUT_SESSION_CACHE_KEY_PREFIX = 'reactionary:acp:checkout-session';
 const ORDER_CACHE_KEY_PREFIX = 'reactionary:acp:order';
+const CART_CACHE_KEY_PREFIX = 'reactionary:acp:cart';
 type ProtocolHeaders = Headers | Record<string, string>;
 
 export interface ReactionaryACPClient {
@@ -517,7 +522,9 @@ export class ReactionaryACPServer<
   private async authenticate(request: Request): Promise<ACPAgent | undefined> {
     const pathname = getProtocolPathname(request, this.options.basePath);
 
-    if (!this.options.authenticate || !pathname.startsWith('/checkout_sessions')) {
+    const cartRoute = getCartRoute(request, this.options.basePath);
+
+    if (!this.options.authenticate || (!pathname.startsWith('/checkout_sessions') && !cartRoute)) {
       return undefined;
     }
 
@@ -532,13 +539,15 @@ export class ReactionaryACPServer<
     }
 
     const checkoutSessionId = getCheckoutSessionId(request, this.options.basePath);
-    const state = checkoutSessionId ? await this.checkoutSessionStore.get(checkoutSessionId) : undefined;
+    const state = checkoutSessionId
+      ? await this.checkoutSessionStore.get(checkoutSessionId)
+      : cartRoute?.cartId ? await this.checkoutSessionStore.getCart(cartRoute.cartId) : undefined;
 
     if (state?.agentId !== undefined && state.agentId !== agent.id) {
       throw new ACPHttpError(404, {
         type: 'invalid_request',
-        code: 'missing',
-        message: `Checkout session not found: ${checkoutSessionId}`,
+        code: checkoutSessionId ? 'missing' : 'not_found',
+        message: checkoutSessionId ? `Checkout session not found: ${checkoutSessionId}` : `Cart not found: ${cartRoute?.cartId}`,
       });
     }
 
@@ -552,9 +561,10 @@ export class ReactionaryACPServer<
    */
   private async resolveSessionId(request: Request): Promise<string> {
     const checkoutSessionId = getCheckoutSessionId(request, this.options.basePath);
+    const cartId = getCartRoute(request, this.options.basePath)?.cartId;
     const state = checkoutSessionId
       ? await this.checkoutSessionStore.get(checkoutSessionId)
-      : undefined;
+      : cartId ? await this.checkoutSessionStore.getCart(cartId) : undefined;
 
     return state?.sessionId ?? getOrCreateSessionId(request);
   }
@@ -664,7 +674,7 @@ export class ReactionaryACPServer<
       return new Response(null, {
         status: 204,
         headers: {
-          allow: 'GET, HEAD, OPTIONS, POST',
+          allow: 'GET, HEAD, OPTIONS, POST, PUT',
         },
       });
     }
@@ -677,6 +687,14 @@ export class ReactionaryACPServer<
         headers: { 'cache-control': 'public, max-age=3600' },
         omitBody: request.method === 'HEAD',
       });
+    }
+
+    const cartRoute = getCartRoute(request, this.options.basePath);
+
+    if (cartRoute) {
+      assertSupportedApiVersion(request);
+
+      return this.handleCartRequest(request, cartRoute, client, sessionId, agent);
     }
 
     if (request.method === 'GET' || request.method === 'HEAD') {
@@ -714,9 +732,99 @@ export class ReactionaryACPServer<
     }, {
       status: 405,
       headers: {
-        allow: 'GET, HEAD, OPTIONS, POST',
+        allow: 'GET, HEAD, OPTIONS, POST, PUT',
       },
     });
+  }
+
+  /**
+   * The cart capability (cart RFC): pre-checkout baskets over a backend
+   * cart. Carts have no status — they exist, or answer 404 once canceled or
+   * expired — and no payment or negotiation, which belong to checkout.
+   */
+  private async handleCartRequest(
+    request: Request,
+    route: { cartId?: string; cancel: boolean },
+    client: ValidatedReactionaryACPClient,
+    sessionId: string,
+    agent: ACPAgent | undefined,
+  ): Promise<Response> {
+    if (!route.cartId) {
+      if (request.method !== 'POST') {
+        return methodNotAllowed(request.method, 'POST');
+      }
+
+      const input = await parseJsonBody(request, ACPCartCreateRequestSchema);
+      const cart = await this.createCartForItems(input.line_items, client);
+      const state: ACPCartState = {
+        id: `cart_${crypto.randomUUID()}`,
+        cartId: cart.identifier.key,
+        sessionId,
+        ...(agent ? { agentId: agent.id } : {}),
+        ...(input.buyer ? { buyer: input.buyer } : {}),
+        expiresAt: this.getCartExpiry(),
+      };
+
+      return jsonResponse(await this.toACPCart(state, client), { status: 201 });
+    }
+
+    const state = await this.checkoutSessionStore.getCart(route.cartId);
+
+    if (!state) {
+      return acpErrorResponse(404, { type: 'invalid_request', code: 'not_found', message: `Cart not found: ${route.cartId}` });
+    }
+
+    if (route.cancel) {
+      if (request.method !== 'POST') {
+        return methodNotAllowed(request.method, 'POST');
+      }
+
+      const final = await this.toACPCart(state, client);
+      await this.checkoutSessionStore.deleteCart(state.id);
+      await client.cart.deleteCart?.({ cart: { key: state.cartId } });
+
+      return jsonResponse(final);
+    }
+
+    if (request.method === 'GET' || request.method === 'HEAD') {
+      return jsonResponse(await this.toACPCart(state, client), { omitBody: request.method === 'HEAD' });
+    }
+
+    if (request.method === 'PUT') {
+      const input = await parseJsonBody(request, ACPCartUpdateRequestSchema);
+      const updated: ACPCartState = {
+        ...state,
+        cartId: await this.replaceCartItems(state.cartId, input.line_items, client),
+        buyer: mergeBuyer(state.buyer, input.buyer),
+        expiresAt: this.getCartExpiry(),
+      };
+
+      return jsonResponse(await this.toACPCart(updated, client));
+    }
+
+    return methodNotAllowed(request.method, 'GET, PUT');
+  }
+
+  private getCartExpiry(): string {
+    return new Date(Date.now() + (this.options.checkoutSessionTtlSeconds ?? 60 * 60 * 24) * 1000).toISOString();
+  }
+
+  /** A cart's authoritative state; totals are estimates without an address. */
+  private async toACPCart(state: ACPCartState, client: ValidatedReactionaryACPClient): Promise<Record<string, unknown>> {
+    await this.checkoutSessionStore.putCart(state);
+
+    const cart = await unwrapACPResult(client.cart.getById({ cart: { key: state.cartId } }));
+    const products = await getProducts(cart.items.map((item) => item.variant.sku), client);
+
+    return {
+      id: state.id,
+      line_items: cart.items.map((item) => toACPLineItem(item, products.get(item.variant.sku))),
+      ...(state.buyer ? { buyer: state.buyer } : {}),
+      currency: cart.price.grandTotal.currency.toLowerCase(),
+      totals: toACPTotals(cart.price),
+      messages: await this.getStockMessages(cart, client),
+      expires_at: state.expiresAt,
+    };
   }
 
   private getDiscoveryDocument(request: Request): ACPDiscoveryResponse {
@@ -741,7 +849,7 @@ export class ReactionaryACPServer<
       capabilities: {
         // The services enum is closed per version: checkout, orders,
         // delegate_payment and carts (discovery RFC §4.2).
-        services: this.webhooks ? ['checkout', 'orders'] : ['checkout'],
+        services: this.webhooks ? ['checkout', 'orders', 'carts'] : ['checkout', 'carts'],
         ...(extensions.length > 0 ? { extensions } : {}),
         ...(interventionTypes.length > 0 ? { intervention_types: interventionTypes } : {}),
         ...(discovery.supportedCurrencies
@@ -771,6 +879,10 @@ export class ReactionaryACPServer<
         'GET /checkout_sessions/{checkout_session_id}',
         'POST /checkout_sessions/{checkout_session_id}/complete',
         'POST /checkout_sessions/{checkout_session_id}/cancel',
+        'POST /carts',
+        'GET /carts/{id}',
+        'PUT /carts/{id}',
+        'POST /carts/{id}/cancel',
       ],
     };
   }
@@ -2120,6 +2232,23 @@ class ReactionaryACPCheckoutSessionStore {
     });
   }
 
+  public async getCart(id: string): Promise<ACPCartState | undefined> {
+    const state = await this.cache.get(`${CART_CACHE_KEY_PREFIX}:${id}`, ACPCartStateSchema);
+
+    return state && Date.parse(state.expiresAt) > Date.now() ? state : undefined;
+  }
+
+  public async putCart(state: ACPCartState): Promise<void> {
+    const key = `${CART_CACHE_KEY_PREFIX}:${state.id}`;
+
+    await this.cache.invalidate([key]);
+    await this.cache.put(key, state, { ttlSeconds: this.ttlSeconds, dependencyIds: [key] });
+  }
+
+  public async deleteCart(id: string): Promise<void> {
+    await this.cache.invalidate([`${CART_CACHE_KEY_PREFIX}:${id}`]);
+  }
+
   public async getOrder(orderId: string): Promise<ACPOrderRecord | undefined> {
     return (await this.cache.get(`${ORDER_CACHE_KEY_PREFIX}:${orderId}`, ACPOrderRecordSchema)) ?? undefined;
   }
@@ -2211,10 +2340,29 @@ function parseAcceptLanguage(header: string | null): string[] {
     .map((entry) => entry.tag);
 }
 
-/** POSTs to checkout endpoints, which all require an Idempotency-Key. */
+/** POSTs to checkout and cart endpoints, which all require an Idempotency-Key. */
 function isCheckoutPost(request: Request, basePath: string | undefined): boolean {
+  const pathname = getProtocolPathname(request, basePath);
+
   return request.method === 'POST'
-    && getProtocolPathname(request, basePath).startsWith('/checkout_sessions');
+    && (pathname.startsWith('/checkout_sessions') || pathname === '/carts' || pathname.startsWith('/carts/'));
+}
+
+/** `/carts`, `/carts/{id}` or `/carts/{id}/cancel`. */
+function getCartRoute(
+  request: Request,
+  basePath: string | undefined,
+): { cartId?: string; cancel: boolean } | undefined {
+  const match = /^\/carts(?:\/([^/]+)(\/cancel)?)?$/.exec(getProtocolPathname(request, basePath));
+
+  return match ? { ...(match[1] ? { cartId: decodeURIComponent(match[1]) } : {}), cancel: Boolean(match[2]) } : undefined;
+}
+
+function methodNotAllowed(method: string, allow: string): Response {
+  return jsonResponse(
+    { type: 'invalid_request', code: 'method_not_allowed', message: `Unsupported method: ${method}` },
+    { status: 405, headers: { allow } },
+  );
 }
 
 function isCheckoutSessionCompleteRequest(
@@ -2666,5 +2814,6 @@ function getAcpOperationPath(request: Request, basePath: string | undefined): st
   const pathname = getProtocolPathname(request, basePath);
 
   return pathname
-    .replace(/^\/checkout_sessions\/[^/]+/, '/checkout_sessions/{id}');
+    .replace(/^\/checkout_sessions\/[^/]+/, '/checkout_sessions/{id}')
+    .replace(/^\/carts\/[^/]+/, '/carts/{id}');
 }

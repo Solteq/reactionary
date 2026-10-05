@@ -189,7 +189,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
       expect(discovery.protocol.name).toBe('acp');
       expect(discovery.api_base_url).toBe(ACP_BASE_URL);
       expect(discovery.transports).toContain('rest');
-      expect(discovery.capabilities.services).toEqual(['checkout', 'orders']);
+      expect(discovery.capabilities.services).toEqual(['checkout', 'orders', 'carts']);
       expect(discovery.capabilities.services).not.toContain('feeds');
 
       // 2. It checks the readiness document for the available actions.
@@ -397,6 +397,36 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
         },
         PROTOCOL_TEST_TIMEOUT,
       );
+
+      it('builds a basket with the cart capability', async () => {
+        const session = createAcpSession(server);
+        const variants = (await readProductFeed(harness)).flatMap((product) => product.variants);
+        const sku = variants.find((variant) => variant.availability?.status !== 'out_of_stock')?.id ?? variants[0]?.id;
+
+        const created = await session.sendJson<{ id: string; line_items: AcpLineItem[]; totals: AcpTotal[] }>(
+          'POST',
+          `${ACP_BASE_URL}/carts`,
+          { line_items: [{ id: sku, quantity: 1 }] },
+        );
+
+        expect(created.status).toBe(201);
+        expect(created.body.line_items[0]?.item.id).toBe(sku);
+        expect(created.body.totals.find((total) => total.type === 'total')?.amount).toBeGreaterThan(0);
+
+        const updated = await session.sendJson<{ line_items: AcpLineItem[] }>(
+          'PUT',
+          `${ACP_BASE_URL}/carts/${created.body.id}`,
+          { line_items: [{ id: sku, quantity: 3 }] },
+        );
+
+        expect(updated.status).toBe(200);
+        expect(updated.body.line_items[0]?.quantity).toBe(3);
+
+        const canceled = await session.sendJson<{ id: string }>('POST', `${ACP_BASE_URL}/carts/${created.body.id}/cancel`, {});
+
+        expect(canceled.status).toBe(200);
+        expect((await session.get(`${ACP_BASE_URL}/carts/${created.body.id}`)).status).toBe(404);
+      }, PROTOCOL_TEST_TIMEOUT);
 
       it('rejects malformed and unknown checkout session requests', async () => {
         const session = createAcpSession(server);
