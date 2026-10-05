@@ -13,10 +13,39 @@ export const ACPItemSchema = z.object({
   unit_amount: z.int().optional(),
 });
 
-export const ACPBuyerSchema = z.object({
+export const ACPCompanyInfoSchema = z.object({
   name: z.string().min(1),
+  tax_id: z.string().optional(),
+  department: z.string().optional(),
+  cost_center: z.string().optional(),
+});
+
+export const ACPLoyaltyInfoSchema = z.object({
+  tier: z.string().optional(),
+  points_balance: z.int().optional(),
+  member_since: z.string().optional(),
+});
+
+export const ACPTaxExemptionSchema = z.object({
+  certificate_id: z.string().min(1),
+  certificate_type: z.enum(['resale', 'exempt_organization', 'government']),
+  exempt_regions: z.array(z.string()).optional(),
+  expires_at: z.string().optional(),
+});
+
+/** The 2026-04-17 Buyer: only the email is required. */
+export const ACPBuyerSchema = z.object({
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  full_name: z.string().optional(),
   email: z.email(),
   phone_number: z.string().optional(),
+  customer_id: z.string().optional(),
+  account_type: z.enum(['guest', 'registered', 'business']).optional(),
+  authentication_status: z.enum(['authenticated', 'guest', 'requires_signin']).optional(),
+  company: ACPCompanyInfoSchema.optional(),
+  loyalty: ACPLoyaltyInfoSchema.optional(),
+  tax_exemption: ACPTaxExemptionSchema.optional(),
 });
 
 export const ACPAddressSchema = z.object({

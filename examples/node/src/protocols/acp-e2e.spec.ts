@@ -93,7 +93,8 @@ interface AcpFeedItem {
 }
 
 const buyer = {
-  name: 'Ada Lovelace',
+  first_name: 'Ada',
+  last_name: 'Lovelace',
   email: 'ada@example.com',
 };
 
@@ -309,7 +310,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           const harness = createAcpServerHarness(backend, search);
           const session = createAcpSession(harness.server);
           const email = `ada+${crypto.randomUUID()}@example.com`;
-          const orderBuyer = { name: 'Ada Lovelace', email };
+          const orderBuyer = { first_name: 'Ada', last_name: 'Lovelace', email };
 
           // 1. The agent opens a session with just the item; the buyer is unknown.
           const feedItems = await readProductFeed(harness.server);
