@@ -203,8 +203,19 @@ const ACP_API_VERSION_HEADER = 'api-version';
 
 
 
+/** A policy or support link shown with the checkout (2026-04-17 Link). */
 export interface ACPLink {
-  type: 'terms_of_use' | 'privacy_policy' | 'seller_shop_policies';
+  type:
+    | 'terms_of_use'
+    | 'privacy_policy'
+    | 'return_policy'
+    | 'shipping_policy'
+    | 'contact_us'
+    | 'about_us'
+    | 'faq'
+    | 'support';
+  /** Display text for the link. */
+  title?: string;
   url: string;
 }
 

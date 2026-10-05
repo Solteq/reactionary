@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { createTokenizedCardHandler } from './acp-payment-handlers.js';
 import {
   ReactionaryACPServer,
+  type ACPLink,
   type ReactionaryACPClient,
 } from './reactionary-acp-server.js';
 
@@ -529,6 +530,22 @@ describe('ReactionaryACPServer', () => {
     await expect(amounts('EUR')).resolves.toEqual({ unit: 1000, total: 2000 });
     await expect(amounts('JPY')).resolves.toEqual({ unit: 10, total: 20 });
     await expect(amounts('KWD')).resolves.toEqual({ unit: 10000, total: 20000 });
+  });
+
+  it('returns the configured policy links', async () => {
+    const links = [
+      { type: 'terms_of_use', url: 'https://shop.example/terms' },
+      { type: 'return_policy', title: 'Returns', url: 'https://shop.example/returns' },
+      { type: 'support', title: 'Help', url: 'https://shop.example/help' },
+    ] satisfies ACPLink[];
+    const server = new ReactionaryACPServer(() => createTestClient(), { sessionCache: new MemoryCache(), links });
+    const created = await json<{ links: unknown }>(await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1' }],
+      currency: 'eur',
+      capabilities: agentCapabilities,
+    })));
+
+    expect(created.links).toEqual(links);
   });
 
   it('creates a session without buyer data and no backend checkout', async () => {
