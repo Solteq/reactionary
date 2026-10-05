@@ -56,7 +56,19 @@ export const ACPAddressSchema = z.object({
   state: z.string().min(1),
   country: z.string().min(1),
   postal_code: z.string().min(1),
+});
+
+export const ACPFulfillmentDetailsSchema = z.object({
+  name: z.string().optional(),
   phone_number: z.string().optional(),
+  email: z.email().optional(),
+  address: ACPAddressSchema.optional(),
+});
+
+export const ACPSelectedFulfillmentOptionSchema = z.object({
+  type: z.enum(['shipping', 'digital', 'pickup', 'local_delivery']),
+  option_id: z.string().min(1),
+  item_ids: z.array(z.string()),
 });
 
 export const ACPCreateCheckoutSessionRequestSchema = z.object({
@@ -66,14 +78,15 @@ export const ACPCreateCheckoutSessionRequestSchema = z.object({
     (currency) => CurrencySchema.safeParse(currency.toUpperCase()).success,
     'Expected an ISO 4217 currency code',
   ),
-  fulfillment_address: ACPAddressSchema.optional(),
+  fulfillment_details: ACPFulfillmentDetailsSchema.optional(),
 });
 
 export const ACPUpdateCheckoutSessionRequestSchema = z.object({
   buyer: ACPBuyerSchema.optional(),
   line_items: z.array(ACPItemSchema).min(1).optional(),
-  fulfillment_address: ACPAddressSchema.optional(),
-  fulfillment_option_id: z.string().optional(),
+  // null clears the field; absent leaves it unchanged.
+  fulfillment_details: ACPFulfillmentDetailsSchema.nullable().optional(),
+  selected_fulfillment_options: z.array(ACPSelectedFulfillmentOptionSchema).nullable().optional(),
 });
 
 export const ACPPaymentDataSchema = z.object({
@@ -104,7 +117,8 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
     'canceled',
   ]),
   buyer: ACPBuyerSchema.optional(),
-  fulfillmentAddress: ACPAddressSchema.optional(),
+  fulfillmentDetails: ACPFulfillmentDetailsSchema.optional(),
+  // The backend checkout has one shipping method, so one option is kept.
   fulfillmentOptionId: z.string().optional(),
   orderId: z.string().optional(),
 });
@@ -170,6 +184,8 @@ export const ACPProductFeedResponseSchema = z.object({
 export type ACPItem = z.infer<typeof ACPItemSchema>;
 export type ACPBuyer = z.infer<typeof ACPBuyerSchema>;
 export type ACPAddress = z.infer<typeof ACPAddressSchema>;
+export type ACPFulfillmentDetails = z.infer<typeof ACPFulfillmentDetailsSchema>;
+export type ACPSelectedFulfillmentOption = z.infer<typeof ACPSelectedFulfillmentOptionSchema>;
 export type ACPCreateCheckoutSessionRequest = z.infer<
   typeof ACPCreateCheckoutSessionRequestSchema
 >;

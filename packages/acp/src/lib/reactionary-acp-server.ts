@@ -580,7 +580,7 @@ export class ReactionaryACPServer<
       currency: input.currency.toLowerCase(),
       status: 'not_ready_for_payment',
       buyer: input.buyer,
-      fulfillmentAddress: input.fulfillment_address,
+      fulfillmentDetails: input.fulfillment_details,
     };
 
     return jsonResponse(
@@ -611,8 +611,12 @@ export class ReactionaryACPServer<
         ? (await this.createCartForItems(input.line_items, client)).identifier.key
         : state.cartId,
       buyer: mergeBuyer(state.buyer, input.buyer),
-      fulfillmentAddress: input.fulfillment_address ?? state.fulfillmentAddress,
-      fulfillmentOptionId: input.fulfillment_option_id ?? state.fulfillmentOptionId,
+      fulfillmentDetails: input.fulfillment_details === null
+        ? undefined
+        : input.fulfillment_details ?? state.fulfillmentDetails,
+      fulfillmentOptionId: input.selected_fulfillment_options === undefined
+        ? state.fulfillmentOptionId
+        : input.selected_fulfillment_options?.[0]?.option_id,
     };
 
     return jsonResponse(
@@ -774,16 +778,21 @@ export class ReactionaryACPServer<
     client: ValidatedReactionaryACPClient,
   ): Promise<Checkout> {
     const cart = await unwrapACPResult(client.cart.getById({ cart: { key: state.cartId } }));
+    const address = state.fulfillmentDetails?.address;
     let checkout = await unwrapACPResult(
       client.checkout.initiateCheckoutForCart({
         cart,
-        billingAddress: state.fulfillmentAddress
-          ? toReactionaryAddress(state.fulfillmentAddress)
-          : undefined,
-        notificationEmail: state.buyer?.email,
-        notificationPhone: state.buyer?.phone_number,
+        billingAddress: address ? toReactionaryAddress(address) : undefined,
+        notificationEmail: getContactEmail(state),
+        notificationPhone: getContactPhone(state),
       }),
     );
+
+    if (address) {
+      checkout = await unwrapACPResult(
+        client.checkout.setShippingAddress({ checkout: checkout.identifier, shippingAddress: toReactionaryAddress(address) }),
+      );
+    }
 
     if (state.fulfillmentOptionId) {
       checkout = await unwrapACPResult(
@@ -834,20 +843,28 @@ export class ReactionaryACPServer<
   ): Promise<ACPSessionView> {
     const cart = await unwrapACPResult(client.cart.getById({ cart: { key: state.cartId } }));
 
-    if (!state.fulfillmentAddress || state.status === 'canceled') {
+    const address = state.fulfillmentDetails?.address;
+
+    if (!address || state.status === 'canceled') {
       return { cart, price: cart.price, options: [], status: state.status === 'canceled' ? 'canceled' : 'not_ready_for_payment' };
     }
 
     let checkout = await unwrapACPResult(
       client.checkout.initiateCheckoutForCart({
         cart,
-        billingAddress: toReactionaryAddress(state.fulfillmentAddress),
-        notificationEmail: state.buyer?.email ?? this.options.placeholderEmail ?? DEFAULT_ACP_PLACEHOLDER_EMAIL,
-        notificationPhone: state.buyer?.phone_number,
+        billingAddress: toReactionaryAddress(address),
+        notificationEmail: getContactEmail(state) ?? this.options.placeholderEmail ?? DEFAULT_ACP_PLACEHOLDER_EMAIL,
+        notificationPhone: getContactPhone(state),
       }),
     );
 
     try {
+      const withAddress = await client.checkout.setShippingAddress({
+        checkout: checkout.identifier,
+        shippingAddress: toReactionaryAddress(address),
+      });
+      checkout = withAddress.success ? withAddress.value : checkout;
+
       const shippingMethods = await client.checkout.getAvailableShippingMethods({ checkout: checkout.identifier });
       const options = shippingMethods.success ? shippingMethods.value : [];
       const selected = options.find((option) => option.identifier.key === state.fulfillmentOptionId);
@@ -859,7 +876,7 @@ export class ReactionaryACPServer<
         checkout = withShipping.success ? withShipping.value : checkout;
       }
 
-      const ready = Boolean(state.buyer?.email) && (options.length === 0 || Boolean(selected));
+      const ready = Boolean(getContactEmail(state)) && (options.length === 0 || Boolean(selected));
 
       return {
         cart,
@@ -886,6 +903,7 @@ export class ReactionaryACPServer<
       ? await this.getPlacedView(state, client)
       : await this.priceSession(state, client);
     const persisted: ACPCheckoutSessionState = { ...state, status: view.status };
+    const lineItems = view.checkout?.items ?? view.cart?.items ?? [];
 
     await this.checkoutSessionStore.put(persisted.id, persisted);
 
@@ -895,13 +913,19 @@ export class ReactionaryACPServer<
       payment_provider: await this.getPaymentProvider(view.checkout, client),
       status: persisted.status,
       currency: getCurrency(view.price, requestContext),
-      line_items: (view.checkout?.items ?? view.cart?.items ?? []).map(toACPLineItem),
-      ...(persisted.fulfillmentAddress
-        ? { fulfillment_address: persisted.fulfillmentAddress }
+      line_items: lineItems.map(toACPLineItem),
+      ...(persisted.fulfillmentDetails
+        ? { fulfillment_details: persisted.fulfillmentDetails }
         : {}),
       fulfillment_options: view.options.map(toACPFulfillmentOption),
       ...(persisted.fulfillmentOptionId
-        ? { fulfillment_option_id: persisted.fulfillmentOptionId }
+        ? {
+            selected_fulfillment_options: [{
+              type: 'shipping',
+              option_id: persisted.fulfillmentOptionId,
+              item_ids: lineItems.map((lineItem) => lineItem.identifier.key),
+            }],
+          }
         : {}),
       totals: toACPTotals(view.price),
       ...(persisted.orderId
@@ -977,6 +1001,18 @@ interface ACPSessionView {
   price: Checkout['price'];
   options: ShippingMethod[];
   status: ACPCheckoutSessionState['status'];
+}
+
+/**
+ * The buyer's contact details, falling back to the fulfillment contact
+ * (marketing consent RFC §3.5 resolves contacts the same way).
+ */
+function getContactEmail(state: ACPCheckoutSessionState): string | undefined {
+  return state.buyer?.email ?? state.fulfillmentDetails?.email;
+}
+
+function getContactPhone(state: ACPCheckoutSessionState): string | undefined {
+  return state.buyer?.phone_number ?? state.fulfillmentDetails?.phone_number;
 }
 
 /** Buyer updates refine what the session already knows about the buyer. */

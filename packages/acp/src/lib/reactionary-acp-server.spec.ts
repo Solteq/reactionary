@@ -17,6 +17,22 @@ import {
   type ReactionaryACPClient,
 } from './reactionary-acp-server.js';
 
+const fulfillmentDetails = {
+  name: 'Ada Lovelace',
+  address: {
+    name: 'Ada Lovelace',
+    line_one: '1 Computing Street',
+    city: 'London',
+    state: 'London',
+    country: 'GB',
+    postal_code: 'SW1A 1AA',
+  },
+};
+
+const selectStandardShipping = {
+  selected_fulfillment_options: [{ type: 'shipping', option_id: 'standard', item_ids: [] }],
+};
+
 describe('ReactionaryACPServer', () => {
   it('does not initialize when the client is missing required operations', () => {
     expect(
@@ -173,14 +189,7 @@ describe('ReactionaryACPServer', () => {
           last_name: 'Lovelace',
           email: 'ada@example.com',
         },
-        fulfillment_address: {
-          name: 'Ada Lovelace',
-          line_one: '1 Computing Street',
-          city: 'London',
-          state: 'London',
-          country: 'GB',
-          postal_code: 'SW1A 1AA',
-        },
+        fulfillment_details: fulfillmentDetails,
       }),
     );
     const created = await json<{ id: string }>(createResponse);
@@ -208,13 +217,13 @@ describe('ReactionaryACPServer', () => {
 
     const updateResponse = await server.fetch(
       jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, {
-        fulfillment_option_id: 'standard',
+        ...selectStandardShipping,
       }),
     );
     await expect(updateResponse.json()).resolves.toMatchObject({
       id: created.id,
       status: 'ready_for_payment',
-      fulfillment_option_id: 'standard',
+      selected_fulfillment_options: [{ type: 'shipping', option_id: 'standard' }],
     });
 
     const getResponse = await server.fetch(
@@ -318,6 +327,40 @@ describe('ReactionaryACPServer', () => {
     expect(invalid.status).toBe(400);
   });
 
+  it('takes the contact from fulfillment details and clears fields set to null', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient(), { sessionCache: new MemoryCache() });
+    const created = await json<{ id: string }>(await server.fetch(
+      jsonRequest('http://127.0.0.1/checkout_sessions', {
+        line_items: [{ id: 'sku-1' }],
+        currency: 'eur',
+        fulfillment_details: { ...fulfillmentDetails, email: 'ada@example.com' },
+      }),
+    ));
+    const url = `http://127.0.0.1/checkout_sessions/${created.id}`;
+
+    const ready = await json<Record<string, unknown>>(await server.fetch(jsonRequest(url, selectStandardShipping)));
+
+    expect(ready).toMatchObject({
+      status: 'ready_for_payment',
+      fulfillment_details: { email: 'ada@example.com', address: { city: 'London' } },
+      selected_fulfillment_options: [{ option_id: 'standard' }],
+    });
+
+    const unselected = await json<Record<string, unknown>>(await server.fetch(
+      jsonRequest(url, { selected_fulfillment_options: null }),
+    ));
+
+    expect(unselected['status']).toBe('not_ready_for_payment');
+    expect(unselected['selected_fulfillment_options']).toBeUndefined();
+
+    const cleared = await json<Record<string, unknown>>(await server.fetch(
+      jsonRequest(url, { fulfillment_details: null }),
+    ));
+
+    expect(cleared['fulfillment_details']).toBeUndefined();
+    expect(cleared['fulfillment_options']).toEqual([]);
+  });
+
   it('creates a session without buyer data and no backend checkout', async () => {
     const initiated: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient({ initiated }), {
@@ -360,7 +403,7 @@ describe('ReactionaryACPServer', () => {
       jsonRequest('http://127.0.0.1/checkout_sessions', {
         line_items: [{ id: 'sku-1', quantity: 1 }],
         currency: 'eur',
-        fulfillment_address: address,
+        fulfillment_details: { address },
       }),
     ));
 
@@ -369,7 +412,7 @@ describe('ReactionaryACPServer', () => {
 
     await server.fetch(
       jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, {
-        fulfillment_option_id: 'standard',
+        ...selectStandardShipping,
       }),
     );
 
@@ -405,18 +448,11 @@ describe('ReactionaryACPServer', () => {
       jsonRequest('http://127.0.0.1/checkout_sessions', {
         line_items: [{ id: 'sku-1', quantity: 1 }],
         currency: 'eur',
-        fulfillment_address: {
-          name: 'Ada Lovelace',
-          line_one: '1 Computing Street',
-          city: 'London',
-          state: 'London',
-          country: 'GB',
-          postal_code: 'SW1A 1AA',
-        },
+        fulfillment_details: fulfillmentDetails,
       }),
     ));
     await server.fetch(
-      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, { fulfillment_option_id: 'standard' }),
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, selectStandardShipping),
     );
 
     // The PSP webhook records the authorization while completion is waiting.
@@ -444,17 +480,10 @@ describe('ReactionaryACPServer', () => {
           line_items: [{ id: 'sku-1', quantity: 1 }],
         currency: 'eur',
           buyer: { first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com' },
-          fulfillment_address: {
-            name: 'Ada Lovelace',
-            line_one: '1 Computing Street',
-            city: 'London',
-            state: 'London',
-            country: 'GB',
-            postal_code: 'SW1A 1AA',
-          },
+          fulfillment_details: fulfillmentDetails,
         }),
       ));
-      await server.fetch(jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, { fulfillment_option_id: 'standard' }));
+      await server.fetch(jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, selectStandardShipping));
       return created.id;
     };
     const complete = { payment_data: { token: 'spt_123', provider: 'stripe' } };
