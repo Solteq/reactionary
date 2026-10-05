@@ -791,6 +791,38 @@ describe('ReactionaryACPServer', () => {
     await expect(statusOf(false)).resolves.toMatchObject({ status: 'ready_for_payment', messages: [] });
   });
 
+  it('updates the session cart in place, or replaces and deletes it', async () => {
+    const update = async (inPlaceCartUpdates: boolean) => {
+      const cartCalls: string[] = [];
+      const client = createTestClient({ cartCalls, inPlaceCartUpdates });
+      const server = new ReactionaryACPServer(() => client, { sessionCache: new MemoryCache() });
+      const created = await json<{ id: string }>(await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+        line_items: [{ id: 'sku-1' }, { id: 'sku-2' }],
+        currency: 'eur',
+        capabilities: agentCapabilities,
+      })));
+      const updated = await json<{ line_items: Array<{ item: { id: string }; quantity: number }> }>(await server.fetch(
+        jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, {
+          line_items: [{ id: 'sku-1', quantity: 3 }, { id: 'sku-3' }],
+        }),
+      ));
+
+      return {
+        cartCalls,
+        items: updated.line_items.map((lineItem) => [lineItem.item.id, lineItem.quantity]),
+      };
+    };
+
+    await expect(update(true)).resolves.toEqual({
+      cartCalls: ['createCart', 'changeQuantity:line-1:3', 'remove:line-2'],
+      items: [['sku-1', 3], ['sku-3', 1]],
+    });
+    await expect(update(false)).resolves.toEqual({
+      cartCalls: ['createCart', 'createCart', 'deleteCart:cart-1'],
+      items: [['sku-1', 3], ['sku-3', 1]],
+    });
+  });
+
   it('creates a session without buyer data and no backend checkout', async () => {
     const initiated: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient({ initiated }), {
@@ -1076,6 +1108,8 @@ function createTestClient(options: {
   currency?: Currency;
   unknownSkus?: string[];
   noShippingMethods?: boolean;
+  cartCalls?: string[];
+  inPlaceCartUpdates?: boolean;
   failCartCreation?: boolean;
 } = {}): ReactionaryACPClient {
   const withReadiness = (checkout: Checkout): Checkout => ({
@@ -1090,6 +1124,7 @@ function createTestClient(options: {
   return {
     cart: {
       async createCart() {
+        options.cartCalls?.push('createCart');
         if (options.failCartCreation) {
           return error<GenericError>({ type: 'Generic', message: 'database credentials expired for tenant 42' });
         }
@@ -1129,6 +1164,37 @@ function createTestClient(options: {
         const getPayload = payload as { cart: { key: string } };
         return success(carts.get(getPayload.cart.key) ?? createCart('missing', [], options.currency));
       },
+      async deleteCart(payload) {
+        const deletePayload = payload as { cart: { key: string } };
+        options.cartCalls?.push(`deleteCart:${deletePayload.cart.key}`);
+        carts.delete(deletePayload.cart.key);
+        return success(undefined);
+      },
+      ...(options.inPlaceCartUpdates
+        ? {
+            async changeQuantity(payload: unknown) {
+              const change = payload as { cart: { key: string }; item: { key: string }; quantity: number };
+              options.cartCalls?.push(`changeQuantity:${change.item.key}:${change.quantity}`);
+              const cart = carts.get(change.cart.key) ?? createCart(change.cart.key, [], options.currency);
+              const updated = createCart(cart.identifier.key, cart.items.map((item) => ({
+                sku: item.variant.sku,
+                quantity: item.identifier.key === change.item.key ? change.quantity : item.quantity,
+              })), options.currency);
+              carts.set(updated.identifier.key, updated);
+              return success(updated);
+            },
+            async remove(payload: unknown) {
+              const removal = payload as { cart: { key: string }; item: { key: string } };
+              options.cartCalls?.push(`remove:${removal.item.key}`);
+              const cart = carts.get(removal.cart.key) ?? createCart(removal.cart.key, [], options.currency);
+              const updated = createCart(cart.identifier.key, cart.items
+                .filter((item) => item.identifier.key !== removal.item.key)
+                .map((item) => ({ sku: item.variant.sku, quantity: item.quantity })), options.currency);
+              carts.set(updated.identifier.key, updated);
+              return success(updated);
+            },
+          }
+        : {}),
     },
     checkout: {
       async initiateCheckoutForCart(payload) {
