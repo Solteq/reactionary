@@ -1,8 +1,16 @@
+import { CurrencySchema } from '@reactionary/core';
 import * as z from 'zod';
 
+/**
+ * A requested item. The 2026-04-17 Item schema carries no quantity, while the
+ * checkout RFC still sends one; it is accepted as an optional decimal
+ * (B2B fractional units) and defaults to 1. Repeated ids add up.
+ */
 export const ACPItemSchema = z.object({
   id: z.string().min(1),
-  quantity: z.int().min(1),
+  quantity: z.number().positive().optional(),
+  name: z.string().optional(),
+  unit_amount: z.int().optional(),
 });
 
 export const ACPBuyerSchema = z.object({
@@ -24,13 +32,17 @@ export const ACPAddressSchema = z.object({
 
 export const ACPCreateCheckoutSessionRequestSchema = z.object({
   buyer: ACPBuyerSchema.optional(),
-  items: z.array(ACPItemSchema).min(1),
+  line_items: z.array(ACPItemSchema).min(1),
+  currency: z.string().refine(
+    (currency) => CurrencySchema.safeParse(currency.toUpperCase()).success,
+    'Expected an ISO 4217 currency code',
+  ),
   fulfillment_address: ACPAddressSchema.optional(),
 });
 
 export const ACPUpdateCheckoutSessionRequestSchema = z.object({
   buyer: ACPBuyerSchema.optional(),
-  items: z.array(ACPItemSchema).min(1).optional(),
+  line_items: z.array(ACPItemSchema).min(1).optional(),
   fulfillment_address: ACPAddressSchema.optional(),
   fulfillment_option_id: z.string().optional(),
 });
@@ -51,6 +63,8 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
   // The ACP session owning the backend cart, resumed for later requests.
   sessionId: z.string().optional(),
   cartId: z.string(),
+  /** ISO 4217 currency requested on creation, lower case. */
+  currency: z.string().optional(),
   // Set once completion has created the real reactionary checkout.
   checkoutId: z.string().optional(),
   status: z.enum([

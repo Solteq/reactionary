@@ -105,7 +105,7 @@ describe('ReactionaryACPServer', () => {
 
   it('rejects checkout requests without a supported API-Version', async () => {
     const server = new ReactionaryACPServer(() => createTestClient());
-    const body = JSON.stringify({ items: [{ id: 'sku-1', quantity: 1 }] });
+    const body = JSON.stringify({ line_items: [{ id: 'sku-1', quantity: 1 }], currency: 'eur' });
 
     const missing = await server.fetch(new Request('http://127.0.0.1/checkout_sessions', {
       method: 'POST',
@@ -166,7 +166,8 @@ describe('ReactionaryACPServer', () => {
 
     const createResponse = await server.fetch(
       jsonRequest('http://127.0.0.1/checkout_sessions', {
-        items: [{ id: 'sku-1', quantity: 2 }],
+        line_items: [{ id: 'sku-1', quantity: 2 }],
+        currency: 'eur',
         buyer: {
           name: 'Ada Lovelace',
           email: 'ada@example.com',
@@ -247,6 +248,31 @@ describe('ReactionaryACPServer', () => {
     });
   });
 
+  it('adds up requested quantities, accepts decimals and prices in the requested currency', async () => {
+    const currencies: string[] = [];
+    const server = new ReactionaryACPServer((requestContext) => {
+      currencies.push(requestContext.languageContext.currencyCode);
+      return createTestClient();
+    }, { sessionCache: new MemoryCache() });
+
+    const response = await server.fetch(
+      jsonRequest('http://127.0.0.1/checkout_sessions', {
+        line_items: [{ id: 'sku-1' }, { id: 'sku-1', quantity: 1.5 }],
+        currency: 'sek',
+      }),
+    );
+    const created = await json<{ id: string }>(response);
+
+    expect(response.status).toBe(201);
+    expect(created).toMatchObject({
+      line_items: [{ item: { id: 'sku-1', quantity: 2.5 } }],
+    });
+
+    await server.fetch(getRequest(`http://127.0.0.1/checkout_sessions/${created.id}`));
+
+    expect(currencies.slice(1)).toEqual(['SEK', 'SEK']);
+  });
+
   it('creates a session without buyer data and no backend checkout', async () => {
     const initiated: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient({ initiated }), {
@@ -255,7 +281,8 @@ describe('ReactionaryACPServer', () => {
 
     const response = await server.fetch(
       jsonRequest('http://127.0.0.1/checkout_sessions', {
-        items: [{ id: 'sku-1', quantity: 1 }],
+        line_items: [{ id: 'sku-1', quantity: 1 }],
+        currency: 'eur',
       }),
     );
 
@@ -286,7 +313,8 @@ describe('ReactionaryACPServer', () => {
 
     const created = await json<{ id: string; status: string }>(await server.fetch(
       jsonRequest('http://127.0.0.1/checkout_sessions', {
-        items: [{ id: 'sku-1', quantity: 1 }],
+        line_items: [{ id: 'sku-1', quantity: 1 }],
+        currency: 'eur',
         fulfillment_address: address,
       }),
     ));
@@ -330,7 +358,8 @@ describe('ReactionaryACPServer', () => {
     });
     const created = await json<{ id: string }>(await server.fetch(
       jsonRequest('http://127.0.0.1/checkout_sessions', {
-        items: [{ id: 'sku-1', quantity: 1 }],
+        line_items: [{ id: 'sku-1', quantity: 1 }],
+        currency: 'eur',
         fulfillment_address: {
           name: 'Ada Lovelace',
           line_one: '1 Computing Street',
@@ -367,7 +396,8 @@ describe('ReactionaryACPServer', () => {
     const openSession = async (server: ReactionaryACPServer) => {
       const created = await json<{ id: string }>(await server.fetch(
         jsonRequest('http://127.0.0.1/checkout_sessions', {
-          items: [{ id: 'sku-1', quantity: 1 }],
+          line_items: [{ id: 'sku-1', quantity: 1 }],
+        currency: 'eur',
           buyer: { name: 'Ada Lovelace', email: 'ada@example.com' },
           fulfillment_address: {
             name: 'Ada Lovelace',

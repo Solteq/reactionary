@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { assert, describe, expect, it } from 'vitest';
 import type { ReactionaryACPServer } from '@reactionary/acp';
+import { createInitialRequestContext } from '@reactionary/core';
 import {
   ACP_BASE_URL,
   ACP_FEED_ID,
@@ -16,6 +17,9 @@ import {
   hasSearchEnv,
   type ProtocolSession,
 } from './protocol-test-utils.js';
+
+// The e2e backends price in the initial request context's currency.
+const ACP_CURRENCY = createInitialRequestContext().languageContext.currencyCode.toLowerCase();
 
 interface AcpDiscoveryResponse {
   protocol: {
@@ -146,7 +150,8 @@ async function createCheckoutSessionFromFeed(
       'POST',
       `${ACP_BASE_URL}/checkout_sessions`,
       {
-        items: [{ id: sku, quantity: 1 }],
+        line_items: [{ id: sku, quantity: 1 }],
+        currency: ACP_CURRENCY,
         ...details,
       },
     );
@@ -241,7 +246,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
         const updatedItems = await session.sendJson<AcpCheckoutSession>(
           'POST',
           `${ACP_BASE_URL}/checkout_sessions/${created.id}`,
-          { items: [{ id: sku, quantity: 2 }] },
+          { line_items: [{ id: sku, quantity: 2 }] },
         );
 
         expect(updatedItems.status).toBe(200);
@@ -383,7 +388,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
         const invalid = await session.sendJson<AcpError>(
           'POST',
           `${ACP_BASE_URL}/checkout_sessions`,
-          { items: [] },
+          { line_items: [], currency: ACP_CURRENCY },
         );
 
         expect(invalid.status).toBe(400);
