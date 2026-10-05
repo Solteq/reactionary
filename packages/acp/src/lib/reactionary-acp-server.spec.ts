@@ -917,8 +917,11 @@ describe('ReactionaryACPServer', () => {
       jsonRequest(`http://127.0.0.1/checkout_sessions/${await openSession(declining)}/complete`, complete),
     );
 
-    expect(declined.status).toBe(400);
-    await expect(declined.json()).resolves.toMatchObject({ code: 'payment_declined' });
+    expect(declined.status).toBe(200);
+    await expect(declined.json()).resolves.toMatchObject({
+      status: 'ready_for_payment',
+      messages: [{ type: 'error', code: 'payment_declined', param: '$.payment_data' }],
+    });
   });
 
   it('streams generated product feeds as JSONL', async () => {

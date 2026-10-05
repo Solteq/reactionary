@@ -882,6 +882,20 @@ export class ReactionaryACPServer<
       }
 
       const checkout = await this.placeCheckout(current, input, handler, client);
+
+      if (!checkout) {
+        // A declined payment leaves the session payable with another
+        // instrument (lifecycle: in_progress → ready_for_payment).
+        return jsonResponse(await this.toACPCheckoutSession(current, client, undefined, [{
+          type: 'error',
+          code: 'payment_declined',
+          param: '$.payment_data',
+          content_type: 'plain',
+          content: 'The payment was declined. Please try a different payment method.',
+          resolution: 'requires_buyer_input',
+        }]));
+      }
+
       current = {
         ...current,
         checkoutId: checkout.identifier.key,
@@ -981,7 +995,7 @@ export class ReactionaryACPServer<
     input: ACPCompleteCheckoutSessionRequest,
     handler: ACPPaymentHandlerOption,
     client: ValidatedReactionaryACPClient,
-  ): Promise<Checkout> {
+  ): Promise<Checkout | undefined> {
     const cart = await unwrapACPResult(client.cart.getById({ cart: { key: state.cartId } }));
     const address = state.fulfillmentDetails?.address;
     const billingAddress = input.payment_data.billing_address ?? address;
@@ -1030,11 +1044,12 @@ export class ReactionaryACPServer<
     });
 
     if (!paid.success) {
-      throw new ACPHttpError(400, {
-        type: 'processing_error',
-        code: 'payment_declined',
-        message: 'The payment could not be authorized with the delegated payment token.',
-      });
+      // The declined checkout is discarded where it is a copy of the cart.
+      if (checkout.identifier.key !== cart.identifier.key && client.cart.deleteCart) {
+        await client.cart.deleteCart({ cart: checkout.identifier });
+      }
+
+      return undefined;
     }
 
     return paid.value;
@@ -1124,6 +1139,8 @@ export class ReactionaryACPServer<
     state: ACPCheckoutSessionState,
     client: ValidatedReactionaryACPClient,
     requestContext = createInitialRequestContext(),
+    /** Messages about this request only, e.g. a declined payment. */
+    extraMessages: ACPMessage[] = [],
   ): Promise<Record<string, unknown>> {
     const view = state.checkoutId
       ? await this.getPlacedView(state, client)
@@ -1167,7 +1184,7 @@ export class ReactionaryACPServer<
             },
           }
         : {}),
-      messages: view.messages ?? [],
+      messages: [...extraMessages, ...(view.messages ?? [])],
       links: this.options.links ?? [],
     };
   }
