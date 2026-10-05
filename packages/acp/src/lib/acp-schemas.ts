@@ -221,6 +221,32 @@ export const ACPCompleteCheckoutSessionRequestSchema = z.object({
   marketing_consents: z.array(z.object({ channel: z.string().min(1), opted_in: z.boolean() })).optional(),
 });
 
+/** Cart capability (2026-04-17): pre-checkout baskets without payment. */
+export const ACPCartCreateRequestSchema = z.object({
+  line_items: z.array(ACPItemSchema).min(1),
+  buyer: ACPBuyerSchema.optional(),
+  locale: z.string().optional(),
+});
+
+/** A full replacement of the cart's line items. */
+export const ACPCartUpdateRequestSchema = z.object({
+  line_items: z.array(ACPItemSchema),
+  buyer: ACPBuyerSchema.optional(),
+});
+
+export const ACPCartStateSchema = z.looseObject({
+  id: z.string(),
+  cartId: z.string(),
+  sessionId: z.string().optional(),
+  agentId: z.string().optional(),
+  buyer: ACPBuyerSchema.optional(),
+  expiresAt: z.string(),
+});
+
+export type ACPCartCreateRequest = z.infer<typeof ACPCartCreateRequestSchema>;
+export type ACPCartUpdateRequest = z.infer<typeof ACPCartUpdateRequestSchema>;
+export type ACPCartState = z.infer<typeof ACPCartStateSchema>;
+
 export const ACP_INTENT_TRACE_REASON_CODES = [
   'price_sensitivity',
   'shipping_cost',
