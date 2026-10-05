@@ -71,7 +71,26 @@ export const ACPSelectedFulfillmentOptionSchema = z.object({
   item_ids: z.array(z.string()),
 });
 
+export const ACP_INTERVENTION_TYPES = ['3ds', 'biometric', 'address_verification'] as const;
+export type ACPInterventionType = (typeof ACP_INTERVENTION_TYPES)[number];
+
+/**
+ * The agent's declared capabilities. Unknown values are ignored rather than
+ * rejected (capability negotiation RFC §4.6.2).
+ */
+export const ACPAgentCapabilitiesSchema = z.object({
+  interventions: z.object({
+    supported: z.array(z.string()).optional(),
+    display_context: z.string().optional(),
+    redirect_context: z.string().optional(),
+    max_redirects: z.int().min(0).optional(),
+    max_interaction_depth: z.int().min(1).optional(),
+  }).optional(),
+  extensions: z.array(z.string()).optional(),
+});
+
 export const ACPCreateCheckoutSessionRequestSchema = z.object({
+  capabilities: ACPAgentCapabilitiesSchema,
   buyer: ACPBuyerSchema.optional(),
   line_items: z.array(ACPItemSchema).min(1),
   currency: z.string().refine(
@@ -105,6 +124,8 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
   // The ACP session owning the backend cart, resumed for later requests.
   sessionId: z.string().optional(),
   cartId: z.string(),
+  /** What the agent declared on creation; capabilities are write-only. */
+  agentCapabilities: ACPAgentCapabilitiesSchema.optional(),
   /** ISO 4217 currency requested on creation, lower case. */
   currency: z.string().optional(),
   // Set once completion has created the real reactionary checkout.
@@ -182,6 +203,7 @@ export const ACPProductFeedResponseSchema = z.object({
 });
 
 export type ACPItem = z.infer<typeof ACPItemSchema>;
+export type ACPAgentCapabilities = z.infer<typeof ACPAgentCapabilitiesSchema>;
 export type ACPBuyer = z.infer<typeof ACPBuyerSchema>;
 export type ACPAddress = z.infer<typeof ACPAddressSchema>;
 export type ACPFulfillmentDetails = z.infer<typeof ACPFulfillmentDetailsSchema>;

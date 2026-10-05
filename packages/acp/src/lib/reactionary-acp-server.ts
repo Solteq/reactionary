@@ -37,8 +37,11 @@ import {
   ACPCompleteCheckoutSessionRequestSchema,
   ACPCreateCheckoutSessionRequestSchema,
   ACPUpdateCheckoutSessionRequestSchema,
+  ACP_INTERVENTION_TYPES,
   type ACPAddress,
+  type ACPAgentCapabilities,
   type ACPBuyer,
+  type ACPInterventionType,
   type ACPCheckoutSessionState,
   type ACPCompleteCheckoutSessionRequest,
   type ACPCreateCheckoutSessionRequest,
@@ -116,12 +119,25 @@ export interface ReactionaryACPServerOptions {
    */
   placeholderEmail?: string;
   /**
+   * The interventions (e.g. 3DS) this seller can handle, and which it
+   * requires. Sessions report the intersection with what the agent declared.
+   * Defaults to none supported and none required.
+   */
+  interventions?: ACPInterventionOptions;
+  /**
    * How long checkout completion waits for the placed checkout to become
    * `readyForFinalization` (i.e. its payment authorized, e.g. by a PSP
    * webhook) before answering `in_progress`. Defaults to 10s timeout,
    * polled every 1s; a timeout of 0 disables it.
    */
   paymentAuthorizationWait?: Partial<ACPPaymentAuthorizationWait>;
+}
+
+export interface ACPInterventionOptions {
+  supported: ACPInterventionType[];
+  required?: Array<'3ds' | 'biometric'>;
+  /** When required interventions apply. Defaults to `conditional`. */
+  enforcement?: 'always' | 'conditional' | 'optional';
 }
 
 export const DEFAULT_ACP_PLACEHOLDER_EMAIL = 'pending@checkout.invalid';
@@ -578,6 +594,7 @@ export class ReactionaryACPServer<
       sessionId,
       cartId: cart.identifier.key,
       currency: input.currency.toLowerCase(),
+      agentCapabilities: input.capabilities,
       status: 'not_ready_for_payment',
       buyer: input.buyer,
       fulfillmentDetails: input.fulfillment_details,
@@ -876,9 +893,13 @@ export class ReactionaryACPServer<
         checkout = withShipping.success ? withShipping.value : checkout;
       }
 
-      const ready = Boolean(getContactEmail(state)) && (options.length === 0 || Boolean(selected));
+      const messages = this.getInterventionMessages(state);
+      const ready = Boolean(getContactEmail(state))
+        && (options.length === 0 || Boolean(selected))
+        && messages.length === 0;
 
       return {
+        messages,
         cart,
         checkout,
         price: checkout.price,
@@ -909,6 +930,7 @@ export class ReactionaryACPServer<
 
     return {
       id: persisted.id,
+      capabilities: this.getNegotiatedCapabilities(persisted.agentCapabilities),
       ...(persisted.buyer ? { buyer: persisted.buyer } : {}),
       payment_provider: await this.getPaymentProvider(view.checkout, client),
       status: persisted.status,
@@ -937,9 +959,50 @@ export class ReactionaryACPServer<
             },
           }
         : {}),
-      messages: [],
+      messages: view.messages ?? [],
       links: this.options.links ?? [],
     };
+  }
+
+  /**
+   * The seller's capabilities for a session: interventions are the
+   * intersection of what the agent declared and what the seller supports,
+   * plus the seller's requirements (capability negotiation RFC §4.5.1).
+   */
+  private getNegotiatedCapabilities(agent: ACPAgentCapabilities | undefined): Record<string, unknown> {
+    const seller = this.options.interventions;
+    const required = seller?.required ?? [];
+
+    return {
+      interventions: {
+        supported: getSupportedInterventions(agent, seller),
+        ...(required.length > 0
+          ? { required, enforcement: seller?.enforcement ?? 'conditional' }
+          : {}),
+      },
+    };
+  }
+
+  /**
+   * Required interventions the agent cannot perform block the session when
+   * they always apply (checkout RFC §5, intervention_required).
+   */
+  private getInterventionMessages(state: ACPCheckoutSessionState): ACPMessage[] {
+    const seller = this.options.interventions;
+    const supported = getSupportedInterventions(state.agentCapabilities, seller);
+    const missing = (seller?.required ?? []).filter((type) => !supported.includes(type));
+
+    if (missing.length === 0 || seller?.enforcement !== 'always') {
+      return [];
+    }
+
+    return [{
+      type: 'error',
+      code: 'intervention_required',
+      param: '$.capabilities.interventions',
+      content_type: 'plain',
+      content: `This checkout requires ${missing.join(', ')}, which the agent does not support.`,
+    }];
   }
 
   private async getPlacedView(
@@ -996,11 +1059,31 @@ export class ReactionaryACPServer<
 }
 
 interface ACPSessionView {
+  messages?: ACPMessage[];
   cart?: Cart;
   checkout?: Checkout;
   price: Checkout['price'];
   options: ShippingMethod[];
   status: ACPCheckoutSessionState['status'];
+}
+
+interface ACPMessage {
+  type: 'info' | 'warning' | 'error';
+  code?: string;
+  param?: string;
+  content_type: 'plain' | 'markdown';
+  content: string;
+}
+
+function getSupportedInterventions(
+  agent: ACPAgentCapabilities | undefined,
+  seller: ACPInterventionOptions | undefined,
+): ACPInterventionType[] {
+  const declared = new Set(agent?.interventions?.supported ?? []);
+
+  return (seller?.supported ?? []).filter(
+    (type) => ACP_INTERVENTION_TYPES.includes(type) && declared.has(type),
+  );
 }
 
 /**
