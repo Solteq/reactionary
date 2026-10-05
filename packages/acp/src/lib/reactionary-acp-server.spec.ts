@@ -12,6 +12,7 @@ import {
   type RequestContext,
 } from '@reactionary/core';
 import { describe, expect, it } from 'vitest';
+import { createTokenizedCardHandler } from './acp-payment-handlers.js';
 import {
   ReactionaryACPServer,
   type ReactionaryACPClient,
@@ -203,10 +204,6 @@ describe('ReactionaryACPServer', () => {
       status: 'not_ready_for_payment',
       currency: 'eur',
         capabilities: agentCapabilities,
-      payment_provider: {
-        provider: 'stripe',
-        supported_payment_methods: ['card'],
-      },
       fulfillment_options: [{ id: 'standard' }],
       line_items: [
         {
@@ -402,6 +399,54 @@ describe('ReactionaryACPServer', () => {
     }));
 
     expect(missing.status).toBe(400);
+  });
+
+  it('advertises configured payment handlers in the session capabilities', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      sessionCache: new MemoryCache(),
+      paymentHandlers: [
+        createTokenizedCardHandler({
+          psp: 'stripe',
+          merchantId: 'acct_123',
+          displayName: 'Credit Card',
+          acceptedBrands: ['visa', 'mastercard'],
+        }),
+      ],
+    });
+
+    const created = await json<Record<string, unknown>>(await server.fetch(
+      jsonRequest('http://127.0.0.1/checkout_sessions', {
+        line_items: [{ id: 'sku-1' }],
+        currency: 'eur',
+        capabilities: agentCapabilities,
+      }),
+    ));
+
+    expect(created['payment_provider']).toBeUndefined();
+    expect(created['capabilities']).toMatchObject({
+      payment: {
+        handlers: [{
+          id: 'card_tokenized',
+          name: 'dev.acp.tokenized.card',
+          display_name: 'Credit Card',
+          version: '2026-01-22',
+          spec: 'https://acp.dev/handlers/tokenized.card',
+          requires_delegate_payment: true,
+          requires_pci_compliance: false,
+          psp: 'stripe',
+          config_schema: 'https://acp.dev/schemas/handlers/tokenized.card/config.json',
+          instrument_schemas: ['https://acp.dev/schemas/handlers/tokenized.card/instrument.json'],
+          config: { merchant_id: 'acct_123', psp: 'stripe', accepted_brands: ['visa', 'mastercard'] },
+        }],
+      },
+    });
+  });
+
+  it('refuses payment handlers without a merchant account', () => {
+    const handler = createTokenizedCardHandler({ psp: 'stripe', merchantId: '' });
+
+    expect(() => new ReactionaryACPServer(() => createTestClient(), { paymentHandlers: [handler] }))
+      .toThrow('must configure merchant_id');
   });
 
   it('creates a session without buyer data and no backend checkout', async () => {

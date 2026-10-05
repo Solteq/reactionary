@@ -71,7 +71,6 @@ Required operations:
 - `checkout.getById`
 - `checkout.setShippingAddress`
 - `checkout.getAvailableShippingMethods`
-- `checkout.getAvailablePaymentMethods`
 - `checkout.setShippingInstruction`
 - `checkout.addPaymentInstruction`
 - `checkout.finalizeCheckout`
@@ -162,7 +161,7 @@ new ReactionaryACPServer(createClient, {
 - ACP product feed availability comes from `inventory.getBySKU`.
 - ACP payment data is passed as checkout payment-instruction protocol data with key `delegated_payment_token`.
 - Fulfillment options are sourced from `checkout.getAvailableShippingMethods`.
-- Payment provider information is sourced from `checkout.getAvailablePaymentMethods`, with a configurable fallback through `paymentProvider`.
+- Payment handlers are configured with the `paymentHandlers` option and advertised in `capabilities.payment.handlers`; `createTokenizedCardHandler({ psp, merchantId })` builds the reference `dev.acp.tokenized.card` handler. Each handler maps to the backend payment method its payments are placed with (default: method `card`, name and processor = the handler's PSP). Handler configs must carry `merchant_id` and `psp`; without handlers, `capabilities.payment` is omitted.
 
 Use `@reactionary/feeds` directly when you want Google Merchant, sitemap XML, or PriceRunner outputs from the same feed definitions.
 

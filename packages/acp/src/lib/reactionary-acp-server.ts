@@ -48,6 +48,10 @@ import {
   type ACPItem,
   type ACPUpdateCheckoutSessionRequest,
 } from './acp-schemas.js';
+import {
+  getHandlerPaymentMethod,
+  type ACPPaymentHandlerOption,
+} from './acp-payment-handlers.js';
 
 const ACP_SESSION_ID_HEADER = 'acp-session-id';
 const SESSION_CACHE_KEY_PREFIX = 'reactionary:acp:session';
@@ -67,7 +71,7 @@ export interface ReactionaryACPClient {
     getById(payload: unknown): Promise<Result<Checkout>>;
     setShippingAddress(payload: unknown): Promise<Result<Checkout>>;
     getAvailableShippingMethods(payload: unknown): Promise<Result<ShippingMethod[]>>;
-    getAvailablePaymentMethods(payload: unknown): Promise<Result<PaymentMethod[]>>;
+    getAvailablePaymentMethods?(payload: unknown): Promise<Result<PaymentMethod[]>>;
     setShippingInstruction(payload: unknown): Promise<Result<Checkout>>;
     addPaymentInstruction(payload: unknown): Promise<Result<Checkout>>;
     finalizeCheckout(payload: unknown): Promise<Result<Checkout>>;
@@ -109,7 +113,12 @@ export interface ReactionaryACPServerOptions {
   sessionCache?: Cache;
   sessionTtlSeconds?: number;
   checkoutSessionTtlSeconds?: number;
-  paymentProvider?: ACPPaymentProvider;
+  /**
+   * Payment handlers advertised in `capabilities.payment.handlers`, e.g.
+   * `createTokenizedCardHandler(...)`. Each maps to the backend payment
+   * method its payments are placed with.
+   */
+  paymentHandlers?: ACPPaymentHandlerOption[];
   links?: ACPLink[];
   productFeed?: ACPProductFeedOptions;
   discovery?: ACPDiscoveryOptions;
@@ -184,10 +193,6 @@ const ACP_API_VERSION_HEADER = 'api-version';
 
 export type ACPPaymentProcessor = 'stripe' | 'adyen' | 'braintree';
 
-export interface ACPPaymentProvider {
-  provider: ACPPaymentProcessor;
-  supported_payment_methods: ['card'];
-}
 
 export interface ACPLink {
   type: 'terms_of_use' | 'privacy_policy' | 'seller_shop_policies';
@@ -239,6 +244,7 @@ export class ReactionaryACPServer<
       this.options.checkoutSessionTtlSeconds ?? 60 * 60 * 24,
     );
     assertACPClient(this.clientFactory(createInitialRequestContext()));
+    assertPaymentHandlers(this.options.paymentHandlers ?? []);
   }
 
   public async fetch(request: Request): Promise<Response> {
@@ -823,7 +829,7 @@ export class ReactionaryACPServer<
       checkout: checkout.identifier,
       paymentInstruction: {
         amount: checkout.price.grandTotal,
-        paymentMethod: toPaymentMethodIdentifier(input.payment_data.provider),
+        paymentMethod: this.getPaymentMethod(input.payment_data.provider),
         protocolData: [
           {
             key: 'delegated_payment_token',
@@ -932,7 +938,6 @@ export class ReactionaryACPServer<
       id: persisted.id,
       capabilities: this.getNegotiatedCapabilities(persisted.agentCapabilities),
       ...(persisted.buyer ? { buyer: persisted.buyer } : {}),
-      payment_provider: await this.getPaymentProvider(view.checkout, client),
       status: persisted.status,
       currency: getCurrency(view.price, requestContext),
       line_items: lineItems.map(toACPLineItem),
@@ -964,6 +969,13 @@ export class ReactionaryACPServer<
     };
   }
 
+  /** The backend payment method for the advertised handler of a PSP. */
+  private getPaymentMethod(provider: ACPPaymentProcessor): PaymentMethod['identifier'] {
+    const option = this.options.paymentHandlers?.find((candidate) => candidate.handler.psp === provider);
+
+    return option ? getHandlerPaymentMethod(option) : toPaymentMethodIdentifier(provider);
+  }
+
   /**
    * The seller's capabilities for a session: interventions are the
    * intersection of what the agent declared and what the seller supports,
@@ -973,7 +985,12 @@ export class ReactionaryACPServer<
     const seller = this.options.interventions;
     const required = seller?.required ?? [];
 
+    const handlers = this.options.paymentHandlers ?? [];
+
     return {
+      ...(handlers.length > 0
+        ? { payment: { handlers: handlers.map((option) => option.handler) } }
+        : {}),
       interventions: {
         supported: getSupportedInterventions(agent, seller),
         ...(required.length > 0
@@ -1018,42 +1035,6 @@ export class ReactionaryACPServer<
       price: checkout.price,
       options: [],
       status: state.status === 'completed' || checkout.resultingOrder ? 'completed' : 'in_progress',
-    };
-  }
-
-  private async getPaymentProvider(
-    checkout: Checkout | undefined,
-    client: ValidatedReactionaryACPClient,
-  ): Promise<ACPPaymentProvider> {
-    if (this.options.paymentProvider) {
-      return this.options.paymentProvider;
-    }
-
-    const result = checkout
-      ? await client.checkout.getAvailablePaymentMethods({
-          checkout: checkout.identifier,
-        })
-      : undefined;
-
-    if (result?.success) {
-      const supported = result.value.find((method) =>
-        ['stripe', 'adyen', 'braintree'].includes(
-          method.identifier.paymentProcessor,
-        ),
-      );
-
-      if (supported) {
-        return {
-          provider: supported.identifier
-            .paymentProcessor as ACPPaymentProcessor,
-          supported_payment_methods: ['card'],
-        };
-      }
-    }
-
-    return {
-      provider: 'stripe',
-      supported_payment_methods: ['card'],
     };
   }
 }
@@ -1344,6 +1325,22 @@ function acpErrorResponse(status: number, body: ACPErrorBody): Response {
   return jsonResponse(body, { status });
 }
 
+/** Handler configs MUST carry the merchant account and PSP (payment handlers RFC §10). */
+function assertPaymentHandlers(options: ACPPaymentHandlerOption[]): void {
+  const ids = new Set<string>();
+
+  for (const { handler } of options) {
+    if (ids.has(handler.id)) {
+      throw new Error(`ACP payment handler ids must be unique: ${handler.id}`);
+    }
+    ids.add(handler.id);
+
+    if (!handler.config.merchant_id || handler.config.psp !== handler.psp) {
+      throw new Error(`ACP payment handler ${handler.id} must configure merchant_id and the handler's psp.`);
+    }
+  }
+}
+
 function assertACPClient(
   client: ReactionaryACPClient,
 ): asserts client is ValidatedReactionaryACPClient {
@@ -1377,7 +1374,6 @@ function getMissingACPClientOperations(client: ReactionaryACPClient): string[] {
     ['checkout.getById', client.checkout?.getById],
     ['checkout.setShippingAddress', client.checkout?.setShippingAddress],
     ['checkout.getAvailableShippingMethods', client.checkout?.getAvailableShippingMethods],
-    ['checkout.getAvailablePaymentMethods', client.checkout?.getAvailablePaymentMethods],
     ['checkout.setShippingInstruction', client.checkout?.setShippingInstruction],
     ['checkout.addPaymentInstruction', client.checkout?.addPaymentInstruction],
     ['checkout.finalizeCheckout', client.checkout?.finalizeCheckout],
