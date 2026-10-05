@@ -70,6 +70,9 @@ export interface ReactionaryACPClient {
     getById(payload: unknown): Promise<Result<Cart>>;
     // Optional: used to discard transient pricing checkouts that are cart copies.
     deleteCart?(payload: unknown): Promise<Result<void>>;
+    // Optional: used to update a session's cart in place.
+    changeQuantity?(payload: unknown): Promise<Result<Cart>>;
+    remove?(payload: unknown): Promise<Result<Cart>>;
   };
   checkout?: {
     initiateCheckoutForCart(payload: unknown): Promise<Result<Checkout>>;
@@ -825,7 +828,7 @@ export class ReactionaryACPServer<
     const updatedState: ACPCheckoutSessionState = {
       ...state,
       cartId: input.line_items
-        ? (await this.createCartForItems(input.line_items, client)).identifier.key
+        ? await this.replaceCartItems(state.cartId, input.line_items, client)
         : state.cartId,
       buyer: mergeBuyer(state.buyer, input.buyer),
       fulfillmentDetails: input.fulfillment_details === null
@@ -986,19 +989,63 @@ export class ReactionaryACPServer<
     );
   }
 
+  /**
+   * Gives the session's cart exactly the requested items (line items are a
+   * full replacement), updating it in place where the backend supports it.
+   * Otherwise a new cart replaces it and the old one is deleted, if possible.
+   * Returns the cart key.
+   */
+  private async replaceCartItems(
+    cartId: string,
+    items: ACPItem[],
+    client: ValidatedReactionaryACPClient,
+  ): Promise<string> {
+    const cartCapability = client.cart;
+
+    // Called as methods: provider capabilities rely on their `this`.
+    if (!cartCapability.changeQuantity || !cartCapability.remove) {
+      const replacement = await this.createCartForItems(items, client);
+      await client.cart.deleteCart?.({ cart: { key: cartId } });
+      return replacement.identifier.key;
+    }
+
+    const requested = getRequestedQuantities(items);
+    let cart = await unwrapACPResult(client.cart.getById({ cart: { key: cartId } }));
+
+    for (const existing of cart.items) {
+      const wanted = requested.get(existing.variant.sku);
+
+      if (!wanted) {
+        cart = await unwrapACPResult(cartCapability.remove({ cart: cart.identifier, item: existing.identifier }));
+      } else if (wanted.quantity !== existing.quantity) {
+        cart = await unwrapACPResult(
+          cartCapability.changeQuantity({ cart: cart.identifier, item: existing.identifier, quantity: wanted.quantity }),
+          `$.line_items[${wanted.index}].quantity`,
+        );
+      }
+    }
+
+    const existingSkus = new Set(cart.items.map((item) => item.variant.sku));
+
+    for (const [sku, { quantity, index }] of requested) {
+      if (!existingSkus.has(sku)) {
+        cart = await unwrapACPResult(
+          client.cart.add({ cart: cart.identifier, variant: { sku }, quantity }),
+          `$.line_items[${index}].id`,
+        );
+      }
+    }
+
+    return cart.identifier.key;
+  }
+
   private async createCartForItems(
     items: ACPItem[],
     client: ValidatedReactionaryACPClient,
   ): Promise<Cart> {
     let cart = await unwrapACPResult(client.cart.createCart({}));
-    const quantities = new Map<string, { quantity: number; index: number }>();
 
-    for (const [index, item] of items.entries()) {
-      const current = quantities.get(item.id);
-      quantities.set(item.id, { quantity: (current?.quantity ?? 0) + (item.quantity ?? 1), index: current?.index ?? index });
-    }
-
-    for (const [sku, { quantity, index }] of quantities) {
+    for (const [sku, { quantity, index }] of getRequestedQuantities(items)) {
       cart = await unwrapACPResult(
         client.cart.add({
           cart: cart.identifier,
@@ -1402,6 +1449,21 @@ interface ACPSessionView {
   price: Checkout['price'];
   options: ShippingMethod[];
   status: ACPCheckoutSessionState['status'];
+}
+
+/**
+ * Requested quantity per SKU, with the index of its first line item for
+ * error paths. Quantities default to 1 and repeated ids add up.
+ */
+function getRequestedQuantities(items: ACPItem[]): Map<string, { quantity: number; index: number }> {
+  const quantities = new Map<string, { quantity: number; index: number }>();
+
+  for (const [index, item] of items.entries()) {
+    const current = quantities.get(item.id);
+    quantities.set(item.id, { quantity: (current?.quantity ?? 0) + (item.quantity ?? 1), index: current?.index ?? index });
+  }
+
+  return quantities;
 }
 
 /** The products of the given SKUs, for line item display fields. */
