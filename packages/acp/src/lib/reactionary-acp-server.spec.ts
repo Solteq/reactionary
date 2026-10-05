@@ -1180,6 +1180,56 @@ describe('ReactionaryACPServer', () => {
     expect(discovery.capabilities['extensions']).toEqual([{ name: 'discount' }]);
   });
 
+  it('reports first- and last-touch affiliate attribution with the order', async () => {
+    const attributions: unknown[] = [];
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      sessionCache: new MemoryCache(),
+      paymentHandlers,
+      paymentAuthorizationWait: { timeoutMs: 0 },
+      onOrderAttribution: (attribution) => {
+        attributions.push(attribution);
+      },
+    });
+    const firstTouch = { provider: 'impact.com', token: 'atp_first', publisher_id: 'pub_123', touchpoint: 'first' };
+    const created = await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1' }],
+      currency: 'eur',
+      capabilities: agentCapabilities,
+      buyer: { email: 'ada@example.com' },
+      fulfillment_details: fulfillmentDetails,
+      affiliate_attribution: firstTouch,
+    }));
+    const createdBody = await created.text();
+    const { id } = JSON.parse(createdBody) as { id: string };
+    const url = `http://127.0.0.1/checkout_sessions/${id}`;
+
+    expect(createdBody).not.toContain('atp_first');
+
+    await server.fetch(jsonRequest(url, selectStandardShipping));
+    const completed = await server.fetch(jsonRequest(`${url}/complete`, {
+      payment_data: cardPayment('spt_1'),
+      affiliate_attribution: { provider: 'impact.com', publisher_id: 'pub_456', campaign_id: 'camp_1' },
+    }));
+
+    expect(await completed.text()).not.toContain('pub_456');
+    expect(attributions).toEqual([{
+      orderId: 'order-1',
+      checkoutSessionId: id,
+      firstTouch,
+      lastTouch: { provider: 'impact.com', publisher_id: 'pub_456', campaign_id: 'camp_1', touchpoint: 'last' },
+    }]);
+
+    const invalid = await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1' }],
+      currency: 'eur',
+      capabilities: agentCapabilities,
+      affiliate_attribution: { provider: 'impact.com' },
+    }));
+
+    expect(invalid.status).toBe(400);
+    await expect(invalid.json()).resolves.toMatchObject({ param: '$.affiliate_attribution.token' });
+  });
+
   it('records intent traces on cancel without returning them', async () => {
     const traces: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient(), {
