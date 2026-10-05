@@ -5,6 +5,7 @@ import {
   type GenericError,
   type Cart,
   type Checkout,
+  type Currency,
   type Inventory,
   type Price,
   type Product,
@@ -508,6 +509,28 @@ describe('ReactionaryACPServer', () => {
       .toThrow('must configure merchant_id');
   });
 
+  it('reports amounts in the minor units of the currency', async () => {
+    const amounts = async (currency: Currency) => {
+      const server = new ReactionaryACPServer(() => createTestClient({ currency }), { sessionCache: new MemoryCache() });
+      const created = await json<{ totals: Array<{ type: string; amount: number }>; line_items: Array<{ unit_amount: number }> }>(
+        await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+          line_items: [{ id: 'sku-1', quantity: 2 }],
+          currency: currency.toLowerCase(),
+          capabilities: agentCapabilities,
+        })),
+      );
+
+      return {
+        unit: created.line_items[0]?.unit_amount,
+        total: created.totals.find((total) => total.type === 'total')?.amount,
+      };
+    };
+
+    await expect(amounts('EUR')).resolves.toEqual({ unit: 1000, total: 2000 });
+    await expect(amounts('JPY')).resolves.toEqual({ unit: 10, total: 20 });
+    await expect(amounts('KWD')).resolves.toEqual({ unit: 10000, total: 20000 });
+  });
+
   it('creates a session without buyer data and no backend checkout', async () => {
     const initiated: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient({ initiated }), {
@@ -734,6 +757,7 @@ function createTestClient(options: {
   notReady?: Set<string>;
   payments?: unknown[];
   declinePayments?: boolean;
+  currency?: Currency;
 } = {}): ReactionaryACPClient {
   const withReadiness = (checkout: Checkout): Checkout => ({
     ...checkout,
@@ -748,7 +772,7 @@ function createTestClient(options: {
     cart: {
       async createCart() {
         cartCounter += 1;
-        const cart = createCart(`cart-${cartCounter}`, []);
+        const cart = createCart(`cart-${cartCounter}`, [], options.currency);
         carts.set(cart.identifier.key, cart);
         return success(cart);
       },
@@ -761,6 +785,7 @@ function createTestClient(options: {
         const cart = carts.get(addPayload.cart.key) ?? createCart(
           addPayload.cart.key,
           [],
+          options.currency,
         );
         const updated = createCart(cart.identifier.key, [
           ...cart.items.map((item) => ({
@@ -771,13 +796,13 @@ function createTestClient(options: {
             sku: addPayload.variant.sku,
             quantity: addPayload.quantity,
           },
-        ]);
+        ], options.currency);
         carts.set(updated.identifier.key, updated);
         return success(updated);
       },
       async getById(payload) {
         const getPayload = payload as { cart: { key: string } };
-        return success(carts.get(getPayload.cart.key) ?? createCart('missing', []));
+        return success(carts.get(getPayload.cart.key) ?? createCart('missing', [], options.currency));
       },
     },
     checkout: {
@@ -796,7 +821,7 @@ function createTestClient(options: {
         const getPayload = payload as { identifier: { key: string } };
         return success(withReadiness(
           checkouts.get(getPayload.identifier.key) ??
-            createCheckout('missing', createCart('missing', [])),
+            createCheckout('missing', createCart('missing', [], options.currency)),
         ));
       },
       async setShippingAddress(payload) {
@@ -880,6 +905,7 @@ function createTestClient(options: {
 function createCart(
   id: string,
   items: Array<{ sku: string; quantity: number }>,
+  currency: Currency = 'EUR',
 ): Cart {
   const total = items.reduce((sum, item) => sum + item.quantity * 10, 0);
 
@@ -893,19 +919,19 @@ function createCart(
       variant: { sku: item.sku },
       quantity: item.quantity,
       price: {
-        unitPrice: { value: 10, currency: 'EUR' },
-        unitDiscount: { value: 0, currency: 'EUR' },
-        totalPrice: { value: item.quantity * 10, currency: 'EUR' },
-        totalDiscount: { value: 0, currency: 'EUR' },
+        unitPrice: { value: 10, currency },
+        unitDiscount: { value: 0, currency },
+        totalPrice: { value: item.quantity * 10, currency },
+        totalDiscount: { value: 0, currency },
       },
     })),
     price: {
-      totalTax: { value: 0, currency: 'EUR' },
-      totalDiscount: { value: 0, currency: 'EUR' },
-      totalSurcharge: { value: 0, currency: 'EUR' },
-      totalShipping: { value: 0, currency: 'EUR' },
-      totalProductPrice: { value: total, currency: 'EUR' },
-      grandTotal: { value: total, currency: 'EUR' },
+      totalTax: { value: 0, currency },
+      totalDiscount: { value: 0, currency },
+      totalSurcharge: { value: 0, currency },
+      totalShipping: { value: 0, currency },
+      totalProductPrice: { value: total, currency },
+      grandTotal: { value: total, currency },
     },
     appliedPromotions: [],
     description: '',
