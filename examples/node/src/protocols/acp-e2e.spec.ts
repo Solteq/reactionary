@@ -1,20 +1,18 @@
 import 'dotenv/config';
 import { assert, describe, expect, it } from 'vitest';
-import type { ReactionaryACPServer } from '@reactionary/acp';
 import { createInitialRequestContext } from '@reactionary/core';
 import {
   ACP_BASE_URL,
-  ACP_FEED_ID,
   PROTOCOL_TEST_TIMEOUT,
   ProtocolBackend,
   ProtocolSearchEngine,
-  createAcpServer,
   createAcpServerHarness,
   createAcpSession,
   getProtocolBackends,
   getProtocolSearchEngines,
   hasBackendEnv,
   hasSearchEnv,
+  type AcpServerHarness,
   type ProtocolSession,
 } from './protocol-test-utils.js';
 
@@ -120,21 +118,8 @@ function selectShipping(optionId: string | undefined) {
   };
 }
 
-async function readProductFeed(server: ReactionaryACPServer): Promise<AcpFeedProduct[]> {
-  const response = await server.fetch(
-    new Request(`${ACP_BASE_URL}/product_feeds/${ACP_FEED_ID}/products?format=jsonl`),
-  );
-
-  expect(response.status).toBe(200);
-  expect(response.headers.get('content-type')).toContain('application/x-ndjson');
-
-  const text = await response.text();
-
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line) => JSON.parse(line) as AcpFeedProduct);
+async function readProductFeed(harness: AcpServerHarness): Promise<AcpFeedProduct[]> {
+  return (await harness.readFeedProducts()) as AcpFeedProduct[];
 }
 
 /**
@@ -190,9 +175,10 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
   const available = hasBackendEnv(backend) && hasSearchEnv(search);
 
   describe.skipIf(!available)('agentic commerce flows', () => {
-    const server = createAcpServer(backend, search);
+    const harness = createAcpServerHarness(backend, search);
+    const server = harness.server;
 
-    it('discovers the merchant and streams the product feed', async () => {
+    it('discovers the merchant and publishes the product feed', async () => {
       // 1. An agent reads the discovery document.
       const discoveryResponse = await server.fetch(
         new Request('https://shop.example.com/.well-known/acp.json'),
@@ -213,10 +199,10 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
       expect(readinessResponse.status).toBe(200);
       expect(readiness.status).toBe('ready');
       expect(readiness.actions).toContain('POST /checkout_sessions');
-      expect(readiness.actions).toContain('GET /product_feeds/{id}/products');
 
-      // 3. It ingests the product feed built from the configured search engine.
-      const feedProducts = await readProductFeed(server);
+      // 3. The merchant pushes its product feed, built from the configured
+      // search engine, to the agent's Feed API.
+      const feedProducts = await readProductFeed(harness);
 
       expect(feedProducts.length).toBeGreaterThan(0);
       for (const product of feedProducts) {
@@ -237,7 +223,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
         const session = createAcpSession(server);
 
         // 1. The agent picks a purchasable item from the merchant feed.
-        const feedItems = await readProductFeed(server);
+        const feedItems = await readProductFeed(harness);
         const { checkoutSession: created, sku } = await createCheckoutSessionFromFeed(session, feedItems);
 
         expect(created.id).toMatch(/^checkout_session_/);
@@ -341,7 +327,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           const orderBuyer = { first_name: 'Ada', last_name: 'Lovelace', email };
 
           // 1. The agent opens a session with just the item; the buyer is unknown.
-          const feedItems = await readProductFeed(harness.server);
+          const feedItems = await readProductFeed(harness);
           const { checkoutSession: created } = await createCheckoutSessionFromFeed(session, feedItems, {});
 
           expect(created.status).toBe('not_ready_for_payment');

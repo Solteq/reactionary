@@ -10,24 +10,14 @@ import {
   type Checkout,
   type Currency,
   type Inventory,
-  type LanguageContext,
   type MonetaryAmount,
   type PaymentMethod,
-  type Price,
   type Product,
-  type ProductSearchResult,
   type RequestContext,
   type Result,
-  type SearchIdentifier,
   type Session,
   type ShippingMethod,
 } from '@reactionary/core';
-import {
-  ReactionaryFeedGenerator,
-  acpProductFeedTransformer,
-  type ReactionaryFeedInventoryOptions,
-  type ReactionaryFeedProcessingOptions,
-} from '@reactionary/feeds';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type * as z from 'zod';
 import type {
@@ -84,15 +74,8 @@ export interface ReactionaryACPClient {
     addPaymentInstruction(payload: unknown): Promise<Result<Checkout>>;
     finalizeCheckout(payload: unknown): Promise<Result<Checkout>>;
   };
-  productSearch?: {
-    queryByTerm(payload: unknown): Promise<Result<ProductSearchResult>>;
-  };
   product?: {
     getBySKU(payload: unknown): Promise<Result<Product>>;
-  };
-  price?: {
-    getListPrice(payload: unknown): Promise<Result<Price>>;
-    getCustomerPrice(payload: unknown): Promise<Result<Price>>;
   };
   inventory?: {
     getBySKU(payload: unknown): Promise<Result<Inventory>>;
@@ -102,10 +85,7 @@ export interface ReactionaryACPClient {
 type ValidatedReactionaryACPClient = ReactionaryACPClient & {
   cart: NonNullable<ReactionaryACPClient['cart']>;
   checkout: NonNullable<ReactionaryACPClient['checkout']>;
-  productSearch: NonNullable<ReactionaryACPClient['productSearch']>;
   product: NonNullable<ReactionaryACPClient['product']>;
-  price: NonNullable<ReactionaryACPClient['price']>;
-  inventory: NonNullable<ReactionaryACPClient['inventory']>;
 };
 
 export type ReactionaryACPClientFactory<
@@ -156,7 +136,6 @@ export interface ReactionaryACPServerOptions {
    */
   acceptRawCardCredentials?: boolean;
   links?: ACPLink[];
-  productFeed?: ACPProductFeedOptions;
   discovery?: ACPDiscoveryOptions;
   /**
    * Email used to price transient checkouts before the buyer has supplied
@@ -303,22 +282,6 @@ export interface ACPLink {
   url: string;
 }
 
-export interface ACPProductFeedOptions
-  extends ReactionaryFeedInventoryOptions,
-    ReactionaryFeedProcessingOptions {
-  feeds: Record<string, ACPProductFeedDefinition>;
-}
-
-export interface ACPProductFeedDefinition {
-  languageContext: LanguageContext;
-  search: SearchIdentifier;
-  pageSize?: number;
-  maxPages?: number;
-  productUrlBase?: string;
-  fulfillmentCenterKeys?: string[];
-  fulfillmentCenterKey?: string;
-}
-
 export interface ReactionaryACPHttpHandler {
   fetch(request: Request): Promise<Response>;
   close(): Promise<void>;
@@ -393,15 +356,9 @@ export class ReactionaryACPServer<
 
     const sessionId = await this.resolveSessionId(request);
     const requestContext = await this.createRequestContext(sessionId);
-    const requestedFeed = this.getRequestedProductFeed(request);
-
-    if (requestedFeed) {
-      requestContext.languageContext = requestedFeed.feed.languageContext;
-    }
-
     const locale = this.resolveLocale(request);
 
-    if (locale && !requestedFeed) {
+    if (locale) {
       requestContext.languageContext = { ...requestContext.languageContext, locale };
     }
 
@@ -581,29 +538,6 @@ export class ReactionaryACPServer<
     }
 
     if (request.method === 'GET' || request.method === 'HEAD') {
-      const productFeedId = getProductFeedId(request, this.options.basePath);
-
-      if (productFeedId) {
-        const feed = this.getProductFeedDefinition(productFeedId);
-
-        if (!feed) {
-          return acpErrorResponse(404, {
-            type: 'invalid_request',
-            code: 'missing',
-            message: `Product feed not found: ${productFeedId}`,
-          });
-        }
-
-        return this.getProductFeed(
-          request,
-          productFeedId,
-          feed,
-          client,
-          requestContext,
-          request.method === 'HEAD',
-        );
-      }
-
       const checkoutSessionId = getCheckoutSessionId(
         request,
         this.options.basePath,
@@ -695,70 +629,8 @@ export class ReactionaryACPServer<
         'GET /checkout_sessions/{checkout_session_id}',
         'POST /checkout_sessions/{checkout_session_id}/complete',
         'POST /checkout_sessions/{checkout_session_id}/cancel',
-        'GET /product_feeds/{id}/products',
       ],
     };
-  }
-
-  private async getProductFeed(
-    request: Request,
-    feedId: string,
-    feed: ACPProductFeedDefinition,
-    client: ValidatedReactionaryACPClient,
-    requestContext: RequestContext,
-    omitBody: boolean,
-  ): Promise<Response> {
-    const format = new URL(request.url).searchParams.get('format') ?? 'json';
-
-    if (format !== 'json' && format !== 'jsonl') {
-      return acpErrorResponse(400, {
-        type: 'invalid_request',
-        code: 'invalid',
-        message: `Unsupported product feed format: ${format}`,
-        param: '$.format',
-      });
-    }
-
-    const generator = new ReactionaryFeedGenerator(client, {
-      defaultFulfillmentCenterKeys: this.options.productFeed?.defaultFulfillmentCenterKeys,
-      productConcurrency: this.options.productFeed?.productConcurrency,
-    });
-    const output = acpProductFeedTransformer.transform(
-      generator.products(feed, requestContext),
-      {
-        feedId,
-        feed,
-        options: { format },
-      },
-    );
-    const extension = format === 'jsonl' ? 'jsonl' : 'json';
-
-    return new Response(
-      omitBody ? null : createFeedStream(output),
-      {
-        headers: {
-          'content-type': format === 'jsonl'
-            ? 'application/x-ndjson; charset=utf-8'
-            : 'application/json; charset=utf-8',
-          'content-disposition': `attachment; filename="${feedId}.products.${extension}"`,
-        },
-      },
-    );
-  }
-
-  private getRequestedProductFeed(
-    request: Request,
-  ): { id: string; feed: ACPProductFeedDefinition } | undefined {
-    const id = getProductFeedId(request, this.options.basePath);
-    const feed = id ? this.getProductFeedDefinition(id) : undefined;
-
-    return id && feed ? { id, feed } : undefined;
-  }
-
-  private getProductFeedDefinition(
-    feedId: string,
-  ): ACPProductFeedDefinition | undefined {
-    return this.options.productFeed?.feeds[feedId];
   }
 
   private async handlePost(
@@ -1365,13 +1237,14 @@ export class ReactionaryACPServer<
    */
   private async getStockMessages(cart: Cart, client: ValidatedReactionaryACPClient): Promise<ACPMessage[]> {
     const fulfillmentCenterKeys = this.options.inventory?.fulfillmentCenterKeys ?? [];
+    const inventoryCapability = client.inventory;
 
-    if (fulfillmentCenterKeys.length === 0) {
+    if (fulfillmentCenterKeys.length === 0 || !inventoryCapability) {
       return [];
     }
 
     const messages = await Promise.all(cart.items.map(async (item, index): Promise<ACPMessage | undefined> => {
-      const results = await Promise.all(fulfillmentCenterKeys.map((key) => client.inventory.getBySKU({
+      const results = await Promise.all(fulfillmentCenterKeys.map((key) => inventoryCapability.getBySKU({
         variant: item.variant,
         fulfilmentCenter: { key },
       })));
@@ -1776,16 +1649,6 @@ function getCheckoutSessionId(
   return match?.[1];
 }
 
-function getProductFeedId(
-  request: Request,
-  basePath: string | undefined,
-): string | undefined {
-  const pathname = getProtocolPathname(request, basePath);
-  const match = /^\/product_feeds\/([^/]+)\/products$/.exec(pathname);
-
-  return match?.[1];
-}
-
 function toOrderPermalinkUrl(template: string, orderId: string): string {
   return template.replaceAll('{orderId}', encodeURIComponent(orderId));
 }
@@ -1978,11 +1841,7 @@ function getMissingACPClientOperations(client: ReactionaryACPClient): string[] {
     ['checkout.setShippingInstruction', client.checkout?.setShippingInstruction],
     ['checkout.addPaymentInstruction', client.checkout?.addPaymentInstruction],
     ['checkout.finalizeCheckout', client.checkout?.finalizeCheckout],
-    ['productSearch.queryByTerm', client.productSearch?.queryByTerm],
     ['product.getBySKU', client.product?.getBySKU],
-    ['price.getListPrice', client.price?.getListPrice],
-    ['price.getCustomerPrice', client.price?.getCustomerPrice],
-    ['inventory.getBySKU', client.inventory?.getBySKU],
   ]
     .filter(([, operation]) => typeof operation !== 'function')
     .map(([name]) => name as string);
@@ -2199,31 +2058,6 @@ function toMinorUnits(amount: MonetaryAmount): number {
   return Math.round(amount.value * 10 ** exponent);
 }
 
-function createFeedStream(
-  chunks: AsyncIterable<string | Uint8Array>,
-): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  const iterator = chunks[Symbol.asyncIterator]();
-
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      const next = await iterator.next();
-
-      if (next.done) {
-        controller.close();
-        return;
-      }
-
-      controller.enqueue(
-        typeof next.value === 'string' ? encoder.encode(next.value) : next.value,
-      );
-    },
-    async cancel() {
-      await iterator.return?.();
-    },
-  });
-}
-
 async function toWebRequest(request: IncomingMessage): Promise<Request> {
   const headers = toWebHeaders(request.headers);
   const url = new URL(
@@ -2300,6 +2134,5 @@ function getAcpOperationPath(request: Request, basePath: string | undefined): st
   const pathname = getProtocolPathname(request, basePath);
 
   return pathname
-    .replace(/^\/checkout_sessions\/[^/]+/, '/checkout_sessions/{id}')
-    .replace(/^\/product_feeds\/[^/]+/, '/product_feeds/{id}');
+    .replace(/^\/checkout_sessions\/[^/]+/, '/checkout_sessions/{id}');
 }
