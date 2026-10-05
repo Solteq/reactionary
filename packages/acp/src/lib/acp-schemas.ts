@@ -148,6 +148,7 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
     'not_ready_for_payment',
     'ready_for_payment',
     'in_progress',
+    'complete_in_progress',
     'completed',
     'canceled',
   ]),

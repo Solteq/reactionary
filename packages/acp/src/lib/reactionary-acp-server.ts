@@ -168,7 +168,7 @@ export interface ReactionaryACPServerOptions {
   /**
    * How long checkout completion waits for the placed checkout to become
    * `readyForFinalization` (i.e. its payment authorized, e.g. by a PSP
-   * webhook) before answering `in_progress`. Defaults to 10s timeout,
+   * webhook) before answering `complete_in_progress`. Defaults to 10s timeout,
    * polled every 1s; a timeout of 0 disables it.
    */
   paymentAuthorizationWait?: Partial<ACPPaymentAuthorizationWait>;
@@ -845,7 +845,8 @@ export class ReactionaryACPServer<
 
   /**
    * Creates the real checkout from the session state and finalizes it. A
-   * payment the PSP has not authorized yet leaves the session `in_progress`;
+   * payment the PSP has not authorized yet leaves the session
+   * `complete_in_progress`, without an order yet;
    * a repeated complete retries finalization.
    */
   private async completeCheckoutSession(
@@ -899,7 +900,7 @@ export class ReactionaryACPServer<
       current = {
         ...current,
         checkoutId: checkout.identifier.key,
-        status: 'in_progress',
+        status: 'complete_in_progress',
       };
       await this.checkoutSessionStore.put(current.id, current);
     }
@@ -916,17 +917,25 @@ export class ReactionaryACPServer<
         wait,
       );
 
-      if (checkout.resultingOrder) {
-        current = { ...current, status: 'completed', orderId: checkout.resultingOrder.key };
-      } else if (checkout.readyForFinalization) {
-        const finalized = await unwrapACPResult(
-          client.checkout.finalizeCheckout({ checkout: checkout.identifier }),
-        );
-        current = { ...current, status: 'completed', orderId: finalized.resultingOrder?.key };
+      const orderId = checkout.resultingOrder?.key ?? (checkout.readyForFinalization
+        ? (await unwrapACPResult(client.checkout.finalizeCheckout({ checkout: checkout.identifier }))).resultingOrder?.key
+        : undefined);
+
+      // Completed always comes with the order (CheckoutSessionWithOrder).
+      if (orderId) {
+        current = { ...current, status: 'completed', orderId };
       }
     }
 
-    return jsonResponse(await this.toACPCheckoutSession(current, client));
+    const pending: ACPMessage[] = current.status === 'completed'
+      ? []
+      : [{
+          type: 'info',
+          content_type: 'plain',
+          content: 'The payment is awaiting authorization. Retrieve the session, or complete it again with a new Idempotency-Key, to receive the order.',
+        }];
+
+    return jsonResponse(await this.toACPCheckoutSession(current, client, undefined, pending));
   }
 
   private async cancelCheckoutSession(
@@ -1145,7 +1154,11 @@ export class ReactionaryACPServer<
     const view = state.checkoutId
       ? await this.getPlacedView(state, client)
       : await this.priceSession(state, client);
-    const persisted: ACPCheckoutSessionState = { ...state, status: view.status };
+    const persisted: ACPCheckoutSessionState = {
+      ...state,
+      status: view.status,
+      ...(view.orderId ? { orderId: view.orderId } : {}),
+    };
     const lineItems = view.checkout?.items ?? view.cart?.items ?? [];
     const products = await getProducts(lineItems.map((item) => item.variant.sku), client);
     const optionTitles = getOptionTitles(view.options);
@@ -1324,17 +1337,24 @@ export class ReactionaryACPServer<
       client.checkout.getById({ identifier: { key: state.checkoutId ?? '' } }),
     );
 
+    // The backend may have finalized the order since (e.g. on the PSP's
+    // authorization webhook), which retrieval picks up.
+    const orderId = state.orderId ?? checkout.resultingOrder?.key;
+
     return {
       checkout,
       price: checkout.price,
       options: [],
-      status: state.status === 'completed' || checkout.resultingOrder ? 'completed' : 'in_progress',
+      status: orderId ? 'completed' : 'complete_in_progress',
+      ...(orderId ? { orderId } : {}),
     };
   }
 }
 
 interface ACPSessionView {
   messages?: ACPMessage[];
+  /** The order a placed checkout resulted in. */
+  orderId?: string;
   cart?: Cart;
   checkout?: Checkout;
   price: Checkout['price'];

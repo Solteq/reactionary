@@ -828,7 +828,11 @@ describe('ReactionaryACPServer', () => {
       jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, payload),
     ));
 
-    expect(pending, JSON.stringify(pending)).toMatchObject({ status: 'in_progress' });
+    expect(pending, JSON.stringify(pending)).toMatchObject({
+      status: 'complete_in_progress',
+      messages: [expect.objectContaining({ type: 'info' })],
+    });
+    expect(pending['order']).toBeUndefined();
     expect(initiated.at(-1)).toBe('ada@example.com');
 
     notReady.clear();
