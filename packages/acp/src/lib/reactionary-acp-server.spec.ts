@@ -1055,6 +1055,81 @@ describe('ReactionaryACPServer', () => {
     });
   });
 
+  it('requires 3D Secure authentication before authorizing when asked to', async () => {
+    const payments: Array<{ paymentInstruction: { protocolData: Array<{ key: string; value: string }> } }> = [];
+    const metadata = {
+      acquirer_details: {
+        acquirer_bin: '123456',
+        acquirer_country: 'US',
+        acquirer_merchant_id: 'merchant_123',
+        merchant_name: 'Example Store',
+      },
+      directory_server: 'visa' as const,
+    };
+    const server = new ReactionaryACPServer(() => createTestClient({ payments: payments as unknown[] }), {
+      sessionCache: new MemoryCache(),
+      paymentHandlers,
+      paymentAuthorizationWait: { timeoutMs: 0 },
+      interventions: { supported: ['3ds'] },
+      authentication: { getMetadata: () => metadata },
+    });
+    const created = await json<{ id: string }>(await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1' }],
+      currency: 'eur',
+      capabilities: { interventions: { supported: ['3ds'] } },
+      buyer: { email: 'ada@example.com' },
+      fulfillment_details: fulfillmentDetails,
+    })));
+    const url = `http://127.0.0.1/checkout_sessions/${created.id}`;
+    const complete = (body: Record<string, unknown>) => server.fetch(jsonRequest(`${url}/complete`, {
+      payment_data: cardPayment('spt_1'),
+      ...body,
+    }));
+    await server.fetch(jsonRequest(url, selectStandardShipping));
+
+    const required = await complete({});
+
+    expect(required.status).toBe(200);
+    await expect(required.json()).resolves.toMatchObject({ status: 'authentication_required', authentication_metadata: metadata });
+    await expect(json<{ status: string }>(await server.fetch(getRequest(url)))).resolves.toMatchObject({
+      status: 'authentication_required',
+    });
+
+    const missing = await complete({});
+
+    expect(missing.status).toBe(400);
+    await expect(missing.json()).resolves.toEqual({
+      type: 'invalid_request',
+      code: 'requires_3ds',
+      message: "This checkout session requires issuer authentication. The request must include 'authentication_result'.",
+      param: '$.authentication_result',
+    });
+
+    const denied = await json<Record<string, unknown>>(await complete({ authentication_result: { outcome: 'denied' } }));
+
+    expect(denied).toMatchObject({
+      status: 'authentication_required',
+      messages: [expect.objectContaining({ code: 'payment_declined', param: '$.authentication_result' })],
+    });
+    expect(payments).toHaveLength(0);
+
+    const outcomeDetails = {
+      three_ds_cryptogram: 'AbCdEfGhIjKlMnOpQrStUvWxY0=',
+      electronic_commerce_indicator: '05',
+      transaction_id: 'dsTransId_abc123',
+      version: '2.2.0',
+    };
+    const authenticated = await json<{ status: string }>(await complete({
+      authentication_result: { outcome: 'authenticated', outcome_details: outcomeDetails },
+    }));
+
+    expect(authenticated.status).toBe('completed');
+    expect(payments[0]?.paymentInstruction.protocolData).toContainEqual({
+      key: 'acp_authentication_result',
+      value: JSON.stringify({ outcome: 'authenticated', outcome_details: outcomeDetails }),
+    });
+  });
+
   it('waits for an asynchronous payment authorization before answering', async () => {
     const notReady = new Set<string>(['all']);
     const server = new ReactionaryACPServer(() => createTestClient({ notReady }), {
