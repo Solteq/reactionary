@@ -946,6 +946,7 @@ export class ReactionaryACPServer<
     const persisted: ACPCheckoutSessionState = { ...state, status: view.status };
     const lineItems = view.checkout?.items ?? view.cart?.items ?? [];
     const products = await getProducts(lineItems.map((item) => item.variant.sku), client);
+    const optionTitles = getOptionTitles(view.options);
 
     await this.checkoutSessionStore.put(persisted.id, persisted);
 
@@ -959,7 +960,8 @@ export class ReactionaryACPServer<
       ...(persisted.fulfillmentDetails
         ? { fulfillment_details: persisted.fulfillmentDetails }
         : {}),
-      fulfillment_options: view.options.map(toACPFulfillmentOption),
+      fulfillment_options: view.options.map((option) =>
+        toACPFulfillmentOption(option, optionTitles.get(option.identifier.key) ?? option.identifier.key)),
       ...(persisted.fulfillmentOptionId
         ? {
             selected_fulfillment_options: [{
@@ -1558,23 +1560,44 @@ function toACPTotals(price: Checkout['price']): Record<string, unknown>[] {
   ];
 }
 
+/**
+ * A 2026-04-17 shipping option: its cost is a `totals[]` breakdown. The
+ * description carries the backend's delivery estimate, falling back to the
+ * method description.
+ */
 function toACPFulfillmentOption(
   method: ShippingMethod,
+  title: string,
 ): Record<string, unknown> {
-  const amount = toMinorUnits(method.price.value);
+  const description = method.deliveryTime || method.description;
 
   return {
     type: 'shipping',
     id: method.identifier.key,
-    title: method.name,
-    subtitle: method.deliveryTime,
-    carrier: method.carrier ?? '',
+    title,
+    ...(description ? { description } : {}),
+    ...(method.carrier ? { carrier: method.carrier } : {}),
     earliest_delivery_time: new Date().toISOString(),
     latest_delivery_time: new Date().toISOString(),
-    subtotal: amount,
-    tax: 0,
-    total: amount,
+    totals: [{ type: 'total', display_text: title, amount: toMinorUnits(method.price.value) }],
   };
+}
+
+/** Option titles by option key; sibling titles must be distinct for buyers to choose. */
+function getOptionTitles(options: ShippingMethod[]): Map<string, string> {
+  const titles = new Map<string, string>();
+  const used = new Set<string>();
+
+  for (const option of options) {
+    let title = option.name || option.identifier.key;
+    if (used.has(title)) {
+      title = `${title} (${option.identifier.key})`;
+    }
+    used.add(title);
+    titles.set(option.identifier.key, title);
+  }
+
+  return titles;
 }
 
 function toReactionaryAddress(address: ACPAddress): {
