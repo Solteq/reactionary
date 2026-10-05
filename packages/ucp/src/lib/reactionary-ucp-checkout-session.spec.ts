@@ -6,10 +6,11 @@ import {
   type Checkout,
   type CostBreakDown,
   type GenericError,
+  type Inventory,
   type ShippingMethod,
 } from '@reactionary/core';
 import { describe, expect, it } from 'vitest';
-import type { UCPTestPaymentHandler } from './reactionary-ucp-checkout-session.js';
+import type { UCPInventoryOptions, UCPTestPaymentHandler } from './reactionary-ucp-checkout-session.js';
 import type { ReactionaryUCPClient, UCPPaymentHandlers } from './reactionary-ucp-common.js';
 import { ReactionaryUCPServer } from './reactionary-ucp-server.js';
 
@@ -27,6 +28,8 @@ class FakeBackend {
   public readonly deletedCheckouts: string[] = [];
   public readonly initiatedEmails: string[] = [];
   public readonly authorized = new Set<string>();
+  /** Inventory records keyed by `sku@fulfillmentCenter`. */
+  public readonly stock = new Map<string, Inventory>();
   private counter = 0;
 
   public readonly shippingMethods: ShippingMethod[] = [
@@ -134,6 +137,12 @@ class FakeBackend {
           ...checkout,
           resultingOrder: { key: `order-${checkout.identifier.key}` },
         })),
+      },
+      inventory: {
+        getBySKU: async (payload) => {
+          const inventory = this.stock.get(`${payload.variant.sku}@${payload.fulfilmentCenter.key}`);
+          return inventory ? success(inventory) : notFound();
+        },
       },
       profile: {
         getById: async () => profileEmail
@@ -259,6 +268,7 @@ function createServer(
     authorizationTimeoutMs?: number;
     paymentHandlers?: UCPPaymentHandlers;
     testPaymentHandlers?: UCPTestPaymentHandler[];
+    inventory?: UCPInventoryOptions;
   } = {},
 ) {
   return new ReactionaryUCPServer(
@@ -275,6 +285,7 @@ function createServer(
       sessionCache: new MemoryCache(),
       paymentAuthorizationWait: { timeoutMs: options.authorizationTimeoutMs ?? 0, intervalMs: 10 },
       ...(options.testPaymentHandlers ? { testPaymentHandlers: options.testPaymentHandlers } : {}),
+      ...(options.inventory ? { inventory: options.inventory } : {}),
       profile: {
         endpoint: BASE,
         merchant: { name: 'Shop', url: 'https://shop.example.com', contact: { email: 'a@example.com' } },
@@ -563,6 +574,54 @@ describe('UCP checkout sessions', () => {
 
     expect(refused.status).toBe('incomplete');
     expect(messageCodes(refused)).toContain('missing:$.fulfillment.methods[0].destinations');
+    expect(backend.checkouts.size).toBe(0);
+  });
+
+  it('reports line items exceeding the combined stock of the fulfillment centers as out_of_stock', async () => {
+    const backend = new FakeBackend();
+    const server = createServer(backend, { inventory: { fulfillmentCenterKeys: ['online', 'store'] } });
+    const setStock = (sku: string, center: string, quantity: number, status: Inventory['status']) =>
+      backend.stock.set(`${sku}@${center}`, {
+        identifier: { variant: { sku }, fulfillmentCenter: { key: center } },
+        quantity,
+        status,
+      });
+    setStock('sku-1', 'online', 1, 'inStock');
+    setStock('sku-1', 'store', 1, 'inStock');
+    setStock('sku-sold-out', 'online', -3, 'outOfStock');
+    setStock('sku-preorder', 'online', 0, 'preOrder');
+    const ready = {
+      buyer: { email: 'ada@example.com' },
+      fulfillment: fulfillment('standard'),
+      payment: selectedInstrument,
+    };
+    const withItem = (sku: string, quantity: number) => ({
+      ...ready,
+      line_items: [{ ...lineItems[0], item: { ...lineItems[0].item, id: sku }, quantity }],
+    });
+
+    const inStock = await send(server, 'POST', '/checkout-sessions', withItem('sku-1', 2));
+    expect(inStock.status).toBe('ready_for_complete');
+
+    const exceeding = await send(server, 'PUT', `/checkout-sessions/${inStock.id}`, {
+      line_items: [{ ...lineItems[0], quantity: 3 }],
+    });
+    expect(exceeding.status).toBe('incomplete');
+    expect(exceeding.messages).toContainEqual(expect.objectContaining({
+      code: 'out_of_stock',
+      path: '$.line_items[0]',
+      content: 'Only 2 of sku-1 are in stock.',
+    }));
+
+    const soldOut = await send(server, 'POST', '/checkout-sessions', withItem('sku-sold-out', 1));
+    expect(messageCodes(soldOut)).toEqual(['out_of_stock:$.line_items[0]']);
+    const refused = await send(server, 'POST', `/checkout-sessions/${soldOut.id}/complete`, {});
+    expect(refused.status).toBe('incomplete');
+
+    const preOrder = await send(server, 'POST', '/checkout-sessions', withItem('sku-preorder', 5));
+    const untracked = await send(server, 'POST', '/checkout-sessions', withItem('sku-untracked', 5));
+    expect(preOrder.status).toBe('ready_for_complete');
+    expect(untracked.status).toBe('ready_for_complete');
     expect(backend.checkouts.size).toBe(0);
   });
 

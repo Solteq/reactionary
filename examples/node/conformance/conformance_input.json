@@ -7,14 +7,14 @@
   "currency": "DKK",
   "items": [
     {
-      "id": "7313020065489",
-      "title": "Bag",
-      "price": 7493
+      "id": "7313020077406",
+      "title": "EasyFold XT Carrying Bag 3",
+      "price": 173209
     }
   ],
   "out_of_stock_item": {
     "id": "7313020065489",
-    "title": "Out of stock placeholder - no known out-of-stock SKU in the commercetools test project"
+    "title": "Bag (no stock in OnlineFfmChannel)"
   },
   "non_existent_item": {
     "id": "sku-that-does-not-exist",

@@ -64,6 +64,14 @@ export interface UCPTestPaymentHandler {
   resolveCredential(credential: unknown): unknown;
 }
 
+/**
+ * Line items are checked against the combined stock of these fulfillment
+ * centers. Items without inventory records are treated as untracked.
+ */
+export interface UCPInventoryOptions {
+  fulfillmentCenterKeys: string[];
+}
+
 async function pollUntil<T>(
   read: () => Promise<T>,
   done: (value: T) => boolean,
@@ -100,6 +108,8 @@ export interface UCPCheckoutSessionContext {
   anonymousOrderEmail?: string;
   /** See ReactionaryUCPServerOptions.testPaymentHandlers. */
   testPaymentHandlers?: UCPTestPaymentHandler[];
+  /** See ReactionaryUCPServerOptions.inventory. */
+  inventory?: UCPInventoryOptions;
   /** Email of the session's registered identity, if logged in. */
   getIdentityEmail(): Promise<string | undefined>;
   createCart(lineItems: UCPLineItem[]): Promise<Cart | UCPErrorResponse>;
@@ -535,7 +545,10 @@ async function buildOpenView(
     ? { options: [] }
     : await priceWithTransientCheckout(context, cart, state);
   const price = pricing.checkout?.price ?? cart.price;
-  const messages = getMissingInputMessages(context, state, pricing, await resolveBuyerEmail(context, state));
+  const messages = [
+    ...await getStockMessages(context, cart),
+    ...getMissingInputMessages(context, state, pricing, await resolveBuyerEmail(context, state)),
+  ];
   const ready = state.status === 'open' && messages.length === 0;
 
   state.lastTotal = getMoneyValue(price.grandTotal);
@@ -556,6 +569,56 @@ async function buildOpenView(
   };
 
   return { response, ready };
+}
+
+/**
+ * An out_of_stock error per line item requesting more than the configured
+ * fulfillment centers hold. Back-ordered and pre-ordered items are always
+ * purchasable.
+ */
+async function getStockMessages(
+  context: UCPCheckoutSessionContext,
+  cart: Cart,
+): Promise<UCPMessage[]> {
+  const inventoryCapability = context.client.inventory;
+  const fulfillmentCenterKeys = context.inventory?.fulfillmentCenterKeys ?? [];
+
+  if (!inventoryCapability || fulfillmentCenterKeys.length === 0) {
+    return [];
+  }
+
+  const messages = await Promise.all(cart.items.map(async (item, index) => {
+    const results = await Promise.all(fulfillmentCenterKeys.map((key) => inventoryCapability.getBySKU({
+      variant: item.variant,
+      fulfilmentCenter: { key },
+    })));
+    const inventories = results.flatMap((result) => (result.success ? [result.value] : []));
+
+    if (
+      inventories.length === 0
+      || inventories.some((inventory) => inventory.status === 'onBackOrder' || inventory.status === 'preOrder')
+    ) {
+      return undefined;
+    }
+
+    const available = inventories.reduce(
+      (total, inventory) => total + (inventory.status === 'inStock' ? Math.max(inventory.quantity, 0) : 0),
+      0,
+    );
+
+    if (item.quantity <= available) {
+      return undefined;
+    }
+
+    const sku = item.variant.sku;
+    return createUcpErrorMessage(
+      'out_of_stock',
+      available > 0 ? `Only ${available} of ${sku} are in stock.` : `${sku} is out of stock.`,
+      `$.line_items[${index}]`,
+    );
+  }));
+
+  return messages.filter((message) => message !== undefined);
 }
 
 function getMissingInputMessages(

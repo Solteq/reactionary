@@ -1,9 +1,9 @@
-import type { Cache, Cart, Checkout, Client, FacetValueIdentifier, Order, Product, ProductSearchResult, Profile, RequestContext, Result, ShippingMethod } from '@reactionary/core';
+import type { Cache, Cart, Checkout, Client, FacetValueIdentifier, Inventory, Order, Product, ProductSearchResult, Profile, RequestContext, Result, ShippingMethod } from '@reactionary/core';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPIdentityOptions } from './reactionary-ucp-identity.js';
 import type { ReactionaryUCPLocalizationOptions } from './reactionary-ucp-localization.js';
-import type { UCPPaymentAuthorizationWait, UCPTestPaymentHandler } from './reactionary-ucp-checkout-session.js';
+import type { UCPInventoryOptions, UCPPaymentAuthorizationWait, UCPTestPaymentHandler } from './reactionary-ucp-checkout-session.js';
 
 type UCPService = components['schemas']['base'];
 type UCPCapability = components['schemas']['$defs-base'];
@@ -65,6 +65,9 @@ export type ReactionaryUCPClient = object & {
   order?: {
     getById: UCPMethod<Client['order']['getById'], Order>;
   };
+  inventory?: {
+    getBySKU: UCPMethod<Client['inventory']['getBySKU'], Inventory>;
+  };
   profile?: {
     getById: UCPMethod<Client['profile']['getById'], Profile>;
   };
@@ -117,6 +120,12 @@ export interface ReactionaryUCPServerOptions {
    * conformance and test environments.
    */
   testPaymentHandlers?: UCPTestPaymentHandler[];
+  /**
+   * Checks checkout session line items against these fulfillment centers'
+   * combined stock, reporting `out_of_stock` per line item. Unset (the
+   * default), stock is left to the backend.
+   */
+  inventory?: UCPInventoryOptions;
 }
 
 export interface ReactionaryUCPProfileOptions {

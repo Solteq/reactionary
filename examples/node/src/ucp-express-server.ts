@@ -53,6 +53,9 @@ async function main(): Promise<void> {
       ...(process.env['UCP_CONFORMANCE_MOCK_PAYMENT_DELEGATE']
         ? { testPaymentHandlers: [createConformanceMockPaymentHandler(process.env['UCP_CONFORMANCE_MOCK_PAYMENT_DELEGATE'])] }
         : {}),
+      ...(process.env['UCP_INVENTORY_FULFILLMENT_CENTER_KEYS']
+        ? { inventory: { fulfillmentCenterKeys: process.env['UCP_INVENTORY_FULFILLMENT_CENTER_KEYS'].split(',').map((key) => key.trim()) } }
+        : {}),
     },
   );
   const ucpHandler = ucp.toNodeHandler();

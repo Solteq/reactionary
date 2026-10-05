@@ -53,6 +53,9 @@ export UCP_CONFORMANCE_MOCK_PAYMENT_DELEGATE=stripe
 # complete_in_progress well within the suite's 5s HTTP client timeout rather
 # than polling the default 10s.
 export UCP_PAYMENT_AUTHORIZATION_WAIT_MS=3000
+# Check line items against the online fulfillment channel's stock, so the
+# suite's out-of-stock and excess-quantity tests get out_of_stock errors.
+export UCP_INVENTORY_FULFILLMENT_CENTER_KEYS=OnlineFfmChannel
 
 echo "Starting UCP server on port $PORT..."
 cd "$ROOT/examples/node"
