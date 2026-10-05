@@ -263,7 +263,7 @@ export interface ACPDiscoveryResponse {
   api_base_url: string;
   transports: ['rest'];
   capabilities: {
-    services: Array<'checkout' | 'feeds'>;
+    services: Array<'checkout' | 'orders' | 'delegate_payment' | 'carts'>;
     supported_currencies?: string[];
     supported_locales?: string[];
   };
@@ -652,7 +652,9 @@ export class ReactionaryACPServer<
       api_base_url: apiBaseUrl,
       transports: ['rest'],
       capabilities: {
-        services: this.options.productFeed ? ['checkout', 'feeds'] : ['checkout'],
+        // The services enum is closed per version: checkout, orders,
+        // delegate_payment and carts (discovery RFC §4.2).
+        services: ['checkout'],
         ...(discovery.supportedCurrencies
           ? { supported_currencies: discovery.supportedCurrencies }
           : {}),
