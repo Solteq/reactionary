@@ -870,6 +870,9 @@ describe('ReactionaryACPServer', () => {
     const completed = await json<Record<string, unknown>>(await server.fetch(
       jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, payload),
     ));
+    const cancelCompleted = await server.fetch(jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/cancel`, {}));
+
+    expect(cancelCompleted.status).toBe(405);
 
     expect(completed).toMatchObject({
       status: 'completed',
@@ -880,6 +883,46 @@ describe('ReactionaryACPServer', () => {
         permalink_url: 'https://shop.example/orders/order-1',
       },
     });
+  });
+
+  it('cancels a session whose payment is awaiting authorization', async () => {
+    const notReady = new Set<string>(['all']);
+    const server = new ReactionaryACPServer(() => createTestClient({ notReady }), {
+      sessionCache: new MemoryCache(),
+      paymentHandlers,
+      paymentAuthorizationWait: { timeoutMs: 0 },
+    });
+    const created = await json<{ id: string }>(await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1' }],
+      currency: 'eur',
+      capabilities: agentCapabilities,
+      buyer: { email: 'ada@example.com' },
+      fulfillment_details: fulfillmentDetails,
+    })));
+    const url = `http://127.0.0.1/checkout_sessions/${created.id}`;
+    await server.fetch(jsonRequest(url, selectStandardShipping));
+
+    const pending = await json<{ status: string }>(await server.fetch(
+      jsonRequest(`${url}/complete`, { payment_data: cardPayment('spt_1') }),
+    ));
+
+    expect(pending.status).toBe('complete_in_progress');
+
+    const canceled = await server.fetch(jsonRequest(`${url}/cancel`, {
+      intent_trace: { reason_code: 'timing_deferred' },
+    }));
+
+    expect(canceled.status).toBe(200);
+    await expect(canceled.json()).resolves.toMatchObject({
+      status: 'canceled',
+      messages: [{ type: 'info', content: 'Checkout session has been canceled.' }],
+    });
+
+    notReady.clear();
+    const retried = await server.fetch(jsonRequest(`${url}/complete`, { payment_data: cardPayment('spt_1') }));
+
+    expect(retried.status).toBe(405);
+    await expect(json<{ status: string }>(await server.fetch(getRequest(url)))).resolves.toMatchObject({ status: 'canceled' });
   });
 
   it('waits for an asynchronous payment authorization before answering', async () => {
