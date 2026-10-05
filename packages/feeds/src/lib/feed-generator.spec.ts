@@ -14,7 +14,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { ReactionaryFeedGenerator } from './feed-generator.js';
 import { ReactionaryFeedServer } from './feed-server.js';
-import { acpProductFeedTransformer } from './transformers/acp-product-feed.transformer.js';
+import { acpProductFeedTransformer, toACPFeedMetadata } from './transformers/acp-product-feed.transformer.js';
 import { googleMerchantFeedTransformer } from './transformers/google-merchant-feed.transformer.js';
 import { pricerunnerFeedTransformer } from './transformers/pricerunner-feed.transformer.js';
 import { sitemapFeedTransformer } from './transformers/sitemap-feed.transformer.js';
@@ -237,7 +237,7 @@ describe('ReactionaryFeedGenerator', () => {
 });
 
 describe('feed transformers', () => {
-  it('writes ACP JSONL feed products', async () => {
+  it('writes ACP Feed API products as JSONL', async () => {
     const output = await render(acpProductFeedTransformer.transform(
       asAsyncIterable([testFeedProduct]),
       {
@@ -248,24 +248,51 @@ describe('feed transformers', () => {
     ));
 
     expect(output.trim().split('\n')).toHaveLength(1);
-    expect(JSON.parse(output)).toMatchObject({
-      item_id: 'sku-1',
-      title: 'Test variant',
-      description: 'Test description',
+    expect(JSON.parse(output)).toEqual({
+      id: 'product-1',
+      title: 'Test product',
+      description: { plain: 'Test description' },
       url: 'https://shop.example/fi/products/test-product',
-      brand: 'Reactionary',
-      manufacturer: 'Solteq',
-      seller_name: 'Reactionary Shop',
-      is_eligible_search: true,
-      product_category: 'Parent Category > Child Category',
-      review_count: 12,
-      star_rating: '4.50',
-      image_url: 'https://cdn.example/product.jpg',
-      availability: 'in_stock',
-      price: '10.00 EUR',
-      sale_price: '8.00 EUR',
-      gtin: '00012345678905',
-      mpn: 'sku-1',
+      media: [{ type: 'image', url: 'https://cdn.example/product.jpg', alt_text: 'Test product' }],
+      variants: [
+        {
+          id: 'sku-1',
+          title: 'Test variant',
+          url: 'https://shop.example/fi/products/test-product',
+          barcodes: [
+            { type: 'ean', value: '1234567890123' },
+            { type: 'gtin', value: '00012345678905' },
+            { type: 'upc', value: '042100005264' },
+            { type: 'barcode', value: '1234567890123' },
+          ],
+          price: { amount: 800, currency: 'EUR' },
+          list_price: { amount: 1000, currency: 'EUR' },
+          availability: { available: true, status: 'in_stock' },
+          categories: [{ value: 'Parent Category > Child Category' }],
+          variant_options: [{ name: 'Size', value: '42' }],
+          seller: { name: 'Reactionary Shop' },
+        },
+      ],
+    });
+  });
+
+  it('writes the ACP Feed API upsert body and feed metadata', async () => {
+    const output = await render(acpProductFeedTransformer.transform(
+      asAsyncIterable([testFeedProduct, { ...testFeedProduct, id: 'no-variants', variants: [] }]),
+      {
+        feedId: 'finnish',
+        feed: testFeed,
+        options: { format: 'json' },
+      },
+    ));
+    const body = JSON.parse(output) as { products: Array<{ id: string }> };
+
+    expect(Object.keys(body)).toEqual(['products']);
+    expect(body.products.map((product) => product.id)).toEqual(['product-1']);
+    expect(toACPFeedMetadata('finnish', testFeed, new Date('2026-10-05T12:00:00Z'))).toEqual({
+      id: 'finnish',
+      target_country: 'FI',
+      updated_at: '2026-10-05T12:00:00.000Z',
     });
   });
 
@@ -400,7 +427,7 @@ describe('ReactionaryFeedServer', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('application/x-ndjson');
-    expect(await response.text()).toContain('"item_id":"sku-1"');
+    expect(await response.text()).toContain('"variants":[{"id":"sku-1"');
     expect(observedLanguageContexts[0]).toEqual(testFeed.languageContext);
   });
 

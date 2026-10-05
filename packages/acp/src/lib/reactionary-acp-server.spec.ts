@@ -1101,11 +1101,15 @@ describe('ReactionaryACPServer', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('application/x-ndjson');
     expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({
-      item_id: 'sku-1',
-      title: 'Test variant',
+      id: 'product-1',
       url: 'https://shop.example/fi/products/test-product',
-      availability: 'in_stock',
-      price: '10.00 EUR',
+      variants: [{
+        id: 'sku-1',
+        title: 'Test variant',
+        availability: { available: true, status: 'in_stock' },
+        price: { amount: 800, currency: 'EUR' },
+        list_price: { amount: 1000, currency: 'EUR' },
+      }],
     });
     expect(observedLanguageContexts[1]).toEqual({
       locale: 'fi-FI',
