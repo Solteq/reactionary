@@ -62,7 +62,7 @@ interface AcpFulfillmentOption {
   type: string;
   id: string;
   title: string;
-  total: number;
+  totals: AcpTotal[];
 }
 
 interface AcpCheckoutSession {

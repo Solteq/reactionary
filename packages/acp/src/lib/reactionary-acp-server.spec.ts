@@ -213,7 +213,14 @@ describe('ReactionaryACPServer', () => {
     expect(created).toMatchObject({
       status: 'not_ready_for_payment',
       currency: 'eur',
-      fulfillment_options: [{ id: 'standard' }],
+      fulfillment_options: [{
+        type: 'shipping',
+        id: 'standard',
+        title: 'Standard shipping',
+        description: '3-5 business days',
+        carrier: 'Reactionary',
+        totals: [{ type: 'total', display_text: 'Standard shipping', amount: 500 }],
+      }],
       line_items: [
         {
           item: { id: 'sku-1' },
