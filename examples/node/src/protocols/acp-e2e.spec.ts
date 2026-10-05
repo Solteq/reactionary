@@ -85,11 +85,15 @@ interface AcpError {
   message: string;
 }
 
-interface AcpFeedItem {
-  item_id: string;
-  title: string;
-  availability: string;
-  price: string;
+interface AcpFeedProduct {
+  id: string;
+  title?: string;
+  variants: Array<{
+    id: string;
+    title: string;
+    availability?: { available?: boolean; status?: string };
+    price?: { amount: number; currency: string };
+  }>;
 }
 
 const buyer = {
@@ -116,7 +120,7 @@ function selectShipping(optionId: string | undefined) {
   };
 }
 
-async function readProductFeed(server: ReactionaryACPServer): Promise<AcpFeedItem[]> {
+async function readProductFeed(server: ReactionaryACPServer): Promise<AcpFeedProduct[]> {
   const response = await server.fetch(
     new Request(`${ACP_BASE_URL}/product_feeds/${ACP_FEED_ID}/products?format=jsonl`),
   );
@@ -130,7 +134,7 @@ async function readProductFeed(server: ReactionaryACPServer): Promise<AcpFeedIte
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
-    .map((line) => JSON.parse(line) as AcpFeedItem);
+    .map((line) => JSON.parse(line) as AcpFeedProduct);
 }
 
 /**
@@ -140,17 +144,18 @@ async function readProductFeed(server: ReactionaryACPServer): Promise<AcpFeedIte
  */
 async function createCheckoutSessionFromFeed(
   session: ProtocolSession,
-  feedItems: AcpFeedItem[],
+  feedProducts: AcpFeedProduct[],
   details: Record<string, unknown> = { buyer, fulfillment_details: fulfillmentDetails },
 ): Promise<{ checkoutSession: AcpCheckoutSession; sku: string }> {
   // Prefer items that are explicitly in stock, but fall back to items with an
   // unknown availability: commercetools reports 'unknown' when no inventory
   // entries exist for a SKU even though the product is purchasable.
-  const inStock = feedItems.filter((item) => item.availability === 'in_stock');
-  const notOutOfStock = feedItems.filter(
-    (item) => item.availability !== 'out_of_stock' && item.availability !== 'discontinued',
+  const variants = feedProducts.flatMap((product) => product.variants);
+  const inStock = variants.filter((variant) => variant.availability?.status === 'in_stock');
+  const notOutOfStock = variants.filter(
+    (variant) => variant.availability?.status !== 'out_of_stock' && variant.availability?.status !== 'discontinued',
   );
-  const candidates = (inStock.length > 0 ? inStock : notOutOfStock).map((item) => item.item_id);
+  const candidates = (inStock.length > 0 ? inStock : notOutOfStock).map((variant) => variant.id);
   const failures: string[] = [];
 
   expect(candidates.length, 'expected the product feed to contain purchasable items').toBeGreaterThan(0);
@@ -211,13 +216,16 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
       expect(readiness.actions).toContain('GET /product_feeds/{id}/products');
 
       // 3. It ingests the product feed built from the configured search engine.
-      const feedItems = await readProductFeed(server);
+      const feedProducts = await readProductFeed(server);
 
-      expect(feedItems.length).toBeGreaterThan(0);
-      for (const item of feedItems) {
-        expect(item.item_id).toBeTruthy();
-        expect(item.title).toBeTruthy();
-        expect(item.availability).toBeTruthy();
+      expect(feedProducts.length).toBeGreaterThan(0);
+      for (const product of feedProducts) {
+        expect(product.id).toBeTruthy();
+        expect(product.variants.length).toBeGreaterThan(0);
+        for (const variant of product.variants) {
+          expect(variant.id).toBeTruthy();
+          expect(variant.title).toBeTruthy();
+        }
       }
     }, PROTOCOL_TEST_TIMEOUT);
 
