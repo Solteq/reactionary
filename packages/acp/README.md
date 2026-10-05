@@ -31,6 +31,10 @@ If the adapter is mounted under `/acp`, both `/checkout_sessions/...` and `/acp/
 
 The adapter implements ACP API version `2026-04-17` only. Checkout requests must send `API-Version: 2026-04-17`; requests without it, or with another version, are rejected with `400` and code `missing_api_version` / `unsupported_api_version`, listing `supported_versions`.
 
+## MCP transport
+
+With `mcp: true`, the adapter also serves the ACP MCP binding at `{basePath}/mcp`: JSON-RPC 2.0 over Streamable HTTP (JSON responses) with `initialize`, `ping`, `tools/list` and `tools/call` for the five checkout tools (`create_`, `get_`, `update_`, `complete_`, `cancel_checkout_session`). Tool arguments are `{ meta, id?, payload? }`: `meta` maps to the protocol headers (`api_version` is required), `id` to the path and `payload` to the REST body; the MCP connection's `Authorization` applies to every call. Results are the REST bodies as-is (the ACP binding's mapping); errors are `-32000` with the ACP `Error` in `data`, `-32602` for malformed arguments. Tool calls without `meta.idempotency_key` get a fresh key. Discovery then lists `mcp` in `transports`.
+
 ## Authentication
 
 ACP requires agents to authenticate with `Authorization: Bearer <token>`. Configure `authenticate` with a function returning the calling agent (or `undefined` for 401); `createBearerTokenAuthenticator({ agentId: token })` covers static per-agent tokens, and request-signature checks can be added in the same hook. A checkout session is visible only to the agent that created it — others get 404. Discovery and the readiness document stay public. Without `authenticate` the checkout endpoints are open and a warning is logged.
