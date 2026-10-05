@@ -111,7 +111,7 @@ describe('ReactionaryACPServer', () => {
         },
         api_base_url: 'https://shop.example.com/acp',
         transports: ['rest'],
-        capabilities: { services: ['checkout'] },
+        capabilities: { services: ['checkout', 'carts'] },
       });
     }
   });
@@ -122,7 +122,7 @@ describe('ReactionaryACPServer', () => {
       await server.fetch(new Request('https://shop.example.com/.well-known/acp.json')),
     );
 
-    expect(discovery.capabilities.services).toEqual(['checkout']);
+    expect(discovery.capabilities.services).toEqual(['checkout', 'carts']);
   });
 
   it('advertises the interventions the seller supports', async () => {
@@ -1276,6 +1276,55 @@ describe('ReactionaryACPServer', () => {
       consents: [{ channel: 'email', opted_in: false, contact: 'ada@example.com' }],
       context: { orderId: 'order-1', checkoutSessionId: created.id },
     }]);
+  });
+
+  it('manages pre-checkout carts', async () => {
+    const client = createTestClient({ inPlaceCartUpdates: true });
+    const server = new ReactionaryACPServer(() => client, {
+      sessionCache: new MemoryCache(),
+      authenticate: createBearerTokenAuthenticator({ chatgpt: 'token-a', other: 'token-b' }),
+    });
+    const send = (method: string, path: string, body?: unknown, token = 'token-a') => server.fetch(new Request(`http://127.0.0.1${path}`, {
+      method,
+      headers: {
+        'api-version': '2026-04-17',
+        authorization: `Bearer ${token}`,
+        ...(method === 'POST' ? { 'idempotency-key': crypto.randomUUID() } : {}),
+        ...(body ? { 'content-type': 'application/json' } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    }));
+
+    const createdResponse = await send('POST', '/carts', {
+      line_items: [{ id: 'sku-1', quantity: 2 }],
+      buyer: { email: 'ada@example.com' },
+    });
+    const created = await json<Record<string, unknown> & { id: string }>(createdResponse);
+
+    expect(createdResponse.status).toBe(201);
+    expect(created).toMatchObject({
+      id: expect.stringMatching(/^cart_/),
+      line_items: [{ item: { id: 'sku-1' }, quantity: 2, name: 'Test variant' }],
+      buyer: { email: 'ada@example.com' },
+      currency: 'eur',
+      totals: expect.arrayContaining([{ type: 'total', display_text: 'Total', amount: 2000 }]),
+      messages: [],
+      expires_at: expect.any(String),
+    });
+
+    const replaced = await json<{ line_items: Array<{ item: { id: string }; quantity: number }> }>(
+      await send('PUT', `/carts/${created.id}`, { line_items: [{ id: 'sku-2', quantity: 1 }] }),
+    );
+
+    expect(replaced.line_items.map((lineItem) => [lineItem.item.id, lineItem.quantity])).toEqual([['sku-2', 1]]);
+    expect((await send('GET', `/carts/${created.id}`, undefined, 'token-b')).status).toBe(404);
+
+    const canceled = await send('POST', `/carts/${created.id}/cancel`);
+
+    expect(canceled.status).toBe(200);
+    await expect(canceled.json()).resolves.toMatchObject({ id: created.id });
+    expect((await send('GET', `/carts/${created.id}`)).status).toBe(404);
+    expect((await send('POST', '/carts', { line_items: [] })).status).toBe(400);
   });
 
   it('records intent traces on cancel without returning them', async () => {
