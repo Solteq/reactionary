@@ -1,4 +1,4 @@
-import type { MyCartUpdateAction } from '@commercetools/platform-sdk';
+import type { Cart as CTCart, MyCartUpdateAction, ShippingMethod as CTShippingMethod } from '@commercetools/platform-sdk';
 import { PROTOCOL_DATA_FIELD, serializeProtocolData } from '../core/payment-protocol-data.js';
 import type {
   Cache,
@@ -47,6 +47,30 @@ import { type CommercetoolsCheckoutIdentifier } from '../schema/commercetools.sc
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { CommercetoolsCheckoutFactory } from '../factories/checkout/checkout.factory.js';
 import { getLanguageCodeFromLocale } from '../core/locale-utils.js';
+
+/**
+ * Quotes a matching shipping rate as free when the cart reaches the rate's
+ * free-above threshold, as commercetools charges once the method is set:
+ * shipping is free if the sum of the (custom) line item prices reaches it.
+ */
+function withFreeShipping(shippingMethod: CTShippingMethod, cart: CTCart): CTShippingMethod {
+  const itemsTotal = [...cart.lineItems, ...cart.customLineItems]
+    .reduce((sum, item) => sum + item.totalPrice.centAmount, 0);
+
+  return {
+    ...shippingMethod,
+    zoneRates: shippingMethod.zoneRates.map((zoneRate) => ({
+      ...zoneRate,
+      shippingRates: zoneRate.shippingRates.map((rate) =>
+        rate.isMatching
+          && rate.freeAbove
+          && rate.freeAbove.currencyCode === cart.totalPrice.currencyCode
+          && itemsTotal >= rate.freeAbove.centAmount
+          ? { ...rate, price: { ...rate.price, centAmount: 0 } }
+          : rate),
+    })),
+  };
+}
 
 export class CheckoutNotReadyForFinalizationError extends Error {
   constructor(public checkoutIdentifier: CheckoutIdentifier) {
@@ -269,17 +293,20 @@ export class CommercetoolsCheckoutCapability<
     payload: CheckoutQueryForAvailableShippingMethods
   ): Promise<Result<CheckoutFactoryShippingMethodOutput<TFactory>[]>> {
     const client = await this.getClient();
-    const shippingMethodsResponse = await client.shippingMethods
-      .matchingCart()
-      .get({
-        queryArgs: {
-          cartId: payload.checkout.key,
-        },
-      })
-      .execute();
+    const [shippingMethodsResponse, cartResponse] = await Promise.all([
+      client.shippingMethods
+        .matchingCart()
+        .get({
+          queryArgs: {
+            cartId: payload.checkout.key,
+          },
+        })
+        .execute(),
+      client.carts.withId({ ID: payload.checkout.key }).get().execute(),
+    ]);
 
     const result = shippingMethodsResponse.body.results.map((shippingMethod) =>
-      this.factory.parseShippingMethod(this.context, shippingMethod),
+      this.factory.parseShippingMethod(this.context, withFreeShipping(shippingMethod, cartResponse.body)),
     );
 
     return success(result);
