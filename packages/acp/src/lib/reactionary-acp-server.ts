@@ -174,6 +174,12 @@ export interface ReactionaryACPServerOptions {
     lastTouch?: ACPAffiliateAttribution;
   }) => void | Promise<void>;
   /**
+   * Marketing consent (marketing consent RFC): channels offered to the
+   * buyer on every session, and where the buyer's decisions go once the
+   * order exists. Unset, no consent is offered.
+   */
+  marketingConsent?: ACPMarketingConsentOptions;
+  /**
    * Receives the agent's reason for canceling a session (intent traces),
    * e.g. for conversion analytics. Traces are also kept on the session state
    * but never returned to agents.
@@ -248,6 +254,32 @@ export interface ACPAuthenticationOptions {
     instrument: ACPPaymentData['instrument'];
     amount: MonetaryAmount;
   }): ACPAuthenticationMetadata | undefined | Promise<ACPAuthenticationMetadata | undefined>;
+}
+
+export interface ACPMarketingConsentChannel {
+  /** e.g. `email`, `sms`, `whatsapp`. */
+  channel: string;
+  /** What the buyer consents to receive. */
+  display_text: string;
+  privacy_policy_url: string;
+}
+
+export interface ACPMarketingConsentOptions {
+  channels: ACPMarketingConsentChannel[];
+  /**
+   * Whether the contact is already subscribed on the channel, so agents
+   * pre-check the box. Defaults to not subscribed.
+   */
+  isSubscribed?(contact: string, channel: string): boolean | Promise<boolean>;
+  /**
+   * Receives the buyer's decisions for offered channels, with the contact
+   * they apply to. Channels the agent did not surface are left out, which
+   * preserves their current state.
+   */
+  onConsents(
+    consents: Array<{ channel: string; opted_in: boolean; contact: string }>,
+    context: { orderId: string; checkoutSessionId: string; agentId?: string },
+  ): void | Promise<void>;
 }
 
 /** An authenticated agent (platform) calling the checkout API. */
@@ -917,6 +949,7 @@ export class ReactionaryACPServer<
     let current: ACPCheckoutSessionState = {
       ...state,
       buyer,
+      ...(input.marketing_consents ? { marketingConsents: input.marketing_consents } : {}),
       // Attribution is write-once: the first last-touch claim wins.
       ...(input.affiliate_attribution && !state.lastTouchAttribution
         ? { lastTouchAttribution: { ...input.affiliate_attribution, touchpoint: 'last' } }
@@ -1344,6 +1377,9 @@ export class ReactionaryACPServer<
             },
           }
         : {}),
+      ...(this.options.marketingConsent?.channels.length && persisted.status !== 'completed'
+        ? { marketing_consent_options: await this.getMarketingConsentOptions(persisted) }
+        : {}),
       ...(discountsActive && view.cart
         ? {
             discounts: toACPDiscounts(view.cart, persisted.discountCodes ?? [], persisted.rejectedDiscounts ?? [], toMinorUnits),
@@ -1466,6 +1502,7 @@ export class ReactionaryACPServer<
 
     await this.checkoutSessionStore.putOrder(record);
     await this.reportAttribution(state, record);
+    await this.reportMarketingConsents(state, record);
     await this.sendOrderEvent('order_create', record, client);
   }
 
@@ -1494,6 +1531,47 @@ export class ReactionaryACPServer<
       // Attribution tokens are secret, so the error is not logged with them.
       console.error(`ACP: onOrderAttribution failed for order ${record.id}.`);
     }
+  }
+
+  /**
+   * Passes the buyer's consent decisions on, once the order exists. Only
+   * offered channels with a resolvable contact count: email uses the buyer's
+   * email, falling back to the fulfillment email; sms and whatsapp the phone
+   * likewise (marketing consent RFC §3.5). Omitted channels are not consent.
+   */
+  private async reportMarketingConsents(state: ACPCheckoutSessionState, record: ACPOrderRecord): Promise<void> {
+    const options = this.options.marketingConsent;
+    const offered = new Set(options?.channels.map((channel) => channel.channel));
+    const consents = (state.marketingConsents ?? []).flatMap((consent) => {
+      const contact = getConsentContact(state, consent.channel);
+      return offered.has(consent.channel) && contact ? [{ channel: consent.channel, opted_in: consent.opted_in, contact }] : [];
+    });
+
+    if (!options || consents.length === 0) {
+      return;
+    }
+
+    try {
+      await options.onConsents(consents, {
+        orderId: record.id,
+        checkoutSessionId: record.checkoutSessionId,
+        ...(record.agentId ? { agentId: record.agentId } : {}),
+      });
+    } catch (error) {
+      console.error(`ACP: marketing consents for order ${record.id} could not be recorded:`, error);
+    }
+  }
+
+  /** The offered marketing channels, with the buyer's subscription state. */
+  private async getMarketingConsentOptions(state: ACPCheckoutSessionState): Promise<Record<string, unknown>[]> {
+    const options = this.options.marketingConsent;
+
+    return Promise.all((options?.channels ?? []).map(async (channel) => {
+      const contact = getConsentContact(state, channel.channel);
+      const subscribed = contact && options?.isSubscribed ? await options.isSubscribed(contact, channel.channel) : false;
+
+      return { ...channel, is_subscribed: subscribed };
+    }));
   }
 
   private async sendOrderEvent(
@@ -1788,6 +1866,15 @@ function isRawCardCredential(credential: Record<string, unknown>): boolean {
   return credential['type'] === 'card'
     || credential['type'] === 'pan'
     || ['number', 'cvc', 'card_number'].some((field) => credential[field] !== undefined);
+}
+
+/** The buyer's contact for a marketing channel, if any. */
+function getConsentContact(state: ACPCheckoutSessionState, channel: string): string | undefined {
+  if (channel === 'email') {
+    return getContactEmail(state);
+  }
+
+  return channel === 'sms' || channel === 'whatsapp' ? getContactPhone(state) : undefined;
 }
 
 /** Rejected discount codes, as warnings at their submitted position. */
