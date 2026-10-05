@@ -1,4 +1,5 @@
 import {
+  CurrencySchema,
   createInitialRequestContext,
   getHttpProtocolResultAttributes,
   MemoryCache,
@@ -7,6 +8,7 @@ import {
   type Cache,
   type Cart,
   type Checkout,
+  type Currency,
   type Inventory,
   type LanguageContext,
   type PaymentMethod,
@@ -243,6 +245,15 @@ export class ReactionaryACPServer<
       requestContext.languageContext = requestedFeed.feed.languageContext;
     }
 
+    const currency = await this.resolveCheckoutCurrency(request);
+
+    if (currency) {
+      requestContext.languageContext = {
+        ...requestContext.languageContext,
+        currencyCode: currency,
+      };
+    }
+
     const client = this.clientFactory(requestContext);
     assertACPClient(client);
 
@@ -266,6 +277,26 @@ export class ReactionaryACPServer<
       : undefined;
 
     return state?.sessionId ?? getOrCreateSessionId(request);
+  }
+
+  /**
+   * The currency a checkout session is priced in: the one requested on its
+   * creation, which later requests for the session keep using.
+   */
+  private async resolveCheckoutCurrency(request: Request): Promise<Currency | undefined> {
+    const checkoutSessionId = getCheckoutSessionId(request, this.options.basePath);
+    let currency: unknown;
+
+    if (checkoutSessionId) {
+      currency = (await this.checkoutSessionStore.get(checkoutSessionId))?.currency;
+    } else if (request.method === 'POST' && getProtocolPathname(request, this.options.basePath) === '/checkout_sessions') {
+      const body: unknown = await request.clone().json().catch(() => undefined);
+      currency = typeof body === 'object' && body !== null ? Reflect.get(body, 'currency') : undefined;
+    }
+
+    const parsed = CurrencySchema.safeParse(typeof currency === 'string' ? currency.toUpperCase() : undefined);
+
+    return parsed.success ? parsed.data : undefined;
   }
 
   public getHandler(): ReactionaryACPHttpHandler {
@@ -540,11 +571,12 @@ export class ReactionaryACPServer<
     requestContext: RequestContext,
     sessionId: string,
   ): Promise<Response> {
-    const cart = await this.createCartForItems(input.items, client);
+    const cart = await this.createCartForItems(input.line_items, client);
     const state: ACPCheckoutSessionState = {
       id: `checkout_session_${crypto.randomUUID()}`,
       sessionId,
       cartId: cart.identifier.key,
+      currency: input.currency.toLowerCase(),
       status: 'not_ready_for_payment',
       buyer: input.buyer,
       fulfillmentAddress: input.fulfillment_address,
@@ -574,8 +606,8 @@ export class ReactionaryACPServer<
 
     const updatedState: ACPCheckoutSessionState = {
       ...state,
-      cartId: input.items
-        ? (await this.createCartForItems(input.items, client)).identifier.key
+      cartId: input.line_items
+        ? (await this.createCartForItems(input.line_items, client)).identifier.key
         : state.cartId,
       buyer: input.buyer ?? state.buyer,
       fulfillmentAddress: input.fulfillment_address ?? state.fulfillmentAddress,
@@ -700,13 +732,18 @@ export class ReactionaryACPServer<
     client: ValidatedReactionaryACPClient,
   ): Promise<Cart> {
     let cart = await unwrapACPResult(client.cart.createCart({}));
+    const quantities = new Map<string, number>();
 
     for (const item of items) {
+      quantities.set(item.id, (quantities.get(item.id) ?? 0) + (item.quantity ?? 1));
+    }
+
+    for (const [sku, quantity] of quantities) {
       cart = await unwrapACPResult(
         client.cart.add({
           cart: cart.identifier,
-          variant: { sku: item.id },
-          quantity: item.quantity,
+          variant: { sku },
+          quantity,
         }),
       );
     }

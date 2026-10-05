@@ -151,7 +151,8 @@ new ReactionaryACPServer(createClient, {
 
 ## Mapping notes
 
-- ACP item `id` maps to Reactionary `ProductVariantIdentifier.sku`.
+- ACP item `id` maps to Reactionary `ProductVariantIdentifier.sku`. Requests send `line_items`; an item's optional `quantity` (decimal, default 1) is outside the 2026-04-17 `Item` schema but accepted as the checkout RFC sends it, and repeated ids add up.
+- The create request's `currency` sets the request context currency for the session's lifetime.
 - ACP amounts are returned as integer minor units.
 - ACP product feed variant `price` comes from `price.getCustomerPrice`, which includes active customer/global campaign prices and can fall back to list prices in providers.
 - ACP product feed variant `list_price` comes from `price.getListPrice`.
