@@ -167,6 +167,12 @@ export interface ReactionaryACPServerOptions {
    */
   interventions?: ACPInterventionOptions;
   /**
+   * Whether orders need a fulfillment option. When the backend offers none
+   * for an address, the session cannot become payable. Defaults to true;
+   * disable it for stores selling only goods that need no shipping.
+   */
+  requireFulfillment?: boolean;
+  /**
    * Checks line items against these fulfillment centers' combined stock,
    * reporting `out_of_stock` per line item. Unset, stock is left to the
    * backend.
@@ -1101,7 +1107,7 @@ export class ReactionaryACPServer<
         cart,
         price: cart.price,
         options: [],
-        messages: [...stockMessages, ...getInputMessages(state, [], false)],
+        messages: [...stockMessages, ...getInputMessages(state, [], false, this.options.requireFulfillment ?? true)],
         status: 'not_ready_for_payment',
       };
     }
@@ -1136,7 +1142,7 @@ export class ReactionaryACPServer<
       const messages = [
         ...stockMessages,
         ...this.getInterventionMessages(state),
-        ...getInputMessages(state, options, true),
+        ...getInputMessages(state, options, true, this.options.requireFulfillment ?? true),
       ];
       const ready = messages.every((message) => message.type !== 'error');
 
@@ -1439,6 +1445,7 @@ function getInputMessages(
   state: ACPCheckoutSessionState,
   options: ShippingMethod[],
   hasAddress: boolean,
+  requireFulfillment: boolean,
 ): ACPMessage[] {
   const messages: ACPMessage[] = [];
   const missing = (param: string, content: string): ACPMessage => ({
@@ -1471,6 +1478,16 @@ function getInputMessages(
     });
   } else if (options.length > 0 && !state.fulfillmentOptionId) {
     messages.push(missing('$.selected_fulfillment_options', 'A fulfillment option must be selected.'));
+  } else if (options.length === 0 && hasAddress && requireFulfillment) {
+    // Without a shipping method the order could not be fulfilled.
+    messages.push({
+      type: 'error',
+      code: 'region_restricted',
+      param: '$.fulfillment_details.address',
+      content_type: 'plain',
+      content: 'No fulfillment option is available for this address.',
+      resolution: 'requires_buyer_input',
+    });
   }
 
   return messages;

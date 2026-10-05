@@ -769,6 +769,28 @@ describe('ReactionaryACPServer', () => {
       .toThrow('{orderId}');
   });
 
+  it('requires a fulfillment option unless the store needs none', async () => {
+    const statusOf = async (requireFulfillment: boolean | undefined) => {
+      const server = new ReactionaryACPServer(() => createTestClient({ noShippingMethods: true }), {
+        sessionCache: new MemoryCache(),
+        ...(requireFulfillment === undefined ? {} : { requireFulfillment }),
+      });
+      return json<{ status: string; messages: unknown[] }>(await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+        line_items: [{ id: 'sku-1' }],
+        currency: 'eur',
+        capabilities: agentCapabilities,
+        buyer: { email: 'ada@example.com' },
+        fulfillment_details: fulfillmentDetails,
+      })));
+    };
+
+    const strict = await statusOf(undefined);
+
+    expect(strict.status).toBe('not_ready_for_payment');
+    expect(strict.messages).toEqual([expect.objectContaining({ code: 'region_restricted', param: '$.fulfillment_details.address' })]);
+    await expect(statusOf(false)).resolves.toMatchObject({ status: 'ready_for_payment', messages: [] });
+  });
+
   it('creates a session without buyer data and no backend checkout', async () => {
     const initiated: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient({ initiated }), {
@@ -1010,6 +1032,7 @@ function createTestClient(options: {
   declinePayments?: boolean;
   currency?: Currency;
   unknownSkus?: string[];
+  noShippingMethods?: boolean;
   failCartCreation?: boolean;
 } = {}): ReactionaryACPClient {
   const withReadiness = (checkout: Checkout): Checkout => ({
@@ -1088,6 +1111,9 @@ function createTestClient(options: {
         return success(checkout);
       },
       async getAvailableShippingMethods() {
+        if (options.noShippingMethods) {
+          return success([]);
+        }
         return success([
           {
             identifier: { key: 'standard' },
