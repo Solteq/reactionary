@@ -1230,6 +1230,54 @@ describe('ReactionaryACPServer', () => {
     await expect(invalid.json()).resolves.toMatchObject({ param: '$.affiliate_attribution.token' });
   });
 
+  it('offers marketing consent and reports the buyer decisions with the order', async () => {
+    const recorded: unknown[] = [];
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      sessionCache: new MemoryCache(),
+      paymentHandlers,
+      paymentAuthorizationWait: { timeoutMs: 0 },
+      marketingConsent: {
+        channels: [
+          { channel: 'email', display_text: 'Product news and offers', privacy_policy_url: 'https://shop.example/privacy' },
+          { channel: 'sms', display_text: 'Order deals by text', privacy_policy_url: 'https://shop.example/privacy' },
+        ],
+        isSubscribed: (contact, channel) => contact === 'ada@example.com' && channel === 'email',
+        onConsents: (consents, context) => {
+          recorded.push({ consents, context });
+        },
+      },
+    });
+    const created = await json<Record<string, unknown> & { id: string }>(await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1' }],
+      currency: 'eur',
+      capabilities: agentCapabilities,
+      buyer: { email: 'ada@example.com' },
+      fulfillment_details: fulfillmentDetails,
+    })));
+    const url = `http://127.0.0.1/checkout_sessions/${created.id}`;
+
+    expect(created['marketing_consent_options']).toEqual([
+      { channel: 'email', display_text: 'Product news and offers', privacy_policy_url: 'https://shop.example/privacy', is_subscribed: true },
+      { channel: 'sms', display_text: 'Order deals by text', privacy_policy_url: 'https://shop.example/privacy', is_subscribed: false },
+    ]);
+
+    await server.fetch(jsonRequest(url, selectStandardShipping));
+    await server.fetch(jsonRequest(`${url}/complete`, {
+      payment_data: cardPayment('spt_1'),
+      // sms has no phone to apply to, and push was never offered.
+      marketing_consents: [
+        { channel: 'email', opted_in: false },
+        { channel: 'sms', opted_in: true },
+        { channel: 'push', opted_in: true },
+      ],
+    }));
+
+    expect(recorded).toEqual([{
+      consents: [{ channel: 'email', opted_in: false, contact: 'ada@example.com' }],
+      context: { orderId: 'order-1', checkoutSessionId: created.id },
+    }]);
+  });
+
   it('records intent traces on cancel without returning them', async () => {
     const traces: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient(), {
