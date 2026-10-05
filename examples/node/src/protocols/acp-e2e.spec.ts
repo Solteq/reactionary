@@ -51,10 +51,11 @@ interface AcpLineItem {
   id: string;
   item: {
     id: string;
-    quantity: number;
   };
-  base_amount: number;
-  total: number;
+  quantity: number;
+  name?: string;
+  unit_amount: number;
+  totals: AcpTotal[];
 }
 
 interface AcpFulfillmentOption {
@@ -240,8 +241,10 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           psp: 'stripe',
         });
         expect(created.line_items.length).toBe(1);
-        expect(created.line_items[0].item).toEqual({ id: sku, quantity: 1 });
-        expect(created.line_items[0].total).toBeGreaterThan(0);
+        expect(created.line_items[0].item).toEqual({ id: sku });
+        expect(created.line_items[0].quantity).toBe(1);
+        expect(created.line_items[0].name).toBeTruthy();
+        expect(created.line_items[0].totals.find((total) => total.type === 'total')?.amount).toBeGreaterThan(0);
         expect(created.totals.find((total) => total.type === 'total')?.amount).toBeGreaterThan(0);
         expect(created.links).toEqual([
           { type: 'terms_of_use', url: 'https://shop.example.com/terms' },
@@ -264,7 +267,8 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
         );
 
         expect(updatedItems.status).toBe(200);
-        expect(updatedItems.body.line_items[0].item).toEqual({ id: sku, quantity: 2 });
+        expect(updatedItems.body.line_items[0].item).toEqual({ id: sku });
+        expect(updatedItems.body.line_items[0].quantity).toBe(2);
 
         // 4. The buyer picks a fulfillment option when the backend offers any.
         const fulfillmentOption = updatedItems.body.fulfillment_options.find(

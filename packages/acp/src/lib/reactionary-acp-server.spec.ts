@@ -213,15 +213,21 @@ describe('ReactionaryACPServer', () => {
     expect(created).toMatchObject({
       status: 'not_ready_for_payment',
       currency: 'eur',
-        capabilities: agentCapabilities,
       fulfillment_options: [{ id: 'standard' }],
       line_items: [
         {
-          item: {
-            id: 'sku-1',
-            quantity: 2,
-          },
-          total: 2000,
+          item: { id: 'sku-1' },
+          quantity: 2,
+          name: 'Test variant',
+          images: ['https://cdn.example/sku-1.png'],
+          unit_amount: 1000,
+          product_id: 'product-1',
+          sku: 'sku-1',
+          totals: [
+            { type: 'items_base_amount', display_text: 'Base Amount', amount: 2000 },
+            { type: 'subtotal', display_text: 'Subtotal', amount: 2000 },
+            { type: 'total', display_text: 'Total', amount: 2000 },
+          ],
         },
       ],
     });
@@ -285,7 +291,7 @@ describe('ReactionaryACPServer', () => {
 
     expect(response.status).toBe(201);
     expect(created).toMatchObject({
-      line_items: [{ item: { id: 'sku-1', quantity: 2.5 } }],
+      line_items: [{ item: { id: 'sku-1' }, quantity: 2.5 }],
     });
 
     await server.fetch(getRequest(`http://127.0.0.1/checkout_sessions/${created.id}`));
@@ -513,7 +519,7 @@ describe('ReactionaryACPServer', () => {
     await expect(response.json()).resolves.toMatchObject({
       status: 'not_ready_for_payment',
       fulfillment_options: [],
-      line_items: [{ item: { id: 'sku-1', quantity: 1 } }],
+      line_items: [{ item: { id: 'sku-1' }, quantity: 1 }],
     });
     expect(initiated).toEqual([]);
   });

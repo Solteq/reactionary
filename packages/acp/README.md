@@ -156,6 +156,7 @@ new ReactionaryACPServer(createClient, {
 - Create requests must declare the agent's `capabilities`. Every session response returns the negotiated `capabilities`: `interventions.supported` is the intersection of the agent's declaration with the `interventions` server option (none by default), plus the seller's `required` interventions and `enforcement`. A required intervention the agent lacks, enforced `always`, blocks the session with an `intervention_required` message.
 - The create request's `currency` sets the request context currency for the session's lifetime.
 - ACP amounts are returned as integer minor units.
+- Line items report `item.id` (the SKU), `quantity`, `unit_amount` and a `totals[]` breakdown (`items_base_amount`, `discount`, `subtotal`, `total`), plus `name`, `description`, `images`, `product_id`, `sku` and `variant_options` from `product.getBySKU`. Per-line tax is not known to the cart and is not reported.
 - ACP product feed variant `price` comes from `price.getCustomerPrice`, which includes active customer/global campaign prices and can fall back to list prices in providers.
 - ACP product feed variant `list_price` comes from `price.getListPrice`.
 - ACP product feed availability comes from `inventory.getBySKU`.

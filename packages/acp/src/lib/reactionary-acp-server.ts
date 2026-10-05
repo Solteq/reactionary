@@ -945,6 +945,7 @@ export class ReactionaryACPServer<
       : await this.priceSession(state, client);
     const persisted: ACPCheckoutSessionState = { ...state, status: view.status };
     const lineItems = view.checkout?.items ?? view.cart?.items ?? [];
+    const products = await getProducts(lineItems.map((item) => item.variant.sku), client);
 
     await this.checkoutSessionStore.put(persisted.id, persisted);
 
@@ -954,7 +955,7 @@ export class ReactionaryACPServer<
       ...(persisted.buyer ? { buyer: persisted.buyer } : {}),
       status: persisted.status,
       currency: getCurrency(view.price, requestContext),
-      line_items: lineItems.map(toACPLineItem),
+      line_items: lineItems.map((item) => toACPLineItem(item, products.get(item.variant.sku))),
       ...(persisted.fulfillmentDetails
         ? { fulfillment_details: persisted.fulfillmentDetails }
         : {}),
@@ -1083,6 +1084,24 @@ interface ACPSessionView {
   price: Checkout['price'];
   options: ShippingMethod[];
   status: ACPCheckoutSessionState['status'];
+}
+
+/** The products of the given SKUs, for line item display fields. */
+async function getProducts(
+  skus: string[],
+  client: ValidatedReactionaryACPClient,
+): Promise<Map<string, Product>> {
+  const products = new Map<string, Product>();
+
+  await Promise.all([...new Set(skus)].map(async (sku) => {
+    const result = await client.product.getBySKU({ variant: { sku } });
+
+    if (result.success) {
+      products.set(sku, result.value);
+    }
+  }));
+
+  return products;
 }
 
 /** A credential carrying card account data rather than a token. */
@@ -1455,22 +1474,45 @@ function getCurrency(
   ).toLowerCase();
 }
 
-function toACPLineItem(item: Checkout['items'][number] | Cart['items'][number]): Record<string, unknown> {
+/**
+ * A 2026-04-17 line item: quantity and a totals breakdown, plus display
+ * fields from the product. Per-line tax is not known to the cart, so no tax
+ * entry is reported per line.
+ */
+function toACPLineItem(
+  item: Checkout['items'][number] | Cart['items'][number],
+  product: Product | undefined,
+): Record<string, unknown> {
+  const sku = item.variant.sku;
+  const variant = product
+    ? [product.mainVariant, ...product.variants].find((candidate) => candidate.identifier.sku === sku)
+    : undefined;
   const baseAmount = toMinorUnits(item.price.unitPrice.value * item.quantity);
   const discount = toMinorUnits(item.price.totalDiscount.value);
-  const total = toMinorUnits(item.price.totalPrice.value);
+  const images = (variant?.images ?? product?.mainVariant.images ?? [])
+    .map((image) => image.sourceUrl)
+    .filter((url) => url.length > 0);
+  const name = variant?.name || product?.name;
 
   return {
     id: item.identifier.key,
-    item: {
-      id: item.variant.sku,
-      quantity: item.quantity,
-    },
-    base_amount: baseAmount,
-    discount,
-    subtotal: Math.max(baseAmount - discount, 0),
-    tax: 0,
-    total,
+    item: { id: sku },
+    quantity: item.quantity,
+    ...(name ? { name } : {}),
+    ...(product?.description ? { description: product.description } : {}),
+    ...(images.length > 0 ? { images } : {}),
+    unit_amount: toMinorUnits(item.price.unitPrice.value),
+    ...(product ? { product_id: product.identifier.key } : {}),
+    sku,
+    ...(variant && variant.options.length > 0
+      ? { variant_options: variant.options.map((option) => ({ name: option.name, value: option.value.label })) }
+      : {}),
+    totals: [
+      { type: 'items_base_amount', display_text: 'Base Amount', amount: baseAmount },
+      ...(discount > 0 ? [{ type: 'discount', display_text: 'Discount', amount: discount }] : []),
+      { type: 'subtotal', display_text: 'Subtotal', amount: Math.max(baseAmount - discount, 0) },
+      { type: 'total', display_text: 'Total', amount: toMinorUnits(item.price.totalPrice.value) },
+    ],
   };
 }
 
