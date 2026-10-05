@@ -1130,6 +1130,56 @@ describe('ReactionaryACPServer', () => {
     });
   });
 
+  it('applies discount codes when the agent declares the discount extension', async () => {
+    const client = createTestClient({ couponCodes: ['SAVE10'] });
+    const server = new ReactionaryACPServer(() => client, { sessionCache: new MemoryCache() });
+    const create = (extensions: string[]) => server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1', quantity: 2 }],
+      currency: 'eur',
+      capabilities: { interventions: { supported: [] }, extensions },
+      discounts: { codes: ['save10', 'BOGUS'] },
+    }));
+
+    const created = await json<Record<string, unknown> & { id: string }>(await create(['discount']));
+
+    expect(created['capabilities']).toMatchObject({ extensions: [{ name: 'discount', extends: expect.arrayContaining(['$.CheckoutSession.discounts']) }] });
+    expect(created['discounts']).toEqual({
+      codes: ['save10', 'BOGUS'],
+      applied: [{
+        id: 'discount_1',
+        code: 'SAVE10',
+        coupon: { id: 'SAVE10', name: '10% off', amount_off: 200, currency: 'eur' },
+        amount: 200,
+        automatic: false,
+        method: 'each',
+        allocations: [{ path: '$.line_items[0]', amount: 200 }],
+      }],
+      rejected: [{ code: 'BOGUS', reason: 'discount_code_invalid', message: "Discount code 'BOGUS' could not be applied." }],
+    });
+    expect(created['messages']).toContainEqual(expect.objectContaining({
+      type: 'warning',
+      code: 'discount_code_invalid',
+      param: '$.discounts.codes[1]',
+    }));
+
+    const cleared = await json<Record<string, unknown>>(await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, { discounts: { codes: [] } }),
+    ));
+
+    expect(cleared['discounts']).toEqual({ codes: [], applied: [], rejected: [] });
+
+    const undeclared = await json<Record<string, unknown>>(await create([]));
+
+    expect(undeclared['discounts']).toBeUndefined();
+    expect(undeclared['capabilities']).not.toHaveProperty('extensions');
+
+    const discovery = await json<{ capabilities: Record<string, unknown> }>(
+      await server.fetch(new Request('https://shop.example.com/.well-known/acp.json')),
+    );
+
+    expect(discovery.capabilities['extensions']).toEqual([{ name: 'discount' }]);
+  });
+
   it('waits for an asynchronous payment authorization before answering', async () => {
     const notReady = new Set<string>(['all']);
     const server = new ReactionaryACPServer(() => createTestClient({ notReady }), {
@@ -1291,6 +1341,7 @@ function createTestClient(options: {
   cartCalls?: string[];
   inPlaceCartUpdates?: boolean;
   orderStatus?: Order['orderStatus'];
+  couponCodes?: string[];
   failCartCreation?: boolean;
 } = {}): ReactionaryACPClient & ReactionaryFeedClient {
   const withReadiness = (checkout: Checkout): Checkout => ({
@@ -1351,6 +1402,30 @@ function createTestClient(options: {
         carts.delete(deletePayload.cart.key);
         return success(undefined);
       },
+      ...(options.couponCodes
+        ? {
+            async applyCouponCode(payload: unknown) {
+              const coupon = payload as { cart: { key: string }; couponCode: string };
+              const cart = carts.get(coupon.cart.key);
+              if (!cart || !options.couponCodes?.includes(coupon.couponCode)) {
+                return error<GenericError>({ type: 'Generic', message: 'unknown code' });
+              }
+              const discounted = withCoupon(cart, coupon.couponCode);
+              carts.set(discounted.identifier.key, discounted);
+              return success(discounted);
+            },
+            async removeCouponCode(payload: unknown) {
+              const coupon = payload as { cart: { key: string } };
+              const cart = carts.get(coupon.cart.key) ?? createCart(coupon.cart.key, [], options.currency);
+              const plain = createCart(cart.identifier.key, cart.items.map((item) => ({
+                sku: item.variant.sku,
+                quantity: item.quantity,
+              })), options.currency);
+              carts.set(plain.identifier.key, plain);
+              return success(plain);
+            },
+          }
+        : {}),
       ...(options.inPlaceCartUpdates
         ? {
             async changeQuantity(payload: unknown) {
@@ -1516,6 +1591,30 @@ function createCart(
     },
     appliedPromotions: [],
     description: '',
+  };
+}
+
+/** A cart with a 10% line discount from a coupon. */
+function withCoupon(cart: Cart, code: string): Cart {
+  const items = cart.items.map((item) => ({
+    ...item,
+    price: {
+      ...item.price,
+      totalDiscount: { value: item.price.totalPrice.value * 0.1, currency: item.price.totalPrice.currency },
+      totalPrice: { value: item.price.totalPrice.value * 0.9, currency: item.price.totalPrice.currency },
+    },
+  }));
+  const discount = items.reduce((sum, item) => sum + item.price.totalDiscount.value, 0);
+
+  return {
+    ...cart,
+    items,
+    price: {
+      ...cart.price,
+      totalDiscount: { value: discount, currency: cart.price.grandTotal.currency },
+      grandTotal: { value: cart.price.grandTotal.value - discount, currency: cart.price.grandTotal.currency },
+    },
+    appliedPromotions: [{ code, isCouponCode: true, name: '10% off', description: '' }],
   };
 }
 
