@@ -33,7 +33,9 @@ import {
   ACPUpdateCheckoutSessionRequestSchema,
   ACP_INTERVENTION_TYPES,
   ACPOrderRecordSchema,
+  ACPAffiliateAttributionSchema,
   ACPCancelCheckoutSessionRequestSchema,
+  type ACPAffiliateAttribution,
   ACP_AUTHENTICATED_OUTCOMES,
   type ACPCancelCheckoutSessionRequest,
   type ACPIntentTrace,
@@ -158,6 +160,19 @@ export interface ReactionaryACPServerOptions {
    * `3ds` in `interventions.supported` for agents to know.
    */
   authentication?: ACPAuthenticationOptions;
+  /**
+   * Receives an order's affiliate attribution (first touch from session
+   * creation, last touch from completion) once the order exists, for the
+   * affiliate network. Attribution is write-only: never returned to agents
+   * or sent in webhooks.
+   */
+  onOrderAttribution?: (attribution: {
+    orderId: string;
+    checkoutSessionId: string;
+    agentId?: string;
+    firstTouch?: ACPAffiliateAttribution;
+    lastTouch?: ACPAffiliateAttribution;
+  }) => void | Promise<void>;
   /**
    * Receives the agent's reason for canceling a session (intent traces),
    * e.g. for conversion analytics. Traces are also kept on the session state
@@ -796,6 +811,9 @@ export class ReactionaryACPServer<
       cartId: cart.identifier.key,
       currency: input.currency.toLowerCase(),
       agentCapabilities: input.capabilities,
+      ...(input.affiliate_attribution
+        ? { firstTouchAttribution: { ...input.affiliate_attribution, touchpoint: 'first' } }
+        : {}),
       status: 'not_ready_for_payment',
       buyer: input.buyer,
       fulfillmentDetails: input.fulfillment_details,
@@ -896,7 +914,14 @@ export class ReactionaryACPServer<
     }
 
     const buyer = mergeBuyer(state.buyer, input.buyer);
-    let current: ACPCheckoutSessionState = { ...state, buyer };
+    let current: ACPCheckoutSessionState = {
+      ...state,
+      buyer,
+      // Attribution is write-once: the first last-touch claim wins.
+      ...(input.affiliate_attribution && !state.lastTouchAttribution
+        ? { lastTouchAttribution: { ...input.affiliate_attribution, touchpoint: 'last' } }
+        : {}),
+    };
 
     if (!current.checkoutId) {
       const handler = this.resolvePaymentHandler(input.payment_data);
@@ -1440,7 +1465,35 @@ export class ReactionaryACPServer<
     };
 
     await this.checkoutSessionStore.putOrder(record);
+    await this.reportAttribution(state, record);
     await this.sendOrderEvent('order_create', record, client);
+  }
+
+  /**
+   * Reports the order's affiliate attribution once it exists: first touch
+   * from the session's creation, last touch from its completion. A failing
+   * hook never blocks the checkout.
+   */
+  private async reportAttribution(state: ACPCheckoutSessionState, record: ACPOrderRecord): Promise<void> {
+    const firstTouch = ACPAffiliateAttributionSchema.safeParse(state.firstTouchAttribution);
+    const lastTouch = ACPAffiliateAttributionSchema.safeParse(state.lastTouchAttribution);
+
+    if (!this.options.onOrderAttribution || (!firstTouch.success && !lastTouch.success)) {
+      return;
+    }
+
+    try {
+      await this.options.onOrderAttribution({
+        orderId: record.id,
+        checkoutSessionId: record.checkoutSessionId,
+        ...(record.agentId ? { agentId: record.agentId } : {}),
+        ...(firstTouch.success ? { firstTouch: firstTouch.data } : {}),
+        ...(lastTouch.success ? { lastTouch: lastTouch.data } : {}),
+      });
+    } catch {
+      // Attribution tokens are secret, so the error is not logged with them.
+      console.error(`ACP: onOrderAttribution failed for order ${record.id}.`);
+    }
   }
 
   private async sendOrderEvent(

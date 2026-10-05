@@ -72,6 +72,38 @@ export const ACPSelectedFulfillmentOptionSchema = z.object({
   item_ids: z.array(z.string()),
 });
 
+/** Flat, non-sensitive context: string, number or boolean values. */
+const ACPFlatMetadataSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+  .refine((metadata) => Object.keys(metadata).length <= 20, { error: 'metadata may hold at most 20 keys' })
+  .refine((metadata) => JSON.stringify(metadata).length <= 4096, { error: 'metadata may be at most 4KB' });
+
+/**
+ * Affiliate attribution (affiliate attribution RFC): the provider plus a
+ * token or publisher id, first-touch on creation and last-touch on
+ * completion. Write-only.
+ */
+export const ACPAffiliateAttributionSchema = z.object({
+  provider: z.string().min(1),
+  token: z.string().optional(),
+  publisher_id: z.string().optional(),
+  campaign_id: z.string().optional(),
+  creative_id: z.string().optional(),
+  sub_id: z.string().optional(),
+  source: z.object({
+    type: z.enum(['url', 'platform', 'unknown']),
+    url: z.url().optional(),
+  }).optional(),
+  issued_at: z.iso.datetime({ offset: true }).optional(),
+  expires_at: z.iso.datetime({ offset: true }).optional(),
+  metadata: ACPFlatMetadataSchema.optional(),
+  touchpoint: z.enum(['first', 'last']).optional(),
+}).refine(
+  (attribution) => attribution.token !== undefined || attribution.publisher_id !== undefined,
+  { error: 'token or publisher_id is required', path: ['token'] },
+);
+
+export type ACPAffiliateAttribution = z.infer<typeof ACPAffiliateAttributionSchema>;
+
 export const ACP_INTERVENTION_TYPES = ['3ds', 'biometric', 'address_verification'] as const;
 export type ACPInterventionType = (typeof ACP_INTERVENTION_TYPES)[number];
 
@@ -92,6 +124,7 @@ export const ACPAgentCapabilitiesSchema = z.object({
 
 export const ACPCreateCheckoutSessionRequestSchema = z.object({
   capabilities: ACPAgentCapabilitiesSchema,
+  affiliate_attribution: ACPAffiliateAttributionSchema.optional(),
   discounts: ACPDiscountsRequestSchema.optional(),
   /** Deprecated alias of `discounts.codes`. */
   coupons: z.array(z.string().min(1)).optional(),
@@ -183,6 +216,7 @@ export const ACPCompleteCheckoutSessionRequestSchema = z.object({
   buyer: ACPBuyerSchema.optional(),
   payment_data: ACPPaymentDataSchema,
   authentication_result: ACPAuthenticationResultSchema.optional(),
+  affiliate_attribution: ACPAffiliateAttributionSchema.optional(),
 });
 
 export const ACP_INTENT_TRACE_REASON_CODES = [
@@ -239,6 +273,9 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
     'canceled',
   ]),
   buyer: ACPBuyerSchema.optional(),
+  /** Affiliate attribution by touchpoint; write-only, never returned. */
+  firstTouchAttribution: z.looseObject({ provider: z.string() }).optional(),
+  lastTouchAttribution: z.looseObject({ provider: z.string() }).optional(),
   /** Why the agent canceled the session; write-only, never returned. */
   intentTrace: z.looseObject({
     reason_code: z.string(),
