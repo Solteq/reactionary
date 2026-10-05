@@ -185,6 +185,37 @@ export const ACPCompleteCheckoutSessionRequestSchema = z.object({
   authentication_result: ACPAuthenticationResultSchema.optional(),
 });
 
+export const ACP_INTENT_TRACE_REASON_CODES = [
+  'price_sensitivity',
+  'shipping_cost',
+  'shipping_speed',
+  'product_fit',
+  'trust_security',
+  'returns_policy',
+  'payment_options',
+  'comparison',
+  'timing_deferred',
+  'other',
+] as const;
+
+/**
+ * Why an agent abandons a session (intent traces RFC). Unknown reason codes
+ * are accepted and treated as `other`; metadata is a flat map.
+ */
+export const ACPIntentTraceSchema = z.object({
+  reason_code: z.string().min(1).transform((code) =>
+    (ACP_INTENT_TRACE_REASON_CODES as readonly string[]).includes(code) ? code : 'other'),
+  trace_summary: z.string().max(500).optional(),
+  metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+});
+
+export const ACPCancelCheckoutSessionRequestSchema = z.object({
+  intent_trace: ACPIntentTraceSchema.optional(),
+});
+
+export type ACPIntentTrace = z.output<typeof ACPIntentTraceSchema>;
+export type ACPCancelCheckoutSessionRequest = z.output<typeof ACPCancelCheckoutSessionRequestSchema>;
+
 export const ACPCheckoutSessionStateSchema = z.looseObject({
   id: z.string(),
   // The ACP session owning the backend cart, resumed for later requests.
@@ -208,6 +239,12 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
     'canceled',
   ]),
   buyer: ACPBuyerSchema.optional(),
+  /** Why the agent canceled the session; write-only, never returned. */
+  intentTrace: z.looseObject({
+    reason_code: z.string(),
+    trace_summary: z.string().optional(),
+    metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  }).optional(),
   /** Discount codes submitted (discount extension) and those rejected. */
   discountCodes: z.array(z.string()).optional(),
   rejectedDiscounts: z.array(ACPRejectedDiscountSchema).optional(),

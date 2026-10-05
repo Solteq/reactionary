@@ -33,7 +33,10 @@ import {
   ACPUpdateCheckoutSessionRequestSchema,
   ACP_INTERVENTION_TYPES,
   ACPOrderRecordSchema,
+  ACPCancelCheckoutSessionRequestSchema,
   ACP_AUTHENTICATED_OUTCOMES,
+  type ACPCancelCheckoutSessionRequest,
+  type ACPIntentTrace,
   type ACPAddress,
   type ACPAuthenticationMetadata,
   type ACPAgentCapabilities,
@@ -155,6 +158,15 @@ export interface ReactionaryACPServerOptions {
    * `3ds` in `interventions.supported` for agents to know.
    */
   authentication?: ACPAuthenticationOptions;
+  /**
+   * Receives the agent's reason for canceling a session (intent traces),
+   * e.g. for conversion analytics. Traces are also kept on the session state
+   * but never returned to agents.
+   */
+  onIntentTrace?: (
+    trace: ACPIntentTrace,
+    context: { checkoutSessionId: string; agentId?: string },
+  ) => void | Promise<void>;
   /**
    * Sends signed order events (`order_create` on placement, `order_update`
    * via `notifyOrderUpdated`) to the agents' webhook receivers, as ACP
@@ -747,7 +759,11 @@ export class ReactionaryACPServer<
     }
 
     if (isCheckoutSessionCancelRequest(request, this.options.basePath)) {
-      return this.cancelCheckoutSession(checkoutSessionId, client);
+      return this.cancelCheckoutSession(
+        checkoutSessionId,
+        await parseOptionalJsonBody(request, ACPCancelCheckoutSessionRequestSchema),
+        client,
+      );
     }
 
     return this.updateCheckoutSession(
@@ -963,6 +979,7 @@ export class ReactionaryACPServer<
 
   private async cancelCheckoutSession(
     checkoutSessionId: string,
+    input: ACPCancelCheckoutSessionRequest,
     client: ValidatedReactionaryACPClient,
   ): Promise<Response> {
     const state = await this.getRequiredCheckoutSessionState(checkoutSessionId);
@@ -979,10 +996,23 @@ export class ReactionaryACPServer<
       });
     }
 
+    // The trace is recorded but never returned (intent traces RFC §3.1);
+    // a failing hook does not stop the cancellation.
+    if (input.intent_trace) {
+      await Promise.resolve(this.options.onIntentTrace?.(input.intent_trace, {
+        checkoutSessionId: state.id,
+        ...(state.agentId ? { agentId: state.agentId } : {}),
+      }))?.catch((error: unknown) => console.error('ACP: onIntentTrace failed:', error));
+    }
+
     // Any non-terminal session can be canceled (lifecycle), including one
     // whose payment is awaiting authorization: it is then never finalized.
     return jsonResponse(
-      await this.toACPCheckoutSession({ ...state, status: 'canceled' }, client, undefined, [{
+      await this.toACPCheckoutSession({
+        ...state,
+        status: 'canceled',
+        ...(input.intent_trace ? { intentTrace: input.intent_trace } : {}),
+      }, client, undefined, [{
         type: 'info',
         content_type: 'plain',
         content: 'Checkout session has been canceled.',
@@ -2108,6 +2138,13 @@ async function parseJsonBody<T>(
   }
 
   return parsed.data;
+}
+
+/** A JSON body that may be absent, as on cancel. */
+async function parseOptionalJsonBody<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
+  const text = await request.clone().text();
+
+  return text.trim() ? parseJsonBody(request, schema) : schema.parse({});
 }
 
 /** An RFC 9535 JSONPath for a validation issue path, e.g. `$.line_items[0].id`. */

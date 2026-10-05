@@ -1180,6 +1180,64 @@ describe('ReactionaryACPServer', () => {
     expect(discovery.capabilities['extensions']).toEqual([{ name: 'discount' }]);
   });
 
+  it('records intent traces on cancel without returning them', async () => {
+    const traces: unknown[] = [];
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      sessionCache: new MemoryCache(),
+      onIntentTrace: (trace, context) => {
+        traces.push({ trace, context });
+      },
+    });
+    const create = async () => (await json<{ id: string }>(await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1' }],
+      currency: 'eur',
+      capabilities: agentCapabilities,
+    })))).id;
+
+    const first = await create();
+    const canceled = await server.fetch(jsonRequest(`http://127.0.0.1/checkout_sessions/${first}/cancel`, {
+      intent_trace: {
+        reason_code: 'shipping_cost',
+        trace_summary: 'Shipping was more than the buyer wanted to pay.',
+        metadata: { target_shipping_cost: 0, competitor_reference: 'elsewhere' },
+      },
+    }));
+    const canceledBody = await canceled.text();
+
+    expect(canceled.status).toBe(200);
+    expect(JSON.parse(canceledBody)).toMatchObject({ status: 'canceled' });
+    expect(canceledBody).not.toContain('intent_trace');
+    expect(await (await server.fetch(getRequest(`http://127.0.0.1/checkout_sessions/${first}`))).text()).not.toContain('shipping_cost');
+    expect(traces).toEqual([{
+      trace: {
+        reason_code: 'shipping_cost',
+        trace_summary: 'Shipping was more than the buyer wanted to pay.',
+        metadata: { target_shipping_cost: 0, competitor_reference: 'elsewhere' },
+      },
+      context: { checkoutSessionId: first },
+    }]);
+
+    const unknownReason = await server.fetch(jsonRequest(`http://127.0.0.1/checkout_sessions/${await create()}/cancel`, {
+      intent_trace: { reason_code: 'gift_card_only' },
+    }));
+
+    expect(unknownReason.status).toBe(200);
+    expect(traces.at(-1)).toMatchObject({ trace: { reason_code: 'other' } });
+
+    const nested = await server.fetch(jsonRequest(`http://127.0.0.1/checkout_sessions/${await create()}/cancel`, {
+      intent_trace: { reason_code: 'other', metadata: { nested: { not: 'allowed' } } },
+    }));
+
+    expect(nested.status).toBe(400);
+
+    const noBody = new Request(`http://127.0.0.1/checkout_sessions/${await create()}/cancel`, {
+      method: 'POST',
+      headers: { 'api-version': '2026-04-17', 'idempotency-key': crypto.randomUUID() },
+    });
+
+    expect((await server.fetch(noBody)).status).toBe(200);
+  });
+
   it('waits for an asynchronous payment authorization before answering', async () => {
     const notReady = new Set<string>(['all']);
     const server = new ReactionaryACPServer(() => createTestClient({ notReady }), {
