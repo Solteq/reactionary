@@ -704,6 +704,27 @@ describe('UCP checkout sessions', () => {
     expect(cleared.totals.find((total) => total.type === 'items_discount')).toBeUndefined();
   });
 
+  it('round-trips buyer consent on the session', async () => {
+    const backend = new FakeBackend();
+    const server = createServer(backend);
+    const consent = {
+      'dev.ucp.consent.marketing': {
+        granted: false,
+        source: 'platform',
+        segments: { 'dev.ucp.consent.marketing.sms': { granted: true, source: 'platform' } },
+      },
+      analytics: false,
+    };
+
+    const created = await send(server, 'POST', '/checkout-sessions', {
+      line_items: lineItems,
+      buyer: { email: 'ada@example.com', consent },
+    });
+    const fetched = (await send(server, 'GET', `/checkout-sessions/${created.id}`)) as UcpCheckoutBody & { buyer?: { consent?: unknown } };
+
+    expect(fetched.buyer?.consent).toEqual(consent);
+  });
+
   it('refuses to complete without a buyer email', async () => {
     const backend = new FakeBackend();
     const server = createServer(backend);
