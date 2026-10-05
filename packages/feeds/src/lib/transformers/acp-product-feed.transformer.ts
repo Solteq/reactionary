@@ -106,6 +106,23 @@ export const acpProductFeedTransformer: ReactionaryFeedTransformer<{
   },
 };
 
+/**
+ * The ACP feed's `metadata.json` for file ingestion, alongside the
+ * `acp-product-feed` products.jsonl. Products are not read.
+ */
+export const acpFeedMetadataTransformer: ReactionaryFeedTransformer = {
+  id: 'acp-feed-metadata',
+  title: 'ACP Feed Metadata',
+  description: 'Agentic Commerce Protocol Feed API metadata.json (2026-04-17).',
+  output: {
+    contentType: 'application/json; charset=utf-8',
+    fileExtension: 'json',
+  },
+  async *transform(_products, context) {
+    yield JSON.stringify(toACPFeedMetadata(context.feedId, context.feed));
+  },
+};
+
 /** The feed's `metadata.json`: its id, target country and generation time. */
 export function toACPFeedMetadata(
   feedId: string,

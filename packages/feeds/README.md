@@ -14,6 +14,7 @@ The package keeps feed generation separate from protocol adapters. A host can pr
 The default registry includes:
 
 - `acp-product-feed` — ACP Feed API (2026-04-17) `Product` records: `products.jsonl` for file ingestion by default (one product with its variants per line), or with `format: 'json'` the `{ "products": [...] }` body of `PATCH /feeds/{id}/products`. Prices are integer minor units with upper-case currency codes. `toACPFeedMetadata(feedId, feed)` builds the matching `metadata.json`.
+- `acp-feed-metadata` — the ACP feed's `metadata.json` (`id`, `target_country`, `updated_at`) for file ingestion next to `products.jsonl`.
 - `google-merchant-feed` — Google Merchant RSS XML.
 - `sitemap-feed` — sitemap XML of product URLs.
 - `pricerunner-feed` — PriceRunner-style product XML.
@@ -243,6 +244,7 @@ reactionary-feeds generate \
   --feed finnish \
   --testMode \
   --output acp-product-feed=./products.jsonl \
+  --output acp-feed-metadata=./metadata.json \
   --output google-merchant-feed=./google-merchant.xml \
   --output sitemap-feed=./sitemap.xml
 ```
