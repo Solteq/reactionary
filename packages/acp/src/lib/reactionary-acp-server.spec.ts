@@ -123,6 +123,18 @@ describe('ReactionaryACPServer', () => {
     expect(discovery.capabilities.services).toEqual(['checkout']);
   });
 
+  it('advertises the interventions the seller supports', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      interventions: { supported: ['3ds', 'address_verification'] },
+    });
+    const discovery = await json<{ capabilities: Record<string, unknown> }>(
+      await server.fetch(new Request('https://shop.example.com/.well-known/acp.json')),
+    );
+
+    expect(discovery.capabilities['intervention_types']).toEqual(['3ds', 'address_verification']);
+    expect(discovery.capabilities['extensions']).toBeUndefined();
+  });
+
   it('honours discovery options and omits the HEAD body', async () => {
     const server = new ReactionaryACPServer(() => createTestClient(), {
       discovery: {
