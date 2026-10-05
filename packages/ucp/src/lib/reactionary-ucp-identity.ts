@@ -1,7 +1,7 @@
 import { SessionSchema, type Cache, type Session } from '@reactionary/core';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import * as z from 'zod';
-import { jsonResponse } from './reactionary-ucp-http.js';
+import { jsonResponse, secureEquals } from './reactionary-ucp-http.js';
 import {
   hashIdentityToken,
   ReactionaryUCPIdentityState,
@@ -582,12 +582,6 @@ function verifyPkce(codeVerifier: string, codeChallenge: string): boolean {
 
   const computed = createHash('sha256').update(codeVerifier).digest('base64url');
   return secureEquals(computed, codeChallenge);
-}
-
-function secureEquals(left: string, right: string): boolean {
-  const leftDigest = createHash('sha256').update(left).digest();
-  const rightDigest = createHash('sha256').update(right).digest();
-  return timingSafeEqual(leftDigest, rightDigest);
 }
 
 function redirectResponse(location: string): Response {

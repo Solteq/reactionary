@@ -85,6 +85,8 @@ export const UCPOrderStateSchema = z.looseObject({
   sessionId: z.string(),
   /** The UCP-Agent profile of the platform that completed the checkout. */
   agentProfile: z.string().optional(),
+  /** The order webhook URL from the platform's profile, resolved at placement. */
+  webhookUrl: z.string().optional(),
   destination: UCPPostalAddressStateSchema.optional(),
   fulfillmentTitle: z.string().optional(),
   events: z.array(UCPFulfillmentEventSchema).default([]),

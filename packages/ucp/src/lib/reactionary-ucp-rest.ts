@@ -12,8 +12,9 @@ import type {
 import * as z from 'zod';
 import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPClient, UCPPaymentHandlers } from './reactionary-ucp-common.js';
-import { jsonResponse } from './reactionary-ucp-http.js';
-import { getOrder, UCPOrderUpdateSchema, updateOrder } from './reactionary-ucp-order.js';
+import { jsonResponse, secureEquals } from './reactionary-ucp-http.js';
+import { getOrder, notifyOrderPlaced, simulateShipping, UCPOrderUpdateSchema, updateOrder } from './reactionary-ucp-order.js';
+import type { ReactionaryUCPWebhooks } from './reactionary-ucp-webhooks.js';
 import type { ReactionaryUCPSessionStore } from './reactionary-ucp-session-store.js';
 import {
   cancelCheckoutSession,
@@ -64,7 +65,12 @@ export async function handleRestRequest(
   sessionStore: ReactionaryUCPSessionStore,
   options: UCPRestOptions,
 ): Promise<Response | undefined> {
-  const checkoutContext = createCheckoutSessionContext(client, sessionId, sessionStore, options);
+  const orderContext = { client, store: sessionStore, merchantUrl: options.merchantUrl, webhooks: options.webhooks };
+  const checkoutContext = createCheckoutSessionContext(client, sessionId, sessionStore, options, (orderId) => {
+    notifyOrderPlaced(orderContext, orderId).catch((error: unknown) => {
+      console.error(`UCP: failed to send the order created webhook for ${orderId}`, error);
+    });
+  });
 
   if (request.method === 'POST' && path === '/catalog/search') {
     return jsonResponse(await handleCatalogSearch(client, await parseJsonBody<UCPCatalogSearchRequest>(request)));
@@ -180,7 +186,6 @@ export async function handleRestRequest(
   }
 
   const orderMatch = /^\/orders\/([^/]+)$/.exec(path);
-  const orderContext = { client, store: sessionStore, merchantUrl: options.merchantUrl };
   if (orderMatch && request.method === 'GET') {
     return jsonResponse(await getOrder(orderContext, decodeURIComponent(orderMatch[1])));
   }
@@ -193,6 +198,15 @@ export async function handleRestRequest(
     }
 
     return jsonResponse(await updateOrder(orderContext, decodeURIComponent(orderMatch[1]), update.data));
+  }
+
+  const simulateShippingMatch = /^\/testing\/simulate-shipping\/([^/]+)$/.exec(path);
+  if (simulateShippingMatch && request.method === 'POST' && options.testSimulationSecret) {
+    if (!secureEquals(request.headers.get('Simulation-Secret') ?? '', options.testSimulationSecret)) {
+      throw new UCPHttpError(403, createUCPError('forbidden', 'A valid Simulation-Secret header is required.'));
+    }
+
+    return jsonResponse(await simulateShipping(orderContext, decodeURIComponent(simulateShippingMatch[1])));
   }
 
   return undefined;
@@ -213,6 +227,9 @@ export interface UCPRestOptions {
   inventory?: UCPInventoryOptions;
   /** See ReactionaryUCPServerOptions.testOrderUpdates. */
   testOrderUpdates?: boolean;
+  /** See ReactionaryUCPServerOptions.testSimulationSecret. */
+  testSimulationSecret?: string;
+  webhooks?: ReactionaryUCPWebhooks;
   /** The requesting platform's UCP-Agent profile URL. */
   agentProfile?: string;
 }
@@ -222,6 +239,7 @@ function createCheckoutSessionContext(
   sessionId: string,
   sessionStore: ReactionaryUCPSessionStore,
   options: UCPRestOptions,
+  onOrderPlaced: (orderId: string) => void,
 ): UCPCheckoutSessionContext {
   let identityEmail: Promise<string | undefined> | undefined;
 
@@ -237,6 +255,7 @@ function createCheckoutSessionContext(
     testPaymentHandlers: options.testPaymentHandlers,
     inventory: options.inventory,
     agentProfile: options.agentProfile,
+    onOrderPlaced,
     getIdentityEmail() {
       identityEmail ??= getRegisteredIdentityEmail(client, options.identity);
       return identityEmail;

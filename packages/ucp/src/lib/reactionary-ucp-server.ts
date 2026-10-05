@@ -27,6 +27,7 @@ import { createUCPError, UCP_VERSION } from './reactionary-ucp-mapping.js';
 import { createUCPProfile, getRequestRoute } from './reactionary-ucp-profile.js';
 import { handleRestRequest, UCPHttpError } from './reactionary-ucp-rest.js';
 import { ReactionaryUCPSessionStore } from './reactionary-ucp-session-store.js';
+import { ReactionaryUCPWebhooks } from './reactionary-ucp-webhooks.js';
 
 export type {
   ReactionaryUCPClient,
@@ -40,6 +41,7 @@ export type {
 
 export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = ReactionaryUCPClient> {
   private readonly sessionStore: ReactionaryUCPSessionStore;
+  private readonly webhooks?: ReactionaryUCPWebhooks;
   public readonly identity?: ReactionaryUCPIdentity;
 
   public constructor(
@@ -78,6 +80,31 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
         + '# credentials. Use for conformance/test environments only.                #\n'
         + '############################################################################\n'
         + `Test payment handlers: ${this.options.testPaymentHandlers.map((handler) => `${handler.id} -> ${handler.delegateHandlerId}`).join(', ')}`,
+      );
+    }
+
+    if (this.options.webhooks) {
+      const signingKey = this.options.webhooks.signingKey;
+      if (signingKey && !this.options.profile?.keys.some((key) => key['kid'] === signingKey.kid)) {
+        throw new Error(
+          `UCP webhook signing key '${signingKey.kid}' is not published in profile.keys; add toPublicSigningJwk(signingKey).`,
+        );
+      }
+
+      this.webhooks = new ReactionaryUCPWebhooks(
+        this.options.webhooks,
+        new URL('/.well-known/ucp', this.options.profile?.endpoint ?? 'http://localhost/ucp').toString(),
+      );
+    }
+
+    if (this.options.testSimulationSecret) {
+      console.warn(
+        '\n'
+        + '############################################################################\n'
+        + '# UCP: testSimulationSecret is set. POST /testing/simulate-shipping/{id}  #\n'
+        + '# marks orders as shipped for anyone holding the secret. Not part of the  #\n'
+        + '# UCP specification. Use for conformance/test environments only.          #\n'
+        + '############################################################################',
       );
     }
 
@@ -175,7 +202,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
   private async resolveSessionId(request: Request): Promise<string> {
     const route = getRequestRoute(request, this.options.profile);
     const resourceId = /^\/(?:carts|checkout-sessions)\/([^/]+)/.exec(route.path)?.[1];
-    const orderId = /^\/orders\/([^/]+)/.exec(route.path)?.[1];
+    const orderId = /^\/(?:orders|testing\/simulate-shipping)\/([^/]+)/.exec(route.path)?.[1];
     const boundSessionId = resourceId
       ? await this.sessionStore.getResourceSession(decodeURIComponent(resourceId))
       : orderId
@@ -284,6 +311,8 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
           testPaymentHandlers: this.options.testPaymentHandlers,
           inventory: this.options.inventory,
           testOrderUpdates: this.options.testOrderUpdates,
+          testSimulationSecret: this.options.testSimulationSecret,
+          webhooks: this.webhooks,
           agentProfile: getAgentProfile(request),
         },
       );

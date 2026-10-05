@@ -112,6 +112,8 @@ export interface UCPCheckoutSessionContext {
   inventory?: UCPInventoryOptions;
   /** The requesting platform's UCP-Agent profile URL. */
   agentProfile?: string;
+  /** Called once when a checkout completes into a recorded order. */
+  onOrderPlaced?(orderId: string): void;
   /** Email of the session's registered identity, if logged in. */
   getIdentityEmail(): Promise<string | undefined>;
   createCart(lineItems: UCPLineItem[]): Promise<Cart | UCPErrorResponse>;
@@ -900,6 +902,7 @@ async function recordOrder(
     events: [],
     adjustments: [],
   });
+  context.onOrderPlaced?.(state.orderId);
 }
 
 async function buildFinalView(
