@@ -4,6 +4,7 @@ import {
   error,
   success,
   type GenericError,
+  type NotFoundError,
   type Cart,
   type Checkout,
   type Currency,
@@ -683,6 +684,38 @@ describe('ReactionaryACPServer', () => {
     expect(locales.at(-1)).toBe(createInitialRequestContext().languageContext.locale);
   });
 
+  it('reports invalid requests at their JSONPath without exposing backend errors', async () => {
+    const create = (server: ReactionaryACPServer, body: unknown) =>
+      server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', body));
+    const body = { line_items: [{ id: 'sku-1' }, { id: 'nope' }], currency: 'eur', capabilities: agentCapabilities };
+
+    const unknownItem = await create(new ReactionaryACPServer(() => createTestClient({ unknownSkus: ['nope'] })), body);
+
+    expect(unknownItem.status).toBe(400);
+    await expect(unknownItem.json()).resolves.toEqual({
+      type: 'invalid_request',
+      code: 'not_found',
+      message: 'The referenced resource does not exist.',
+      param: '$.line_items[1].id',
+    });
+
+    const invalid = await create(new ReactionaryACPServer(() => createTestClient()), { ...body, line_items: [{ id: '' }] });
+
+    expect(invalid.status).toBe(400);
+    await expect(invalid.json()).resolves.toMatchObject({ type: 'invalid_request', param: '$.line_items[0].id' });
+
+    const missing = await create(new ReactionaryACPServer(() => createTestClient()), { line_items: body.line_items, currency: 'eur' });
+
+    await expect(missing.json()).resolves.toMatchObject({ code: 'missing', param: '$.capabilities' });
+
+    const failing = await create(new ReactionaryACPServer(() => createTestClient({ failCartCreation: true })), body);
+    const failure = await failing.text();
+
+    expect(failing.status).toBe(502);
+    expect(JSON.parse(failure)).toMatchObject({ type: 'processing_error', code: 'backend_error' });
+    expect(failure).not.toContain('credentials');
+  });
+
   it('creates a session without buyer data and no backend checkout', async () => {
     const initiated: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient({ initiated }), {
@@ -910,6 +943,8 @@ function createTestClient(options: {
   payments?: unknown[];
   declinePayments?: boolean;
   currency?: Currency;
+  unknownSkus?: string[];
+  failCartCreation?: boolean;
 } = {}): ReactionaryACPClient {
   const withReadiness = (checkout: Checkout): Checkout => ({
     ...checkout,
@@ -923,6 +958,9 @@ function createTestClient(options: {
   return {
     cart: {
       async createCart() {
+        if (options.failCartCreation) {
+          return error<GenericError>({ type: 'Generic', message: 'database credentials expired for tenant 42' });
+        }
         cartCounter += 1;
         const cart = createCart(`cart-${cartCounter}`, [], options.currency);
         carts.set(cart.identifier.key, cart);
@@ -934,6 +972,9 @@ function createTestClient(options: {
           variant: { sku: string };
           quantity: number;
         };
+        if (options.unknownSkus?.includes(addPayload.variant.sku)) {
+          return error<NotFoundError>({ type: 'NotFound', identifier: addPayload.variant });
+        }
         const cart = carts.get(addPayload.cart.key) ?? createCart(
           addPayload.cart.key,
           [],
