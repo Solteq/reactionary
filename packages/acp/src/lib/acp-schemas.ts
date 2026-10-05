@@ -124,6 +124,8 @@ export const ACPAgentCapabilitiesSchema = z.object({
 
 export const ACPCreateCheckoutSessionRequestSchema = z.object({
   capabilities: ACPAgentCapabilitiesSchema,
+  locale: z.string().optional(),
+  timezone: z.string().optional(),
   affiliate_attribution: ACPAffiliateAttributionSchema.optional(),
   discounts: ACPDiscountsRequestSchema.optional(),
   /** Deprecated alias of `discounts.codes`. */
@@ -285,6 +287,11 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
   /** The authenticated agent that created the session and may access it. */
   agentId: z.string().optional(),
   cartId: z.string(),
+  /** BCP 47 locale and IANA timezone requested on creation. */
+  locale: z.string().optional(),
+  timezone: z.string().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
   /** What the agent declared on creation; capabilities are write-only. */
   agentCapabilities: ACPAgentCapabilitiesSchema.optional(),
   /** ISO 4217 currency requested on creation, lower case. */

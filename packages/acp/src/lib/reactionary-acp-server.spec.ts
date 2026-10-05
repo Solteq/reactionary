@@ -1391,6 +1391,61 @@ describe('ReactionaryACPServer', () => {
     expect(discovery.transports).toEqual(['rest', 'mcp']);
   });
 
+  it('classifies fulfillment options and reports session metadata', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      sessionCache: new MemoryCache(),
+      continueUrl: 'https://shop.example/checkout/{checkoutSessionId}',
+      classifyFulfillmentOption: (method) => method.identifier.key === 'standard'
+        ? {
+            type: 'pickup',
+            location: { name: 'Downtown Store', address: fulfillmentDetails.address },
+            pickup_type: 'in_store',
+          }
+        : undefined,
+    });
+    const created = await json<Record<string, unknown> & { id: string }>(await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1' }],
+      currency: 'eur',
+      capabilities: agentCapabilities,
+      locale: 'en-GB',
+      timezone: 'Europe/London',
+      buyer: { email: 'ada@example.com' },
+      fulfillment_details: fulfillmentDetails,
+    })));
+
+    expect(created).toMatchObject({
+      locale: 'en-GB',
+      timezone: 'Europe/London',
+      created_at: expect.any(String),
+      updated_at: expect.any(String),
+      expires_at: expect.any(String),
+      continue_url: `https://shop.example/checkout/${created.id}`,
+      fulfillment_options: [{
+        type: 'pickup',
+        id: 'standard',
+        location: { name: 'Downtown Store' },
+        pickup_type: 'in_store',
+        totals: [{ type: 'total', amount: 500 }],
+      }],
+    });
+    expect((created['fulfillment_options'] as Array<Record<string, unknown>>)[0]).not.toHaveProperty('carrier');
+    expect(Date.parse(String(created['expires_at']))).toBeGreaterThan(Date.parse(String(created['created_at'])));
+
+    const selected = await json<Record<string, unknown>>(await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, selectStandardShipping),
+    ));
+
+    expect(selected['selected_fulfillment_options']).toEqual([expect.objectContaining({ type: 'pickup', option_id: 'standard' })]);
+    expect(selected['created_at']).toBe(created['created_at']);
+
+    const canceled = await json<Record<string, unknown>>(await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/cancel`, {}),
+    ));
+
+    expect(canceled).not.toHaveProperty('expires_at');
+    expect(canceled).not.toHaveProperty('continue_url');
+  });
+
   it('records intent traces on cancel without returning them', async () => {
     const traces: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient(), {
