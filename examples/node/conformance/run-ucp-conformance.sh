@@ -59,6 +59,22 @@ export UCP_INVENTORY_FULFILLMENT_CENTER_KEYS=OnlineFfmChannel
 # The order tests post fulfillment events and adjustments with PUT /orders,
 # which is not part of the spec; accept them. The server logs a warning banner.
 export UCP_TEST_ORDER_UPDATES=true
+# Order webhooks go to the suite's receiver on localhost:8284, discovered
+# through its agent profile on localhost:8285 (both published from the
+# container below), so plain-http URLs are allowed. Deliveries are signed
+# with a key generated for this run and published in the business profile.
+export UCP_WEBHOOKS_ENABLED=true
+export UCP_WEBHOOKS_ALLOW_INSECURE_URLS=true
+UCP_SIGNING_KEY_JWK="$(node -e '
+  const { generateKeyPairSync } = require("node:crypto");
+  const jwk = generateKeyPairSync("ec", { namedCurve: "P-256" }).privateKey.export({ format: "jwk" });
+  console.log(JSON.stringify({ ...jwk, kid: "conformance-" + Date.now() }));
+')"
+export UCP_SIGNING_KEY_JWK
+# The suite triggers order updates through /testing/simulate-shipping with a
+# shared secret. The server logs a warning banner.
+SIMULATION_SECRET="$(node -e 'console.log(require("node:crypto").randomUUID())')"
+export UCP_TEST_SIMULATION_SECRET="$SIMULATION_SECRET"
 
 echo "Starting UCP server on port $PORT..."
 cd "$ROOT/examples/node"
@@ -78,6 +94,8 @@ echo "Running conformance suite (report: $REPORT)..."
 set +e
 docker run --rm \
   -e SERVER_URL="http://host.docker.internal:$PORT" \
+  -e SIMULATION_SECRET="$SIMULATION_SECRET" \
+  -p 8284:8284 -p 8285:8285 \
   "$IMAGE" ${PYTEST_ARGS[@]+"${PYTEST_ARGS[@]}"} | tee "$REPORT"
 EXIT_CODE=${PIPESTATUS[0]}
 set -e

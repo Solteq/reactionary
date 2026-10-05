@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from 'node:http';
 
 export const UCP_SESSION_ID_HEADER = 'ucp-session-id';
@@ -103,4 +104,11 @@ export async function sendWebResponse(
 
   const body = Buffer.from(await webResponse.arrayBuffer());
   response.end(body);
+}
+
+/** Constant-time string comparison. */
+export function secureEquals(left: string, right: string): boolean {
+  const leftDigest = createHash('sha256').update(left).digest();
+  const rightDigest = createHash('sha256').update(right).digest();
+  return timingSafeEqual(leftDigest, rightDigest);
 }

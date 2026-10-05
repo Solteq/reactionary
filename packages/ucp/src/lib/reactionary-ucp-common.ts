@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPIdentityOptions } from './reactionary-ucp-identity.js';
 import type { ReactionaryUCPLocalizationOptions } from './reactionary-ucp-localization.js';
+import type { ReactionaryUCPWebhookOptions } from './reactionary-ucp-webhooks.js';
 import type { UCPInventoryOptions, UCPPaymentAuthorizationWait, UCPTestPaymentHandler } from './reactionary-ucp-checkout-session.js';
 
 type UCPService = components['schemas']['base'];
@@ -136,6 +137,21 @@ export interface ReactionaryUCPServerOptions {
    * environments.
    */
   testOrderUpdates?: boolean;
+  /**
+   * Sends order events (created, and every update) to the webhook URL the
+   * platform declares in its profile, as the order capability requires.
+   * Unset (the default), no webhooks are sent and agent profiles are never
+   * fetched.
+   */
+  webhooks?: ReactionaryUCPWebhookOptions;
+  /**
+   * Enables POST /testing/simulate-shipping/{orderId}, guarded by this value
+   * in the Simulation-Secret header: records a shipment of the order and
+   * sends the update webhook. Not part of the UCP specification. The server
+   * logs a prominent warning while it is set. Intended for conformance and
+   * test environments.
+   */
+  testSimulationSecret?: string;
 }
 
 export interface ReactionaryUCPProfileOptions {

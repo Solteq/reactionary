@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import type { UCPInventoryOptions, UCPTestPaymentHandler } from './reactionary-ucp-checkout-session.js';
 import type { ReactionaryUCPClient, UCPPaymentHandlers } from './reactionary-ucp-common.js';
 import { ReactionaryUCPServer } from './reactionary-ucp-server.js';
+import type { ReactionaryUCPWebhookOptions } from './reactionary-ucp-webhooks.js';
 
 const BASE = 'https://shop.example.com/ucp';
 const AGENT = 'profile="https://agent.example.com/profile"';
@@ -284,6 +285,8 @@ function createServer(
     testPaymentHandlers?: UCPTestPaymentHandler[];
     inventory?: UCPInventoryOptions;
     testOrderUpdates?: boolean;
+    webhooks?: ReactionaryUCPWebhookOptions;
+    testSimulationSecret?: string;
   } = {},
 ) {
   return new ReactionaryUCPServer(
@@ -302,6 +305,8 @@ function createServer(
       ...(options.testPaymentHandlers ? { testPaymentHandlers: options.testPaymentHandlers } : {}),
       ...(options.inventory ? { inventory: options.inventory } : {}),
       ...(options.testOrderUpdates ? { testOrderUpdates: true } : {}),
+      ...(options.webhooks ? { webhooks: options.webhooks } : {}),
+      ...(options.testSimulationSecret ? { testSimulationSecret: options.testSimulationSecret } : {}),
       profile: {
         endpoint: BASE,
         merchant: { name: 'Shop', url: 'https://shop.example.com', contact: { email: 'a@example.com' } },
@@ -817,6 +822,49 @@ describe('UCP orders', () => {
       line_items: [{ quantity: { total: 1, fulfilled: 1 }, status: 'fulfilled' }],
       fulfillment: { events: [{ tracking_number: 'TRACK123' }] },
       adjustments: [{ type: 'refund' }],
+    });
+  });
+
+  it('sends the order created webhook, and an update when shipping is simulated', async () => {
+    const backend = new FakeBackend();
+    const deliveries: Array<{ url: string; body: UcpOrderBody }> = [];
+    const agentFetch: typeof fetch = async (input, init) => {
+      if (String(input) === 'https://agent.example.com/profile') {
+        return Response.json({
+          ucp: { capabilities: { 'dev.ucp.shopping.order': [{ config: { webhook_url: 'https://agent.example.com/hooks' } }] } },
+        });
+      }
+      deliveries.push({ url: String(input), body: JSON.parse(String(init?.body)) as UcpOrderBody });
+      return new Response(null, { status: 200 });
+    };
+    const server = createServer(backend, { webhooks: { fetch: agentFetch }, testSimulationSecret: 'sim-secret' });
+    const waitForDeliveries = async (count: number) => {
+      for (let attempt = 0; attempt < 100 && deliveries.length < count; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+    };
+    const simulate = (orderId: string, secret?: string) => server.fetch(new Request(`https://shop.example.com/testing/simulate-shipping/${orderId}`, {
+      method: 'POST',
+      headers: { 'UCP-Agent': AGENT, ...(secret ? { 'Simulation-Secret': secret } : {}) },
+    }));
+
+    const placed = await placeOrder(server, backend);
+    await waitForDeliveries(1);
+    expect(deliveries[0]).toMatchObject({
+      url: 'https://agent.example.com/hooks',
+      body: { id: placed.orderId, checkout_id: placed.checkoutId, fulfillment: { events: [] } },
+    });
+
+    expect((await simulate(placed.orderId)).status).toBe(403);
+    expect((await simulate(placed.orderId, 'wrong')).status).toBe(403);
+    expect((await simulate(placed.orderId, 'sim-secret')).status).toBe(200);
+    await waitForDeliveries(2);
+
+    expect(deliveries).toHaveLength(2);
+    expect(deliveries[1].body).toMatchObject({
+      id: placed.orderId,
+      line_items: [{ status: 'fulfilled' }],
+      fulfillment: { events: [{ type: 'shipped' }] },
     });
   });
 });

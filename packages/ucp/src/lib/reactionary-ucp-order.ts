@@ -16,6 +16,7 @@ import {
   type ReactionaryUCPSessionStore,
   type UCPOrderState,
 } from './reactionary-ucp-session-store.js';
+import type { ReactionaryUCPWebhooks } from './reactionary-ucp-webhooks.js';
 import type { components } from './ucp-shopping.openapi.js';
 
 type UCPErrorResponse = components['schemas']['error_response'];
@@ -40,6 +41,7 @@ export interface UCPOrderContext {
   client: ReactionaryUCPClient;
   store: ReactionaryUCPSessionStore;
   merchantUrl?: string;
+  webhooks?: ReactionaryUCPWebhooks;
 }
 
 /**
@@ -87,7 +89,84 @@ export async function updateOrder(
   };
   await context.store.putOrder(updated);
 
-  return toUcpOrder(context, result, updated);
+  const order = toUcpOrder(context, result, updated);
+  notifyOrder(context, updated, order);
+
+  return order;
+}
+
+/**
+ * Test-only: records a shipment of every line item, as a business would
+ * when the order ships, and notifies the platform.
+ */
+export async function simulateShipping(
+  context: UCPOrderContext,
+  orderId: string,
+): Promise<UCPOrderResponse> {
+  const result = await getBackendOrder(context, orderId);
+  const state = await context.store.getOrder(orderId);
+
+  if (!('identifier' in result)) {
+    return result;
+  }
+
+  if (!state) {
+    return createUCPError('not_found', `Order was not placed through a UCP checkout session: ${orderId}`);
+  }
+
+  return updateOrder(context, orderId, {
+    fulfillment: {
+      events: [
+        ...state.events,
+        {
+          id: `evt_${crypto.randomUUID()}`,
+          occurred_at: new Date().toISOString(),
+          type: 'shipped',
+          line_items: result.items
+            .filter((item) => item.quantity > 0)
+            .map((item) => ({ id: item.identifier.key, quantity: item.quantity })),
+          tracking_number: `SIM-${orderId}`,
+          description: 'Simulated shipment',
+        },
+      ],
+    },
+  });
+}
+
+/**
+ * Sends the "Order created" event for a newly placed order, resolving the
+ * platform's webhook URL from its profile.
+ */
+export async function notifyOrderPlaced(
+  context: UCPOrderContext,
+  orderId: string,
+): Promise<void> {
+  const state = await context.store.getOrder(orderId);
+
+  if (!context.webhooks || !state?.agentProfile) {
+    return;
+  }
+
+  const webhookUrl = await context.webhooks.resolveOrderWebhookUrl(state.agentProfile);
+
+  if (!webhookUrl) {
+    return;
+  }
+
+  const placed = { ...state, webhookUrl };
+  await context.store.putOrder(placed);
+
+  const order = await getOrder(context, orderId);
+  if ('id' in order) {
+    notifyOrder(context, placed, order);
+  }
+}
+
+/** Order events carry the full current-state order entity, never a delta. */
+function notifyOrder(context: UCPOrderContext, state: UCPOrderState, order: UCPOrder): void {
+  if (context.webhooks && state.webhookUrl) {
+    context.webhooks.deliver(state.webhookUrl, order);
+  }
 }
 
 async function getBackendOrder(

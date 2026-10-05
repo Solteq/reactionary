@@ -10,9 +10,12 @@ import {
 import { createConformanceMockPaymentHandler } from './ucp-conformance-payment-handler.js';
 import {
   ReactionaryUCPServer,
+  toPublicSigningJwk,
   type ReactionaryUCPIdentityOptions,
   type ReactionaryUCPProfile,
   type ReactionaryUCPProfileOptions,
+  type ReactionaryUCPWebhookOptions,
+  type UCPSigningKey,
 } from '@reactionary/ucp';
 
 interface ExpressUCPOptions {
@@ -22,6 +25,7 @@ interface ExpressUCPOptions {
   endpoint: string;
   profile: ReactionaryUCPProfileOptions;
   identity?: ReactionaryUCPIdentityOptions;
+  webhooks?: ReactionaryUCPWebhookOptions;
 }
 
 async function main(): Promise<void> {
@@ -54,6 +58,10 @@ async function main(): Promise<void> {
         ? { testPaymentHandlers: [createConformanceMockPaymentHandler(process.env['UCP_CONFORMANCE_MOCK_PAYMENT_DELEGATE'])] }
         : {}),
       ...(process.env['UCP_TEST_ORDER_UPDATES'] === 'true' ? { testOrderUpdates: true } : {}),
+      ...(options.webhooks ? { webhooks: options.webhooks } : {}),
+      ...(process.env['UCP_TEST_SIMULATION_SECRET']
+        ? { testSimulationSecret: process.env['UCP_TEST_SIMULATION_SECRET'] }
+        : {}),
       ...(process.env['UCP_INVENTORY_FULFILLMENT_CENTER_KEYS']
         ? { inventory: { fulfillmentCenterKeys: process.env['UCP_INVENTORY_FULFILLMENT_CENTER_KEYS'].split(',').map((key) => key.trim()) } }
         : {}),
@@ -63,7 +71,10 @@ async function main(): Promise<void> {
   const app = express();
 
   app.use(async (request, response, next) => {
-    if (!isUcpRequest(request.originalUrl, request.headers.host, options.path)) {
+    if (
+      !isUcpRequest(request.originalUrl, request.headers.host, options.path)
+      && !(process.env['UCP_TEST_SIMULATION_SECRET'] && request.path.startsWith('/testing/'))
+    ) {
       next();
       return;
     }
@@ -141,6 +152,13 @@ export function parseOptions(
     `http://${host}:${port}${path}`;
 
   const identity = parseIdentityOptions(env, endpoint);
+  const signingKey = parseSigningKey(env['UCP_SIGNING_KEY_JWK']);
+  const webhooks: ReactionaryUCPWebhookOptions | undefined = env['UCP_WEBHOOKS_ENABLED'] === 'true'
+    ? {
+      ...(signingKey ? { signingKey } : {}),
+      ...(env['UCP_WEBHOOKS_ALLOW_INSECURE_URLS'] === 'true' ? { allowInsecureUrls: true } : {}),
+    }
+    : undefined;
 
   return {
     host,
@@ -148,6 +166,7 @@ export function parseOptions(
     path,
     endpoint,
     ...(identity ? { identity } : {}),
+    ...(webhooks ? { webhooks } : {}),
     profile: {
       endpoint,
       merchant: {
@@ -160,7 +179,11 @@ export function parseOptions(
             : {}),
         },
       },
-      keys: parsePublicKeys(env['UCP_PUBLIC_KEYS_JSON']),
+      // The signing key's public part is published alongside any other keys.
+      keys: [
+        ...parsePublicKeys(env['UCP_PUBLIC_KEYS_JSON']),
+        ...(signingKey ? [toPublicSigningJwk(signingKey)] : []),
+      ],
       ...parsePaymentHandlers(env['UCP_PAYMENT_HANDLERS_JSON']),
     },
   };
@@ -224,6 +247,19 @@ function parsePublicKeys(
   }
 
   return parsed;
+}
+
+function parseSigningKey(value: string | undefined): UCPSigningKey | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed: unknown = JSON.parse(value);
+  if (!isRecord(parsed) || typeof parsed['kid'] !== 'string' || typeof parsed['d'] !== 'string') {
+    throw new Error('UCP_SIGNING_KEY_JWK must be a private JWK object with "kid" and "d".');
+  }
+
+  return { kid: parsed['kid'], privateKeyJwk: parsed };
 }
 
 function parseIdentityOptions(
