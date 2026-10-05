@@ -48,6 +48,12 @@ import {
   type ACPUpdateCheckoutSessionRequest,
 } from './acp-schemas.js';
 import { ACPIdempotency, ACP_MIN_IDEMPOTENCY_TTL_SECONDS } from './acp-idempotency.js';
+import {
+  ACP_DISCOUNT_EXTENSION,
+  applyDiscountCodes,
+  getRequestedDiscountCodes,
+  toACPDiscounts,
+} from './acp-discounts.js';
 import { ACPOrderWebhooks, type ACPOrderEventType, type ACPWebhookOptions } from './acp-webhooks.js';
 import {
   getHandlerPaymentMethod,
@@ -68,6 +74,9 @@ export interface ReactionaryACPClient {
     getById(payload: unknown): Promise<Result<Cart>>;
     // Optional: used to discard transient pricing checkouts that are cart copies.
     deleteCart?(payload: unknown): Promise<Result<void>>;
+    // Optional: the discount extension needs both.
+    applyCouponCode?(payload: unknown): Promise<Result<Cart>>;
+    removeCouponCode?(payload: unknown): Promise<Result<Cart>>;
     // Optional: used to update a session's cart in place.
     changeQuantity?(payload: unknown): Promise<Result<Cart>>;
     remove?(payload: unknown): Promise<Result<Cart>>;
@@ -340,6 +349,7 @@ export class ReactionaryACPServer<
   private readonly checkoutSessionStore: ReactionaryACPCheckoutSessionStore;
   private readonly idempotency: ACPIdempotency;
   private readonly webhooks: ACPOrderWebhooks | undefined;
+  private readonly supportsDiscounts: boolean;
 
   public constructor(
     private readonly clientFactory: ReactionaryACPClientFactory<TClient>,
@@ -361,6 +371,7 @@ export class ReactionaryACPServer<
     const client = this.clientFactory(createInitialRequestContext());
     assertACPClient(client);
     assertPaymentHandlers(this.options.paymentHandlers ?? []);
+    this.supportsDiscounts = Boolean(client.cart.applyCouponCode && client.cart.removeCouponCode);
     this.webhooks = this.options.webhooks ? new ACPOrderWebhooks(this.options.webhooks) : undefined;
 
     if (this.webhooks && !client.order?.getById) {
@@ -686,7 +697,7 @@ export class ReactionaryACPServer<
 
   /** The extensions the server implements; extension PRs add theirs here. */
   private getDiscoveryExtensions(): ACPDiscoveryExtension[] {
-    return [];
+    return this.supportsDiscounts ? [{ name: ACP_DISCOUNT_EXTENSION.name }] : [];
   }
 
   private getReadinessDocument(): Record<string, unknown> {
@@ -755,7 +766,14 @@ export class ReactionaryACPServer<
     agent: ACPAgent | undefined,
   ): Promise<Response> {
     const cart = await this.createCartForItems(input.line_items, client);
+    const discounts = await this.applyRequestedDiscounts(
+      cart.identifier.key,
+      getRequestedDiscountCodes(input.discounts, input.coupons),
+      input.capabilities,
+      client,
+    );
     const state: ACPCheckoutSessionState = {
+      ...discounts,
       id: `checkout_session_${crypto.randomUUID()}`,
       sessionId,
       ...(agent ? { agentId: agent.id } : {}),
@@ -789,11 +807,19 @@ export class ReactionaryACPServer<
       });
     }
 
+    const cartId = input.line_items
+      ? await this.replaceCartItems(state.cartId, input.line_items, client)
+      : state.cartId;
+    const discounts = await this.applyRequestedDiscounts(
+      cartId,
+      getRequestedDiscountCodes(input.discounts, input.coupons),
+      state.agentCapabilities,
+      client,
+    );
     const updatedState: ACPCheckoutSessionState = {
       ...state,
-      cartId: input.line_items
-        ? await this.replaceCartItems(state.cartId, input.line_items, client)
-        : state.cartId,
+      ...discounts,
+      cartId,
       buyer: mergeBuyer(state.buyer, input.buyer),
       // Changes to the session invalidate a pending authentication.
       status: state.status === 'authentication_required' ? 'not_ready_for_payment' : state.status,
@@ -1218,6 +1244,7 @@ export class ReactionaryACPServer<
     const lineItems = view.checkout?.items ?? view.cart?.items ?? [];
     const products = await getProducts(lineItems.map((item) => item.variant.sku), client);
     const optionTitles = getOptionTitles(view.options);
+    const discountsActive = this.isDiscountExtensionActive(persisted.agentCapabilities, client);
 
     await this.checkoutSessionStore.put(persisted.id, persisted);
     await this.recordOrder(persisted, client);
@@ -1225,7 +1252,7 @@ export class ReactionaryACPServer<
     return {
       id: persisted.id,
       protocol: { version: ACP_API_VERSION },
-      capabilities: this.getNegotiatedCapabilities(persisted.agentCapabilities),
+      capabilities: this.getNegotiatedCapabilities(persisted.agentCapabilities, client),
       ...(persisted.buyer ? { buyer: persisted.buyer } : {}),
       status: persisted.status,
       ...(persisted.status === 'authentication_required' && persisted.authenticationMetadata
@@ -1262,9 +1289,47 @@ export class ReactionaryACPServer<
             },
           }
         : {}),
-      messages: [...extraMessages, ...(view.messages ?? [])],
+      ...(discountsActive && view.cart
+        ? {
+            discounts: toACPDiscounts(view.cart, persisted.discountCodes ?? [], persisted.rejectedDiscounts ?? [], toMinorUnits),
+          }
+        : {}),
+      messages: [
+        ...extraMessages,
+        ...(view.messages ?? []),
+        ...(discountsActive ? getRejectedDiscountMessages(persisted) : []),
+      ],
       links: this.options.links ?? [],
     };
+  }
+
+  /**
+   * Whether the discount extension is active for a session: the backend can
+   * apply coupons, and the agent declared the extension.
+   */
+  private isDiscountExtensionActive(
+    agent: ACPAgentCapabilities | undefined,
+    client: ReactionaryACPClient,
+  ): boolean {
+    return Boolean(client.cart?.applyCouponCode && client.cart.removeCouponCode)
+      && (agent?.extensions ?? []).some((extension) => /^discount(@|$)/.test(extension));
+  }
+
+  /** Applies submitted discount codes, when the extension is active. */
+  private async applyRequestedDiscounts(
+    cartId: string,
+    codes: string[] | undefined,
+    agent: ACPAgentCapabilities | undefined,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<Pick<ACPCheckoutSessionState, 'discountCodes' | 'rejectedDiscounts'>> {
+    if (!codes || !this.isDiscountExtensionActive(agent, client)) {
+      return {};
+    }
+
+    const cart = await unwrapACPResult(client.cart.getById({ cart: { key: cartId } }));
+    const { rejected } = await applyDiscountCodes(client.cart, cart, codes);
+
+    return { discountCodes: codes, rejectedDiscounts: rejected };
   }
 
   /**
@@ -1456,7 +1521,10 @@ export class ReactionaryACPServer<
    * intersection of what the agent declared and what the seller supports,
    * plus the seller's requirements (capability negotiation RFC §4.5.1).
    */
-  private getNegotiatedCapabilities(agent: ACPAgentCapabilities | undefined): Record<string, unknown> {
+  private getNegotiatedCapabilities(
+    agent: ACPAgentCapabilities | undefined,
+    client: ReactionaryACPClient,
+  ): Record<string, unknown> {
     const seller = this.options.interventions;
     const required = seller?.required ?? [];
 
@@ -1472,6 +1540,7 @@ export class ReactionaryACPServer<
           ? { required, enforcement: seller?.enforcement ?? 'conditional' }
           : {}),
       },
+      ...(this.isDiscountExtensionActive(agent, client) ? { extensions: [ACP_DISCOUNT_EXTENSION] } : {}),
     };
   }
 
@@ -1636,6 +1705,20 @@ function isRawCardCredential(credential: Record<string, unknown>): boolean {
   return credential['type'] === 'card'
     || credential['type'] === 'pan'
     || ['number', 'cvc', 'card_number'].some((field) => credential[field] !== undefined);
+}
+
+/** Rejected discount codes, as warnings at their submitted position. */
+function getRejectedDiscountMessages(state: ACPCheckoutSessionState): ACPMessage[] {
+  const codes = state.discountCodes ?? [];
+
+  return (state.rejectedDiscounts ?? []).map((rejected) => ({
+    type: 'warning',
+    code: rejected.reason,
+    param: `$.discounts.codes[${Math.max(codes.indexOf(rejected.code), 0)}]`,
+    content_type: 'plain',
+    content: rejected.message ?? `Discount code '${rejected.code}' could not be applied.`,
+    resolution: 'requires_buyer_input',
+  }));
 }
 
 interface ACPMessage {
