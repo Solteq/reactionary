@@ -1,5 +1,6 @@
 import { CurrencySchema } from '@reactionary/core';
 import * as z from 'zod';
+import { ACPDiscountsRequestSchema, ACPRejectedDiscountSchema } from './acp-discounts.js';
 
 /**
  * A requested item. The 2026-04-17 Item schema carries no quantity, while the
@@ -91,6 +92,9 @@ export const ACPAgentCapabilitiesSchema = z.object({
 
 export const ACPCreateCheckoutSessionRequestSchema = z.object({
   capabilities: ACPAgentCapabilitiesSchema,
+  discounts: ACPDiscountsRequestSchema.optional(),
+  /** Deprecated alias of `discounts.codes`. */
+  coupons: z.array(z.string().min(1)).optional(),
   buyer: ACPBuyerSchema.optional(),
   line_items: z.array(ACPItemSchema).min(1),
   currency: z.string().refine(
@@ -103,6 +107,9 @@ export const ACPCreateCheckoutSessionRequestSchema = z.object({
 export const ACPUpdateCheckoutSessionRequestSchema = z.object({
   buyer: ACPBuyerSchema.optional(),
   line_items: z.array(ACPItemSchema).min(1).optional(),
+  discounts: ACPDiscountsRequestSchema.optional(),
+  /** Deprecated alias of `discounts.codes`. */
+  coupons: z.array(z.string().min(1)).optional(),
   // null clears the field; absent leaves it unchanged.
   fulfillment_details: ACPFulfillmentDetailsSchema.nullable().optional(),
   selected_fulfillment_options: z.array(ACPSelectedFulfillmentOptionSchema).nullable().optional(),
@@ -201,6 +208,9 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
     'canceled',
   ]),
   buyer: ACPBuyerSchema.optional(),
+  /** Discount codes submitted (discount extension) and those rejected. */
+  discountCodes: z.array(z.string()).optional(),
+  rejectedDiscounts: z.array(ACPRejectedDiscountSchema).optional(),
   /** The 3DS metadata the session awaits an authentication result for. */
   authenticationMetadata: ACPAuthenticationMetadataSchema.optional(),
   fulfillmentDetails: ACPFulfillmentDetailsSchema.optional(),
