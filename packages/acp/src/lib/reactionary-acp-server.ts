@@ -962,8 +962,12 @@ export class ReactionaryACPServer<
     client: ValidatedReactionaryACPClient,
   ): Promise<Response> {
     const state = await this.getRequiredCheckoutSessionState(checkoutSessionId);
+    // A placed checkout may have become an order since the last request.
+    const placed = state.checkoutId && state.status !== 'completed'
+      ? await this.getPlacedView(state, client)
+      : undefined;
 
-    if (state.checkoutId || state.status === 'completed' || state.status === 'canceled') {
+    if (state.status === 'completed' || state.status === 'canceled' || placed?.orderId) {
       return acpErrorResponse(405, {
         type: 'invalid_request',
         code: 'invalid',
@@ -971,8 +975,14 @@ export class ReactionaryACPServer<
       });
     }
 
+    // Any non-terminal session can be canceled (lifecycle), including one
+    // whose payment is awaiting authorization: it is then never finalized.
     return jsonResponse(
-      await this.toACPCheckoutSession({ ...state, status: 'canceled' }, client),
+      await this.toACPCheckoutSession({ ...state, status: 'canceled' }, client, undefined, [{
+        type: 'info',
+        content_type: 'plain',
+        content: 'Checkout session has been canceled.',
+      }]),
     );
   }
 
@@ -1364,6 +1374,7 @@ export class ReactionaryACPServer<
     // The backend may have finalized the order since (e.g. on the PSP's
     // authorization webhook), which retrieval picks up.
     const orderId = state.orderId ?? checkout.resultingOrder?.key;
+    const status = orderId ? 'completed' : state.status === 'canceled' ? 'canceled' : 'complete_in_progress';
     // The chosen option stays listed, as the selection must reference one.
     const methods = state.fulfillmentOptionId
       ? await client.checkout.getAvailableShippingMethods({ checkout: checkout.identifier })
@@ -1376,7 +1387,7 @@ export class ReactionaryACPServer<
       checkout,
       price: checkout.price,
       options,
-      status: orderId ? 'completed' : 'complete_in_progress',
+      status,
       ...(orderId ? { orderId } : {}),
     };
   }
