@@ -61,10 +61,29 @@ export function toReactionaryAddress(
   };
 }
 
+export type UCPPricedItem = Pick<
+  Cart['items'][number] | Checkout['items'][number] | Order['items'][number],
+  'identifier' | 'variant' | 'quantity' | 'price'
+>;
+
+/** A line's undiscounted amount (unit price × quantity), in minor units. */
+export function getLineSubtotal(lineItem: UCPPricedItem): number {
+  return getMoneyValue({
+    value: lineItem.price.unitPrice.value * lineItem.quantity,
+    currency: lineItem.price.unitPrice.currency,
+  });
+}
+
+/** The discount allocated to a line, in minor units. */
+export function getLineDiscount(lineItem: UCPPricedItem): number {
+  return Math.abs(getMoneyValue(lineItem.price.totalDiscount));
+}
+
 export function toUcpCartLineItem(
-  lineItem: Pick<Cart['items'][number] | Checkout['items'][number] | Order['items'][number], 'identifier' | 'variant' | 'quantity' | 'price'>,
+  lineItem: UCPPricedItem,
 ): UCPLineItem {
   const sku = lineItem.variant.sku || lineItem.identifier.key;
+  const discount = getLineDiscount(lineItem);
 
   return {
     id: lineItem.identifier.key,
@@ -75,26 +94,34 @@ export function toUcpCartLineItem(
     },
     quantity: lineItem.quantity,
     totals: [
-      {
-        type: 'subtotal',
-        amount: getMoneyValue({
-          value: lineItem.price.unitPrice.value * lineItem.quantity,
-          currency: lineItem.price.unitPrice.currency,
-        }),
-      },
+      { type: 'subtotal', amount: getLineSubtotal(lineItem) },
+      ...(discount > 0 ? [{ type: 'items_discount', amount: -discount }] : []),
       ...toUcpTotals(lineItem.price.totalPrice),
     ],
   };
 }
 
+/**
+ * Order-level totals. With line items, the subtotal is their undiscounted
+ * sum, discounts allocated to lines are reported as `items_discount` and the
+ * remainder of the total discount as order-level `discount` (discount
+ * extension, "Impact on Line Items and Totals").
+ */
 export function toUcpCostTotals(
   price: CostBreakDown,
+  items: UCPPricedItem[] = [],
 ): UCPTotal[] {
+  const subtotal = items.length > 0
+    ? items.reduce((sum, item) => sum + getLineSubtotal(item), 0)
+    : getMoneyValue(price.totalProductPrice);
+  const itemsDiscount = items.reduce((sum, item) => sum + getLineDiscount(item), 0);
+  const orderDiscount = Math.max(Math.abs(getMoneyValue(price.totalDiscount)) - itemsDiscount, 0);
   const totals: UCPTotal[] = [
-    { type: 'subtotal', amount: getMoneyValue(price.totalProductPrice) },
+    { type: 'subtotal', amount: subtotal },
   ];
   const optionalTotals: Array<[string, number]> = [
-    ['discount', -Math.abs(getMoneyValue(price.totalDiscount))],
+    ['items_discount', -itemsDiscount],
+    ['discount', -orderDiscount],
     ['fulfillment', getMoneyValue(price.totalShipping)],
     ['tax', getMoneyValue(price.totalTax)],
     ['fee', getMoneyValue(price.totalSurcharge)],

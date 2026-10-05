@@ -748,7 +748,7 @@ function toUcpCart(
     id: cart.identifier.key,
     line_items: cart.items.map(toUcpCartLineItem),
     currency: getMoneyCurrency(cart.price?.grandTotal),
-    totals: toUcpCostTotals(cart.price),
+    totals: toUcpCostTotals(cart.price, cart.items),
     ucp: createUcpSuccessMetadata(),
   };
 }

@@ -18,6 +18,7 @@ import {
   type UCPMessage,
   type UCPPostalAddress,
 } from './reactionary-ucp-mapping.js';
+import { applyDiscountCodes, getRequestedDiscountCodes, toUcpDiscounts } from './reactionary-ucp-discounts.js';
 import type {
   ReactionaryUCPSessionStore,
   UCPCheckoutSessionState,
@@ -167,6 +168,7 @@ export async function createCheckoutSession(
     return cart;
   }
 
+  const discountMessages = await applyRequestedDiscountCodes(context, cart, body);
   const state: UCPCheckoutSessionState = {
     id: `checkout_${crypto.randomUUID()}`,
     cartId: cart.identifier.key,
@@ -177,7 +179,7 @@ export async function createCheckoutSession(
   await context.store.putCheckoutSession(state);
   await context.store.bindResource(state.id, context.sessionId);
 
-  return (await buildOpenView(context, state)).response;
+  return (await buildOpenView(context, state, discountMessages)).response;
 }
 
 export async function getCheckoutSession(
@@ -220,10 +222,28 @@ export async function updateCheckoutSession(
     }
   }
 
+  const cart = await getCart(context, state.cartId);
+  const discountMessages = 'identifier' in cart ? await applyRequestedDiscountCodes(context, cart, body) : [];
+
   mergeRequestIntoState(state, body);
   await context.store.putCheckoutSession(state);
 
-  return (await buildOpenView(context, state)).response;
+  return (await buildOpenView(context, state, discountMessages)).response;
+}
+
+/**
+ * Applies the request's `discounts.codes`, when it submits any, to the
+ * session's cart. Returns warnings for rejected codes, which are reported on
+ * this response only.
+ */
+async function applyRequestedDiscountCodes(
+  context: UCPCheckoutSessionContext,
+  cart: Cart,
+  body: UCPCheckoutRequest,
+): Promise<UCPMessage[]> {
+  const codes = getRequestedDiscountCodes(body);
+
+  return codes ? (await applyDiscountCodes(context.client, cart, codes)).messages : [];
 }
 
 export async function cancelCheckoutSession(
@@ -538,6 +558,7 @@ async function discardTransientCheckout(
 async function buildOpenView(
   context: UCPCheckoutSessionContext,
   state: UCPCheckoutSessionState,
+  warnings: UCPMessage[] = [],
 ): Promise<{ response: UCPCheckoutResponse; ready: boolean }> {
   const cart = await getCart(context, state.cartId);
 
@@ -554,6 +575,7 @@ async function buildOpenView(
     ...getMissingInputMessages(context, state, pricing, await resolveBuyerEmail(context, state)),
   ];
   const ready = state.status === 'open' && messages.length === 0;
+  messages.push(...warnings);
 
   state.lastTotal = getMoneyValue(price.grandTotal);
   const selectedOptionTitle = state.selectedOptionId
@@ -569,11 +591,12 @@ async function buildOpenView(
     status: state.status === 'canceled' ? 'canceled' : ready ? 'ready_for_complete' : 'incomplete',
     line_items: cart.items.map(toUcpCartLineItem),
     currency: getMoneyCurrency(price.grandTotal),
-    totals: toUcpCostTotals(price),
+    totals: toUcpCostTotals(price, pricing.checkout?.items ?? cart.items),
     links: [],
     ...(state.buyer ? { buyer: state.buyer } : {}),
     ...toUcpPayment(state),
     ...toUcpFulfillment(context, cart, state, pricing.options),
+    ...(context.client.cart?.applyCouponCode ? toUcpDiscounts(cart) : {}),
     ...(messages.length > 0 ? { messages } : {}),
     ucp: createUcpCheckoutSuccessMetadata(context.paymentHandlers),
   };
@@ -926,7 +949,7 @@ async function buildFinalView(
     status: state.status === 'completed' ? 'completed' : 'complete_in_progress',
     line_items: checkout.items.map(toUcpCartLineItem),
     currency: getMoneyCurrency(checkout.price.grandTotal),
-    totals: toUcpCostTotals(checkout.price),
+    totals: toUcpCostTotals(checkout.price, checkout.items),
     links: [],
     ...(state.buyer ? { buyer: state.buyer } : {}),
     ...(orderId ? { order: { id: orderId, permalink_url: toOrderPermalinkUrl(context.merchantUrl, orderId) } } : {}),

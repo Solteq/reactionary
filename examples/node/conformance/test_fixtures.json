@@ -5,6 +5,7 @@
       "expected_price": 1732.09,
       "quantity": 1
     },
+    "valid_discount_code": "TESTCODE1",
     "valid_fixed_discount_code": "TESTCODE1",
     "expected_fixed_discount_reduction": 15.0
   },
