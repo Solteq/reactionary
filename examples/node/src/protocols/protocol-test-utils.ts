@@ -314,6 +314,8 @@ export class ProtocolSession {
     private readonly sessionHeader: string,
     /** Headers sent with every request, e.g. a protocol version. */
     private readonly defaultHeaders: Record<string, string> = {},
+    /** Headers computed per mutation, e.g. a fresh Idempotency-Key. */
+    private readonly mutationHeaders: () => Record<string, string> = () => ({}),
   ) {}
 
   public async get<TBody>(url: string): Promise<ProtocolResponse<TBody>> {
@@ -342,6 +344,7 @@ export class ProtocolSession {
         method,
         headers: this.createHeaders({
           'content-type': 'application/json',
+          ...this.mutationHeaders(),
           ...extraHeaders,
         }),
         body: JSON.stringify(body),
@@ -365,8 +368,13 @@ export function createUcpSession(server: ReactionaryUCPServer): ProtocolSession 
 }
 
 export function createAcpSession(server: ReactionaryACPServer): ProtocolSession {
-  return new ProtocolSession(server, 'acp-session-id', {
-    'api-version': ACP_API_VERSION,
-    authorization: `Bearer ${ACP_E2E_TOKEN}`,
-  });
+  return new ProtocolSession(
+    server,
+    'acp-session-id',
+    {
+      'api-version': ACP_API_VERSION,
+      authorization: `Bearer ${ACP_E2E_TOKEN}`,
+    },
+    () => ({ 'idempotency-key': crypto.randomUUID() }),
+  );
 }

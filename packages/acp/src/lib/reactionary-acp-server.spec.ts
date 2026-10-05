@@ -589,6 +589,67 @@ describe('ReactionaryACPServer', () => {
     expect(discovery.status).toBe(200);
   });
 
+  it('replays POSTs by Idempotency-Key and rejects conflicting or missing keys', async () => {
+    const payments: unknown[] = [];
+    const server = new ReactionaryACPServer(() => createTestClient({ payments }), {
+      sessionCache: new MemoryCache(),
+      paymentHandlers,
+      paymentAuthorizationWait: { timeoutMs: 0 },
+    });
+    const post = (url: string, body: unknown, key?: string) => server.fetch(new Request(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'api-version': '2026-04-17',
+        ...(key ? { 'idempotency-key': key } : {}),
+      },
+      body: JSON.stringify(body),
+    }));
+    const createBody = {
+      line_items: [{ id: 'sku-1' }],
+      currency: 'eur',
+      capabilities: agentCapabilities,
+      buyer: { email: 'ada@example.com' },
+      fulfillment_details: fulfillmentDetails,
+    };
+
+    const missing = await post('http://127.0.0.1/checkout_sessions', createBody);
+
+    expect(missing.status).toBe(400);
+    await expect(missing.json()).resolves.toMatchObject({ code: 'idempotency_key_required' });
+
+    const first = await post('http://127.0.0.1/checkout_sessions', createBody, 'key-1');
+    const created = await json<{ id: string }>(first);
+    // Same body with a different key order is the same request.
+    const replayed = await post(
+      'http://127.0.0.1/checkout_sessions',
+      Object.fromEntries(Object.entries(createBody).reverse()),
+      'key-1',
+    );
+
+    expect(first.status).toBe(201);
+    expect(replayed.status).toBe(201);
+    expect(replayed.headers.get('idempotent-replayed')).toBe('true');
+    await expect(replayed.json()).resolves.toMatchObject({ id: created.id });
+
+    const conflict = await post('http://127.0.0.1/checkout_sessions', { ...createBody, currency: 'sek' }, 'key-1');
+
+    expect(conflict.status).toBe(422);
+    await expect(conflict.json()).resolves.toMatchObject({ code: 'idempotency_conflict' });
+
+    // Concurrent completions with one key place one payment.
+    await post(`http://127.0.0.1/checkout_sessions/${created.id}`, selectStandardShipping, 'key-2');
+    const completeUrl = `http://127.0.0.1/checkout_sessions/${created.id}/complete`;
+    const completions = await Promise.all([
+      post(completeUrl, { payment_data: cardPayment('spt_1') }, 'key-3'),
+      post(completeUrl, { payment_data: cardPayment('spt_1') }, 'key-3'),
+    ]);
+
+    expect(completions.map((response) => response.status).sort()).toEqual([200, 409]);
+    expect(completions.find((response) => response.status === 409)?.headers.get('retry-after')).toBe('1');
+    expect(payments).toHaveLength(1);
+  });
+
   it('creates a session without buyer data and no backend checkout', async () => {
     const initiated: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient({ initiated }), {
@@ -1127,6 +1188,7 @@ function jsonRequest(url: string, body: unknown): Request {
     headers: {
       'content-type': 'application/json',
       'api-version': '2026-04-17',
+      'idempotency-key': crypto.randomUUID(),
     },
     body: JSON.stringify(body),
   });
