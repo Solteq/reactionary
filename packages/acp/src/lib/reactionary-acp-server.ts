@@ -11,6 +11,7 @@ import {
   type Currency,
   type Inventory,
   type LanguageContext,
+  type MonetaryAmount,
   type PaymentMethod,
   type Price,
   type Product,
@@ -1489,8 +1490,8 @@ function toACPLineItem(
   const variant = product
     ? [product.mainVariant, ...product.variants].find((candidate) => candidate.identifier.sku === sku)
     : undefined;
-  const baseAmount = toMinorUnits(item.price.unitPrice.value * item.quantity);
-  const discount = toMinorUnits(item.price.totalDiscount.value);
+  const baseAmount = toMinorUnits({ value: item.price.unitPrice.value * item.quantity, currency: item.price.unitPrice.currency });
+  const discount = Math.abs(toMinorUnits(item.price.totalDiscount));
   const images = (variant?.images ?? product?.mainVariant.images ?? [])
     .map((image) => image.sourceUrl)
     .filter((url) => url.length > 0);
@@ -1503,7 +1504,7 @@ function toACPLineItem(
     ...(name ? { name } : {}),
     ...(product?.description ? { description: product.description } : {}),
     ...(images.length > 0 ? { images } : {}),
-    unit_amount: toMinorUnits(item.price.unitPrice.value),
+    unit_amount: toMinorUnits(item.price.unitPrice),
     ...(product ? { product_id: product.identifier.key } : {}),
     sku,
     ...(variant && variant.options.length > 0
@@ -1513,18 +1514,18 @@ function toACPLineItem(
       { type: 'items_base_amount', display_text: 'Base Amount', amount: baseAmount },
       ...(discount > 0 ? [{ type: 'discount', display_text: 'Discount', amount: discount }] : []),
       { type: 'subtotal', display_text: 'Subtotal', amount: Math.max(baseAmount - discount, 0) },
-      { type: 'total', display_text: 'Total', amount: toMinorUnits(item.price.totalPrice.value) },
+      { type: 'total', display_text: 'Total', amount: toMinorUnits(item.price.totalPrice) },
     ],
   };
 }
 
 function toACPTotals(price: Checkout['price']): Record<string, unknown>[] {
-  const base = toMinorUnits(price.totalProductPrice.value);
-  const discount = toMinorUnits(price.totalDiscount.value);
+  const base = toMinorUnits(price.totalProductPrice);
+  const discount = Math.abs(toMinorUnits(price.totalDiscount));
   const subtotal = Math.max(base - discount, 0);
-  const fulfillment = toMinorUnits(price.totalShipping.value);
-  const tax = toMinorUnits(price.totalTax.value);
-  const total = toMinorUnits(price.grandTotal.value);
+  const fulfillment = toMinorUnits(price.totalShipping);
+  const tax = toMinorUnits(price.totalTax);
+  const total = toMinorUnits(price.grandTotal);
 
   return [
     {
@@ -1578,7 +1579,7 @@ function toACPFulfillmentOption(
     title,
     ...(description ? { description } : {}),
     ...(method.carrier ? { carrier: method.carrier } : {}),
-    totals: [{ type: 'total', display_text: title, amount: toMinorUnits(method.price.value) }],
+    totals: [{ type: 'total', display_text: title, amount: toMinorUnits(method.price) }],
   };
 }
 
@@ -1623,8 +1624,18 @@ function toReactionaryAddress(address: ACPAddress): {
   };
 }
 
-function toMinorUnits(value: number): number {
-  return Math.max(Math.round(value * 100), 0);
+// ISO 4217 exponents that differ from the common 2 (as in the UCP adapter).
+const CURRENCY_EXPONENTS: Record<string, number> = {
+  BIF: 0, CLP: 0, DJF: 0, GNF: 0, ISK: 0, JPY: 0, KMF: 0, KRW: 0, PYG: 0,
+  RWF: 0, UGX: 0, UYI: 0, VND: 0, VUV: 0, XAF: 0, XOF: 0, XPF: 0,
+  BHD: 3, IQD: 3, JOD: 3, KWD: 3, LYD: 3, OMR: 3, TND: 3,
+};
+
+/** An amount in the currency's minor units, e.g. cents; signs are kept. */
+function toMinorUnits(amount: MonetaryAmount): number {
+  const exponent = CURRENCY_EXPONENTS[amount.currency.toUpperCase()] ?? 2;
+
+  return Math.round(amount.value * 10 ** exponent);
 }
 
 function createFeedStream(
