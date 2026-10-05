@@ -1,8 +1,8 @@
 {
   "test_fixtures": {
     "valid_item": {
-      "sku": "7313020065489",
-      "expected_price": 74.93,
+      "sku": "7313020077406",
+      "expected_price": 1732.09,
       "quantity": 1
     },
     "valid_fixed_discount_code": "TESTCODE1",

@@ -254,6 +254,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
           merchantUrl: this.options.profile?.merchant?.url,
           anonymousOrderEmail: this.options.anonymousOrderEmail,
           testPaymentHandlers: this.options.testPaymentHandlers,
+          inventory: this.options.inventory,
         },
       );
 
