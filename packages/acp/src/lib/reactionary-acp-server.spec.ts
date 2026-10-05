@@ -1,5 +1,6 @@
 import {
   MemoryCache,
+  createInitialRequestContext,
   error,
   success,
   type GenericError,
@@ -648,6 +649,38 @@ describe('ReactionaryACPServer', () => {
     expect(completions.map((response) => response.status).sort()).toEqual([200, 409]);
     expect(completions.find((response) => response.status === 409)?.headers.get('retry-after')).toBe('1');
     expect(payments).toHaveLength(1);
+  });
+
+  it('echoes Request-Id and Idempotency-Key and localizes to the best supported locale', async () => {
+    const locales: string[] = [];
+    const server = new ReactionaryACPServer((requestContext) => {
+      locales.push(requestContext.languageContext.locale);
+      return createTestClient();
+    }, {
+      sessionCache: new MemoryCache(),
+      discovery: { supportedLocales: ['en-US', 'fi-FI'] },
+    });
+    const request = jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1' }],
+      currency: 'eur',
+      capabilities: agentCapabilities,
+    });
+    request.headers.set('request-id', 'req_123');
+    request.headers.set('idempotency-key', 'idem_123');
+    request.headers.set('accept-language', 'sv-SE, fi;q=0.8, en;q=0.5');
+
+    const response = await server.fetch(request);
+
+    expect(response.status).toBe(201);
+    expect(response.headers.get('request-id')).toBe('req_123');
+    expect(response.headers.get('idempotency-key')).toBe('idem_123');
+    expect(locales.at(-1)).toBe('fi-FI');
+
+    const unsupported = getRequest('http://127.0.0.1/.well-known/acp.json');
+    unsupported.headers.set('accept-language', 'sv-SE');
+    await server.fetch(unsupported);
+
+    expect(locales.at(-1)).toBe(createInitialRequestContext().languageContext.locale);
   });
 
   it('creates a session without buyer data and no backend checkout', async () => {
