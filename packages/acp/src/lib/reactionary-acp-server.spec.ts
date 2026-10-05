@@ -169,7 +169,8 @@ describe('ReactionaryACPServer', () => {
         line_items: [{ id: 'sku-1', quantity: 2 }],
         currency: 'eur',
         buyer: {
-          name: 'Ada Lovelace',
+          first_name: 'Ada',
+          last_name: 'Lovelace',
           email: 'ada@example.com',
         },
         fulfillment_address: {
@@ -227,7 +228,8 @@ describe('ReactionaryACPServer', () => {
     const completeResponse = await server.fetch(
       jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, {
         buyer: {
-          name: 'Ada Lovelace',
+          first_name: 'Ada',
+          last_name: 'Lovelace',
           email: 'ada@example.com',
         },
         payment_data: {
@@ -271,6 +273,49 @@ describe('ReactionaryACPServer', () => {
     await server.fetch(getRequest(`http://127.0.0.1/checkout_sessions/${created.id}`));
 
     expect(currencies.slice(1)).toEqual(['SEK', 'SEK']);
+  });
+
+  it('accepts the 2026-04-17 buyer and merges buyer updates', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient(), { sessionCache: new MemoryCache() });
+    const created = await json<{ id: string; buyer: unknown }>(await server.fetch(
+      jsonRequest('http://127.0.0.1/checkout_sessions', {
+        line_items: [{ id: 'sku-1' }],
+        currency: 'eur',
+        buyer: {
+          first_name: 'Ada',
+          last_name: 'Lovelace',
+          email: 'ada@example.com',
+          account_type: 'business',
+          company: { name: 'Analytical Engines Ltd', tax_id: 'GB123' },
+        },
+      }),
+    ));
+
+    expect(created.buyer).toEqual({
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      email: 'ada@example.com',
+      account_type: 'business',
+      company: { name: 'Analytical Engines Ltd', tax_id: 'GB123' },
+    });
+
+    const updated = await json<{ buyer: unknown }>(await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, {
+        buyer: { email: 'ada@engines.example', phone_number: '+441234567890' },
+      }),
+    ));
+
+    expect(updated.buyer).toMatchObject({
+      first_name: 'Ada',
+      email: 'ada@engines.example',
+      phone_number: '+441234567890',
+    });
+
+    const invalid = await server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, { buyer: { first_name: 'Ada' } }),
+    );
+
+    expect(invalid.status).toBe(400);
   });
 
   it('creates a session without buyer data and no backend checkout', async () => {
@@ -329,7 +374,7 @@ describe('ReactionaryACPServer', () => {
     );
 
     const payload = {
-      buyer: { name: 'Ada Lovelace', email: 'ada@example.com' },
+      buyer: { first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com' },
       payment_data: { token: 'spt_test', provider: 'stripe' },
     };
     const pending = await json<Record<string, unknown>>(await server.fetch(
@@ -379,7 +424,7 @@ describe('ReactionaryACPServer', () => {
 
     const completed = await json<Record<string, unknown>>(await server.fetch(
       jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, {
-        buyer: { name: 'Ada Lovelace', email: 'ada@example.com' },
+        buyer: { first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com' },
         payment_data: { token: 'spt_test', provider: 'stripe' },
       }),
     ));
@@ -398,7 +443,7 @@ describe('ReactionaryACPServer', () => {
         jsonRequest('http://127.0.0.1/checkout_sessions', {
           line_items: [{ id: 'sku-1', quantity: 1 }],
         currency: 'eur',
-          buyer: { name: 'Ada Lovelace', email: 'ada@example.com' },
+          buyer: { first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com' },
           fulfillment_address: {
             name: 'Ada Lovelace',
             line_one: '1 Computing Street',

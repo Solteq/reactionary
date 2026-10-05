@@ -38,6 +38,7 @@ import {
   ACPCreateCheckoutSessionRequestSchema,
   ACPUpdateCheckoutSessionRequestSchema,
   type ACPAddress,
+  type ACPBuyer,
   type ACPCheckoutSessionState,
   type ACPCompleteCheckoutSessionRequest,
   type ACPCreateCheckoutSessionRequest,
@@ -609,7 +610,7 @@ export class ReactionaryACPServer<
       cartId: input.line_items
         ? (await this.createCartForItems(input.line_items, client)).identifier.key
         : state.cartId,
-      buyer: input.buyer ?? state.buyer,
+      buyer: mergeBuyer(state.buyer, input.buyer),
       fulfillmentAddress: input.fulfillment_address ?? state.fulfillmentAddress,
       fulfillmentOptionId: input.fulfillment_option_id ?? state.fulfillmentOptionId,
     };
@@ -660,7 +661,7 @@ export class ReactionaryACPServer<
       });
     }
 
-    const buyer = input.buyer ?? state.buyer;
+    const buyer = mergeBuyer(state.buyer, input.buyer);
     let current: ACPCheckoutSessionState = { ...state, buyer };
 
     if (!current.checkoutId) {
@@ -976,6 +977,14 @@ interface ACPSessionView {
   price: Checkout['price'];
   options: ShippingMethod[];
   status: ACPCheckoutSessionState['status'];
+}
+
+/** Buyer updates refine what the session already knows about the buyer. */
+function mergeBuyer(
+  current: ACPBuyer | undefined,
+  update: ACPBuyer | undefined,
+): ACPBuyer | undefined {
+  return update ? { ...current, ...update } : current;
 }
 
 function toShippingInstruction(
