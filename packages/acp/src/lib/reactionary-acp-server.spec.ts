@@ -761,6 +761,11 @@ describe('ReactionaryACPServer', () => {
     await expect(complete.json()).resolves.toMatchObject({ code: 'invalid', param: '$.selected_fulfillment_options[0].option_id' });
   });
 
+  it('requires an order id placeholder in the permalink template', () => {
+    expect(() => new ReactionaryACPServer(() => createTestClient(), { orderPermalinkUrl: 'https://shop.example/orders' }))
+      .toThrow('{orderId}');
+  });
+
   it('creates a session without buyer data and no backend checkout', async () => {
     const initiated: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient({ initiated }), {
@@ -790,6 +795,7 @@ describe('ReactionaryACPServer', () => {
     const notReady = new Set<string>(['all']);
     const server = new ReactionaryACPServer(() => createTestClient({ initiated, notReady }), {
       sessionCache: new MemoryCache(),
+      orderPermalinkUrl: 'https://shop.example/orders/{orderId}',
       paymentHandlers,
       paymentAuthorizationWait: { timeoutMs: 0 },
     });
@@ -842,7 +848,12 @@ describe('ReactionaryACPServer', () => {
 
     expect(completed).toMatchObject({
       status: 'completed',
-      order: { id: 'order-1', checkout_session_id: created.id },
+      order: {
+        type: 'order',
+        id: 'order-1',
+        checkout_session_id: created.id,
+        permalink_url: 'https://shop.example/orders/order-1',
+      },
     });
   });
 
