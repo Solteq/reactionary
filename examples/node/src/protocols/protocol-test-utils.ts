@@ -6,7 +6,7 @@ import {
   type Cache,
   type RequestContext,
 } from '@reactionary/core';
-import { ReactionaryACPServer } from '@reactionary/acp';
+import { ACP_API_VERSION, ReactionaryACPServer } from '@reactionary/acp';
 import { DEFAULT_UCP_LOCALIZATION_RULES, ReactionaryUCPServer } from '@reactionary/ucp';
 import { withAlgoliaCapabilities } from '@reactionary/algolia';
 import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
@@ -304,6 +304,8 @@ export class ProtocolSession {
   public constructor(
     private readonly server: FetchProtocolServer,
     private readonly sessionHeader: string,
+    /** Headers sent with every request, e.g. a protocol version. */
+    private readonly defaultHeaders: Record<string, string> = {},
   ) {}
 
   public async get<TBody>(url: string): Promise<ProtocolResponse<TBody>> {
@@ -340,7 +342,7 @@ export class ProtocolSession {
   }
 
   private createHeaders(extra: Record<string, string> = {}): Headers {
-    const headers = new Headers(extra);
+    const headers = new Headers({ ...this.defaultHeaders, ...extra });
 
     if (this.sessionId) {
       headers.set(this.sessionHeader, this.sessionId);
@@ -355,5 +357,5 @@ export function createUcpSession(server: ReactionaryUCPServer): ProtocolSession 
 }
 
 export function createAcpSession(server: ReactionaryACPServer): ProtocolSession {
-  return new ProtocolSession(server, 'acp-session-id');
+  return new ProtocolSession(server, 'acp-session-id', { 'api-version': ACP_API_VERSION });
 }

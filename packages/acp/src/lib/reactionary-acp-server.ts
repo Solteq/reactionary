@@ -134,8 +134,6 @@ export const DEFAULT_ACP_PAYMENT_AUTHORIZATION_WAIT: ACPPaymentAuthorizationWait
 };
 
 export interface ACPDiscoveryOptions {
-  apiVersion?: string;
-  supportedVersions?: string[];
   apiBaseUrl?: string;
   documentationUrl?: string;
   supportedCurrencies?: string[];
@@ -159,7 +157,11 @@ export interface ACPDiscoveryResponse {
 }
 
 const ACP_DISCOVERY_PATHS = ['/.well-known/acp.json', '/.well-known/acp'];
-const ACP_DEFAULT_API_VERSION = '2026-01-30';
+
+/** The only ACP API version this adapter implements. */
+export const ACP_API_VERSION = '2026-04-17';
+const ACP_SUPPORTED_API_VERSIONS = [ACP_API_VERSION];
+const ACP_API_VERSION_HEADER = 'api-version';
 
 export type ACPPaymentProcessor = 'stripe' | 'adyen' | 'braintree';
 
@@ -352,6 +354,8 @@ export class ReactionaryACPServer<
       );
 
       if (checkoutSessionId) {
+        assertSupportedApiVersion(request);
+
         return this.getCheckoutSession(
           checkoutSessionId,
           client,
@@ -365,6 +369,8 @@ export class ReactionaryACPServer<
     }
 
     if (request.method === 'POST') {
+      assertSupportedApiVersion(request);
+
       return this.handlePost(request, client, requestContext, sessionId);
     }
 
@@ -383,8 +389,6 @@ export class ReactionaryACPServer<
 
   private getDiscoveryDocument(request: Request): ACPDiscoveryResponse {
     const discovery = this.options.discovery ?? {};
-    const version = discovery.apiVersion ?? ACP_DEFAULT_API_VERSION;
-    const supportedVersions = discovery.supportedVersions ?? [version];
     const basePath = (this.options.basePath ?? '/acp').replace(/\/$/, '');
     const apiBaseUrl =
       discovery.apiBaseUrl ?? `${new URL(request.url).origin}${basePath}`;
@@ -392,8 +396,8 @@ export class ReactionaryACPServer<
     return {
       protocol: {
         name: 'acp',
-        version,
-        supported_versions: supportedVersions,
+        version: ACP_API_VERSION,
+        supported_versions: ACP_SUPPORTED_API_VERSIONS,
         ...(discovery.documentationUrl
           ? { documentation_url: discovery.documentationUrl }
           : {}),
@@ -982,6 +986,28 @@ interface ACPErrorBody {
   code: string;
   message: string;
   param?: string;
+  supported_versions?: string[];
+}
+
+/**
+ * Agents MUST send API-Version and servers MUST validate it; rejections list
+ * the supported versions (checkout RFC §2.1).
+ */
+function assertSupportedApiVersion(request: Request): void {
+  const version = request.headers.get(ACP_API_VERSION_HEADER);
+
+  if (version && ACP_SUPPORTED_API_VERSIONS.includes(version)) {
+    return;
+  }
+
+  throw new ACPHttpError(400, {
+    type: 'invalid_request',
+    code: version ? 'unsupported_api_version' : 'missing_api_version',
+    message: version
+      ? `API version '${version}' is not supported.`
+      : 'The API-Version header is required.',
+    supported_versions: ACP_SUPPORTED_API_VERSIONS,
+  });
 }
 
 class ReactionaryACPSessionStore {

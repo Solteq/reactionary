@@ -69,8 +69,8 @@ describe('ReactionaryACPServer', () => {
       expect(await json<Record<string, unknown>>(response)).toEqual({
         protocol: {
           name: 'acp',
-          version: '2026-01-30',
-          supported_versions: ['2026-01-30'],
+          version: '2026-04-17',
+          supported_versions: ['2026-04-17'],
         },
         api_base_url: 'https://shop.example.com/acp',
         transports: ['rest'],
@@ -83,7 +83,6 @@ describe('ReactionaryACPServer', () => {
     const server = new ReactionaryACPServer(() => createTestClient(), {
       discovery: {
         apiBaseUrl: 'https://api.example.com/acp',
-        supportedVersions: ['2025-09-29', '2026-01-30'],
         supportedCurrencies: ['EUR'],
       },
     });
@@ -93,7 +92,7 @@ describe('ReactionaryACPServer', () => {
     );
     expect(await json<Record<string, unknown>>(response)).toMatchObject({
       api_base_url: 'https://api.example.com/acp',
-      protocol: { supported_versions: ['2025-09-29', '2026-01-30'] },
+      protocol: { supported_versions: ['2026-04-17'] },
       capabilities: { supported_currencies: ['EUR'] },
     });
 
@@ -102,6 +101,35 @@ describe('ReactionaryACPServer', () => {
     );
     expect(head.status).toBe(200);
     expect(await head.text()).toBe('');
+  });
+
+  it('rejects checkout requests without a supported API-Version', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient());
+    const body = JSON.stringify({ items: [{ id: 'sku-1', quantity: 1 }] });
+
+    const missing = await server.fetch(new Request('http://127.0.0.1/checkout_sessions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body,
+    }));
+
+    expect(missing.status).toBe(400);
+    await expect(missing.json()).resolves.toEqual({
+      type: 'invalid_request',
+      code: 'missing_api_version',
+      message: 'The API-Version header is required.',
+      supported_versions: ['2026-04-17'],
+    });
+
+    const unsupported = await server.fetch(new Request('http://127.0.0.1/checkout_sessions/checkout_session_1', {
+      headers: { 'api-version': '2025-09-29' },
+    }));
+
+    expect(unsupported.status).toBe(400);
+    await expect(unsupported.json()).resolves.toMatchObject({
+      code: 'unsupported_api_version',
+      supported_versions: ['2026-04-17'],
+    });
   });
 
   it('persists request context session state by ACP session id', async () => {
@@ -188,7 +216,7 @@ describe('ReactionaryACPServer', () => {
     });
 
     const getResponse = await server.fetch(
-      new Request(`http://127.0.0.1/checkout_sessions/${created.id}`),
+      getRequest(`http://127.0.0.1/checkout_sessions/${created.id}`),
     );
     await expect(getResponse.json()).resolves.toMatchObject({
       id: created.id,
@@ -751,8 +779,17 @@ function jsonRequest(url: string, body: unknown): Request {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
+      'api-version': '2026-04-17',
     },
     body: JSON.stringify(body),
+  });
+}
+
+function getRequest(url: string): Request {
+  return new Request(url, {
+    headers: {
+      'api-version': '2026-04-17',
+    },
   });
 }
 
