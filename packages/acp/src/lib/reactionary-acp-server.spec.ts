@@ -411,15 +411,13 @@ describe('ReactionaryACPServer', () => {
     expect(capable['capabilities']).toMatchObject({
       interventions: { supported: ['3ds'], required: ['3ds'], enforcement: 'always' },
     });
-    expect(capable['messages']).toEqual([]);
+    expect(capable['messages']).not.toContainEqual(expect.objectContaining({ code: 'intervention_required' }));
 
     const incapable = await json<Record<string, unknown>>(await create([]));
 
     expect(incapable['capabilities']).toMatchObject({ interventions: { supported: [] } });
     expect(incapable['status']).toBe('not_ready_for_payment');
-    expect(incapable['messages']).toEqual([
-      expect.objectContaining({ type: 'error', code: 'intervention_required' }),
-    ]);
+    expect(incapable['messages']).toContainEqual(expect.objectContaining({ type: 'error', code: 'intervention_required' }));
 
     const missing = await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
       line_items: [{ id: 'sku-1' }],
@@ -714,6 +712,53 @@ describe('ReactionaryACPServer', () => {
     expect(failing.status).toBe(502);
     expect(JSON.parse(failure)).toMatchObject({ type: 'processing_error', code: 'backend_error' });
     expect(failure).not.toContain('credentials');
+  });
+
+  it('reports what the session still needs as messages', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      sessionCache: new MemoryCache(),
+      paymentHandlers,
+      inventory: { fulfillmentCenterKeys: ['warehouse'] },
+    });
+    const created = await json<Record<string, unknown> & { id: string }>(await server.fetch(
+      jsonRequest('http://127.0.0.1/checkout_sessions', {
+        line_items: [{ id: 'sku-1', quantity: 6 }],
+        currency: 'eur',
+        capabilities: agentCapabilities,
+      }),
+    ));
+
+    expect(created['status']).toBe('not_ready_for_payment');
+    expect(created['messages']).toEqual([
+      expect.objectContaining({ type: 'error', code: 'out_of_stock', param: '$.line_items[0]', content: 'Only 5 of sku-1 are in stock.' }),
+      expect.objectContaining({ type: 'error', code: 'missing', param: '$.buyer.email', resolution: 'requires_buyer_input' }),
+      expect.objectContaining({ type: 'error', code: 'missing', param: '$.fulfillment_details.address' }),
+    ]);
+
+    const url = `http://127.0.0.1/checkout_sessions/${created.id}`;
+    const withAddress = await json<Record<string, unknown>>(await server.fetch(jsonRequest(url, {
+      line_items: [{ id: 'sku-1', quantity: 1 }],
+      buyer: { email: 'ada@example.com' },
+      fulfillment_details: fulfillmentDetails,
+    })));
+
+    expect(withAddress['messages']).toEqual([
+      expect.objectContaining({ code: 'missing', param: '$.selected_fulfillment_options' }),
+    ]);
+
+    const unknownOption = await json<Record<string, unknown>>(await server.fetch(jsonRequest(url, {
+      selected_fulfillment_options: [{ type: 'shipping', option_id: 'teleport', item_ids: [] }],
+    })));
+
+    expect(unknownOption['status']).toBe('not_ready_for_payment');
+    expect(unknownOption['messages']).toEqual([
+      expect.objectContaining({ code: 'invalid', param: '$.selected_fulfillment_options[0].option_id', resolution: 'recoverable' }),
+    ]);
+
+    const complete = await server.fetch(jsonRequest(`${url}/complete`, { payment_data: cardPayment('spt_1') }));
+
+    expect(complete.status).toBe(400);
+    await expect(complete.json()).resolves.toMatchObject({ code: 'invalid', param: '$.selected_fulfillment_options[0].option_id' });
   });
 
   it('creates a session without buyer data and no backend checkout', async () => {
