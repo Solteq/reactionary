@@ -159,6 +159,17 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
   orderId: z.string().optional(),
 });
 
+/** An order placed through an ACP checkout session, kept for order events. */
+export const ACPOrderRecordSchema = z.looseObject({
+  id: z.string(),
+  checkoutSessionId: z.string(),
+  /** The ACP session that placed the order; backends scope orders to it. */
+  sessionId: z.string().optional(),
+  /** The agent that placed the order, whose webhook receives its events. */
+  agentId: z.string().optional(),
+});
+
+export type ACPOrderRecord = z.infer<typeof ACPOrderRecordSchema>;
 export type ACPItem = z.infer<typeof ACPItemSchema>;
 export type ACPAgentCapabilities = z.infer<typeof ACPAgentCapabilitiesSchema>;
 export type ACPBuyer = z.infer<typeof ACPBuyerSchema>;

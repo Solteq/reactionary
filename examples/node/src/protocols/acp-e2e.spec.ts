@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { assert, describe, expect, it } from 'vitest';
+import { assert, describe, expect, it, vi } from 'vitest';
 import { createInitialRequestContext } from '@reactionary/core';
 import {
   ACP_BASE_URL,
@@ -189,7 +189,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
       expect(discovery.protocol.name).toBe('acp');
       expect(discovery.api_base_url).toBe(ACP_BASE_URL);
       expect(discovery.transports).toContain('rest');
-      expect(discovery.capabilities.services).toContain('checkout');
+      expect(discovery.capabilities.services).toEqual(['checkout', 'orders']);
       expect(discovery.capabilities.services).not.toContain('feeds');
 
       // 2. It checks the readiness document for the available actions.
@@ -388,6 +388,12 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
 
           expect(order.value.identifier.key).toBe(orderId);
           expect(order.value.price.grandTotal.value).toBeGreaterThan(0);
+
+          // 7. The agent was told about the order through its webhook.
+          await vi.waitFor(() => expect(harness.webhookEvents).toContainEqual(expect.objectContaining({
+            type: 'order_create',
+            data: expect.objectContaining({ id: orderId, checkout_session_id: created.id }),
+          })));
         },
         PROTOCOL_TEST_TIMEOUT,
       );

@@ -246,6 +246,8 @@ export interface AcpServerHarness {
   createCompanionClient(): ReturnType<typeof createProtocolClient>;
   /** The ACP Feed API products the merchant would push to an agent. */
   readFeedProducts(): Promise<unknown[]>;
+  /** Order webhook events delivered to the agent, in order. */
+  webhookEvents: unknown[];
 }
 
 export function createAcpServerHarness(
@@ -253,6 +255,7 @@ export function createAcpServerHarness(
   search: ProtocolSearchEngine = ProtocolSearchEngine.NATIVE,
 ): AcpServerHarness {
   let lastContext: Partial<RequestContext> = {};
+  const webhookEvents: unknown[] = [];
 
   const server = new ReactionaryACPServer(
     (requestContext) => {
@@ -266,6 +269,13 @@ export function createAcpServerHarness(
       paymentHandlers: [createTokenizedCardHandler({ psp: 'stripe', merchantId: 'acct_e2e' })],
       links: [{ type: 'terms_of_use', url: 'https://shop.example.com/terms' }],
       orderPermalinkUrl: 'https://shop.example.com/orders/{orderId}',
+      webhooks: {
+        endpoints: [{ agentId: 'e2e', url: 'https://agent.example.com/agentic_checkout/webhooks/order_events', secret: 'e2e-secret' }],
+        fetch: async (_input, init) => {
+          webhookEvents.push(JSON.parse(String(init?.body)));
+          return new Response(null, { status: 200 });
+        },
+      },
     },
   );
 
@@ -273,6 +283,7 @@ export function createAcpServerHarness(
     server,
     createCompanionClient: () => createProtocolClient(backend, search, lastContext),
     readFeedProducts: () => publishAcpFeed(backend, search),
+    webhookEvents,
   };
 }
 
