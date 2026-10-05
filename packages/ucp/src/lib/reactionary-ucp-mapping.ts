@@ -116,15 +116,21 @@ export function toUcpCostTotals(
     : getMoneyValue(price.totalProductPrice);
   const itemsDiscount = items.reduce((sum, item) => sum + getLineDiscount(item), 0);
   const orderDiscount = Math.max(Math.abs(getMoneyValue(price.totalDiscount)) - itemsDiscount, 0);
+  const shipping = getMoneyValue(price.totalShipping);
+  const fee = getMoneyValue(price.totalSurcharge);
+  const grandTotal = getMoneyValue(price.grandTotal);
+  // Entries other than `total` must sum to it (checkout "Verification"), so
+  // tax already included in tax-inclusive prices gets no additive entry.
+  const taxIncluded = subtotal - itemsDiscount - orderDiscount + shipping + fee === grandTotal;
   const totals: UCPTotal[] = [
     { type: 'subtotal', amount: subtotal },
   ];
   const optionalTotals: Array<[string, number]> = [
     ['items_discount', -itemsDiscount],
     ['discount', -orderDiscount],
-    ['fulfillment', getMoneyValue(price.totalShipping)],
-    ['tax', getMoneyValue(price.totalTax)],
-    ['fee', getMoneyValue(price.totalSurcharge)],
+    ['fulfillment', shipping],
+    ['tax', taxIncluded ? 0 : getMoneyValue(price.totalTax)],
+    ['fee', fee],
   ];
 
   for (const [type, amount] of optionalTotals) {
@@ -133,7 +139,7 @@ export function toUcpCostTotals(
     }
   }
 
-  totals.push({ type: 'total', amount: getMoneyValue(price.grandTotal) });
+  totals.push({ type: 'total', amount: grandTotal });
 
   return totals;
 }

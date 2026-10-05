@@ -7,7 +7,28 @@
     },
     "valid_discount_code": "TESTCODE1",
     "valid_fixed_discount_code": "TESTCODE1",
-    "expected_fixed_discount_reduction": 15.0
+    "expected_fixed_discount_reduction": 15.0,
+    "free_shipping_min_subtotal": 3500.0,
+    "dynamic_fulfillment": {
+      "domestic": {
+        "destination": {
+          "street_address": "Vesterbrogade 1",
+          "address_locality": "København V",
+          "postal_code": "1620",
+          "address_country": "DK"
+        },
+        "expected_option_id": "UPS"
+      },
+      "international": {
+        "destination": {
+          "street_address": "Drottninggatan 1",
+          "address_locality": "Stockholm",
+          "postal_code": "11151",
+          "address_country": "SE"
+        },
+        "expected_option_id": "UPS"
+      }
+    }
   },
   "shipping_locations": {
     "domestic_destination": {

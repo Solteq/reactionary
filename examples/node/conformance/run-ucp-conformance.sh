@@ -121,13 +121,33 @@ done
 curl -fsS "http://127.0.0.1:$PORT/.well-known/ucp" >/dev/null \
   || { echo "UCP server did not become ready on port $PORT" >&2; exit 1; }
 
-# Warm up backend connections and caches, so the suite's first test does
-# not hit its 5s client timeout on a cold start.
-ITEM_ID="$(node -e 'console.log(require(process.argv[1]).items[0].id)' "$SCRIPT_DIR/conformance_input.json")"
-curl -fsS -o /dev/null -X POST "http://127.0.0.1:$PORT/ucp/checkout-sessions" \
-  -H 'content-type: application/json' \
-  -H 'UCP-Agent: profile="https://warmup.invalid/profile"' \
-  -d "{\"line_items\":[{\"item\":{\"id\":\"$ITEM_ID\"},\"quantity\":1}]}" || true
+# Warm up backend connections and caches with one complete checkout, so the
+# suite's first tests (completions) do not hit its 5s client timeout on a
+# cold start. This places one test order per run.
+node - "$PORT" "$SCRIPT_DIR/conformance_input.json" <<'JS' || true
+const [port, inputPath] = process.argv.slice(2);
+const item = require(inputPath).items[0].id;
+const base = `http://127.0.0.1:${port}/ucp/checkout-sessions`;
+const headers = { 'content-type': 'application/json', 'UCP-Agent': 'profile="https://warmup.invalid/profile"' };
+const call = async (url, body) => (await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })).json();
+(async () => {
+  const destination = { id: 'warmup', street_address: 'Vesterbrogade 1', address_locality: 'København V', postal_code: '1620', address_country: 'DK' };
+  const session = await call(base, {
+    line_items: [{ item: { id: item }, quantity: 1 }],
+    buyer: { email: 'warmup@checkout.invalid' },
+    fulfillment: { methods: [{ type: 'shipping', destinations: [destination], selected_destination_id: 'warmup' }] },
+  });
+  const option = session.fulfillment?.methods?.[0]?.groups?.[0]?.options?.[0]?.id;
+  await fetch(`${base}/${session.id}`, { method: 'PUT', headers, body: JSON.stringify({
+    id: session.id,
+    fulfillment: { methods: [{ type: 'shipping', destinations: [destination], selected_destination_id: 'warmup', groups: [{ selected_option_id: option }] }] },
+  }) });
+  const completed = await call(`${base}/${session.id}/complete`, {
+    payment: { instruments: [{ id: 'warmup', handler_id: 'stripe', type: 'card', credential: { type: 'token', token: 'pm_card_visa' } }] },
+  });
+  console.log(`Warm-up checkout: ${completed.status}`);
+})();
+JS
 
 mkdir -p "$ROOT/tmp"
 echo "Running conformance suite (report: $REPORT)..."
