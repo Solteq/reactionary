@@ -199,7 +199,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
       expect(discovery.api_base_url).toBe(ACP_BASE_URL);
       expect(discovery.transports).toContain('rest');
       expect(discovery.capabilities.services).toContain('checkout');
-      expect(discovery.capabilities.services).toContain('feeds');
+      expect(discovery.capabilities.services).not.toContain('feeds');
 
       // 2. It checks the readiness document for the available actions.
       const readinessResponse = await server.fetch(new Request(ACP_BASE_URL));

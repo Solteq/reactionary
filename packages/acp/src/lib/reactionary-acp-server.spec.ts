@@ -112,6 +112,17 @@ describe('ReactionaryACPServer', () => {
     }
   });
 
+  it('advertises only services from the closed discovery enum', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      productFeed: { feeds: {} },
+    });
+    const discovery = await json<{ capabilities: { services: string[] } }>(
+      await server.fetch(new Request('https://shop.example.com/.well-known/acp.json')),
+    );
+
+    expect(discovery.capabilities.services).toEqual(['checkout']);
+  });
+
   it('honours discovery options and omits the HEAD body', async () => {
     const server = new ReactionaryACPServer(() => createTestClient(), {
       discovery: {
