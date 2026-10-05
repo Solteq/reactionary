@@ -135,6 +135,8 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
   id: z.string(),
   // The ACP session owning the backend cart, resumed for later requests.
   sessionId: z.string().optional(),
+  /** The authenticated agent that created the session and may access it. */
+  agentId: z.string().optional(),
   cartId: z.string(),
   /** What the agent declared on creation; capabilities are write-only. */
   agentCapabilities: ACPAgentCapabilitiesSchema.optional(),

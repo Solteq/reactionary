@@ -28,6 +28,7 @@ import {
   type ReactionaryFeedInventoryOptions,
   type ReactionaryFeedProcessingOptions,
 } from '@reactionary/feeds';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type {
   IncomingHttpHeaders,
   IncomingMessage,
@@ -116,6 +117,14 @@ export interface ReactionaryACPServerOptions {
   sessionTtlSeconds?: number;
   checkoutSessionTtlSeconds?: number;
   /**
+   * Authenticates agents on checkout endpoints, e.g. by their
+   * `Authorization: Bearer` token (see `createBearerTokenAuthenticator`) or a
+   * request signature. Returning undefined answers 401. Checkout sessions are
+   * visible only to the agent that created them. Unset, checkout endpoints
+   * are open — the server logs a warning, as ACP requires authentication.
+   */
+  authenticate?: (request: Request) => ACPAgent | undefined | Promise<ACPAgent | undefined>;
+  /**
    * Payment handlers advertised in `capabilities.payment.handlers`, e.g.
    * `createTokenizedCardHandler(...)`. Each maps to the backend payment
    * method its payments are placed with.
@@ -150,6 +159,34 @@ export interface ReactionaryACPServerOptions {
    * polled every 1s; a timeout of 0 disables it.
    */
   paymentAuthorizationWait?: Partial<ACPPaymentAuthorizationWait>;
+}
+
+/** An authenticated agent (platform) calling the checkout API. */
+export interface ACPAgent {
+  id: string;
+}
+
+/**
+ * Authenticates agents by `Authorization: Bearer <token>`, given each
+ * agent's token. Tokens are compared in constant time.
+ */
+export function createBearerTokenAuthenticator(
+  tokensByAgentId: Record<string, string>,
+): (request: Request) => ACPAgent | undefined {
+  const entries = Object.entries(tokensByAgentId);
+
+  return (request) => {
+    const match = /^Bearer\s+(.+)$/i.exec(request.headers.get('authorization') ?? '');
+    const token = match?.[1]?.trim();
+
+    if (!token) {
+      return undefined;
+    }
+
+    const agent = entries.find(([, candidate]) => secureEquals(candidate, token));
+
+    return agent ? { id: agent[0] } : undefined;
+  };
 }
 
 export interface ACPInterventionOptions {
@@ -265,6 +302,10 @@ export class ReactionaryACPServer<
     );
     assertACPClient(this.clientFactory(createInitialRequestContext()));
     assertPaymentHandlers(this.options.paymentHandlers ?? []);
+
+    if (!this.options.authenticate) {
+      console.warn('ACP: checkout endpoints are unauthenticated; configure `authenticate` (ACP requires agents to authenticate).');
+    }
   }
 
   public async fetch(request: Request): Promise<Response> {
@@ -280,6 +321,14 @@ export class ReactionaryACPServer<
   }
 
   private async handleFetch(request: Request): Promise<Response> {
+    let agent: ACPAgent | undefined;
+
+    try {
+      agent = await this.authenticate(request);
+    } catch (error) {
+      return toACPErrorResponse(error);
+    }
+
     const sessionId = await this.resolveSessionId(request);
     const requestContext = await this.createRequestContext(sessionId);
     const requestedFeed = this.getRequestedProductFeed(request);
@@ -300,12 +349,49 @@ export class ReactionaryACPServer<
     const client = this.clientFactory(requestContext);
     assertACPClient(client);
 
-    const response = await this.handleRequest(request, client, requestContext, sessionId)
+    const response = await this.handleRequest(request, client, requestContext, sessionId, agent)
       .catch((error: unknown) => toACPErrorResponse(error));
     await this.sessionStore.put(sessionId, requestContext.session);
     response.headers.set(ACP_SESSION_ID_HEADER, sessionId);
 
     return response;
+  }
+
+  /**
+   * Checkout endpoints require an authenticated agent (checkout RFC §3.1),
+   * and a checkout session is visible only to the agent that created it, so
+   * another agent's session is reported as missing. Discovery and the
+   * readiness document stay public.
+   */
+  private async authenticate(request: Request): Promise<ACPAgent | undefined> {
+    const pathname = getProtocolPathname(request, this.options.basePath);
+
+    if (!this.options.authenticate || !pathname.startsWith('/checkout_sessions')) {
+      return undefined;
+    }
+
+    const agent = await this.options.authenticate(request);
+
+    if (!agent) {
+      throw new ACPHttpError(401, {
+        type: 'invalid_request',
+        code: 'unauthorized',
+        message: 'A valid Authorization bearer token is required.',
+      }, { 'www-authenticate': 'Bearer' });
+    }
+
+    const checkoutSessionId = getCheckoutSessionId(request, this.options.basePath);
+    const state = checkoutSessionId ? await this.checkoutSessionStore.get(checkoutSessionId) : undefined;
+
+    if (state?.agentId !== undefined && state.agentId !== agent.id) {
+      throw new ACPHttpError(404, {
+        type: 'invalid_request',
+        code: 'missing',
+        message: `Checkout session not found: ${checkoutSessionId}`,
+      });
+    }
+
+    return agent;
   }
 
   /**
@@ -378,6 +464,7 @@ export class ReactionaryACPServer<
     client: ValidatedReactionaryACPClient,
     requestContext: RequestContext,
     sessionId: string,
+    agent: ACPAgent | undefined,
   ): Promise<Response> {
     if (request.method === 'OPTIONS') {
       return new Response(null, {
@@ -445,7 +532,7 @@ export class ReactionaryACPServer<
     if (request.method === 'POST') {
       assertSupportedApiVersion(request);
 
-      return this.handlePost(request, client, requestContext, sessionId);
+      return this.handlePost(request, client, requestContext, sessionId, agent);
     }
 
     return jsonResponse({
@@ -573,6 +660,7 @@ export class ReactionaryACPServer<
     client: ValidatedReactionaryACPClient,
     requestContext: RequestContext,
     sessionId: string,
+    agent: ACPAgent | undefined,
   ): Promise<Response> {
     const checkoutSessionId = getCheckoutSessionId(
       request,
@@ -585,6 +673,7 @@ export class ReactionaryACPServer<
         client,
         requestContext,
         sessionId,
+        agent,
       );
     }
 
@@ -613,11 +702,13 @@ export class ReactionaryACPServer<
     client: ValidatedReactionaryACPClient,
     requestContext: RequestContext,
     sessionId: string,
+    agent: ACPAgent | undefined,
   ): Promise<Response> {
     const cart = await this.createCartForItems(input.line_items, client);
     const state: ACPCheckoutSessionState = {
       id: `checkout_session_${crypto.randomUUID()}`,
       sessionId,
+      ...(agent ? { agentId: agent.id } : {}),
       cartId: cart.identifier.key,
       currency: input.currency.toLowerCase(),
       agentCapabilities: input.capabilities,
@@ -1119,6 +1210,14 @@ async function getProducts(
   return products;
 }
 
+/** Constant-time string comparison (as in the UCP adapter). */
+function secureEquals(left: string, right: string): boolean {
+  const leftDigest = createHash('sha256').update(left).digest();
+  const rightDigest = createHash('sha256').update(right).digest();
+
+  return timingSafeEqual(leftDigest, rightDigest);
+}
+
 /** A credential carrying card account data rather than a token. */
 function isRawCardCredential(credential: Record<string, unknown>): boolean {
   return credential['type'] === 'card'
@@ -1200,6 +1299,7 @@ class ACPHttpError extends Error {
   public constructor(
     public readonly status: number,
     public readonly body: ACPErrorBody,
+    public readonly headers: Record<string, string> = {},
   ) {
     super(body.message);
   }
@@ -1433,7 +1533,7 @@ function assertACPClient(
 
 function toACPErrorResponse(error: unknown): Response {
   if (error instanceof ACPHttpError) {
-    return acpErrorResponse(error.status, error.body);
+    return jsonResponse(error.body, { status: error.status, headers: error.headers });
   }
 
   return acpErrorResponse(500, {
