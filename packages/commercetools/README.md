@@ -10,14 +10,19 @@ Payments created by `checkout.addPaymentInstruction` use the
 | Field | Type | Purpose |
 | --- | --- | --- |
 | `commerceToolsCartId` | String | The checkout (cart) the payment belongs to. |
-| `reactionaryProtocolData` | String | The payment instruction's `protocolData` as a JSON object, written only when it is non-empty. |
+| `reactionaryProtocolData` | String | The payment's protocol channel, a JSON object exchanged with the payment extensions in both directions. |
 
-`reactionaryProtocolData` is how provider-specific payment data reaches the
-project's payment integration without reactionary knowing the provider — for
-example the delegated payment tokens of UCP/ACP agents
-(`delegated_payment_token`, `ucp_payment_credential`). A payment API extension
-(e.g. the Stripe one) reads the keys it understands, ignores the rest, and
-should clear the field once used so no tokens are stored on the payment.
+`reactionaryProtocolData` is how provider-specific payment data travels
+without reactionary knowing the provider:
+
+- **Inbound:** `addPaymentInstruction` writes the instruction's `protocolData`
+  into it (only when non-empty) — for example the delegated payment tokens of
+  UCP/ACP agents (`delegated_payment_token`, `ucp_payment_credential`).
+- **Outbound:** a payment API extension (e.g. the Stripe one) consumes the keys
+  it understands, then replaces the content with its results (e.g.
+  `stripe_clientSecret`, `stripe_status`), which also removes any token.
+- **Reading back:** the checkout factory flattens the JSON object into the
+  payment instruction's `protocolData` entries.
 
 ## Building
 

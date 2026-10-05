@@ -1,4 +1,5 @@
 import type { MyCartUpdateAction } from '@commercetools/platform-sdk';
+import { PROTOCOL_DATA_FIELD, serializeProtocolData } from '../core/payment-protocol-data.js';
 import type {
   Cache,
   CheckoutFactory,
@@ -342,13 +343,7 @@ export class CommercetoolsCheckoutCapability<
               // Protocol data (e.g. agentic delegated payment tokens) is passed
               // verbatim for the project's payment extensions to interpret.
               ...(payload.paymentInstruction.protocolData.length > 0
-                ? {
-                    reactionaryProtocolData: JSON.stringify(
-                      Object.fromEntries(
-                        payload.paymentInstruction.protocolData.map((entry) => [entry.key, entry.value]),
-                      ),
-                    ),
-                  }
+                ? { [PROTOCOL_DATA_FIELD]: serializeProtocolData(payload.paymentInstruction.protocolData) }
                 : {}),
             },
           },

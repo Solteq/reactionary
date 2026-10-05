@@ -1,3 +1,4 @@
+import { PROTOCOL_DATA_FIELD, parseProtocolDataField } from '../../core/payment-protocol-data.js';
 import type {
   Address as CTAddress,
   Cart as CTCart,
@@ -279,10 +280,11 @@ export class CommercetoolsCheckoutFactory<
     } satisfies PaymentMethodIdentifier;
 
     const customData = data.custom?.fields || {};
-    const protocolData = Object.keys(customData).map((key) => ({
-      key,
-      value: customData[key],
-    }));
+    const protocolData = Object.keys(customData).flatMap((key) =>
+      key === PROTOCOL_DATA_FIELD
+        ? parseProtocolDataField(customData[key])
+        : [{ key, value: customData[key] }],
+    );
 
     let status: PaymentStatus = 'pending';
     if (data.transactions && data.transactions.length > 0) {
