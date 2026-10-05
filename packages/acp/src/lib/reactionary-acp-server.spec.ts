@@ -281,6 +281,8 @@ describe('ReactionaryACPServer', () => {
     expect(completed).toMatchObject({
       id: created.id,
       status: 'completed',
+      fulfillment_options: [{ id: 'standard' }],
+      selected_fulfillment_options: [{ option_id: 'standard' }],
       order: {
         checkout_session_id: created.id,
       },
@@ -751,6 +753,7 @@ describe('ReactionaryACPServer', () => {
     })));
 
     expect(unknownOption['status']).toBe('not_ready_for_payment');
+    expect(unknownOption['selected_fulfillment_options']).toBeUndefined();
     expect(unknownOption['messages']).toEqual([
       expect.objectContaining({ code: 'invalid', param: '$.selected_fulfillment_options[0].option_id', resolution: 'recoverable' }),
     ]);
