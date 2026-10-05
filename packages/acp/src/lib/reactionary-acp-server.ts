@@ -195,6 +195,17 @@ export interface ReactionaryACPServerOptions {
     context: { checkoutSessionId: string; agentId?: string },
   ) => void | Promise<void>;
   /**
+   * Classifies backend shipping methods into ACP fulfillment types, e.g.
+   * click-and-collect methods as `pickup` with their location. Methods are
+   * `shipping` by default, as core shipping methods carry no type.
+   */
+  classifyFulfillmentOption?: (method: ShippingMethod) => ACPFulfillmentClassification | undefined;
+  /**
+   * The URL where the buyer can continue the checkout on the merchant's
+   * site, as a template with a `{checkoutSessionId}` placeholder.
+   */
+  continueUrl?: string;
+  /**
    * Serves the ACP MCP transport binding at `{basePath}/mcp`: the checkout
    * tools over JSON-RPC 2.0 (Streamable HTTP), dispatched to the REST
    * handlers with the connection's Authorization. Discovery then lists the
@@ -294,6 +305,23 @@ export interface ACPMarketingConsentOptions {
     context: { orderId: string; checkoutSessionId: string; agentId?: string },
   ): void | Promise<void>;
 }
+
+/** An ACP fulfillment option type with its type-specific details. */
+export type ACPFulfillmentClassification =
+  | { type: 'shipping' }
+  | { type: 'digital' }
+  | {
+      type: 'pickup';
+      location: { name: string; address: ACPAddress; phone?: string; instructions?: string };
+      pickup_type?: 'in_store' | 'curbside' | 'locker';
+      ready_by?: string;
+      pickup_by?: string;
+    }
+  | {
+      type: 'local_delivery';
+      delivery_window?: { start: string; end: string };
+      service_area?: Record<string, unknown>;
+    };
 
 /** An authenticated agent (platform) calling the checkout API. */
 export interface ACPAgent {
@@ -976,6 +1004,8 @@ export class ReactionaryACPServer<
       cartId: cart.identifier.key,
       currency: input.currency.toLowerCase(),
       agentCapabilities: input.capabilities,
+      ...(input.locale ? { locale: input.locale } : {}),
+      ...(input.timezone ? { timezone: input.timezone } : {}),
       ...(input.affiliate_attribution
         ? { firstTouchAttribution: { ...input.affiliate_attribution, touchpoint: 'first' } }
         : {}),
@@ -1457,14 +1487,18 @@ export class ReactionaryACPServer<
       : await this.priceSession(state, client);
     // A payable session keeps waiting for the agent's authentication result.
     const awaitingAuthentication = state.status === 'authentication_required' && view.status === 'ready_for_payment';
+    const now = new Date().toISOString();
     const persisted: ACPCheckoutSessionState = {
       ...state,
+      createdAt: state.createdAt ?? now,
+      updatedAt: now,
       status: awaitingAuthentication ? 'authentication_required' : view.status,
       ...(view.orderId ? { orderId: view.orderId } : {}),
     };
     const lineItems = view.checkout?.items ?? view.cart?.items ?? [];
     const products = await getProducts(lineItems.map((item) => item.variant.sku), client);
     const optionTitles = getOptionTitles(view.options);
+    const selectedOption = view.options.find((option) => option.identifier.key === state.fulfillmentOptionId);
     const discountsActive = this.isDiscountExtensionActive(persisted.agentCapabilities, client);
 
     await this.checkoutSessionStore.put(persisted.id, persisted);
@@ -1480,18 +1514,23 @@ export class ReactionaryACPServer<
         ? { authentication_metadata: persisted.authenticationMetadata }
         : {}),
       currency: getCurrency(view.price, requestContext),
+      locale: persisted.locale ?? requestContext.languageContext.locale,
+      ...(persisted.timezone ? { timezone: persisted.timezone } : {}),
       line_items: lineItems.map((item) => toACPLineItem(item, products.get(item.variant.sku))),
       ...(persisted.fulfillmentDetails
         ? { fulfillment_details: persisted.fulfillmentDetails }
         : {}),
-      fulfillment_options: view.options.map((option) =>
-        toACPFulfillmentOption(option, optionTitles.get(option.identifier.key) ?? option.identifier.key)),
+      fulfillment_options: view.options.map((option) => toACPFulfillmentOption(
+        option,
+        optionTitles.get(option.identifier.key) ?? option.identifier.key,
+        this.classifyFulfillmentOption(option),
+      )),
       // A selection is only reported while it references an offered option.
       ...(persisted.fulfillmentOptionId
         && view.options.some((option) => option.identifier.key === persisted.fulfillmentOptionId)
         ? {
             selected_fulfillment_options: [{
-              type: 'shipping',
+              type: selectedOption ? this.classifyFulfillmentOption(selectedOption).type : 'shipping',
               option_id: persisted.fulfillmentOptionId,
               item_ids: lineItems.map((lineItem) => lineItem.identifier.key),
             }],
@@ -1524,7 +1563,21 @@ export class ReactionaryACPServer<
         ...(discountsActive ? getRejectedDiscountMessages(persisted) : []),
       ],
       links: this.options.links ?? [],
+      created_at: persisted.createdAt,
+      updated_at: persisted.updatedAt,
+      ...(isTerminal(persisted.status)
+        ? {}
+        : {
+            expires_at: new Date(Date.now() + (this.options.checkoutSessionTtlSeconds ?? 60 * 60 * 24) * 1000).toISOString(),
+            ...(this.options.continueUrl
+              ? { continue_url: this.options.continueUrl.replaceAll('{checkoutSessionId}', encodeURIComponent(persisted.id)) }
+              : {}),
+          }),
     };
+  }
+
+  private classifyFulfillmentOption(method: ShippingMethod): ACPFulfillmentClassification {
+    return this.options.classifyFulfillmentOption?.(method) ?? { type: 'shipping' };
   }
 
   /**
@@ -1767,7 +1820,8 @@ export class ReactionaryACPServer<
         ? {
             fulfillments: [{
               id: 'fulfillment_1',
-              type: 'shipping',
+              // Order fulfillments are shipping, pickup or digital.
+              type: toOrderFulfillmentType(this.classifyFulfillmentOption(order.shippingMethod).type),
               status: canceled ? 'canceled' : shipped ? 'shipped' : 'processing',
               line_items: lineItems
                 .filter((lineItem) => lineItem.quantity.current > 0)
@@ -1999,6 +2053,14 @@ function isRawCardCredential(credential: Record<string, unknown>): boolean {
   return credential['type'] === 'card'
     || credential['type'] === 'pan'
     || ['number', 'cvc', 'card_number'].some((field) => credential[field] !== undefined);
+}
+
+function toOrderFulfillmentType(type: ACPFulfillmentClassification['type']): 'shipping' | 'pickup' | 'digital' {
+  return type === 'local_delivery' ? 'shipping' : type;
+}
+
+function isTerminal(status: ACPCheckoutSessionState['status']): boolean {
+  return status === 'completed' || status === 'canceled';
 }
 
 /** The buyer's contact for a marketing channel, if any. */
@@ -2691,15 +2753,19 @@ function toACPTotals(price: Checkout['price']): Record<string, unknown>[] {
 function toACPFulfillmentOption(
   method: ShippingMethod,
   title: string,
+  classification: ACPFulfillmentClassification,
 ): Record<string, unknown> {
   const description = method.deliveryTime || method.description;
+  const { type, ...details } = classification;
 
   return {
-    type: 'shipping',
+    type,
     id: method.identifier.key,
     title,
     ...(description ? { description } : {}),
-    ...(method.carrier ? { carrier: method.carrier } : {}),
+    // Carriers belong to shipped options only.
+    ...(type === 'shipping' && method.carrier ? { carrier: method.carrier } : {}),
+    ...details,
     totals: [{ type: 'total', display_text: title, amount: toMinorUnits(method.price) }],
   };
 }
