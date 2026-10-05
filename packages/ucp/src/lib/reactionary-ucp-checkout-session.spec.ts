@@ -9,7 +9,8 @@ import {
   type ShippingMethod,
 } from '@reactionary/core';
 import { describe, expect, it } from 'vitest';
-import type { ReactionaryUCPClient } from './reactionary-ucp-common.js';
+import type { UCPTestPaymentHandler } from './reactionary-ucp-checkout-session.js';
+import type { ReactionaryUCPClient, UCPPaymentHandlers } from './reactionary-ucp-common.js';
 import { ReactionaryUCPServer } from './reactionary-ucp-server.js';
 
 const BASE = 'https://shop.example.com/ucp';
@@ -253,7 +254,12 @@ interface UcpCheckoutBody {
 
 function createServer(
   backend: FakeBackend,
-  options: { registeredEmail?: string; authorizationTimeoutMs?: number } = {},
+  options: {
+    registeredEmail?: string;
+    authorizationTimeoutMs?: number;
+    paymentHandlers?: UCPPaymentHandlers;
+    testPaymentHandlers?: UCPTestPaymentHandler[];
+  } = {},
 ) {
   return new ReactionaryUCPServer(
     (requestContext) => {
@@ -268,10 +274,12 @@ function createServer(
     {
       sessionCache: new MemoryCache(),
       paymentAuthorizationWait: { timeoutMs: options.authorizationTimeoutMs ?? 0, intervalMs: 10 },
+      ...(options.testPaymentHandlers ? { testPaymentHandlers: options.testPaymentHandlers } : {}),
       profile: {
         endpoint: BASE,
         merchant: { name: 'Shop', url: 'https://shop.example.com', contact: { email: 'a@example.com' } },
         keys: [],
+        ...(options.paymentHandlers ? { paymentHandlers: options.paymentHandlers } : {}),
       },
     },
   );
@@ -309,6 +317,7 @@ const fulfillment = (selectedOptionId?: string) => ({
     groups: [{ ...(selectedOptionId ? { selected_option_id: selectedOptionId } : {}) }],
   }],
 });
+const stripeHandlers: UCPPaymentHandlers = { 'com.stripe': [{ version: '2026-08-25', id: 'stripe' }] };
 const selectedInstrument = { instruments: [{ id: 'instr-1', handler_id: 'stripe', type: 'card', selected: true }] };
 
 function messageCodes(body: UcpCheckoutBody): string[] {
@@ -473,6 +482,88 @@ describe('UCP checkout sessions', () => {
       value: JSON.stringify(credential),
     });
     expect(JSON.stringify(fetched)).not.toContain('pm_card_visa');
+  });
+
+  it('rejects instruments of handlers that are not advertised without placing a checkout', async () => {
+    const backend = new FakeBackend();
+    const server = createServer(backend, { paymentHandlers: stripeHandlers });
+    const created = await send(server, 'POST', '/checkout-sessions', {
+      line_items: lineItems,
+      buyer: { email: 'ada@example.com' },
+      fulfillment: fulfillment('standard'),
+    });
+
+    const refused = await send(server, 'POST', `/checkout-sessions/${created.id}/complete`, {
+      payment: { instruments: [{ id: 'instr-1', handler_id: 'unknown_handler', type: 'card', credential: { type: 'token', token: 'tok' } }] },
+    });
+
+    expect(refused.status).toBe('incomplete');
+    expect(messageCodes(refused)).toEqual(['payment_failed:$.payment.instruments']);
+    expect(backend.checkouts.size).toBe(0);
+  });
+
+  it('places test handler payments through the delegate with the resolved credential', async () => {
+    const backend = new FakeBackend();
+    const server = createServer(backend, {
+      paymentHandlers: stripeHandlers,
+      testPaymentHandlers: [{
+        id: 'mock_payment_handler',
+        delegateHandlerId: 'stripe',
+        resolveCredential: (credential) =>
+          JSON.stringify(credential).includes('success_token') ? { type: 'token', token: 'pm_card_visa' } : undefined,
+      }],
+    });
+    const mockInstrument = (token: string) => ({
+      payment: { instruments: [{ id: 'instr-1', handler_id: 'mock_payment_handler', type: 'card', credential: { type: 'token', token } }] },
+    });
+    const declinedSession = await send(server, 'POST', '/checkout-sessions', {
+      line_items: lineItems,
+      buyer: { email: 'ada@example.com' },
+      fulfillment: fulfillment('standard'),
+    });
+    const created = await send(server, 'POST', '/checkout-sessions', {
+      line_items: lineItems,
+      buyer: { email: 'ada@example.com' },
+      fulfillment: fulfillment('standard'),
+    });
+
+    const declined = await send(server, 'POST', `/checkout-sessions/${declinedSession.id}/complete`, mockInstrument('fail_token'));
+    expect(declined.status).toBe('incomplete');
+    expect(messageCodes(declined)).toEqual(['payment_failed:$.payment.instruments']);
+    expect(backend.checkouts.size).toBe(0);
+
+    await send(server, 'POST', `/checkout-sessions/${created.id}/complete`, mockInstrument('success_token'));
+
+    const [finalCheckout] = [...backend.checkouts.values()];
+    expect(finalCheckout.paymentInstructions[0].paymentMethod.paymentProcessor).toBe('stripe');
+    expect(finalCheckout.paymentInstructions[0].protocolData).toEqual(expect.arrayContaining([
+      { key: 'ucp_payment_handler_id', value: 'stripe' },
+      { key: 'ucp_payment_credential', value: JSON.stringify({ type: 'token', token: 'pm_card_visa' }) },
+    ]));
+  });
+
+  it('refuses test handlers that delegate to a handler that is not advertised', () => {
+    expect(() => createServer(new FakeBackend(), {
+      paymentHandlers: stripeHandlers,
+      testPaymentHandlers: [{ id: 'mock_payment_handler', delegateHandlerId: 'adyen', resolveCredential: () => undefined }],
+    })).toThrow(/not an advertised payment handler/);
+  });
+
+  it('does not accept a billing address in place of a shipping destination', async () => {
+    const backend = new FakeBackend();
+    const server = createServer(backend);
+    const created = await send(server, 'POST', '/checkout-sessions', {
+      line_items: lineItems,
+      buyer: { email: 'ada@example.com' },
+    });
+
+    const refused = await send(server, 'POST', `/checkout-sessions/${created.id}/complete`, {
+      payment: { instruments: [{ ...selectedInstrument.instruments[0], billing_address: destination }] },
+    });
+
+    expect(refused.status).toBe('incomplete');
+    expect(messageCodes(refused)).toContain('missing:$.fulfillment.methods[0].destinations');
+    expect(backend.checkouts.size).toBe(0);
   });
 
   it('refuses to complete without a buyer email', async () => {

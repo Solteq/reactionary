@@ -7,6 +7,7 @@ import {
   getNoEnabledProviderSystemsMessage,
   loadProjectRootEnv,
 } from './ucp-env-client.js';
+import { createConformanceMockPaymentHandler } from './ucp-conformance-payment-handler.js';
 import {
   ReactionaryUCPServer,
   type ReactionaryUCPIdentityOptions,
@@ -46,6 +47,11 @@ async function main(): Promise<void> {
         : {}),
       ...(process.env['UCP_PAYMENT_AUTHORIZATION_WAIT_MS']
         ? { paymentAuthorizationWait: { timeoutMs: Number(process.env['UCP_PAYMENT_AUTHORIZATION_WAIT_MS']) } }
+        : {}),
+      // Names the advertised Stripe handler the conformance suite's
+      // hardcoded mock handler is completed through.
+      ...(process.env['UCP_CONFORMANCE_MOCK_PAYMENT_DELEGATE']
+        ? { testPaymentHandlers: [createConformanceMockPaymentHandler(process.env['UCP_CONFORMANCE_MOCK_PAYMENT_DELEGATE'])] }
         : {}),
     },
   );

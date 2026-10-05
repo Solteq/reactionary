@@ -22,6 +22,7 @@ import {
   type UCPCheckoutRequest,
   type UCPCheckoutSessionContext,
   type UCPPaymentAuthorizationWait,
+  type UCPTestPaymentHandler,
 } from './reactionary-ucp-checkout-session.js';
 import {
   createUCPError,
@@ -195,6 +196,8 @@ export interface UCPRestOptions {
   merchantUrl?: string;
   /** See ReactionaryUCPServerOptions.anonymousOrderEmail. */
   anonymousOrderEmail?: string;
+  /** See ReactionaryUCPServerOptions.testPaymentHandlers. */
+  testPaymentHandlers?: UCPTestPaymentHandler[];
 }
 
 function createCheckoutSessionContext(
@@ -214,6 +217,7 @@ function createCheckoutSessionContext(
     paymentAuthorizationWait: options.paymentAuthorizationWait,
     merchantUrl: options.merchantUrl,
     anonymousOrderEmail: options.anonymousOrderEmail,
+    testPaymentHandlers: options.testPaymentHandlers,
     getIdentityEmail() {
       identityEmail ??= getRegisteredIdentityEmail(client, options.identity);
       return identityEmail;

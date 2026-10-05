@@ -5,4 +5,5 @@ export {
   DEFAULT_UCP_PAYMENT_AUTHORIZATION_WAIT,
   DEFAULT_UCP_PLACEHOLDER_EMAIL,
   type UCPPaymentAuthorizationWait,
+  type UCPTestPaymentHandler,
 } from './lib/reactionary-ucp-checkout-session.js';
