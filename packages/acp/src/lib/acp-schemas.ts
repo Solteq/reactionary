@@ -108,9 +108,21 @@ export const ACPUpdateCheckoutSessionRequestSchema = z.object({
   selected_fulfillment_options: z.array(ACPSelectedFulfillmentOptionSchema).nullable().optional(),
 });
 
+/**
+ * Payment data on completion: the instrument a payment handler produced,
+ * e.g. `{ type: 'card', credential: { type: 'spt', token: 'spt_...' } }`.
+ * Purchase-order payments (B2B) are not supported, so the handler and
+ * instrument are required.
+ */
 export const ACPPaymentDataSchema = z.object({
-  token: z.string().min(1),
-  provider: z.enum(['stripe', 'adyen', 'braintree']),
+  handler_id: z.string().min(1),
+  instrument: z.object({
+    type: z.string().min(1),
+    credential: z.looseObject({
+      type: z.string().min(1),
+      token: z.string().min(1),
+    }),
+  }),
   billing_address: ACPAddressSchema.optional(),
 });
 

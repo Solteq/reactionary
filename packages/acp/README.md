@@ -159,7 +159,7 @@ new ReactionaryACPServer(createClient, {
 - ACP product feed variant `price` comes from `price.getCustomerPrice`, which includes active customer/global campaign prices and can fall back to list prices in providers.
 - ACP product feed variant `list_price` comes from `price.getListPrice`.
 - ACP product feed availability comes from `inventory.getBySKU`.
-- ACP payment data is passed as checkout payment-instruction protocol data with key `delegated_payment_token`.
+- Completion takes `payment_data { handler_id, instrument { type, credential { type, token } }, billing_address? }`. The handler must be one advertised in `paymentHandlers`; the credential token is passed to the backend as payment-instruction protocol data `delegated_payment_token` (with `delegated_payment_provider` = the handler's PSP, plus `acp_payment_handler_id`, `acp_payment_instrument_type`, `acp_payment_credential_type`). `billing_address` becomes the checkout's billing address. Raw card credentials are refused unless `acceptRawCardCredentials` is set; purchase-order payments are not supported.
 - Fulfillment options are sourced from `checkout.getAvailableShippingMethods`.
 - Payment handlers are configured with the `paymentHandlers` option and advertised in `capabilities.payment.handlers`; `createTokenizedCardHandler({ psp, merchantId })` builds the reference `dev.acp.tokenized.card` handler. Each handler maps to the backend payment method its payments are placed with (default: method `card`, name and processor = the handler's PSP). Handler configs must carry `merchant_id` and `psp`; without handlers, `capabilities.payment` is omitted.
 

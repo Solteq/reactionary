@@ -299,7 +299,10 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           `${ACP_BASE_URL}/checkout_sessions/${created.id}/complete`,
           {
             buyer,
-            payment_data: { token: 'spt_test', provider: 'stripe' },
+            payment_data: {
+              handler_id: 'card_tokenized',
+              instrument: { type: 'card', credential: { type: 'spt', token: 'spt_test' } },
+            },
           },
         );
 
@@ -361,7 +364,10 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           // no out-of-band PSP webhook needs simulating.
           const completePayload = {
             buyer: orderBuyer,
-            payment_data: { token: 'pm_card_visa', provider: 'stripe' },
+            payment_data: {
+              handler_id: 'card_tokenized',
+              instrument: { type: 'card', credential: { type: 'spt', token: 'pm_card_visa' } },
+            },
           };
           const completed = await session.sendJson<AcpCheckoutSession & { order?: { id: string } }>(
             'POST',
