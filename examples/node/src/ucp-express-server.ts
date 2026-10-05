@@ -157,6 +157,9 @@ export function parseOptions(
     ? {
       ...(signingKey ? { signingKey } : {}),
       ...(env['UCP_WEBHOOKS_ALLOW_INSECURE_URLS'] === 'true' ? { allowInsecureUrls: true } : {}),
+      ...(env['UCP_WEBHOOK_RETRY_DELAYS_MS']
+        ? { retryDelaysMs: env['UCP_WEBHOOK_RETRY_DELAYS_MS'].split(',').map((delay) => Number(delay.trim())) }
+        : {}),
     }
     : undefined;
 

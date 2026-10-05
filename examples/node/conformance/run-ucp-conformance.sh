@@ -65,6 +65,10 @@ export UCP_TEST_ORDER_UPDATES=true
 # with a key generated for this run and published in the business profile.
 export UCP_WEBHOOKS_ENABLED=true
 export UCP_WEBHOOKS_ALLOW_INSECURE_URLS=true
+# Most tests place orders while no webhook receiver runs; with the default
+# retry schedule (up to 5 minutes) those deliveries would land on the
+# receivers of later webhook tests and skew their delivery counts.
+export UCP_WEBHOOK_RETRY_DELAYS_MS=500,1000
 UCP_SIGNING_KEY_JWK="$(node -e '
   const { generateKeyPairSync } = require("node:crypto");
   const jwk = generateKeyPairSync("ec", { namedCurve: "P-256" }).privateKey.export({ format: "jwk" });
@@ -88,6 +92,14 @@ for _ in $(seq 1 60); do
 done
 curl -fsS "http://127.0.0.1:$PORT/.well-known/ucp" >/dev/null \
   || { echo "UCP server did not become ready on port $PORT" >&2; exit 1; }
+
+# Warm up backend connections and caches, so the suite's first test does
+# not hit its 5s client timeout on a cold start.
+ITEM_ID="$(node -e 'console.log(require(process.argv[1]).items[0].id)' "$SCRIPT_DIR/conformance_input.json")"
+curl -fsS -o /dev/null -X POST "http://127.0.0.1:$PORT/ucp/checkout-sessions" \
+  -H 'content-type: application/json' \
+  -H 'UCP-Agent: profile="https://warmup.invalid/profile"' \
+  -d "{\"line_items\":[{\"item\":{\"id\":\"$ITEM_ID\"},\"quantity\":1}]}" || true
 
 mkdir -p "$ROOT/tmp"
 echo "Running conformance suite (report: $REPORT)..."
