@@ -74,7 +74,7 @@ interface AcpCheckoutSession {
   };
   line_items: AcpLineItem[];
   fulfillment_options: AcpFulfillmentOption[];
-  fulfillment_option_id?: string;
+  selected_fulfillment_options?: Array<{ type: string; option_id: string; item_ids: string[] }>;
   totals: AcpTotal[];
   links: Array<{ type: string; url: string }>;
 }
@@ -98,14 +98,23 @@ const buyer = {
   email: 'ada@example.com',
 };
 
-const fulfillmentAddress = {
+const fulfillmentDetails = {
   name: 'Ada Lovelace',
-  line_one: '123 Main St',
-  city: 'Anytown',
-  state: 'Hovedstaden',
-  country: 'DK',
-  postal_code: '12345',
+  address: {
+    name: 'Ada Lovelace',
+    line_one: '123 Main St',
+    city: 'Anytown',
+    state: 'Hovedstaden',
+    country: 'DK',
+    postal_code: '12345',
+  },
 };
+
+function selectShipping(optionId: string | undefined) {
+  return {
+    selected_fulfillment_options: optionId ? [{ type: 'shipping', option_id: optionId, item_ids: [] }] : null,
+  };
+}
 
 async function readProductFeed(server: ReactionaryACPServer): Promise<AcpFeedItem[]> {
   const response = await server.fetch(
@@ -132,7 +141,7 @@ async function readProductFeed(server: ReactionaryACPServer): Promise<AcpFeedIte
 async function createCheckoutSessionFromFeed(
   session: ProtocolSession,
   feedItems: AcpFeedItem[],
-  details: Record<string, unknown> = { buyer, fulfillment_address: fulfillmentAddress },
+  details: Record<string, unknown> = { buyer, fulfillment_details: fulfillmentDetails },
 ): Promise<{ checkoutSession: AcpCheckoutSession; sku: string }> {
   // Prefer items that are explicitly in stock, but fall back to items with an
   // unknown availability: commercetools reports 'unknown' when no inventory
@@ -262,11 +271,11 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           const updatedFulfillment = await session.sendJson<AcpCheckoutSession>(
             'POST',
             `${ACP_BASE_URL}/checkout_sessions/${created.id}`,
-            { fulfillment_option_id: fulfillmentOption.id },
+            selectShipping(fulfillmentOption.id),
           );
 
           expect(updatedFulfillment.status).toBe(200);
-          expect(updatedFulfillment.body.fulfillment_option_id).toBe(fulfillmentOption.id);
+          expect(updatedFulfillment.body.selected_fulfillment_options?.[0]?.option_id).toBe(fulfillmentOption.id);
         }
 
         // 5. The buyer abandons the purchase.
@@ -323,7 +332,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           const withAddress = await session.sendJson<AcpCheckoutSession>(
             'POST',
             `${ACP_BASE_URL}/checkout_sessions/${created.id}`,
-            { buyer: orderBuyer, fulfillment_address: fulfillmentAddress },
+            { buyer: orderBuyer, fulfillment_details: fulfillmentDetails },
           );
 
           expect(withAddress.status).toBe(200);
@@ -335,7 +344,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           const ready = await session.sendJson<AcpCheckoutSession>(
             'POST',
             `${ACP_BASE_URL}/checkout_sessions/${created.id}`,
-            { fulfillment_option_id: option?.id },
+            selectShipping(option?.id),
           );
 
           expect(ready.body.status).toBe('ready_for_payment');
