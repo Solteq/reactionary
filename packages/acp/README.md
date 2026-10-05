@@ -33,7 +33,7 @@ Every checkout `POST` must carry an `Idempotency-Key` (at most 255 characters), 
 
 ## Discovery
 
-`GET /.well-known/acp.json` (alias `/.well-known/acp`) serves the ACP discovery document with `Cache-Control: public, max-age=3600`. It advertises protocol version `2026-04-17` and the `checkout` service, plus `feeds` when `productFeed` is configured. `api_base_url` defaults to the request origin plus `basePath` (default `/acp`); override it and other fields with the `discovery` option. The host application must route the well-known path to this handler. Payment handlers are not part of ACP discovery; they are negotiated per checkout session.
+`GET /.well-known/acp.json` (alias `/.well-known/acp`) serves the ACP discovery document with `Cache-Control: public, max-age=3600`. It advertises protocol version `2026-04-17` and the `checkout` service (the services enum is closed per version: `checkout`, `orders`, `delegate_payment`, `carts`). `api_base_url` defaults to the request origin plus `basePath` (default `/acp`); override it and other fields with the `discovery` option. The host application must route the well-known path to this handler. Payment handlers are not part of ACP discovery; they are negotiated per checkout session.
 
 ## Product feed generation
 
