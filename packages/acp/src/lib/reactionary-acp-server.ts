@@ -1563,7 +1563,8 @@ function toACPTotals(price: Checkout['price']): Record<string, unknown>[] {
 /**
  * A 2026-04-17 shipping option: its cost is a `totals[]` breakdown. The
  * description carries the backend's delivery estimate, falling back to the
- * method description.
+ * method description. Backends report the estimate as free text, so no
+ * delivery timestamps are claimed.
  */
 function toACPFulfillmentOption(
   method: ShippingMethod,
@@ -1577,8 +1578,6 @@ function toACPFulfillmentOption(
     title,
     ...(description ? { description } : {}),
     ...(method.carrier ? { carrier: method.carrier } : {}),
-    earliest_delivery_time: new Date().toISOString(),
-    latest_delivery_time: new Date().toISOString(),
     totals: [{ type: 'total', display_text: title, amount: toMinorUnits(method.price.value) }],
   };
 }
