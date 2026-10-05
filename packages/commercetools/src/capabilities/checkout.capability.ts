@@ -1,4 +1,9 @@
-import type { Cart as CTCart, MyCartUpdateAction, ShippingMethod as CTShippingMethod } from '@commercetools/platform-sdk';
+import type {
+  Cart as CTCart,
+  MyCartUpdateAction,
+  ShippingMethod as CTShippingMethod,
+  ShippingRate as CTShippingRate,
+} from '@commercetools/platform-sdk';
 import { PROTOCOL_DATA_FIELD, serializeProtocolData } from '../core/payment-protocol-data.js';
 import type {
   Cache,
@@ -47,30 +52,6 @@ import { type CommercetoolsCheckoutIdentifier } from '../schema/commercetools.sc
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { CommercetoolsCheckoutFactory } from '../factories/checkout/checkout.factory.js';
 import { getLanguageCodeFromLocale } from '../core/locale-utils.js';
-
-/**
- * Quotes a matching shipping rate as free when the cart reaches the rate's
- * free-above threshold, as commercetools charges once the method is set:
- * shipping is free if the sum of the (custom) line item prices reaches it.
- */
-function withFreeShipping(shippingMethod: CTShippingMethod, cart: CTCart): CTShippingMethod {
-  const itemsTotal = [...cart.lineItems, ...cart.customLineItems]
-    .reduce((sum, item) => sum + item.totalPrice.centAmount, 0);
-
-  return {
-    ...shippingMethod,
-    zoneRates: shippingMethod.zoneRates.map((zoneRate) => ({
-      ...zoneRate,
-      shippingRates: zoneRate.shippingRates.map((rate) =>
-        rate.isMatching
-          && rate.freeAbove
-          && rate.freeAbove.currencyCode === cart.totalPrice.currencyCode
-          && itemsTotal >= rate.freeAbove.centAmount
-          ? { ...rate, price: { ...rate.price, centAmount: 0 } }
-          : rate),
-    })),
-  };
-}
 
 export class CheckoutNotReadyForFinalizationError extends Error {
   constructor(public checkoutIdentifier: CheckoutIdentifier) {
@@ -306,10 +287,45 @@ export class CommercetoolsCheckoutCapability<
     ]);
 
     const result = shippingMethodsResponse.body.results.map((shippingMethod) =>
-      this.factory.parseShippingMethod(this.context, withFreeShipping(shippingMethod, cartResponse.body)),
+      this.factory.parseShippingMethod(this.context, this.withFreeShipping(shippingMethod, cartResponse.body)),
     );
 
     return success(result);
+  }
+
+  /**
+   * Quotes the matching shipping rates as free where the cart reaches the
+   * rate's free-above threshold. commercetools' matching-cart query returns
+   * the rates at their configured price and only applies the threshold once
+   * the method is set on the cart.
+   */
+  protected withFreeShipping(shippingMethod: CTShippingMethod, cart: CTCart): CTShippingMethod {
+    return {
+      ...shippingMethod,
+      zoneRates: shippingMethod.zoneRates.map((zoneRate) => ({
+        ...zoneRate,
+        shippingRates: zoneRate.shippingRates.map((rate) =>
+          rate.isMatching && this.isFreeShipping(rate, cart)
+            ? { ...rate, price: { ...rate.price, centAmount: 0 } }
+            : rate),
+      })),
+    };
+  }
+
+  /**
+   * Whether commercetools charges nothing for the rate once the method is set:
+   * shipping is free if the sum of the (custom) line item prices, after line
+   * item discounts, reaches the rate's free-above threshold.
+   */
+  protected isFreeShipping(rate: CTShippingRate, cart: CTCart): boolean {
+    if (!rate.freeAbove || rate.freeAbove.currencyCode !== cart.totalPrice.currencyCode) {
+      return false;
+    }
+
+    const itemsTotal = [...cart.lineItems, ...cart.customLineItems]
+      .reduce((sum, item) => sum + item.totalPrice.centAmount, 0);
+
+    return itemsTotal >= rate.freeAbove.centAmount;
   }
 
   @Reactionary({
