@@ -126,9 +126,56 @@ export const ACPPaymentDataSchema = z.object({
   billing_address: ACPAddressSchema.optional(),
 });
 
+/** Seller-provided metadata the agent authenticates the buyer (3DS) with. */
+export const ACPAuthenticationMetadataSchema = z.looseObject({
+  channel: z.looseObject({}).optional(),
+  acquirer_details: z.object({
+    acquirer_bin: z.string().max(11),
+    acquirer_country: z.string().length(2),
+    acquirer_merchant_id: z.string().max(35),
+    merchant_name: z.string().max(40),
+    requestor_id: z.string().max(35).optional(),
+  }),
+  directory_server: z.enum(['american_express', 'mastercard', 'visa']),
+  flow_preference: z.object({
+    type: z.enum(['challenge', 'frictionless']),
+    challenge: z.object({ type: z.enum(['mandated', 'preferred']).optional() }).optional(),
+    frictionless: z.object({ type: z.enum(['low_risk']).optional() }).optional(),
+  }).optional(),
+});
+
+/** Outcomes after which the payment may be authorized with the result. */
+export const ACP_AUTHENTICATED_OUTCOMES = ['authenticated', 'attempt_acknowledged', 'informational'] as const;
+
+export const ACPAuthenticationResultSchema = z.object({
+  outcome: z.enum([
+    'abandoned',
+    'attempt_acknowledged',
+    'authenticated',
+    'canceled',
+    'denied',
+    'informational',
+    'internal_error',
+    'not_supported',
+    'processing_error',
+    'rejected',
+  ]),
+  outcome_details: z.object({
+    three_ds_cryptogram: z.string(),
+    electronic_commerce_indicator: z.enum(['01', '02', '05', '06', '07']),
+    transaction_id: z.string(),
+    version: z.string(),
+  }).optional(),
+}).refine(
+  (result) => result.outcome_details !== undefined
+    || !(ACP_AUTHENTICATED_OUTCOMES as readonly string[]).includes(result.outcome),
+  { error: 'outcome_details is required for this outcome', path: ['outcome_details'] },
+);
+
 export const ACPCompleteCheckoutSessionRequestSchema = z.object({
   buyer: ACPBuyerSchema.optional(),
   payment_data: ACPPaymentDataSchema,
+  authentication_result: ACPAuthenticationResultSchema.optional(),
 });
 
 export const ACPCheckoutSessionStateSchema = z.looseObject({
@@ -147,12 +194,15 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
   status: z.enum([
     'not_ready_for_payment',
     'ready_for_payment',
+    'authentication_required',
     'in_progress',
     'complete_in_progress',
     'completed',
     'canceled',
   ]),
   buyer: ACPBuyerSchema.optional(),
+  /** The 3DS metadata the session awaits an authentication result for. */
+  authenticationMetadata: ACPAuthenticationMetadataSchema.optional(),
   fulfillmentDetails: ACPFulfillmentDetailsSchema.optional(),
   // The backend checkout has one shipping method, so one option is kept.
   fulfillmentOptionId: z.string().optional(),
@@ -171,6 +221,8 @@ export const ACPOrderRecordSchema = z.looseObject({
 
 export type ACPOrderRecord = z.infer<typeof ACPOrderRecordSchema>;
 export type ACPItem = z.infer<typeof ACPItemSchema>;
+export type ACPAuthenticationMetadata = z.infer<typeof ACPAuthenticationMetadataSchema>;
+export type ACPAuthenticationResult = z.infer<typeof ACPAuthenticationResultSchema>;
 export type ACPAgentCapabilities = z.infer<typeof ACPAgentCapabilitiesSchema>;
 export type ACPBuyer = z.infer<typeof ACPBuyerSchema>;
 export type ACPAddress = z.infer<typeof ACPAddressSchema>;

@@ -33,7 +33,9 @@ import {
   ACPUpdateCheckoutSessionRequestSchema,
   ACP_INTERVENTION_TYPES,
   ACPOrderRecordSchema,
+  ACP_AUTHENTICATED_OUTCOMES,
   type ACPAddress,
+  type ACPAuthenticationMetadata,
   type ACPAgentCapabilities,
   type ACPOrderRecord,
   type ACPBuyer,
@@ -49,6 +51,7 @@ import { ACPIdempotency, ACP_MIN_IDEMPOTENCY_TTL_SECONDS } from './acp-idempoten
 import { ACPOrderWebhooks, type ACPOrderEventType, type ACPWebhookOptions } from './acp-webhooks.js';
 import {
   getHandlerPaymentMethod,
+  type ACPPaymentHandler,
   type ACPPaymentHandlerOption,
 } from './acp-payment-handlers.js';
 
@@ -136,6 +139,14 @@ export interface ReactionaryACPServerOptions {
    */
   orderPermalinkUrl?: string;
   /**
+   * Asks for 3D Secure authentication: returning metadata makes completion
+   * answer `authentication_required` until the agent completes again with an
+   * `authentication_result`, which is passed to the backend's payment
+   * integration as protocol data `acp_authentication_result`. Advertise
+   * `3ds` in `interventions.supported` for agents to know.
+   */
+  authentication?: ACPAuthenticationOptions;
+  /**
    * Sends signed order events (`order_create` on placement, `order_update`
    * via `notifyOrderUpdated`) to the agents' webhook receivers, as ACP
    * requires. Needs the client's `order.getById`. Unset, no webhooks are
@@ -192,6 +203,15 @@ export interface ReactionaryACPServerOptions {
 
 export interface ACPInventoryOptions {
   fulfillmentCenterKeys: string[];
+}
+
+export interface ACPAuthenticationOptions {
+  getMetadata(context: {
+    checkoutSessionId: string;
+    handler: ACPPaymentHandler;
+    instrument: ACPPaymentData['instrument'];
+    amount: MonetaryAmount;
+  }): ACPAuthenticationMetadata | undefined | Promise<ACPAuthenticationMetadata | undefined>;
 }
 
 /** An authenticated agent (platform) calling the checkout API. */
@@ -775,6 +795,9 @@ export class ReactionaryACPServer<
         ? await this.replaceCartItems(state.cartId, input.line_items, client)
         : state.cartId,
       buyer: mergeBuyer(state.buyer, input.buyer),
+      // Changes to the session invalidate a pending authentication.
+      status: state.status === 'authentication_required' ? 'not_ready_for_payment' : state.status,
+      authenticationMetadata: undefined,
       fulfillmentDetails: input.fulfillment_details === null
         ? undefined
         : input.fulfillment_details ?? state.fulfillmentDetails,
@@ -836,6 +859,14 @@ export class ReactionaryACPServer<
     if (!current.checkoutId) {
       const handler = this.resolvePaymentHandler(input.payment_data);
       const view = await this.priceSession(current, client);
+
+      if (view.status === 'ready_for_payment') {
+        const authentication = await this.checkAuthentication(current, input, handler, view, client);
+
+        if (authentication) {
+          return authentication;
+        }
+      }
 
       if (view.status !== 'ready_for_payment') {
         const blocking = view.messages?.find((message) => message.type === 'error');
@@ -1068,6 +1099,9 @@ export class ReactionaryACPServer<
           { key: 'acp_payment_handler_id', value: handler.handler.id },
           { key: 'acp_payment_instrument_type', value: input.payment_data.instrument.type },
           { key: 'acp_payment_credential_type', value: input.payment_data.instrument.credential.type },
+          ...(input.authentication_result
+            ? [{ key: 'acp_authentication_result', value: JSON.stringify(input.authentication_result) }]
+            : []),
         ],
       },
     });
@@ -1174,9 +1208,11 @@ export class ReactionaryACPServer<
     const view = state.checkoutId
       ? await this.getPlacedView(state, client)
       : await this.priceSession(state, client);
+    // A payable session keeps waiting for the agent's authentication result.
+    const awaitingAuthentication = state.status === 'authentication_required' && view.status === 'ready_for_payment';
     const persisted: ACPCheckoutSessionState = {
       ...state,
-      status: view.status,
+      status: awaitingAuthentication ? 'authentication_required' : view.status,
       ...(view.orderId ? { orderId: view.orderId } : {}),
     };
     const lineItems = view.checkout?.items ?? view.cart?.items ?? [];
@@ -1192,6 +1228,9 @@ export class ReactionaryACPServer<
       capabilities: this.getNegotiatedCapabilities(persisted.agentCapabilities),
       ...(persisted.buyer ? { buyer: persisted.buyer } : {}),
       status: persisted.status,
+      ...(persisted.status === 'authentication_required' && persisted.authenticationMetadata
+        ? { authentication_metadata: persisted.authenticationMetadata }
+        : {}),
       currency: getCurrency(view.price, requestContext),
       line_items: lineItems.map((item) => toACPLineItem(item, products.get(item.variant.sku))),
       ...(persisted.fulfillmentDetails
@@ -1226,6 +1265,67 @@ export class ReactionaryACPServer<
       messages: [...extraMessages, ...(view.messages ?? [])],
       links: this.options.links ?? [],
     };
+  }
+
+  /**
+   * 3D Secure (checkout RFC §4.4): when the authentication hook asks for it,
+   * the first completion answers `authentication_required` with the
+   * metadata; completing such a session without `authentication_result` is
+   * a 4XX `requires_3ds`. Failed or refused authentications are not
+   * authorized. Returns a response when completion must stop here.
+   */
+  private async checkAuthentication(
+    state: ACPCheckoutSessionState,
+    input: ACPCompleteCheckoutSessionRequest,
+    handler: ACPPaymentHandlerOption,
+    view: ACPSessionView,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<Response | undefined> {
+    const result = input.authentication_result;
+    const metadata = state.authenticationMetadata ?? (this.options.authentication
+      ? await this.options.authentication.getMetadata({
+          checkoutSessionId: state.id,
+          handler: handler.handler,
+          instrument: input.payment_data.instrument,
+          amount: view.price.grandTotal,
+        })
+      : undefined);
+
+    if (!metadata) {
+      return undefined;
+    }
+
+    if (!result) {
+      if (state.status === 'authentication_required') {
+        throw new ACPHttpError(400, {
+          type: 'invalid_request',
+          code: 'requires_3ds',
+          message: "This checkout session requires issuer authentication. The request must include 'authentication_result'.",
+          param: '$.authentication_result',
+        });
+      }
+
+      const pending: ACPCheckoutSessionState = { ...state, status: 'authentication_required', authenticationMetadata: metadata };
+      await this.checkoutSessionStore.put(pending.id, pending);
+
+      return jsonResponse(await this.toACPCheckoutSession(pending, client));
+    }
+
+    if (!(ACP_AUTHENTICATED_OUTCOMES as readonly string[]).includes(result.outcome)) {
+      const pending: ACPCheckoutSessionState = { ...state, status: 'authentication_required', authenticationMetadata: metadata };
+      await this.checkoutSessionStore.put(pending.id, pending);
+
+      return jsonResponse(await this.toACPCheckoutSession(pending, client, undefined, [{
+        type: 'error',
+        code: 'payment_declined',
+        param: '$.authentication_result',
+        content_type: 'plain',
+        content: `Card authentication did not succeed (${result.outcome}); the payment was not authorized.`,
+        resolution: 'requires_buyer_input',
+      }]));
+    }
+
+    return undefined;
   }
 
   /**
