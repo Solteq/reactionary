@@ -40,7 +40,7 @@ export ENABLED_ALGOLIA=false ENABLED_MEILISEARCH=false ENABLED_UNOMI=false
 export UCP_HOST=0.0.0.0
 export UCP_PORT="$PORT"
 export UCP_ENDPOINT="http://host.docker.internal:$PORT/ucp"
-export UCP_PAYMENT_HANDLERS_JSON='{"dev.reactionary.manual":[{"version":"2026-08-25","id":"manual"}]}'
+export UCP_PAYMENT_HANDLERS_JSON='{"dev.reactionary.manual":[{"version":"2026-08-25","id":"manual"}],"com.stripe":[{"version":"2026-08-25","id":"stripe"}]}'
 
 echo "Starting UCP server on port $PORT..."
 cd "$ROOT/examples/node"

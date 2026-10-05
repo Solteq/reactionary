@@ -221,6 +221,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
             ...this.options.paymentAuthorizationWait,
           },
           identity: requestContext.session.identityContext.identity,
+          merchantUrl: this.options.profile?.merchant?.url,
         },
       );
 

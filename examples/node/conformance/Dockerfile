@@ -26,5 +26,9 @@ RUN sed -i '/^\[tool\.uv\.sources\]/,/^ucp-sdk/d' pyproject.toml \
 # config paths; overlay them with the reactionary/commercetools values.
 COPY conformance_input.json test_data/flower_shop/conformance_input.json
 COPY test_fixtures.json test_data/flower_shop/test_fixtures.json
+# Real Stripe test PaymentMethods: the deployed payment extension confirms the
+# delegated credential server-side, so success tokens authorize synchronously
+# and the decline token rejects the payment create (surfaced as payment_failed).
+COPY payment_instruments.csv test_data/flower_shop/payment_instruments.csv
 
 ENTRYPOINT ["uv", "run", "pytest", "-q", "--color=yes"]
