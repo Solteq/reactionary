@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { createTokenizedCardHandler } from './acp-payment-handlers.js';
 import {
   ReactionaryACPServer,
+  createBearerTokenAuthenticator,
   type ACPLink,
   type ReactionaryACPClient,
 } from './reactionary-acp-server.js';
@@ -547,6 +548,45 @@ describe('ReactionaryACPServer', () => {
     })));
 
     expect(created.links).toEqual(links);
+  });
+
+  it('authenticates agents and scopes checkout sessions to the creating agent', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      sessionCache: new MemoryCache(),
+      authenticate: createBearerTokenAuthenticator({ chatgpt: 'token-a', other: 'token-b' }),
+    });
+    const create = (authorization?: string) => {
+      const request = jsonRequest('http://127.0.0.1/checkout_sessions', {
+        line_items: [{ id: 'sku-1' }],
+        currency: 'eur',
+        capabilities: agentCapabilities,
+      });
+      if (authorization) {
+        request.headers.set('authorization', authorization);
+      }
+      return server.fetch(request);
+    };
+
+    const anonymous = await create();
+
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.headers.get('www-authenticate')).toBe('Bearer');
+    await expect(anonymous.json()).resolves.toMatchObject({ code: 'unauthorized' });
+    expect((await create('Bearer wrong')).status).toBe(401);
+
+    const created = await json<{ id: string }>(await create('Bearer token-a'));
+    const read = (token: string) => {
+      const request = getRequest(`http://127.0.0.1/checkout_sessions/${created.id}`);
+      request.headers.set('authorization', `Bearer ${token}`);
+      return server.fetch(request);
+    };
+
+    expect((await read('token-a')).status).toBe(200);
+    expect((await read('token-b')).status).toBe(404);
+
+    const discovery = await server.fetch(new Request('http://127.0.0.1/.well-known/acp.json'));
+
+    expect(discovery.status).toBe(200);
   });
 
   it('creates a session without buyer data and no backend checkout', async () => {

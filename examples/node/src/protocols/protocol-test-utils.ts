@@ -6,7 +6,12 @@ import {
   type Cache,
   type RequestContext,
 } from '@reactionary/core';
-import { ACP_API_VERSION, ReactionaryACPServer, createTokenizedCardHandler } from '@reactionary/acp';
+import {
+  ACP_API_VERSION,
+  ReactionaryACPServer,
+  createBearerTokenAuthenticator,
+  createTokenizedCardHandler,
+} from '@reactionary/acp';
 import { DEFAULT_UCP_LOCALIZATION_RULES, ReactionaryUCPServer } from '@reactionary/ucp';
 import { withAlgoliaCapabilities } from '@reactionary/algolia';
 import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
@@ -225,6 +230,7 @@ export function createUcpServerHarness(
 
 export const ACP_BASE_URL = 'https://shop.example.com/acp';
 export const ACP_FEED_ID = 'e2e';
+const ACP_E2E_TOKEN = 'acp-e2e-token';
 
 export function createAcpServer(
   backend: ProtocolBackend,
@@ -254,6 +260,7 @@ export function createAcpServerHarness(
     {
       sessionCache: new MemoryCache(),
       paymentAuthorizationWait: { timeoutMs: 30_000, intervalMs: 500 },
+      authenticate: createBearerTokenAuthenticator({ e2e: ACP_E2E_TOKEN }),
       paymentHandlers: [createTokenizedCardHandler({ psp: 'stripe', merchantId: 'acct_e2e' })],
       links: [{ type: 'terms_of_use', url: 'https://shop.example.com/terms' }],
       productFeed: {
@@ -358,5 +365,8 @@ export function createUcpSession(server: ReactionaryUCPServer): ProtocolSession 
 }
 
 export function createAcpSession(server: ReactionaryACPServer): ProtocolSession {
-  return new ProtocolSession(server, 'acp-session-id', { 'api-version': ACP_API_VERSION });
+  return new ProtocolSession(server, 'acp-session-id', {
+    'api-version': ACP_API_VERSION,
+    authorization: `Bearer ${ACP_E2E_TOKEN}`,
+  });
 }
