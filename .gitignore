@@ -63,3 +63,8 @@ notes/
 .nx/polygraph
 .nx/self-healing
 .nx/migrate-runs
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
