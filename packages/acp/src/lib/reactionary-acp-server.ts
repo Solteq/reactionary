@@ -261,12 +261,21 @@ export interface ACPDiscoveryResponse {
     documentation_url?: string;
   };
   api_base_url: string;
-  transports: ['rest'];
+  transports: Array<'rest' | 'mcp'>;
   capabilities: {
     services: Array<'checkout' | 'orders' | 'delegate_payment' | 'carts'>;
+    extensions?: ACPDiscoveryExtension[];
+    intervention_types?: ACPInterventionType[];
     supported_currencies?: string[];
     supported_locales?: string[];
   };
+}
+
+/** An extension the seller supports, as listed in discovery. */
+export interface ACPDiscoveryExtension {
+  name: string;
+  spec?: string;
+  schema?: string;
 }
 
 const ACP_DISCOVERY_PATHS = ['/.well-known/acp.json', '/.well-known/acp'];
@@ -639,6 +648,8 @@ export class ReactionaryACPServer<
     const basePath = (this.options.basePath ?? '/acp').replace(/\/$/, '');
     const apiBaseUrl =
       discovery.apiBaseUrl ?? `${new URL(request.url).origin}${basePath}`;
+    const extensions = this.getDiscoveryExtensions();
+    const interventionTypes = [...new Set(this.options.interventions?.supported ?? [])];
 
     return {
       protocol: {
@@ -655,6 +666,8 @@ export class ReactionaryACPServer<
         // The services enum is closed per version: checkout, orders,
         // delegate_payment and carts (discovery RFC §4.2).
         services: ['checkout'],
+        ...(extensions.length > 0 ? { extensions } : {}),
+        ...(interventionTypes.length > 0 ? { intervention_types: interventionTypes } : {}),
         ...(discovery.supportedCurrencies
           ? { supported_currencies: discovery.supportedCurrencies }
           : {}),
@@ -663,6 +676,11 @@ export class ReactionaryACPServer<
           : {}),
       },
     };
+  }
+
+  /** The extensions the server implements; extension PRs add theirs here. */
+  private getDiscoveryExtensions(): ACPDiscoveryExtension[] {
+    return [];
   }
 
   private getReadinessDocument(): Record<string, unknown> {
