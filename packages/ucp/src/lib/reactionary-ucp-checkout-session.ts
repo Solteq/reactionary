@@ -110,6 +110,8 @@ export interface UCPCheckoutSessionContext {
   anonymousOrderEmail?: string;
   /** See ReactionaryUCPServerOptions.testPaymentHandlers. */
   testPaymentHandlers?: UCPTestPaymentHandler[];
+  /** See ReactionaryUCPServerOptions.acceptRawCardCredentials. */
+  acceptRawCardCredentials?: boolean;
   /** See ReactionaryUCPServerOptions.inventory. */
   inventory?: UCPInventoryOptions;
   /** The requesting platform's UCP-Agent profile URL. */
@@ -303,10 +305,8 @@ export async function completeCheckoutSession(
     // The payment credential is used for the real checkout only, never stored.
     const payment = resolvePayment(context, state, getSelectedPaymentInstrument(body)?.credential);
 
-    if (!payment) {
-      return addMessages(response, [
-        createUcpErrorMessage('payment_failed', 'The payment credential was declined.', '$.payment.instruments'),
-      ], 'incomplete');
+    if ('failure' in payment) {
+      return addMessages(response, [payment.failure], 'incomplete');
     }
 
     const placement = await placeFinalCheckout(context, state, payment);
@@ -328,26 +328,52 @@ interface UCPResolvedPayment {
 
 /**
  * The handler and credential the payment is placed with: the agent's own,
- * or, for a test handler, its delegate with the substitute credential.
- * Undefined when a test handler declines the credential.
+ * or, for a test handler, its delegate with the substitute credential. Raw
+ * card credentials are refused unless explicitly accepted, so they never
+ * reach the backend (and its persisted payment data).
  */
 function resolvePayment(
   context: UCPCheckoutSessionContext,
   state: UCPCheckoutSessionState,
   credential: unknown,
-): UCPResolvedPayment | undefined {
+): UCPResolvedPayment | { failure: UCPMessage } {
   const handlerId = state.instrument?.handler_id ?? '';
   const testHandler = context.testPaymentHandlers?.find((handler) => handler.id === handlerId);
+  const resolved = testHandler
+    ? { handlerId: testHandler.delegateHandlerId, credential: testHandler.resolveCredential(credential) }
+    : { handlerId, credential };
 
-  if (!testHandler) {
-    return { handlerId, credential };
+  if (testHandler && resolved.credential === undefined) {
+    return { failure: createUcpErrorMessage('payment_failed', 'The payment credential was declined.', '$.payment.instruments') };
   }
 
-  const substitute = testHandler.resolveCredential(credential);
+  if (!context.acceptRawCardCredentials && isRawCardCredential(resolved.credential)) {
+    return {
+      failure: createUcpErrorMessage(
+        'payment_failed',
+        'Raw card credentials are not accepted; submit a delegated token from the payment handler instead.',
+        '$.payment.instruments',
+      ),
+    };
+  }
 
-  return substitute === undefined
-    ? undefined
-    : { handlerId: testHandler.delegateHandlerId, credential: substitute };
+  return resolved;
+}
+
+/**
+ * A credential carrying card account data: the PAN credential (`pan`, or
+ * `card` in earlier versions) or anything with a card number or CVC.
+ */
+function isRawCardCredential(credential: unknown): boolean {
+  if (typeof credential !== 'object' || credential === null) {
+    return false;
+  }
+
+  const type: unknown = Reflect.get(credential, 'type');
+
+  return type === 'pan'
+    || type === 'card'
+    || ['number', 'cvc', 'card_number'].some((field) => Reflect.get(credential, field) !== undefined);
 }
 
 /**

@@ -223,6 +223,8 @@ export interface UCPRestOptions {
   anonymousOrderEmail?: string;
   /** See ReactionaryUCPServerOptions.testPaymentHandlers. */
   testPaymentHandlers?: UCPTestPaymentHandler[];
+  /** See ReactionaryUCPServerOptions.acceptRawCardCredentials. */
+  acceptRawCardCredentials?: boolean;
   /** See ReactionaryUCPServerOptions.inventory. */
   inventory?: UCPInventoryOptions;
   /** See ReactionaryUCPServerOptions.testOrderUpdates. */
@@ -253,6 +255,7 @@ function createCheckoutSessionContext(
     merchantUrl: options.merchantUrl,
     anonymousOrderEmail: options.anonymousOrderEmail,
     testPaymentHandlers: options.testPaymentHandlers,
+    acceptRawCardCredentials: options.acceptRawCardCredentials,
     inventory: options.inventory,
     agentProfile: options.agentProfile,
     onOrderPlaced,

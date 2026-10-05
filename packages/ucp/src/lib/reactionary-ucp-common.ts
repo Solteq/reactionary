@@ -125,6 +125,15 @@ export interface ReactionaryUCPServerOptions {
    */
   testPaymentHandlers?: UCPTestPaymentHandler[];
   /**
+   * Accepts raw card credentials (a card number, e.g. the `pan` credential)
+   * and forwards them to the backend's payment integration, which persists
+   * payment data — putting the deployment in PCI DSS scope. Off by default:
+   * such completions answer `payment_failed`, and platforms are expected to
+   * submit delegated tokens (UCP: credentials are opaque tokens, not raw
+   * PANs). Credentials resolved by a test payment handler are checked too.
+   */
+  acceptRawCardCredentials?: boolean;
+  /**
    * Checks checkout session line items against these fulfillment centers'
    * combined stock, reporting `out_of_stock` per line item. Unset (the
    * default), stock is left to the backend.

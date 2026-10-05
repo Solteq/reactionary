@@ -309,6 +309,7 @@ function createServer(
     testOrderUpdates?: boolean;
     webhooks?: ReactionaryUCPWebhookOptions;
     testSimulationSecret?: string;
+    acceptRawCardCredentials?: boolean;
   } = {},
 ) {
   return new ReactionaryUCPServer(
@@ -329,6 +330,7 @@ function createServer(
       ...(options.testOrderUpdates ? { testOrderUpdates: true } : {}),
       ...(options.webhooks ? { webhooks: options.webhooks } : {}),
       ...(options.testSimulationSecret ? { testSimulationSecret: options.testSimulationSecret } : {}),
+      ...(options.acceptRawCardCredentials ? { acceptRawCardCredentials: true } : {}),
       profile: {
         endpoint: BASE,
         merchant: { name: 'Shop', url: 'https://shop.example.com', contact: { email: 'a@example.com' } },
@@ -594,6 +596,34 @@ describe('UCP checkout sessions', () => {
       { key: 'ucp_payment_handler_id', value: 'stripe' },
       { key: 'ucp_payment_credential', value: JSON.stringify({ type: 'token', token: 'pm_card_visa' }) },
     ]));
+  });
+
+  it('refuses raw card credentials without placing a checkout, unless explicitly accepted', async () => {
+    const pan = { type: 'pan', number: '4242424242424242', expiry_month: 12, expiry_year: 2030, cvc: '123' };
+    const complete = async (server: ReactionaryUCPServer) => {
+      const created = await send(server, 'POST', '/checkout-sessions', {
+        line_items: lineItems,
+        buyer: { email: 'ada@example.com' },
+        fulfillment: fulfillment('standard'),
+      });
+      return send(server, 'POST', `/checkout-sessions/${created.id}/complete`, {
+        payment: { instruments: [{ ...selectedInstrument.instruments[0], credential: pan }] },
+      });
+    };
+
+    const refusingBackend = new FakeBackend();
+    const refused = await complete(createServer(refusingBackend));
+    expect(refused.status).toBe('incomplete');
+    expect(messageCodes(refused)).toEqual(['payment_failed:$.payment.instruments']);
+    expect(refusingBackend.checkouts.size).toBe(0);
+
+    const acceptingBackend = new FakeBackend();
+    await complete(createServer(acceptingBackend, { acceptRawCardCredentials: true }));
+    const [finalCheckout] = [...acceptingBackend.checkouts.values()];
+    expect(finalCheckout.paymentInstructions[0].protocolData).toContainEqual({
+      key: 'ucp_payment_credential',
+      value: JSON.stringify(pan),
+    });
   });
 
   it('refuses test handlers that delegate to a handler that is not advertised', () => {

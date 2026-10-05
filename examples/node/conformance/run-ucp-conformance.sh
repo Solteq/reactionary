@@ -40,7 +40,35 @@ export ENABLED_ALGOLIA=false ENABLED_MEILISEARCH=false ENABLED_UNOMI=false
 export UCP_HOST=0.0.0.0
 export UCP_PORT="$PORT"
 export UCP_ENDPOINT="http://host.docker.internal:$PORT/ucp"
-export UCP_PAYMENT_HANDLERS_JSON='{"dev.reactionary.manual":[{"version":"2026-08-25","id":"manual"}],"com.stripe":[{"version":"2026-08-25","id":"stripe"}]}'
+# Stripe card instruments must carry a delegated token credential (e.g. a
+# Stripe PaymentMethod); raw card numbers are refused (payment guide:
+# available_instruments request_constraints).
+UCP_PAYMENT_HANDLERS_JSON="$(cat <<'JSON'
+{
+  "dev.reactionary.manual": [{ "version": "2026-08-25", "id": "manual" }],
+  "com.stripe": [{
+    "version": "2026-08-25",
+    "id": "stripe",
+    "available_instruments": [{
+      "type": "card",
+      "ucp": {
+        "request_constraints": {
+          "path": "$['payment']['instruments'][?@['handler_id'] == 'stripe' && @['type'] == 'card']",
+          "required": ["credential"],
+          "properties": {
+            "credential": {
+              "required": ["type", "token"],
+              "properties": { "type": { "const": "token" } }
+            }
+          }
+        }
+      }
+    }]
+  }]
+}
+JSON
+)"
+export UCP_PAYMENT_HANDLERS_JSON
 # The suite places orders without a buyer (post-order tests need a completed
 # order); the reference merchant accepts anonymous completion, so the harness
 # opts in. The server logs a warning banner while this is set.
