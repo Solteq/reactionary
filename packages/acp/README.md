@@ -19,9 +19,13 @@ It also serves a readiness document from `GET` / `HEAD`.
 
 If the adapter is mounted under `/acp`, both `/checkout_sessions/...` and `/acp/checkout_sessions/...` paths are understood. Set `basePath` when mounting somewhere else.
 
+## Protocol version
+
+The adapter implements ACP API version `2026-04-17` only. Checkout requests must send `API-Version: 2026-04-17`; requests without it, or with another version, are rejected with `400` and code `missing_api_version` / `unsupported_api_version`, listing `supported_versions`.
+
 ## Discovery
 
-`GET /.well-known/acp.json` (alias `/.well-known/acp`) serves the ACP discovery document with `Cache-Control: public, max-age=3600`. It advertises the `checkout` service, plus `feeds` when `productFeed` is configured. `api_base_url` defaults to the request origin plus `basePath` (default `/acp`); override it and other fields with the `discovery` option. The host application must route the well-known path to this handler. Payment handlers are not part of ACP discovery; they are negotiated per checkout session.
+`GET /.well-known/acp.json` (alias `/.well-known/acp`) serves the ACP discovery document with `Cache-Control: public, max-age=3600`. It advertises protocol version `2026-04-17` and the `checkout` service, plus `feeds` when `productFeed` is configured. `api_base_url` defaults to the request origin plus `basePath` (default `/acp`); override it and other fields with the `discovery` option. The host application must route the well-known path to this handler. Payment handlers are not part of ACP discovery; they are negotiated per checkout session.
 
 ## Product feed generation
 
