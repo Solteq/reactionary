@@ -42,6 +42,7 @@ import {
   type ACPAgentCapabilities,
   type ACPBuyer,
   type ACPInterventionType,
+  type ACPPaymentData,
   type ACPCheckoutSessionState,
   type ACPCompleteCheckoutSessionRequest,
   type ACPCreateCheckoutSessionRequest,
@@ -119,6 +120,14 @@ export interface ReactionaryACPServerOptions {
    * method its payments are placed with.
    */
   paymentHandlers?: ACPPaymentHandlerOption[];
+  /**
+   * Accepts raw card credentials (anything carrying a card number or CVC)
+   * and forwards them to the backend's payment integration, which persists
+   * payment data — putting the deployment in PCI DSS scope. Off by default:
+   * such completions are rejected, as handlers are expected to submit
+   * delegated tokens.
+   */
+  acceptRawCardCredentials?: boolean;
   links?: ACPLink[];
   productFeed?: ACPProductFeedOptions;
   discovery?: ACPDiscoveryOptions;
@@ -191,7 +200,6 @@ export const ACP_API_VERSION = '2026-04-17';
 const ACP_SUPPORTED_API_VERSIONS = [ACP_API_VERSION];
 const ACP_API_VERSION_HEADER = 'api-version';
 
-export type ACPPaymentProcessor = 'stripe' | 'adyen' | 'braintree';
 
 
 export interface ACPLink {
@@ -692,6 +700,7 @@ export class ReactionaryACPServer<
     let current: ACPCheckoutSessionState = { ...state, buyer };
 
     if (!current.checkoutId) {
+      const handler = this.resolvePaymentHandler(input.payment_data);
       const view = await this.priceSession(current, client);
 
       if (view.status !== 'ready_for_payment') {
@@ -702,7 +711,7 @@ export class ReactionaryACPServer<
         });
       }
 
-      const checkout = await this.placeCheckout(current, input, client);
+      const checkout = await this.placeCheckout(current, input, handler, client);
       current = {
         ...current,
         checkoutId: checkout.identifier.key,
@@ -798,14 +807,16 @@ export class ReactionaryACPServer<
   private async placeCheckout(
     state: ACPCheckoutSessionState,
     input: ACPCompleteCheckoutSessionRequest,
+    handler: ACPPaymentHandlerOption,
     client: ValidatedReactionaryACPClient,
   ): Promise<Checkout> {
     const cart = await unwrapACPResult(client.cart.getById({ cart: { key: state.cartId } }));
     const address = state.fulfillmentDetails?.address;
+    const billingAddress = input.payment_data.billing_address ?? address;
     let checkout = await unwrapACPResult(
       client.checkout.initiateCheckoutForCart({
         cart,
-        billingAddress: address ? toReactionaryAddress(address) : undefined,
+        billingAddress: billingAddress ? toReactionaryAddress(billingAddress) : undefined,
         notificationEmail: getContactEmail(state),
         notificationPhone: getContactPhone(state),
       }),
@@ -829,16 +840,19 @@ export class ReactionaryACPServer<
       checkout: checkout.identifier,
       paymentInstruction: {
         amount: checkout.price.grandTotal,
-        paymentMethod: this.getPaymentMethod(input.payment_data.provider),
+        paymentMethod: getHandlerPaymentMethod(handler),
         protocolData: [
           {
             key: 'delegated_payment_token',
-            value: input.payment_data.token,
+            value: input.payment_data.instrument.credential.token,
           },
           {
             key: 'delegated_payment_provider',
-            value: input.payment_data.provider,
+            value: handler.handler.psp,
           },
+          { key: 'acp_payment_handler_id', value: handler.handler.id },
+          { key: 'acp_payment_instrument_type', value: input.payment_data.instrument.type },
+          { key: 'acp_payment_credential_type', value: input.payment_data.instrument.credential.type },
         ],
       },
     });
@@ -969,11 +983,34 @@ export class ReactionaryACPServer<
     };
   }
 
-  /** The backend payment method for the advertised handler of a PSP. */
-  private getPaymentMethod(provider: ACPPaymentProcessor): PaymentMethod['identifier'] {
-    const option = this.options.paymentHandlers?.find((candidate) => candidate.handler.psp === provider);
+  /**
+   * The advertised handler a completion pays with. Sellers MUST check the
+   * handler is one they declared (sellers guide, "Complete a checkout
+   * session"), and raw card numbers are refused unless explicitly accepted,
+   * so they never reach the backend's persisted payment data.
+   */
+  private resolvePaymentHandler(paymentData: ACPPaymentData): ACPPaymentHandlerOption {
+    const option = this.options.paymentHandlers?.find((candidate) => candidate.handler.id === paymentData.handler_id);
 
-    return option ? getHandlerPaymentMethod(option) : toPaymentMethodIdentifier(provider);
+    if (!option) {
+      throw new ACPHttpError(400, {
+        type: 'invalid_request',
+        code: 'invalid',
+        message: `Payment handler '${paymentData.handler_id}' is not offered for this checkout.`,
+        param: '$.payment_data.handler_id',
+      });
+    }
+
+    if (!this.options.acceptRawCardCredentials && isRawCardCredential(paymentData.instrument.credential)) {
+      throw new ACPHttpError(400, {
+        type: 'invalid_request',
+        code: 'invalid',
+        message: 'Raw card credentials are not accepted; submit a delegated payment token instead.',
+        param: '$.payment_data.instrument.credential',
+      });
+    }
+
+    return option;
   }
 
   /**
@@ -1046,6 +1083,13 @@ interface ACPSessionView {
   price: Checkout['price'];
   options: ShippingMethod[];
   status: ACPCheckoutSessionState['status'];
+}
+
+/** A credential carrying card account data rather than a token. */
+function isRawCardCredential(credential: Record<string, unknown>): boolean {
+  return credential['type'] === 'card'
+    || credential['type'] === 'pan'
+    || ['number', 'cvc', 'card_number'].some((field) => credential[field] !== undefined);
 }
 
 interface ACPMessage {
@@ -1512,16 +1556,6 @@ function toReactionaryAddress(address: ACPAddress): {
     region: address.state,
     postalCode: address.postal_code,
     countryCode: address.country,
-  };
-}
-
-function toPaymentMethodIdentifier(
-  provider: ACPPaymentProcessor,
-): PaymentMethod['identifier'] {
-  return {
-    method: 'card',
-    name: provider,
-    paymentProcessor: provider,
   };
 }
 

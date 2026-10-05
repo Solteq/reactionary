@@ -30,6 +30,15 @@ const fulfillmentDetails = {
   },
 };
 
+const paymentHandlers = [createTokenizedCardHandler({ psp: 'stripe', merchantId: 'acct_123' })];
+
+function cardPayment(token: string) {
+  return {
+    handler_id: 'card_tokenized',
+    instrument: { type: 'card', credential: { type: 'spt', token } },
+  };
+}
+
 const agentCapabilities = { interventions: { supported: [] } };
 
 const selectStandardShipping = {
@@ -159,7 +168,7 @@ describe('ReactionaryACPServer', () => {
         requestContext.session['test.marker'] = 'saved';
         return createTestClient();
       },
-      { sessionCache: new MemoryCache() },
+      { sessionCache: new MemoryCache(), paymentHandlers },
     );
 
     const first = await server.fetch(new Request('http://127.0.0.1/acp'));
@@ -181,6 +190,7 @@ describe('ReactionaryACPServer', () => {
   it('creates, retrieves, and completes ACP checkout sessions', async () => {
     const server = new ReactionaryACPServer(() => createTestClient(), {
       sessionCache: new MemoryCache(),
+      paymentHandlers,
     });
 
     const createResponse = await server.fetch(
@@ -242,10 +252,7 @@ describe('ReactionaryACPServer', () => {
           last_name: 'Lovelace',
           email: 'ada@example.com',
         },
-        payment_data: {
-          token: 'spt_test',
-          provider: 'stripe',
-        },
+        payment_data: cardPayment('spt_test'),
       }),
     );
     const completed = await json<Record<string, unknown>>(completeResponse);
@@ -265,7 +272,7 @@ describe('ReactionaryACPServer', () => {
     const server = new ReactionaryACPServer((requestContext) => {
       currencies.push(requestContext.languageContext.currencyCode);
       return createTestClient();
-    }, { sessionCache: new MemoryCache() });
+    }, { sessionCache: new MemoryCache(), paymentHandlers });
 
     const response = await server.fetch(
       jsonRequest('http://127.0.0.1/checkout_sessions', {
@@ -287,7 +294,7 @@ describe('ReactionaryACPServer', () => {
   });
 
   it('accepts the 2026-04-17 buyer and merges buyer updates', async () => {
-    const server = new ReactionaryACPServer(() => createTestClient(), { sessionCache: new MemoryCache() });
+    const server = new ReactionaryACPServer(() => createTestClient(), { sessionCache: new MemoryCache(), paymentHandlers });
     const created = await json<{ id: string; buyer: unknown }>(await server.fetch(
       jsonRequest('http://127.0.0.1/checkout_sessions', {
         line_items: [{ id: 'sku-1' }],
@@ -331,7 +338,7 @@ describe('ReactionaryACPServer', () => {
   });
 
   it('takes the contact from fulfillment details and clears fields set to null', async () => {
-    const server = new ReactionaryACPServer(() => createTestClient(), { sessionCache: new MemoryCache() });
+    const server = new ReactionaryACPServer(() => createTestClient(), { sessionCache: new MemoryCache(), paymentHandlers });
     const created = await json<{ id: string }>(await server.fetch(
       jsonRequest('http://127.0.0.1/checkout_sessions', {
         line_items: [{ id: 'sku-1' }],
@@ -368,6 +375,7 @@ describe('ReactionaryACPServer', () => {
   it('negotiates interventions and blocks sessions whose required interventions the agent lacks', async () => {
     const server = new ReactionaryACPServer(() => createTestClient(), {
       sessionCache: new MemoryCache(),
+      paymentHandlers,
       interventions: { supported: ['3ds', 'address_verification'], required: ['3ds'], enforcement: 'always' },
     });
     const create = (supported: string[]) => server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
@@ -380,7 +388,7 @@ describe('ReactionaryACPServer', () => {
 
     const capable = await json<Record<string, unknown>>(await create(['3ds', 'biometric', 'future_type']));
 
-    expect(capable['capabilities']).toEqual({
+    expect(capable['capabilities']).toMatchObject({
       interventions: { supported: ['3ds'], required: ['3ds'], enforcement: 'always' },
     });
     expect(capable['messages']).toEqual([]);
@@ -442,6 +450,43 @@ describe('ReactionaryACPServer', () => {
     });
   });
 
+  it('only accepts payments for advertised handlers and refuses raw card numbers', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      sessionCache: new MemoryCache(),
+      paymentHandlers,
+      paymentAuthorizationWait: { timeoutMs: 0 },
+    });
+    const created = await json<{ id: string }>(await server.fetch(jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1' }],
+      currency: 'eur',
+      capabilities: agentCapabilities,
+      buyer: { email: 'ada@example.com' },
+      fulfillment_details: fulfillmentDetails,
+    })));
+    const complete = (payment_data: unknown) => server.fetch(
+      jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, { payment_data }),
+    );
+
+    const unknownHandler = await complete({ ...cardPayment('spt_1'), handler_id: 'paypal' });
+
+    expect(unknownHandler.status).toBe(400);
+    await expect(unknownHandler.json()).resolves.toMatchObject({ param: '$.payment_data.handler_id' });
+
+    const rawCard = await complete({
+      handler_id: 'card_tokenized',
+      instrument: { type: 'card', credential: { type: 'card', token: 'x', number: '4242424242424242' } },
+    });
+
+    expect(rawCard.status).toBe(400);
+    await expect(rawCard.json()).resolves.toMatchObject({ param: '$.payment_data.instrument.credential' });
+
+    const legacy = await server.fetch(jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, {
+      payment_data: { token: 'spt_1', provider: 'stripe' },
+    }));
+
+    expect(legacy.status).toBe(400);
+  });
+
   it('refuses payment handlers without a merchant account', () => {
     const handler = createTokenizedCardHandler({ psp: 'stripe', merchantId: '' });
 
@@ -453,6 +498,7 @@ describe('ReactionaryACPServer', () => {
     const initiated: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient({ initiated }), {
       sessionCache: new MemoryCache(),
+      paymentHandlers,
     });
 
     const response = await server.fetch(
@@ -477,6 +523,7 @@ describe('ReactionaryACPServer', () => {
     const notReady = new Set<string>(['all']);
     const server = new ReactionaryACPServer(() => createTestClient({ initiated, notReady }), {
       sessionCache: new MemoryCache(),
+      paymentHandlers,
       paymentAuthorizationWait: { timeoutMs: 0 },
     });
     const address = {
@@ -508,7 +555,7 @@ describe('ReactionaryACPServer', () => {
 
     const payload = {
       buyer: { first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com' },
-      payment_data: { token: 'spt_test', provider: 'stripe' },
+      payment_data: cardPayment('spt_test'),
     };
     const pending = await json<Record<string, unknown>>(await server.fetch(
       jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, payload),
@@ -532,6 +579,7 @@ describe('ReactionaryACPServer', () => {
     const notReady = new Set<string>(['all']);
     const server = new ReactionaryACPServer(() => createTestClient({ notReady }), {
       sessionCache: new MemoryCache(),
+      paymentHandlers,
       paymentAuthorizationWait: { timeoutMs: 2_000, intervalMs: 10 },
     });
     const created = await json<{ id: string }>(await server.fetch(
@@ -552,7 +600,7 @@ describe('ReactionaryACPServer', () => {
     const completed = await json<Record<string, unknown>>(await server.fetch(
       jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}/complete`, {
         buyer: { first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com' },
-        payment_data: { token: 'spt_test', provider: 'stripe' },
+        payment_data: cardPayment('spt_test'),
       }),
     ));
 
@@ -563,7 +611,8 @@ describe('ReactionaryACPServer', () => {
     const payments: unknown[] = [];
     const createServer = (declinePayments: boolean) => new ReactionaryACPServer(
       () => createTestClient({ payments, declinePayments }),
-      { sessionCache: new MemoryCache(), paymentAuthorizationWait: { timeoutMs: 0 } },
+      { sessionCache: new MemoryCache(),
+      paymentHandlers, paymentAuthorizationWait: { timeoutMs: 0 } },
     );
     const openSession = async (server: ReactionaryACPServer) => {
       const created = await json<{ id: string }>(await server.fetch(
@@ -578,7 +627,7 @@ describe('ReactionaryACPServer', () => {
       await server.fetch(jsonRequest(`http://127.0.0.1/checkout_sessions/${created.id}`, selectStandardShipping));
       return created.id;
     };
-    const complete = { payment_data: { token: 'spt_123', provider: 'stripe' } };
+    const complete = { payment_data: cardPayment('spt_123') };
 
     const server = createServer(false);
     await server.fetch(jsonRequest(`http://127.0.0.1/checkout_sessions/${await openSession(server)}/complete`, complete));
@@ -588,7 +637,11 @@ describe('ReactionaryACPServer', () => {
         protocolData: [
           { key: 'delegated_payment_token', value: 'spt_123' },
           { key: 'delegated_payment_provider', value: 'stripe' },
+          { key: 'acp_payment_handler_id', value: 'card_tokenized' },
+          { key: 'acp_payment_instrument_type', value: 'card' },
+          { key: 'acp_payment_credential_type', value: 'spt' },
         ],
+        paymentMethod: { method: 'card', name: 'stripe', paymentProcessor: 'stripe' },
       },
     });
 
