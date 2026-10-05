@@ -6,7 +6,7 @@ import {
   type Cache,
   type RequestContext,
 } from '@reactionary/core';
-import { ACP_API_VERSION, ReactionaryACPServer } from '@reactionary/acp';
+import { ACP_API_VERSION, ReactionaryACPServer, createTokenizedCardHandler } from '@reactionary/acp';
 import { DEFAULT_UCP_LOCALIZATION_RULES, ReactionaryUCPServer } from '@reactionary/ucp';
 import { withAlgoliaCapabilities } from '@reactionary/algolia';
 import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
@@ -254,6 +254,7 @@ export function createAcpServerHarness(
     {
       sessionCache: new MemoryCache(),
       paymentAuthorizationWait: { timeoutMs: 30_000, intervalMs: 500 },
+      paymentHandlers: [createTokenizedCardHandler({ psp: 'stripe', merchantId: 'acct_e2e' })],
       links: [{ type: 'terms_of_use', url: 'https://shop.example.com/terms' }],
       productFeed: {
         feeds: {

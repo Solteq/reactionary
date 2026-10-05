@@ -68,9 +68,8 @@ interface AcpCheckoutSession {
   id: string;
   status: string;
   currency: string;
-  payment_provider: {
-    provider: string;
-    supported_payment_methods: string[];
+  capabilities: {
+    payment?: { handlers: Array<{ id: string; name: string; psp: string }> };
   };
   line_items: AcpLineItem[];
   fulfillment_options: AcpFulfillmentOption[];
@@ -235,7 +234,11 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
         expect(created.id).toMatch(/^checkout_session_/);
         expect(['ready_for_payment', 'not_ready_for_payment']).toContain(created.status);
         expect(created.currency).toBe(created.currency.toLowerCase());
-        expect(created.payment_provider.provider).toBeTruthy();
+        expect(created.capabilities.payment?.handlers[0]).toMatchObject({
+          id: 'card_tokenized',
+          name: 'dev.acp.tokenized.card',
+          psp: 'stripe',
+        });
         expect(created.line_items.length).toBe(1);
         expect(created.line_items[0].item).toEqual({ id: sku, quantity: 1 });
         expect(created.line_items[0].total).toBeGreaterThan(0);
