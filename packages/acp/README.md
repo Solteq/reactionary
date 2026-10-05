@@ -27,6 +27,10 @@ The adapter implements ACP API version `2026-04-17` only. Checkout requests must
 
 ACP requires agents to authenticate with `Authorization: Bearer <token>`. Configure `authenticate` with a function returning the calling agent (or `undefined` for 401); `createBearerTokenAuthenticator({ agentId: token })` covers static per-agent tokens, and request-signature checks can be added in the same hook. A checkout session is visible only to the agent that created it — others get 404. Discovery and the readiness document stay public. Without `authenticate` the checkout endpoints are open and a warning is logged.
 
+## Idempotency
+
+Every checkout `POST` must carry an `Idempotency-Key` (at most 255 characters), scoped to the authenticated agent and endpoint. Repeating a request with the same key and a semantically equal JSON body returns the stored response with `Idempotent-Replayed: true` and no side effects; a different body answers `422 idempotency_conflict`, and a key still being processed `409 idempotency_in_flight` with `Retry-After`. Missing keys answer `400 idempotency_key_required`. Responses are kept for `idempotencyTtlSeconds` (at least 24 hours) in `sessionCache`; server errors are never stored. Concurrent requests are serialized per instance; across instances the in-flight marker in the shared cache is best effort, as the `Cache` interface has no atomic insert.
+
 ## Discovery
 
 `GET /.well-known/acp.json` (alias `/.well-known/acp`) serves the ACP discovery document with `Cache-Control: public, max-age=3600`. It advertises protocol version `2026-04-17` and the `checkout` service, plus `feeds` when `productFeed` is configured. `api_base_url` defaults to the request origin plus `basePath` (default `/acp`); override it and other fields with the `discovery` option. The host application must route the well-known path to this handler. Payment handlers are not part of ACP discovery; they are negotiated per checkout session.

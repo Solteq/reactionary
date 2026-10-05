@@ -51,6 +51,7 @@ import {
   type ACPItem,
   type ACPUpdateCheckoutSessionRequest,
 } from './acp-schemas.js';
+import { ACPIdempotency, ACP_MIN_IDEMPOTENCY_TTL_SECONDS } from './acp-idempotency.js';
 import {
   getHandlerPaymentMethod,
   type ACPPaymentHandlerOption,
@@ -115,6 +116,11 @@ export interface ReactionaryACPServerOptions {
   basePath?: string;
   sessionCache?: Cache;
   sessionTtlSeconds?: number;
+  /**
+   * How long Idempotency-Key responses are kept for replay. At least, and by
+   * default, 24 hours (checkout RFC §6.6).
+   */
+  idempotencyTtlSeconds?: number;
   checkoutSessionTtlSeconds?: number;
   /**
    * Authenticates agents on checkout endpoints, e.g. by their
@@ -287,6 +293,7 @@ export class ReactionaryACPServer<
 > {
   private readonly sessionStore: ReactionaryACPSessionStore;
   private readonly checkoutSessionStore: ReactionaryACPCheckoutSessionStore;
+  private readonly idempotency: ACPIdempotency;
 
   public constructor(
     private readonly clientFactory: ReactionaryACPClientFactory<TClient>,
@@ -299,6 +306,10 @@ export class ReactionaryACPServer<
     this.checkoutSessionStore = new ReactionaryACPCheckoutSessionStore(
       this.options.sessionCache ?? new MemoryCache(),
       this.options.checkoutSessionTtlSeconds ?? 60 * 60 * 24,
+    );
+    this.idempotency = new ACPIdempotency(
+      this.options.sessionCache ?? new MemoryCache(),
+      Math.max(this.options.idempotencyTtlSeconds ?? 0, ACP_MIN_IDEMPOTENCY_TTL_SECONDS),
     );
     assertACPClient(this.clientFactory(createInitialRequestContext()));
     assertPaymentHandlers(this.options.paymentHandlers ?? []);
@@ -325,6 +336,10 @@ export class ReactionaryACPServer<
 
     try {
       agent = await this.authenticate(request);
+
+      if (isCheckoutPost(request, this.options.basePath)) {
+        assertSupportedApiVersion(request);
+      }
     } catch (error) {
       return toACPErrorResponse(error);
     }
@@ -349,8 +364,11 @@ export class ReactionaryACPServer<
     const client = this.clientFactory(requestContext);
     assertACPClient(client);
 
-    const response = await this.handleRequest(request, client, requestContext, sessionId, agent)
+    const handle = () => this.handleRequest(request, client, requestContext, sessionId, agent)
       .catch((error: unknown) => toACPErrorResponse(error));
+    const response = isCheckoutPost(request, this.options.basePath)
+      ? await this.idempotency.run(request, agent?.id ?? 'anonymous', handle)
+      : await handle();
     await this.sessionStore.put(sessionId, requestContext.session);
     response.headers.set(ACP_SESSION_ID_HEADER, sessionId);
 
@@ -1431,6 +1449,12 @@ function getProductFeedId(
   const match = /^\/product_feeds\/([^/]+)\/products$/.exec(pathname);
 
   return match?.[1];
+}
+
+/** POSTs to checkout endpoints, which all require an Idempotency-Key. */
+function isCheckoutPost(request: Request, basePath: string | undefined): boolean {
+  return request.method === 'POST'
+    && getProtocolPathname(request, basePath).startsWith('/checkout_sessions');
 }
 
 function isCheckoutSessionCompleteRequest(
