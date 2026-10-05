@@ -126,6 +126,16 @@ export interface ReactionaryUCPServerOptions {
    * default), stock is left to the backend.
    */
   inventory?: UCPInventoryOptions;
+  /**
+   * Accepts PUT /orders/{id} with fulfillment events and adjustments for
+   * orders placed through a UCP checkout session, and reports them on the
+   * order — a stand-in for the business posting order updates, as the UCP
+   * conformance suite expects. Not part of the UCP specification; any agent
+   * that can read an order could rewrite its history. The server logs a
+   * prominent warning while it is set. Intended for conformance and test
+   * environments.
+   */
+  testOrderUpdates?: boolean;
 }
 
 export interface ReactionaryUCPProfileOptions {

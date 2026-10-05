@@ -4,6 +4,7 @@ import type {
   Checkout,
   CostBreakDown,
   MonetaryAmount,
+  Order,
 } from '@reactionary/core';
 import type { components } from './ucp-shopping.openapi.js';
 import type { UCPPaymentHandlers } from './reactionary-ucp-common.js';
@@ -61,7 +62,7 @@ export function toReactionaryAddress(
 }
 
 export function toUcpCartLineItem(
-  lineItem: Cart['items'][number] | Checkout['items'][number],
+  lineItem: Pick<Cart['items'][number] | Checkout['items'][number] | Order['items'][number], 'identifier' | 'variant' | 'quantity' | 'price'>,
 ): UCPLineItem {
   const sku = lineItem.variant.sku || lineItem.identifier.key;
 

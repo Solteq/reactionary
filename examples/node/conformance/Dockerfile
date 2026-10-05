@@ -30,5 +30,8 @@ COPY test_fixtures.json test_data/flower_shop/test_fixtures.json
 # delegated credential server-side, so success tokens authorize synchronously
 # and the decline token rejects the payment create (surfaced as payment_failed).
 COPY payment_instruments.csv test_data/flower_shop/payment_instruments.csv
+# Danish addresses: the commercetools project only ships within Denmark, and
+# the order tests read their destination from this file.
+COPY addresses.csv test_data/flower_shop/addresses.csv
 
 ENTRYPOINT ["uv", "run", "pytest", "-q", "--color=yes"]

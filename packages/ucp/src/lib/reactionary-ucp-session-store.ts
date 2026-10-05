@@ -5,6 +5,7 @@ const SESSION_CACHE_KEY_PREFIX = 'reactionary:ucp:session';
 const IDEMPOTENCY_CACHE_KEY_PREFIX = 'reactionary:ucp:idempotency';
 const CHECKOUT_SESSION_CACHE_KEY_PREFIX = 'reactionary:ucp:checkout-session';
 const RESOURCE_SESSION_CACHE_KEY_PREFIX = 'reactionary:ucp:resource-session';
+const ORDER_CACHE_KEY_PREFIX = 'reactionary:ucp:order';
 
 const UCPPostalAddressStateSchema = z.looseObject({
   id: z.string().optional(),
@@ -32,6 +33,8 @@ export const UCPCheckoutSessionStateSchema = z.looseObject({
   billingAddress: UCPPostalAddressStateSchema.optional(),
   destination: UCPPostalAddressStateSchema.optional(),
   selectedOptionId: z.string().optional(),
+  /** The selected fulfillment option's title, as last shown to the agent. */
+  selectedOptionTitle: z.string().optional(),
   instrument: z.looseObject({
     id: z.string(),
     handler_id: z.string(),
@@ -43,6 +46,52 @@ export const UCPCheckoutSessionStateSchema = z.looseObject({
 });
 
 export type UCPCheckoutSessionState = z.infer<typeof UCPCheckoutSessionStateSchema>;
+
+const UCPOrderLineItemReferenceSchema = z.object({
+  id: z.string(),
+  quantity: z.int(),
+});
+
+export const UCPFulfillmentEventSchema = z.looseObject({
+  id: z.string(),
+  occurred_at: z.iso.datetime({ offset: true }),
+  type: z.string(),
+  line_items: z.array(UCPOrderLineItemReferenceSchema.extend({ quantity: z.int().min(1) })),
+  tracking_number: z.string().optional(),
+  tracking_url: z.url().optional(),
+  carrier: z.string().optional(),
+  description: z.string().optional(),
+});
+
+export const UCPAdjustmentSchema = z.looseObject({
+  id: z.string(),
+  type: z.string(),
+  occurred_at: z.iso.datetime({ offset: true }),
+  status: z.enum(['pending', 'completed', 'failed']),
+  line_items: z.array(UCPOrderLineItemReferenceSchema).optional(),
+  totals: z.array(z.looseObject({ type: z.string(), amount: z.int() })).optional(),
+  description: z.string().optional(),
+});
+
+/**
+ * What UCP knows about an order placed through a checkout session: its
+ * origin, the fulfillment the agent selected, and (with testOrderUpdates)
+ * the events and adjustments posted to it.
+ */
+export const UCPOrderStateSchema = z.looseObject({
+  id: z.string(),
+  checkoutSessionId: z.string(),
+  /** The UCP session that completed the checkout and owns the order. */
+  sessionId: z.string(),
+  /** The UCP-Agent profile of the platform that completed the checkout. */
+  agentProfile: z.string().optional(),
+  destination: UCPPostalAddressStateSchema.optional(),
+  fulfillmentTitle: z.string().optional(),
+  events: z.array(UCPFulfillmentEventSchema).default([]),
+  adjustments: z.array(UCPAdjustmentSchema).default([]),
+});
+
+export type UCPOrderState = z.output<typeof UCPOrderStateSchema>;
 
 const UCPResourceSessionSchema = z.looseObject({ sessionId: z.string() });
 const UCPActionResponseSchema = z.looseObject({});
@@ -118,6 +167,25 @@ export class ReactionaryUCPSessionStore {
 
   public async putCheckoutSession(state: UCPCheckoutSessionState): Promise<void> {
     const key = `${CHECKOUT_SESSION_CACHE_KEY_PREFIX}:${state.id}`;
+
+    await this.cache.invalidate([key]);
+    await this.cache.put(key, state, {
+      ttlSeconds: this.ttlSeconds,
+      dependencyIds: [key],
+    });
+  }
+
+  public async getOrder(orderId: string): Promise<UCPOrderState | undefined> {
+    return (
+      (await this.cache.get(
+        `${ORDER_CACHE_KEY_PREFIX}:${orderId}`,
+        UCPOrderStateSchema,
+      )) ?? undefined
+    );
+  }
+
+  public async putOrder(state: UCPOrderState): Promise<void> {
+    const key = `${ORDER_CACHE_KEY_PREFIX}:${state.id}`;
 
     await this.cache.invalidate([key]);
     await this.cache.put(key, state, {

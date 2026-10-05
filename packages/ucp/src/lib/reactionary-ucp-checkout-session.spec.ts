@@ -138,6 +138,20 @@ class FakeBackend {
           resultingOrder: { key: `order-${checkout.identifier.key}` },
         })),
       },
+      order: {
+        getById: async (payload) => {
+          const checkout = [...this.checkouts.values()].find((candidate) => candidate.resultingOrder?.key === payload.order.key);
+          return checkout ? success({
+            identifier: { key: payload.order.key },
+            userId: { userId: '' },
+            items: checkout.items.map((item) => ({ ...item, inventoryStatus: 'NotAllocated' as const })),
+            price: checkout.price,
+            orderStatus: 'AwaitingPayment',
+            inventoryStatus: 'NotAllocated',
+            paymentInstructions: [],
+          }) : notFound();
+        },
+      },
       inventory: {
         getBySKU: async (payload) => {
           const inventory = this.stock.get(`${payload.variant.sku}@${payload.fulfilmentCenter.key}`);
@@ -269,6 +283,7 @@ function createServer(
     paymentHandlers?: UCPPaymentHandlers;
     testPaymentHandlers?: UCPTestPaymentHandler[];
     inventory?: UCPInventoryOptions;
+    testOrderUpdates?: boolean;
   } = {},
 ) {
   return new ReactionaryUCPServer(
@@ -286,6 +301,7 @@ function createServer(
       paymentAuthorizationWait: { timeoutMs: options.authorizationTimeoutMs ?? 0, intervalMs: 10 },
       ...(options.testPaymentHandlers ? { testPaymentHandlers: options.testPaymentHandlers } : {}),
       ...(options.inventory ? { inventory: options.inventory } : {}),
+      ...(options.testOrderUpdates ? { testOrderUpdates: true } : {}),
       profile: {
         endpoint: BASE,
         merchant: { name: 'Shop', url: 'https://shop.example.com', contact: { email: 'a@example.com' } },
@@ -670,5 +686,137 @@ describe('UCP checkout sessions', () => {
 
     expect(canceled.status).toBe('canceled');
     expect(messageCodes(completeAfterCancel)).toEqual(['checkout_not_modifiable:']);
+  });
+});
+
+interface UcpOrderBody {
+  id?: string;
+  checkout_id?: string;
+  line_items?: Array<{ id: string; quantity: { total: number; fulfilled: number }; status: string }>;
+  fulfillment?: {
+    expectations: Array<{ description?: string; method_type: string; destination: { address_country?: string } }>;
+    events: Array<{ tracking_number?: string }>;
+  };
+  adjustments?: Array<{ type: string }>;
+  messages?: Array<{ code: string }>;
+}
+
+describe('UCP orders', () => {
+  const OTHER_AGENT = 'profile="https://other-agent.example.com/profile"';
+
+  async function placeOrder(server: ReactionaryUCPServer, backend: FakeBackend) {
+    const created = await send(server, 'POST', '/checkout-sessions', {
+      line_items: lineItems,
+      buyer: { email: 'ada@example.com' },
+      fulfillment: fulfillment('express'),
+      payment: selectedInstrument,
+    });
+    // Completion places the checkout; once its payment is authorized, a
+    // repeated complete finalizes it.
+    await send(server, 'POST', `/checkout-sessions/${created.id}/complete`, {});
+    for (const checkout of backend.checkouts.values()) {
+      backend.authorized.add(checkout.identifier.key);
+    }
+    const completeResponse = await server.fetch(new Request(`${BASE}/checkout-sessions/${created.id}/complete`, {
+      method: 'POST',
+      headers: { 'UCP-Agent': AGENT, 'content-type': 'application/json' },
+      body: '{}',
+    }));
+    const completed = (await completeResponse.json()) as UcpCheckoutBody;
+
+    return {
+      checkoutId: created.id,
+      orderId: completed.order?.id ?? '',
+      sessionId: completeResponse.headers.get('ucp-session-id'),
+    };
+  }
+
+  async function sendOrder(
+    server: ReactionaryUCPServer,
+    method: 'GET' | 'PUT',
+    orderId: string,
+    options: { agent?: string; body?: unknown } = {},
+  ): Promise<{ status: number; sessionId: string | null; body: UcpOrderBody }> {
+    const response = await server.fetch(new Request(`${BASE}/orders/${orderId}`, {
+      method,
+      headers: { 'UCP-Agent': options.agent ?? AGENT, 'content-type': 'application/json' },
+      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+    }));
+
+    return {
+      status: response.status,
+      sessionId: response.headers.get('ucp-session-id'),
+      body: (await response.json()) as UcpOrderBody,
+    };
+  }
+
+  it('reports the order with its checkout, line items and selected fulfillment', async () => {
+    const backend = new FakeBackend();
+    const server = createServer(backend);
+    const placed = await placeOrder(server, backend);
+
+    const order = await sendOrder(server, 'GET', placed.orderId);
+
+    expect(order.body).toMatchObject({
+      id: placed.orderId,
+      checkout_id: placed.checkoutId,
+      line_items: [{ quantity: { total: 1, fulfilled: 0 }, status: 'processing' }],
+      fulfillment: {
+        expectations: [{ description: 'Express', method_type: 'shipping', destination: { address_country: 'DK' } }],
+        events: [],
+      },
+      adjustments: [],
+    });
+  });
+
+  it('resumes the placing session only for the platform that completed the checkout', async () => {
+    const backend = new FakeBackend();
+    const server = createServer(backend);
+    const placed = await placeOrder(server, backend);
+
+    const own = await sendOrder(server, 'GET', placed.orderId);
+    const other = await sendOrder(server, 'GET', placed.orderId, { agent: OTHER_AGENT });
+
+    expect(own.sessionId).toBe(placed.sessionId);
+    expect(other.sessionId).not.toBe(placed.sessionId);
+  });
+
+  it('accepts fulfillment events and adjustments only with testOrderUpdates', async () => {
+    const backend = new FakeBackend();
+    const placedWithout = await placeOrder(createServer(backend), backend);
+    expect((await sendOrder(createServer(backend), 'PUT', placedWithout.orderId, { body: {} })).status).toBe(404);
+
+    const server = createServer(backend, { testOrderUpdates: true });
+    const placed = await placeOrder(server, backend);
+    const [lineItem] = (await sendOrder(server, 'GET', placed.orderId)).body.line_items ?? [];
+    const occurredAt = new Date().toISOString();
+
+    const invalid = await sendOrder(server, 'PUT', placed.orderId, {
+      body: { adjustments: [{ id: 'adj-1', type: 'refund', occurred_at: occurredAt, status: 'INVALID' }] },
+    });
+    expect(invalid.status).toBe(422);
+
+    const updated = await sendOrder(server, 'PUT', placed.orderId, {
+      body: {
+        fulfillment: {
+          events: [{
+            id: 'evt-1',
+            occurred_at: occurredAt,
+            type: 'shipped',
+            line_items: [{ id: lineItem.id, quantity: 1 }],
+            tracking_number: 'TRACK123',
+            tracking_url: 'https://track.example.com/123',
+          }],
+        },
+        adjustments: [{ id: 'adj-1', type: 'refund', occurred_at: occurredAt, status: 'pending', totals: [{ type: 'total', amount: -500 }] }],
+      },
+    });
+
+    expect(updated.status).toBe(200);
+    expect(updated.body).toMatchObject({
+      line_items: [{ quantity: { total: 1, fulfilled: 1 }, status: 'fulfilled' }],
+      fulfillment: { events: [{ tracking_number: 'TRACK123' }] },
+      adjustments: [{ type: 'refund' }],
+    });
   });
 });

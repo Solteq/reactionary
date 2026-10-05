@@ -56,6 +56,9 @@ export UCP_PAYMENT_AUTHORIZATION_WAIT_MS=3000
 # Check line items against the online fulfillment channel's stock, so the
 # suite's out-of-stock and excess-quantity tests get out_of_stock errors.
 export UCP_INVENTORY_FULFILLMENT_CENTER_KEYS=OnlineFfmChannel
+# The order tests post fulfillment events and adjustments with PUT /orders,
+# which is not part of the spec; accept them. The server logs a warning banner.
+export UCP_TEST_ORDER_UPDATES=true
 
 echo "Starting UCP server on port $PORT..."
 cd "$ROOT/examples/node"

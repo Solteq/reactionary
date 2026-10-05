@@ -9,9 +9,11 @@ import type {
   ProductSearchResultItemVariant,
   ProductVariant,
 } from '@reactionary/core';
+import * as z from 'zod';
 import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPClient, UCPPaymentHandlers } from './reactionary-ucp-common.js';
 import { jsonResponse } from './reactionary-ucp-http.js';
+import { getOrder, UCPOrderUpdateSchema, updateOrder } from './reactionary-ucp-order.js';
 import type { ReactionaryUCPSessionStore } from './reactionary-ucp-session-store.js';
 import {
   cancelCheckoutSession,
@@ -30,7 +32,6 @@ import {
   createUcpSuccessMetadata,
   createUcpWarning,
   getMoneyCurrency,
-  toOrderPermalinkUrl,
   toUcpCartLineItem,
   toUcpCostTotals,
   type UCPLineItem,
@@ -52,8 +53,6 @@ type UCPCatalogLookupRequest = components['schemas']['catalog_lookup_request'];
 type UCPCatalogLookupResponse = components['schemas']['catalog_lookup_response'];
 type UCPCatalogGetProductRequest = components['schemas']['catalog_get_product_request'];
 type UCPCatalogGetProductResponse = components['schemas']['catalog_get_product_response'];
-type UCPOrder = Omit<components['schemas']['order'], '$defs'>;
-type UCPOrderResponse = UCPOrder | UCPErrorResponse;
 type UCPProduct = components['schemas']['product'];
 type UCPVariant = components['schemas']['variant'];
 
@@ -181,8 +180,19 @@ export async function handleRestRequest(
   }
 
   const orderMatch = /^\/orders\/([^/]+)$/.exec(path);
+  const orderContext = { client, store: sessionStore, merchantUrl: options.merchantUrl };
   if (orderMatch && request.method === 'GET') {
-    return jsonResponse(await handleGetOrder(client, decodeURIComponent(orderMatch[1]), options.merchantUrl));
+    return jsonResponse(await getOrder(orderContext, decodeURIComponent(orderMatch[1])));
+  }
+
+  if (orderMatch && request.method === 'PUT' && options.testOrderUpdates) {
+    const update = UCPOrderUpdateSchema.safeParse(await parseJsonBody<unknown>(request));
+
+    if (!update.success) {
+      throw new UCPHttpError(422, createUCPError('invalid_request', `Invalid order update: ${z.prettifyError(update.error)}`));
+    }
+
+    return jsonResponse(await updateOrder(orderContext, decodeURIComponent(orderMatch[1]), update.data));
   }
 
   return undefined;
@@ -201,6 +211,10 @@ export interface UCPRestOptions {
   testPaymentHandlers?: UCPTestPaymentHandler[];
   /** See ReactionaryUCPServerOptions.inventory. */
   inventory?: UCPInventoryOptions;
+  /** See ReactionaryUCPServerOptions.testOrderUpdates. */
+  testOrderUpdates?: boolean;
+  /** The requesting platform's UCP-Agent profile URL. */
+  agentProfile?: string;
 }
 
 function createCheckoutSessionContext(
@@ -222,6 +236,7 @@ function createCheckoutSessionContext(
     anonymousOrderEmail: options.anonymousOrderEmail,
     testPaymentHandlers: options.testPaymentHandlers,
     inventory: options.inventory,
+    agentProfile: options.agentProfile,
     getIdentityEmail() {
       identityEmail ??= getRegisteredIdentityEmail(client, options.identity);
       return identityEmail;
@@ -582,40 +597,6 @@ async function handleCancelCart(
 
   return current.success ? toUcpCart(current.value) : createEmptyUcpCart(cartId);
 }
-
-async function handleGetOrder(
-  client: ReactionaryUCPClient,
-  orderId: string,
-  merchantUrl?: string,
-): Promise<UCPOrderResponse> {
-  if (!client.order) {
-    return createUCPError('not_available', 'Order capability is not available.');
-  }
-
-  const result = await client.order.getById({ order: { key: orderId } });
-
-  if (!result.success) {
-    return createUCPError('not_found', `Order was not found: ${orderId}`);
-  }
-
-  return {
-    ucp: createUcpSuccessMetadata(),
-    id: result.value.identifier.key,
-    checkout_id: '',
-    permalink_url: toOrderPermalinkUrl(merchantUrl, result.value.identifier.key),
-    line_items: [],
-    currency: getMoneyCurrency(result.value.price?.grandTotal),
-    totals: toUcpCostTotals(result.value.price),
-    fulfillment: {
-      expectations: [],
-      events: [],
-    },
-    messages: [],
-  };
-}
-
-
-
 
 async function getReactionaryCart(
   client: ReactionaryUCPClient,
