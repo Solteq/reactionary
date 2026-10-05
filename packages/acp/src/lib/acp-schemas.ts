@@ -217,6 +217,8 @@ export const ACPCompleteCheckoutSessionRequestSchema = z.object({
   payment_data: ACPPaymentDataSchema,
   authentication_result: ACPAuthenticationResultSchema.optional(),
   affiliate_attribution: ACPAffiliateAttributionSchema.optional(),
+  /** The buyer's marketing consent decisions for the offered channels. */
+  marketing_consents: z.array(z.object({ channel: z.string().min(1), opted_in: z.boolean() })).optional(),
 });
 
 export const ACP_INTENT_TRACE_REASON_CODES = [
@@ -276,6 +278,8 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
   /** Affiliate attribution by touchpoint; write-only, never returned. */
   firstTouchAttribution: z.looseObject({ provider: z.string() }).optional(),
   lastTouchAttribution: z.looseObject({ provider: z.string() }).optional(),
+  /** Marketing consents submitted on completion, reported with the order. */
+  marketingConsents: z.array(z.looseObject({ channel: z.string(), opted_in: z.boolean() })).optional(),
   /** Why the agent canceled the session; write-only, never returned. */
   intentTrace: z.looseObject({
     reason_code: z.string(),
