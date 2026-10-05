@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import { assert, describe, expect, it } from 'vitest';
 import type { ReactionaryACPServer } from '@reactionary/acp';
-import { simulateCommercetoolsPaymentAuthorizationForEmail } from './ct-psp-simulator.js';
 import {
   ACP_BASE_URL,
   ACP_FEED_ID,
@@ -336,19 +335,20 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           expect(ready.body.status).toBe('ready_for_payment');
 
           // 4. Completing with the delegated payment token places the real
-          // checkout and its Stripe payment, then waits for the PSP's
-          // authorization webhook — simulated while the request is in flight.
+          // checkout and its Stripe payment. The payment API extension confirms
+          // the token with Stripe server-side (a real shared payment token is
+          // minted per agent, so the test delegates Stripe's test PaymentMethod
+          // instead), so the payment is authorized within the payment create and
+          // no out-of-band PSP webhook needs simulating.
           const completePayload = {
             buyer: orderBuyer,
-            payment_data: { token: 'spt_test', provider: 'stripe' },
+            payment_data: { token: 'pm_card_visa', provider: 'stripe' },
           };
-          const completing = session.sendJson<AcpCheckoutSession & { order?: { id: string } }>(
+          const completed = await session.sendJson<AcpCheckoutSession & { order?: { id: string } }>(
             'POST',
             `${ACP_BASE_URL}/checkout_sessions/${created.id}/complete`,
             completePayload,
           );
-          await simulateCommercetoolsPaymentAuthorizationForEmail(email);
-          const completed = await completing;
 
           expect(completed.status).toBe(200);
           expect(completed.body.status).toBe('completed');

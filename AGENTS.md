@@ -71,6 +71,12 @@ bd close <id>         # Complete work
 
 **Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
 
+## PR Guidelines
+These are guildelines not absolutes. 
+
+- Strive to use PR-stacks for all new tasks, so each PR is at most 10 files or 1000 lines. The files and changes in each PR should be conceptually linked, and make logical sense together. 
+
+
 ## Session Completion
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
