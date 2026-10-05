@@ -52,6 +52,9 @@ export type ReactionaryUCPClient = object & {
     deleteCart: UCPMethod<Client['cart']['deleteCart'], void>;
     getById: UCPMethod<Client['cart']['getById'], Cart>;
     remove: UCPMethod<Client['cart']['remove'], Cart>;
+    // Optional so clients without coupon support keep satisfying the type.
+    applyCouponCode?: UCPMethod<Client['cart']['applyCouponCode'], Cart>;
+    removeCouponCode?: UCPMethod<Client['cart']['removeCouponCode'], Cart>;
   };
   checkout?: {
     addPaymentInstruction: UCPMethod<Client['checkout']['addPaymentInstruction'], Checkout>;

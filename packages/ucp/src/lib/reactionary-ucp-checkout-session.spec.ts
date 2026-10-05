@@ -31,6 +31,8 @@ class FakeBackend {
   public readonly authorized = new Set<string>();
   /** Inventory records keyed by `sku@fulfillmentCenter`. */
   public readonly stock = new Map<string, Inventory>();
+  /** Coupon codes applied per cart; only SAVE2 (2 EUR off each line) exists, matched exactly. */
+  public readonly couponCodes = new Map<string, string[]>();
   private counter = 0;
 
   public readonly shippingMethods: ShippingMethod[] = [
@@ -86,6 +88,22 @@ class FakeBackend {
           return success(this.saveCart(cart.identifier.key, cart.items
             .filter((item) => item.identifier.key !== payload.item.key)
             .map((item) => ({ sku: item.variant.sku, quantity: item.quantity }))));
+        },
+        applyCouponCode: async (payload) => {
+          const cart = this.carts.get(payload.cart.key);
+          if (!cart || payload.couponCode !== 'SAVE2') {
+            return error<GenericError>({ type: 'Generic', message: 'invalid code' });
+          }
+          this.couponCodes.set(cart.identifier.key, [payload.couponCode]);
+          return success(this.saveCart(cart.identifier.key, cart.items.map((item) => ({ sku: item.variant.sku, quantity: item.quantity }))));
+        },
+        removeCouponCode: async (payload) => {
+          const cart = this.carts.get(payload.cart.key);
+          if (!cart) {
+            return notFound();
+          }
+          this.couponCodes.set(cart.identifier.key, (this.couponCodes.get(cart.identifier.key) ?? []).filter((code) => code !== payload.couponCode));
+          return success(this.saveCart(cart.identifier.key, cart.items.map((item) => ({ sku: item.variant.sku, quantity: item.quantity }))));
         },
         deleteCart: async (payload) => {
           this.checkouts.delete(payload.cart.key);
@@ -188,7 +206,7 @@ class FakeBackend {
   }
 
   private saveCart(key: string, items: Array<{ sku: string; quantity: number }>): Cart {
-    const cart = createCart(key, items);
+    const cart = createCart(key, items, this.couponCodes.get(key) ?? []);
     this.carts.set(key, cart);
     return cart;
   }
@@ -220,13 +238,17 @@ function createCost(products: number, shipping = 0): CostBreakDown {
   };
 }
 
-function createCart(key: string, items: Array<{ sku: string; quantity: number }>): Cart {
+function createCart(key: string, items: Array<{ sku: string; quantity: number }>, couponCodes: string[] = []): Cart {
+  const lineDiscount = couponCodes.includes('SAVE2') ? 2 : 0;
+  const discount = lineDiscount * items.length;
+  const price = createCost(items.reduce((sum, item) => sum + 10 * item.quantity, 0) - discount);
+
   return {
     identifier: { key },
     user: { userId: '' },
     name: '',
     description: '',
-    appliedPromotions: [],
+    appliedPromotions: couponCodes.map((code) => ({ code, isCouponCode: true, name: 'Save 2', description: '' })),
     items: items.map((item, index) => ({
       identifier: { key: `line-${index + 1}` },
       product: { key: item.sku },
@@ -234,12 +256,12 @@ function createCart(key: string, items: Array<{ sku: string; quantity: number }>
       quantity: item.quantity,
       price: {
         unitPrice: { value: 10, currency: 'EUR' },
-        unitDiscount: { value: 0, currency: 'EUR' },
-        totalPrice: { value: 10 * item.quantity, currency: 'EUR' },
-        totalDiscount: { value: 0, currency: 'EUR' },
+        unitDiscount: { value: lineDiscount / item.quantity, currency: 'EUR' },
+        totalPrice: { value: 10 * item.quantity - lineDiscount, currency: 'EUR' },
+        totalDiscount: { value: lineDiscount, currency: 'EUR' },
       },
     })),
-    price: createCost(items.reduce((sum, item) => sum + 10 * item.quantity, 0)),
+    price: { ...price, totalDiscount: { value: discount, currency: 'EUR' } },
   };
 }
 
@@ -644,6 +666,42 @@ describe('UCP checkout sessions', () => {
     expect(preOrder.status).toBe('ready_for_complete');
     expect(untracked.status).toBe('ready_for_complete');
     expect(backend.checkouts.size).toBe(0);
+  });
+
+  it('applies discount codes with replacement semantics and reports rejected codes', async () => {
+    const backend = new FakeBackend();
+    const server = createServer(backend);
+    interface DiscountedBody extends UcpCheckoutBody {
+      discounts?: { codes: string[]; applied: Array<{ code?: string; title: string; amount: number; allocations?: Array<{ path: string; amount: number }> }> };
+      line_items: Array<{ item: { id: string }; quantity: number; totals?: Array<{ type: string; amount: number }> }>;
+    }
+    const created = (await send(server, 'POST', '/checkout-sessions', {
+      line_items: lineItems,
+      discounts: { codes: ['save2', 'NOPE'] },
+    })) as DiscountedBody;
+
+    expect(created.discounts).toEqual({
+      codes: ['SAVE2'],
+      applied: [{ code: 'SAVE2', title: 'Save 2', amount: 200, automatic: false, allocations: [{ path: '$.line_items[0]', amount: 200 }] }],
+    });
+    expect(created.totals).toEqual(expect.arrayContaining([
+      { type: 'subtotal', amount: 1000 },
+      { type: 'items_discount', amount: -200 },
+      { type: 'total', amount: 800 },
+    ]));
+    expect(created.line_items[0].totals).toContainEqual({ type: 'items_discount', amount: -200 });
+    expect(created.messages).toContainEqual(expect.objectContaining({
+      type: 'warning',
+      code: 'discount_code_invalid',
+      path: '$.discounts.codes[1]',
+    }));
+
+    const unchanged = (await send(server, 'PUT', `/checkout-sessions/${created.id}`, { buyer: { email: 'ada@example.com' } })) as DiscountedBody;
+    expect(unchanged.discounts?.codes).toEqual(['SAVE2']);
+
+    const cleared = (await send(server, 'PUT', `/checkout-sessions/${created.id}`, { discounts: { codes: [] } })) as DiscountedBody;
+    expect(cleared.discounts).toEqual({ codes: [], applied: [] });
+    expect(cleared.totals.find((total) => total.type === 'items_discount')).toBeUndefined();
   });
 
   it('refuses to complete without a buyer email', async () => {

@@ -91,7 +91,6 @@ function createUcpCapabilities(
   }
 
   if (hasCapability(client, 'cart')) {
-    // The discount extension is not implemented over REST yet, so it is not advertised.
     capabilities['dev.ucp.shopping.cart'] = [createUcpCapability('cart', 'cart')];
   }
 
@@ -100,6 +99,15 @@ function createUcpCapabilities(
     const checkout = getCapability(client, 'checkout');
     if (checkout && typeof Reflect.get(checkout, 'getAvailableShippingMethods') === 'function') {
       capabilities['dev.ucp.shopping.fulfillment'] = [createUcpCapability('extensions/fulfillment', 'fulfillment')];
+    }
+
+    // Discount codes are applied to checkout sessions only; cart resources do not take them yet.
+    const cart = getCapability(client, 'cart');
+    if (cart && typeof Reflect.get(cart, 'applyCouponCode') === 'function') {
+      capabilities['dev.ucp.shopping.discount'] = [{
+        ...createUcpCapability('extensions/discount', 'discount'),
+        extends: 'dev.ucp.shopping.checkout',
+      }];
     }
   }
 

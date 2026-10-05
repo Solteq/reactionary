@@ -217,7 +217,7 @@ function toUcpOrder(
     permalink_url: toOrderPermalinkUrl(context.merchantUrl, order.identifier.key),
     line_items: lineItems,
     currency: getMoneyCurrency(order.price.grandTotal),
-    totals: toUcpCostTotals(order.price),
+    totals: toUcpCostTotals(order.price, order.items),
     fulfillment: {
       expectations: destination
         ? [{
