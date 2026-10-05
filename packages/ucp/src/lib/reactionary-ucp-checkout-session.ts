@@ -110,6 +110,8 @@ export interface UCPCheckoutSessionContext {
   testPaymentHandlers?: UCPTestPaymentHandler[];
   /** See ReactionaryUCPServerOptions.inventory. */
   inventory?: UCPInventoryOptions;
+  /** The requesting platform's UCP-Agent profile URL. */
+  agentProfile?: string;
   /** Email of the session's registered identity, if logged in. */
   getIdentityEmail(): Promise<string | undefined>;
   createCart(lineItems: UCPLineItem[]): Promise<Cart | UCPErrorResponse>;
@@ -552,6 +554,12 @@ async function buildOpenView(
   const ready = state.status === 'open' && messages.length === 0;
 
   state.lastTotal = getMoneyValue(price.grandTotal);
+  const selectedOptionTitle = state.selectedOptionId
+    ? getOptionTitles(pricing.options).get(state.selectedOptionId)
+    : undefined;
+  if (selectedOptionTitle) {
+    state.selectedOptionTitle = selectedOptionTitle;
+  }
   await context.store.putCheckoutSession(state);
 
   const response: UCPCheckout = {
@@ -710,7 +718,7 @@ function toUcpFulfillment(
 
   const lineItemIds = cart.items.map((item) => item.identifier.key);
   const destinationId = destination?.id ?? 'destination_1';
-  const titles = new Set<string>();
+  const titles = getOptionTitles(options);
   const selectedOptionId = options.some((option) => option.identifier.key === state.selectedOptionId)
     ? state.selectedOptionId
     : undefined;
@@ -728,20 +736,11 @@ function toUcpFulfillment(
             {
               id: 'group_1',
               line_item_ids: lineItemIds,
-              options: options.map((option) => {
-                // Sibling option titles must be distinct for buyers to choose.
-                let title = option.name || option.identifier.key;
-                if (titles.has(title)) {
-                  title = `${title} (${option.identifier.key})`;
-                }
-                titles.add(title);
-
-                return {
-                  id: option.identifier.key,
-                  title,
-                  totals: [{ type: 'total', amount: getMoneyValue(option.price) }],
-                };
-              }),
+              options: options.map((option) => ({
+                id: option.identifier.key,
+                title: titles.get(option.identifier.key) ?? option.identifier.key,
+                totals: [{ type: 'total', amount: getMoneyValue(option.price) }],
+              })),
               ...(selectedOptionId ? { selected_option_id: selectedOptionId } : {}),
             },
           ],
@@ -749,6 +748,23 @@ function toUcpFulfillment(
       ],
     },
   };
+}
+
+/** Option titles by option key; sibling titles must be distinct for buyers to choose. */
+function getOptionTitles(options: ShippingMethod[]): Map<string, string> {
+  const titles = new Map<string, string>();
+  const used = new Set<string>();
+
+  for (const option of options) {
+    let title = option.name || option.identifier.key;
+    if (used.has(title)) {
+      title = `${title} (${option.identifier.key})`;
+    }
+    used.add(title);
+    titles.set(option.identifier.key, title);
+  }
+
+  return titles;
 }
 
 async function placeFinalCheckout(
@@ -855,9 +871,35 @@ async function finalizeIfReady(
     }
 
     await context.store.putCheckoutSession(state);
+    await recordOrder(context, state);
   }
 
   return buildFinalView(context, state, messages);
+}
+
+/**
+ * Records the completed checkout's order: its origin, which GET /orders
+ * reports and checks the requesting platform against, and the fulfillment
+ * the agent selected, which backend orders may not carry.
+ */
+async function recordOrder(
+  context: UCPCheckoutSessionContext,
+  state: UCPCheckoutSessionState,
+): Promise<void> {
+  if (state.status !== 'completed' || !state.orderId || await context.store.getOrder(state.orderId)) {
+    return;
+  }
+
+  await context.store.putOrder({
+    id: state.orderId,
+    checkoutSessionId: state.id,
+    sessionId: context.sessionId,
+    ...(context.agentProfile ? { agentProfile: context.agentProfile } : {}),
+    ...(state.destination ? { destination: state.destination } : {}),
+    ...(state.selectedOptionTitle ? { fulfillmentTitle: state.selectedOptionTitle } : {}),
+    events: [],
+    adjustments: [],
+  });
 }
 
 async function buildFinalView(

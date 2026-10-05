@@ -80,6 +80,17 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
         + `Test payment handlers: ${this.options.testPaymentHandlers.map((handler) => `${handler.id} -> ${handler.delegateHandlerId}`).join(', ')}`,
       );
     }
+
+    if (this.options.testOrderUpdates) {
+      console.warn(
+        '\n'
+        + '############################################################################\n'
+        + '# UCP: testOrderUpdates is set. Agents can PUT fulfillment events and     #\n'
+        + '# adjustments (e.g. refunds) onto the orders they placed. Not part of the #\n'
+        + '# UCP specification. Use for conformance/test environments only.          #\n'
+        + '############################################################################',
+      );
+    }
   }
 
   public async fetch(request: Request): Promise<Response> {
@@ -164,11 +175,28 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
   private async resolveSessionId(request: Request): Promise<string> {
     const route = getRequestRoute(request, this.options.profile);
     const resourceId = /^\/(?:carts|checkout-sessions)\/([^/]+)/.exec(route.path)?.[1];
+    const orderId = /^\/orders\/([^/]+)/.exec(route.path)?.[1];
     const boundSessionId = resourceId
       ? await this.sessionStore.getResourceSession(decodeURIComponent(resourceId))
-      : undefined;
+      : orderId
+        ? await this.resolveOrderSessionId(request, decodeURIComponent(orderId))
+        : undefined;
 
     return boundSessionId ?? getOrCreateSessionId(request);
+  }
+
+  /**
+   * Orders resume the session that placed them only for the platform that
+   * completed the checkout (order capability: the business verifies the
+   * requesting platform created the checkout). Any other request runs in its
+   * own session, where the backend does not find the order.
+   */
+  private async resolveOrderSessionId(request: Request, orderId: string): Promise<string | undefined> {
+    const order = await this.sessionStore.getOrder(orderId);
+
+    return order?.agentProfile && order.agentProfile === getAgentProfile(request)
+      ? order.sessionId
+      : undefined;
   }
 
   private async createRequestContext(
@@ -255,6 +283,8 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
           anonymousOrderEmail: this.options.anonymousOrderEmail,
           testPaymentHandlers: this.options.testPaymentHandlers,
           inventory: this.options.inventory,
+          testOrderUpdates: this.options.testOrderUpdates,
+          agentProfile: getAgentProfile(request),
         },
       );
 
@@ -294,6 +324,12 @@ function assertTestPaymentHandlerDelegates(
       );
     }
   }
+}
+
+function getAgentProfile(request: Request): string | undefined {
+  const agent = request.headers.get('UCP-Agent');
+
+  return agent ? /profile="([^"]*)"/.exec(agent)?.[1] : undefined;
 }
 
 function getAgentVersion(request: Request): string | undefined {
