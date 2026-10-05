@@ -20,6 +20,25 @@ const UCPPostalAddressStateSchema = z.looseObject({
   phone_number: z.string().optional(),
 });
 
+const UCPConsentSourceSchema = z.enum(['business', 'platform']);
+
+/**
+ * Buyer consent per purpose (buyer consent extension): the spec's purpose
+ * map ({ granted, source, segments }), or the flat booleans of earlier
+ * versions still used by the conformance SDK (e.g. { marketing: true }).
+ */
+export const UCPBuyerConsentSchema = z.record(z.string(), z.union([
+  z.boolean(),
+  z.looseObject({
+    granted: z.boolean(),
+    source: UCPConsentSourceSchema,
+    segments: z.record(z.string(), z.looseObject({
+      granted: z.boolean(),
+      source: UCPConsentSourceSchema,
+    })).optional(),
+  }),
+]));
+
 export const UCPCheckoutSessionStateSchema = z.looseObject({
   id: z.string(),
   cartId: z.string(),
@@ -29,6 +48,8 @@ export const UCPCheckoutSessionStateSchema = z.looseObject({
     last_name: z.string().optional(),
     email: z.string().optional(),
     phone_number: z.string().optional(),
+    /** Round-tripped only; not persisted beyond the session yet. */
+    consent: UCPBuyerConsentSchema.optional(),
   }).optional(),
   billingAddress: UCPPostalAddressStateSchema.optional(),
   destination: UCPPostalAddressStateSchema.optional(),

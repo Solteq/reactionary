@@ -19,9 +19,10 @@ import {
   type UCPPostalAddress,
 } from './reactionary-ucp-mapping.js';
 import { applyDiscountCodes, getRequestedDiscountCodes, toUcpDiscounts } from './reactionary-ucp-discounts.js';
-import type {
-  ReactionaryUCPSessionStore,
-  UCPCheckoutSessionState,
+import {
+  UCPBuyerConsentSchema,
+  type ReactionaryUCPSessionStore,
+  type UCPCheckoutSessionState,
 } from './reactionary-ucp-session-store.js';
 import type { components } from './ucp-shopping.openapi.js';
 
@@ -370,12 +371,16 @@ function mergeRequestIntoState(
   body: UCPCheckoutRequest,
 ): void {
   if (body.buyer) {
+    // The buyer consent extension is not part of the generated base schema.
+    const consent = UCPBuyerConsentSchema.safeParse(Reflect.get(body.buyer, 'consent'));
+
     state.buyer = {
       ...state.buyer,
       ...(body.buyer.first_name ? { first_name: body.buyer.first_name } : {}),
       ...(body.buyer.last_name ? { last_name: body.buyer.last_name } : {}),
       ...(body.buyer.email ? { email: body.buyer.email } : {}),
       ...(body.buyer.phone_number ? { phone_number: body.buyer.phone_number } : {}),
+      ...(consent.success ? { consent: consent.data } : {}),
     };
   }
 
