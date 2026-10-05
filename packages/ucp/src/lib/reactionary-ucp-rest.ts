@@ -28,6 +28,7 @@ import {
   createUcpSuccessMetadata,
   createUcpWarning,
   getMoneyCurrency,
+  toOrderPermalinkUrl,
   toUcpCartLineItem,
   toUcpCostTotals,
   type UCPLineItem,
@@ -179,7 +180,7 @@ export async function handleRestRequest(
 
   const orderMatch = /^\/orders\/([^/]+)$/.exec(path);
   if (orderMatch && request.method === 'GET') {
-    return jsonResponse(await handleGetOrder(client, decodeURIComponent(orderMatch[1])));
+    return jsonResponse(await handleGetOrder(client, decodeURIComponent(orderMatch[1]), options.merchantUrl));
   }
 
   return undefined;
@@ -190,6 +191,8 @@ export interface UCPRestOptions {
   placeholderEmail: string;
   paymentAuthorizationWait: UCPPaymentAuthorizationWait;
   identity: Identity;
+  /** The merchant's site URL, used to build order permalinks. */
+  merchantUrl?: string;
 }
 
 function createCheckoutSessionContext(
@@ -207,6 +210,7 @@ function createCheckoutSessionContext(
     paymentHandlers: options.paymentHandlers,
     placeholderEmail: options.placeholderEmail,
     paymentAuthorizationWait: options.paymentAuthorizationWait,
+    merchantUrl: options.merchantUrl,
     getIdentityEmail() {
       identityEmail ??= getRegisteredIdentityEmail(client, options.identity);
       return identityEmail;
@@ -571,6 +575,7 @@ async function handleCancelCart(
 async function handleGetOrder(
   client: ReactionaryUCPClient,
   orderId: string,
+  merchantUrl?: string,
 ): Promise<UCPOrderResponse> {
   if (!client.order) {
     return createUCPError('not_available', 'Order capability is not available.');
@@ -586,7 +591,7 @@ async function handleGetOrder(
     ucp: createUcpSuccessMetadata(),
     id: result.value.identifier.key,
     checkout_id: '',
-    permalink_url: '',
+    permalink_url: toOrderPermalinkUrl(merchantUrl, result.value.identifier.key),
     line_items: [],
     currency: getMoneyCurrency(result.value.price?.grandTotal),
     totals: toUcpCostTotals(result.value.price),

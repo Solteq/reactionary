@@ -9,6 +9,7 @@ import {
   getMoneyCurrency,
   getMoneyValue,
   getSelectedPaymentInstrument,
+  toOrderPermalinkUrl,
   toReactionaryAddress,
   toUcpCartLineItem,
   toUcpCostTotals,
@@ -75,6 +76,8 @@ export interface UCPCheckoutSessionContext {
   paymentHandlers: UCPPaymentHandlers;
   placeholderEmail: string;
   paymentAuthorizationWait: UCPPaymentAuthorizationWait;
+  /** The merchant's site URL, used to build order permalinks. */
+  merchantUrl?: string;
   /** Email of the session's registered identity, if logged in. */
   getIdentityEmail(): Promise<string | undefined>;
   createCart(lineItems: UCPLineItem[]): Promise<Cart | UCPErrorResponse>;
@@ -273,7 +276,10 @@ function mergeRequestIntoState(
     state.billingAddress = instrument.billing_address;
   }
 
-  if (instrument?.selected) {
+  // getSelectedPaymentInstrument already prefers the explicitly selected
+  // instrument and falls back to a sole one, matching how the credential is
+  // resolved on completion.
+  if (instrument) {
     state.instrument = {
       id: instrument.id,
       handler_id: instrument.handler_id,
@@ -717,7 +723,7 @@ async function buildFinalView(
     totals: toUcpCostTotals(checkout.price),
     links: [],
     ...(state.buyer ? { buyer: state.buyer } : {}),
-    ...(orderId ? { order: { id: orderId, permalink_url: '' } } : {}),
+    ...(orderId ? { order: { id: orderId, permalink_url: toOrderPermalinkUrl(context.merchantUrl, orderId) } } : {}),
     ...(messages.length > 0 ? { messages } : {}),
     ucp: createUcpCheckoutSuccessMetadata(context.paymentHandlers),
   };

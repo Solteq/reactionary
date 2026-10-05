@@ -29,6 +29,22 @@ export function getSelectedPaymentInstrument(
   return instruments.find((instrument) => instrument.selected) ?? instruments[0];
 }
 
+/**
+ * The buyer-facing order page under the merchant's site. The spec requires a
+ * valid URL; without a configured merchant URL there is nothing to link to,
+ * and the empty string is left for the caller's schema to flag.
+ */
+export function toOrderPermalinkUrl(
+  merchantUrl: string | undefined,
+  orderId: string,
+): string {
+  if (!merchantUrl) {
+    return '';
+  }
+
+  return `${merchantUrl.replace(/\/+$/, '')}/orders/${encodeURIComponent(orderId)}`;
+}
+
 export function toReactionaryAddress(
   address: UCPPostalAddress,
 ): Omit<Address, 'identifier'> {
