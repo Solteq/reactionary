@@ -1191,7 +1191,9 @@ export class ReactionaryACPServer<
         : {}),
       fulfillment_options: view.options.map((option) =>
         toACPFulfillmentOption(option, optionTitles.get(option.identifier.key) ?? option.identifier.key)),
+      // A selection is only reported while it references an offered option.
       ...(persisted.fulfillmentOptionId
+        && view.options.some((option) => option.identifier.key === persisted.fulfillmentOptionId)
         ? {
             selected_fulfillment_options: [{
               type: 'shipping',
@@ -1356,11 +1358,18 @@ export class ReactionaryACPServer<
     // The backend may have finalized the order since (e.g. on the PSP's
     // authorization webhook), which retrieval picks up.
     const orderId = state.orderId ?? checkout.resultingOrder?.key;
+    // The chosen option stays listed, as the selection must reference one.
+    const methods = state.fulfillmentOptionId
+      ? await client.checkout.getAvailableShippingMethods({ checkout: checkout.identifier })
+      : undefined;
+    const options = methods?.success
+      ? methods.value.filter((method) => method.identifier.key === state.fulfillmentOptionId)
+      : [];
 
     return {
       checkout,
       price: checkout.price,
-      options: [],
+      options,
       status: orderId ? 'completed' : 'complete_in_progress',
       ...(orderId ? { orderId } : {}),
     };
