@@ -41,6 +41,14 @@ export UCP_HOST=0.0.0.0
 export UCP_PORT="$PORT"
 export UCP_ENDPOINT="http://host.docker.internal:$PORT/ucp"
 export UCP_PAYMENT_HANDLERS_JSON='{"dev.reactionary.manual":[{"version":"2026-08-25","id":"manual"}],"com.stripe":[{"version":"2026-08-25","id":"stripe"}]}'
+# The suite places orders without a buyer (post-order tests need a completed
+# order); the reference merchant accepts anonymous completion, so the harness
+# opts in. The server logs a warning banner while this is set.
+export UCP_ANONYMOUS_ORDER_EMAIL='conformance@checkout.invalid'
+# Credentials the payment extension cannot confirm synchronously (AP2
+# mandates, bound tokens, raw cards) otherwise poll the full default 10s and
+# trip the suite's HTTP client timeout instead of failing spec-shaped.
+export UCP_PAYMENT_AUTHORIZATION_WAIT_MS=3000
 
 echo "Starting UCP server on port $PORT..."
 cd "$ROOT/examples/node"

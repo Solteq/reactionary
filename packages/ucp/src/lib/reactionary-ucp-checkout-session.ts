@@ -78,6 +78,8 @@ export interface UCPCheckoutSessionContext {
   paymentAuthorizationWait: UCPPaymentAuthorizationWait;
   /** The merchant's site URL, used to build order permalinks. */
   merchantUrl?: string;
+  /** See ReactionaryUCPServerOptions.anonymousOrderEmail. */
+  anonymousOrderEmail?: string;
   /** Email of the session's registered identity, if logged in. */
   getIdentityEmail(): Promise<string | undefined>;
   createCart(lineItems: UCPLineItem[]): Promise<Cart | UCPErrorResponse>;
@@ -316,7 +318,17 @@ async function resolveBuyerEmail(
   context: UCPCheckoutSessionContext,
   state: UCPCheckoutSessionState,
 ): Promise<string | undefined> {
-  return state.buyer?.email ?? (await context.getIdentityEmail());
+  const email = state.buyer?.email ?? (await context.getIdentityEmail());
+
+  if (!email && context.anonymousOrderEmail) {
+    console.warn(
+      `UCP: checkout session ${state.id} has no buyer email; using the configured anonymousOrderEmail — `
+      + 'an order placed this way cannot send the buyer a receipt.',
+    );
+    return context.anonymousOrderEmail;
+  }
+
+  return email;
 }
 
 interface TransientPricing {

@@ -93,6 +93,15 @@ export interface ReactionaryUCPServerOptions {
    */
   placeholderEmail?: string;
   /**
+   * Email used to place REAL orders when the agent never supplied a buyer
+   * email and no identity is logged in. Unset (the default), such completions
+   * answer `incomplete` asking for `$.buyer.email`. Setting it lets anonymous
+   * agent checkouts complete, but the buyer cannot be sent a receipt, which
+   * may be illegal in some jurisdictions — the server logs a prominent
+   * warning while it is set. Intended for conformance and test environments.
+   */
+  anonymousOrderEmail?: string;
+  /**
    * How long checkout completion waits for the placed checkout to become
    * `readyForFinalization` (i.e. its payment authorized, e.g. by a PSP
    * webhook) before answering `complete_in_progress`. Defaults to 10s

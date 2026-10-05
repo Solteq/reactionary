@@ -193,6 +193,8 @@ export interface UCPRestOptions {
   identity: Identity;
   /** The merchant's site URL, used to build order permalinks. */
   merchantUrl?: string;
+  /** See ReactionaryUCPServerOptions.anonymousOrderEmail. */
+  anonymousOrderEmail?: string;
 }
 
 function createCheckoutSessionContext(
@@ -211,6 +213,7 @@ function createCheckoutSessionContext(
     placeholderEmail: options.placeholderEmail,
     paymentAuthorizationWait: options.paymentAuthorizationWait,
     merchantUrl: options.merchantUrl,
+    anonymousOrderEmail: options.anonymousOrderEmail,
     getIdentityEmail() {
       identityEmail ??= getRegisteredIdentityEmail(client, options.identity);
       return identityEmail;
