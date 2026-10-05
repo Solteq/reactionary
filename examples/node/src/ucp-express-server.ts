@@ -41,6 +41,12 @@ async function main(): Promise<void> {
     {
       profile: options.profile,
       ...(options.identity ? { identity: options.identity } : {}),
+      ...(process.env['UCP_ANONYMOUS_ORDER_EMAIL']
+        ? { anonymousOrderEmail: process.env['UCP_ANONYMOUS_ORDER_EMAIL'] }
+        : {}),
+      ...(process.env['UCP_PAYMENT_AUTHORIZATION_WAIT_MS']
+        ? { paymentAuthorizationWait: { timeoutMs: Number(process.env['UCP_PAYMENT_AUTHORIZATION_WAIT_MS']) } }
+        : {}),
     },
   );
   const ucpHandler = ucp.toNodeHandler();

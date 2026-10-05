@@ -4,7 +4,9 @@
       "sku": "7313020065489",
       "expected_price": 74.93,
       "quantity": 1
-    }
+    },
+    "valid_fixed_discount_code": "TESTCODE1",
+    "expected_fixed_discount_reduction": 15.0
   },
   "shipping_locations": {
     "domestic_destination": {

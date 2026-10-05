@@ -50,6 +50,18 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
     if (this.options.identity) {
       this.identity = new ReactionaryUCPIdentity(this.options.identity, cache);
     }
+
+    if (this.options.anonymousOrderEmail) {
+      console.warn(
+        '\n'
+        + '############################################################################\n'
+        + '# UCP: anonymousOrderEmail is set. Checkouts WITHOUT a buyer email will    #\n'
+        + '# place REAL orders under this address. The buyer cannot be sent a        #\n'
+        + '# receipt, which may make such purchases illegal in some jurisdictions.   #\n'
+        + '# Use for conformance/test environments only.                             #\n'
+        + '############################################################################',
+      );
+    }
   }
 
   public async fetch(request: Request): Promise<Response> {
@@ -222,6 +234,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
           },
           identity: requestContext.session.identityContext.identity,
           merchantUrl: this.options.profile?.merchant?.url,
+          anonymousOrderEmail: this.options.anonymousOrderEmail,
         },
       );
 
