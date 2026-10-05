@@ -162,6 +162,7 @@ async function createCheckoutSessionFromFeed(
       {
         line_items: [{ id: sku, quantity: 1 }],
         currency: ACP_CURRENCY,
+        capabilities: { interventions: { supported: [] } },
         ...details,
       },
     );
@@ -398,7 +399,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
         const invalid = await session.sendJson<AcpError>(
           'POST',
           `${ACP_BASE_URL}/checkout_sessions`,
-          { line_items: [], currency: ACP_CURRENCY },
+          { line_items: [], currency: ACP_CURRENCY, capabilities: {} },
         );
 
         expect(invalid.status).toBe(400);
