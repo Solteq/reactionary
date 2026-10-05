@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPIdentityOptions } from './reactionary-ucp-identity.js';
 import type { ReactionaryUCPLocalizationOptions } from './reactionary-ucp-localization.js';
-import type { UCPPaymentAuthorizationWait } from './reactionary-ucp-checkout-session.js';
+import type { UCPPaymentAuthorizationWait, UCPTestPaymentHandler } from './reactionary-ucp-checkout-session.js';
 
 type UCPService = components['schemas']['base'];
 type UCPCapability = components['schemas']['$defs-base'];
@@ -108,6 +108,15 @@ export interface ReactionaryUCPServerOptions {
    * timeout, polled every 1s.
    */
   paymentAuthorizationWait?: Partial<UCPPaymentAuthorizationWait>;
+  /**
+   * Payment handlers that exist only for testing, e.g. the UCP conformance
+   * suite's hardcoded `mock_payment_handler`. Each is accepted on checkout
+   * sessions without being advertised, and its payments are placed through
+   * its delegate — an advertised handler — with the credential it resolves.
+   * The server logs a prominent warning while any is set. Intended for
+   * conformance and test environments.
+   */
+  testPaymentHandlers?: UCPTestPaymentHandler[];
 }
 
 export interface ReactionaryUCPProfileOptions {

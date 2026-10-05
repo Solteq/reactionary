@@ -46,6 +46,24 @@ export const DEFAULT_UCP_PAYMENT_AUTHORIZATION_WAIT: UCPPaymentAuthorizationWait
   intervalMs: 1_000,
 };
 
+/**
+ * A payment handler that exists only for testing. Agents complete with its
+ * instruments, and the payment is placed through a real advertised handler
+ * with a substitute credential (e.g. a PSP test token), so suites that
+ * hardcode a mock handler still exercise real payments.
+ */
+export interface UCPTestPaymentHandler {
+  /** The handler id agents send, e.g. the UCP conformance suite's `mock_payment_handler`. */
+  id: string;
+  /** Id of the advertised handler the payment is placed through, e.g. `stripe`. */
+  delegateHandlerId: string;
+  /**
+   * Maps the agent's credential to one the delegate handler accepts.
+   * Returning undefined declines the payment.
+   */
+  resolveCredential(credential: unknown): unknown;
+}
+
 async function pollUntil<T>(
   read: () => Promise<T>,
   done: (value: T) => boolean,
@@ -80,6 +98,8 @@ export interface UCPCheckoutSessionContext {
   merchantUrl?: string;
   /** See ReactionaryUCPServerOptions.anonymousOrderEmail. */
   anonymousOrderEmail?: string;
+  /** See ReactionaryUCPServerOptions.testPaymentHandlers. */
+  testPaymentHandlers?: UCPTestPaymentHandler[];
   /** Email of the session's registered identity, if logged in. */
   getIdentityEmail(): Promise<string | undefined>;
   createCart(lineItems: UCPLineItem[]): Promise<Cart | UCPErrorResponse>;
@@ -246,8 +266,15 @@ export async function completeCheckoutSession(
     }
 
     // The payment credential is used for the real checkout only, never stored.
-    const credential = getSelectedPaymentInstrument(body)?.credential;
-    const placement = await placeFinalCheckout(context, state, credential);
+    const payment = resolvePayment(context, state, getSelectedPaymentInstrument(body)?.credential);
+
+    if (!payment) {
+      return addMessages(response, [
+        createUcpErrorMessage('payment_failed', 'The payment credential was declined.', '$.payment.instruments'),
+      ], 'incomplete');
+    }
+
+    const placement = await placeFinalCheckout(context, state, payment);
 
     if (placement.failure) {
       return addMessages(response, [placement.failure], 'incomplete');
@@ -257,6 +284,51 @@ export async function completeCheckoutSession(
   }
 
   return finalizeIfReady(context, state, messages);
+}
+
+interface UCPResolvedPayment {
+  handlerId: string;
+  credential: unknown;
+}
+
+/**
+ * The handler and credential the payment is placed with: the agent's own,
+ * or, for a test handler, its delegate with the substitute credential.
+ * Undefined when a test handler declines the credential.
+ */
+function resolvePayment(
+  context: UCPCheckoutSessionContext,
+  state: UCPCheckoutSessionState,
+  credential: unknown,
+): UCPResolvedPayment | undefined {
+  const handlerId = state.instrument?.handler_id ?? '';
+  const testHandler = context.testPaymentHandlers?.find((handler) => handler.id === handlerId);
+
+  if (!testHandler) {
+    return { handlerId, credential };
+  }
+
+  const substitute = testHandler.resolveCredential(credential);
+
+  return substitute === undefined
+    ? undefined
+    : { handlerId: testHandler.delegateHandlerId, credential: substitute };
+}
+
+/**
+ * Businesses MUST confirm an instrument's handler is one they advertise
+ * (payment handler spec, "Processing Payments"). Without advertised handlers
+ * there is nothing to check against, so any handler is passed through.
+ */
+function isAcceptedPaymentHandler(
+  context: UCPCheckoutSessionContext,
+  handlerId: string,
+): boolean {
+  const advertised = Object.values(context.paymentHandlers).flat();
+
+  return advertised.length === 0
+    || advertised.some((handler) => handler.id === handlerId)
+    || Boolean(context.testPaymentHandlers?.some((handler) => handler.id === handlerId));
 }
 
 function mergeRequestIntoState(
@@ -463,7 +535,7 @@ async function buildOpenView(
     ? { options: [] }
     : await priceWithTransientCheckout(context, cart, state);
   const price = pricing.checkout?.price ?? cart.price;
-  const messages = getMissingInputMessages(state, pricing, await resolveBuyerEmail(context, state));
+  const messages = getMissingInputMessages(context, state, pricing, await resolveBuyerEmail(context, state));
   const ready = state.status === 'open' && messages.length === 0;
 
   state.lastTotal = getMoneyValue(price.grandTotal);
@@ -487,6 +559,7 @@ async function buildOpenView(
 }
 
 function getMissingInputMessages(
+  context: UCPCheckoutSessionContext,
   state: UCPCheckoutSessionState,
   pricing: TransientPricing,
   email: string | undefined,
@@ -497,7 +570,14 @@ function getMissingInputMessages(
     messages.push(createUcpErrorMessage('missing', 'A buyer email is required to complete the checkout.', '$.buyer.email'));
   }
 
-  if (!state.destination && !state.billingAddress) {
+  // A billing address stands in for the destination only when the backend
+  // cannot ship; otherwise the checkout would be placed without shipping and
+  // never become ready for finalization.
+  if (context.client.checkout?.setShippingAddress) {
+    if (!state.destination) {
+      messages.push(createUcpErrorMessage('missing', 'A shipping destination is required.', '$.fulfillment.methods[0].destinations'));
+    }
+  } else if (!state.destination && !state.billingAddress) {
     messages.push(createUcpErrorMessage('missing', 'A shipping destination or billing address is required.', '$.fulfillment.methods[0].destinations'));
   }
 
@@ -510,6 +590,12 @@ function getMissingInputMessages(
 
   if (!state.instrument) {
     messages.push(createUcpErrorMessage('missing', 'A payment instrument must be selected.', '$.payment.instruments'));
+  } else if (!isAcceptedPaymentHandler(context, state.instrument.handler_id)) {
+    messages.push(createUcpErrorMessage(
+      'payment_failed',
+      `Payment handler '${state.instrument.handler_id}' is not supported by this business.`,
+      '$.payment.instruments',
+    ));
   }
 
   return messages;
@@ -605,7 +691,7 @@ function toUcpFulfillment(
 async function placeFinalCheckout(
   context: UCPCheckoutSessionContext,
   state: UCPCheckoutSessionState,
-  credential: unknown,
+  payment: UCPResolvedPayment,
 ): Promise<{ failure?: UCPMessage; messages: UCPMessage[] }> {
   const checkoutCapability = context.client.checkout;
   const address = state.destination ?? state.billingAddress;
@@ -642,15 +728,15 @@ async function placeFinalCheckout(
       paymentMethod: {
         method: instrument.type,
         name: instrument.id,
-        paymentProcessor: instrument.handler_id,
+        paymentProcessor: payment.handlerId,
       },
       protocolData: [
         { key: 'ucp_payment_instrument_id', value: instrument.id },
-        { key: 'ucp_payment_handler_id', value: instrument.handler_id },
+        { key: 'ucp_payment_handler_id', value: payment.handlerId },
         { key: 'ucp_payment_instrument_type', value: instrument.type },
         // Passed verbatim: the credential's shape is defined by the payment
         // handler, and the backend's payment integration interprets it.
-        ...(credential ? [{ key: 'ucp_payment_credential', value: JSON.stringify(credential) }] : []),
+        ...(payment.credential ? [{ key: 'ucp_payment_credential', value: JSON.stringify(payment.credential) }] : []),
       ],
     },
   });

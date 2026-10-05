@@ -13,11 +13,16 @@ import {
   type ReactionaryUCPProfile,
   type ReactionaryUCPProfileOptions,
   type ReactionaryUCPServerOptions,
+  type UCPPaymentHandlers,
 } from './reactionary-ucp-common.js';
 import { getOrCreateSessionId, jsonResponse, sendWebResponse, toWebRequest, UCP_SESSION_ID_HEADER } from './reactionary-ucp-http.js';
 import { ReactionaryUCPIdentity, type UCPBearerResolution } from './reactionary-ucp-identity.js';
 import { resolveLanguageContext } from './reactionary-ucp-localization.js';
-import { DEFAULT_UCP_PAYMENT_AUTHORIZATION_WAIT, DEFAULT_UCP_PLACEHOLDER_EMAIL } from './reactionary-ucp-checkout-session.js';
+import {
+  DEFAULT_UCP_PAYMENT_AUTHORIZATION_WAIT,
+  DEFAULT_UCP_PLACEHOLDER_EMAIL,
+  type UCPTestPaymentHandler,
+} from './reactionary-ucp-checkout-session.js';
 import { createUCPError, UCP_VERSION } from './reactionary-ucp-mapping.js';
 import { createUCPProfile, getRequestRoute } from './reactionary-ucp-profile.js';
 import { handleRestRequest, UCPHttpError } from './reactionary-ucp-rest.js';
@@ -60,6 +65,19 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
         + '# receipt, which may make such purchases illegal in some jurisdictions.   #\n'
         + '# Use for conformance/test environments only.                             #\n'
         + '############################################################################',
+      );
+    }
+
+    if (this.options.testPaymentHandlers?.length) {
+      assertTestPaymentHandlerDelegates(this.options.testPaymentHandlers, this.options.profile?.paymentHandlers ?? {});
+      console.warn(
+        '\n'
+        + '############################################################################\n'
+        + '# UCP: testPaymentHandlers is set. Checkouts paying with a test handler   #\n'
+        + '# are charged through its REAL delegate handler with substitute           #\n'
+        + '# credentials. Use for conformance/test environments only.                #\n'
+        + '############################################################################\n'
+        + `Test payment handlers: ${this.options.testPaymentHandlers.map((handler) => `${handler.id} -> ${handler.delegateHandlerId}`).join(', ')}`,
       );
     }
   }
@@ -235,6 +253,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
           identity: requestContext.session.identityContext.identity,
           merchantUrl: this.options.profile?.merchant?.url,
           anonymousOrderEmail: this.options.anonymousOrderEmail,
+          testPaymentHandlers: this.options.testPaymentHandlers,
         },
       );
 
@@ -258,6 +277,21 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
       status: 404,
       omitBody: request.method === 'HEAD',
     });
+  }
+}
+
+function assertTestPaymentHandlerDelegates(
+  testHandlers: UCPTestPaymentHandler[],
+  paymentHandlers: UCPPaymentHandlers,
+): void {
+  const advertised = new Set(Object.values(paymentHandlers).flat().map((handler) => handler.id));
+
+  for (const handler of testHandlers) {
+    if (!advertised.has(handler.delegateHandlerId)) {
+      throw new Error(
+        `UCP test payment handler '${handler.id}' delegates to '${handler.delegateHandlerId}', which is not an advertised payment handler.`,
+      );
+    }
   }
 }
 
