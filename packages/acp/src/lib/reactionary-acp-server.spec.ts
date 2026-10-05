@@ -1327,6 +1327,70 @@ describe('ReactionaryACPServer', () => {
     expect((await send('POST', '/carts', { line_items: [] })).status).toBe(400);
   });
 
+  it('serves the checkout tools over the MCP binding', async () => {
+    const server = new ReactionaryACPServer(() => createTestClient(), {
+      sessionCache: new MemoryCache(),
+      mcp: true,
+      authenticate: createBearerTokenAuthenticator({ chatgpt: 'token-a' }),
+    });
+    let rpcId = 0;
+    const rpc = async (method: string, params?: unknown, token = 'token-a') => {
+      rpcId += 1;
+      const response = await server.fetch(new Request('https://shop.example.com/acp/mcp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({ jsonrpc: '2.0', id: rpcId, method, ...(params ? { params } : {}) }),
+      }));
+      return json<{ result?: Record<string, unknown>; error?: { code: number; message: string; data?: unknown } }>(response);
+    };
+    const meta = { api_version: '2026-04-17' };
+
+    await expect(rpc('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'agent', version: '1' } }))
+      .resolves.toMatchObject({ result: { capabilities: { tools: {} } } });
+
+    const listed = await rpc('tools/list');
+    const tools = listed.result?.['tools'] as Array<{ name: string; inputSchema: { required: string[] } }>;
+
+    expect(tools.map((tool) => tool.name)).toEqual([
+      'create_checkout_session',
+      'get_checkout_session',
+      'update_checkout_session',
+      'complete_checkout_session',
+      'cancel_checkout_session',
+    ]);
+    expect(tools.find((tool) => tool.name === 'update_checkout_session')?.inputSchema.required).toEqual(['meta', 'id', 'payload']);
+    expect(tools.find((tool) => tool.name === 'cancel_checkout_session')?.inputSchema.required).toEqual(['meta', 'id']);
+
+    const created = await rpc('tools/call', {
+      name: 'create_checkout_session',
+      arguments: {
+        meta,
+        payload: { line_items: [{ id: 'sku-1' }], currency: 'eur', capabilities: agentCapabilities },
+      },
+    });
+    const sessionId = String(created.result?.['id']);
+
+    expect(created.result).toMatchObject({ status: 'not_ready_for_payment', protocol: { version: '2026-04-17' } });
+    await expect(rpc('tools/call', { name: 'get_checkout_session', arguments: { meta, id: sessionId } }))
+      .resolves.toMatchObject({ result: { id: sessionId } });
+    await expect(rpc('tools/call', { name: 'cancel_checkout_session', arguments: { meta, id: sessionId } }))
+      .resolves.toMatchObject({ result: { status: 'canceled' } });
+
+    const missing = await rpc('tools/call', { name: 'get_checkout_session', arguments: { meta, id: 'checkout_session_missing' } });
+
+    expect(missing.error).toMatchObject({ code: -32000, data: { type: 'invalid_request', code: 'missing' } });
+    await expect(rpc('tools/call', { name: 'get_checkout_session', arguments: { id: sessionId } }))
+      .resolves.toMatchObject({ error: { code: -32602 } });
+    await expect(rpc('tools/call', { name: 'get_checkout_session', arguments: { meta, id: sessionId } }, 'wrong'))
+      .resolves.toMatchObject({ error: { code: -32000, data: { code: 'unauthorized' } } });
+
+    const discovery = await json<{ transports: string[] }>(
+      await server.fetch(new Request('https://shop.example.com/.well-known/acp.json')),
+    );
+
+    expect(discovery.transports).toEqual(['rest', 'mcp']);
+  });
+
   it('records intent traces on cancel without returning them', async () => {
     const traces: unknown[] = [];
     const server = new ReactionaryACPServer(() => createTestClient(), {

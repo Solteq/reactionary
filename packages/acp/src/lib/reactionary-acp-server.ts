@@ -57,6 +57,7 @@ import {
   type ACPUpdateCheckoutSessionRequest,
 } from './acp-schemas.js';
 import { ACPIdempotency, ACP_MIN_IDEMPOTENCY_TTL_SECONDS } from './acp-idempotency.js';
+import { ACPMcpEndpoint } from './acp-mcp.js';
 import {
   ACP_DISCOUNT_EXTENSION,
   applyDiscountCodes,
@@ -193,6 +194,13 @@ export interface ReactionaryACPServerOptions {
     trace: ACPIntentTrace,
     context: { checkoutSessionId: string; agentId?: string },
   ) => void | Promise<void>;
+  /**
+   * Serves the ACP MCP transport binding at `{basePath}/mcp`: the checkout
+   * tools over JSON-RPC 2.0 (Streamable HTTP), dispatched to the REST
+   * handlers with the connection's Authorization. Discovery then lists the
+   * `mcp` transport.
+   */
+  mcp?: boolean;
   /**
    * Sends signed order events (`order_create` on placement, `order_update`
    * via `notifyOrderUpdated`) to the agents' webhook receivers, as ACP
@@ -414,6 +422,7 @@ export class ReactionaryACPServer<
   private readonly idempotency: ACPIdempotency;
   private readonly webhooks: ACPOrderWebhooks | undefined;
   private readonly supportsDiscounts: boolean;
+  private readonly mcp: ACPMcpEndpoint | undefined;
 
   public constructor(
     private readonly clientFactory: ReactionaryACPClientFactory<TClient>,
@@ -436,6 +445,12 @@ export class ReactionaryACPServer<
     assertACPClient(client);
     assertPaymentHandlers(this.options.paymentHandlers ?? []);
     this.supportsDiscounts = Boolean(client.cart.applyCouponCode && client.cart.removeCouponCode);
+    this.mcp = this.options.mcp
+      ? new ACPMcpEndpoint(
+          { name: this.options.name ?? '@reactionary/acp', version: this.options.version ?? '0.0.1' },
+          (restRequest) => this.fetch(restRequest),
+        )
+      : undefined;
     this.webhooks = this.options.webhooks ? new ACPOrderWebhooks(this.options.webhooks) : undefined;
 
     if (this.webhooks && !client.order?.getById) {
@@ -470,6 +485,12 @@ export class ReactionaryACPServer<
   }
 
   private async handleFetch(request: Request): Promise<Response> {
+    if (this.mcp && getProtocolPathname(request, this.options.basePath) === '/mcp') {
+      const basePath = (this.options.basePath ?? '/acp').replace(/\/$/, '');
+
+      return this.mcp.handle(request, `${new URL(request.url).origin}${basePath}`);
+    }
+
     let agent: ACPAgent | undefined;
 
     try {
@@ -845,7 +866,7 @@ export class ReactionaryACPServer<
           : {}),
       },
       api_base_url: apiBaseUrl,
-      transports: ['rest'],
+      transports: this.mcp ? ['rest', 'mcp'] : ['rest'],
       capabilities: {
         // The services enum is closed per version: checkout, orders,
         // delegate_payment and carts (discovery RFC §4.2).
