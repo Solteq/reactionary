@@ -964,6 +964,7 @@ export class ReactionaryACPServer<
 
     return {
       id: persisted.id,
+      protocol: { version: ACP_API_VERSION },
       capabilities: this.getNegotiatedCapabilities(persisted.agentCapabilities),
       ...(persisted.buyer ? { buyer: persisted.buyer } : {}),
       status: persisted.status,

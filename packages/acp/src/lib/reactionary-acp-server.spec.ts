@@ -211,6 +211,7 @@ describe('ReactionaryACPServer', () => {
     const created = await json<{ id: string }>(createResponse);
 
     expect(createResponse.status).toBe(201);
+    expect(created).toMatchObject({ protocol: { version: '2026-04-17' } });
     expect(JSON.stringify(created)).not.toContain('delivery_time');
     // Payable only once a fulfillment option has been picked.
     expect(created).toMatchObject({
