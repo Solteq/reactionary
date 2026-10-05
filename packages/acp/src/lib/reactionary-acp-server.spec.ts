@@ -5,6 +5,7 @@ import {
   success,
   type GenericError,
   type NotFoundError,
+  type Order,
   type Cart,
   type Checkout,
   type Currency,
@@ -14,10 +15,11 @@ import {
   type ProductSearchResult,
   type RequestContext,
 } from '@reactionary/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ReactionaryFeedClient } from '@reactionary/feeds';
 import { ReactionaryACPFeedPublisher } from './acp-feed-publisher.js';
 import { createTokenizedCardHandler } from './acp-payment-handlers.js';
+import { signWebhookPayload } from './acp-webhooks.js';
 import {
   ReactionaryACPServer,
   createBearerTokenAuthenticator,
@@ -980,6 +982,79 @@ describe('ReactionaryACPServer', () => {
     await expect(json<{ status: string }>(await server.fetch(getRequest(url)))).resolves.toMatchObject({ status: 'canceled' });
   });
 
+  it('sends signed order_create and order_update webhooks to the agent', async () => {
+    const deliveries: Array<{ url: string; signature: string; body: string }> = [];
+    const agentReceiver: typeof fetch = async (input, init) => {
+      const request = new Request(input, init);
+      deliveries.push({ url: request.url, signature: request.headers.get('merchant-signature') ?? '', body: await request.text() });
+      return new Response(null, { status: 200 });
+    };
+    let orderStatus: Order['orderStatus'] = 'ReleasedToFulfillment';
+    const server = new ReactionaryACPServer(() => createTestClient({ orderStatus }), {
+      sessionCache: new MemoryCache(),
+      paymentHandlers,
+      authenticate: createBearerTokenAuthenticator({ chatgpt: 'token-a' }),
+      orderPermalinkUrl: 'https://shop.example/orders/{orderId}',
+      webhooks: {
+        endpoints: [{ agentId: 'chatgpt', url: 'https://agent.example/agentic_checkout/webhooks/order_events', secret: 'whsec' }],
+        fetch: agentReceiver,
+      },
+    });
+    const authorized = (request: Request) => {
+      request.headers.set('authorization', 'Bearer token-a');
+      return server.fetch(request);
+    };
+    const created = await json<{ id: string }>(await authorized(jsonRequest('http://127.0.0.1/checkout_sessions', {
+      line_items: [{ id: 'sku-1', quantity: 2 }],
+      currency: 'eur',
+      capabilities: agentCapabilities,
+      buyer: { email: 'ada@example.com' },
+      fulfillment_details: fulfillmentDetails,
+    })));
+    const url = `http://127.0.0.1/checkout_sessions/${created.id}`;
+    await authorized(jsonRequest(url, selectStandardShipping));
+    await authorized(jsonRequest(`${url}/complete`, { payment_data: cardPayment('spt_1') }));
+
+    // A re-read of the completed session does not announce the order again.
+    await authorized(getRequest(url));
+    orderStatus = 'Shipped';
+
+    await expect(server.notifyOrderUpdated('order-1')).resolves.toBe(true);
+    await expect(server.notifyOrderUpdated('unknown-order')).resolves.toBe(false);
+    await vi.waitFor(() => expect(deliveries).toHaveLength(2));
+
+    expect(deliveries).toHaveLength(2);
+
+    const [created_, updated] = deliveries.map((delivery) => {
+      const match = /^t=(\d+),v1=([a-f0-9]{64})$/.exec(delivery.signature);
+      expect(match, delivery.signature).toBeTruthy();
+      expect(signWebhookPayload(delivery.body, 'whsec', Number(match?.[1]))).toBe(delivery.signature);
+      expect(delivery.url).toBe('https://agent.example/agentic_checkout/webhooks/order_events');
+      return JSON.parse(delivery.body) as { type: string; data: Record<string, unknown> };
+    });
+
+    expect(created_).toMatchObject({
+      type: 'order_create',
+      data: {
+        type: 'order',
+        id: 'order-1',
+        checkout_session_id: created.id,
+        permalink_url: 'https://shop.example/orders/order-1',
+        status: 'confirmed',
+        line_items: [{ id: 'line-1', quantity: { ordered: 2, current: 2, fulfilled: 0 }, unit_price: 1000, status: 'processing' }],
+        fulfillments: [{ type: 'shipping', status: 'processing', carrier: 'Reactionary' }],
+      },
+    });
+    expect(updated).toMatchObject({
+      type: 'order_update',
+      data: {
+        status: 'shipped',
+        line_items: [{ quantity: { fulfilled: 2 }, status: 'fulfilled' }],
+        fulfillments: [{ status: 'shipped' }],
+      },
+    });
+  });
+
   it('waits for an asynchronous payment authorization before answering', async () => {
     const notReady = new Set<string>(['all']);
     const server = new ReactionaryACPServer(() => createTestClient({ notReady }), {
@@ -1140,6 +1215,7 @@ function createTestClient(options: {
   noShippingMethods?: boolean;
   cartCalls?: string[];
   inPlaceCartUpdates?: boolean;
+  orderStatus?: Order['orderStatus'];
   failCartCreation?: boolean;
 } = {}): ReactionaryACPClient & ReactionaryFeedClient {
   const withReadiness = (checkout: Checkout): Checkout => ({
@@ -1299,6 +1375,12 @@ function createTestClient(options: {
         return success(finalized);
       },
     },
+    order: {
+      async getById(payload) {
+        const orderPayload = payload as { order: { key: string } };
+        return success(createOrder(orderPayload.order.key, options.orderStatus ?? 'ReleasedToFulfillment'));
+      },
+    },
     productSearch: {
       async queryByTerm(payload) {
         options.observedSearches?.push((payload as { search: unknown }).search);
@@ -1359,6 +1441,34 @@ function createCart(
     },
     appliedPromotions: [],
     description: '',
+  };
+}
+
+function createOrder(id: string, orderStatus: Order['orderStatus']): Order {
+  const cart = createCart('cart-1', [{ sku: 'sku-1', quantity: 2 }]);
+
+  return {
+    identifier: { key: id },
+    userId: { userId: '' },
+    items: cart.items.map((item) => ({
+      identifier: item.identifier,
+      variant: item.variant,
+      quantity: item.quantity,
+      price: item.price,
+      inventoryStatus: 'Allocated',
+    })),
+    price: cart.price,
+    shippingMethod: {
+      identifier: { key: 'standard' },
+      name: 'Standard shipping',
+      description: '',
+      price: { value: 5, currency: 'EUR' },
+      deliveryTime: '',
+      carrier: 'Reactionary',
+    },
+    orderStatus,
+    inventoryStatus: 'Allocated',
+    paymentInstructions: [],
   };
 }
 

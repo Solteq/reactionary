@@ -10,6 +10,7 @@ import {
   type Checkout,
   type Currency,
   type Inventory,
+  type Order,
   type MonetaryAmount,
   type PaymentMethod,
   type Product,
@@ -31,8 +32,10 @@ import {
   ACPCreateCheckoutSessionRequestSchema,
   ACPUpdateCheckoutSessionRequestSchema,
   ACP_INTERVENTION_TYPES,
+  ACPOrderRecordSchema,
   type ACPAddress,
   type ACPAgentCapabilities,
+  type ACPOrderRecord,
   type ACPBuyer,
   type ACPInterventionType,
   type ACPPaymentData,
@@ -43,6 +46,7 @@ import {
   type ACPUpdateCheckoutSessionRequest,
 } from './acp-schemas.js';
 import { ACPIdempotency, ACP_MIN_IDEMPOTENCY_TTL_SECONDS } from './acp-idempotency.js';
+import { ACPOrderWebhooks, type ACPOrderEventType, type ACPWebhookOptions } from './acp-webhooks.js';
 import {
   getHandlerPaymentMethod,
   type ACPPaymentHandlerOption,
@@ -51,6 +55,7 @@ import {
 const ACP_SESSION_ID_HEADER = 'acp-session-id';
 const SESSION_CACHE_KEY_PREFIX = 'reactionary:acp:session';
 const CHECKOUT_SESSION_CACHE_KEY_PREFIX = 'reactionary:acp:checkout-session';
+const ORDER_CACHE_KEY_PREFIX = 'reactionary:acp:order';
 type ProtocolHeaders = Headers | Record<string, string>;
 
 export interface ReactionaryACPClient {
@@ -80,6 +85,10 @@ export interface ReactionaryACPClient {
   inventory?: {
     getBySKU(payload: unknown): Promise<Result<Inventory>>;
   };
+  // Optional: required for order webhooks.
+  order?: {
+    getById(payload: unknown): Promise<Result<Order>>;
+  };
 }
 
 type ValidatedReactionaryACPClient = ReactionaryACPClient & {
@@ -101,6 +110,11 @@ export interface ReactionaryACPServerOptions {
   sessionCache?: Cache;
   sessionTtlSeconds?: number;
   /**
+   * How long orders placed through ACP are remembered for order updates
+   * (`notifyOrderUpdated`). Defaults to 90 days.
+   */
+  orderTtlSeconds?: number;
+  /**
    * How long Idempotency-Key responses are kept for replay. At least, and by
    * default, 24 hours (checkout RFC §6.6).
    */
@@ -121,6 +135,13 @@ export interface ReactionaryACPServerOptions {
    * is logged.
    */
   orderPermalinkUrl?: string;
+  /**
+   * Sends signed order events (`order_create` on placement, `order_update`
+   * via `notifyOrderUpdated`) to the agents' webhook receivers, as ACP
+   * requires. Needs the client's `order.getById`. Unset, no webhooks are
+   * sent and a warning is logged.
+   */
+  webhooks?: ACPWebhookOptions;
   /**
    * Payment handlers advertised in `capabilities.payment.handlers`, e.g.
    * `createTokenizedCardHandler(...)`. Each maps to the backend payment
@@ -298,6 +319,7 @@ export class ReactionaryACPServer<
   private readonly sessionStore: ReactionaryACPSessionStore;
   private readonly checkoutSessionStore: ReactionaryACPCheckoutSessionStore;
   private readonly idempotency: ACPIdempotency;
+  private readonly webhooks: ACPOrderWebhooks | undefined;
 
   public constructor(
     private readonly clientFactory: ReactionaryACPClientFactory<TClient>,
@@ -310,13 +332,24 @@ export class ReactionaryACPServer<
     this.checkoutSessionStore = new ReactionaryACPCheckoutSessionStore(
       this.options.sessionCache ?? new MemoryCache(),
       this.options.checkoutSessionTtlSeconds ?? 60 * 60 * 24,
+      this.options.orderTtlSeconds ?? 60 * 60 * 24 * 90,
     );
     this.idempotency = new ACPIdempotency(
       this.options.sessionCache ?? new MemoryCache(),
       Math.max(this.options.idempotencyTtlSeconds ?? 0, ACP_MIN_IDEMPOTENCY_TTL_SECONDS),
     );
-    assertACPClient(this.clientFactory(createInitialRequestContext()));
+    const client = this.clientFactory(createInitialRequestContext());
+    assertACPClient(client);
     assertPaymentHandlers(this.options.paymentHandlers ?? []);
+    this.webhooks = this.options.webhooks ? new ACPOrderWebhooks(this.options.webhooks) : undefined;
+
+    if (this.webhooks && !client.order?.getById) {
+      throw new Error('ACP order webhooks need the client operation order.getById.');
+    }
+
+    if (!this.webhooks) {
+      console.warn('ACP: order webhooks are disabled; configure `webhooks` (ACP requires order_create/order_update events).');
+    }
 
     if (!this.options.orderPermalinkUrl) {
       console.warn('ACP: orders are returned without permalink_url; configure `orderPermalinkUrl` (ACP requires a permalink).');
@@ -480,6 +513,25 @@ export class ReactionaryACPServer<
     return parsed.success ? parsed.data : undefined;
   }
 
+  /**
+   * Sends an `order_update` event with the order's current state, e.g. when
+   * the OMS ships or cancels it. Returns false for orders not placed through
+   * an ACP checkout session, or when webhooks are not configured.
+   */
+  public async notifyOrderUpdated(orderId: string): Promise<boolean> {
+    const record = await this.checkoutSessionStore.getOrder(orderId);
+
+    if (!this.webhooks || !record) {
+      return false;
+    }
+
+    const requestContext = await this.createRequestContext(record.sessionId ?? crypto.randomUUID());
+    const client = this.clientFactory(requestContext);
+    assertACPClient(client);
+
+    return this.sendOrderEvent('order_update', record, client);
+  }
+
   public getHandler(): ReactionaryACPHttpHandler {
     return {
       fetch: (request) => this.fetch(request),
@@ -599,7 +651,7 @@ export class ReactionaryACPServer<
       capabilities: {
         // The services enum is closed per version: checkout, orders,
         // delegate_payment and carts (discovery RFC §4.2).
-        services: ['checkout'],
+        services: this.webhooks ? ['checkout', 'orders'] : ['checkout'],
         ...(extensions.length > 0 ? { extensions } : {}),
         ...(interventionTypes.length > 0 ? { intervention_types: interventionTypes } : {}),
         ...(discovery.supportedCurrencies
@@ -1132,6 +1184,7 @@ export class ReactionaryACPServer<
     const optionTitles = getOptionTitles(view.options);
 
     await this.checkoutSessionStore.put(persisted.id, persisted);
+    await this.recordOrder(persisted, client);
 
     return {
       id: persisted.id,
@@ -1172,6 +1225,99 @@ export class ReactionaryACPServer<
         : {}),
       messages: [...extraMessages, ...(view.messages ?? [])],
       links: this.options.links ?? [],
+    };
+  }
+
+  /**
+   * Records an order placed through a session once, and announces it to the
+   * creating agent's webhook receiver.
+   */
+  private async recordOrder(state: ACPCheckoutSessionState, client: ValidatedReactionaryACPClient): Promise<void> {
+    if (state.status !== 'completed' || !state.orderId || await this.checkoutSessionStore.getOrder(state.orderId)) {
+      return;
+    }
+
+    const record: ACPOrderRecord = {
+      id: state.orderId,
+      checkoutSessionId: state.id,
+      ...(state.sessionId ? { sessionId: state.sessionId } : {}),
+      ...(state.agentId ? { agentId: state.agentId } : {}),
+    };
+
+    await this.checkoutSessionStore.putOrder(record);
+    await this.sendOrderEvent('order_create', record, client);
+  }
+
+  private async sendOrderEvent(
+    type: ACPOrderEventType,
+    record: ACPOrderRecord,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<boolean> {
+    const endpoint = this.webhooks?.getEndpoint(record.agentId);
+    const order = endpoint ? await this.toACPOrder(record, client) : undefined;
+
+    if (!this.webhooks || !endpoint || !order) {
+      return false;
+    }
+
+    this.webhooks.deliver(endpoint, type, order);
+    return true;
+  }
+
+  /** The full current order (webhooks carry the whole order, not deltas). */
+  private async toACPOrder(
+    record: ACPOrderRecord,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<Record<string, unknown> | undefined> {
+    const result = await client.order?.getById({ order: { key: record.id } });
+
+    if (!result?.success) {
+      console.error(`ACP: order ${record.id} could not be read for its webhook:`, result?.error);
+      return undefined;
+    }
+
+    const order = result.value;
+    const products = await getProducts(order.items.map((item) => item.variant.sku), client);
+    const canceled = order.orderStatus === 'Cancelled';
+    const shipped = order.orderStatus === 'Shipped';
+    const lineItems = order.items.map((item) => {
+      const product = products.get(item.variant.sku);
+      const current = canceled ? 0 : item.quantity;
+
+      return {
+        id: item.identifier.key,
+        title: product?.name || item.variant.sku,
+        ...(product ? { product_id: product.identifier.key } : {}),
+        quantity: { ordered: item.quantity, current, fulfilled: shipped ? current : 0 },
+        unit_price: toMinorUnits(item.price.unitPrice),
+        subtotal: toMinorUnits(item.price.totalPrice),
+        status: canceled ? 'removed' : shipped ? 'fulfilled' : 'processing',
+      };
+    });
+
+    return {
+      type: 'order',
+      id: order.identifier.key,
+      checkout_session_id: record.checkoutSessionId,
+      ...(this.options.orderPermalinkUrl
+        ? { permalink_url: toOrderPermalinkUrl(this.options.orderPermalinkUrl, order.identifier.key) }
+        : {}),
+      status: toACPOrderStatus(order.orderStatus),
+      line_items: lineItems,
+      ...(order.shippingMethod
+        ? {
+            fulfillments: [{
+              id: 'fulfillment_1',
+              type: 'shipping',
+              status: canceled ? 'canceled' : shipped ? 'shipped' : 'processing',
+              line_items: lineItems
+                .filter((lineItem) => lineItem.quantity.current > 0)
+                .map((lineItem) => ({ id: lineItem.id, quantity: lineItem.quantity.current })),
+              ...(order.shippingMethod.carrier ? { carrier: order.shippingMethod.carrier } : {}),
+            }],
+          }
+        : {}),
+      totals: toACPTotals(order.price),
     };
   }
 
@@ -1596,6 +1742,7 @@ class ReactionaryACPCheckoutSessionStore {
   public constructor(
     private readonly cache: Cache,
     private readonly ttlSeconds: number,
+    private readonly orderTtlSeconds: number,
   ) {}
 
   public async get(
@@ -1618,6 +1765,17 @@ class ReactionaryACPCheckoutSessionStore {
       ttlSeconds: this.ttlSeconds,
       dependencyIds: [this.getDependencyId(checkoutSessionId)],
     });
+  }
+
+  public async getOrder(orderId: string): Promise<ACPOrderRecord | undefined> {
+    return (await this.cache.get(`${ORDER_CACHE_KEY_PREFIX}:${orderId}`, ACPOrderRecordSchema)) ?? undefined;
+  }
+
+  public async putOrder(record: ACPOrderRecord): Promise<void> {
+    const key = `${ORDER_CACHE_KEY_PREFIX}:${record.id}`;
+
+    await this.cache.invalidate([key]);
+    await this.cache.put(key, record, { ttlSeconds: this.orderTtlSeconds, dependencyIds: [key] });
   }
 
   private getCacheKey(checkoutSessionId: string): string {
@@ -1647,6 +1805,20 @@ function getCheckoutSessionId(
   );
 
   return match?.[1];
+}
+
+/** Reactionary order statuses as ACP order statuses. */
+function toACPOrderStatus(status: Order['orderStatus']): string {
+  switch (status) {
+    case 'AwaitingPayment':
+      return 'created';
+    case 'ReleasedToFulfillment':
+      return 'confirmed';
+    case 'Shipped':
+      return 'shipped';
+    case 'Cancelled':
+      return 'canceled';
+  }
 }
 
 function toOrderPermalinkUrl(template: string, orderId: string): string {

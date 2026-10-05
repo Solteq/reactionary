@@ -148,4 +148,6 @@ new ReactionaryACPServer(createClient, {
 
 Use `@reactionary/feeds` directly when you want Google Merchant, sitemap XML, or PriceRunner outputs from the same feed definitions.
 
-Order webhooks are a separate ACP surface and are not implemented yet.
+## Order webhooks
+
+With `webhooks: { endpoints: [{ url, secret, agentId? }] }`, orders placed through a checkout session are announced to the creating agent's receiver (`order_create`), and `server.notifyOrderUpdated(orderId)` sends `order_update` with the order's current state — call it when your OMS changes the order (ships, cancels). Events carry the full ACP `Order` (status, line items with ordered/current/fulfilled quantities, the shipping fulfillment, totals) and are signed with `Merchant-Signature: t=<unix>,v1=<HMAC-SHA256 hex of "t.body">` using the endpoint secret (`signWebhookPayload` builds the header). Failed deliveries are retried in memory (0.5s … 5m). Webhooks need the client's `order.getById`, and discovery then advertises the `orders` service.
