@@ -218,6 +218,11 @@ export interface ACPDiscoveryOptions {
   apiBaseUrl?: string;
   documentationUrl?: string;
   supportedCurrencies?: string[];
+  /**
+   * BCP 47 locales the backend can localize for. Advertised in discovery,
+   * and checkout requests are localized to the best match of their
+   * Accept-Language.
+   */
   supportedLocales?: string[];
 }
 
@@ -326,7 +331,7 @@ export class ReactionaryACPServer<
         operation: `${request.method} ${getAcpOperationPath(request, this.options.basePath)}`,
         attributes: { 'http.request.method': request.method },
       },
-      () => this.handleFetch(request),
+      async () => echoRequestHeaders(request, await this.handleFetch(request)),
       getHttpProtocolResultAttributes,
     );
   }
@@ -350,6 +355,12 @@ export class ReactionaryACPServer<
 
     if (requestedFeed) {
       requestContext.languageContext = requestedFeed.feed.languageContext;
+    }
+
+    const locale = this.resolveLocale(request);
+
+    if (locale && !requestedFeed) {
+      requestContext.languageContext = { ...requestContext.languageContext, locale };
     }
 
     const currency = await this.resolveCheckoutCurrency(request);
@@ -424,6 +435,30 @@ export class ReactionaryACPServer<
       : undefined;
 
     return state?.sessionId ?? getOrCreateSessionId(request);
+  }
+
+  /**
+   * The best supported locale for the request's Accept-Language: an exact
+   * tag, else one of the same language. Only locales advertised in
+   * `discovery.supportedLocales` are used, as backends may not localize
+   * others.
+   */
+  private resolveLocale(request: Request): string | undefined {
+    const supported = this.options.discovery?.supportedLocales ?? [];
+    const requested = parseAcceptLanguage(request.headers.get('accept-language'));
+
+    for (const tag of requested) {
+      const exact = supported.find((locale) => locale.toLowerCase() === tag.toLowerCase());
+      const sameLanguage = supported.find(
+        (locale) => locale.split('-')[0]?.toLowerCase() === tag.split('-')[0]?.toLowerCase(),
+      );
+
+      if (exact ?? sameLanguage) {
+        return exact ?? sameLanguage;
+      }
+    }
+
+    return undefined;
   }
 
   /**
@@ -1449,6 +1484,39 @@ function getProductFeedId(
   const match = /^\/product_feeds\/([^/]+)\/products$/.exec(pathname);
 
   return match?.[1];
+}
+
+/** Responses echo Request-Id and, on POSTs, Idempotency-Key (checkout RFC §3.1). */
+function echoRequestHeaders(request: Request, response: Response): Response {
+  const requestId = request.headers.get('request-id');
+  const idempotencyKey = request.headers.get('idempotency-key');
+
+  if (requestId) {
+    response.headers.set('request-id', requestId);
+  }
+
+  if (idempotencyKey && request.method === 'POST') {
+    response.headers.set('idempotency-key', idempotencyKey);
+  }
+
+  return response;
+}
+
+/** Accept-Language tags by descending quality, e.g. `fi-FI,en;q=0.5` → fi-FI, en. */
+function parseAcceptLanguage(header: string | null): string[] {
+  return (header ?? '')
+    .split(',')
+    .map((part, index) => {
+      const [tag = '', ...parameters] = part.trim().split(';');
+      const quality = parameters
+        .map((parameter) => /^\s*q=([0-9.]+)\s*$/.exec(parameter)?.[1])
+        .find((value) => value !== undefined);
+
+      return { tag: tag.trim(), quality: quality === undefined ? 1 : Number(quality), index };
+    })
+    .filter((entry) => entry.tag && entry.tag !== '*' && entry.quality > 0)
+    .sort((left, right) => right.quality - left.quality || left.index - right.index)
+    .map((entry) => entry.tag);
 }
 
 /** POSTs to checkout endpoints, which all require an Idempotency-Key. */
