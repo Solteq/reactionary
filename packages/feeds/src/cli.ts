@@ -6,6 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { finished } from 'node:stream/promises';
 import { pathToFileURL } from 'node:url';
 import type { RequestContext } from '@reactionary/core';
+import { createACPFeedPublisherFromConfig, type ACPFeedApiConfig } from './lib/acp-feed-publisher.js';
 import { createDefaultFeedRegistry } from './lib/default-registry.js';
 import type {
   ReactionaryFeedTransformer,
@@ -26,6 +27,15 @@ interface FeedsConfig
     ReactionaryFeedProcessingOptions {
   createClient?: ReactionaryFeedClientFactory;
   feeds: Record<string, ReactionaryFeedDefinition>;
+  /** The agent's ACP Feed API, for publish-acp and create-acp-feed. */
+  acpFeedApi?: ACPFeedApiConfig;
+}
+
+interface PublishAcpOptions extends ConfigOptions {
+  feed: string;
+  batchSize?: string;
+  progress?: boolean;
+  testMode?: boolean;
 }
 
 interface ConfigOptions {
@@ -98,6 +108,34 @@ async function main(): Promise<void> {
       await generateFeed(options);
     });
 
+  program
+    .command('publish-acp')
+    .description('Push a feed to the agent-hosted ACP Feed API (PATCH /feeds/{id}/products). Run it from cron or a scheduled job.')
+    .requiredOption('-c, --config <path>', 'Path to an ESM feed config module.')
+    .requiredOption('-f, --feed <id>', 'Configured feed id to publish; its acp.feedId is the agent feed.')
+    .option('--batch-size <count>', 'Products per upsert request. Defaults to 100.')
+    .option('--testMode', 'Limit source reads to at most 2 pages for smoke testing.')
+    .option('--no-progress', 'Disable progress reporting on stderr.')
+    .action(async (options: PublishAcpOptions) => {
+      const publisher = await createAcpPublisher(options);
+      const result = await publisher.publish(options.feed);
+
+      console.log(JSON.stringify(result));
+    });
+
+  program
+    .command('create-acp-feed')
+    .description('Create a feed on the agent-hosted ACP Feed API (POST /feeds) and print its id, to put into the feed\'s acp.feedId. Only needed when the agent did not hand out a feed id.')
+    .requiredOption('-c, --config <path>', 'Path to an ESM feed config module.')
+    .requiredOption('-f, --feed <id>', 'Configured feed id to create an agent feed for.')
+    .action(async (options: PublishAcpOptions) => {
+      const publisher = await createAcpPublisher({ ...options, progress: false });
+      const metadata = await publisher.createFeed(options.feed);
+
+      console.log(JSON.stringify(metadata));
+      console.error(`Set acp.feedId to "${metadata.id}" on feed "${options.feed}" in ${options.config}.`);
+    });
+
   await program.parseAsync(process.argv);
 }
 
@@ -130,6 +168,34 @@ async function generateFeed(
       products,
     });
   }));
+}
+
+async function createAcpPublisher(options: PublishAcpOptions) {
+  const config = await loadConfig(options.config);
+
+  return createACPFeedPublisherFromConfig(config, await getClientFactory(config), {
+    ...(options.batchSize ? { batchSize: parseBatchSize(options.batchSize) } : {}),
+    testMode: Boolean(options.testMode),
+    ...(options.progress === false
+      ? {}
+      : {
+          onProgress: createCliProgressReporter({
+            feedId: options.feed,
+            transformerId: 'acp-feed-api',
+            stream: process.stderr,
+          }),
+        }),
+  });
+}
+
+function parseBatchSize(value: string): number {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`--batch-size must be a positive integer, got: ${value}`);
+  }
+
+  return parsed;
 }
 
 async function createFeedGenerationContext(

@@ -49,28 +49,7 @@ Every checkout `POST` must carry an `Idempotency-Key` (at most 255 characters), 
 
 ## Product feeds
 
-ACP feeds are **pushed** by the merchant to the agent's Feed API (2026-04-17); agents never pull feeds from merchants. `ReactionaryACPFeedPublisher` generates the feed with `@reactionary/feeds` and pushes it:
-
-```ts
-import { ReactionaryACPFeedPublisher } from '@reactionary/acp';
-
-const publisher = new ReactionaryACPFeedPublisher(createClient, {
-  feedApiBaseUrl: 'https://agent.example/api',
-  apiKey: process.env.ACP_FEED_API_KEY,
-  feeds: {
-    finnish: {
-      languageContext: { locale: 'fi-FI', currencyCode: 'EUR' },
-      search: { term: '', facets: [], filters: ['market:fi'], paginationOptions: { pageNumber: 1, pageSize: 50 } },
-      productUrlBase: 'https://shop.example/{lang}/products/{slug}',
-    },
-  },
-});
-
-const feed = await publisher.createFeed('finnish'); // POST /feeds
-await publisher.publish('finnish', feed.id);        // PATCH /feeds/{id}/products, in batches
-```
-
-Each feed definition provides the `languageContext` the products are generated in, the `search` passed to `productSearch.queryByTerm`, and `productUrlBase` (a base URL or a template with `{lang}` and `{slug}`). Products are ACP `Product` records with their variants (see the `acp-product-feed` transformer in `@reactionary/feeds`). Upserts never remove products; for a full replacement, use file ingestion: the `@reactionary/feeds` CLI writes `products.jsonl` (`acp-product-feed`) and `metadata.json` (`acp-feed-metadata`).
+ACP feeds are **pushed** by the merchant to the agent's Feed API (2026-04-17): the agent hosts `POST /feeds` and `GET`/`PATCH /feeds/{id}/products`, and never calls the merchant for feeds, so this server has no feed endpoints. Publish feeds from a scheduled job with the `@reactionary/feeds` CLI (`reactionary-feeds publish-acp`), configured with the Feed API URL, API key and feed ids from the agent's onboarding — see "Publishing ACP feeds to an agent" in the `@reactionary/feeds` README. `ReactionaryACPFeedPublisher` is re-exported here for programmatic use.
 
 ## Required Reactionary capabilities
 

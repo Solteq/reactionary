@@ -257,3 +257,75 @@ node dist/packages/feeds/cli.js list-feeds --config ./packages/feeds/documentati
 ```
 
 When `@reactionary/feeds` is installed as a package, npm/pnpm/yarn exposes the `reactionary-feeds` command from the package `bin` entry.
+
+## Publishing ACP feeds to an agent
+
+ACP product feeds (2026-04-17) are **pushed by the merchant to the agent**. The agent (e.g. OpenAI) hosts the Feed API — `POST /feeds`, `GET /feeds/{id}`, `GET`/`PATCH /feeds/{id}/products` — and never calls the merchant for feeds. Your ACP checkout server has no feed endpoints; publishing is a separate job you schedule:
+
+```
+your scheduler (cron, Kubernetes CronJob, CI)
+  └─ reactionary-feeds publish-acp ── reads the catalogue (Reactionary client)
+                                   └─ PATCH {agent Feed API}/feeds/{id}/products ──▶ agent
+```
+
+From the agent's onboarding you receive the Feed API base URL, an API key and (usually) a feed id per catalogue. Put them in the feeds config — the key stays in the environment:
+
+```js
+// feeds.config.mjs
+export default {
+  acpFeedApi: {
+    baseUrl: 'https://feeds.agent.example/api', // from onboarding
+    apiKeyEnv: 'ACP_FEED_API_KEY',              // default; the key itself is never in config
+  },
+  feeds: {
+    finnish: {
+      languageContext: { locale: 'fi-FI', currencyCode: 'EUR' },
+      search: { term: '', facets: [], filters: ['market:fi'], paginationOptions: { pageNumber: 1, pageSize: 50 } },
+      productUrlBase: 'https://shop.example/{lang}/products/{slug}',
+      acp: { feedId: 'feed_8f3K2x' },          // from onboarding
+    },
+  },
+};
+```
+
+Publish on a schedule. The command prints `{ "feedId", "products", "batches" }` and exits non-zero on any failure, so the scheduler's alerting sees it:
+
+```bash
+ACP_FEED_API_KEY=... reactionary-feeds publish-acp -c ./feeds.config.mjs -f finnish
+```
+
+```cron
+# Every 15 minutes
+*/15 * * * * ACP_FEED_API_KEY=... reactionary-feeds publish-acp -c /etc/shop/feeds.config.mjs -f finnish --no-progress
+```
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: acp-feed-finnish
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: publish
+              image: registry.example/shop-feeds:latest
+              args: ["publish-acp", "-c", "/config/feeds.config.mjs", "-f", "finnish", "--no-progress"]
+              env:
+                - name: ACP_FEED_API_KEY
+                  valueFrom: { secretKeyRef: { name: acp-feed-api, key: api-key } }
+```
+
+Options: `--batch-size <n>` (products per upsert, default 100), `--testMode` (two search pages only) and `--no-progress`.
+
+Notes:
+
+- If the agent does not hand out feed ids, run `reactionary-feeds create-acp-feed -c ./feeds.config.mjs -f finnish` once; it calls `POST /feeds` with the feed's target country and prints the id to put into `acp.feedId`. Nothing is stored at runtime.
+- `PATCH` upserts by product id and never removes products. Products that should no longer be sold are reported as unavailable when they are still found; to drop products entirely, publish a full replacement.
+- **Full replacement** instead of the API: `reactionary-feeds generate -c ./feeds.config.mjs -f finnish --output acp-product-feed=./products.jsonl --output acp-feed-metadata=./metadata.json`, then upload both files however the agent's onboarding specifies (the ACP spec leaves file transfer to the platform).
+- The same publisher is available in code as `ReactionaryACPFeedPublisher` / `createACPFeedPublisherFromConfig` (also re-exported from `@reactionary/acp`).

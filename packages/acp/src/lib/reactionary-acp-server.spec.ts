@@ -17,7 +17,7 @@ import {
 } from '@reactionary/core';
 import { describe, expect, it, vi } from 'vitest';
 import type { ReactionaryFeedClient } from '@reactionary/feeds';
-import { ReactionaryACPFeedPublisher } from './acp-feed-publisher.js';
+import { ReactionaryACPFeedPublisher } from '@reactionary/feeds';
 import { createTokenizedCardHandler } from './acp-payment-handlers.js';
 import { signWebhookPayload } from './acp-webhooks.js';
 import {

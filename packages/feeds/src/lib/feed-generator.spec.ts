@@ -17,6 +17,7 @@ import { ReactionaryFeedServer } from './feed-server.js';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { readFileSync } from 'node:fs';
+import { createACPFeedPublisherFromConfig } from './acp-feed-publisher.js';
 import { acpProductFeedTransformer, toACPFeedMetadata } from './transformers/acp-product-feed.transformer.js';
 import { googleMerchantFeedTransformer } from './transformers/google-merchant-feed.transformer.js';
 import { pricerunnerFeedTransformer } from './transformers/pricerunner-feed.transformer.js';
@@ -306,6 +307,65 @@ describe('feed transformers', () => {
     expect(validateMetadata?.(metadata), ajv.errorsText(validateMetadata?.errors)).toBe(true);
     // Negative control: the previous flat row format is rejected.
     expect(validateProduct?.({ item_id: 'sku-1', price: '8.00 EUR' })).toBe(false);
+  });
+
+  it('publishes ACP feeds from config with the API key from the environment', async () => {
+    const requests: Array<{ method: string; url: string; authorization: string | null; body: unknown }> = [];
+    const observedSearches: unknown[] = [];
+    const agentFeedApi: typeof fetch = async (input, init) => {
+      const request = new Request(input, init);
+      const body: unknown = request.method === 'GET' ? undefined : await request.json();
+      requests.push({ method: request.method, url: request.url, authorization: request.headers.get('authorization'), body });
+      return request.method === 'POST'
+        ? Response.json({ id: 'feed_new', target_country: 'FI' }, { status: 201 })
+        : Response.json({ id: 'feed_onboarded', accepted: true });
+    };
+    const config = {
+      acpFeedApi: { baseUrl: 'https://agent.example/api', apiKeyEnv: 'AGENT_FEED_KEY' },
+      feeds: {
+        finnish: { ...testFeed, acp: { feedId: 'feed_onboarded' }, maxPages: 5 },
+        unassigned: testFeed,
+      },
+    };
+    const env = { AGENT_FEED_KEY: 'merchant-key' };
+    const publisher = createACPFeedPublisherFromConfig(config, () => createTestClient({ observedSearches }), {
+      env,
+      fetch: agentFeedApi,
+      testMode: true,
+    });
+
+    await expect(publisher.publish('finnish')).resolves.toEqual({ feedId: 'feed_onboarded', products: 1, batches: 1 });
+    expect(requests[0]).toMatchObject({
+      method: 'PATCH',
+      url: 'https://agent.example/api/feeds/feed_onboarded/products',
+      authorization: 'Bearer merchant-key',
+    });
+
+    const schema: unknown = JSON.parse(readFileSync(
+      new URL('./__fixtures__/acp-spec-2026-04-17/schema.feed.json', import.meta.url),
+      'utf8',
+    ));
+    if (typeof schema !== 'object' || schema === null) {
+      throw new Error('Expected the feed schema to be a JSON object');
+    }
+    const ajv = new Ajv2020({ strict: false });
+    addFormats.default(ajv);
+    ajv.addSchema(schema);
+    const schemaId = String(Reflect.get(schema, '$id'));
+    const validateUpsert = ajv.getSchema(`${schemaId}#/$defs/UpsertProductsRequest`);
+    const validateCreate = ajv.getSchema(`${schemaId}#/$defs/CreateFeedRequest`);
+
+    expect(validateUpsert?.(requests[0]?.body), ajv.errorsText(validateUpsert?.errors)).toBe(true);
+
+    await expect(publisher.publish('unassigned')).rejects.toThrow('no feed id');
+    await expect(publisher.createFeed('unassigned')).resolves.toMatchObject({ id: 'feed_new' });
+    expect(requests.at(-1)).toMatchObject({ method: 'POST', url: 'https://agent.example/api/feeds', body: { target_country: 'FI' } });
+    expect(validateCreate?.(requests.at(-1)?.body), ajv.errorsText(validateCreate?.errors)).toBe(true);
+
+    expect(() => createACPFeedPublisherFromConfig(config, () => createTestClient(), { env: {} }))
+      .toThrow('set the AGENT_FEED_KEY environment variable');
+    expect(() => createACPFeedPublisherFromConfig({ feeds: config.feeds }, () => createTestClient(), { env }))
+      .toThrow('acpFeedApi.baseUrl');
   });
 
   it('writes the ACP Feed API upsert body and feed metadata', async () => {
