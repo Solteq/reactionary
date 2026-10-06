@@ -11,3 +11,4 @@ export * from './lib/transformers/acp-product-feed.transformer.js';
 export * from './lib/transformers/google-merchant-feed.transformer.js';
 export * from './lib/transformers/pricerunner-feed.transformer.js';
 export * from './lib/transformers/sitemap-feed.transformer.js';
+export * from './lib/acp-feed-publisher.js';
