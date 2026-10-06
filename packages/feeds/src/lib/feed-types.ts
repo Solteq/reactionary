@@ -90,6 +90,11 @@ export interface ReactionaryFeedDefinition {
   productUrlBase?: string;
   sellerName?: string;
   metadata?: Record<string, unknown>;
+  /** ACP: the agent-hosted feed this definition is published to. */
+  acp?: {
+    /** Feed id from the agent's onboarding (or from `create-acp-feed`). */
+    feedId: string;
+  };
 }
 
 export type ReactionarySitemapChangeFrequency =
