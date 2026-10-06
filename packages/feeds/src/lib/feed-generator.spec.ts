@@ -14,6 +14,9 @@ import {
 import { describe, expect, it } from 'vitest';
 import { ReactionaryFeedGenerator } from './feed-generator.js';
 import { ReactionaryFeedServer } from './feed-server.js';
+import { Ajv2020 } from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
+import { readFileSync } from 'node:fs';
 import { acpProductFeedTransformer, toACPFeedMetadata } from './transformers/acp-product-feed.transformer.js';
 import { googleMerchantFeedTransformer } from './transformers/google-merchant-feed.transformer.js';
 import { pricerunnerFeedTransformer } from './transformers/pricerunner-feed.transformer.js';
@@ -274,6 +277,35 @@ describe('feed transformers', () => {
         },
       ],
     });
+  });
+
+  it('writes ACP feed products and metadata valid against the official schema', async () => {
+    const schema: unknown = JSON.parse(readFileSync(
+      new URL('./__fixtures__/acp-spec-2026-04-17/schema.feed.json', import.meta.url),
+      'utf8',
+    ));
+
+    if (typeof schema !== 'object' || schema === null) {
+      throw new Error('Expected the feed schema to be a JSON object');
+    }
+
+    const ajv = new Ajv2020({ strict: false, allErrors: true });
+    addFormats.default(ajv);
+    ajv.addSchema(schema);
+    const schemaId = String(Reflect.get(schema, '$id'));
+    const validateProduct = ajv.getSchema(`${schemaId}#/$defs/Product`);
+    const validateMetadata = ajv.getSchema(`${schemaId}#/$defs/FeedMetadata`);
+    const output = await render(acpProductFeedTransformer.transform(
+      asAsyncIterable([testFeedProduct]),
+      { feedId: 'finnish', feed: testFeed, options: { format: 'jsonl' } },
+    ));
+    const product: unknown = JSON.parse(output);
+    const metadata = toACPFeedMetadata('finnish', testFeed);
+
+    expect(validateProduct?.(product), ajv.errorsText(validateProduct?.errors)).toBe(true);
+    expect(validateMetadata?.(metadata), ajv.errorsText(validateMetadata?.errors)).toBe(true);
+    // Negative control: the previous flat row format is rejected.
+    expect(validateProduct?.({ item_id: 'sku-1', price: '8.00 EUR' })).toBe(false);
   });
 
   it('writes the ACP Feed API upsert body and feed metadata', async () => {

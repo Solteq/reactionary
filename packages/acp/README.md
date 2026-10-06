@@ -138,6 +138,10 @@ new ReactionaryACPServer(createClient, {
 });
 ```
 
+## Specification conformance
+
+`acp-spec-conformance.spec.ts` validates every response shape the adapter produces — checkout sessions in each state (including `complete_in_progress`, `authentication_required`, declined, canceled and completed with order), errors, discovery, carts and webhook orders — against the official ACP 2026-04-17 JSON Schemas vendored in `src/lib/__fixtures__`, includes negative controls, and replays the specification's example requests. The ACP e2e suite validates the live backend's responses against the same schemas, and `@reactionary/feeds` validates feed products and metadata against the Feed schema.
+
 ## Mapping notes
 
 - ACP item `id` maps to Reactionary `ProductVariantIdentifier.sku`. Requests send `line_items`; an item's optional `quantity` (decimal, default 1) is outside the 2026-04-17 `Item` schema but accepted as the checkout RFC sends it, and repeated ids add up.
