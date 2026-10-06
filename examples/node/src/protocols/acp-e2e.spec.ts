@@ -1,4 +1,7 @@
 import 'dotenv/config';
+import { Ajv2020 } from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
+import { readFileSync } from 'node:fs';
 import { assert, describe, expect, it, vi } from 'vitest';
 import { createInitialRequestContext } from '@reactionary/core';
 import {
@@ -15,6 +18,35 @@ import {
   type AcpServerHarness,
   type ProtocolSession,
 } from './protocol-test-utils.js';
+
+// Responses are validated against the official ACP 2026-04-17 schemas.
+const SPEC_FIXTURES = new URL('../../../../packages/acp/src/lib/__fixtures__/acp-spec-2026-04-17/', import.meta.url);
+const checkoutSchema = loadSpecSchema('schema.agentic_checkout.json');
+const cartSchema = loadSpecSchema('schema.cart.json');
+const feedSchema = loadSpecSchema('../../../../../feeds/src/lib/__fixtures__/acp-spec-2026-04-17/schema.feed.json');
+const ajv = new Ajv2020({ strict: false, allErrors: true });
+addFormats.default(ajv);
+ajv.addSchema(checkoutSchema);
+ajv.addSchema({ ...checkoutSchema, $id: new URL('schema.agentic_checkout.json', String(cartSchema['$id'])).href });
+ajv.addSchema(cartSchema);
+ajv.addSchema(feedSchema);
+
+function loadSpecSchema(name: string): Record<string, unknown> {
+  const value: unknown = JSON.parse(readFileSync(new URL(name, SPEC_FIXTURES), 'utf8'));
+
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error(`Expected a JSON object in ${name}`);
+  }
+
+  return Object.fromEntries(Object.entries(value));
+}
+
+function expectSpecValid(definition: string, value: unknown, schema: Record<string, unknown> = checkoutSchema): void {
+  const validate = ajv.getSchema(`${String(schema['$id'])}#/$defs/${definition}`);
+
+  expect(validate, definition).toBeDefined();
+  expect(validate?.(value), `${definition}: ${ajv.errorsText(validate?.errors)}`).toBe(true);
+}
 
 // The e2e backends price in the initial request context's currency.
 const ACP_CURRENCY = createInitialRequestContext().languageContext.currencyCode.toLowerCase();
@@ -186,6 +218,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
       const discovery = (await discoveryResponse.json()) as AcpDiscoveryResponse;
 
       expect(discoveryResponse.status).toBe(200);
+      expectSpecValid('DiscoveryResponse', discovery);
       expect(discovery.protocol.name).toBe('acp');
       expect(discovery.api_base_url).toBe(ACP_BASE_URL);
       expect(discovery.transports).toContain('rest');
@@ -206,6 +239,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
 
       expect(feedProducts.length).toBeGreaterThan(0);
       for (const product of feedProducts) {
+        expectSpecValid('Product', product, feedSchema);
         expect(product.id).toBeTruthy();
         expect(product.variants.length).toBeGreaterThan(0);
         for (const variant of product.variants) {
@@ -227,6 +261,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
         const { checkoutSession: created, sku } = await createCheckoutSessionFromFeed(session, feedItems);
 
         expect(created.id).toMatch(/^checkout_session_/);
+        expectSpecValid('CheckoutSession', created);
         expect(['ready_for_payment', 'not_ready_for_payment']).toContain(created.status);
         expect(created.currency).toBe(created.currency.toLowerCase());
         expect(created.capabilities.payment?.handlers[0]).toMatchObject({
@@ -341,6 +376,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
           );
 
           expect(withAddress.status).toBe(200);
+          expectSpecValid('CheckoutSession', withAddress.body);
           const option = withAddress.body.fulfillment_options.find((candidate) => candidate.type === 'shipping');
           expect(option, 'expected a shipping option for the address').toBeDefined();
           expect(withAddress.body.status).toBe('not_ready_for_payment');
@@ -375,6 +411,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
 
           expect(completed.status).toBe(200);
           expect(completed.body.status).toBe('completed');
+          expectSpecValid('CheckoutSessionWithOrder', completed.body);
           const orderId = completed.body.order?.id;
           expect(orderId, 'expected the completed session to reference the placed order').toBeTruthy();
           expect(completed.body.order?.permalink_url).toBe(`https://shop.example.com/orders/${orderId}`);
@@ -394,6 +431,9 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
             type: 'order_create',
             data: expect.objectContaining({ id: orderId, checkout_session_id: created.id }),
           })));
+          for (const event of harness.webhookEvents) {
+            expectSpecValid('Order', (event as { data: unknown }).data);
+          }
         },
         PROTOCOL_TEST_TIMEOUT,
       );
@@ -410,6 +450,7 @@ describe.each(combinations)('ACP e2e - $backend + $search', ({ backend, search }
         );
 
         expect(created.status).toBe(201);
+        expectSpecValid('Cart', created.body, cartSchema);
         expect(created.body.line_items[0]?.item.id).toBe(sku);
         expect(created.body.totals.find((total) => total.type === 'total')?.amount).toBeGreaterThan(0);
 
