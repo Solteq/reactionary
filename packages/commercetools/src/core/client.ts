@@ -120,7 +120,7 @@ export class CommercetoolsAPI {
 
     const channel = response.body;
     this.setSessionData({
-      cacheKey: channel.id,
+      [cacheKey]: channel.id,
     });
     if (debug.enabled) {
       debug(`Resolved channel ${key} from API and cached it`);
