@@ -19,8 +19,7 @@
     "@reactionary/meilisearch": "0.0.1",
     "@reactionary/ucp": "0.0.1",
     "@reactionary/unomi": "0.0.1",
-    "dotenv": "^17.2.2",
-    "express": "^5.2.1"
+    "dotenv": "^17.2.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

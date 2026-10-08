@@ -1,0 +1,1284 @@
+{
+  "interactions": [
+    {
+      "method": "POST",
+      "url": "{authUrl}/oauth/{projectKey}/anonymous/token?grant_type=client_credentials",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "access_token": "redacted-access_token",
+        "expires_in": 10800,
+        "token_type": "Bearer",
+        "scope": "manage_my_business_units:{projectKey} anonymous_id:3b24b3c2-a5da-4a53-a093-0752b3585e09 manage_my_payments:{projectKey} view_categories:{projectKey} manage_my_profile:{projectKey} create_anonymous_token:{projectKey} view_standalone_prices:{projectKey} view_products:{projectKey} manage_my_shopping_lists:{projectKey} manage_my_quotes:{projectKey} manage_my_orders:{projectKey} manage_my_quote_requests:{projectKey} view_published_products:{projectKey}",
+        "refresh_token": "redacted-refresh_token"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "{apiUrl}/{projectKey}/me/login",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "customer": {
+          "id": "1e4803f5-e54e-4c46-a5ae-2fd10c8204b6",
+          "version": 137,
+          "versionModifiedAt": "2026-10-08T08:58:46.503Z",
+          "lastMessageSequenceNumber": 1,
+          "createdAt": "2025-11-27T15:42:51.906Z",
+          "lastModifiedAt": "2026-10-08T08:58:46.503Z",
+          "lastModifiedBy": {
+            "clientId": "redacted-clientId",
+            "isPlatformClient": false,
+            "anonymousId": "3b24b3c2-a5da-4a53-a093-0752b3585e09"
+          },
+          "createdBy": {
+            "clientId": "redacted-clientId",
+            "isPlatformClient": false,
+            "anonymousId": "d4b7db92-e62b-4608-91aa-5f139c2537b9"
+          },
+          "email": "asger.jensen3@solteq.com",
+          "password": "****Rn4=",
+          "addresses": [],
+          "shippingAddressIds": [],
+          "billingAddressIds": [],
+          "isEmailVerified": false,
+          "customerGroupAssignments": [],
+          "stores": [],
+          "authenticationMode": "Password"
+        },
+        "cart": {
+          "type": "Cart",
+          "id": "cd9045de-667a-4064-a46e-7906552b27b1",
+          "version": 2,
+          "versionModifiedAt": "2026-10-08T08:58:46.526Z",
+          "lastMessageSequenceNumber": 1,
+          "createdAt": "2026-10-08T08:58:46.389Z",
+          "lastModifiedAt": "2026-10-08T08:58:46.526Z",
+          "lastModifiedBy": {
+            "clientId": "redacted-clientId",
+            "isPlatformClient": false,
+            "anonymousId": "3b24b3c2-a5da-4a53-a093-0752b3585e09"
+          },
+          "createdBy": {
+            "clientId": "redacted-clientId",
+            "isPlatformClient": false,
+            "customer": {
+              "typeId": "customer",
+              "id": "1e4803f5-e54e-4c46-a5ae-2fd10c8204b6"
+            }
+          },
+          "customerId": "1e4803f5-e54e-4c46-a5ae-2fd10c8204b6",
+          "lineItems": [
+            {
+              "id": "4afbaecb-8734-4a64-b25c-cd03ba5b595d",
+              "productId": "af6ff369-02b3-414c-9290-0a052d12fac3",
+              "productKey": "product_91375834",
+              "productType": {
+                "typeId": "product-type",
+                "id": "deb69ee6-87b9-425a-8873-10cdad163eea",
+                "version": 1
+              },
+              "productSlug": {
+                "la": "20-bit-electric-precision-screwdriver-set-portablemini-battery-powered-bit-driver-kit-for-electronic-laptop-computer-tablet-and-phone-repairs-magnetic-cordless-91375834",
+                "nb": "startechcom-ctk20pcedrive-kraftskrutrekker-og-slagtrekker-110-rpm-solv-91375834",
+                "en": "20-bit-electric-precision-screwdriver-set-portablemini-battery-powered-bit-driver-kit-for-electronic-laptop-computer-tablet-and-phone-repairs-magnetic-cordless-91375834",
+                "es": "destornillador-electrico-con-juego-de-20-puntas-de-precision-mini-destornillador-portatil-a-pilas-para-reparacion-de-ordenadores-tablets-y-moviles-inalambrico-91375834",
+                "fi": "startechcom-ctk20pcedrive-sahkoruuvimeisseli-ja-iskuruuvitaltta-110-rpm-hopea-91375834",
+                "sv": "elektrisk-precisionsskruvdragarsats-med-20-bits-bitssats-till-batteridriven-barbarminiskruvdragare-for-reparation-av-elektroniska-komponenter-barbara-datorer-datorer-surfplattor-och-telefoner-magnetisk-sladdlos-91375834",
+                "da": "startechcom-ctk20pcedrive-elektrisk-skruetraekker-and-slagbor-110-rpm-solv-91375834"
+              },
+              "name": {
+                "la": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless",
+                "nb": "StarTech.com CTK20PCEDRIVE kraftskrutrekker og slagtrekker 110 RPM Sølv",
+                "en": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless",
+                "es": "Destornillador Eléctrico con Juego de 20 Puntas de Precisión - Mini Destornillador Portátil a Pilas para Reparación de Ordenadores, Tablets y Móviles - Inalámbrico",
+                "fi": "StarTech.com CTK20PCEDRIVE sähköruuvimeisseli ja iskuruuvitaltta 110 RPM Hopea",
+                "sv": "Elektrisk precisionsskruvdragarsats med 20 bits - Bitssats till batteridriven bärbar/miniskruvdragare för reparation av elektroniska komponenter, bärbara datorer, datorer, surfplattor och telefoner - Magnetisk - Sladdlös",
+                "da": "StarTech.com CTK20PCEDRIVE elektrisk skruetrækker & slagbor 110 rpm Sølv"
+              },
+              "variant": {
+                "id": 1,
+                "sku": "0065030889759",
+                "key": "0065030889759",
+                "prices": [],
+                "images": [
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/91375834_0441631491.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/91375834_1717157466.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/91375834_5674051137.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/91375834_8872718755.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/91375834_1279902713.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/91375834_2678273635.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/91375834_9784427363.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/91375834_6353644156.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/91375834_8067140870.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/6a2baf14d76b9aa13a942c4b234a20f8.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/9669a18f94d7306b0f7d09dbbb261e18.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/f775d31bb22860000879e49c8a9c3548.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/b59c2c0fc9820ff844306ce1a2404faf.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/7fa9ecb3351f0ba7a1f72b29bb255446.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  },
+                  {
+                    "url": "https://images.icecat.biz/img/gallery/9606affe1478a72662d7b3560b3e4ef7.jpg",
+                    "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                    "dimensions": {
+                      "w": 1000,
+                      "h": 1000
+                    }
+                  }
+                ],
+                "attributes": [
+                  {
+                    "name": "default",
+                    "value": {
+                      "la": "Default",
+                      "nb": "Default",
+                      "en": "Default",
+                      "es": "Default",
+                      "fi": "Default",
+                      "sv": "Default",
+                      "da": "Default"
+                    }
+                  },
+                  {
+                    "name": "battery-technology",
+                    "value": {
+                      "la": "Alkaline",
+                      "nb": "Alkalinsk",
+                      "en": "Alkaline",
+                      "es": "Alcalino",
+                      "fi": "Alkali",
+                      "sv": "Alkalisk",
+                      "da": "Alkaline"
+                    }
+                  },
+                  {
+                    "name": "idle-speed-max",
+                    "value": {
+                      "la": "110",
+                      "nb": "110",
+                      "en": "110",
+                      "es": "110",
+                      "fi": "110",
+                      "sv": "110",
+                      "da": "110"
+                    }
+                  },
+                  {
+                    "name": "master-outer-case-width",
+                    "value": {
+                      "la": "255",
+                      "nb": "255",
+                      "en": "255",
+                      "es": "255",
+                      "fi": "255",
+                      "sv": "255",
+                      "da": "255"
+                    }
+                  },
+                  {
+                    "name": "height",
+                    "value": {
+                      "la": "16",
+                      "nb": "16",
+                      "en": "16",
+                      "es": "16",
+                      "fi": "16",
+                      "sv": "16",
+                      "da": "16"
+                    }
+                  },
+                  {
+                    "name": "reactionaryspareparts",
+                    "value": []
+                  },
+                  {
+                    "name": "number-of-batteries-included",
+                    "value": {
+                      "la": "2",
+                      "nb": "2",
+                      "en": "2",
+                      "es": "2",
+                      "fi": "2",
+                      "sv": "2",
+                      "da": "2"
+                    }
+                  },
+                  {
+                    "name": "package-height",
+                    "value": {
+                      "la": "430",
+                      "nb": "430",
+                      "en": "430",
+                      "es": "430",
+                      "fi": "430",
+                      "sv": "430",
+                      "da": "430"
+                    }
+                  },
+                  {
+                    "name": "reactionaryreplacements",
+                    "value": []
+                  },
+                  {
+                    "name": "product-colour",
+                    "value": {
+                      "la": "Silver",
+                      "nb": "Sølv",
+                      "en": "Silver",
+                      "es": "Plata",
+                      "fi": "Hopea",
+                      "sv": "Silver",
+                      "da": "Sølv"
+                    }
+                  },
+                  {
+                    "name": "torque-max",
+                    "value": {
+                      "la": "0.35",
+                      "nb": "0,35",
+                      "en": "0.35",
+                      "es": "0,35",
+                      "fi": "0,35",
+                      "sv": "0,35",
+                      "da": "0,35"
+                    }
+                  },
+                  {
+                    "name": "master-outer-case-length",
+                    "value": {
+                      "la": "495",
+                      "nb": "495",
+                      "en": "495",
+                      "es": "495",
+                      "fi": "495",
+                      "sv": "495",
+                      "da": "495"
+                    }
+                  },
+                  {
+                    "name": "weight",
+                    "value": {
+                      "la": "52",
+                      "nb": "52",
+                      "en": "52",
+                      "es": "52",
+                      "fi": "52",
+                      "sv": "52",
+                      "da": "52"
+                    }
+                  },
+                  {
+                    "name": "battery-included",
+                    "value": {
+                      "la": "Yes",
+                      "nb": "Ja",
+                      "en": "Yes",
+                      "es": "Si",
+                      "fi": "Kyllä",
+                      "sv": "Ja",
+                      "da": "Ja"
+                    }
+                  },
+                  {
+                    "name": "package-depth",
+                    "value": {
+                      "la": "70",
+                      "nb": "70",
+                      "en": "70",
+                      "es": "70",
+                      "fi": "70",
+                      "sv": "70",
+                      "da": "70"
+                    }
+                  },
+                  {
+                    "name": "reactionaryaccessories",
+                    "value": []
+                  },
+                  {
+                    "name": "power-source",
+                    "value": {
+                      "la": "Battery",
+                      "nb": "Batteri",
+                      "en": "Battery",
+                      "es": "Batería",
+                      "fi": "Akku",
+                      "sv": "Batteri",
+                      "da": "Batteri"
+                    }
+                  },
+                  {
+                    "name": "compliance-certificates",
+                    "value": {
+                      "la": "CE, RoHS",
+                      "nb": "CE, RoHS",
+                      "en": "CE, RoHS",
+                      "es": "CE, RoHS",
+                      "fi": "CE, RoHS",
+                      "sv": "CE, RoHS",
+                      "da": "CE, RoHS"
+                    }
+                  },
+                  {
+                    "name": "master-outer-case-height",
+                    "value": {
+                      "la": "415",
+                      "nb": "415",
+                      "en": "415",
+                      "es": "415",
+                      "fi": "415",
+                      "sv": "415",
+                      "da": "415"
+                    }
+                  },
+                  {
+                    "name": "products-per-master-outer-case",
+                    "value": {
+                      "la": "55",
+                      "nb": "55",
+                      "en": "55",
+                      "es": "55",
+                      "fi": "55",
+                      "sv": "55",
+                      "da": "55"
+                    }
+                  },
+                  {
+                    "name": "product-type",
+                    "value": {
+                      "la": "Power screwdriver",
+                      "nb": "Elektrisk skrutrekker",
+                      "en": "Power screwdriver",
+                      "es": "Destornillador eléctrico",
+                      "fi": "Akkuruuvinväännin",
+                      "sv": "Eldriven skruvdragare",
+                      "da": "Skruemaskine"
+                    }
+                  },
+                  {
+                    "name": "number-of-bits",
+                    "value": {
+                      "la": "20",
+                      "nb": "20",
+                      "en": "20",
+                      "es": "20",
+                      "fi": "20",
+                      "sv": "20",
+                      "da": "20"
+                    }
+                  },
+                  {
+                    "name": "screwdriversbits-tips-included",
+                    "value": {
+                      "la": "Pentalobe, Phillips, Robertson, Slot, Spanner, Torx, Tri-Wing, Triangle",
+                      "nb": "Pentalobe, Philips, Robertson, Spor/slot, Nøkkelverktøy, Torx, Tri-Wing, Trekant",
+                      "en": "Pentalobe, Phillips, Robertson, Slot, Spanner, Torx, Tri-Wing, Triangle",
+                      "es": "Pentalobe, Phillips, Robertson, Ranura, Punta de horquilla, Torx, Tri-Wing, Triángulo",
+                      "fi": "Viisisakarainen pentalobe, Phillips, Robertson, Paikka, Ruuviavain, Torx, Kolmikärkinen, Kolmio",
+                      "sv": "Pentalobe, Phillips, Robertson, Öppning, Skiftnyckel, Torx, Tri-Wing, Triangel",
+                      "da": "Pentalobe, Phillips, Robertson, Åbning, Skruenøgle, Torx, Trevinge, Trekant"
+                    }
+                  },
+                  {
+                    "name": "depth",
+                    "value": {
+                      "la": "180",
+                      "nb": "180",
+                      "en": "180",
+                      "es": "180",
+                      "fi": "180",
+                      "sv": "180",
+                      "da": "180"
+                    }
+                  },
+                  {
+                    "name": "handle-shape",
+                    "value": {
+                      "la": "Straight handle",
+                      "nb": "Rett håndgrep",
+                      "en": "Straight handle",
+                      "es": "Mango recto",
+                      "fi": "Suora kahva",
+                      "sv": "Rakt handtag",
+                      "da": "Lige håndtag"
+                    }
+                  },
+                  {
+                    "name": "package-weight",
+                    "value": {
+                      "la": "250",
+                      "nb": "250",
+                      "en": "250",
+                      "es": "250",
+                      "fi": "250",
+                      "sv": "250",
+                      "da": "250"
+                    }
+                  },
+                  {
+                    "name": "width",
+                    "value": {
+                      "la": "16",
+                      "nb": "16",
+                      "en": "16",
+                      "es": "16",
+                      "fi": "16",
+                      "sv": "16",
+                      "da": "16"
+                    }
+                  },
+                  {
+                    "name": "package-width",
+                    "value": {
+                      "la": "230",
+                      "nb": "230",
+                      "en": "230",
+                      "es": "230",
+                      "fi": "230",
+                      "sv": "230",
+                      "da": "230"
+                    }
+                  }
+                ],
+                "assets": [],
+                "availability": {
+                  "channels": {
+                    "ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86": {
+                      "isOnStock": true,
+                      "restockableInDays": 3,
+                      "availableQuantity": 246,
+                      "version": 1,
+                      "id": "15f2ad83-96a0-4bd6-8e32-7e8f2611e019"
+                    }
+                  }
+                }
+              },
+              "price": {
+                "id": "8b77946f-1fe9-439c-97a5-9cbd298c0c56",
+                "value": {
+                  "type": "centPrecision",
+                  "currencyCode": "DKK",
+                  "centAmount": 99624,
+                  "fractionDigits": 2
+                },
+                "key": "Standalone-OnlineFfmChannel-DKK-0065030889759",
+                "channel": {
+                  "typeId": "channel",
+                  "id": "ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86"
+                }
+              },
+              "quantity": 1,
+              "discountedPricePerQuantity": [],
+              "distributionChannel": {
+                "typeId": "channel",
+                "id": "ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86"
+              },
+              "perMethodTaxRate": [],
+              "addedAt": "2026-10-08T08:58:46.283Z",
+              "lastModifiedAt": "2026-10-08T08:58:46.283Z",
+              "state": [
+                {
+                  "quantity": 1,
+                  "state": {
+                    "typeId": "state",
+                    "id": "cc32baf2-0a6e-4c31-a46a-71761ad89c58"
+                  }
+                }
+              ],
+              "priceMode": "Platform",
+              "lineItemMode": "Standard",
+              "priceRoundingMode": "HalfEven",
+              "totalPrice": {
+                "type": "centPrecision",
+                "currencyCode": "DKK",
+                "centAmount": 99624,
+                "fractionDigits": 2
+              },
+              "taxedPricePortions": []
+            }
+          ],
+          "cartState": "Active",
+          "totalPrice": {
+            "type": "centPrecision",
+            "currencyCode": "DKK",
+            "centAmount": 99624,
+            "fractionDigits": 2
+          },
+          "shippingMode": "Single",
+          "shipping": [],
+          "customLineItems": [],
+          "discountCodes": [],
+          "directDiscounts": [],
+          "inventoryMode": "None",
+          "priceRoundingMode": "HalfEven",
+          "taxMode": "Platform",
+          "taxRoundingMode": "HalfEven",
+          "taxCalculationMode": "LineItemLevel",
+          "deleteDaysAfterLastModification": 90,
+          "refusedGifts": [],
+          "origin": "Customer",
+          "itemShippingAddresses": [],
+          "discountTypeCombination": {
+            "type": "Stacking"
+          },
+          "totalLineItemQuantity": 1
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "{apiUrl}/{projectKey}/me",
+      "status": 401,
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "statusCode": 401,
+        "message": "invalid_token",
+        "errors": [
+          {
+            "code": "invalid_token",
+            "message": "invalid_token"
+          }
+        ],
+        "error": "invalid_token"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "{authUrl}/oauth/{projectKey}/customers/token",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "access_token": "redacted-access_token",
+        "expires_in": 172800,
+        "token_type": "Bearer",
+        "scope": "manage_my_business_units:{projectKey} manage_my_payments:{projectKey} view_categories:{projectKey} manage_my_profile:{projectKey} create_anonymous_token:{projectKey} customer_id:1e4803f5-e54e-4c46-a5ae-2fd10c8204b6 manage_my_shopping_lists:{projectKey} manage_my_quotes:{projectKey} manage_my_orders:{projectKey} manage_my_quote_requests:{projectKey} view_published_products:{projectKey}",
+        "refresh_token": "redacted-refresh_token"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "{apiUrl}/{projectKey}/me",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "id": "1e4803f5-e54e-4c46-a5ae-2fd10c8204b6",
+        "version": 137,
+        "versionModifiedAt": "2026-10-08T08:58:46.503Z",
+        "lastMessageSequenceNumber": 1,
+        "createdAt": "2025-11-27T15:42:51.906Z",
+        "lastModifiedAt": "2026-10-08T08:58:46.503Z",
+        "lastModifiedBy": {
+          "clientId": "redacted-clientId",
+          "isPlatformClient": false,
+          "anonymousId": "3b24b3c2-a5da-4a53-a093-0752b3585e09"
+        },
+        "createdBy": {
+          "clientId": "redacted-clientId",
+          "isPlatformClient": false,
+          "anonymousId": "d4b7db92-e62b-4608-91aa-5f139c2537b9"
+        },
+        "email": "asger.jensen3@solteq.com",
+        "password": "****Rn4=",
+        "addresses": [],
+        "shippingAddressIds": [],
+        "billingAddressIds": [],
+        "isEmailVerified": false,
+        "customerGroupAssignments": [],
+        "stores": [],
+        "authenticationMode": "Password"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "{authUrl}/oauth/introspect",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "active": true,
+        "scope": "manage_my_business_units:{projectKey} manage_my_payments:{projectKey} view_categories:{projectKey} manage_my_profile:{projectKey} create_anonymous_token:{projectKey} customer_id:1e4803f5-e54e-4c46-a5ae-2fd10c8204b6 manage_my_shopping_lists:{projectKey} manage_my_quotes:{projectKey} manage_my_orders:{projectKey} manage_my_quote_requests:{projectKey} view_published_products:{projectKey}",
+        "exp": 1791622726614,
+        "client_id": "redacted-client_id"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "{apiUrl}/{projectKey}/me/carts",
+      "status": 201,
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "type": "Cart",
+        "id": "c74e2d32-73cf-4b12-9348-e2869d4b84ca",
+        "version": 1,
+        "versionModifiedAt": "2026-10-08T08:58:46.847Z",
+        "lastMessageSequenceNumber": 1,
+        "createdAt": "2026-10-08T08:58:46.847Z",
+        "lastModifiedAt": "2026-10-08T08:58:46.847Z",
+        "lastModifiedBy": {
+          "clientId": "redacted-clientId",
+          "isPlatformClient": false,
+          "customer": {
+            "typeId": "customer",
+            "id": "1e4803f5-e54e-4c46-a5ae-2fd10c8204b6"
+          }
+        },
+        "createdBy": {
+          "clientId": "redacted-clientId",
+          "isPlatformClient": false,
+          "customer": {
+            "typeId": "customer",
+            "id": "1e4803f5-e54e-4c46-a5ae-2fd10c8204b6"
+          }
+        },
+        "customerId": "1e4803f5-e54e-4c46-a5ae-2fd10c8204b6",
+        "lineItems": [
+          {
+            "id": "0e7f1c0c-8f0d-4ac0-9ecc-5d4027e8e71e",
+            "productId": "af6ff369-02b3-414c-9290-0a052d12fac3",
+            "productKey": "product_91375834",
+            "productType": {
+              "typeId": "product-type",
+              "id": "deb69ee6-87b9-425a-8873-10cdad163eea",
+              "version": 1
+            },
+            "productSlug": {
+              "la": "20-bit-electric-precision-screwdriver-set-portablemini-battery-powered-bit-driver-kit-for-electronic-laptop-computer-tablet-and-phone-repairs-magnetic-cordless-91375834",
+              "nb": "startechcom-ctk20pcedrive-kraftskrutrekker-og-slagtrekker-110-rpm-solv-91375834",
+              "en": "20-bit-electric-precision-screwdriver-set-portablemini-battery-powered-bit-driver-kit-for-electronic-laptop-computer-tablet-and-phone-repairs-magnetic-cordless-91375834",
+              "es": "destornillador-electrico-con-juego-de-20-puntas-de-precision-mini-destornillador-portatil-a-pilas-para-reparacion-de-ordenadores-tablets-y-moviles-inalambrico-91375834",
+              "fi": "startechcom-ctk20pcedrive-sahkoruuvimeisseli-ja-iskuruuvitaltta-110-rpm-hopea-91375834",
+              "sv": "elektrisk-precisionsskruvdragarsats-med-20-bits-bitssats-till-batteridriven-barbarminiskruvdragare-for-reparation-av-elektroniska-komponenter-barbara-datorer-datorer-surfplattor-och-telefoner-magnetisk-sladdlos-91375834",
+              "da": "startechcom-ctk20pcedrive-elektrisk-skruetraekker-and-slagbor-110-rpm-solv-91375834"
+            },
+            "name": {
+              "la": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless",
+              "nb": "StarTech.com CTK20PCEDRIVE kraftskrutrekker og slagtrekker 110 RPM Sølv",
+              "en": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless",
+              "es": "Destornillador Eléctrico con Juego de 20 Puntas de Precisión - Mini Destornillador Portátil a Pilas para Reparación de Ordenadores, Tablets y Móviles - Inalámbrico",
+              "fi": "StarTech.com CTK20PCEDRIVE sähköruuvimeisseli ja iskuruuvitaltta 110 RPM Hopea",
+              "sv": "Elektrisk precisionsskruvdragarsats med 20 bits - Bitssats till batteridriven bärbar/miniskruvdragare för reparation av elektroniska komponenter, bärbara datorer, datorer, surfplattor och telefoner - Magnetisk - Sladdlös",
+              "da": "StarTech.com CTK20PCEDRIVE elektrisk skruetrækker & slagbor 110 rpm Sølv"
+            },
+            "variant": {
+              "id": 1,
+              "sku": "0065030889759",
+              "key": "0065030889759",
+              "prices": [],
+              "images": [
+                {
+                  "url": "https://images.icecat.biz/img/gallery/91375834_0441631491.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/91375834_1717157466.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/91375834_5674051137.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/91375834_8872718755.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/91375834_1279902713.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/91375834_2678273635.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/91375834_9784427363.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/91375834_6353644156.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/91375834_8067140870.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/6a2baf14d76b9aa13a942c4b234a20f8.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/9669a18f94d7306b0f7d09dbbb261e18.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/f775d31bb22860000879e49c8a9c3548.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/b59c2c0fc9820ff844306ce1a2404faf.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/7fa9ecb3351f0ba7a1f72b29bb255446.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                },
+                {
+                  "url": "https://images.icecat.biz/img/gallery/9606affe1478a72662d7b3560b3e4ef7.jpg",
+                  "label": "20-Bit Electric Precision Screwdriver Set - Portable/Mini Battery Powered Bit Driver Kit for Electronic, Laptop, Computer, Tablet & Phone Repairs - Magnetic - Cordless - 0065030889759",
+                  "dimensions": {
+                    "w": 1000,
+                    "h": 1000
+                  }
+                }
+              ],
+              "attributes": [
+                {
+                  "name": "default",
+                  "value": {
+                    "la": "Default",
+                    "nb": "Default",
+                    "en": "Default",
+                    "es": "Default",
+                    "fi": "Default",
+                    "sv": "Default",
+                    "da": "Default"
+                  }
+                },
+                {
+                  "name": "battery-technology",
+                  "value": {
+                    "la": "Alkaline",
+                    "nb": "Alkalinsk",
+                    "en": "Alkaline",
+                    "es": "Alcalino",
+                    "fi": "Alkali",
+                    "sv": "Alkalisk",
+                    "da": "Alkaline"
+                  }
+                },
+                {
+                  "name": "idle-speed-max",
+                  "value": {
+                    "la": "110",
+                    "nb": "110",
+                    "en": "110",
+                    "es": "110",
+                    "fi": "110",
+                    "sv": "110",
+                    "da": "110"
+                  }
+                },
+                {
+                  "name": "master-outer-case-width",
+                  "value": {
+                    "la": "255",
+                    "nb": "255",
+                    "en": "255",
+                    "es": "255",
+                    "fi": "255",
+                    "sv": "255",
+                    "da": "255"
+                  }
+                },
+                {
+                  "name": "height",
+                  "value": {
+                    "la": "16",
+                    "nb": "16",
+                    "en": "16",
+                    "es": "16",
+                    "fi": "16",
+                    "sv": "16",
+                    "da": "16"
+                  }
+                },
+                {
+                  "name": "reactionaryspareparts",
+                  "value": []
+                },
+                {
+                  "name": "number-of-batteries-included",
+                  "value": {
+                    "la": "2",
+                    "nb": "2",
+                    "en": "2",
+                    "es": "2",
+                    "fi": "2",
+                    "sv": "2",
+                    "da": "2"
+                  }
+                },
+                {
+                  "name": "package-height",
+                  "value": {
+                    "la": "430",
+                    "nb": "430",
+                    "en": "430",
+                    "es": "430",
+                    "fi": "430",
+                    "sv": "430",
+                    "da": "430"
+                  }
+                },
+                {
+                  "name": "reactionaryreplacements",
+                  "value": []
+                },
+                {
+                  "name": "product-colour",
+                  "value": {
+                    "la": "Silver",
+                    "nb": "Sølv",
+                    "en": "Silver",
+                    "es": "Plata",
+                    "fi": "Hopea",
+                    "sv": "Silver",
+                    "da": "Sølv"
+                  }
+                },
+                {
+                  "name": "torque-max",
+                  "value": {
+                    "la": "0.35",
+                    "nb": "0,35",
+                    "en": "0.35",
+                    "es": "0,35",
+                    "fi": "0,35",
+                    "sv": "0,35",
+                    "da": "0,35"
+                  }
+                },
+                {
+                  "name": "master-outer-case-length",
+                  "value": {
+                    "la": "495",
+                    "nb": "495",
+                    "en": "495",
+                    "es": "495",
+                    "fi": "495",
+                    "sv": "495",
+                    "da": "495"
+                  }
+                },
+                {
+                  "name": "weight",
+                  "value": {
+                    "la": "52",
+                    "nb": "52",
+                    "en": "52",
+                    "es": "52",
+                    "fi": "52",
+                    "sv": "52",
+                    "da": "52"
+                  }
+                },
+                {
+                  "name": "battery-included",
+                  "value": {
+                    "la": "Yes",
+                    "nb": "Ja",
+                    "en": "Yes",
+                    "es": "Si",
+                    "fi": "Kyllä",
+                    "sv": "Ja",
+                    "da": "Ja"
+                  }
+                },
+                {
+                  "name": "package-depth",
+                  "value": {
+                    "la": "70",
+                    "nb": "70",
+                    "en": "70",
+                    "es": "70",
+                    "fi": "70",
+                    "sv": "70",
+                    "da": "70"
+                  }
+                },
+                {
+                  "name": "reactionaryaccessories",
+                  "value": []
+                },
+                {
+                  "name": "power-source",
+                  "value": {
+                    "la": "Battery",
+                    "nb": "Batteri",
+                    "en": "Battery",
+                    "es": "Batería",
+                    "fi": "Akku",
+                    "sv": "Batteri",
+                    "da": "Batteri"
+                  }
+                },
+                {
+                  "name": "compliance-certificates",
+                  "value": {
+                    "la": "CE, RoHS",
+                    "nb": "CE, RoHS",
+                    "en": "CE, RoHS",
+                    "es": "CE, RoHS",
+                    "fi": "CE, RoHS",
+                    "sv": "CE, RoHS",
+                    "da": "CE, RoHS"
+                  }
+                },
+                {
+                  "name": "master-outer-case-height",
+                  "value": {
+                    "la": "415",
+                    "nb": "415",
+                    "en": "415",
+                    "es": "415",
+                    "fi": "415",
+                    "sv": "415",
+                    "da": "415"
+                  }
+                },
+                {
+                  "name": "products-per-master-outer-case",
+                  "value": {
+                    "la": "55",
+                    "nb": "55",
+                    "en": "55",
+                    "es": "55",
+                    "fi": "55",
+                    "sv": "55",
+                    "da": "55"
+                  }
+                },
+                {
+                  "name": "product-type",
+                  "value": {
+                    "la": "Power screwdriver",
+                    "nb": "Elektrisk skrutrekker",
+                    "en": "Power screwdriver",
+                    "es": "Destornillador eléctrico",
+                    "fi": "Akkuruuvinväännin",
+                    "sv": "Eldriven skruvdragare",
+                    "da": "Skruemaskine"
+                  }
+                },
+                {
+                  "name": "number-of-bits",
+                  "value": {
+                    "la": "20",
+                    "nb": "20",
+                    "en": "20",
+                    "es": "20",
+                    "fi": "20",
+                    "sv": "20",
+                    "da": "20"
+                  }
+                },
+                {
+                  "name": "screwdriversbits-tips-included",
+                  "value": {
+                    "la": "Pentalobe, Phillips, Robertson, Slot, Spanner, Torx, Tri-Wing, Triangle",
+                    "nb": "Pentalobe, Philips, Robertson, Spor/slot, Nøkkelverktøy, Torx, Tri-Wing, Trekant",
+                    "en": "Pentalobe, Phillips, Robertson, Slot, Spanner, Torx, Tri-Wing, Triangle",
+                    "es": "Pentalobe, Phillips, Robertson, Ranura, Punta de horquilla, Torx, Tri-Wing, Triángulo",
+                    "fi": "Viisisakarainen pentalobe, Phillips, Robertson, Paikka, Ruuviavain, Torx, Kolmikärkinen, Kolmio",
+                    "sv": "Pentalobe, Phillips, Robertson, Öppning, Skiftnyckel, Torx, Tri-Wing, Triangel",
+                    "da": "Pentalobe, Phillips, Robertson, Åbning, Skruenøgle, Torx, Trevinge, Trekant"
+                  }
+                },
+                {
+                  "name": "depth",
+                  "value": {
+                    "la": "180",
+                    "nb": "180",
+                    "en": "180",
+                    "es": "180",
+                    "fi": "180",
+                    "sv": "180",
+                    "da": "180"
+                  }
+                },
+                {
+                  "name": "handle-shape",
+                  "value": {
+                    "la": "Straight handle",
+                    "nb": "Rett håndgrep",
+                    "en": "Straight handle",
+                    "es": "Mango recto",
+                    "fi": "Suora kahva",
+                    "sv": "Rakt handtag",
+                    "da": "Lige håndtag"
+                  }
+                },
+                {
+                  "name": "package-weight",
+                  "value": {
+                    "la": "250",
+                    "nb": "250",
+                    "en": "250",
+                    "es": "250",
+                    "fi": "250",
+                    "sv": "250",
+                    "da": "250"
+                  }
+                },
+                {
+                  "name": "width",
+                  "value": {
+                    "la": "16",
+                    "nb": "16",
+                    "en": "16",
+                    "es": "16",
+                    "fi": "16",
+                    "sv": "16",
+                    "da": "16"
+                  }
+                },
+                {
+                  "name": "package-width",
+                  "value": {
+                    "la": "230",
+                    "nb": "230",
+                    "en": "230",
+                    "es": "230",
+                    "fi": "230",
+                    "sv": "230",
+                    "da": "230"
+                  }
+                }
+              ],
+              "assets": [],
+              "availability": {
+                "channels": {
+                  "ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86": {
+                    "isOnStock": true,
+                    "restockableInDays": 3,
+                    "availableQuantity": 246,
+                    "version": 1,
+                    "id": "15f2ad83-96a0-4bd6-8e32-7e8f2611e019"
+                  }
+                }
+              }
+            },
+            "price": {
+              "id": "8b77946f-1fe9-439c-97a5-9cbd298c0c56",
+              "value": {
+                "type": "centPrecision",
+                "currencyCode": "DKK",
+                "centAmount": 99624,
+                "fractionDigits": 2
+              },
+              "key": "Standalone-OnlineFfmChannel-DKK-0065030889759",
+              "channel": {
+                "typeId": "channel",
+                "id": "ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86"
+              }
+            },
+            "quantity": 1,
+            "discountedPricePerQuantity": [],
+            "distributionChannel": {
+              "typeId": "channel",
+              "id": "ee6e75e9-c9ab-4e2f-85f1-d8c734d0cb86"
+            },
+            "perMethodTaxRate": [],
+            "addedAt": "2026-10-08T08:58:46.735Z",
+            "lastModifiedAt": "2026-10-08T08:58:46.735Z",
+            "state": [
+              {
+                "quantity": 1,
+                "state": {
+                  "typeId": "state",
+                  "id": "cc32baf2-0a6e-4c31-a46a-71761ad89c58"
+                }
+              }
+            ],
+            "priceMode": "Platform",
+            "lineItemMode": "Standard",
+            "priceRoundingMode": "HalfEven",
+            "totalPrice": {
+              "type": "centPrecision",
+              "currencyCode": "DKK",
+              "centAmount": 99624,
+              "fractionDigits": 2
+            },
+            "taxedPricePortions": []
+          }
+        ],
+        "cartState": "Active",
+        "totalPrice": {
+          "type": "centPrecision",
+          "currencyCode": "DKK",
+          "centAmount": 99624,
+          "fractionDigits": 2
+        },
+        "shippingMode": "Single",
+        "shipping": [],
+        "customLineItems": [],
+        "discountCodes": [],
+        "directDiscounts": [],
+        "inventoryMode": "None",
+        "priceRoundingMode": "HalfEven",
+        "taxMode": "Platform",
+        "taxRoundingMode": "HalfEven",
+        "taxCalculationMode": "LineItemLevel",
+        "deleteDaysAfterLastModification": 90,
+        "refusedGifts": [],
+        "origin": "Customer",
+        "itemShippingAddresses": [],
+        "discountTypeCombination": {
+          "type": "Stacking"
+        },
+        "totalLineItemQuantity": 1
+      }
+    }
+  ]
+}

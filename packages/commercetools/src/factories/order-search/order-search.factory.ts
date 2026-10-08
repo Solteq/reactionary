@@ -42,7 +42,7 @@ export class CommercetoolsOrderSearchFactory<
       pageNumber: (Math.ceil(data.offset / data.limit) || 0) + 1,
       pageSize: data.limit,
       totalCount: data.total || 0,
-      totalPages: Math.ceil((data.total || 0) / data.limit || 0) + 1,
+      totalPages: data.limit > 0 ? Math.ceil((data.total || 0) / data.limit) : 0,
       items: data.results.map((order) => this.parseOrderSearchItem(context, order)),
     } satisfies OrderSearchResult;
 
