@@ -1,0 +1,29 @@
+{
+  "interactions": [
+    {
+      "method": "POST",
+      "url": "{authUrl}/oauth/{projectKey}/anonymous/token?grant_type=client_credentials",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "access_token": "redacted-access_token",
+        "expires_in": 10800,
+        "token_type": "Bearer",
+        "scope": "manage_my_business_units:{projectKey} manage_my_payments:{projectKey} view_categories:{projectKey} manage_my_profile:{projectKey} create_anonymous_token:{projectKey} anonymous_id:b0bc98c6-2a8b-4651-b4ec-606483881822 view_standalone_prices:{projectKey} view_products:{projectKey} manage_my_shopping_lists:{projectKey} manage_my_quotes:{projectKey} manage_my_orders:{projectKey} manage_my_quote_requests:{projectKey} view_published_products:{projectKey}",
+        "refresh_token": "redacted-refresh_token"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "{authUrl}/oauth/introspect",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "active": true,
+        "scope": "manage_my_business_units:{projectKey} manage_my_payments:{projectKey} view_categories:{projectKey} manage_my_profile:{projectKey} create_anonymous_token:{projectKey} anonymous_id:b0bc98c6-2a8b-4651-b4ec-606483881822 view_standalone_prices:{projectKey} view_products:{projectKey} manage_my_shopping_lists:{projectKey} manage_my_quotes:{projectKey} manage_my_orders:{projectKey} manage_my_quote_requests:{projectKey} view_published_products:{projectKey}",
+        "exp": 1791460725919,
+        "client_id": "redacted-client_id"
+      }
+    }
+  ]
+}

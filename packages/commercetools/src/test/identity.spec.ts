@@ -1,7 +1,6 @@
-import 'dotenv/config';
 import { describe, expect, it } from 'vitest';
 import { CommercetoolsAPI } from '../core/client.js';
-import { getCommercetoolsTestConfiguration } from './test-utils.js';
+import { useCommercetoolsFixtures } from './fixture-fetch.js';
 import {
   createInitialRequestContext,
   type RequestContext,
@@ -9,8 +8,7 @@ import {
 import type { ApiRoot } from '@commercetools/platform-sdk';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 
-function setup() {
-  const config = getCommercetoolsTestConfiguration();
+function setup(config: CommercetoolsConfiguration) {
   const context = createInitialRequestContext();
   const root = new CommercetoolsAPI(config, context);
 
@@ -35,7 +33,7 @@ async function createCart(
         currency: context.languageContext.currencyCode,
         lineItems: [
           {
-            sku: '0766623301831',
+            sku: '0065030889759',
             distributionChannel: {
               typeId: 'channel',
               key: 'OnlineFfmChannel',
@@ -50,15 +48,17 @@ async function createCart(
 }
 
 describe('Commercetools Identity', () => {
+  const fixtureConfig = useCommercetoolsFixtures('identity');
+
   it('initially is considered anonymous', async () => {
-    const { root } = setup();
+    const { root } = setup(fixtureConfig);
 
     const initialSelf = await root.introspect();
     expect(initialSelf.type).toBe('Anonymous');
   });
 
   it('becomes a guest when acquiring a client for user operations', async () => {
-    const { root } = setup();
+    const { root } = setup(fixtureConfig);
 
     const client = await root.getClient();
     const guestSelf = await root.introspect();
@@ -66,7 +66,7 @@ describe('Commercetools Identity', () => {
   });
 
 it('can login from being anonymous', async () => {
-    const { config, context, root } = setup();
+    const { config, context, root } = setup(fixtureConfig);
 
     // After a login, we are expected to be Registered
     const identity = await root.login('asger.jensen3@solteq.com', 'test12345');
@@ -86,7 +86,7 @@ it('can login from being anonymous', async () => {
   });
 
   it('can login from being guest', async () => {
-    const { config, context, root } = setup();
+    const { config, context, root } = setup(fixtureConfig);
 
     // Become guest by acquiring a client
     const client = await root.getClient();
