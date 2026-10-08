@@ -284,7 +284,7 @@ export class CommercetoolsCartCapability<
         ...(lineIdentifier.originalPrice && {
           externalPrice: {
             currencyCode: lineIdentifier.originalPrice.currency,
-            centAmount: Math.floor(lineIdentifier.originalPrice.value * 100),
+            centAmount: Math.round(lineIdentifier.originalPrice.value * 100),
           },
         })
       },
