@@ -15,10 +15,10 @@ import {
   type OrderSearchQueryByTerm,
   type OrderSearchResult,
   type OrderSearchResultItem,
-  type OrderStatus,
   type RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { getOrderStatusFromOrderState } from '../../core/order-status.js';
 
 export class CommercetoolsOrderSearchFactory<
   TOrderSearchResultSchema extends AnyOrderSearchResultSchema = typeof OrderSearchResultSchema,
@@ -73,19 +73,7 @@ export class CommercetoolsOrderSearchFactory<
       userId: data.customerId || data.anonymousId || '',
     };
 
-    let orderStatus: OrderStatus = 'AwaitingPayment';
-    if (data.paymentState === 'Paid' && data.orderState === 'Confirmed') {
-      orderStatus = 'ReleasedToFulfillment';
-    }
-    if (data.shipmentState === 'Ready' && data.orderState === 'Confirmed') {
-      orderStatus = 'ReleasedToFulfillment';
-    }
-    if (
-      (data.shipmentState === 'Shipped' || data.shipmentState === 'Delivered') &&
-      data.orderState === 'Completed'
-    ) {
-      orderStatus = 'Shipped';
-    }
+    const orderStatus = getOrderStatusFromOrderState(data.orderState);
 
     const totalAmount: MonetaryAmount = {
       currency: data.totalPrice

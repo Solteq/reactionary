@@ -10,11 +10,11 @@ import {
   type OrderFactory,
   type OrderIdentifier,
   type OrderItem,
-  type OrderStatus,
   type ProductVariantIdentifier,
   type RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { getOrderStatusFromOrderState } from '../../core/order-status.js';
 import type { CommercetoolsOrderIdentifier } from '../../schema/commercetools.schema.js';
 
 export class CommercetoolsOrderFactory<
@@ -62,7 +62,7 @@ export class CommercetoolsOrderFactory<
       },
       totalShipping: {
         value: shippingTotal / 100,
-        currency: data.shippingInfo?.price.currencyCode as Currency,
+        currency,
       },
       totalProductPrice: {
         value: productTotal / 100,
@@ -74,19 +74,7 @@ export class CommercetoolsOrderFactory<
       },
     } satisfies CostBreakDown;
 
-    let orderStatus: OrderStatus = 'AwaitingPayment';
-    if (data.paymentState === 'Paid' && data.orderState === 'Confirmed') {
-      orderStatus = 'ReleasedToFulfillment';
-    }
-    if (data.shipmentState === 'Ready' && data.orderState === 'Confirmed') {
-      orderStatus = 'ReleasedToFulfillment';
-    }
-    if (
-      (data.shipmentState === 'Shipped' || data.shipmentState === 'Delivered') &&
-      data.orderState === 'Completed'
-    ) {
-      orderStatus = 'Shipped';
-    }
+    const orderStatus = getOrderStatusFromOrderState(data.orderState);
 
     const items: OrderItem[] = [];
     for (const remoteItem of data.lineItems) {
