@@ -246,12 +246,14 @@ export class CommercetoolsCheckoutFactory<
     if (!shippingAddress && !shippingInstruction.pickupPoint) return false;
     if (paymentInstructions.length === 0) return false;
 
+    // Compare in cents, as summing decimal amounts is not exact
+    const toCents = (value: number) => Math.round(value * 100);
     const authorizedPayments = paymentInstructions
       .filter((paymentInstruction) => paymentInstruction.status === 'authorized')
-      .map((paymentInstruction) => paymentInstruction.amount.value)
+      .map((paymentInstruction) => toCents(paymentInstruction.amount.value))
       .reduce((sum, value) => sum + value, 0);
 
-    if (price.grandTotal.value !== authorizedPayments) return false;
+    if (toCents(price.grandTotal.value) !== authorizedPayments) return false;
 
     return true;
   }
