@@ -51,7 +51,7 @@ export class MedusaProductSearchFactory<
       pageNumber: (Math.ceil(remote.offset / remote.limit) || 0) + 1,
       pageSize: remote.limit,
       totalCount: remote.count,
-      totalPages: Math.ceil(remote.count / remote.limit || 0) + 1,
+      totalPages: Math.ceil(remote.count / remote.limit || 0),
       items: products,
       facets: [],
     } satisfies ProductSearchResult;
