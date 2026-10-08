@@ -22,6 +22,10 @@ import {
   CommercetoolsSessionSchema,
   type CommercetoolsSession,
 } from '../schema/session.schema.js';
+import {
+  CommercetoolsAccessTokenSchema,
+  CommercetoolsTokenIntrospectionSchema,
+} from '../schema/oauth.schema.js';
 const debug = createDebug('reactionary:commercetools');
 
 export const PROVIDER_SESSION_KEY = 'COMMERCETOOLS_PROVIDER';
@@ -302,7 +306,6 @@ export class CommercetoolsAPI {
     return identity;
   }
 
-  // FIXME: This can fail if the short-lived access token has expired. In other words, probably missing a token refresh.
   public async introspect(): Promise<
     AnonymousIdentity | GuestIdentity | RegisteredIdentity
   > {
@@ -316,25 +319,16 @@ export class CommercetoolsAPI {
       return identity;
     }
 
-    const authHeader =
-      'Basic ' +
-      Buffer.from(
-        `${this.config.clientId}:${this.config.clientSecret}`,
-      ).toString('base64');
-    const introspectionUrl = `${this.config.authUrl}/oauth/introspect`;
+    let body = await this.introspectToken(session.token);
 
-    const response = await fetch(introspectionUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: authHeader,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        token: session.token,
-      }),
-    });
+    // The access token is short-lived, so it may have expired while the session (refresh token) is still valid
+    if (body && !body.active && session.refreshToken) {
+      const refreshedToken = await this.refreshAccessToken(session.refreshToken);
+      if (refreshedToken) {
+        body = await this.introspectToken(refreshedToken);
+      }
+    }
 
-    const body: any = await response.json();
     if (!body) {
       return AnonymousIdentitySchema.parse({});
     }
@@ -374,6 +368,67 @@ export class CommercetoolsAPI {
     return {
       type: 'Anonymous',
     } satisfies AnonymousIdentity;
+  }
+
+  protected getBasicAuthHeader() {
+    return (
+      'Basic ' +
+      Buffer.from(
+        `${this.config.clientId}:${this.config.clientSecret}`,
+      ).toString('base64')
+    );
+  }
+
+  protected async introspectToken(token: string) {
+    const response = await fetch(`${this.config.authUrl}/oauth/introspect`, {
+      method: 'POST',
+      headers: {
+        Authorization: this.getBasicAuthHeader(),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        token,
+      }),
+    });
+
+    const result = CommercetoolsTokenIntrospectionSchema.safeParse(await response.json());
+    return result.success ? result.data : undefined;
+  }
+
+  /**
+   * Exchanges the refresh token for a new access token and stores it in the token cache.
+   * Returns the new access token, or undefined if the refresh token is no longer valid.
+   */
+  protected async refreshAccessToken(refreshToken: string): Promise<string | undefined> {
+    const response = await fetch(`${this.config.authUrl}/oauth/token`, {
+      method: 'POST',
+      headers: {
+        Authorization: this.getBasicAuthHeader(),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }),
+    });
+
+    if (!response.ok) {
+      return undefined;
+    }
+
+    const parsed = CommercetoolsAccessTokenSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return undefined;
+    }
+    const result = parsed.data;
+
+    await this.tokenCache.set({
+      expirationTime: Date.now() + result.expires_in * 1000 - 5 * 60 * 1000,
+      token: result.access_token,
+      refreshToken,
+    });
+
+    return result.access_token;
   }
 
   protected async becomeGuest() {
