@@ -73,7 +73,7 @@ export class MedusaProductAssociationsFactory<
     product: StoreProduct
   ): ProductSearchResultItemVariant {
     const img = ImageSchema.parse({
-      sourceUrl: product.images?.[0].url ?? '',
+      sourceUrl: product.images?.[0]?.url ?? '',
       altText: product.title || undefined,
     });
 
