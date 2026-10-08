@@ -85,6 +85,19 @@ it('can login from being anonymous', async () => {
     expect(cart.body.customerId).toBe(identity.id.userId);
   });
 
+  it('remains registered after the access token has expired', async () => {
+    const { root } = setup(fixtureConfig);
+
+    const identity = await root.login('asger.jensen3@solteq.com', 'test12345');
+
+    // An expired access token is rejected by introspection, while the refresh token is still valid
+    root.setSessionData({ token: 'expired-access-token', expirationTime: 0 });
+
+    const introspected = await root.introspect();
+    expect(introspected.type).toBe('Registered');
+    expect(introspected).toMatchObject({ id: identity.id });
+  });
+
   it('can login from being guest', async () => {
     const { config, context, root } = setup(fixtureConfig);
 
