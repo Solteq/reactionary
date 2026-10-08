@@ -1,18 +1,31 @@
-import type { StoreCart, StoreOrder } from '@medusajs/types';
+import type { StoreCart } from '@medusajs/types';
 import type { CostBreakDown, Currency } from '@reactionary/core';
 import createDebug from 'debug';
 
 const debug = createDebug('reactionary:medusa:helpers');
 
 /**
+ * The subset of StoreCart/StoreOrder fields parseMedusaCostBreakdown reads.
+ * Narrowed (rather than StoreCart | StoreOrder) so tests can build a minimal,
+ * fully-typed fixture without casting.
+ */
+export type MedusaCostBreakdownSource = Pick<
+  StoreCart,
+  'total' | 'subtotal' | 'item_subtotal' | 'shipping_total' | 'tax_total' | 'discount_total' | 'currency_code'
+>;
+
+/**
  * Parses cost breakdown from Medusa StoreCart
  */
-export function parseMedusaCostBreakdown(remote: StoreCart | StoreOrder): CostBreakDown {
+export function parseMedusaCostBreakdown(remote: MedusaCostBreakdownSource): CostBreakDown {
   const grandTotal = remote.total || 0;
   const shippingTotal = remote.shipping_total || 0;
   const taxTotal = remote.tax_total || 0;
   const discountTotal = remote.discount_total || 0;
-  const subtotal = remote.subtotal || 0;
+  // `subtotal` is item_subtotal + shipping_subtotal in Medusa; use item_subtotal
+  // alone so totalProductPrice doesn't double-count shipping (already reported
+  // separately as totalShipping below).
+  const itemSubtotal = remote.item_subtotal || 0;
   const currency = (remote.currency_code || 'EUR').toUpperCase() as Currency;
 
   return {
@@ -33,7 +46,7 @@ export function parseMedusaCostBreakdown(remote: StoreCart | StoreOrder): CostBr
       currency,
     },
     totalProductPrice: {
-      value: subtotal,
+      value: itemSubtotal,
       currency,
     },
     grandTotal: {
