@@ -1,4 +1,4 @@
-import type { StoreAddCartShippingMethods, StoreInitializePaymentSession, StoreUpdateCart } from '@medusajs/types';
+import type { StoreAddCartShippingMethods, StoreCalculatedPrice, StoreInitializePaymentSession, StoreUpdateCart } from '@medusajs/types';
 import type {
   Address,
   Cache,
@@ -52,7 +52,7 @@ import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
   type MedusaCartIdentifier
 } from '../schema/medusa.schema.js';
-import { handleProviderError, hasUsableShippingPrice } from '../utils/medusa-helpers.js';
+import { handleProviderError } from '../utils/medusa-helpers.js';
 const debug = createDebug('reactionary:medusa:checkout');
 
 export class CheckoutNotReadyForFinalizationError extends Error {
@@ -190,6 +190,23 @@ export class MedusaCheckoutCapability<
     }
   }
 
+  /**
+   * Whether a Medusa shipping option's calculated price is usable, i.e. has an
+   * actual amount (which may be `0` for valid free shipping) rather than no
+   * price data at all. `calculated_amount`/`original_amount` are `number | null`;
+   * checking them with a plain falsy check would incorrectly treat a `0` amount
+   * (free shipping) the same as a missing price and drop the option.
+   *
+   * Override this if a project needs different rules for which shipping
+   * options are considered usable.
+   */
+  protected hasUsableShippingPrice(calculatedPrice: StoreCalculatedPrice | null | undefined): boolean {
+    if (!calculatedPrice) {
+      return false;
+    }
+    return calculatedPrice.calculated_amount != null || calculatedPrice.original_amount != null;
+  }
+
   @Reactionary({
     inputSchema: CheckoutQueryForAvailableShippingMethodsSchema,
     outputSchema: z.array(ShippingMethodSchema),
@@ -238,7 +255,7 @@ export class MedusaCheckoutCapability<
     }
 
     for (const sm of shippingMethodResponse.shipping_options) {
-      if (!hasUsableShippingPrice(sm.calculated_price)) {
+      if (!this.hasUsableShippingPrice(sm.calculated_price)) {
         console.warn(`Skipping shipping method ${sm.name}/${sm.provider.id} because it has no calculated price for checkout ${payload.checkout.key}`);
         continue;
       }
