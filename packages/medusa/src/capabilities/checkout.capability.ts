@@ -52,7 +52,7 @@ import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
   type MedusaCartIdentifier
 } from '../schema/medusa.schema.js';
-import { handleProviderError } from '../utils/medusa-helpers.js';
+import { handleProviderError, hasUsableShippingPrice } from '../utils/medusa-helpers.js';
 const debug = createDebug('reactionary:medusa:checkout');
 
 export class CheckoutNotReadyForFinalizationError extends Error {
@@ -238,7 +238,7 @@ export class MedusaCheckoutCapability<
     }
 
     for (const sm of shippingMethodResponse.shipping_options) {
-      if (!sm.calculated_price || (!sm.calculated_price.calculated_amount && !sm.calculated_price.original_amount)) {
+      if (!hasUsableShippingPrice(sm.calculated_price)) {
         console.warn(`Skipping shipping method ${sm.name}/${sm.provider.id} because it has no calculated price for checkout ${payload.checkout.key}`);
         continue;
       }

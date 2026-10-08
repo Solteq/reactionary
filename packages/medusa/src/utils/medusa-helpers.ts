@@ -1,4 +1,4 @@
-import type { StoreCart } from '@medusajs/types';
+import type { StoreCalculatedPrice, StoreCart } from '@medusajs/types';
 import type { CostBreakDown, Currency } from '@reactionary/core';
 import createDebug from 'debug';
 
@@ -85,6 +85,20 @@ export function parseMedusaItemPrice(
       currency,
     },
   };
+}
+
+/**
+ * Whether a Medusa shipping option's calculated price is usable, i.e. has an
+ * actual amount (which may be `0` for valid free shipping) rather than no
+ * price data at all. `calculated_amount`/`original_amount` are `number | null`;
+ * checking them with a plain falsy check would incorrectly treat a `0` amount
+ * (free shipping) the same as a missing price and drop the option.
+ */
+export function hasUsableShippingPrice(calculatedPrice: StoreCalculatedPrice | null | undefined): boolean {
+  if (!calculatedPrice) {
+    return false;
+  }
+  return calculatedPrice.calculated_amount != null || calculatedPrice.original_amount != null;
 }
 
 /**
