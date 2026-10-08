@@ -4,7 +4,6 @@ import type {
   ProductSearchResultItemComplianceData} from '@reactionary/core';
 import {
   ImageSchema,
-  ProductOptionIdentifierSchema,
   ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
   ProductVariantIdentifierSchema,
@@ -12,14 +11,13 @@ import {
   type AnyProductAssociationSchema,
   type ProductAssociation,
   type ProductAssociationsFactory,
-  type ProductOptionIdentifier,
   type ProductSearchResultItem,
   type ProductSearchResultItemVariant,
   type ProductVariantIdentifier,
-  type ProductVariantOption,
   type RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { parseVariantOptionFromAttribute } from '../../core/attribute-utils.js';
 import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
 
 export class CommercetoolsProductAssociationsFactory<
@@ -86,12 +84,7 @@ export class CommercetoolsProductAssociationsFactory<
       variant.attributes
         ?.filter((attribute) => attribute.name === 'Color')
         .map((option) =>
-          ProductVariantOptionSchema.parse({
-            identifier: ProductOptionIdentifierSchema.parse({
-              key: option.name,
-            } satisfies Partial<ProductOptionIdentifier>),
-            name: option.value || '',
-          } satisfies Partial<ProductVariantOption>),
+          ProductVariantOptionSchema.parse(parseVariantOptionFromAttribute(option, getLanguageCodeFromLocale(context.languageContext.locale))),
         ) || [];
 
     const mappedOption = mappedOptions?.[0];
