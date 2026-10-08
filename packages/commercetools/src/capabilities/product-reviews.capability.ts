@@ -239,7 +239,7 @@ export class CommercetoolsProductReviewsCapability<
           },
           target: {
             typeId: 'product',
-            id: mutation.product.key,
+            key: mutation.product.key,
           },
           locale: getLanguageCodeFromLocale(this.context.languageContext.locale),
         },
@@ -254,7 +254,7 @@ export class CommercetoolsProductReviewsCapability<
   protected parseSingle(review: CTReview, productKey: string): ProductReview {
     return {
       identifier: {
-        key: review.key || '',
+        key: review.key ?? review.id,
       },
       product: {
         key: productKey,
