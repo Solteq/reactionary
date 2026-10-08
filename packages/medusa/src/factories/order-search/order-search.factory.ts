@@ -122,7 +122,7 @@ export class MedusaOrderSearchFactory<
       pageNumber: (Math.ceil(data.offset / data.limit) || 0) + 1,
       pageSize: data.limit,
       totalCount: data.count,
-      totalPages: Math.ceil(data.count / data.limit || 0) + 1,
+      totalPages: Math.ceil(data.count / data.limit || 0),
       items: orders,
     } satisfies OrderSearchResult;
 
