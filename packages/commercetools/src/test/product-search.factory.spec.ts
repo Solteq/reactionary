@@ -69,6 +69,46 @@ describe('Commercetools product search factory', () => {
     expect(result.totalPages).toBe(2);
   });
 
+  describe('Color variant option', () => {
+    function withMasterVariantColor(value: unknown): ProductPagedSearchResponse {
+      return {
+        ...response,
+        results: response.results.map((result) => ({
+          ...result,
+          productProjection: result.productProjection && {
+            ...result.productProjection,
+            masterVariant: {
+              ...result.productProjection.masterVariant,
+              attributes: [{ name: 'Color', value }],
+            },
+          },
+        })),
+      };
+    }
+
+    it.each([
+      { type: 'text', value: 'Blue', key: 'Blue', label: 'Blue' },
+      { type: 'localized text', value: { en: 'Red', da: 'Rød' }, key: 'Rød', label: 'Rød' },
+      { type: 'localized text without the language', value: { en: 'Red' }, key: 'Red', label: 'Red' },
+      { type: 'enum', value: { key: 'black', label: 'Black' }, key: 'black', label: 'Black' },
+      { type: 'localized enum', value: { key: 'green', label: { en: 'Green', da: 'Grøn' } }, key: 'green', label: 'Grøn' },
+      { type: 'localized enum without the language', value: { key: 'green', label: { en: 'Green' } }, key: 'green', label: 'Green' },
+    ])('maps a $type attribute', ({ value, key, label }) => {
+      const { context, factory, query } = setup();
+      context.languageContext.locale = 'da-DK';
+
+      const result = factory.parseSearchResult(context, withMasterVariantColor(value), query);
+      const option = result.items[0].variants[0].options;
+
+      expect(option?.identifier).toEqual({ key: 'Color' });
+      expect(option?.name).toBe('Color');
+      expect(option?.value).toEqual({
+        identifier: { option: { key: 'Color' }, key },
+        label,
+      });
+    });
+  });
+
   it('reports no pages when nothing matches', () => {
     const { context, factory, query } = setup();
 
