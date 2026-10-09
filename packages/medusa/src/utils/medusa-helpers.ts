@@ -1,8 +1,18 @@
+import { FetchError } from '@medusajs/js-sdk';
 import type { StoreCart } from '@medusajs/types';
 import type { CostBreakDown, Currency } from '@reactionary/core';
 import createDebug from 'debug';
 
 const debug = createDebug('reactionary:medusa:helpers');
+
+/**
+ * The Medusa SDK throws a FetchError for every non-2xx response. Returns true
+ * when the error is the SDK's way of saying the resource does not exist, so
+ * capabilities can answer with a typed NotFound result instead of throwing.
+ */
+export function isNotFoundFetchError(error: unknown): boolean {
+  return error instanceof FetchError && error.status === 404;
+}
 
 /**
  * The subset of StoreCart/StoreOrder fields parseMedusaCostBreakdown reads.

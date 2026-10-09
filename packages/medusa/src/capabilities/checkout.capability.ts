@@ -39,6 +39,7 @@ import {
   CheckoutSchema,
   MonetaryAmountSchema,
   PaymentMethodSchema,
+  error,
   Reactionary,
   ShippingMethodIdentifierSchema,
   ShippingMethodSchema,
@@ -52,7 +53,7 @@ import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
   type MedusaCartIdentifier
 } from '../schema/medusa.schema.js';
-import { handleProviderError } from '../utils/medusa-helpers.js';
+import { handleProviderError, isNotFoundFetchError } from '../utils/medusa-helpers.js';
 const debug = createDebug('reactionary:medusa:checkout');
 
 export class CheckoutNotReadyForFinalizationError extends Error {
@@ -151,10 +152,20 @@ export class MedusaCheckoutCapability<
     payload: CheckoutQueryById
   ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>, NotFoundError>> {
     const client = await this.medusaApi.getClient();
-    const response = await client.store.cart.retrieve(payload.identifier.key, {
-      fields: this.includedFields,
-    });
+    try {
+      const response = await client.store.cart.retrieve(payload.identifier.key, {
+        fields: this.includedFields,
+      });
       return success(this.factory.parseCheckout(this.context, response.cart));
+    } catch (err) {
+      if (isNotFoundFetchError(err)) {
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: payload.identifier,
+        });
+      }
+      handleProviderError('get checkout by id', err);
+    }
   }
 
 
@@ -445,7 +456,12 @@ export class MedusaCheckoutCapability<
     payload: CheckoutMutationFinalizeCheckout
   ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     let checkout = await this.getById({ identifier: payload.checkout });
-    if (!checkout.success || !checkout.value.readyForFinalization) {
+    if (!checkout.success) {
+      // propagate the typed error (e.g. NotFound) instead of masking it as
+      // a readiness problem
+      return checkout;
+    }
+    if (!checkout.value.readyForFinalization) {
       throw new CheckoutNotReadyForFinalizationError(payload.checkout);
     }
 
