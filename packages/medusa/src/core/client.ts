@@ -57,10 +57,11 @@ export class RequestContextTokenStore implements MedusaCustomStorage {
       this.context.session[SESSION_KEY] = {};
     }
     if (debug.enabled) {
+      // Never log the value itself: it is typically an auth JWT.
       debug(
         `Setting token item for key: ${
           this.keyPrefix + '_' + key
-        } - Value: ${value}`
+        } - Value: <redacted, ${value.length} chars>`
       );
     }
     (this.context.session[SESSION_KEY] as MedusaSession)[this.keyPrefix + '_' + key] = value;
