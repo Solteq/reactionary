@@ -43,6 +43,7 @@ import {
   success
 } from '@reactionary/core';
 
+import { FetchError } from '@medusajs/js-sdk';
 import type { StoreCart} from '@medusajs/types';
 import { type StoreAddCartLineItem, type StoreCartAddPromotion, type StoreCartRemovePromotion, type StoreCartResponse, type StoreCreateCart, type StoreUpdateCart, type StoreUpdateCartLineItem } from '@medusajs/types';
 import createDebug from 'debug';
@@ -338,6 +339,32 @@ export class MedusaCartCapability<
     this.medusaApi.setSessionData(sessionData);
   }
 
+  /**
+   * Removes every trace of a cart from the session: the active cart marker
+   * (when it points at this cart) and the entry in every owned-carts
+   * collection. Used when a cart turns out to be deleted or stale upstream.
+   */
+  protected pruneCartFromSession(cartKey: string) {
+    const sessionData = this.medusaApi.getSessionData();
+    if (sessionData.activeCartId?.key === cartKey) {
+      delete sessionData.activeCartId;
+      this.medusaApi.setSessionData({ activeCartId: undefined });
+    }
+    if (sessionData.allOwnedCarts) {
+      const prunedCollections = Object.fromEntries(
+        Object.entries(sessionData.allOwnedCarts).map(([collection, carts]) => [
+          collection,
+          carts.filter((cart) => cart.key !== cartKey),
+        ]),
+      );
+      this.medusaApi.setSessionData({ allOwnedCarts: prunedCollections });
+    }
+  }
+
+  protected isNotFoundError(err: unknown): boolean {
+    return err instanceof FetchError && err.status === 404;
+  }
+
   protected removeCartFromOwnedList(cartIdentifier: MedusaCartIdentifier, company?: CompanyIdentifier) {
     const sessionData = this.medusaApi.getSessionData();
     const companyIdToUse = company ? company.taxIdentifier : '_me';
@@ -478,20 +505,26 @@ export class MedusaCartCapability<
         }
       }
       if (activeCartId) {
-        // check if it still exists
-        const response = await client.store.cart.retrieve(activeCartId.key, { fields: 'id,region_id' });
-        if (!response.cart) {
-        // if it doesn't exist, remove it from session and return not found
-          delete sessionData.activeCartId;
-          this.medusaApi.setSessionData({
-            activeCartId: undefined,
-          });
+        // check if it still exists; the SDK throws a FetchError 404 for a
+        // deleted cart rather than returning an empty response
+        let remoteCart;
+        try {
+          const response = await client.store.cart.retrieve(activeCartId.key, { fields: 'id,region_id' });
+          remoteCart = response.cart;
+        } catch (retrieveError) {
+          if (!this.isNotFoundError(retrieveError)) {
+            throw retrieveError;
+          }
+        }
+        if (!remoteCart) {
+          // if it doesn't exist, remove it from session and return not found
+          this.pruneCartFromSession(activeCartId.key);
           return error<NotFoundError>({
             type: 'NotFound',
             identifier: activeCartId,
           });
         }
-        return success(this.factory.parseCartIdentifier(this.context, response.cart!));
+        return success(this.factory.parseCartIdentifier(this.context, remoteCart));
       }
 
       // For guest users or if no active cart exists, return empty identifier
@@ -521,13 +554,9 @@ export class MedusaCartCapability<
       const medusaId = payload.cart as MedusaCartIdentifier;
 
       if (medusaId.key) {
-        const sessionData = this.medusaApi.getSessionData();
-        if (sessionData.activeCartId) {
-          delete sessionData.activeCartId;
-          this.medusaApi.setSessionData({
-            activeCartId: undefined,
-          });
-        }
+        // remove the cart from the session: the active cart marker (only when
+        // it points at this cart) and every owned-carts collection
+        this.pruneCartFromSession(medusaId.key);
       }
       // then delete it. But there is not really a deleteCart method, so we just orphan it.
       //      await client.store.cart.deleteCart(medusaId.key);
@@ -541,9 +570,13 @@ export class MedusaCartCapability<
       }
 
       return success(undefined);
-    } catch (error) {
-      debug('Failed to delete cart:', error);
-      return success(undefined);
+    } catch (err) {
+      if (this.isNotFoundError(err)) {
+        // the cart is already gone upstream; the session is pruned, so the
+        // delete is complete
+        return success(undefined);
+      }
+      handleProviderError('delete cart', err);
     }
   }
 
