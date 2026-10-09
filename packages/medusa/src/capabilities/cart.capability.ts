@@ -47,15 +47,31 @@ import { FetchError } from '@medusajs/js-sdk';
 import type { StoreCart} from '@medusajs/types';
 import { type StoreAddCartLineItem, type StoreCartAddPromotion, type StoreCartRemovePromotion, type StoreCartResponse, type StoreCreateCart, type StoreUpdateCart, type StoreUpdateCartLineItem } from '@medusajs/types';
 import createDebug from 'debug';
-import type { MedusaAPI } from '../core/client.js';
-import type { MedusaCartFactory } from '../factories/cart/cart.factory.js';
+import { MedusaAdminAPI, type MedusaAPI } from '../core/client.js';
+import type { MedusaCartFactory, ParseMedusaCartPaginatedSearchResultInput } from '../factories/cart/cart.factory.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import type { MedusaCartIdentifier } from '../schema/medusa.schema.js';
+import { MedusaCachedPluginListSchema, type MedusaCartIdentifier } from '../schema/medusa.schema.js';
 import {
   handleProviderError
 } from '../utils/medusa-helpers.js';
 
 const debug = createDebug('reactionary:medusa:cart');
+
+/**
+ * A cart as returned when the `customer.id` relation field is requested;
+ * `StoreCart` itself has no `customer` property.
+ */
+interface MedusaOwnedCart extends StoreCart {
+  customer?: { id: string } | null;
+}
+
+/** Response shape of the cart-ownership plugin's `GET /store/customers/me/carts`. */
+interface MedusaOwnedCartsResponse {
+  carts: MedusaOwnedCart[];
+  count: number;
+  offset: number;
+  limit: number;
+}
 
 export class MedusaCartCapability<
   TFactory extends CartFactory = MedusaCartFactory,
@@ -72,6 +88,29 @@ export class MedusaCartCapability<
    * example: this.includedFields = [includedFields, '+discounts.*'].join(',');
    */
   protected includedFields: string = ['+items.*', '+items.adjustments.*', '+shipping_methods.adjustments.*'].join(',');
+
+  /**
+   * Fields requested when listing owned carts, both via the cart-ownership
+   * endpoint and via the session-tracked fallback. Every entry must be in
+   * the allowed field set of both routes; `customer.id` stands in for
+   * `customer_id`, which is not an allowed field (see normalizeOwnedCart).
+   */
+  protected ownedCartListFields: string = ['id', 'updated_at', 'metadata', 'items.id', 'customer.id'].join(',');
+
+  /** Sort order for the server-side owned-carts listing. */
+  protected ownedCartListOrder = '-updated_at';
+
+  /**
+   * Package name of the optional backend plugin that serves
+   * `GET /store/customers/me/carts` (a logged-in customer's open carts).
+   */
+  protected cartOwnershipPluginName = '@solteq-excom/medusa-cart-ownership';
+
+  /**
+   * How long a backend's plugin list stays cached. Bounds how late a newly
+   * (un)installed cart-ownership plugin is noticed.
+   */
+  protected pluginDetectionTtlSeconds = 900;
 
   constructor(
     config: MedusaConfiguration,
@@ -91,6 +130,73 @@ export class MedusaCartCapability<
     cache: false
   })
   public override async listCarts(payload: CartQueryList): Promise<Result<CartPaginatedSearchResult>> {
+    let data: ParseMedusaCartPaginatedSearchResultInput | null = null;
+    if (await this.shouldUseOwnershipEndpoint(payload)) {
+      data = await this.listCartsViaOwnershipEndpoint(payload);
+    }
+    data ??= await this.listCartsFromSession(payload);
+
+    return success(this.factory.parseCartPaginatedSearchResult(this.context, data, payload));
+  }
+
+  /**
+   * The server-side owned-carts listing only applies to a logged-in
+   * customer's own carts: a company bucket and anonymous/guest carts are
+   * only known to the session, and the backend only serves the route when
+   * the cart-ownership plugin is installed.
+   */
+  protected async shouldUseOwnershipEndpoint(payload: CartQueryList): Promise<boolean> {
+    if (payload.search.company) {
+      return false;
+    }
+    if (this.context.session.identityContext.identity.type !== 'Registered') {
+      return false;
+    }
+    return await this.isCartOwnershipPluginEnabled();
+  }
+
+  /**
+   * Lists the customer's open carts through the cart-ownership plugin's
+   * `GET /store/customers/me/carts`. Returns null when the backend turns
+   * out not to serve the route after all (404: plugin configured but not
+   * built; 401: the token is no longer valid), so the caller falls back to
+   * the session-tracked list. Other errors are real backend faults and
+   * propagate.
+   */
+  protected async listCartsViaOwnershipEndpoint(payload: CartQueryList): Promise<ParseMedusaCartPaginatedSearchResultInput | null> {
+    const client = await this.getClient();
+    const { pageNumber, pageSize } = payload.search.paginationOptions;
+
+    try {
+      const response = await client.client.fetch<MedusaOwnedCartsResponse>('/store/customers/me/carts', {
+        method: 'GET',
+        query: {
+          fields: this.ownedCartListFields,
+          limit: pageSize,
+          offset: (pageNumber - 1) * pageSize,
+          order: this.ownedCartListOrder,
+        },
+      });
+
+      return {
+        items: response.carts.map((cart) => this.normalizeOwnedCart(cart)),
+        totalCount: response.count,
+      };
+    } catch (err) {
+      if (this.shouldFallBackToSessionList(err)) {
+        debug('Owned-carts endpoint unavailable, falling back to session-tracked carts:', err);
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Lists carts from the ids tracked in the session: the behavior from
+   * before the cart-ownership plugin existed, and still the only source for
+   * anonymous/guest carts and company buckets.
+   */
+  protected async listCartsFromSession(payload: CartQueryList): Promise<ParseMedusaCartPaginatedSearchResultInput> {
     const client = await this.getClient();
 
     const sessionData = this.medusaApi.getSessionData();
@@ -103,17 +209,64 @@ export class MedusaCartCapability<
       cartCollection = [];
     }
 
-    const shortFields = ['id', 'customerId', 'updated_at', 'metadata', 'items.id'].join(',');
-
-    const allPromises = cartCollection.map((cartIdentifier) => client.store.cart.retrieve(cartIdentifier.key, { fields: shortFields }));
+    const allPromises = cartCollection.map((cartIdentifier) => client.store.cart.retrieve(cartIdentifier.key, { fields: this.ownedCartListFields }));
     const responses = await Promise.all(allPromises);
     const carts = responses.map((response) => response.cart).filter((cart): cart is StoreCart => !!cart);
 
-    return success(this.factory.parseCartPaginatedSearchResult(this.context,
-      {
-        items: carts,
-        totalCount: totalCount
-      }, payload));
+    return {
+      items: carts.map((cart) => this.normalizeOwnedCart(cart)),
+      totalCount: totalCount,
+    };
+  }
+
+  /**
+   * The factory reads `customer_id`, but only the `customer.id` relation is
+   * an allowed list field, so copy it over when `customer_id` itself wasn't
+   * returned.
+   */
+  protected normalizeOwnedCart(cart: MedusaOwnedCart): StoreCart {
+    return { ...cart, customer_id: cart.customer_id ?? cart.customer?.id };
+  }
+
+  /** A 404 (route not served) or 401 (token no longer valid) degrades to the session list. */
+  protected shouldFallBackToSessionList(err: unknown): boolean {
+    return err instanceof FetchError && (err.status === 404 || err.status === 401);
+  }
+
+  /**
+   * Checks whether the backend has the cart-ownership plugin, by its name in
+   * core's `GET /admin/plugins`. Detection must never break cart listing, so
+   * any failure just reports the plugin as absent.
+   */
+  protected async isCartOwnershipPluginEnabled(): Promise<boolean> {
+    const plugins = await this.fetchEnabledPlugins();
+    return plugins.includes(this.cartOwnershipPluginName);
+  }
+
+  /**
+   * The backend's configured plugin list, kept in the reactionary cache
+   * (shared across sessions) so not every request re-asks the admin API.
+   * Failures are not cached: a plugin-less answer from here only costs the
+   * fallback behavior, while caching a transient failure would hide the
+   * plugin for a whole TTL.
+   */
+  protected async fetchEnabledPlugins(): Promise<string[]> {
+    const cacheKey = `medusa:plugins:${this.config.apiUrl}`;
+    const cached = await this.cache.get(cacheKey, MedusaCachedPluginListSchema);
+    if (cached) {
+      return cached.plugins;
+    }
+
+    try {
+      const adminClient = await new MedusaAdminAPI(this.config, this.context).getClient();
+      const response = await adminClient.client.fetch<{ plugins: { name: string }[] }>('/admin/plugins', { method: 'GET' });
+      const plugins = response.plugins.map((plugin) => plugin.name);
+      await this.cache.put(cacheKey, { plugins }, { ttlSeconds: this.pluginDetectionTtlSeconds, dependencyIds: [] });
+      return plugins;
+    } catch (err) {
+      debug('Failed to list backend plugins:', err);
+      return [];
+    }
   }
 
   @Reactionary({
@@ -323,6 +476,22 @@ export class MedusaCartCapability<
   }
 
 
+  /**
+   * Session tracking is skipped for a logged-in customer's own carts when
+   * the backend has the cart-ownership plugin: the backend attributes the
+   * cart to the customer at creation and lists it server-side. Anonymous
+   * carts and company buckets are still only known to the session.
+   */
+  protected async shouldTrackOwnedCartInSession(payload: CartMutationCreateCart): Promise<boolean> {
+    if (payload.company) {
+      return true;
+    }
+    if (this.context.session.identityContext.identity.type !== 'Registered') {
+      return true;
+    }
+    return !(await this.isCartOwnershipPluginEnabled());
+  }
+
   protected addCartToOwnedList(cartIdentifier: MedusaCartIdentifier, companyId?: CompanyIdentifier) {
     const sessionData = this.medusaApi.getSessionData();
     const companyIdToUse = companyId ? companyId.taxIdentifier : '_me';
@@ -394,7 +563,9 @@ export class MedusaCartCapability<
       );
 
       if (response.cart) {
-        this.addCartToOwnedList(this.factory.parseCartIdentifier(this.context, response.cart), payload.company);
+        if (await this.shouldTrackOwnedCartInSession(payload)) {
+          this.addCartToOwnedList(this.factory.parseCartIdentifier(this.context, response.cart), payload.company);
+        }
         // Store cart ID in session
         this.medusaApi.setSessionData({
           activeCartId: this.factory.parseCartIdentifier(this.context, response.cart),

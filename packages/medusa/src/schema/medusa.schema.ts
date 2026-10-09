@@ -15,6 +15,14 @@ export const MedusaRegionSchema = z.looseObject({
   currency_code: z.string(),
 });
 
+/**
+ * Cache entry shape for a backend's configured plugin list, as reported by
+ * core's `GET /admin/plugins`.
+ */
+export const MedusaCachedPluginListSchema = z.looseObject({
+  plugins: z.array(z.string()),
+});
+
 export const MedusaSessionSchema = z.looseObject({
   activeCartId: MedusaCartIdentifierSchema.optional(),
   allOwnedCarts: z.record(z.string(), z.array(MedusaCartIdentifierSchema)).optional(),
@@ -28,5 +36,6 @@ export const MedusaSessionSchema = z.looseObject({
 export type MedusaCartIdentifier = InferType<typeof MedusaCartIdentifierSchema>;
 export type MedusaOrderIdentifier = z.infer<typeof MedusaOrderIdentifierSchema>;
 
+export type MedusaCachedPluginList = z.infer<typeof MedusaCachedPluginListSchema>;
 export type MedusaSession = z.infer<typeof MedusaSessionSchema>;
 export type MedusaRegion = z.infer<typeof MedusaRegionSchema>;
