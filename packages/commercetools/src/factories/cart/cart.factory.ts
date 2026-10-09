@@ -1,6 +1,8 @@
 import type {
+  CartDiscount,
   CartPagedQueryResponse,
   Cart as CTCart,
+  DiscountedLineItemPortion,
   LineItem,
 } from '@commercetools/platform-sdk';
 import type {
@@ -178,11 +180,13 @@ export class CommercetoolsCartFactory<
     const localeString = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
     const discountedAmountByCartDiscountId = this.groupDiscountedAmountsByCartDiscountId(data);
     const appliedPromotions = [];
+    const codeClaimedCartDiscountIds = new Set<string>();
     if (data.discountCodes) {
       for (const promo of data.discountCodes) {
         const cartDiscountIds = promo.discountCode.obj?.cartDiscounts.map((ref) => ref.id) || [];
+        cartDiscountIds.forEach((id) => codeClaimedCartDiscountIds.add(id));
         const discountedCentAmount = cartDiscountIds.reduce(
-          (sum, id) => sum + (discountedAmountByCartDiscountId.get(id) || 0),
+          (sum, id) => sum + (discountedAmountByCartDiscountId.get(id)?.centAmount || 0),
           0,
         );
         appliedPromotions.push({
@@ -196,6 +200,20 @@ export class CommercetoolsCartFactory<
             : {}),
         } satisfies Promotion);
       }
+    }
+    for (const [cartDiscountId, applied] of discountedAmountByCartDiscountId) {
+      if (codeClaimedCartDiscountIds.has(cartDiscountId)) {
+        continue;
+      }
+      appliedPromotions.push({
+        code: '',
+        isCouponCode: false,
+        name: applied.cartDiscount?.name?.[localeString] || '',
+        description: applied.cartDiscount?.description?.[localeString] || '',
+        ...(applied.centAmount > 0
+          ? { amount: { value: applied.centAmount / 100, currency } }
+          : {}),
+      } satisfies Promotion);
     }
 
     const result = {
@@ -221,22 +239,39 @@ export class CommercetoolsCartFactory<
    * item (`discountedPricePerQuantity[].discountedPrice.includedDiscounts`)
    * and on the cart total (`discountOnTotalPrice.includedDiscounts`), each
    * keyed by that same CartDiscount id. Sum both sources by CartDiscount id
-   * so a discount code's total can be looked up by joining on its ids.
+   * so a discount code's total can be looked up by joining on its ids, and
+   * keep the expanded CartDiscount (when available) so automatically applied
+   * discounts — those not claimed by any code — can be surfaced by name.
    */
-  protected groupDiscountedAmountsByCartDiscountId(data: CTCart): Map<string, number> {
-    const totals = new Map<string, number>();
-    const add = (cartDiscountId: string, centAmount: number) => {
-      totals.set(cartDiscountId, (totals.get(cartDiscountId) || 0) + centAmount);
+  protected groupDiscountedAmountsByCartDiscountId(
+    data: CTCart,
+  ): Map<string, { centAmount: number; cartDiscount?: CartDiscount }> {
+    const totals = new Map<string, { centAmount: number; cartDiscount?: CartDiscount }>();
+    const add = (cartDiscountId: string, centAmount: number, cartDiscount?: CartDiscount) => {
+      const entry = totals.get(cartDiscountId) || { centAmount: 0 };
+      entry.centAmount += centAmount;
+      entry.cartDiscount = entry.cartDiscount || cartDiscount;
+      totals.set(cartDiscountId, entry);
     };
+    const expandedCartDiscount = (reference: DiscountedLineItemPortion['discount']) =>
+      reference.typeId === 'cart-discount' ? reference.obj : undefined;
     for (const lineItem of data.lineItems) {
       for (const discPrQty of lineItem.discountedPricePerQuantity || []) {
         for (const included of discPrQty.discountedPrice?.includedDiscounts || []) {
-          add(included.discount.id, included.discountedAmount.centAmount * discPrQty.quantity);
+          add(
+            included.discount.id,
+            included.discountedAmount.centAmount * discPrQty.quantity,
+            expandedCartDiscount(included.discount),
+          );
         }
       }
     }
     for (const included of data.discountOnTotalPrice?.includedDiscounts || []) {
-      add(included.discount.id, included.discountedAmount.centAmount);
+      add(
+        included.discount.id,
+        included.discountedAmount.centAmount,
+        expandedCartDiscount(included.discount),
+      );
     }
     return totals;
   }
