@@ -70,7 +70,7 @@ export class MedusaCartCapability<
    *
    * example: this.includedFields = [includedFields, '+discounts.*'].join(',');
    */
-  protected includedFields: string = ['+items.*'].join(',');
+  protected includedFields: string = ['+items.*', '+items.adjustments.*', '+shipping_methods.adjustments.*'].join(',');
 
   constructor(
     config: MedusaConfiguration,

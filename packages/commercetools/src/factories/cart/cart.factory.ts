@@ -176,15 +176,24 @@ export class CommercetoolsCartFactory<
     } satisfies CostBreakDown;
 
     const localeString = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
+    const discountedAmountByCartDiscountId = this.groupDiscountedAmountsByCartDiscountId(data);
     const appliedPromotions = [];
     if (data.discountCodes) {
       for (const promo of data.discountCodes) {
+        const cartDiscountIds = promo.discountCode.obj?.cartDiscounts.map((ref) => ref.id) || [];
+        const discountedCentAmount = cartDiscountIds.reduce(
+          (sum, id) => sum + (discountedAmountByCartDiscountId.get(id) || 0),
+          0,
+        );
         appliedPromotions.push({
           code: promo.discountCode.obj?.code || '',
           isCouponCode: true,
           name: promo.discountCode.obj?.name?.[localeString] || '',
           description:
             promo.discountCode.obj?.description?.[localeString] || '',
+          ...(discountedCentAmount > 0
+            ? { amount: { value: discountedCentAmount / 100, currency } }
+            : {}),
         } satisfies Promotion);
       }
     }
@@ -203,6 +212,33 @@ export class CommercetoolsCartFactory<
     } satisfies Cart;
 
     return this.cartSchema.parse(result);
+  }
+
+  /**
+   * commercetools links a discount code to the amount it discounted only
+   * indirectly: `discountCode.obj.cartDiscounts` gives the CartDiscount ids a
+   * code triggers, while the actual discounted amounts are reported per line
+   * item (`discountedPricePerQuantity[].discountedPrice.includedDiscounts`)
+   * and on the cart total (`discountOnTotalPrice.includedDiscounts`), each
+   * keyed by that same CartDiscount id. Sum both sources by CartDiscount id
+   * so a discount code's total can be looked up by joining on its ids.
+   */
+  protected groupDiscountedAmountsByCartDiscountId(data: CTCart): Map<string, number> {
+    const totals = new Map<string, number>();
+    const add = (cartDiscountId: string, centAmount: number) => {
+      totals.set(cartDiscountId, (totals.get(cartDiscountId) || 0) + centAmount);
+    };
+    for (const lineItem of data.lineItems) {
+      for (const discPrQty of lineItem.discountedPricePerQuantity || []) {
+        for (const included of discPrQty.discountedPrice?.includedDiscounts || []) {
+          add(included.discount.id, included.discountedAmount.centAmount * discPrQty.quantity);
+        }
+      }
+    }
+    for (const included of data.discountOnTotalPrice?.includedDiscounts || []) {
+      add(included.discount.id, included.discountedAmount.centAmount);
+    }
+    return totals;
   }
 
   protected parseCartItem(lineItem: LineItem): CartItem {
