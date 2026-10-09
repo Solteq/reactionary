@@ -230,6 +230,33 @@ describe('Medusa listCarts via the cart-ownership plugin', () => {
     expect(stub.cartRetrieveRequests).toEqual([]);
   });
 
+  it('filters out completed carts a misbehaving backend returns', async () => {
+    setIdentity({ type: 'Registered', id: { userId: 'cus_1' } });
+    stub.ownedCarts = [
+      {
+        id: 'cart_open',
+        updated_at: '2026-10-08T12:00:00.000Z',
+        completed_at: null,
+        metadata: {},
+        items: [],
+      },
+      {
+        id: 'cart_done',
+        updated_at: '2026-10-07T12:00:00.000Z',
+        completed_at: '2026-10-07T13:00:00.000Z',
+        metadata: {},
+        items: [],
+      },
+    ];
+    stub.ownedCartsCount = 2;
+
+    const result = await listCarts();
+
+    assert(result.success, 'expected the endpoint listing to succeed');
+    expect(result.value.items.map((item) => item.identifier.key)).toEqual(['cart_open']);
+    expect(result.value.totalCount).toBe(1);
+  });
+
   it('maps pagination onto limit/offset and requests the configured fields and order', async () => {
     setIdentity({ type: 'Registered', id: { userId: 'cus_1' } });
     stub.ownedCarts = [
