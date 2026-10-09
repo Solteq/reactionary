@@ -209,12 +209,12 @@ export class MedusaCheckoutFactory<
         ? data.metadata?.['consent_for_unattended_delivery'] === 'true'
         : undefined;
     const backupInstructions =
-      data.metadata?.['instructions'] !== undefined
-        ? data.metadata?.['instructions'] + ''
+      data.metadata?.['instructions'] != null
+        ? String(data.metadata['instructions'])
         : undefined;
     const backupPickupPoint =
-      data.metadata?.['pickup_point'] !== undefined
-        ? data.metadata?.['pickup_point'] + ''
+      data.metadata?.['pickup_point'] != null
+        ? String(data.metadata['pickup_point'])
         : undefined;
 
     let shippingInstruction;
@@ -223,8 +223,8 @@ export class MedusaCheckoutFactory<
       let instructions = '';
       let consentForUnattendedDelivery = false;
       if (sm.data) {
-        pickupPoint = sm.data['pickup_point'] + '' || '';
-        instructions = sm.data['instructions'] + '' || '';
+        pickupPoint = sm.data['pickup_point'] != null ? String(sm.data['pickup_point']) : '';
+        instructions = sm.data['instructions'] != null ? String(sm.data['instructions']) : '';
         consentForUnattendedDelivery =
           sm.data['consent_for_unattended_delivery'] === 'true';
       }
