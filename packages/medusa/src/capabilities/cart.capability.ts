@@ -95,7 +95,7 @@ export class MedusaCartCapability<
    * the allowed field set of both routes; `customer.id` stands in for
    * `customer_id`, which is not an allowed field (see normalizeOwnedCart).
    */
-  protected ownedCartListFields: string = ['id', 'updated_at', 'completed_at', 'metadata', 'items.id', 'customer.id'].join(',');
+  protected ownedCartListFields: string = ['id', 'updated_at', 'metadata', 'items.id', 'customer.id'].join(',');
 
   /** Sort order for the server-side owned-carts listing. */
   protected ownedCartListOrder = '-updated_at';
@@ -178,14 +178,9 @@ export class MedusaCartCapability<
         },
       });
 
-      // The plugin already filters out completed carts server-side; this is
-      // a guard against a backend that doesn't, so a checked-out cart never
-      // shows up in the list.
-      const openCarts = response.carts.filter((cart) => !cart.completed_at);
-
       return {
-        items: openCarts.map((cart) => this.normalizeOwnedCart(cart)),
-        totalCount: response.count - (response.carts.length - openCarts.length),
+        items: response.carts.map((cart) => this.normalizeOwnedCart(cart)),
+        totalCount: response.count,
       };
     } catch (err) {
       if (this.shouldFallBackToSessionList(err)) {
