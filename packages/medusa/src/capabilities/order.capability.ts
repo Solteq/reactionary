@@ -9,6 +9,7 @@ import type {
   Result
 } from '@reactionary/core';
 import {
+  error,
   OrderCapability,
   OrderQueryByIdSchema,
   OrderSchema,
@@ -19,7 +20,7 @@ import createDebug from 'debug';
 import type { MedusaAPI } from '../core/client.js';
 import type { MedusaOrderFactory } from '../factories/order/order.factory.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import { handleProviderError } from '../utils/medusa-helpers.js';
+import { handleProviderError, isNotFoundFetchError } from '../utils/medusa-helpers.js';
 const debug = createDebug('reactionary:medusa:order');
 
 export class MedusaOrderCapability<
@@ -53,8 +54,6 @@ export class MedusaOrderCapability<
     const medusa = await this.medusaApi.getClient();
 
     try {
-      // TODO: Implement actual order retrieval logic
-      // const response = await medusa.store.order.retrieve(payload.order.key);
       const response = await  medusa.store.order.retrieve(payload.order.key)
 
       const order = this.factory.parseOrder(this.context, response.order);
@@ -62,6 +61,12 @@ export class MedusaOrderCapability<
       return success(order);
 
     } catch (err) {
+      if (isNotFoundFetchError(err)) {
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: payload.order,
+        });
+      }
       return handleProviderError('order', err);
     }
   }
