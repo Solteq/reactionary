@@ -53,7 +53,7 @@ export class FakeStoreCapability<
    * The countries the fake brand has physical stores in.
    */
   protected getStoreCountries(): string[] {
-    return ['DK', 'SE', 'NO', 'FI'];
+    return ['DK', 'SE', 'NO', 'FI', 'US'];
   }
 
   /**
