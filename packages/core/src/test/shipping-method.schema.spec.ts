@@ -68,12 +68,6 @@ describe('ShippingMethodSchema BOPIS additions', () => {
     expect(parsed.protocolData).toHaveLength(2);
   });
 
-  it('accepts parcel as a fulfillmentType for carrier service point deliveries', () => {
-    const parsed = ShippingMethodSchema.parse({ ...baseMethod, fulfillmentType: 'parcel' });
-
-    expect(parsed.fulfillmentType).toBe('parcel');
-  });
-
   it('rejects an unknown fulfillmentType', () => {
     expect(() =>
       ShippingMethodSchema.parse({ ...baseMethod, fulfillmentType: 'teleport' }),

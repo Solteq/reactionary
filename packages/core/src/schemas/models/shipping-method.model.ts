@@ -7,13 +7,11 @@ import type { InferType } from '../../zod-utils.js';
 
 /**
  * How a shipping method fulfills the order:
- * - 'delivery': the order is shipped to the customer's address (home delivery).
+ * - 'delivery': the order is shipped to an address (home delivery, or delivery to a third-party
+ *   carrier service point selected via the shipping instruction's pickupPoint field).
  * - 'pickup': the order is picked up at one of the brand's own stores (BOPIS - buy online, pickup in store).
- * - 'parcel': the order is delivered to a third-party carrier service point (e.g. a GLS/PostNord parcel
- *   shop or a locker), selected via the shipping instruction's pickupPoint field. Providers that cannot
- *   distinguish parcel methods from plain deliveries tag them as 'delivery'.
  */
-export const ShippingFulfillmentTypeSchema = z.enum(['delivery', 'pickup', 'parcel']);
+export const ShippingFulfillmentTypeSchema = z.enum(['delivery', 'pickup']);
 
 /**
  * A single protocol-specific key/value pair exchanged with the shipping provider.
@@ -46,7 +44,7 @@ export const ShippingMethodSchema = z.looseObject({
     price: MonetaryAmountSchema,
     deliveryTime: z.string(),
     carrier: z.string().optional(),
-    fulfillmentType: ShippingFulfillmentTypeSchema.optional().meta({ description: 'How this shipping method fulfills the order: "delivery" for shipment to the customer\'s address, "pickup" for collection at one of the brand\'s own stores (BOPIS), "parcel" for delivery to a third-party carrier service point (selected via the shipping instruction\'s pickupPoint). When absent, "delivery" can be assumed.' }),
+    fulfillmentType: ShippingFulfillmentTypeSchema.optional().meta({ description: 'How this shipping method fulfills the order: "delivery" for shipment to an address (including third-party carrier service points selected via the shipping instruction\'s pickupPoint), "pickup" for collection at one of the brand\'s own stores (BOPIS). When absent, "delivery" can be assumed.' }),
     protocolData: z.array(ShippingProtocolDataSchema).optional().meta({ description: 'Additional provider-populated, protocol-specific data for this shipping method, e.g. available pickup time slots.' }),
 });
 
