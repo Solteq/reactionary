@@ -22,7 +22,7 @@ describe('FakeStoreCapability', () => {
       await capability.list({ paginationOptions: { pageNumber: 1, pageSize: 50 } }),
     );
 
-    expect(page.totalCount).toBe(12);
+    expect(page.totalCount).toBe(15);
 
     const byCountry = new Map<string, number>();
     for (const store of page.items) {
@@ -30,7 +30,7 @@ describe('FakeStoreCapability', () => {
       byCountry.set(country, (byCountry.get(country) || 0) + 1);
     }
 
-    expect(Object.fromEntries(byCountry)).toEqual({ DK: 3, SE: 3, NO: 3, FI: 3 });
+    expect(Object.fromEntries(byCountry)).toEqual({ DK: 3, SE: 3, NO: 3, FI: 3, US: 3 });
   });
 
   it('pages the seeded stores', async () => {
@@ -38,7 +38,7 @@ describe('FakeStoreCapability', () => {
       await capability.list({ paginationOptions: { pageNumber: 2, pageSize: 5 } }),
     );
 
-    expect(page.totalCount).toBe(12);
+    expect(page.totalCount).toBe(15);
     expect(page.totalPages).toBe(3);
     expect(page.items).toHaveLength(5);
   });
