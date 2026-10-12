@@ -7,7 +7,10 @@ import {
   PaymentMethodSchema,
   ShippingMethodSchema,
 } from '@reactionary/core';
-import { MedusaCheckoutFactory } from '../factories/checkout/checkout.factory.js';
+import {
+  MedusaCheckoutFactory,
+  type MedusaShippingOptionWithMetadata,
+} from '../factories/checkout/checkout.factory.js';
 
 /**
  * Offline tests for mapping a Medusa cart to a checkout, focused on the
@@ -117,6 +120,33 @@ describe('Medusa checkout factory shipping method fulfillment type mapping', () 
     const method = factory.parseShippingMethod(context, option);
 
     expect(method.fulfillmentType).toBe('delivery');
+  });
+
+  it('maps the shipping option metadata to the shipping method protocolData', () => {
+    const option: MedusaShippingOptionWithMetadata = readShippingOption('shipping-option-pickup.json');
+    option.metadata = {
+      pickup_slots: { monday: ['10:00', '14:00'] },
+      carrier_hint: 'own-fleet',
+      max_parcels: 3,
+      ignored_null: null,
+    };
+
+    const method = factory.parseShippingMethod(context, option);
+
+    expect(method.protocolData).toEqual([
+      { key: 'pickup_slots', value: { monday: ['10:00', '14:00'] } },
+      { key: 'carrier_hint', value: 'own-fleet' },
+      { key: 'max_parcels', value: '3' },
+    ]);
+  });
+
+  it('leaves protocolData absent when the shipping option has no metadata', () => {
+    const method = factory.parseShippingMethod(
+      context,
+      readShippingOption('shipping-option-delivery.json'),
+    );
+
+    expect(method.protocolData).toBeUndefined();
   });
 });
 

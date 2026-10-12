@@ -1,5 +1,7 @@
 import {
   type Cache,
+  type GenericError,
+  type NotFoundError,
   Reactionary,
   type RequestContext,
   type Result,
@@ -7,9 +9,16 @@ import {
   type StoreFactory,
   type StoreFactoryOutput,
   type StoreFactoryWithOutput,
+  type StorePaginatedResult,
+  type StoreQueryById,
+  StoreQueryByIdSchema,
   type StoreQueryByProximity,
   StoreQueryByProximitySchema,
+  type StoreQueryForList,
+  StoreQueryForListSchema,
+  StorePaginatedResultSchema,
   StoreSchema,
+  error,
   success,
 } from '@reactionary/core';
 import * as z from 'zod';
@@ -68,9 +77,50 @@ export class HclStoreCapability<
     return success(stores);
   }
 
+  @Reactionary({
+    inputSchema: StoreQueryByIdSchema,
+    outputSchema: StoreSchema,
+  })
+  public override async getById(
+    payload: StoreQueryById,
+  ): Promise<Result<StoreFactoryOutput<TFactory>, NotFoundError>> {
+    const response = await this.client.callGet<HclStoreLocatorResponse>(
+      this.getStoreByIdUrl(payload),
+      new URLSearchParams(),
+      { allowUndefined: true },
+    );
+
+    const store = response?.PhysicalStore?.[0];
+    if (!store) {
+      return error<NotFoundError>({ type: 'NotFound', identifier: payload.identifier });
+    }
+
+    return success(this.factory.parseStore(this.context, store));
+  }
+
+  @Reactionary({
+    inputSchema: StoreQueryForListSchema,
+    outputSchema: StorePaginatedResultSchema,
+  })
+  public override async list(
+    _payload: StoreQueryForList,
+  ): Promise<Result<StorePaginatedResult>> {
+    // The HCL store locator only exposes geo and id based lookups; there is
+    // no endpoint listing all physical stores. Use queryByProximity instead.
+    return error<GenericError>({
+      type: 'Generic',
+      message:
+        'The hcl store capability does not support listing all stores: the store locator only exposes geo and id based lookups. Use queryByProximity() instead.',
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Extension points
   // ---------------------------------------------------------------------------
+
+  protected getStoreByIdUrl(payload: StoreQueryById): string {
+    return `${this.client.transactionBaseUrl}/storelocator/byStoreId/${encodeURIComponent(payload.identifier.key)}`;
+  }
 
   protected getStoreLocatorUrl(payload: StoreQueryByProximity): string {
     return `${this.client.transactionBaseUrl}/storelocator/latitude/${payload.latitude}/longitude/${payload.longitude}`;

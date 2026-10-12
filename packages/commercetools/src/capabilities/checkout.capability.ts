@@ -10,6 +10,7 @@ import {
   SHIPPING_PROTOCOL_DATA_FIELD,
   serializeShippingProtocolData,
 } from '../core/shipping-protocol-data.js';
+import { resolveShippingFulfillmentType } from '../core/shipping-fulfillment.js';
 import type {
   Cache,
   CheckoutFactory,
@@ -292,10 +293,29 @@ export class CommercetoolsCheckoutCapability<
     ]);
 
     const result = shippingMethodsResponse.body.results.map((shippingMethod) =>
-      this.factory.parseShippingMethod(this.context, this.withFreeShipping(shippingMethod, cartResponse.body)),
+      this.withFulfillmentType(
+        this.factory.parseShippingMethod(this.context, this.withFreeShipping(shippingMethod, cartResponse.body)),
+        shippingMethod,
+      ),
     );
 
     return success(result);
+  }
+
+  /**
+   * Tags a parsed shipping method with its fulfillment type: methods whose
+   * key is listed in the `bopis.shippingMethodKeys` configuration are
+   * in-store pickup (BOPIS), everything else is a delivery. The tagging lives
+   * here rather than in the factory, so factories stay configuration-free.
+   */
+  protected withFulfillmentType(
+    shippingMethod: CheckoutFactoryShippingMethodOutput<TFactory>,
+    remote: CTShippingMethod,
+  ): CheckoutFactoryShippingMethodOutput<TFactory> {
+    return {
+      ...shippingMethod,
+      fulfillmentType: resolveShippingFulfillmentType(remote, this.config.bopis?.shippingMethodKeys),
+    };
   }
 
   /**

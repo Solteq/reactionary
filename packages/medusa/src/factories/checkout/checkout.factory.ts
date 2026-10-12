@@ -49,6 +49,15 @@ import {
   parseMedusaItemPrice,
 } from '../../utils/medusa-helpers.js';
 
+/**
+ * A cart shipping option with the optional metadata relation, which the
+ * Medusa HTTP types do not declare on the store-level shipping option even
+ * though it can be requested via the fields parameter.
+ */
+export type MedusaShippingOptionWithMetadata = StoreCartShippingOptionWithServiceZone & {
+  metadata?: Record<string, unknown> | null;
+};
+
 export class MedusaCheckoutFactory<
   TCheckoutSchema extends AnyCheckoutSchema = typeof CheckoutSchema,
   TShippingMethodSchema extends
@@ -338,7 +347,7 @@ export class MedusaCheckoutFactory<
 
   public parseShippingMethod(
     _context: RequestContext,
-    data: StoreCartShippingOptionWithServiceZone,
+    data: MedusaShippingOptionWithMetadata,
   ): z.output<TShippingMethodSchema> {
     const sm = {
       identifier: ShippingMethodIdentifierSchema.parse({ key: data.id }),
@@ -351,6 +360,7 @@ export class MedusaCheckoutFactory<
       } satisfies MonetaryAmount),
       deliveryTime: '',
       fulfillmentType: this.parseFulfillmentType(_context, data),
+      protocolData: this.parseShippingMethodProtocolData(_context, data),
     } satisfies ShippingMethod;
 
     return this.shippingMethodSchema.parse(sm);
@@ -363,11 +373,40 @@ export class MedusaCheckoutFactory<
    */
   protected parseFulfillmentType(
     _context: RequestContext,
-    data: StoreCartShippingOptionWithServiceZone,
+    data: MedusaShippingOptionWithMetadata,
   ): ShippingFulfillmentType {
     return data.service_zone?.fulfillment_set?.type === 'pickup'
       ? 'pickup'
       : 'delivery';
+  }
+
+  /**
+   * Extension point mapping a Medusa shipping option's metadata to the
+   * shipping method's protocolData, so medusa-side providers can push
+   * additional data (e.g. available pickup time slots) that reaches the
+   * client. String and JSON-object values are kept as-is, other primitives
+   * are stringified, and arrays/null entries are skipped.
+   */
+  protected parseShippingMethodProtocolData(
+    _context: RequestContext,
+    data: MedusaShippingOptionWithMetadata,
+  ): ShippingProtocolData[] | undefined {
+    if (!data.metadata) {
+      return undefined;
+    }
+
+    const entries: ShippingProtocolData[] = [];
+    for (const [key, value] of Object.entries(data.metadata)) {
+      if (typeof value === 'string') {
+        entries.push({ key, value });
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        entries.push({ key, value: String(value) });
+      } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        entries.push({ key, value });
+      }
+    }
+
+    return entries.length > 0 ? entries : undefined;
   }
 
   /**

@@ -30,7 +30,6 @@ import {
   type PaymentMethodIdentifier,
   type PaymentStatus,
   type RequestContext,
-  type ShippingFulfillmentType,
   type ShippingInstruction,
   type ShippingMethod,
   type ShippingMethodIdentifier,
@@ -48,20 +47,6 @@ import {
   parseShippingProtocolDataField,
 } from '../../core/shipping-protocol-data.js';
 
-/**
- * Optional behavior tweaks for the checkout factory. All options default to
- * off, keeping existing factory construction signatures working unchanged.
- */
-export interface CommercetoolsCheckoutFactoryOptions {
-  /**
-   * The keys of the shipping methods that represent in-store pickup (BOPIS).
-   * Shipping methods with these keys are tagged with fulfillmentType
-   * "pickup"; all others are tagged "delivery". Normally sourced from the
-   * `bopis.shippingMethodKeys` configuration.
-   */
-  bopisShippingMethodKeys?: string[];
-}
-
 export class CommercetoolsCheckoutFactory<
   TCheckoutSchema extends AnyCheckoutSchema = typeof CheckoutSchema,
   TShippingMethodSchema extends AnyShippingMethodSchema = typeof ShippingMethodSchema,
@@ -72,18 +57,15 @@ export class CommercetoolsCheckoutFactory<
   public readonly checkoutSchema: TCheckoutSchema;
   public readonly shippingMethodSchema: TShippingMethodSchema;
   public readonly paymentMethodSchema: TPaymentMethodSchema;
-  protected readonly bopisShippingMethodKeys: string[];
 
   constructor(
     checkoutSchema: TCheckoutSchema,
     shippingMethodSchema: TShippingMethodSchema,
     paymentMethodSchema: TPaymentMethodSchema,
-    options: CommercetoolsCheckoutFactoryOptions = {},
   ) {
     this.checkoutSchema = checkoutSchema;
     this.shippingMethodSchema = shippingMethodSchema;
     this.paymentMethodSchema = paymentMethodSchema;
-    this.bopisShippingMethodKeys = options.bopisShippingMethodKeys || [];
   }
 
   public parseCheckout(
@@ -207,26 +189,10 @@ export class CommercetoolsCheckoutFactory<
       price: {
         value: (rate?.price.centAmount || 0) / 100,
         currency: rate?.price.currencyCode as Currency
-      },
-      fulfillmentType: this.parseFulfillmentType(context, data),
+      }
     } satisfies ShippingMethod;
 
     return this.shippingMethodSchema.parse(result);
-  }
-
-  /**
-   * Extension point to control how a commercetools shipping method maps to
-   * the core fulfillment type. Shipping methods whose key is listed in the
-   * `bopis.shippingMethodKeys` configuration are in-store pickup (BOPIS);
-   * everything else is a delivery.
-   */
-  protected parseFulfillmentType(
-    _context: RequestContext,
-    data: CTShippingMethod,
-  ): ShippingFulfillmentType {
-    return data.key && this.bopisShippingMethodKeys.includes(data.key)
-      ? 'pickup'
-      : 'delivery';
   }
 
   public parsePaymentMethod(
@@ -374,6 +340,10 @@ export class CommercetoolsCheckoutFactory<
       data.custom?.fields['consentForUnattendedDelivery'] === 'true';
     const pickupPoint = data.custom?.fields['pickupPointId'] || '';
     const pickupStoreKey = data.custom?.fields[PICKUP_STORE_FIELD];
+    const store: StoreIdentifier | undefined =
+      typeof pickupStoreKey === 'string' && pickupStoreKey.length > 0
+        ? { key: pickupStoreKey }
+        : undefined;
     const protocolData = parseShippingProtocolDataField(
       data.custom?.fields[SHIPPING_PROTOCOL_DATA_FIELD],
     );
@@ -385,10 +355,7 @@ export class CommercetoolsCheckoutFactory<
       pickupPoint,
       instructions,
       consentForUnattendedDelivery,
-      store:
-        typeof pickupStoreKey === 'string' && pickupStoreKey.length > 0
-          ? ({ key: pickupStoreKey } satisfies StoreIdentifier)
-          : undefined,
+      store,
       protocolData,
     } satisfies ShippingInstruction;
 

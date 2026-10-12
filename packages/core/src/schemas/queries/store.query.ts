@@ -12,7 +12,7 @@ export const StoreQueryByProximitySchema = BaseQuerySchema.extend({
 });
 
 export const StoreQueryByIdSchema = BaseQuerySchema.extend({
-    id: StoreIdentifierSchema,
+    identifier: StoreIdentifierSchema,
 });
 
 export const StoreQueryForListSchema = BaseQuerySchema.extend({
