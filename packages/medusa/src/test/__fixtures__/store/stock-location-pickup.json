@@ -1,0 +1,28 @@
+{
+  "id": "sloc_copenhagen",
+  "name": "Copenhagen Flagship",
+  "metadata": {
+    "opening_hours": "Mon-Fri 10am-7pm, Sat 10am-4pm"
+  },
+  "address_id": "laddr_copenhagen",
+  "address": {
+    "id": "laddr_copenhagen",
+    "address_1": "Strøget 1",
+    "address_2": "2nd floor",
+    "company": "Copenhagen Flagship ApS",
+    "country_code": "dk",
+    "city": "Copenhagen",
+    "phone": "+45 33 12 34 56",
+    "postal_code": "1160",
+    "province": "Capital Region",
+    "metadata": null
+  },
+  "fulfillment_sets": [
+    {
+      "id": "fuset_pickup",
+      "name": "Copenhagen pickup",
+      "type": "pickup",
+      "service_zones": []
+    }
+  ]
+}

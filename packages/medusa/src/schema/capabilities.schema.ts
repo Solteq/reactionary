@@ -49,6 +49,9 @@ import type {
   ProfileFactory,
   ProfileFactoryWithOutput,
   ProfileCapability,
+  StoreFactory,
+  StoreFactoryWithOutput,
+  StoreCapability,
   RequestContext,
   Cache,
 } from '@reactionary/core';
@@ -84,6 +87,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
   productAssociations: true,
   personalizationProfile: true,
   company: true,
+  store: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -104,6 +108,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     productAssociations: OverridableCapabilitySchema.optional(),
     productRecommendations: DirectCapabilitySchema.optional(),
     personalizationProfile: OverridableCapabilitySchema.optional(),
+    store: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -216,6 +221,11 @@ export type MedusaPersonalizationProfileCapabilityConfig = MedusaCapabilityConfi
 export type MedusaProductRecommendationsCapabilityConfig =
   MedusaDirectCapabilityConfig<ProductRecommendationsCapability>;
 
+export type MedusaStoreCapabilityConfig = MedusaCapabilityConfig<
+  StoreFactoryWithOutput<StoreFactory>,
+  StoreCapability
+>;
+
 export type MedusaCapabilities<
   TProductFactory extends ProductFactory = ProductFactory,
   TProductCapability extends ProductCapability = ProductCapability,
@@ -251,6 +261,8 @@ export type MedusaCapabilities<
   TCompanyCapability extends CompanyCapability = CompanyCapability,
   TCompanyRegistrationFactory extends CompanyRegistrationFactory = CompanyRegistrationFactory,
   TCompanyRegistrationCapability extends CompanyRegistrationCapability = CompanyRegistrationCapability,
+  TStoreFactory extends StoreFactory = StoreFactory,
+  TStoreCapability extends StoreCapability = StoreCapability,
 > = {
   product?: MedusaCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MedusaCapabilityConfig<
@@ -300,6 +312,7 @@ export type MedusaCapabilities<
     PersonalizationProfileFactoryWithOutput<TPersonalizationProfileFactory>,
     TPersonalizationProfileCapability
   >;
+  store?: MedusaCapabilityConfig<StoreFactoryWithOutput<TStoreFactory>, TStoreCapability>;
 };
 
 export type ParsedMedusaCapabilities = z.infer<typeof MedusaCapabilitiesSchema>;

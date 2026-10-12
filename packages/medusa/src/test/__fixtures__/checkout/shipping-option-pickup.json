@@ -1,0 +1,60 @@
+{
+  "id": "so_pickup_store",
+  "name": "Pick up in store",
+  "price_type": "flat",
+  "service_zone_id": "serzo_pickup",
+  "shipping_profile_id": "sp_default",
+  "provider_id": "manual_manual",
+  "data": null,
+  "type": {
+    "id": "sotype_pickup",
+    "label": "Pickup",
+    "description": "Collect your order at the store",
+    "code": "pickup"
+  },
+  "provider": {
+    "id": "manual_manual",
+    "is_enabled": true
+  },
+  "amount": 0,
+  "prices": [],
+  "calculated_price": {
+    "id": "socp_pickup",
+    "calculated_amount": 0,
+    "original_amount": 0,
+    "currency_code": "eur",
+    "is_calculated_price_price_list": false,
+    "is_calculated_price_tax_inclusive": true,
+    "is_original_price_price_list": false,
+    "is_original_price_tax_inclusive": true,
+    "calculated_amount_with_tax": 0,
+    "calculated_amount_without_tax": 0
+  },
+  "insufficient_inventory": false,
+  "service_zone": {
+    "id": "serzo_pickup",
+    "fulfillment_set_id": "fuset_pickup",
+    "fulfillment_set": {
+      "id": "fuset_pickup",
+      "type": "pickup",
+      "location": {
+        "id": "sloc_copenhagen",
+        "address": {
+          "id": "laddr_copenhagen",
+          "company": "Copenhagen Flagship",
+          "address_1": "Strøget 1",
+          "address_2": null,
+          "city": "Copenhagen",
+          "country_code": "dk",
+          "province": null,
+          "postal_code": "1160",
+          "phone": null,
+          "metadata": null,
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "updated_at": "2026-01-01T00:00:00.000Z",
+          "deleted_at": null
+        }
+      }
+    }
+  }
+}
