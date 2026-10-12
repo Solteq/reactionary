@@ -23,7 +23,9 @@ import type {
   PaymentMethod,
   RequestContext,
   Result,
-  ShippingMethod
+  ShippingMethod,
+  ShippingProtocolData,
+  StoreIdentifier
 } from '@reactionary/core';
 import {
   CheckoutCapability,
@@ -47,7 +49,7 @@ import {
 } from '@reactionary/core';
 import createDebug from 'debug';
 import * as z from 'zod';
-import type { MedusaAPI } from '../core/client.js';
+import { MedusaAdminAPI, type MedusaAPI } from '../core/client.js';
 import type { MedusaCheckoutFactory } from '../factories/checkout/checkout.factory.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
@@ -198,6 +200,10 @@ export class MedusaCheckoutCapability<
   protected getAvailableShippingMethodsPayload(payload: CheckoutQueryForAvailableShippingMethods) {
     return {
       cart_id: payload.checkout.key,
+      // The service zone's fulfillment set tells us whether an option is
+      // in-store pickup (BOPIS) or a delivery; request it explicitly so the
+      // factory can map it to the core fulfillmentType.
+      fields: '*service_zone.fulfillment_set',
     }
   }
 
@@ -404,6 +410,58 @@ export class MedusaCheckoutCapability<
         };
   }
 
+  /**
+   * Serializes the client-set shipping protocol data as a JSON object string
+   * for persistence in the cart metadata, or undefined when none is set.
+   */
+  protected serializeShippingProtocolData(
+    protocolData: ShippingProtocolData[] | undefined,
+  ): string | undefined {
+    if (!protocolData || protocolData.length === 0) {
+      return undefined;
+    }
+    return JSON.stringify(
+      Object.fromEntries(protocolData.map((entry) => [entry.key, entry.value])),
+    );
+  }
+
+  /**
+   * Resolves the shipping address to use for in-store pickup (BOPIS): the
+   * address of the selected store, so the order ships to the store. Returns
+   * undefined when the store or its address is unknown, leaving the cart's
+   * shipping address untouched.
+   */
+  protected async resolveStorePickupAddress(
+    store: StoreIdentifier,
+  ): Promise<Partial<Address> | undefined> {
+    try {
+      const adminClient = await (new MedusaAdminAPI(this.config, this.context).getClient());
+      const response = await adminClient.admin.stockLocation.retrieve(store.key, {
+        fields: '*address',
+      });
+
+      const address = response.stock_location?.address;
+      if (!address) {
+        return undefined;
+      }
+
+      return {
+        firstName: '',
+        lastName: response.stock_location.name,
+        streetAddress: address.address_1 || '',
+        streetNumber: address.address_2 || '',
+        city: address.city || '',
+        postalCode: address.postal_code || '',
+        countryCode: address.country_code || '',
+      };
+    } catch (err) {
+      if (debug.enabled) {
+        debug(`Unable to resolve address for pickup store ${store.key}`, err);
+      }
+      return undefined;
+    }
+  }
+
   @Reactionary({
     inputSchema: CheckoutMutationSetShippingInstructionSchema,
     outputSchema: CheckoutSchema,
@@ -420,14 +478,28 @@ export class MedusaCheckoutCapability<
       }
 
       // for now, we store a backup of the shipping instruction in metadata
-      await client.store.cart.update(medusaId.key, {
+      const cartUpdate: StoreUpdateCart = {
         metadata: {
           consent_for_unattended_delivery:
             payload.shippingInstruction.consentForUnattendedDelivery + '',
           instructions: payload.shippingInstruction.instructions || '',
           pickup_point: payload.shippingInstruction.pickupPoint || '',
+          pickup_store: payload.shippingInstruction.store?.key || '',
+          shipping_protocol_data:
+            this.serializeShippingProtocolData(payload.shippingInstruction.protocolData) || '',
         },
-      });
+      };
+
+      // For in-store pickup (BOPIS), ship the order to the selected store's
+      // address. Carts without a store keep their current behavior.
+      if (payload.shippingInstruction.store?.key) {
+        const storeAddress = await this.resolveStorePickupAddress(payload.shippingInstruction.store);
+        if (storeAddress) {
+          cartUpdate.shipping_address = this.mapAddressToStoreAddress(storeAddress);
+        }
+      }
+
+      await client.store.cart.update(medusaId.key, cartUpdate);
 
       // Get updated cart
       const response = await client.store.cart.retrieve(medusaId.key, {

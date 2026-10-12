@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { StoreCart } from '@medusajs/types';
+import type { StoreCart, StoreCartShippingOptionWithServiceZone } from '@medusajs/types';
 import {
   CheckoutSchema,
   createInitialRequestContext,
@@ -77,5 +77,90 @@ describe('Medusa checkout factory shipping instruction mapping', () => {
 
     expect(checkout.shippingInstruction?.pickupPoint).not.toContain('undefined');
     expect(checkout.shippingInstruction?.instructions).not.toContain('undefined');
+  });
+});
+
+describe('Medusa checkout factory shipping method fulfillment type mapping', () => {
+  const factory = new MedusaCheckoutFactory(
+    CheckoutSchema,
+    ShippingMethodSchema,
+    PaymentMethodSchema,
+  );
+  const context = createInitialRequestContext();
+
+  function readShippingOption(name: string): StoreCartShippingOptionWithServiceZone {
+    return JSON.parse(readFileSync(new URL(name, FIXTURES), 'utf8'));
+  }
+
+  it('tags a shipping option of a pickup fulfillment set as pickup', () => {
+    const method = factory.parseShippingMethod(
+      context,
+      readShippingOption('shipping-option-pickup.json'),
+    );
+
+    expect(method.fulfillmentType).toBe('pickup');
+  });
+
+  it('tags a shipping option of a shipping fulfillment set as delivery', () => {
+    const method = factory.parseShippingMethod(
+      context,
+      readShippingOption('shipping-option-delivery.json'),
+    );
+
+    expect(method.fulfillmentType).toBe('delivery');
+  });
+
+  it('falls back to delivery when the service zone relation was not requested', () => {
+    const option = readShippingOption('shipping-option-delivery.json');
+    delete (option as Partial<StoreCartShippingOptionWithServiceZone>).service_zone;
+
+    const method = factory.parseShippingMethod(context, option);
+
+    expect(method.fulfillmentType).toBe('delivery');
+  });
+});
+
+describe('Medusa checkout factory BOPIS store and protocol data mapping', () => {
+  const factory = new MedusaCheckoutFactory(
+    CheckoutSchema,
+    ShippingMethodSchema,
+    PaymentMethodSchema,
+  );
+  const context = createInitialRequestContext();
+
+  it('maps the pickup store and protocol data from the cart metadata', () => {
+    const cart = readCart('cart-with-shipping-method.json');
+    cart.metadata = {
+      pickup_store: 'sloc_copenhagen',
+      shipping_protocol_data: JSON.stringify({
+        pickupSlot: 'monday-am',
+        window: { from: '10:00', to: '12:00' },
+      }),
+    };
+
+    const checkout = factory.parseCheckout(context, cart);
+
+    expect(checkout.shippingInstruction?.store).toEqual({ key: 'sloc_copenhagen' });
+    expect(checkout.shippingInstruction?.protocolData).toEqual([
+      { key: 'pickupSlot', value: 'monday-am' },
+      { key: 'window', value: { from: '10:00', to: '12:00' } },
+    ]);
+  });
+
+  it('leaves store and protocol data absent when the cart never set them', () => {
+    const checkout = factory.parseCheckout(context, readCart('cart-with-shipping-method.json'));
+
+    expect(checkout.shippingInstruction?.store).toBeUndefined();
+    expect(checkout.shippingInstruction?.protocolData).toBeUndefined();
+  });
+
+  it('prefers the shipping method data over the metadata backup', () => {
+    const cart = readCart('cart-with-shipping-method.json');
+    cart.metadata = { pickup_store: 'sloc_backup' };
+    cart.shipping_methods![0].data = { pickup_store: 'sloc_copenhagen' };
+
+    const checkout = factory.parseCheckout(context, cart);
+
+    expect(checkout.shippingInstruction?.store).toEqual({ key: 'sloc_copenhagen' });
   });
 });

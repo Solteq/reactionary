@@ -1,0 +1,26 @@
+{
+  "id": "sloc_warehouse",
+  "name": "Central Warehouse",
+  "metadata": null,
+  "address_id": "laddr_warehouse",
+  "address": {
+    "id": "laddr_warehouse",
+    "address_1": "Industrivej 12",
+    "address_2": null,
+    "company": null,
+    "country_code": "dk",
+    "city": "Taastrup",
+    "phone": null,
+    "postal_code": "2630",
+    "province": null,
+    "metadata": null
+  },
+  "fulfillment_sets": [
+    {
+      "id": "fuset_shipping",
+      "name": "European shipping",
+      "type": "shipping",
+      "service_zones": []
+    }
+  ]
+}

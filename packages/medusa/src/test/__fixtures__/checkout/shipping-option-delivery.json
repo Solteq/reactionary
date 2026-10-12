@@ -1,0 +1,60 @@
+{
+  "id": "so_standard_delivery",
+  "name": "Standard delivery",
+  "price_type": "flat",
+  "service_zone_id": "serzo_shipping",
+  "shipping_profile_id": "sp_default",
+  "provider_id": "manual_manual",
+  "data": null,
+  "type": {
+    "id": "sotype_standard",
+    "label": "Standard",
+    "description": "Delivered within 2-4 business days",
+    "code": "standard"
+  },
+  "provider": {
+    "id": "manual_manual",
+    "is_enabled": true
+  },
+  "amount": 10,
+  "prices": [],
+  "calculated_price": {
+    "id": "socp_standard",
+    "calculated_amount": 10,
+    "original_amount": 10,
+    "currency_code": "eur",
+    "is_calculated_price_price_list": false,
+    "is_calculated_price_tax_inclusive": true,
+    "is_original_price_price_list": false,
+    "is_original_price_tax_inclusive": true,
+    "calculated_amount_with_tax": 10,
+    "calculated_amount_without_tax": 8
+  },
+  "insufficient_inventory": false,
+  "service_zone": {
+    "id": "serzo_shipping",
+    "fulfillment_set_id": "fuset_shipping",
+    "fulfillment_set": {
+      "id": "fuset_shipping",
+      "type": "shipping",
+      "location": {
+        "id": "sloc_warehouse",
+        "address": {
+          "id": "laddr_warehouse",
+          "company": null,
+          "address_1": "Industrivej 12",
+          "address_2": null,
+          "city": "Taastrup",
+          "country_code": "dk",
+          "province": null,
+          "postal_code": "2630",
+          "phone": null,
+          "metadata": null,
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "updated_at": "2026-01-01T00:00:00.000Z",
+          "deleted_at": null
+        }
+      }
+    }
+  }
+}

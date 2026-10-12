@@ -17,6 +17,7 @@ import type {
   ProductRecommendationsCapability,
   ProductSearchFactory,
   ProfileFactory,
+  StoreFactory,
 } from '@reactionary/core';
 import type { MedusaCapabilities } from '../schema/capabilities.schema.js';
 import type { MedusaCartFactory } from '../factories/cart/cart.factory.js';
@@ -34,6 +35,7 @@ import type { MedusaProductAssociationsFactory } from '../factories/product-asso
 import type { MedusaProductFactory } from '../factories/product/product.factory.js';
 import type { MedusaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import type { MedusaProfileFactory } from '../factories/profile/profile.factory.js';
+import type { MedusaStoreFactory } from '../factories/store/store.factory.js';
 import type { MedusaPersonalizationProfileFactory } from '../factories/personalization-profile/personalization-profile.factory.js';
 import type { MedusaCartCapability } from '../capabilities/cart.capability.js';
 import type { MedusaCategoryCapability } from '../capabilities/category.capability.js';
@@ -50,6 +52,7 @@ import type { MedusaProductAssociationsCapability } from '../capabilities/produc
 import type { MedusaProductCapability } from '../capabilities/product.capability.js';
 import type { MedusaProductSearchCapability } from '../capabilities/product-search.capability.js';
 import type { MedusaProfileCapability } from '../capabilities/profile.capability.js';
+import type { MedusaStoreCapability } from '../capabilities/store.capability.js';
 import type { MedusaPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
 import type { MedusaProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import type { MedusaIdentityCapability } from '../capabilities/identity.capability.js';
@@ -70,7 +73,8 @@ type OverridableCapabilityKey =
   | 'employee'
   | 'employeeInvitation'
   | 'company'
-  | 'companyRegistration';
+  | 'companyRegistration'
+  | 'store';
 
 type EnabledCapability<TCapability> =
   TCapability extends { enabled: true } ? true : false;
@@ -114,6 +118,7 @@ type FactoryContractMap = {
   employeeInvitation: EmployeeInvitationFactory;
   company: CompanyFactory;
   companyRegistration: CompanyRegistrationFactory;
+  store: StoreFactory;
 };
 
 type DefaultFactoryMap = {
@@ -133,6 +138,7 @@ type DefaultFactoryMap = {
   employeeInvitation: MedusaEmployeeInvitationFactory;
   company: MedusaCompanyFactory;
   companyRegistration: MedusaCompanyRegistrationFactory;
+  store: MedusaStoreFactory;
 };
 
 type ResolvedFactoryMap<T extends MedusaCapabilities> = {
@@ -162,6 +168,7 @@ type DefaultCapabilityMap<T extends MedusaCapabilities> = {
   employeeInvitation: MedusaEmployeeInvitationCapability<ResolvedFactoryMap<T>['employeeInvitation']>;
   company: MedusaCompanyCapability<ResolvedFactoryMap<T>['company']>;
   companyRegistration: MedusaCompanyRegistrationCapability<ResolvedFactoryMap<T>['companyRegistration']>;
+  store: MedusaStoreCapability<ResolvedFactoryMap<T>['store']>;
   identity: MedusaIdentityCapability;
   productRecommendations: MedusaProductRecommendationsCapability;
 };

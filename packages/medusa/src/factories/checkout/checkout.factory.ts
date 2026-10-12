@@ -32,9 +32,12 @@ import {
   type PaymentStatus,
   type PointOfContact,
   type RequestContext,
+  type ShippingFulfillmentType,
   type ShippingInstruction,
   type ShippingMethod,
   type ShippingMethodSchema,
+  type ShippingProtocolData,
+  type StoreIdentifier,
 } from '@reactionary/core';
 import type * as z from 'zod';
 import type {
@@ -216,17 +219,31 @@ export class MedusaCheckoutFactory<
       data.metadata?.['pickup_point'] != null
         ? String(data.metadata['pickup_point'])
         : undefined;
+    const backupPickupStore =
+      data.metadata?.['pickup_store'] != null && data.metadata['pickup_store'] !== ''
+        ? String(data.metadata['pickup_store'])
+        : undefined;
+    const backupShippingProtocolData = this.parseShippingProtocolData(
+      data.metadata?.['shipping_protocol_data'],
+    );
 
-    let shippingInstruction;
+    let shippingInstruction: ShippingInstruction | undefined;
     data.shipping_methods?.forEach((sm) => {
       let pickupPoint = '';
       let instructions = '';
       let consentForUnattendedDelivery = false;
+      let pickupStore: string | undefined;
+      let protocolData: ShippingProtocolData[] | undefined;
       if (sm.data) {
         pickupPoint = sm.data['pickup_point'] != null ? String(sm.data['pickup_point']) : '';
         instructions = sm.data['instructions'] != null ? String(sm.data['instructions']) : '';
         consentForUnattendedDelivery =
           sm.data['consent_for_unattended_delivery'] === 'true';
+        pickupStore =
+          sm.data['pickup_store'] != null && sm.data['pickup_store'] !== ''
+            ? String(sm.data['pickup_store'])
+            : undefined;
+        protocolData = this.parseShippingProtocolData(sm.data['shipping_protocol_data']);
       }
 
       if (!pickupPoint) {
@@ -238,14 +255,22 @@ export class MedusaCheckoutFactory<
       if (!consentForUnattendedDelivery) {
         consentForUnattendedDelivery = backupUnattendedDelivery || false;
       }
+      if (!pickupStore) {
+        pickupStore = backupPickupStore;
+      }
+      if (!protocolData) {
+        protocolData = backupShippingProtocolData;
+      }
 
       // currently Medusa only supports one shipping method per cart
       shippingInstruction = {
-        shippingMethod: { key: sm.shipping_option_id },
+        shippingMethod: { key: sm.shipping_option_id || '' },
         consentForUnattendedDelivery,
         instructions,
         pickupPoint,
-      };
+        store: pickupStore ? ({ key: pickupStore } satisfies StoreIdentifier) : undefined,
+        protocolData,
+      } satisfies ShippingInstruction;
     });
 
     const paymentInstructions = new Array<PaymentInstruction>();
@@ -325,9 +350,56 @@ export class MedusaCheckoutFactory<
           data.calculated_price.currency_code?.toUpperCase() as Currency || _context.languageContext.currencyCode ,
       } satisfies MonetaryAmount),
       deliveryTime: '',
+      fulfillmentType: this.parseFulfillmentType(_context, data),
     } satisfies ShippingMethod;
 
     return this.shippingMethodSchema.parse(sm);
+  }
+
+  /**
+   * Extension point to control how a Medusa shipping option maps to the core
+   * fulfillment type. A shipping option belonging to a fulfillment set of type
+   * "pickup" is in-store pickup (BOPIS); everything else is a delivery.
+   */
+  protected parseFulfillmentType(
+    _context: RequestContext,
+    data: StoreCartShippingOptionWithServiceZone,
+  ): ShippingFulfillmentType {
+    return data.service_zone?.fulfillment_set?.type === 'pickup'
+      ? 'pickup'
+      : 'delivery';
+  }
+
+  /**
+   * Parses shipping protocol data persisted as a JSON object string (keys
+   * mapping to string or JSON-object values) back into protocol data entries.
+   * Returns undefined when nothing (valid) is stored, keeping the field absent
+   * for carts that never set it.
+   */
+  protected parseShippingProtocolData(raw: unknown): ShippingProtocolData[] | undefined {
+    if (typeof raw !== 'string' || raw.length === 0) {
+      return undefined;
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return undefined;
+      }
+
+      const entries: ShippingProtocolData[] = [];
+      for (const [key, value] of Object.entries(parsed)) {
+        if (typeof value === 'string') {
+          entries.push({ key, value });
+        } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          entries.push({ key, value: value as Record<string, unknown> });
+        }
+      }
+
+      return entries.length > 0 ? entries : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
 

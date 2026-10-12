@@ -15,3 +15,4 @@ export * from './product-associations/product-associations.factory.js';
 export * from './product-search/product-search.factory.js';
 export * from './profile/profile.factory.js';
 export * from './personalization-profile/personalization-profile.factory.js';
+export * from './store/store.factory.js';

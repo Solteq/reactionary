@@ -5,6 +5,11 @@ import type {
   ShippingRate as CTShippingRate,
 } from '@commercetools/platform-sdk';
 import { PROTOCOL_DATA_FIELD, serializeProtocolData } from '../core/payment-protocol-data.js';
+import {
+  PICKUP_STORE_FIELD,
+  SHIPPING_PROTOCOL_DATA_FIELD,
+  serializeShippingProtocolData,
+} from '../core/shipping-protocol-data.js';
 import type {
   Cache,
   CheckoutFactory,
@@ -511,6 +516,23 @@ export class CommercetoolsCheckoutCapability<
       name: 'pickupPointId',
       value: payload.shippingInstruction.pickupPoint,
     });
+
+    // BOPIS: persist the selected own-brand pickup store and any protocol
+    // data, but only when set, so carts without them are untouched.
+    if (payload.shippingInstruction.store?.key) {
+      actions.push({
+        action: 'setCustomField',
+        name: PICKUP_STORE_FIELD,
+        value: payload.shippingInstruction.store.key,
+      });
+    }
+    if (payload.shippingInstruction.protocolData && payload.shippingInstruction.protocolData.length > 0) {
+      actions.push({
+        action: 'setCustomField',
+        name: SHIPPING_PROTOCOL_DATA_FIELD,
+        value: serializeShippingProtocolData(payload.shippingInstruction.protocolData),
+      });
+    }
 
     const result = await this.applyActions(
       payload.checkout as CommercetoolsCheckoutIdentifier,

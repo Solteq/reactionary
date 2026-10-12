@@ -1,0 +1,37 @@
+{
+  "id": "sm-store-pickup",
+  "version": 1,
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "lastModifiedAt": "2026-01-01T00:00:00.000Z",
+  "key": "store-pickup",
+  "name": "Pick up in store",
+  "localizedDescription": {
+    "en": "Collect your order at one of our stores"
+  },
+  "taxCategory": {
+    "typeId": "tax-category",
+    "id": "tax-standard"
+  },
+  "zoneRates": [
+    {
+      "zone": {
+        "typeId": "zone",
+        "id": "zone-eu"
+      },
+      "shippingRates": [
+        {
+          "price": {
+            "type": "centPrecision",
+            "currencyCode": "EUR",
+            "centAmount": 0,
+            "fractionDigits": 2
+          },
+          "tiers": [],
+          "isMatching": true
+        }
+      ]
+    }
+  ],
+  "active": true,
+  "isDefault": false
+}
