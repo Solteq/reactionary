@@ -1,6 +1,5 @@
 import {
   type Cache,
-  type GenericError,
   type NotFoundError,
   Reactionary,
   type RequestContext,
@@ -98,19 +97,54 @@ export class HclStoreCapability<
     return success(this.factory.parseStore(this.context, store));
   }
 
+  /**
+   * A radius in kilometers that covers the entire globe from any origin: the
+   * maximum great-circle distance between two points on Earth is ~20,015 km.
+   */
+  protected getGlobalRadiusKm(): number {
+    return 25000;
+  }
+
   @Reactionary({
     inputSchema: StoreQueryForListSchema,
     outputSchema: StorePaginatedResultSchema,
   })
   public override async list(
-    _payload: StoreQueryForList,
+    payload: StoreQueryForList,
   ): Promise<Result<StorePaginatedResult>> {
-    // The HCL store locator only exposes geo and id based lookups; there is
-    // no endpoint listing all physical stores. Use queryByProximity instead.
-    return error<GenericError>({
-      type: 'Generic',
-      message:
-        'The hcl store capability does not support listing all stores: the store locator only exposes geo and id based lookups. Use queryByProximity() instead.',
+    // The HCL store locator only exposes geo and id based lookups, so the
+    // list is synthesized as a proximity search from (0, 0) with a
+    // globe-covering radius, paged via the standard WCS record-set
+    // parameters.
+    const response = await this.client.callGet<HclStoreLocatorResponse>(
+      this.getStoreListUrl(payload),
+      this.getStoreListParams(payload),
+      { allowUndefined: true },
+    );
+
+    const { pageNumber, pageSize } = payload.paginationOptions;
+
+    const physicalStores = response?.PhysicalStore ?? [];
+    const requestedPageStart = (pageNumber - 1) * pageSize;
+
+    // Defensive: if the endpoint ignored the pagination parameters and
+    // returned a larger record set, page it client-side instead.
+    const pageStores =
+      physicalStores.length > pageSize
+        ? physicalStores.slice(requestedPageStart, requestedPageStart + pageSize)
+        : physicalStores;
+
+    const reportedTotal = Number(response?.recordSetTotal);
+    const totalCount = Number.isFinite(reportedTotal)
+      ? reportedTotal
+      : physicalStores.length;
+
+    return success({
+      pageNumber,
+      pageSize,
+      totalCount,
+      totalPages: Math.ceil(totalCount / pageSize),
+      items: pageStores.map((store) => this.factory.parseStore(this.context, store)),
     });
   }
 
@@ -120,6 +154,20 @@ export class HclStoreCapability<
 
   protected getStoreByIdUrl(payload: StoreQueryById): string {
     return `${this.client.transactionBaseUrl}/storelocator/byStoreId/${encodeURIComponent(payload.identifier.key)}`;
+  }
+
+  protected getStoreListUrl(_payload: StoreQueryForList): string {
+    return `${this.client.transactionBaseUrl}/storelocator/latitude/0/longitude/0`;
+  }
+
+  protected getStoreListParams(payload: StoreQueryForList): URLSearchParams {
+    const params = new URLSearchParams();
+    params.set('radius', String(this.getGlobalRadiusKm()));
+    params.set('radiusUOM', 'km');
+    params.set('siteLevelStoreSearch', 'false');
+    params.set('pageNumber', String(payload.paginationOptions.pageNumber));
+    params.set('pageSize', String(payload.paginationOptions.pageSize));
+    return params;
   }
 
   protected getStoreLocatorUrl(payload: StoreQueryByProximity): string {
