@@ -1,7 +1,6 @@
 import type { AdminStockLocation } from '@medusajs/types';
 import type {
   Cache,
-  GenericError,
   NotFoundError,
   RequestContext,
   Result,
@@ -29,6 +28,7 @@ import * as z from 'zod';
 import { MedusaAdminAPI, type MedusaAPI } from '../core/client.js';
 import type { MedusaStoreFactory } from '../factories/store/store.factory.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
+import { haversineDistanceKm } from '../utils/geo.js';
 
 const debug = createDebug('reactionary:medusa:store');
 
@@ -136,21 +136,40 @@ export class MedusaStoreCapability<
     const adminClient = await new MedusaAdminAPI(this.config, this.context).getClient();
 
     try {
-      const response = await adminClient.admin.stockLocation.retrieve(payload.id.key, {
+      const response = await adminClient.admin.stockLocation.retrieve(payload.identifier.key, {
         fields: this.stockLocationFields,
       });
 
       if (!response.stock_location || !this.isPickupLocation(response.stock_location)) {
-        return error<NotFoundError>({ type: 'NotFound', identifier: payload.id });
+        return error<NotFoundError>({ type: 'NotFound', identifier: payload.identifier });
       }
 
       return success(this.factory.parseStore(this.context, response.stock_location));
     } catch (err) {
       if (debug.enabled) {
-        debug(`Error fetching stock location ${payload.id.key}`, err);
+        debug(`Error fetching stock location ${payload.identifier.key}`, err);
       }
-      return error<NotFoundError>({ type: 'NotFound', identifier: payload.id });
+      return error<NotFoundError>({ type: 'NotFound', identifier: payload.identifier });
     }
+  }
+
+  /**
+   * Extension point resolving a stock location's geo coordinates. Medusa
+   * stock locations carry no first-class coordinates, so by default they are
+   * read from the location metadata keys `latitude` and `longitude`. Returns
+   * undefined when the location has no usable coordinates.
+   */
+  protected parseLocationCoordinates(
+    location: AdminStockLocation,
+  ): { latitude: number; longitude: number } | undefined {
+    const latitude = Number(location.metadata?.['latitude']);
+    const longitude = Number(location.metadata?.['longitude']);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return undefined;
+    }
+
+    return { latitude, longitude };
   }
 
   @Reactionary({
@@ -158,14 +177,38 @@ export class MedusaStoreCapability<
     outputSchema: z.array(StoreSchema),
   })
   public override async queryByProximity(
-    _payload: StoreQueryByProximity,
+    payload: StoreQueryByProximity,
   ): Promise<Result<Array<StoreFactoryOutput<TFactory>>>> {
-    // Medusa stock locations carry no geo coordinates, so proximity search is
-    // not supported for this provider. Use list() instead.
-    return error<GenericError>({
-      type: 'Generic',
-      message:
-        'The medusa store capability does not support proximity queries: stock locations have no geo coordinates. Use list() instead.',
-    });
+    // Medusa has no server-side geo search, so the distance is calculated
+    // client-side (haversine) from coordinates in the stock location
+    // metadata. Locations without coordinates cannot match and are skipped.
+    const pickupLocations = await this.fetchPickupLocations();
+
+    const withinDistance: Array<{ location: AdminStockLocation; distance: number }> = [];
+    for (const location of pickupLocations) {
+      const coordinates = this.parseLocationCoordinates(location);
+      if (!coordinates) {
+        continue;
+      }
+
+      const distance = haversineDistanceKm(
+        payload.latitude,
+        payload.longitude,
+        coordinates.latitude,
+        coordinates.longitude,
+      );
+
+      if (distance <= payload.distance) {
+        withinDistance.push({ location, distance });
+      }
+    }
+
+    withinDistance.sort((a, b) => a.distance - b.distance);
+
+    return success(
+      withinDistance
+        .slice(0, payload.limit)
+        .map((entry) => this.factory.parseStore(this.context, entry.location)),
+    );
   }
 }

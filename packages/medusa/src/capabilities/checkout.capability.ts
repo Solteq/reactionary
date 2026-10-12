@@ -91,6 +91,17 @@ export class MedusaCheckoutCapability<
    */
   protected includedFields: string = ['+items.*', '+order.id','+order.display_id', '+order.custom_display_id'].join(',');
 
+  /**
+   * This controls which fields are requested for the cart's shipping options.
+   * You can override this in a subclass to add more fields as needed.
+   *
+   * The service zone's fulfillment set tells us whether an option is in-store
+   * pickup (BOPIS) or a delivery, and the option metadata lets medusa-side
+   * providers push additional data that is mapped to the shipping method's
+   * protocolData.
+   */
+  protected shippingOptionFields: string = ['*service_zone.fulfillment_set', '+metadata'].join(',');
+
 
 
   constructor(
@@ -200,10 +211,7 @@ export class MedusaCheckoutCapability<
   protected getAvailableShippingMethodsPayload(payload: CheckoutQueryForAvailableShippingMethods) {
     return {
       cart_id: payload.checkout.key,
-      // The service zone's fulfillment set tells us whether an option is
-      // in-store pickup (BOPIS) or a delivery; request it explicitly so the
-      // factory can map it to the core fulfillmentType.
-      fields: '*service_zone.fulfillment_set',
+      fields: this.shippingOptionFields,
     }
   }
 

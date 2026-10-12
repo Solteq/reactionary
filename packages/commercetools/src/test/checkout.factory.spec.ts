@@ -8,15 +8,16 @@ import {
   createInitialRequestContext,
 } from '@reactionary/core';
 import { CommercetoolsCheckoutFactory } from '../factories/checkout/checkout.factory.js';
+import { resolveShippingFulfillmentType } from '../core/shipping-fulfillment.js';
 import {
   parseShippingProtocolDataField,
   serializeShippingProtocolData,
 } from '../core/shipping-protocol-data.js';
 
 /**
- * Offline tests for mapping commercetools shipping methods, focused on the
- * BOPIS (buy online, pickup in store) fulfillment type tagging driven by the
- * `bopis.shippingMethodKeys` configuration.
+ * Offline tests for the BOPIS (buy online, pickup in store) fulfillment type
+ * resolution driven by the `bopis.shippingMethodKeys` configuration, and the
+ * shipping protocol data custom-field round-trip.
  */
 const FIXTURES = new URL('./__fixtures__/checkout/', import.meta.url);
 
@@ -24,36 +25,28 @@ function readShippingMethod(name: string): CTShippingMethod {
   return JSON.parse(readFileSync(new URL(name, FIXTURES), 'utf8'));
 }
 
-describe('Commercetools checkout factory fulfillment type tagging', () => {
-  const context = createInitialRequestContext();
+describe('Commercetools shipping fulfillment type resolution', () => {
+  const bopisKeys = ['store-pickup', 'another-pickup'];
 
-  const factoryWithBopis = new CommercetoolsCheckoutFactory(
-    CheckoutSchema,
-    ShippingMethodSchema,
-    PaymentMethodSchema,
-    { bopisShippingMethodKeys: ['store-pickup', 'another-pickup'] },
-  );
+  it('resolves a shipping method listed in bopis.shippingMethodKeys as pickup', () => {
+    const method = readShippingMethod('shipping-method-store-pickup.json');
 
-  it('tags a shipping method listed in bopis.shippingMethodKeys as pickup', () => {
-    const method = factoryWithBopis.parseShippingMethod(
-      context,
-      readShippingMethod('shipping-method-store-pickup.json'),
-    );
-
-    expect(method.fulfillmentType).toBe('pickup');
+    expect(resolveShippingFulfillmentType(method, bopisKeys)).toBe('pickup');
   });
 
-  it('tags a shipping method not listed in bopis.shippingMethodKeys as delivery', () => {
-    const method = factoryWithBopis.parseShippingMethod(
-      context,
-      readShippingMethod('shipping-method-standard.json'),
-    );
+  it('resolves a shipping method not listed in bopis.shippingMethodKeys as delivery', () => {
+    const method = readShippingMethod('shipping-method-standard.json');
 
-    expect(method.fulfillmentType).toBe('delivery');
-    expect(method.price).toEqual({ value: 4.95, currency: 'EUR' });
+    expect(resolveShippingFulfillmentType(method, bopisKeys)).toBe('delivery');
   });
 
-  it('tags everything as delivery when no bopis configuration is given', () => {
+  it('resolves everything as delivery when no bopis configuration is given', () => {
+    const method = readShippingMethod('shipping-method-store-pickup.json');
+
+    expect(resolveShippingFulfillmentType(method, undefined)).toBe('delivery');
+  });
+
+  it('keeps the factory parsing configuration-free', () => {
     const factory = new CommercetoolsCheckoutFactory(
       CheckoutSchema,
       ShippingMethodSchema,
@@ -61,11 +54,12 @@ describe('Commercetools checkout factory fulfillment type tagging', () => {
     );
 
     const method = factory.parseShippingMethod(
-      context,
-      readShippingMethod('shipping-method-store-pickup.json'),
+      createInitialRequestContext(),
+      readShippingMethod('shipping-method-standard.json'),
     );
 
-    expect(method.fulfillmentType).toBe('delivery');
+    expect(method.fulfillmentType).toBeUndefined();
+    expect(method.price).toEqual({ value: 4.95, currency: 'EUR' });
   });
 });
 

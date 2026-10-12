@@ -121,7 +121,7 @@ export type CapabilityDescriptor = {
     factory?: any;
     capability?: (args: any) => any;
   } | undefined;
-  createDefaultFactory: (config?: CommercetoolsConfiguration) => any;
+  createDefaultFactory: () => any;
   createDefaultCapability: (args: any) => any;
 };
 
@@ -287,12 +287,11 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
   checkout: {
     isEnabled: (caps) => caps.checkout?.enabled,
     getOverride: (caps) => caps.checkout,
-    createDefaultFactory: (config) =>
+    createDefaultFactory: () =>
       new CommercetoolsCheckoutFactory(
         CheckoutSchema,
         ShippingMethodSchema,
         PaymentMethodSchema,
-        { bopisShippingMethodKeys: config?.bopis?.shippingMethodKeys },
       ),
     createDefaultCapability: (args) =>
       new CommercetoolsCheckoutCapability(
