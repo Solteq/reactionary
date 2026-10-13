@@ -40,6 +40,7 @@ describe('Medusa product compliance parsing', () => {
       compliance_data_ce_marking: 'true',
       compliance_data_weee_symbol: false,
       compliance_data_energy_class: 'A',
+      compliance_data_energy_class_range: 'A++-G',
       compliance_data_garan_duration: '36',
       compliance_data_eprel_registration_number: '1390628',
       compliance_data_eprel_product_group: 'spaceheaters',
@@ -49,6 +50,7 @@ describe('Medusa product compliance parsing', () => {
       ce_marking: true,
       weee_symbol: false,
       energy_class: 'A',
+      energy_class_range: 'A++-G',
       garan_duration: 36,
       eprel_registration_number: '1390628',
       eprel_product_group: 'spaceheaters',
@@ -71,9 +73,11 @@ describe('Medusa product compliance parsing', () => {
     const result = parseProductSearchComplianceData({ metadata: {
       compliance_data_eprel_registration_number: '../../etc/passwd',
       compliance_data_eprel_product_group: 'space heaters?x=1',
+      compliance_data_energy_class_range: '<script>',
     } });
     expect(result.eprel_registration_number).toBeUndefined();
     expect(result.eprel_product_group).toBeUndefined();
+    expect(result.energy_class_range).toBeUndefined();
   });
 
   it('uses schema defaults when metadata is absent', () => {
