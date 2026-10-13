@@ -97,11 +97,11 @@ export class MedusaCheckoutCapability<
    * You can override this in a subclass to add more fields as needed.
    *
    * The service zone's fulfillment set tells us whether an option is in-store
-   * pickup (BOPIS) or a delivery, and the option metadata lets medusa-side
-   * providers push additional data that is mapped to the shipping method's
-   * protocolData.
+   * pickup (BOPIS) or a delivery, and the option data is the fulfillment
+   * provider's payload (e.g. nShift option/carrier ids) that is mapped to the
+   * shipping method's protocolData.
    */
-  protected shippingOptionFields: string = ['*service_zone.fulfillment_set', '+metadata'].join(',');
+  protected shippingOptionFields: string = ['*service_zone.fulfillment_set', '+data'].join(',');
 
 
 

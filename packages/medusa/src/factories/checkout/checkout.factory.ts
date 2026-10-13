@@ -360,6 +360,7 @@ export class MedusaCheckoutFactory<
           data.calculated_price.currency_code?.toUpperCase() as Currency || _context.languageContext.currencyCode ,
       } satisfies MonetaryAmount),
       deliveryTime: '',
+      carrier: this.parseShippingMethodCarrier(_context, data),
       fulfillmentType: this.parseFulfillmentType(_context, data),
       protocolData: this.mergeShippingMethodProtocolData(
         this.parseShippingMethodProtocolData(_context, data),
@@ -426,22 +427,41 @@ export class MedusaCheckoutFactory<
   }
 
   /**
-   * Extension point mapping a Medusa shipping option's metadata to the
-   * shipping method's protocolData, so medusa-side providers can push
-   * additional data (e.g. available pickup time slots) that reaches the
-   * client. String and JSON-object values are kept as-is, other primitives
-   * are stringified, and arrays/null entries are skipped.
+   * Extension point mapping a Medusa shipping option's `data` - the payload
+   * the fulfillment provider works with (e.g. nShift's option/carrier ids) -
+   * to the shipping method's protocolData, so provider-protocol data reaches
+   * the client. String and JSON-object values are kept as-is, other
+   * primitives are stringified, and arrays/null entries are skipped.
+   *
+   * Option `metadata` is deliberately NOT mapped: it is merchant free-form
+   * annotation, not protocol data. Override this hook to surface it.
    */
   protected parseShippingMethodProtocolData(
     _context: RequestContext,
     data: MedusaShippingOptionWithMetadata,
   ): ShippingProtocolData[] | undefined {
-    if (!data.metadata) {
+    if (!data.data) {
       return undefined;
     }
 
+    const entries = this.convertToProtocolDataEntries(data.data);
+    return entries.length > 0 ? entries : undefined;
+  }
+
+  /**
+   * Converts a Medusa key-value record into protocol data entries: string and
+   * JSON-object values are kept as-is, other primitives are stringified, and
+   * arrays/null entries are skipped. Keys listed in skipKeys are left out.
+   */
+  protected convertToProtocolDataEntries(
+    record: Record<string, unknown>,
+    skipKeys: readonly string[] = [],
+  ): ShippingProtocolData[] {
     const entries: ShippingProtocolData[] = [];
-    for (const [key, value] of Object.entries(data.metadata)) {
+    for (const [key, value] of Object.entries(record)) {
+      if (skipKeys.includes(key)) {
+        continue;
+      }
       if (typeof value === 'string') {
         entries.push({ key, value });
       } else if (typeof value === 'number' || typeof value === 'boolean') {
@@ -450,8 +470,19 @@ export class MedusaCheckoutFactory<
         entries.push({ key, value });
       }
     }
+    return entries;
+  }
 
-    return entries.length > 0 ? entries : undefined;
+  /**
+   * Extension point resolving the carrier of a shipping option from its
+   * provider data (e.g. nShift's carrier_id), when present.
+   */
+  protected parseShippingMethodCarrier(
+    _context: RequestContext,
+    data: MedusaShippingOptionWithMetadata,
+  ): string | undefined {
+    const carrierId = data.data?.['carrier_id'];
+    return typeof carrierId === 'string' && carrierId.length > 0 ? carrierId : undefined;
   }
 
   /**
