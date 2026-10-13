@@ -23,4 +23,5 @@ export interface MeilisearchNativeRecord {
   name?: string;
   variants: Array<MeilisearchNativeVariant>;
   complianceData?: ProductSearchResultItemComplianceData;
+  canAddToCartDirectly?: boolean;
 }

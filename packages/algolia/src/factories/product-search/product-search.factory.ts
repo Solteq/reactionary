@@ -108,14 +108,16 @@ export class AlgoliaProductSearchFactory<
   }
 
   protected parseSingle(body: AlgoliaNativeRecord): ProductSearchResultItem {
+    const variants = [...(body.variants || [])].map((variant) =>
+      this.parseVariant(variant, body),
+    );
     return {
       identifier: { key: body.objectID },
       name: body.name || body.objectID,
       slug: body.slug || body.objectID,
       complianceData: this.parseComplianceData(body),
-      variants: [...(body.variants || [])].map((variant) =>
-        this.parseVariant(variant, body),
-      ),
+      canAddToCartDirectly: body.canAddToCartDirectly ?? variants.length === 1,
+      variants,
     } satisfies ProductSearchResultItem;
   }
 

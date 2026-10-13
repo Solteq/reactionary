@@ -181,6 +181,7 @@ export function buildProductSearchResultItem(
       getCustomAttribute(product, 'url_key') ??
       getCustomAttribute(product, 'url_path') ??
       '',
+    canAddToCartDirectly: variants.length === 1,
     variants,
     complianceData: buildProductComplianceData(product),
   } satisfies ProductSearchResultItem;

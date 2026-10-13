@@ -102,6 +102,7 @@ export class CommercetoolsProductSearchFactory<
       name,
       slug,
       complianceData: this.parseComplianceData(data),
+      canAddToCartDirectly: variants.length === 1,
       variants,
     } satisfies ProductSearchResultItem;
 

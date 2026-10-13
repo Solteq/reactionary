@@ -163,12 +163,14 @@ export class MeilisearchProductSearchCapability<
   }
 
   protected parseSingle(body: MeilisearchNativeRecord) {
+    const variants = [...(body.variants || [])].map(variant => this.parseVariant(variant, body));
     const product = {
       identifier: { key: body.objectID },
       name: body.name || body.objectID,
       slug: body.slug || body.objectID,
       complianceData: this.parseComplianceData(body),
-      variants: [...(body.variants || [])].map(variant => this.parseVariant(variant, body)),
+      canAddToCartDirectly: body.canAddToCartDirectly ?? variants.length === 1,
+      variants,
     } satisfies ProductSearchResultItem;
 
     return product;

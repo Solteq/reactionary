@@ -25,4 +25,5 @@ export interface AlgoliaNativeRecord {
   name?: string;
   variants: Array<AlgoliaNativeVariant>;
   complianceData?: ProductSearchResultItemComplianceData;
+  canAddToCartDirectly?: boolean;
 }
