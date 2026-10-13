@@ -24,7 +24,7 @@ export function getAlgoliaTestConfiguration() {
     appId: process.env['ALGOLIA_APP_ID'] || '',
     indexName: process.env['ALGOLIA_INDEX'] || '',
     useRecommendationsForBots: process.env['ALGOLIA_USE_RECOMMENDATIONS_FOR_BOTS'] === 'true',
-    useBaseIndexNameForEnglishLocale: true,
+    useBaseIndexNameForEnglishLocale: false,
   } satisfies AlgoliaConfiguration;
 }
 
