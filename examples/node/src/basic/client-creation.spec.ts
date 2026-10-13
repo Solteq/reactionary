@@ -42,7 +42,7 @@ describe('client creation', () => {
             appId: '',
             indexName: '',
             useRecommendationsForBots: false,
-            useBaseIndexNameForEnglishLocale: true,
+            useBaseIndexNameForEnglishLocale: false,
         }, { productSearch: { enabled: true } })
       )
       .withCache(new NoOpCache())
