@@ -23,6 +23,19 @@ export const ShippingProtocolDataSchema = z.looseObject({
     value: z.union([z.string(), z.record(z.string(), z.json())]).meta({ description: 'The protocol-specific value: either a plain string, or a JSON-serializable object for richer structures.' }),
 });
 
+/**
+ * Conventional, cross-provider keys for shipping protocol data entries.
+ * Providers emit these keys when the concept applies, so clients can consume
+ * them without provider-specific knowledge.
+ */
+export const SHIPPING_PROTOCOL_DATA_KEYS = {
+  /**
+   * The identifier (Store.identifier.key) of the brand's own store an
+   * in-store pickup (BOPIS) shipping method is fulfilled from.
+   */
+  pickupStore: 'pickup_store',
+} as const;
+
 export const PickupPointSchema = z.looseObject({
     identifier: z.object({
         key: z.string()
@@ -45,7 +58,7 @@ export const ShippingMethodSchema = z.looseObject({
     deliveryTime: z.string(),
     carrier: z.string().optional(),
     fulfillmentType: ShippingFulfillmentTypeSchema.optional().meta({ description: 'How this shipping method fulfills the order: "delivery" for shipment to an address (including third-party carrier service points selected via the shipping instruction\'s pickupPoint), "pickup" for collection at one of the brand\'s own stores (BOPIS). When absent, "delivery" can be assumed.' }),
-    protocolData: z.array(ShippingProtocolDataSchema).optional().meta({ description: 'Additional provider-populated, protocol-specific data for this shipping method, e.g. available pickup time slots.' }),
+    protocolData: z.array(ShippingProtocolDataSchema).optional().meta({ description: 'Additional provider-populated, protocol-specific data for this shipping method, e.g. available pickup time slots. Conventional keys (see SHIPPING_PROTOCOL_DATA_KEYS) include "pickup_store": the identifier of the brand\'s own store a pickup method is fulfilled from.' }),
 });
 
 export const ShippingInstructionSchema = BaseModelSchema.extend({
