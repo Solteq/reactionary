@@ -13,6 +13,8 @@ export const ProductComplianceDataSchema = z.looseObject({
   weee_symbol: z.boolean().default(false).meta({ description: 'Indicates whether the WEEE symbol can be shown on the product' }),
   energy_class: z.string().optional().meta({ description: 'The energy class of the product, as required by EU regulations. A,B,C,D,E,F,G, etc' }),
   garan_duration: z.number().optional().meta({ description: 'The duration of the guarantee in months as by the EU Garan scheme. Only set if above 24.' }),
+  eprel_registration_number: z.string().optional().meta({ description: 'The EPREL registration number of the product model (digits only, up to 19). Together with eprel_product_group it identifies the official EU energy label and class arrow.' }),
+  eprel_product_group: z.string().optional().meta({ description: 'The EPREL product group URL code the model is registered under, e.g. "spaceheaters" or "localspaceheaters".' }),
 
   safety_warnings: z.string().optional().meta({ description: 'Any safety warnings associated with the product as required by EU regulations.' }),
   composition: z.string().optional().meta({ description: 'The composition of the product as required by EU regulations.' }),

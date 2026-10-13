@@ -5,6 +5,18 @@ import {
 } from '@reactionary/core';
 import { safeBoolConvert, safeStringConvert } from './medusa-helpers.js';
 
+/** EPREL registration numbers are digits only (up to 19). Anything else is dropped rather than passed on. */
+function parseEprelRegistrationNumber(value: unknown): string | undefined {
+  const text = safeStringConvert(value)?.trim();
+  return text && /^\d{1,19}$/.test(text) ? text : undefined;
+}
+
+/** EPREL product group URL codes are lowercase alphanumerics, e.g. "spaceheaters". */
+function parseEprelProductGroup(value: unknown): string | undefined {
+  const text = safeStringConvert(value)?.trim().toLowerCase();
+  return text && /^[a-z0-9]{1,64}$/.test(text) ? text : undefined;
+}
+
 export function parseProductSearchComplianceData(
   product: Pick<StoreProduct, 'metadata'>,
 ): ProductSearchResultItemComplianceData {
@@ -22,6 +34,8 @@ export function parseProductSearchComplianceData(
        (duration === undefined || !Number.isFinite(Number(duration)))
          ? undefined
          : Number(duration),
+    eprel_registration_number: parseEprelRegistrationNumber(metadata['compliance_data_eprel_registration_number']),
+    eprel_product_group: parseEprelProductGroup(metadata['compliance_data_eprel_product_group']),
     is_organic: safeBoolConvert(metadata['compliance_data_organic_is_organic']),
     organic_certification_type: safeStringConvert(metadata['compliance_data_organic_certification_type']),
   });
