@@ -192,6 +192,7 @@ export class MedusaProductFactory<
       ce_marking: shared.ce_marking,
       weee_symbol: shared.weee_symbol,
       energy_class: shared.energy_class,
+      energy_class_range: shared.energy_class_range,
       garan_duration: shared.garan_duration,
       eprel_registration_number: shared.eprel_registration_number,
       eprel_product_group: shared.eprel_product_group,
