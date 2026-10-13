@@ -1,4 +1,4 @@
-import type { StoreAddCartShippingMethods, StoreCalculatedPrice, StoreInitializePaymentSession, StoreUpdateCart } from '@medusajs/types';
+import type { StoreAddCartShippingMethods, StoreCalculatedPrice, StoreInitializePaymentSession, StoreOrder, StoreUpdateCart } from '@medusajs/types';
 import type {
   Address,
   Cache,
@@ -51,7 +51,8 @@ import type { MedusaAPI } from '../core/client.js';
 import type { MedusaCheckoutFactory } from '../factories/checkout/checkout.factory.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import {
-  type MedusaCartIdentifier
+  type MedusaCartIdentifier,
+  type MedusaOrderIdentifier
 } from '../schema/medusa.schema.js';
 import { handleProviderError, isNotFoundFetchError } from '../utils/medusa-helpers.js';
 const debug = createDebug('reactionary:medusa:checkout');
@@ -156,7 +157,9 @@ export class MedusaCheckoutCapability<
       const response = await client.store.cart.retrieve(payload.identifier.key, {
         fields: this.includedFields,
       });
-      return success(this.factory.parseCheckout(this.context, response.cart));
+      return success(
+        this.hydrateResultingOrder(this.factory.parseCheckout(this.context, response.cart)),
+      );
     } catch (err) {
       if (isNotFoundFetchError(err)) {
         return error<NotFoundError>({
@@ -470,16 +473,35 @@ export class MedusaCheckoutCapability<
       const client = await this.medusaApi.getClient();
       const medusaId = payload.checkout as CheckoutIdentifier;
 
+      // Stamp the cart's own id into its metadata so Medusa's completion
+      // copies it onto the created order. Write-only for now: nothing reads
+      // it back yet, it is recorded for future order-to-cart correlation.
+      await client.store.cart.update(medusaId.key, {
+        metadata: {
+          cart_id: medusaId.key,
+        },
+      });
+
       // Complete the cart to create an order
       const response = await client.store.cart.complete(medusaId.key);
 
       if (response.type === 'order') {
-        // lets persist this on the carts metadata for future reference
+        // The completion response already carries the full order. Newer
+        // Medusa versions no longer expose the cart->order relation on the
+        // store cart endpoint (the +order.* fields come back empty), so this
+        // is the authoritative source for the resulting order; remember it in
+        // the session so later checkout reads can hydrate it too.
+        const resultingOrder = this.parseCompletedOrderIdentifier(response.order);
+        this.rememberFinalizedOrder(medusaId.key, resultingOrder);
+
         checkout = await this.getById({
           identifier: payload.checkout,
         });
         if (!checkout.success) {
           throw new Error(`Unable to reload checkout ${payload.checkout.key} after completion`);
+        }
+        if (!checkout.value.resultingOrder) {
+          checkout = success({ ...checkout.value, resultingOrder });
         }
       } else {
         throw new Error(`Failed to finalize checkout ${payload.checkout.key}. Expected order, got ${response.type}`);
@@ -502,6 +524,62 @@ export class MedusaCheckoutCapability<
       });
     }
     return success(checkout.value);
+  }
+
+  /**
+   * Builds the order identifier from a completed-cart response's order,
+   * following the same display-id precedence as the checkout factory
+   * (custom_display_id over display_id).
+   */
+  protected parseCompletedOrderIdentifier(
+    order: StoreOrder & { custom_display_id?: string | number },
+  ): MedusaOrderIdentifier {
+    const rawDisplayId = order.custom_display_id ?? order.display_id;
+    const displayId = rawDisplayId != null ? Number(`${rawDisplayId}`) : undefined;
+
+    return {
+      key: order.id,
+      display_id: displayId != null && Number.isFinite(displayId) ? displayId : undefined,
+    } satisfies MedusaOrderIdentifier;
+  }
+
+  /**
+   * Remembers which order a finalized cart produced, so later checkout reads
+   * in the same session can report the resulting order even when the Medusa
+   * store cart endpoint does not expose the cart->order relation.
+   */
+  protected rememberFinalizedOrder(
+    cartKey: string,
+    order: MedusaOrderIdentifier,
+  ): void {
+    const sessionData = this.medusaApi.getSessionData();
+    this.medusaApi.setSessionData({
+      finalizedOrders: {
+        ...(sessionData.finalizedOrders || {}),
+        [cartKey]: order,
+      },
+    });
+  }
+
+  /**
+   * Fills in a missing resultingOrder from the session's finalized-orders map.
+   * Checkouts that already carry a resulting order (older Medusa versions
+   * still hydrate the +order.* fields) are returned unchanged.
+   */
+  protected hydrateResultingOrder(
+    checkout: CheckoutFactoryCheckoutOutput<TFactory>,
+  ): CheckoutFactoryCheckoutOutput<TFactory> {
+    if (checkout.resultingOrder) {
+      return checkout;
+    }
+
+    const remembered =
+      this.medusaApi.getSessionData().finalizedOrders?.[checkout.identifier.key];
+    if (!remembered) {
+      return checkout;
+    }
+
+    return { ...checkout, resultingOrder: remembered };
   }
 
   /**
