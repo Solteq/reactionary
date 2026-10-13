@@ -12,6 +12,7 @@ import {
 import {
   AddressIdentifierSchema,
   MonetaryAmountSchema,
+  SHIPPING_PROTOCOL_DATA_KEYS,
   ShippingMethodIdentifierSchema,
   type Address,
   type AddressIdentifier,
@@ -360,10 +361,54 @@ export class MedusaCheckoutFactory<
       } satisfies MonetaryAmount),
       deliveryTime: '',
       fulfillmentType: this.parseFulfillmentType(_context, data),
-      protocolData: this.parseShippingMethodProtocolData(_context, data),
+      protocolData: this.mergeShippingMethodProtocolData(
+        this.parseShippingMethodProtocolData(_context, data),
+        this.parseShippingMethodStoreReference(_context, data),
+      ),
     } satisfies ShippingMethod;
 
     return this.shippingMethodSchema.parse(sm);
+  }
+
+  /**
+   * Appends a conventional entry to the provider-derived protocol data,
+   * unless the provider data already carries the same key (explicit provider
+   * data wins).
+   */
+  protected mergeShippingMethodProtocolData(
+    protocolData: ShippingProtocolData[] | undefined,
+    entry: ShippingProtocolData | undefined,
+  ): ShippingProtocolData[] | undefined {
+    if (!entry) {
+      return protocolData;
+    }
+    if ((protocolData ?? []).some((existing) => existing.key === entry.key)) {
+      return protocolData;
+    }
+    return [...(protocolData ?? []), entry];
+  }
+
+  /**
+   * Extension point emitting the conventional "pickup_store" protocol data
+   * entry for in-store pickup options: the stock location id of the service
+   * zone's fulfillment set, which equals the store capability's
+   * Store.identifier.key. Delivery options also carry a location (the
+   * warehouse), so the entry is emitted for pickup options only.
+   */
+  protected parseShippingMethodStoreReference(
+    _context: RequestContext,
+    data: MedusaShippingOptionWithMetadata,
+  ): ShippingProtocolData | undefined {
+    if (this.parseFulfillmentType(_context, data) !== 'pickup') {
+      return undefined;
+    }
+
+    const locationId = data.service_zone?.fulfillment_set?.location?.id;
+    if (!locationId) {
+      return undefined;
+    }
+
+    return { key: SHIPPING_PROTOCOL_DATA_KEYS.pickupStore, value: locationId };
   }
 
   /**

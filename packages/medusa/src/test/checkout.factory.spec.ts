@@ -137,6 +137,7 @@ describe('Medusa checkout factory shipping method fulfillment type mapping', () 
       { key: 'pickup_slots', value: { monday: ['10:00', '14:00'] } },
       { key: 'carrier_hint', value: 'own-fleet' },
       { key: 'max_parcels', value: '3' },
+      { key: 'pickup_store', value: 'sloc_copenhagen' },
     ]);
   });
 
@@ -192,5 +193,53 @@ describe('Medusa checkout factory BOPIS store and protocol data mapping', () => 
     const checkout = factory.parseCheckout(context, cart);
 
     expect(checkout.shippingInstruction?.store).toEqual({ key: 'sloc_copenhagen' });
+  });
+});
+
+describe('Medusa checkout factory pickup_store protocol data', () => {
+  const factory = new MedusaCheckoutFactory(
+    CheckoutSchema,
+    ShippingMethodSchema,
+    PaymentMethodSchema,
+  );
+  const context = createInitialRequestContext();
+
+  function readShippingOption(name: string): MedusaShippingOptionWithMetadata {
+    return JSON.parse(readFileSync(new URL(name, FIXTURES), 'utf8'));
+  }
+
+  it('emits the pickup store reference for a pickup option', () => {
+    const method = factory.parseShippingMethod(
+      context,
+      readShippingOption('shipping-option-pickup.json'),
+    );
+
+    expect(method.protocolData).toContainEqual({
+      key: 'pickup_store',
+      value: 'sloc_copenhagen',
+    });
+  });
+
+  it('never emits a store reference for a delivery option, although it has a location', () => {
+    const method = factory.parseShippingMethod(
+      context,
+      readShippingOption('shipping-option-delivery.json'),
+    );
+
+    expect(
+      (method.protocolData ?? []).find((entry) => entry.key === 'pickup_store'),
+    ).toBeUndefined();
+  });
+
+  it('lets explicit provider data win over the derived store reference', () => {
+    const option = readShippingOption('shipping-option-pickup.json');
+    option.metadata = { pickup_store: 'sloc_other' };
+
+    const method = factory.parseShippingMethod(context, option);
+
+    const storeEntries = (method.protocolData ?? []).filter(
+      (entry) => entry.key === 'pickup_store',
+    );
+    expect(storeEntries).toEqual([{ key: 'pickup_store', value: 'sloc_other' }]);
   });
 });
