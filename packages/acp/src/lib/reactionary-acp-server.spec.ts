@@ -2013,6 +2013,7 @@ function createProductSearchResult(): ProductSearchResult {
         identifier: { key: 'product-1' },
         name: 'Test product',
         slug: 'test-product',
+        canAddToCartDirectly: true,
         variants: [
           {
             variant: { sku: 'sku-1' },

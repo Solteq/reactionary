@@ -922,6 +922,7 @@ function createSearchItem(index: number): ProductSearchResult['items'][number] {
     },
     name: 'Search product',
     slug: 'search-product',
+    canAddToCartDirectly: true,
     variants: [
       {
         variant: {
