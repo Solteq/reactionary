@@ -193,6 +193,8 @@ export class MedusaProductFactory<
       weee_symbol: shared.weee_symbol,
       energy_class: shared.energy_class,
       garan_duration: shared.garan_duration,
+      eprel_registration_number: shared.eprel_registration_number,
+      eprel_product_group: shared.eprel_product_group,
 
       safety_warnings: safeStringConvert(body.metadata?.['compliance_data_safety_warnings']),
       composition: safeStringConvert(body.metadata?.['compliance_data_composition']),

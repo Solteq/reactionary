@@ -41,6 +41,8 @@ describe('Medusa product compliance parsing', () => {
       compliance_data_weee_symbol: false,
       compliance_data_energy_class: 'A',
       compliance_data_garan_duration: '36',
+      compliance_data_eprel_registration_number: '1390628',
+      compliance_data_eprel_product_group: 'spaceheaters',
       compliance_data_organic_is_organic: 'true',
       compliance_data_organic_certification_type: 'EU_ORGANIC_LEAF',
     } })).toMatchObject({
@@ -48,9 +50,30 @@ describe('Medusa product compliance parsing', () => {
       weee_symbol: false,
       energy_class: 'A',
       garan_duration: 36,
+      eprel_registration_number: '1390628',
+      eprel_product_group: 'spaceheaters',
       is_organic: true,
       organic_certification_type: 'EU_ORGANIC_LEAF',
     });
+  });
+
+  it('accepts numeric EPREL registration numbers and normalises the product group', () => {
+    expect(parseProductSearchComplianceData({ metadata: {
+      compliance_data_eprel_registration_number: 1390666,
+      compliance_data_eprel_product_group: ' LocalSpaceHeaters ',
+    } })).toMatchObject({
+      eprel_registration_number: '1390666',
+      eprel_product_group: 'localspaceheaters',
+    });
+  });
+
+  it('drops malformed EPREL identifiers instead of passing them on', () => {
+    const result = parseProductSearchComplianceData({ metadata: {
+      compliance_data_eprel_registration_number: '../../etc/passwd',
+      compliance_data_eprel_product_group: 'space heaters?x=1',
+    } });
+    expect(result.eprel_registration_number).toBeUndefined();
+    expect(result.eprel_product_group).toBeUndefined();
   });
 
   it('uses schema defaults when metadata is absent', () => {
@@ -68,12 +91,16 @@ describe('Medusa product compliance parsing', () => {
         compliance_data_ce_marking: 'true',
         compliance_data_organic_is_organic: 'true',
         compliance_data_garan_duration: '36',
+        compliance_data_eprel_registration_number: '1390628',
+        compliance_data_eprel_product_group: 'spaceheaters',
         compliance_data_traceability_manufacturer_name: 'Manufacturer',
       },
     });
 
     expect(result.ce_marking).toBe(true);
     expect(result.garan_duration).toBe(36);
+    expect(result.eprel_registration_number).toBe('1390628');
+    expect(result.eprel_product_group).toBe('spaceheaters');
     expect(result.organic?.is_organic).toBe(true);
     expect(result.traceability?.manufacturer.name).toBe('Manufacturer');
   });
