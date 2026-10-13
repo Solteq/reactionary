@@ -72,6 +72,7 @@ class TestProductSearchCapability extends BaseCapability {
           identifier: { key: 'product-1' },
           name: 'Test product',
           slug: 'test-product',
+          canAddToCartDirectly: false,
           variants: [],
         },
       ],
