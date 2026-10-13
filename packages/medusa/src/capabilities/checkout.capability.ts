@@ -90,7 +90,7 @@ export class MedusaCheckoutCapability<
    *
    * example: this.includedFields = [includedFields, '+discounts.*'].join(',');
    */
-  protected includedFields: string = ['+items.*', '+order.id','+order.display_id', '+order.custom_display_id'].join(',');
+  protected includedFields: string = ['+items.*', '+order.id','+order.display_id', '+order.custom_display_id', '+shipping_methods.data'].join(',');
 
   /**
    * This controls which fields are requested for the cart's shipping options.
@@ -411,14 +411,27 @@ export class MedusaCheckoutCapability<
   }
 
   protected setShippingInstructionPayload(payload: CheckoutMutationSetShippingInstruction): StoreAddCartShippingMethods {
+    const data: Record<string, unknown> = {
+      consent_for_unattended_delivery:
+        payload.shippingInstruction.consentForUnattendedDelivery + '',
+      instructions: payload.shippingInstruction.instructions || '',
+    };
+
+    // Client-set protocol data travels on the shipping method's own data,
+    // where the backend merges it into the persisted provider payload (e.g.
+    // the chosen nShift service point agent). The selected third-party
+    // service point rides along the same channel.
+    for (const entry of payload.shippingInstruction.protocolData ?? []) {
+      data[entry.key] = entry.value;
+    }
+    if (payload.shippingInstruction.pickupPoint) {
+      data['pickup_point'] = payload.shippingInstruction.pickupPoint;
+    }
+
     return {
-          option_id: payload.shippingInstruction.shippingMethod.key,
-          data: {
-            consent_for_unattended_delivery:
-              payload.shippingInstruction.consentForUnattendedDelivery + '',
-            instructions: payload.shippingInstruction.instructions || '',
-          },
-        };
+      option_id: payload.shippingInstruction.shippingMethod.key,
+      data,
+    };
   }
 
   /**
