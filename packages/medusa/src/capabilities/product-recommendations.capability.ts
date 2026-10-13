@@ -143,6 +143,7 @@ export class MedusaProductRecommendationsCapability extends ProductRecommendatio
        identifier,
        name,
        slug,
+       canAddToCartDirectly: (_body.variants?.length ?? 0) === 1,
        variants,
        complianceData: this.buildProductComplianceData(_body),
      } satisfies ProductSearchResultItem;

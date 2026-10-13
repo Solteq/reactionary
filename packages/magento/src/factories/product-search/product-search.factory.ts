@@ -107,6 +107,7 @@ export class MagentoProductSearchFactory<
       identifier,
       name,
       slug,
+      canAddToCartDirectly: variants.length === 1,
       variants,
       complianceData: this.parseComplianceData(product),
     } satisfies ProductSearchResultItem;

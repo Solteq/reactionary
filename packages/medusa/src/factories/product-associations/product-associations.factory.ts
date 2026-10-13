@@ -50,6 +50,7 @@ export class MedusaProductAssociationsFactory<
       identifier,
       name,
       slug,
+      canAddToCartDirectly: (data.product.variants?.length ?? 0) === 1,
       variants,
       complianceData: this.parseComplianceData(data.product),
     } satisfies ProductSearchResultItem;

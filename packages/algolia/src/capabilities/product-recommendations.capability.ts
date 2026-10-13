@@ -270,11 +270,13 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
 
 
     protected parseSearchResultItem(body: AlgoliaNativeRecord): ProductSearchResultItem {
+      const variants = [ ... (body.variants || []) ].map(variant => this.parseVariant(variant, body));
       const product = {
         identifier: { key: body.objectID },
         name: body.name || body.objectID,
         slug: body.slug || body.objectID,
-        variants: [ ... (body.variants || []) ].map(variant => this.parseVariant(variant, body)),
+        canAddToCartDirectly: body.canAddToCartDirectly ?? variants.length === 1,
+        variants,
         complianceData: this.parseComplianceData(body),
       } satisfies ProductSearchResultItem;
 

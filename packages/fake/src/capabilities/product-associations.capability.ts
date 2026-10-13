@@ -138,6 +138,7 @@ export class FakeProductAssociationsCapability<
         identifier: { key },
         name: `Fake ${type} ${i + 1} for ${baseProductKey}`,
         slug: key,
+        canAddToCartDirectly: true,
         variants: [{
           variant: { sku: `${key}-variant` },
           image: {

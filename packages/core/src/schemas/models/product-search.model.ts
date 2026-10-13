@@ -27,6 +27,7 @@ export const ProductSearchResultItemSchema = BaseModelSchema.extend({
     name: z.string(),
     slug: z.string(),
     complianceData: ProductSearchResultItemComplianceDataSchema.optional().meta({ description: 'Compliance data for the product as required by EU regulations.' }),
+    canAddToCartDirectly: z.boolean().default(false).meta({ description: 'Whether the storefront may render an add-to-cart button for this product directly on a PLP. When false, the customer must always visit the PDP first, e.g. for regulatory reasons or as a business decision. Set by the indexer where the search provider supports it; otherwise providers default it to true only when the product has exactly one variant.' }),
     variants: z.array(ProductSearchResultItemVariantSchema).meta({ description: 'A list of variants associated with the product in the search results. If exactly one is present, you can use add-to-cart directly from PLP. If none are present, you must direct to PDP. If mulitple are present, and no options are set, you must direct to PDP. If multiple are present, and they have options, you can render swatches on PLP and allow customer to flip between variants.' }),
 });
 

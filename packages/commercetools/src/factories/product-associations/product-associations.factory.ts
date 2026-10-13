@@ -62,6 +62,7 @@ export class CommercetoolsProductAssociationsFactory<
       identifier: { key: data.id },
       name: data.name[localeStr] || data.id,
       slug: data.slug?.[localeStr] || data.id,
+      canAddToCartDirectly: variants.length === 1,
       variants,
       complianceData: this.buildProductComplianceData(data),
     } satisfies ProductSearchResultItem;

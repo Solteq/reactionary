@@ -87,6 +87,7 @@ export class MedusaProductSearchFactory<
       name,
       slug,
       complianceData: complianceData,
+      canAddToCartDirectly: (data.variants?.length ?? 0) === 1,
       variants,
     } satisfies ProductSearchResultItem;
 

@@ -89,6 +89,7 @@ export class HclProductSearchFactory<
       identifier: { key: p.partNumber },
       name: p.name ?? '',
       slug,
+      canAddToCartDirectly: variants.length === 1,
       variants,
       complianceData: this.parseComplianceData(p),
     } satisfies ProductSearchResultItem;
