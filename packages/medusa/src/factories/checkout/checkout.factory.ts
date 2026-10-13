@@ -253,7 +253,7 @@ export class MedusaCheckoutFactory<
           sm.data['pickup_store'] != null && sm.data['pickup_store'] !== ''
             ? String(sm.data['pickup_store'])
             : undefined;
-        protocolData = this.parseShippingProtocolData(sm.data['shipping_protocol_data']);
+        protocolData = this.parseInstructionProtocolData(sm.data);
       }
 
       if (!pickupPoint) {
@@ -483,6 +483,47 @@ export class MedusaCheckoutFactory<
   ): string | undefined {
     const carrierId = data.data?.['carrier_id'];
     return typeof carrierId === 'string' && carrierId.length > 0 ? carrierId : undefined;
+  }
+
+  /**
+   * The persisted shipping method data keys that are NOT surfaced as
+   * instruction protocol data: keys already represented as first-class
+   * instruction fields, the legacy JSON blob, and provider-side values that
+   * would mislead (nShift's data.price is not the charged amount).
+   */
+  protected instructionProtocolDataSkipKeys: readonly string[] = [
+    'pickup_store',
+    'pickup_point',
+    'instructions',
+    'consent_for_unattended_delivery',
+    'shipping_protocol_data',
+    'price',
+    'currency_code',
+  ];
+
+  /**
+   * Builds the shipping instruction's protocolData from the persisted
+   * shipping method data: the provider payload enriched by the backend (e.g.
+   * nShift's session_id, carrier ids and optional delivery_time) merged with
+   * whatever the client sent when setting the instruction. First-class and
+   * misleading keys are skipped; the legacy shipping_protocol_data JSON blob
+   * still contributes entries whose keys are not already present.
+   */
+  protected parseInstructionProtocolData(
+    smData: Record<string, unknown>,
+  ): ShippingProtocolData[] | undefined {
+    const entries = this.convertToProtocolDataEntries(
+      smData,
+      this.instructionProtocolDataSkipKeys,
+    );
+
+    for (const legacyEntry of this.parseShippingProtocolData(smData['shipping_protocol_data']) ?? []) {
+      if (!entries.some((entry) => entry.key === legacyEntry.key)) {
+        entries.push(legacyEntry);
+      }
+    }
+
+    return entries.length > 0 ? entries : undefined;
   }
 
   /**
