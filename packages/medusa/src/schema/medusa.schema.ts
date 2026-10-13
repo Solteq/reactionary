@@ -30,6 +30,7 @@ export const MedusaSessionSchema = z.looseObject({
   expires: z.string().optional(),
   allRegions: z.array(MedusaRegionSchema).optional(),
   selectedRegion: MedusaRegionSchema.optional(),
+  finalizedOrders: z.record(z.string(), MedusaOrderIdentifierSchema).optional().meta({ description: 'Orders created by finalizing a checkout in this session, keyed by the originating cart id. Lets checkout reads report the resulting order when the Medusa store cart endpoint does not expose the cart-to-order relation.' }),
 });
 
 
