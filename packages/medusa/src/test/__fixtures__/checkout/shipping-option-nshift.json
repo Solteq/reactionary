@@ -1,0 +1,68 @@
+{
+  "id": "so_nshift_postnord_collect",
+  "name": "Postnord Mypack Collect",
+  "price_type": "calculated",
+  "service_zone_id": "serzo_shipping_fi",
+  "shipping_profile_id": "sp_default",
+  "provider_id": "nshift_nshift",
+  "data": {
+    "id": "pan-nordic-749",
+    "name": "Postnord Mypack Collect",
+    "option_id": "pan-nordic-749",
+    "carrier_id": "Postnord",
+    "carrier_name": "PostNord",
+    "carrier_product_id": "749",
+    "carrier_product_name": "Postnord Mypack Collect"
+  },
+  "type": {
+    "id": "sotype_parcelshop",
+    "label": "Parcelshop",
+    "description": "Delivered to a service point near you",
+    "code": "parcelshop"
+  },
+  "provider": {
+    "id": "nshift_nshift",
+    "is_enabled": true
+  },
+  "amount": 5.9,
+  "prices": [],
+  "calculated_price": {
+    "id": "socp_nshift_postnord",
+    "calculated_amount": 5.9,
+    "original_amount": 5.9,
+    "currency_code": "eur",
+    "is_calculated_price_price_list": false,
+    "is_calculated_price_tax_inclusive": true,
+    "is_original_price_price_list": false,
+    "is_original_price_tax_inclusive": true,
+    "calculated_amount_with_tax": 5.9,
+    "calculated_amount_without_tax": 4.76
+  },
+  "insufficient_inventory": false,
+  "service_zone": {
+    "id": "serzo_shipping_fi",
+    "fulfillment_set_id": "fuset_shipping",
+    "fulfillment_set": {
+      "id": "fuset_shipping",
+      "type": "shipping",
+      "location": {
+        "id": "sloc_warehouse",
+        "address": {
+          "id": "laddr_warehouse",
+          "company": null,
+          "address_1": "Industrivej 12",
+          "address_2": null,
+          "city": "Taastrup",
+          "country_code": "dk",
+          "province": null,
+          "postal_code": "2630",
+          "phone": null,
+          "metadata": null,
+          "created_at": "2026-01-01T00:00:00.000Z",
+          "updated_at": "2026-01-01T00:00:00.000Z",
+          "deleted_at": null
+        }
+      }
+    }
+  }
+}

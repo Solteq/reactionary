@@ -122,32 +122,49 @@ describe('Medusa checkout factory shipping method fulfillment type mapping', () 
     expect(method.fulfillmentType).toBe('delivery');
   });
 
-  it('maps the shipping option metadata to the shipping method protocolData', () => {
-    const option: MedusaShippingOptionWithMetadata = readShippingOption('shipping-option-pickup.json');
-    option.metadata = {
-      pickup_slots: { monday: ['10:00', '14:00'] },
-      carrier_hint: 'own-fleet',
-      max_parcels: 3,
-      ignored_null: null,
-    };
-
-    const method = factory.parseShippingMethod(context, option);
+  it('maps the shipping option data (the provider payload) to the shipping method protocolData', () => {
+    const method = factory.parseShippingMethod(
+      context,
+      readShippingOption('shipping-option-nshift.json'),
+    );
 
     expect(method.protocolData).toEqual([
-      { key: 'pickup_slots', value: { monday: ['10:00', '14:00'] } },
-      { key: 'carrier_hint', value: 'own-fleet' },
-      { key: 'max_parcels', value: '3' },
-      { key: 'pickup_store', value: 'sloc_copenhagen' },
+      { key: 'id', value: 'pan-nordic-749' },
+      { key: 'name', value: 'Postnord Mypack Collect' },
+      { key: 'option_id', value: 'pan-nordic-749' },
+      { key: 'carrier_id', value: 'Postnord' },
+      { key: 'carrier_name', value: 'PostNord' },
+      { key: 'carrier_product_id', value: '749' },
+      { key: 'carrier_product_name', value: 'Postnord Mypack Collect' },
     ]);
   });
 
-  it('leaves protocolData absent when the shipping option has no metadata', () => {
+  it('populates the carrier from the provider data', () => {
+    const method = factory.parseShippingMethod(
+      context,
+      readShippingOption('shipping-option-nshift.json'),
+    );
+
+    expect(method.carrier).toBe('Postnord');
+  });
+
+  it('no longer maps the shipping option metadata to protocolData', () => {
+    const option: MedusaShippingOptionWithMetadata = readShippingOption('shipping-option-delivery.json');
+    option.metadata = { internal_note: 'merchant annotation' };
+
+    const method = factory.parseShippingMethod(context, option);
+
+    expect(method.protocolData).toBeUndefined();
+  });
+
+  it('leaves protocolData and carrier absent when the shipping option has no data', () => {
     const method = factory.parseShippingMethod(
       context,
       readShippingOption('shipping-option-delivery.json'),
     );
 
     expect(method.protocolData).toBeUndefined();
+    expect(method.carrier).toBeUndefined();
   });
 });
 
@@ -233,7 +250,7 @@ describe('Medusa checkout factory pickup_store protocol data', () => {
 
   it('lets explicit provider data win over the derived store reference', () => {
     const option = readShippingOption('shipping-option-pickup.json');
-    option.metadata = { pickup_store: 'sloc_other' };
+    option.data = { pickup_store: 'sloc_other' };
 
     const method = factory.parseShippingMethod(context, option);
 
