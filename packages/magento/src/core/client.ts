@@ -86,6 +86,28 @@ export class RequestContextTokenStore implements MagentoCustomStorage {
   }
 }
 
+const CUSTOMER_TOKEN_KEY = 'customerToken';
+
+/**
+ * Seeds a Magento customer bearer token onto a request context, e.g. one
+ * restored from the storefront's own session store. A `MagentoClient` built
+ * from this context then authenticates customer calls with it, exactly as
+ * after `login()`.
+ */
+export async function setMagentoCustomerToken(
+  context: RequestContext,
+  token: string
+): Promise<void> {
+  await new RequestContextTokenStore(context).setItem(CUSTOMER_TOKEN_KEY, token);
+}
+
+/** Returns the Magento customer bearer token on a request context, if any. */
+export async function getMagentoCustomerToken(
+  context: RequestContext
+): Promise<string | null> {
+  return new RequestContextTokenStore(context).getItem(CUSTOMER_TOKEN_KEY);
+}
+
 class MagentoRest {
   protected apiUrl: string;
   constructor(
@@ -229,12 +251,12 @@ export class Magento {
       const normalized =
         typeof token === 'string' ? token.replace(/^"|"$/g, '') : String(token);
 
-      await this.tokenStore.setItem('customerToken', normalized);
+      await this.tokenStore.setItem(CUSTOMER_TOKEN_KEY, normalized);
       return normalized;
     },
 
     logout: async () => {
-      await this.tokenStore.removeItem('customerToken');
+      await this.tokenStore.removeItem(CUSTOMER_TOKEN_KEY);
     },
   };
 
@@ -522,7 +544,7 @@ export class MagentoClient {
     const authHeader = async () => {
       const headers: Record<string, string> = {};
 
-      const customerToken = await this.tokenStore.getItem('customerToken');
+      const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
       if (customerToken) {
         headers['Authorization'] = `Bearer ${customerToken}`;
         return headers;
@@ -585,7 +607,7 @@ export class MagentoClient {
   }
 
   async getCustomerToken(): Promise<string | null> {
-    return this.tokenStore.getItem('customerToken');
+    return this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
   }
 
   async getActiveCartId(): Promise<string | null> {
@@ -685,49 +707,49 @@ export class MagentoClient {
 
   async createCart() {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.cart.create(customerToken);
   }
 
   async getCart(cartId?: string | null) {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.cart.get(cartId, customerToken);
   }
 
   async getCartTotals(cartId?: string | null) {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.cart.getTotals(cartId, customerToken);
   }
 
   async addItemToCart(cartId: string | null, item: any) {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.cart.addItem(cartId, item, customerToken);
   }
 
   async updateCartItem(cartId: string | null, itemId: number, item: any) {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.cart.updateItem(cartId, itemId, item, customerToken);
   }
 
   async removeCartItem(cartId: string | null, itemId: number) {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.cart.removeItem(cartId, itemId, customerToken);
   }
 
   async applyCoupon(cartId: string | null, couponCode: string) {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.cart.applyCoupon(cartId, couponCode, customerToken);
   }
 
   async removeCoupon(cartId: string | null) {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.cart.removeCoupon(cartId, customerToken);
   }
 
@@ -736,13 +758,13 @@ export class MagentoClient {
     address: MagentoCheckoutAddress,
   ): Promise<MagentoShippingMethod[]> {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.checkout.estimateShippingMethods(cartId, address, customerToken);
   }
 
   async getPaymentMethods(cartId: string | null): Promise<MagentoPaymentMethod[]> {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.checkout.getPaymentMethods(cartId, customerToken);
   }
 
@@ -751,7 +773,7 @@ export class MagentoClient {
     payload: MagentoShippingInformationPayload,
   ): Promise<MagentoShippingInformationResult> {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.checkout.setShippingInformation(cartId, payload, customerToken);
   }
 
@@ -760,7 +782,7 @@ export class MagentoClient {
     address: MagentoCheckoutAddress,
   ): Promise<number> {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.checkout.setBillingAddress(cartId, address, customerToken);
   }
 
@@ -769,7 +791,7 @@ export class MagentoClient {
     payload: MagentoPlaceOrderPayload,
   ): Promise<number> {
     const client = await this.getClient();
-    const customerToken = await this.tokenStore.getItem('customerToken');
+    const customerToken = await this.tokenStore.getItem(CUSTOMER_TOKEN_KEY);
     return client.store.checkout.placeOrder(cartId, payload, customerToken);
   }
 
