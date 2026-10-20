@@ -1,0 +1,22 @@
+{
+  "id": "cart_01TEST",
+  "region_id": "reg_01",
+  "currency_code": "eur",
+  "total": 100,
+  "item_subtotal": 90,
+  "shipping_total": 10,
+  "tax_total": 0,
+  "discount_total": 0,
+  "email": "shopper@example.com",
+  "items": [],
+  "metadata": {},
+  "shipping_methods": [
+    {
+      "id": "sm_01",
+      "cart_id": "cart_01TEST",
+      "shipping_option_id": "so_standard",
+      "amount": 10,
+      "data": {}
+    }
+  ]
+}

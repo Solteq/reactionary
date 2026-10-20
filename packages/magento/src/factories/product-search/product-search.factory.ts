@@ -1,5 +1,6 @@
 import {
   ImageSchema,
+  ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
   ProductVariantIdentifierSchema,
   type AnyProductSearchResultSchema,
@@ -7,6 +8,7 @@ import {
   type ProductSearchQueryByTerm,
   type ProductSearchResult,
   type ProductSearchResultItem,
+  type ProductSearchResultItemComplianceData,
   type ProductSearchResultItemVariant,
   type ProductSearchResultSchema,
   type ProductVariantIdentifier,
@@ -80,6 +82,10 @@ export class MagentoProductSearchFactory<
     return this.productSearchResultSchema.parse(result);
   }
 
+  protected parseComplianceData(product: MagentoProduct): ProductSearchResultItemComplianceData {
+    return ProductSearchResultItemComplianceDataSchema.parse({});
+  }
+
   protected parseProductSearchResultItem(
     _context: RequestContext,
     product: MagentoProduct,
@@ -101,7 +107,9 @@ export class MagentoProductSearchFactory<
       identifier,
       name,
       slug,
+      canAddToCartDirectly: variants.length === 1,
       variants,
+      complianceData: this.parseComplianceData(product),
     } satisfies ProductSearchResultItem;
   }
 

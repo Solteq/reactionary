@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# Runs the official UCP conformance suite against the reactionary UCP server.
+#
+# Everything Python lives inside a Docker image (see Dockerfile); the host only
+# needs Docker, Node and the workspace's .env with commercetools credentials.
+#
+# Usage:
+#   examples/node/conformance/run-ucp-conformance.sh [--refresh] [pytest args]
+#
+#   --refresh   re-clone the latest conformance suite into the image
+#   pytest args are passed through, e.g. checkout_lifecycle_test.py -k totals
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+PORT="${UCP_CONFORMANCE_PORT:-8787}"
+IMAGE=reactionary-ucp-conformance
+REPORT="$ROOT/tmp/ucp-conformance-report.txt"
+
+REFRESH=0
+PYTEST_ARGS=()
+for arg in "$@"; do
+  if [ "$arg" = "--refresh" ]; then
+    REFRESH="$(date +%s)"
+  else
+    PYTEST_ARGS+=("$arg")
+  fi
+done
+
+command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
+
+echo "Building conformance image..."
+docker build --quiet --build-arg "REFRESH=$REFRESH" -t "$IMAGE" "$SCRIPT_DIR"
+
+# Start the UCP express server against commercetools only, listening on all
+# interfaces and advertising a discovery endpoint the container can reach.
+export ENABLED_COMMERCETOOLS=true
+export ENABLED_FAKE=false ENABLED_MAGENTO=false ENABLED_MEDUSA=false
+export ENABLED_ALGOLIA=false ENABLED_MEILISEARCH=false ENABLED_UNOMI=false
+export UCP_HOST=0.0.0.0
+export UCP_PORT="$PORT"
+export UCP_ENDPOINT="http://host.docker.internal:$PORT/ucp"
+# Stripe card instruments must carry a delegated token credential (e.g. a
+# Stripe PaymentMethod); raw card numbers are refused (payment guide:
+# available_instruments request_constraints).
+UCP_PAYMENT_HANDLERS_JSON="$(cat <<'JSON'
+{
+  "dev.reactionary.manual": [{ "version": "2026-08-25", "id": "manual" }],
+  "com.stripe": [{
+    "version": "2026-08-25",
+    "id": "stripe",
+    "available_instruments": [{
+      "type": "card",
+      "ucp": {
+        "request_constraints": {
+          "path": "$['payment']['instruments'][?@['handler_id'] == 'stripe' && @['type'] == 'card']",
+          "required": ["credential"],
+          "properties": {
+            "credential": {
+              "required": ["type", "token"],
+              "properties": { "type": { "const": "token" } }
+            }
+          }
+        }
+      }
+    }]
+  }]
+}
+JSON
+)"
+export UCP_PAYMENT_HANDLERS_JSON
+# The suite places orders without a buyer (post-order tests need a completed
+# order); the reference merchant accepts anonymous completion, so the harness
+# opts in. The server logs a warning banner while this is set.
+export UCP_ANONYMOUS_ORDER_EMAIL='conformance@checkout.invalid'
+# The AP2, token binding and card credential tests hardcode the suite's
+# mock_payment_handler; complete those through the Stripe handler with the
+# matching Stripe test PaymentMethods. The server logs a warning banner.
+export UCP_CONFORMANCE_MOCK_PAYMENT_DELEGATE=stripe
+# Stripe test PaymentMethods authorize synchronously; should one not, answer
+# complete_in_progress well within the suite's 5s HTTP client timeout rather
+# than polling the default 10s.
+export UCP_PAYMENT_AUTHORIZATION_WAIT_MS=3000
+# Check line items against the online fulfillment channel's stock, so the
+# suite's out-of-stock and excess-quantity tests get out_of_stock errors.
+export UCP_INVENTORY_FULFILLMENT_CENTER_KEYS=OnlineFfmChannel
+# The order tests post fulfillment events and adjustments with PUT /orders,
+# which is not part of the spec; accept them. The server logs a warning banner.
+export UCP_TEST_ORDER_UPDATES=true
+# Order webhooks go to the suite's receiver on localhost:8284, discovered
+# through its agent profile on localhost:8285 (both published from the
+# container below), so plain-http URLs are allowed. Deliveries are signed
+# with a key generated for this run and published in the business profile.
+export UCP_WEBHOOKS_ENABLED=true
+export UCP_WEBHOOKS_ALLOW_INSECURE_URLS=true
+# Most tests place orders while no webhook receiver runs; with the default
+# retry schedule (up to 5 minutes) those deliveries would land on the
+# receivers of later webhook tests and skew their delivery counts.
+export UCP_WEBHOOK_RETRY_DELAYS_MS=500,1000
+UCP_SIGNING_KEY_JWK="$(node -e '
+  const { generateKeyPairSync } = require("node:crypto");
+  const jwk = generateKeyPairSync("ec", { namedCurve: "P-256" }).privateKey.export({ format: "jwk" });
+  console.log(JSON.stringify({ ...jwk, kid: "conformance-" + Date.now() }));
+')"
+export UCP_SIGNING_KEY_JWK
+# The suite triggers order updates through /testing/simulate-shipping with a
+# shared secret. The server logs a warning banner.
+SIMULATION_SECRET="$(node -e 'console.log(require("node:crypto").randomUUID())')"
+export UCP_TEST_SIMULATION_SECRET="$SIMULATION_SECRET"
+
+echo "Starting UCP server on port $PORT..."
+cd "$ROOT/examples/node"
+node --loader @swc-node/register/esm src/ucp-express-server.ts &
+SERVER_PID=$!
+trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+for _ in $(seq 1 60); do
+  curl -fsS "http://127.0.0.1:$PORT/.well-known/ucp" >/dev/null 2>&1 && break
+  sleep 1
+done
+curl -fsS "http://127.0.0.1:$PORT/.well-known/ucp" >/dev/null \
+  || { echo "UCP server did not become ready on port $PORT" >&2; exit 1; }
+
+# Warm up backend connections and caches with one complete checkout, so the
+# suite's first tests (completions) do not hit its 5s client timeout on a
+# cold start. This places one test order per run.
+node - "$PORT" "$SCRIPT_DIR/conformance_input.json" <<'JS' || true
+const [port, inputPath] = process.argv.slice(2);
+const item = require(inputPath).items[0].id;
+const base = `http://127.0.0.1:${port}/ucp/checkout-sessions`;
+const headers = { 'content-type': 'application/json', 'UCP-Agent': 'profile="https://warmup.invalid/profile"' };
+const call = async (url, body) => (await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })).json();
+(async () => {
+  const destination = { id: 'warmup', street_address: 'Vesterbrogade 1', address_locality: 'København V', postal_code: '1620', address_country: 'DK' };
+  const session = await call(base, {
+    line_items: [{ item: { id: item }, quantity: 1 }],
+    buyer: { email: 'warmup@checkout.invalid' },
+    fulfillment: { methods: [{ type: 'shipping', destinations: [destination], selected_destination_id: 'warmup' }] },
+  });
+  const option = session.fulfillment?.methods?.[0]?.groups?.[0]?.options?.[0]?.id;
+  await fetch(`${base}/${session.id}`, { method: 'PUT', headers, body: JSON.stringify({
+    id: session.id,
+    fulfillment: { methods: [{ type: 'shipping', destinations: [destination], selected_destination_id: 'warmup', groups: [{ selected_option_id: option }] }] },
+  }) });
+  const completed = await call(`${base}/${session.id}/complete`, {
+    payment: { instruments: [{ id: 'warmup', handler_id: 'stripe', type: 'card', credential: { type: 'token', token: 'pm_card_visa' } }] },
+  });
+  console.log(`Warm-up checkout: ${completed.status}`);
+})();
+JS
+
+mkdir -p "$ROOT/tmp"
+echo "Running conformance suite (report: $REPORT)..."
+set +e
+docker run --rm \
+  -e SERVER_URL="http://host.docker.internal:$PORT" \
+  -e SIMULATION_SECRET="$SIMULATION_SECRET" \
+  -p 8284:8284 -p 8285:8285 \
+  "$IMAGE" ${PYTEST_ARGS[@]+"${PYTEST_ARGS[@]}"} | tee "$REPORT"
+EXIT_CODE=${PIPESTATUS[0]}
+set -e
+
+echo "Conformance run finished with exit code $EXIT_CODE"
+exit "$EXIT_CODE"

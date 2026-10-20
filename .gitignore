@@ -1,5 +1,6 @@
 # See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
+.pnpm-store/
 # compiled output
 dist
 tmp
@@ -63,3 +64,8 @@ notes/
 .nx/polygraph
 .nx/self-healing
 .nx/migrate-runs
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key

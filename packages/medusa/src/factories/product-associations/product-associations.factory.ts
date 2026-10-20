@@ -9,11 +9,13 @@ import {
   type ProductAssociationsFactory,
   type ProductAssociationsIdentifier,
   type ProductSearchResultItem,
+  type ProductSearchResultItemComplianceData,
   type ProductSearchResultItemVariant,
   type ProductVariantIdentifier,
   type RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { parseProductSearchComplianceData } from '../../utils/product-compliance.js';
 
 export interface MedusaProductAssociationFactoryInput {
   product: StoreProduct,
@@ -48,7 +50,9 @@ export class MedusaProductAssociationsFactory<
       identifier,
       name,
       slug,
+      canAddToCartDirectly: (data.product.variants?.length ?? 0) === 1,
       variants,
+      complianceData: this.parseComplianceData(data.product),
     } satisfies ProductSearchResultItem;
 
     const result = {
@@ -60,13 +64,17 @@ export class MedusaProductAssociationsFactory<
     return this.productAssociationSchema.parse(result);
   }
 
+  protected parseComplianceData(product: StoreProduct): ProductSearchResultItemComplianceData {
+    return parseProductSearchComplianceData(product);
+  }
+
   protected parseVariant(
     _context: RequestContext,
     variant: StoreProductVariant,
     product: StoreProduct
   ): ProductSearchResultItemVariant {
     const img = ImageSchema.parse({
-      sourceUrl: product.images?.[0].url ?? '',
+      sourceUrl: product.images?.[0]?.url ?? '',
       altText: product.title || undefined,
     });
 

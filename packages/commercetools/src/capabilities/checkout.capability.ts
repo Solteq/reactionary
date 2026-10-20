@@ -1,4 +1,16 @@
-import type { MyCartUpdateAction } from '@commercetools/platform-sdk';
+import type {
+  Cart as CTCart,
+  MyCartUpdateAction,
+  ShippingMethod as CTShippingMethod,
+  ShippingRate as CTShippingRate,
+} from '@commercetools/platform-sdk';
+import { PROTOCOL_DATA_FIELD, serializeProtocolData } from '../core/payment-protocol-data.js';
+import {
+  PICKUP_STORE_FIELD,
+  SHIPPING_PROTOCOL_DATA_FIELD,
+  serializeShippingProtocolData,
+} from '../core/shipping-protocol-data.js';
+import { resolveShippingFulfillmentType } from '../core/shipping-fulfillment.js';
 import type {
   Cache,
   CheckoutFactory,
@@ -268,20 +280,77 @@ export class CommercetoolsCheckoutCapability<
     payload: CheckoutQueryForAvailableShippingMethods
   ): Promise<Result<CheckoutFactoryShippingMethodOutput<TFactory>[]>> {
     const client = await this.getClient();
-    const shippingMethodsResponse = await client.shippingMethods
-      .matchingCart()
-      .get({
-        queryArgs: {
-          cartId: payload.checkout.key,
-        },
-      })
-      .execute();
+    const [shippingMethodsResponse, cartResponse] = await Promise.all([
+      client.shippingMethods
+        .matchingCart()
+        .get({
+          queryArgs: {
+            cartId: payload.checkout.key,
+          },
+        })
+        .execute(),
+      client.carts.withId({ ID: payload.checkout.key }).get().execute(),
+    ]);
 
     const result = shippingMethodsResponse.body.results.map((shippingMethod) =>
-      this.factory.parseShippingMethod(this.context, shippingMethod),
+      this.withFulfillmentType(
+        this.factory.parseShippingMethod(this.context, this.withFreeShipping(shippingMethod, cartResponse.body)),
+        shippingMethod,
+      ),
     );
 
     return success(result);
+  }
+
+  /**
+   * Tags a parsed shipping method with its fulfillment type: methods whose
+   * key is listed in the `bopis.shippingMethodKeys` configuration are
+   * in-store pickup (BOPIS), everything else is a delivery. The tagging lives
+   * here rather than in the factory, so factories stay configuration-free.
+   */
+  protected withFulfillmentType(
+    shippingMethod: CheckoutFactoryShippingMethodOutput<TFactory>,
+    remote: CTShippingMethod,
+  ): CheckoutFactoryShippingMethodOutput<TFactory> {
+    return {
+      ...shippingMethod,
+      fulfillmentType: resolveShippingFulfillmentType(remote, this.config.bopis?.shippingMethodKeys),
+    };
+  }
+
+  /**
+   * Quotes the matching shipping rates as free where the cart reaches the
+   * rate's free-above threshold. commercetools' matching-cart query returns
+   * the rates at their configured price and only applies the threshold once
+   * the method is set on the cart.
+   */
+  protected withFreeShipping(shippingMethod: CTShippingMethod, cart: CTCart): CTShippingMethod {
+    return {
+      ...shippingMethod,
+      zoneRates: shippingMethod.zoneRates.map((zoneRate) => ({
+        ...zoneRate,
+        shippingRates: zoneRate.shippingRates.map((rate) =>
+          rate.isMatching && this.isFreeShipping(rate, cart)
+            ? { ...rate, price: { ...rate.price, centAmount: 0 } }
+            : rate),
+      })),
+    };
+  }
+
+  /**
+   * Whether commercetools charges nothing for the rate once the method is set:
+   * shipping is free if the sum of the (custom) line item prices, after line
+   * item discounts, reaches the rate's free-above threshold.
+   */
+  protected isFreeShipping(rate: CTShippingRate, cart: CTCart): boolean {
+    if (!rate.freeAbove || rate.freeAbove.currencyCode !== cart.totalPrice.currencyCode) {
+      return false;
+    }
+
+    const itemsTotal = [...cart.lineItems, ...cart.customLineItems]
+      .reduce((sum, item) => sum + item.totalPrice.centAmount, 0);
+
+    return itemsTotal >= rate.freeAbove.centAmount;
   }
 
   @Reactionary({
@@ -339,6 +408,11 @@ export class CommercetoolsCheckoutCapability<
             },
             fields: {
               commerceToolsCartId: payload.checkout.key,
+              // Protocol data (e.g. agentic delegated payment tokens) is passed
+              // verbatim for the project's payment extensions to interpret.
+              ...(payload.paymentInstruction.protocolData.length > 0
+                ? { [PROTOCOL_DATA_FIELD]: serializeProtocolData(payload.paymentInstruction.protocolData) }
+                : {}),
             },
           },
         },
@@ -462,6 +536,23 @@ export class CommercetoolsCheckoutCapability<
       name: 'pickupPointId',
       value: payload.shippingInstruction.pickupPoint,
     });
+
+    // BOPIS: persist the selected own-brand pickup store and any protocol
+    // data, but only when set, so carts without them are untouched.
+    if (payload.shippingInstruction.store?.key) {
+      actions.push({
+        action: 'setCustomField',
+        name: PICKUP_STORE_FIELD,
+        value: payload.shippingInstruction.store.key,
+      });
+    }
+    if (payload.shippingInstruction.protocolData && payload.shippingInstruction.protocolData.length > 0) {
+      actions.push({
+        action: 'setCustomField',
+        name: SHIPPING_PROTOCOL_DATA_FIELD,
+        value: serializeShippingProtocolData(payload.shippingInstruction.protocolData),
+      });
+    }
 
     const result = await this.applyActions(
       payload.checkout as CommercetoolsCheckoutIdentifier,

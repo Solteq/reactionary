@@ -95,7 +95,7 @@ export class CommercetoolsCompanyFactory<
       alternateShippingAddresses,
       isCustomAddressesAllowed: (customFields?.['isCustomAddressesAllowed'] as boolean) ?? false,
       isSelfManagementOfShippingAddressesAllowed:
-        (customFields?.['isSelfManagementOfShippingAddressesAllowed'] as boolean) ?? true,
+        (customFields?.['isSelfManagementOfShippingAddressesAllowed'] as boolean) ?? false,
     } satisfies Company;
 
     return this.companySchema.parse(result);

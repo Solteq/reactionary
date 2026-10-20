@@ -1,6 +1,14 @@
 export * from './schema/configuration.schema.js';
 export * from './schema/capabilities.schema.js';
 export * from './schema/magento.schema.js';
+export type {
+  MagentoCategory,
+  MagentoCheckoutAddress,
+  MagentoCheckoutState,
+  MagentoCustomAttribute,
+  MagentoProduct,
+  MagentoProductSearchResult,
+} from './schema/magento.types.js';
 export * from './core/initialize.js';
 export * from './core/initialize.types.js';
 export * from './core/client.js';

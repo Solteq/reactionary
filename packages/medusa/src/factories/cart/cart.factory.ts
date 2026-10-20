@@ -110,6 +110,8 @@ export class MedusaCartFactory<
     }
 
 
+    const adjustmentsByPromotionId = this.groupAdjustmentsByPromotionId(data);
+
     const appliedPromotions = [];
     if (data.promotions) {
       for (const promo of data.promotions) {
@@ -122,11 +124,15 @@ export class MedusaCartFactory<
         if (promo.application_method?.type === 'fixed') {
           promoDescription = `-${promo.application_method.value} ${price.grandTotal.currency}`;
         }
+        const discountedAmount = adjustmentsByPromotionId.get(promo.id);
         appliedPromotions.push({
           code: promo.code || '',
           isCouponCode: promo.is_automatic ? false : true,
           name: promotionName || promoDescription,
-          description: promoDescription
+          description: promoDescription,
+          ...(discountedAmount !== undefined
+            ? { amount: { value: Math.abs(discountedAmount), currency: price.grandTotal.currency } }
+            : {}),
         } satisfies Promotion);
       }
     }
@@ -161,6 +167,33 @@ export class MedusaCartFactory<
 
 
     /**
+   * Sums each line item's and shipping method's adjustments by the promotion
+   * that caused them, so the resulting amount is the actual monetary total
+   * discounted by that promotion on this cart.
+   */
+  protected groupAdjustmentsByPromotionId(data: StoreCart): Map<string, number> {
+    const totals = new Map<string, number>();
+    const addAdjustments = (adjustments?: { promotion_id?: string; amount: number }[]) => {
+      for (const adjustment of adjustments || []) {
+        if (!adjustment.promotion_id) {
+          continue;
+        }
+        totals.set(
+          adjustment.promotion_id,
+          (totals.get(adjustment.promotion_id) || 0) + adjustment.amount
+        );
+      }
+    };
+    for (const item of data.items || []) {
+      addAdjustments(item.adjustments);
+    }
+    for (const shippingMethod of data.shipping_methods || []) {
+      addAdjustments(shippingMethod.adjustments);
+    }
+    return totals;
+  }
+
+  /**
    * Extension point to control the parsing of a single cart item price
    * @param remoteItem
    * @param currency

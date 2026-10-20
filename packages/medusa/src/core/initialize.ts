@@ -9,6 +9,14 @@ import {
   CategoryPaginatedResultSchema,
   CategorySchema,
   CheckoutSchema,
+  CompanySchema,
+  CompanyPaginatedListSchema,
+  CompanyRegistrationRequestSchema,
+  EmployeeSchema,
+  EmployeePaginatedListSchema,
+  EmployeeInvitationSchema,
+  EmployeeIssuedInvitationSchema,
+  EmployeeInvitationPaginatedListSchema,
   InventorySchema,
   OrderSchema,
   OrderSearchResultSchema,
@@ -20,10 +28,15 @@ import {
   ProfileSchema,
   PersonalizationProfileSchema,
   ShippingMethodSchema,
+  StoreSchema,
 } from '@reactionary/core';
 import { MedusaCartCapability } from '../capabilities/cart.capability.js';
 import { MedusaCategoryCapability } from '../capabilities/category.capability.js';
 import { MedusaCheckoutCapability } from '../capabilities/checkout.capability.js';
+import { MedusaCompanyCapability } from '../capabilities/company.capability.js';
+import { MedusaCompanyRegistrationCapability } from '../capabilities/company-registration.capability.js';
+import { MedusaEmployeeCapability } from '../capabilities/employee.capability.js';
+import { MedusaEmployeeInvitationCapability } from '../capabilities/employee-invitation.capability.js';
 import { MedusaIdentityCapability } from '../capabilities/identity.capability.js';
 import { MedusaInventoryCapability } from '../capabilities/inventory.capability.js';
 import { MedusaOrderSearchCapability } from '../capabilities/order-search.capability.js';
@@ -35,6 +48,7 @@ import { MedusaProductCapability } from '../capabilities/product.capability.js';
 import { MedusaProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import { MedusaProfileCapability } from '../capabilities/profile.capability.js';
 import { MedusaPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
+import { MedusaStoreCapability } from '../capabilities/store.capability.js';
 import {
   MedusaCapabilitiesSchema,
   type MedusaCapabilities,
@@ -48,6 +62,10 @@ import {
   MedusaCartFactory,
   MedusaCategoryFactory,
   MedusaCheckoutFactory,
+  MedusaCompanyFactory,
+  MedusaCompanyRegistrationFactory,
+  MedusaEmployeeFactory,
+  MedusaEmployeeInvitationFactory,
   MedusaInventoryFactory,
   MedusaOrderFactory,
   MedusaOrderSearchFactory,
@@ -57,6 +75,7 @@ import {
   MedusaProductSearchFactory,
   MedusaProfileFactory,
   MedusaPersonalizationProfileFactory,
+  MedusaStoreFactory,
 } from '../factories/index.js';
 import {
   type MedusaClientFromCapabilities,
@@ -154,6 +173,82 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
           ),
           capability: (args) =>
             new MedusaCheckoutCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.medusaApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.employee?.enabled) {
+      client.employee = resolveCapabilityWithFactory(
+        capabilities.employee,
+        {
+          factory: new MedusaEmployeeFactory(EmployeeSchema, EmployeePaginatedListSchema),
+          capability: (args) =>
+            new MedusaEmployeeCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.medusaApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.employeeInvitation?.enabled) {
+      client.employeeInvitation = resolveCapabilityWithFactory(
+        capabilities.employeeInvitation,
+        {
+          factory: new MedusaEmployeeInvitationFactory(
+            EmployeeInvitationSchema,
+            EmployeeIssuedInvitationSchema,
+            EmployeeInvitationPaginatedListSchema,
+          ),
+          capability: (args) =>
+            new MedusaEmployeeInvitationCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.medusaApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.company?.enabled) {
+      client.company = resolveCapabilityWithFactory(
+        capabilities.company,
+        {
+          factory: new MedusaCompanyFactory(CompanySchema, CompanyPaginatedListSchema),
+          capability: (args) =>
+            new MedusaCompanyCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.medusaApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.companyRegistration?.enabled) {
+      client.companyRegistration = resolveCapabilityWithFactory(
+        capabilities.companyRegistration,
+        {
+          factory: new MedusaCompanyRegistrationFactory(CompanyRegistrationRequestSchema),
+          capability: (args) =>
+            new MedusaCompanyRegistrationCapability(
               args.config,
               args.cache,
               args.context,
@@ -322,6 +417,24 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
           factory: new MedusaProductAssociationsFactory(ProductAssociationSchema),
           capability: (args) =>
             new MedusaProductAssociationsCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.medusaApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.store?.enabled) {
+      client.store = resolveCapabilityWithFactory(
+        capabilities.store,
+        {
+          factory: new MedusaStoreFactory(StoreSchema),
+          capability: (args) =>
+            new MedusaStoreCapability(
               args.config,
               args.cache,
               args.context,

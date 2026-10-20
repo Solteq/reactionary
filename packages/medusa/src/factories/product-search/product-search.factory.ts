@@ -12,12 +12,14 @@ import {
   type ProductSearchQueryByTerm,
   type ProductSearchResult,
   type ProductSearchResultItem,
+  type ProductSearchResultItemComplianceData,
   type ProductSearchResultItemVariant,
   type ProductSearchResultSchema,
   type ProductVariantIdentifier,
   type RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { parseProductSearchComplianceData } from '../../utils/product-compliance.js';
 
 export class MedusaProductSearchFactory<
   TProductSearchResultSchema extends
@@ -49,13 +51,20 @@ export class MedusaProductSearchFactory<
       pageNumber: (Math.ceil(remote.offset / remote.limit) || 0) + 1,
       pageSize: remote.limit,
       totalCount: remote.count,
-      totalPages: Math.ceil(remote.count / remote.limit || 0) + 1,
+      totalPages: Math.ceil(remote.count / remote.limit || 0),
       items: products,
       facets: [],
     } satisfies ProductSearchResult;
 
     (result as ProductSearchResult).facets = [];
     return this.productSearchResultSchema.parse(result);
+  }
+
+  protected parseProductSearchComplianceData(
+    context: RequestContext,
+    data: StoreProduct,
+  ): ProductSearchResultItemComplianceData {
+    return parseProductSearchComplianceData(data);
   }
 
   protected parseProductSearchResultItem(
@@ -71,10 +80,14 @@ export class MedusaProductSearchFactory<
       variants.push(this.parseVariant(context, heroVariant, data));
     }
 
+    const complianceData = this.parseProductSearchComplianceData(context, data);
+
     const result = {
       identifier,
       name,
       slug,
+      complianceData: complianceData,
+      canAddToCartDirectly: (data.variants?.length ?? 0) === 1,
       variants,
     } satisfies ProductSearchResultItem;
 
@@ -87,7 +100,7 @@ export class MedusaProductSearchFactory<
     product: StoreProduct,
   ): ProductSearchResultItemVariant {
     const img = ImageSchema.parse({
-      sourceUrl: product.images?.[0].url ?? '',
+      sourceUrl: product.images?.[0]?.url ?? '',
       altText: product.title || undefined,
     });
 

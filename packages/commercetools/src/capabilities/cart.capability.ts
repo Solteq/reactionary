@@ -56,7 +56,11 @@ export class CommercetoolsCartCapability<
 > extends CartCapability<CartFactoryCartOutput<TFactory>, CartIdentifier> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
-  protected expandedCartFields = ['discountCodes[*].discountCode'];
+  protected expandedCartFields = [
+    'discountCodes[*].discountCode',
+    'lineItems[*].discountedPricePerQuantity[*].discountedPrice.includedDiscounts[*].discount',
+    'discountOnTotalPrice.includedDiscounts[*].discount',
+  ];
   protected factory: CartFactoryWithOutput<TFactory>;
 
   constructor(
@@ -284,7 +288,7 @@ export class CommercetoolsCartCapability<
         ...(lineIdentifier.originalPrice && {
           externalPrice: {
             currencyCode: lineIdentifier.originalPrice.currency,
-            centAmount: Math.floor(lineIdentifier.originalPrice.value * 100),
+            centAmount: Math.round(lineIdentifier.originalPrice.value * 100),
           },
         })
       },

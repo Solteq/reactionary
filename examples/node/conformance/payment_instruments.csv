@@ -1,0 +1,4 @@
+id,type,brand,last_digits,token,handler_id
+instr_1,card,Visa,4242,pm_card_visa,stripe
+instr_2,card,Mastercard,4444,pm_card_mastercard,stripe
+instr_fail,card,Visa,0002,pm_card_visa_chargeDeclined,stripe

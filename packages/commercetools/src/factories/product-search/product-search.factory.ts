@@ -6,21 +6,21 @@ import type {
   ProductVariant as CTProductVariant,
 } from '@commercetools/platform-sdk';
 import type {
+  ProductSearchResultItemComplianceData,
   ProductSearchResultSchema} from '@reactionary/core';
 import {
   FacetIdentifierSchema,
   FacetValueIdentifierSchema,
   ImageSchema,
-  ProductOptionIdentifierSchema,
   ProductSearchResultFacetSchema,
   ProductSearchResultFacetValueSchema,
+  ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
   ProductVariantIdentifierSchema,
   ProductVariantOptionSchema,
   type AnyProductSearchResultSchema,
   type FacetIdentifier,
   type FacetValueIdentifier,
-  type ProductOptionIdentifier,
   type ProductSearchFactory,
   type ProductSearchQueryByTerm,
   type ProductSearchResult,
@@ -29,11 +29,11 @@ import {
   type ProductSearchResultItem,
   type ProductSearchResultItemVariant,
   type ProductVariantIdentifier,
-  type ProductVariantOption,
   type RequestContext,
   type SearchIdentifier,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { parseVariantOptionFromAttribute } from '../../core/attribute-utils.js';
 import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
 
 export class CommercetoolsProductSearchFactory<
@@ -76,7 +76,7 @@ export class CommercetoolsProductSearchFactory<
       pageNumber: (Math.ceil(data.offset / data.limit) || 0) + 1,
       pageSize: data.limit,
       totalCount: data.total || 0,
-      totalPages: Math.ceil((data.total || 0) / data.limit || 0) + 1,
+      totalPages: data.limit > 0 ? Math.ceil((data.total || 0) / data.limit) : 0,
       items,
       facets,
     } satisfies ProductSearchResult;
@@ -101,10 +101,15 @@ export class CommercetoolsProductSearchFactory<
       identifier,
       name,
       slug,
+      complianceData: this.parseComplianceData(data),
+      canAddToCartDirectly: variants.length === 1,
       variants,
     } satisfies ProductSearchResultItem;
 
     return result;
+  }
+  protected parseComplianceData(data: ProductProjection): ProductSearchResultItemComplianceData {
+    return ProductSearchResultItemComplianceDataSchema.parse({});
   }
 
   protected parseFacet(
@@ -165,12 +170,7 @@ export class CommercetoolsProductSearchFactory<
       variant.attributes
         ?.filter((attribute) => attribute.name === 'Color')
         .map((option) =>
-          ProductVariantOptionSchema.parse({
-            identifier: ProductOptionIdentifierSchema.parse({
-              key: option.name,
-            } satisfies Partial<ProductOptionIdentifier>),
-            name: option.value || '',
-          } satisfies Partial<ProductVariantOption>),
+          ProductVariantOptionSchema.parse(parseVariantOptionFromAttribute(option, localeStr)),
         ) || [];
 
     const mappedOption = mappedOptions?.[0];

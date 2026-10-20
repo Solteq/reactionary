@@ -56,7 +56,6 @@
       "plugin": "@nx/vitest",
       "include": ["packages/**"],
       "exclude": [
-        "packages/commercetools/**",
         "packages/meilisearch/**",
         "packages/medusa/**",
         "packages/bazaarvoice/**",

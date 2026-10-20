@@ -1,0 +1,131 @@
+{
+  "id": "11111111-2222-3333-4444-555555555555",
+  "version": 7,
+  "customerId": "cust-1",
+  "cartState": "Active",
+  "totalPrice": {
+    "type": "centPrecision",
+    "centAmount": 9100,
+    "currencyCode": "EUR",
+    "fractionDigits": 2
+  },
+  "lineItems": [
+    {
+      "id": "li-1",
+      "productId": "prod-1",
+      "name": { "da": "Cordless Drill" },
+      "quantity": 2,
+      "priceMode": "Platform",
+      "variant": { "id": 1, "sku": "DRILL-18V" },
+      "price": {
+        "id": "price-1",
+        "value": {
+          "type": "centPrecision",
+          "centAmount": 5000,
+          "currencyCode": "EUR",
+          "fractionDigits": 2
+        }
+      },
+      "totalPrice": {
+        "type": "centPrecision",
+        "centAmount": 9200,
+        "currencyCode": "EUR",
+        "fractionDigits": 2
+      },
+      "discountedPricePerQuantity": [
+        {
+          "quantity": 2,
+          "discountedPrice": {
+            "value": {
+              "type": "centPrecision",
+              "centAmount": 4600,
+              "currencyCode": "EUR",
+              "fractionDigits": 2
+            },
+            "includedDiscounts": [
+              {
+                "discount": {
+                  "typeId": "cart-discount",
+                  "id": "cd-auto-line",
+                  "obj": {
+                    "id": "cd-auto-line",
+                    "name": { "da": "Autumn sale" },
+                    "description": { "da": "10% off power tools" },
+                    "requiresDiscountCode": false
+                  }
+                },
+                "discountedAmount": {
+                  "type": "centPrecision",
+                  "centAmount": 250,
+                  "currencyCode": "EUR",
+                  "fractionDigits": 2
+                }
+              },
+              {
+                "discount": {
+                  "typeId": "cart-discount",
+                  "id": "cd-from-code",
+                  "obj": {
+                    "id": "cd-from-code",
+                    "name": { "da": "Save 10 cart discount" },
+                    "requiresDiscountCode": true
+                  }
+                },
+                "discountedAmount": {
+                  "type": "centPrecision",
+                  "centAmount": 150,
+                  "currencyCode": "EUR",
+                  "fractionDigits": 2
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "discountOnTotalPrice": {
+    "discountedAmount": {
+      "type": "centPrecision",
+      "centAmount": 100,
+      "currencyCode": "EUR",
+      "fractionDigits": 2
+    },
+    "includedDiscounts": [
+      {
+        "discount": {
+          "typeId": "cart-discount",
+          "id": "cd-auto-total",
+          "obj": {
+            "id": "cd-auto-total",
+            "name": { "da": "Order total promotion" },
+            "description": { "da": "1 EUR off every order" },
+            "requiresDiscountCode": false
+          }
+        },
+        "discountedAmount": {
+          "type": "centPrecision",
+          "centAmount": 100,
+          "currencyCode": "EUR",
+          "fractionDigits": 2
+        }
+      }
+    ]
+  },
+  "discountCodes": [
+    {
+      "state": "MatchesCart",
+      "discountCode": {
+        "typeId": "discount-code",
+        "id": "dc-1",
+        "obj": {
+          "id": "dc-1",
+          "code": "SAVE10",
+          "name": { "da": "Save 10" },
+          "description": { "da": "10 percent off with code" },
+          "cartDiscounts": [{ "typeId": "cart-discount", "id": "cd-from-code" }]
+        }
+      }
+    }
+  ]
+}

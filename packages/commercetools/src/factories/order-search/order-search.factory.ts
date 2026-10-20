@@ -15,10 +15,10 @@ import {
   type OrderSearchQueryByTerm,
   type OrderSearchResult,
   type OrderSearchResultItem,
-  type OrderStatus,
   type RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { getOrderStatusFromOrderState } from '../../core/order-status.js';
 
 export class CommercetoolsOrderSearchFactory<
   TOrderSearchResultSchema extends AnyOrderSearchResultSchema = typeof OrderSearchResultSchema,
@@ -42,7 +42,7 @@ export class CommercetoolsOrderSearchFactory<
       pageNumber: (Math.ceil(data.offset / data.limit) || 0) + 1,
       pageSize: data.limit,
       totalCount: data.total || 0,
-      totalPages: Math.ceil((data.total || 0) / data.limit || 0) + 1,
+      totalPages: data.limit > 0 ? Math.ceil((data.total || 0) / data.limit) : 0,
       items: data.results.map((order) => this.parseOrderSearchItem(context, order)),
     } satisfies OrderSearchResult;
 
@@ -73,19 +73,7 @@ export class CommercetoolsOrderSearchFactory<
       userId: data.customerId || data.anonymousId || '',
     };
 
-    let orderStatus: OrderStatus = 'AwaitingPayment';
-    if (data.paymentState === 'Paid' && data.orderState === 'Confirmed') {
-      orderStatus = 'ReleasedToFulfillment';
-    }
-    if (data.shipmentState === 'Ready' && data.orderState === 'Confirmed') {
-      orderStatus = 'ReleasedToFulfillment';
-    }
-    if (
-      (data.shipmentState === 'Shipped' || data.shipmentState === 'Delivered') &&
-      data.orderState === 'Completed'
-    ) {
-      orderStatus = 'Shipped';
-    }
+    const orderStatus = getOrderStatusFromOrderState(data.orderState);
 
     const totalAmount: MonetaryAmount = {
       currency: data.totalPrice

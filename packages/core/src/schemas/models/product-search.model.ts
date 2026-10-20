@@ -4,6 +4,18 @@ import { BaseModelSchema, createPaginatedResponseSchema, ImageSchema } from './b
 import { ProductVariantOptionSchema } from './product.model.js';
 import type { InferType } from '../../zod-utils.js';
 
+export const ProductSearchResultItemComplianceDataSchema = z.looseObject({
+    ce_marking: z.boolean().default(false).meta({ description: 'Indicates whether CE marking can be shown on the product' }),
+    weee_symbol: z.boolean().default(false).meta({ description: 'Indicates whether the WEEE symbol can be shown on the product' }),
+    energy_class: z.string().optional().meta({ description: 'The energy class of the product, as required by EU regulations. A,B,C,D,E,F,G, etc' }),
+    garan_duration: z.number().optional().meta({ description: 'The duration of the guarantee in months as by the EU Garan scheme. Only set if above 24.' }),
+    energy_class_range: z.string().optional().meta({ description: 'The scale the energy class belongs to, e.g. "A-G", "A++-G" or "A+++-D". Needed to render the EU class arrow, because the same class letter is drawn differently on different scales.' }),
+    eprel_registration_number: z.string().optional().meta({ description: 'The EPREL registration number of the product model (digits only, up to 19). Together with eprel_product_group it identifies the official EU energy label and class arrow.' }),
+    eprel_product_group: z.string().optional().meta({ description: 'The EPREL product group URL code the model is registered under, e.g. "spaceheaters" or "localspaceheaters".' }),
+    is_organic: z.boolean().optional().meta({ description: 'Indicates whether the product is organic' }),
+    organic_certification_type: z.string().optional().meta({ description: 'The type of organic certification, e.g., EU_ORGANIC_LEAF, GOTS, ECOCERT.' }),
+});
+
 export const ProductSearchResultItemVariantSchema = z.looseObject({
     variant: ProductVariantIdentifierSchema.describe('The specific variant of the product'),
     image: ImageSchema.describe('The image representing this variant in the search results'),
@@ -14,6 +26,8 @@ export const ProductSearchResultItemSchema = BaseModelSchema.extend({
     identifier: ProductIdentifierSchema,
     name: z.string(),
     slug: z.string(),
+    complianceData: ProductSearchResultItemComplianceDataSchema.optional().meta({ description: 'Compliance data for the product as required by EU regulations.' }),
+    canAddToCartDirectly: z.boolean().default(false).meta({ description: 'Whether the storefront may render an add-to-cart button for this product directly on a PLP. When false, the customer must always visit the PDP first, e.g. for regulatory reasons or as a business decision. Set by the indexer where the search provider supports it; otherwise providers default it to true only when the product has exactly one variant.' }),
     variants: z.array(ProductSearchResultItemVariantSchema).meta({ description: 'A list of variants associated with the product in the search results. If exactly one is present, you can use add-to-cart directly from PLP. If none are present, you must direct to PDP. If mulitple are present, and no options are set, you must direct to PDP. If multiple are present, and they have options, you can render swatches on PLP and allow customer to flip between variants.' }),
 });
 
@@ -37,6 +51,7 @@ export const ProductSearchResultSchema = createPaginatedResponseSchema(ProductSe
 
 export type ProductSearchResultItemVariant = InferType<typeof ProductSearchResultItemVariantSchema>;
 export type ProductSearchResultItem = InferType<typeof ProductSearchResultItemSchema>;
+export type ProductSearchResultItemComplianceData = InferType<typeof ProductSearchResultItemComplianceDataSchema>;
 export type ProductSearchResult = InferType<typeof ProductSearchResultSchema>;
 export type ProductSearchResultFacet = InferType<typeof ProductSearchResultFacetSchema>;
 export type ProductSearchResultFacetValue = InferType<typeof ProductSearchResultFacetValueSchema>;

@@ -9,7 +9,7 @@ import {
 
 import type { CommercetoolsConfiguration } from '@reactionary/commercetools';
 import { withCommercetoolsCapabilities } from '@reactionary/commercetools';
-import { withAlgoliaCapabilities } from '@reactionary/algolia';
+import { withAlgoliaCapabilities, type AlgoliaConfiguration } from '@reactionary/algolia';
 import { withMagentoCapabilities } from '@reactionary/magento';
 import type { MagentoConfiguration } from '@reactionary/magento';
 import { withMedusaCapabilities } from '@reactionary/medusa';
@@ -24,7 +24,8 @@ export function getAlgoliaTestConfiguration() {
     appId: process.env['ALGOLIA_APP_ID'] || '',
     indexName: process.env['ALGOLIA_INDEX'] || '',
     useRecommendationsForBots: process.env['ALGOLIA_USE_RECOMMENDATIONS_FOR_BOTS'] === 'true',
-  };
+    useBaseIndexNameForEnglishLocale: false,
+  } satisfies AlgoliaConfiguration;
 }
 
 export function getMeilisearchTestConfiguration() {
@@ -137,6 +138,13 @@ export function getCommercetoolsTestConfiguration() {
   } satisfies CommercetoolsConfiguration;
 }
 
+// Date.now() alone collides when vitest runs multiple spec files in parallel and their beforeEach
+// hooks register the same "testuser+<timestamp>@example.com" in the same millisecond. Add randomness
+// so concurrent spec files can't generate the same test identifier.
+export function uniqueTestId(): string {
+  return `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export enum PrimaryProvider {
   ALGOLIA = 'Algolia',
   COMMERCETOOLS = 'Commercetools',
@@ -190,6 +198,10 @@ export function createClient(provider: PrimaryProvider, contextOverrides: Partia
           store: { enabled: true },
           profile: { enabled: true },
           personalizationProfile: { enabled: true },
+          employee: { enabled: true },
+          employeeInvitation: { enabled: true },
+          company: { enabled: true },
+          companyRegistration: { enabled: true },
         })
       );
     }

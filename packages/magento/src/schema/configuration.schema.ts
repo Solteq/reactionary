@@ -13,6 +13,7 @@ const MagentoConfigurationFieldsSchema = z.looseObject({
   storeBaseCode: z.string().default('').meta({ description: 'The base store code for the catalog scope. Store views are provisioned per language as `{storeBaseCode}-{language}`, so a `b2c` base serves a `da-DK` request from the `b2c-da` store view. Requests without a usable locale fall back to the bare base code.' }),
   storeCode: z.string().optional().meta({ deprecated: true, description: 'Deprecated: renamed to `storeBaseCode`. Still accepted, and folded into `storeBaseCode` when that is not set.' }),
   authStoreCode: z.string().default('default').meta({ description: 'The store/website scope used for customer authentication and account operations (token, customers/me). Customers typically live on the default website, which may differ from the catalog storeBaseCode. This scope is never suffixed with the request locale.' }),
+  checkoutAgreementIds: z.array(z.string()).optional().meta({ description: 'Ids of the Magento terms and conditions (Magento_CheckoutAgreements) the shopper accepts when placing an order. Required by stores with "Enable Terms and Conditions" on, which otherwise reject order placement. Sent as the payment method\'s `extension_attributes.agreement_ids`. The storefront must collect the shopper\'s consent before finalizing checkout.' }),
 });
 
 /**

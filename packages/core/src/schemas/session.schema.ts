@@ -9,7 +9,8 @@ import { PersonalizationProfileSchema } from './models/personalization-profile.m
  */
 export const LanguageContextSchema = z.looseObject( {
     locale: z.string().default('en-US').meta({ description: 'The locale for the current request, in IETF BCP 47 format (e.g. en-US, fr-FR). This can be used for localization and internationalization purposes.' }),
-    currencyCode: CurrencySchema.default(() => CurrencySchema.parse({})),
+    // TODO: Replace this hardcoded fallback with a configured project/store currency.
+    currencyCode: CurrencySchema.default('EUR'),
 });
 
 export const IdentityContextSchema = z.looseObject({

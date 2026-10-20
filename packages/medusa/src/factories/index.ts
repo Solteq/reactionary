@@ -1,6 +1,10 @@
 export * from './cart/cart.factory.js';
 export * from './category/category.factory.js';
 export * from './checkout/checkout.factory.js';
+export * from './company/company.factory.js';
+export * from './company-registration/company-registration.factory.js';
+export * from './employee/employee.factory.js';
+export * from './employee-invitation/employee-invitation.factory.js';
 export * from './identity/identity.factory.js';
 export * from './inventory/inventory.factory.js';
 export * from './order/order.factory.js';
@@ -11,3 +15,4 @@ export * from './product-associations/product-associations.factory.js';
 export * from './product-search/product-search.factory.js';
 export * from './profile/profile.factory.js';
 export * from './personalization-profile/personalization-profile.factory.js';
+export * from './store/store.factory.js';

@@ -96,6 +96,7 @@ export class FakeProductSearchCapability<
           },
           name: productGenerator.commerce.productName(),
           slug: productGenerator.lorem.slug(),
+          canAddToCartDirectly: true,
           variants: [
             {
               variant: {

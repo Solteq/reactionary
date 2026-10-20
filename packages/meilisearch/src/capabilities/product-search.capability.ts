@@ -18,6 +18,8 @@ import {
   type ProductSearchResultFacetValue,
   ProductSearchResultFacetValueSchema,
   type ProductSearchResultItem,
+  type ProductSearchResultItemComplianceData,
+  ProductSearchResultItemComplianceDataSchema,
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
   ProductSearchResultSchema,
@@ -90,16 +92,19 @@ export class MeilisearchProductSearchCapability<
 
     if (payload.personalizationProfile) {
       let blurb = payload.personalizationProfile.blurb || '';
-      if (blurb.length > 500) {
-        blurb = blurb.substring(0, 500);
-      }
-      if (!blurb) {
-        blurb = 'The customer is in the following segments: ' + payload.personalizationProfile.segments.join(', ');
-      }
-      if (blurb) {
+      const segments = payload.personalizationProfile.segments || [];
+
+      if (blurb || segments.length > 0) {
+        if (blurb.length > 500) {
+          blurb = blurb.substring(0, 500);
+        }
+        if (!blurb) {
+          blurb = 'The customer is in the following segments: ' + segments.join(', ');
+        }
         (searchOptions as any).personalize = {
           userContext: blurb
         };
+
       }
     }
     return searchOptions;
@@ -153,13 +158,19 @@ export class MeilisearchProductSearchCapability<
     return success(facetValueIdentifier);
   }
 
+  protected parseComplianceData(data: MeilisearchNativeRecord): ProductSearchResultItemComplianceData {
+    return data.complianceData ?? ProductSearchResultItemComplianceDataSchema.parse({});
+  }
 
   protected parseSingle(body: MeilisearchNativeRecord) {
+    const variants = [...(body.variants || [])].map(variant => this.parseVariant(variant, body));
     const product = {
       identifier: { key: body.objectID },
       name: body.name || body.objectID,
       slug: body.slug || body.objectID,
-      variants: [...(body.variants || [])].map(variant => this.parseVariant(variant, body)),
+      complianceData: this.parseComplianceData(body),
+      canAddToCartDirectly: body.canAddToCartDirectly ?? variants.length === 1,
+      variants,
     } satisfies ProductSearchResultItem;
 
     return product;

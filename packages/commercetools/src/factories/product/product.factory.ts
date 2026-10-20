@@ -4,6 +4,7 @@ import {
   ProductAttributeSchema,
   ProductAttributeValueIdentifierSchema,
   ProductAttributeValueSchema,
+  ProductComplianceDataSchema,
   type AnyProductSchema,
   type Product,
   type ProductFactory,
@@ -27,7 +28,8 @@ import type {
   ProductOptionIdentifier,
   ProductVariantOption,
 
-  ProductSchema} from '@reactionary/core';
+  ProductSchema,
+  ProductComplianceData} from '@reactionary/core';
 import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
 
 export class CommercetoolsProductFactory<
@@ -100,12 +102,17 @@ export class CommercetoolsProductFactory<
       parentCategories: [],
       published: true,
       variants: otherVariants,
+      complianceData: this.parseComplianceData(context, data),
     } satisfies Product;
 
     // PAIN: having to actually do the parse here to guarantee that the generics are satisfied.
     // probably fair, given that this relationship can't be expressed in TS otherwise...
     // unless we were willing to accept ownership of the responsibility and do an 'as T'
     return this.productSchema.parse(result);
+  }
+
+  protected parseComplianceData(context: RequestContext, data: ProductProjection): ProductComplianceData {
+    return ProductComplianceDataSchema.parse({});
   }
 
   /**

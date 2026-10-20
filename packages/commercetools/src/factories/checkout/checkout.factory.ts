@@ -1,3 +1,4 @@
+import { PROTOCOL_DATA_FIELD, parseProtocolDataField } from '../../core/payment-protocol-data.js';
 import type {
   Address as CTAddress,
   Cart as CTCart,
@@ -32,6 +33,7 @@ import {
   type ShippingInstruction,
   type ShippingMethod,
   type ShippingMethodIdentifier,
+  type StoreIdentifier,
 } from '@reactionary/core';
 import type * as z from 'zod';
 import type {
@@ -39,6 +41,11 @@ import type {
   CommercetoolsCheckoutIdentifier,
 } from '../../schema/commercetools.schema.js';
 import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
+import {
+  PICKUP_STORE_FIELD,
+  SHIPPING_PROTOCOL_DATA_FIELD,
+  parseShippingProtocolDataField,
+} from '../../core/shipping-protocol-data.js';
 
 export class CommercetoolsCheckoutFactory<
   TCheckoutSchema extends AnyCheckoutSchema = typeof CheckoutSchema,
@@ -245,12 +252,14 @@ export class CommercetoolsCheckoutFactory<
     if (!shippingAddress && !shippingInstruction.pickupPoint) return false;
     if (paymentInstructions.length === 0) return false;
 
+    // Compare in cents, as summing decimal amounts is not exact
+    const toCents = (value: number) => Math.round(value * 100);
     const authorizedPayments = paymentInstructions
       .filter((paymentInstruction) => paymentInstruction.status === 'authorized')
-      .map((paymentInstruction) => paymentInstruction.amount.value)
+      .map((paymentInstruction) => toCents(paymentInstruction.amount.value))
       .reduce((sum, value) => sum + value, 0);
 
-    if (price.grandTotal.value !== authorizedPayments) return false;
+    if (toCents(price.grandTotal.value) !== authorizedPayments) return false;
 
     return true;
   }
@@ -279,10 +288,11 @@ export class CommercetoolsCheckoutFactory<
     } satisfies PaymentMethodIdentifier;
 
     const customData = data.custom?.fields || {};
-    const protocolData = Object.keys(customData).map((key) => ({
-      key,
-      value: customData[key],
-    }));
+    const protocolData = Object.keys(customData).flatMap((key) =>
+      key === PROTOCOL_DATA_FIELD
+        ? parseProtocolDataField(customData[key])
+        : [{ key, value: customData[key] }],
+    );
 
     let status: PaymentStatus = 'pending';
     if (data.transactions && data.transactions.length > 0) {
@@ -329,6 +339,14 @@ export class CommercetoolsCheckoutFactory<
     const consentForUnattendedDelivery =
       data.custom?.fields['consentForUnattendedDelivery'] === 'true';
     const pickupPoint = data.custom?.fields['pickupPointId'] || '';
+    const pickupStoreKey = data.custom?.fields[PICKUP_STORE_FIELD];
+    const store: StoreIdentifier | undefined =
+      typeof pickupStoreKey === 'string' && pickupStoreKey.length > 0
+        ? { key: pickupStoreKey }
+        : undefined;
+    const protocolData = parseShippingProtocolDataField(
+      data.custom?.fields[SHIPPING_PROTOCOL_DATA_FIELD],
+    );
 
     const result = {
       shippingMethod: {
@@ -337,6 +355,8 @@ export class CommercetoolsCheckoutFactory<
       pickupPoint,
       instructions,
       consentForUnattendedDelivery,
+      store,
+      protocolData,
     } satisfies ShippingInstruction;
 
     return result;

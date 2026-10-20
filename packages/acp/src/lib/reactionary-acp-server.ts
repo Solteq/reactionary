@@ -1,0 +1,2906 @@
+import {
+  CurrencySchema,
+  createInitialRequestContext,
+  getHttpProtocolResultAttributes,
+  MemoryCache,
+  traceProtocolInvocation,
+  SessionSchema,
+  type Cache,
+  type Cart,
+  type Checkout,
+  type Currency,
+  type Inventory,
+  type Order,
+  type MonetaryAmount,
+  type PaymentMethod,
+  type Product,
+  type RequestContext,
+  type Result,
+  type Session,
+  type ShippingMethod,
+} from '@reactionary/core';
+import { createHash, timingSafeEqual } from 'node:crypto';
+import type * as z from 'zod';
+import type {
+  IncomingHttpHeaders,
+  IncomingMessage,
+  ServerResponse,
+} from 'node:http';
+import {
+  ACPCheckoutSessionStateSchema,
+  ACPCompleteCheckoutSessionRequestSchema,
+  ACPCreateCheckoutSessionRequestSchema,
+  ACPUpdateCheckoutSessionRequestSchema,
+  ACP_INTERVENTION_TYPES,
+  ACPOrderRecordSchema,
+  ACPAffiliateAttributionSchema,
+  ACPCancelCheckoutSessionRequestSchema,
+  ACPCartCreateRequestSchema,
+  ACPCartStateSchema,
+  ACPCartUpdateRequestSchema,
+  type ACPCartState,
+  type ACPAffiliateAttribution,
+  ACP_AUTHENTICATED_OUTCOMES,
+  type ACPCancelCheckoutSessionRequest,
+  type ACPIntentTrace,
+  type ACPAddress,
+  type ACPAuthenticationMetadata,
+  type ACPAgentCapabilities,
+  type ACPOrderRecord,
+  type ACPBuyer,
+  type ACPInterventionType,
+  type ACPPaymentData,
+  type ACPCheckoutSessionState,
+  type ACPCompleteCheckoutSessionRequest,
+  type ACPCreateCheckoutSessionRequest,
+  type ACPItem,
+  type ACPUpdateCheckoutSessionRequest,
+} from './acp-schemas.js';
+import { ACPIdempotency, ACP_MIN_IDEMPOTENCY_TTL_SECONDS } from './acp-idempotency.js';
+import { ACPMcpEndpoint } from './acp-mcp.js';
+import {
+  ACP_DISCOUNT_EXTENSION,
+  applyDiscountCodes,
+  getRequestedDiscountCodes,
+  toACPDiscounts,
+} from './acp-discounts.js';
+import { ACPOrderWebhooks, type ACPOrderEventType, type ACPWebhookOptions } from './acp-webhooks.js';
+import {
+  getHandlerPaymentMethod,
+  type ACPPaymentHandler,
+  type ACPPaymentHandlerOption,
+} from './acp-payment-handlers.js';
+
+const ACP_SESSION_ID_HEADER = 'acp-session-id';
+const SESSION_CACHE_KEY_PREFIX = 'reactionary:acp:session';
+const CHECKOUT_SESSION_CACHE_KEY_PREFIX = 'reactionary:acp:checkout-session';
+const ORDER_CACHE_KEY_PREFIX = 'reactionary:acp:order';
+const CART_CACHE_KEY_PREFIX = 'reactionary:acp:cart';
+type ProtocolHeaders = Headers | Record<string, string>;
+
+export interface ReactionaryACPClient {
+  cart?: {
+    createCart(payload: unknown): Promise<Result<Cart>>;
+    add(payload: unknown): Promise<Result<Cart>>;
+    getById(payload: unknown): Promise<Result<Cart>>;
+    // Optional: used to discard transient pricing checkouts that are cart copies.
+    deleteCart?(payload: unknown): Promise<Result<void>>;
+    // Optional: the discount extension needs both.
+    applyCouponCode?(payload: unknown): Promise<Result<Cart>>;
+    removeCouponCode?(payload: unknown): Promise<Result<Cart>>;
+    // Optional: used to update a session's cart in place.
+    changeQuantity?(payload: unknown): Promise<Result<Cart>>;
+    remove?(payload: unknown): Promise<Result<Cart>>;
+  };
+  checkout?: {
+    initiateCheckoutForCart(payload: unknown): Promise<Result<Checkout>>;
+    getById(payload: unknown): Promise<Result<Checkout>>;
+    setShippingAddress(payload: unknown): Promise<Result<Checkout>>;
+    getAvailableShippingMethods(payload: unknown): Promise<Result<ShippingMethod[]>>;
+    getAvailablePaymentMethods?(payload: unknown): Promise<Result<PaymentMethod[]>>;
+    setShippingInstruction(payload: unknown): Promise<Result<Checkout>>;
+    addPaymentInstruction(payload: unknown): Promise<Result<Checkout>>;
+    finalizeCheckout(payload: unknown): Promise<Result<Checkout>>;
+  };
+  product?: {
+    getBySKU(payload: unknown): Promise<Result<Product>>;
+  };
+  inventory?: {
+    getBySKU(payload: unknown): Promise<Result<Inventory>>;
+  };
+  // Optional: required for order webhooks.
+  order?: {
+    getById(payload: unknown): Promise<Result<Order>>;
+  };
+}
+
+type ValidatedReactionaryACPClient = ReactionaryACPClient & {
+  cart: NonNullable<ReactionaryACPClient['cart']>;
+  checkout: NonNullable<ReactionaryACPClient['checkout']>;
+  product: NonNullable<ReactionaryACPClient['product']>;
+};
+
+export type ReactionaryACPClientFactory<
+  TClient extends ReactionaryACPClient = ReactionaryACPClient,
+> = (
+  requestContext: RequestContext,
+) => TClient;
+
+export interface ReactionaryACPServerOptions {
+  name?: string;
+  version?: string;
+  basePath?: string;
+  sessionCache?: Cache;
+  sessionTtlSeconds?: number;
+  /**
+   * How long orders placed through ACP are remembered for order updates
+   * (`notifyOrderUpdated`). Defaults to 90 days.
+   */
+  orderTtlSeconds?: number;
+  /**
+   * How long Idempotency-Key responses are kept for replay. At least, and by
+   * default, 24 hours (checkout RFC §6.6).
+   */
+  idempotencyTtlSeconds?: number;
+  checkoutSessionTtlSeconds?: number;
+  /**
+   * Authenticates agents on checkout endpoints, e.g. by their
+   * `Authorization: Bearer` token (see `createBearerTokenAuthenticator`) or a
+   * request signature. Returning undefined answers 401. Checkout sessions are
+   * visible only to the agent that created them. Unset, checkout endpoints
+   * are open — the server logs a warning, as ACP requires authentication.
+   */
+  authenticate?: (request: Request) => ACPAgent | undefined | Promise<ACPAgent | undefined>;
+  /**
+   * The buyer-facing order page, as a URL template with an `{orderId}`
+   * placeholder, e.g. `https://shop.example/account/orders/{orderId}`. Orders
+   * MUST carry a permalink; without this option it is left out and a warning
+   * is logged.
+   */
+  orderPermalinkUrl?: string;
+  /**
+   * Asks for 3D Secure authentication: returning metadata makes completion
+   * answer `authentication_required` until the agent completes again with an
+   * `authentication_result`, which is passed to the backend's payment
+   * integration as protocol data `acp_authentication_result`. Advertise
+   * `3ds` in `interventions.supported` for agents to know.
+   */
+  authentication?: ACPAuthenticationOptions;
+  /**
+   * Receives an order's affiliate attribution (first touch from session
+   * creation, last touch from completion) once the order exists, for the
+   * affiliate network. Attribution is write-only: never returned to agents
+   * or sent in webhooks.
+   */
+  onOrderAttribution?: (attribution: {
+    orderId: string;
+    checkoutSessionId: string;
+    agentId?: string;
+    firstTouch?: ACPAffiliateAttribution;
+    lastTouch?: ACPAffiliateAttribution;
+  }) => void | Promise<void>;
+  /**
+   * Marketing consent (marketing consent RFC): channels offered to the
+   * buyer on every session, and where the buyer's decisions go once the
+   * order exists. Unset, no consent is offered.
+   */
+  marketingConsent?: ACPMarketingConsentOptions;
+  /**
+   * Receives the agent's reason for canceling a session (intent traces),
+   * e.g. for conversion analytics. Traces are also kept on the session state
+   * but never returned to agents.
+   */
+  onIntentTrace?: (
+    trace: ACPIntentTrace,
+    context: { checkoutSessionId: string; agentId?: string },
+  ) => void | Promise<void>;
+  /**
+   * Classifies backend shipping methods into ACP fulfillment types, e.g.
+   * click-and-collect methods as `pickup` with their location. Methods are
+   * `shipping` by default, as core shipping methods carry no type.
+   */
+  classifyFulfillmentOption?: (method: ShippingMethod) => ACPFulfillmentClassification | undefined;
+  /**
+   * The URL where the buyer can continue the checkout on the merchant's
+   * site, as a template with a `{checkoutSessionId}` placeholder.
+   */
+  continueUrl?: string;
+  /**
+   * Serves the ACP MCP transport binding at `{basePath}/mcp`: the checkout
+   * tools over JSON-RPC 2.0 (Streamable HTTP), dispatched to the REST
+   * handlers with the connection's Authorization. Discovery then lists the
+   * `mcp` transport.
+   */
+  mcp?: boolean;
+  /**
+   * Sends signed order events (`order_create` on placement, `order_update`
+   * via `notifyOrderUpdated`) to the agents' webhook receivers, as ACP
+   * requires. Needs the client's `order.getById`. Unset, no webhooks are
+   * sent and a warning is logged.
+   */
+  webhooks?: ACPWebhookOptions;
+  /**
+   * Payment handlers advertised in `capabilities.payment.handlers`, e.g.
+   * `createTokenizedCardHandler(...)`. Each maps to the backend payment
+   * method its payments are placed with.
+   */
+  paymentHandlers?: ACPPaymentHandlerOption[];
+  /**
+   * Accepts raw card credentials (anything carrying a card number or CVC)
+   * and forwards them to the backend's payment integration, which persists
+   * payment data — putting the deployment in PCI DSS scope. Off by default:
+   * such completions are rejected, as handlers are expected to submit
+   * delegated tokens.
+   */
+  acceptRawCardCredentials?: boolean;
+  links?: ACPLink[];
+  discovery?: ACPDiscoveryOptions;
+  /**
+   * Email used to price transient checkouts before the buyer has supplied
+   * one. Never used for the real checkout created on completion.
+   */
+  placeholderEmail?: string;
+  /**
+   * The interventions (e.g. 3DS) this seller can handle, and which it
+   * requires. Sessions report the intersection with what the agent declared.
+   * Defaults to none supported and none required.
+   */
+  interventions?: ACPInterventionOptions;
+  /**
+   * Whether orders need a fulfillment option. When the backend offers none
+   * for an address, the session cannot become payable. Defaults to true;
+   * disable it for stores selling only goods that need no shipping.
+   */
+  requireFulfillment?: boolean;
+  /**
+   * Checks line items against these fulfillment centers' combined stock,
+   * reporting `out_of_stock` per line item. Unset, stock is left to the
+   * backend.
+   */
+  inventory?: ACPInventoryOptions;
+  /**
+   * How long checkout completion waits for the placed checkout to become
+   * `readyForFinalization` (i.e. its payment authorized, e.g. by a PSP
+   * webhook) before answering `complete_in_progress`. Defaults to 10s timeout,
+   * polled every 1s; a timeout of 0 disables it.
+   */
+  paymentAuthorizationWait?: Partial<ACPPaymentAuthorizationWait>;
+}
+
+export interface ACPInventoryOptions {
+  fulfillmentCenterKeys: string[];
+}
+
+export interface ACPAuthenticationOptions {
+  getMetadata(context: {
+    checkoutSessionId: string;
+    handler: ACPPaymentHandler;
+    instrument: ACPPaymentData['instrument'];
+    amount: MonetaryAmount;
+  }): ACPAuthenticationMetadata | undefined | Promise<ACPAuthenticationMetadata | undefined>;
+}
+
+export interface ACPMarketingConsentChannel {
+  /** e.g. `email`, `sms`, `whatsapp`. */
+  channel: string;
+  /** What the buyer consents to receive. */
+  display_text: string;
+  privacy_policy_url: string;
+}
+
+export interface ACPMarketingConsentOptions {
+  channels: ACPMarketingConsentChannel[];
+  /**
+   * Whether the contact is already subscribed on the channel, so agents
+   * pre-check the box. Defaults to not subscribed.
+   */
+  isSubscribed?(contact: string, channel: string): boolean | Promise<boolean>;
+  /**
+   * Receives the buyer's decisions for offered channels, with the contact
+   * they apply to. Channels the agent did not surface are left out, which
+   * preserves their current state.
+   */
+  onConsents(
+    consents: Array<{ channel: string; opted_in: boolean; contact: string }>,
+    context: { orderId: string; checkoutSessionId: string; agentId?: string },
+  ): void | Promise<void>;
+}
+
+/** An ACP fulfillment option type with its type-specific details. */
+export type ACPFulfillmentClassification =
+  | { type: 'shipping' }
+  | { type: 'digital' }
+  | {
+      type: 'pickup';
+      location: { name: string; address: ACPAddress; phone?: string; instructions?: string };
+      pickup_type?: 'in_store' | 'curbside' | 'locker';
+      ready_by?: string;
+      pickup_by?: string;
+    }
+  | {
+      type: 'local_delivery';
+      delivery_window?: { start: string; end: string };
+      service_area?: Record<string, unknown>;
+    };
+
+/** An authenticated agent (platform) calling the checkout API. */
+export interface ACPAgent {
+  id: string;
+}
+
+/**
+ * Authenticates agents by `Authorization: Bearer <token>`, given each
+ * agent's token. Tokens are compared in constant time.
+ */
+export function createBearerTokenAuthenticator(
+  tokensByAgentId: Record<string, string>,
+): (request: Request) => ACPAgent | undefined {
+  const entries = Object.entries(tokensByAgentId);
+
+  return (request) => {
+    const match = /^Bearer\s+(.+)$/i.exec(request.headers.get('authorization') ?? '');
+    const token = match?.[1]?.trim();
+
+    if (!token) {
+      return undefined;
+    }
+
+    const agent = entries.find(([, candidate]) => secureEquals(candidate, token));
+
+    return agent ? { id: agent[0] } : undefined;
+  };
+}
+
+export interface ACPInterventionOptions {
+  supported: ACPInterventionType[];
+  required?: Array<'3ds' | 'biometric'>;
+  /** When required interventions apply. Defaults to `conditional`. */
+  enforcement?: 'always' | 'conditional' | 'optional';
+}
+
+export const DEFAULT_ACP_PLACEHOLDER_EMAIL = 'pending@checkout.invalid';
+
+export interface ACPPaymentAuthorizationWait {
+  timeoutMs: number;
+  intervalMs: number;
+}
+
+export const DEFAULT_ACP_PAYMENT_AUTHORIZATION_WAIT: ACPPaymentAuthorizationWait = {
+  timeoutMs: 10_000,
+  intervalMs: 1_000,
+};
+
+export interface ACPDiscoveryOptions {
+  apiBaseUrl?: string;
+  documentationUrl?: string;
+  supportedCurrencies?: string[];
+  /**
+   * BCP 47 locales the backend can localize for. Advertised in discovery,
+   * and checkout requests are localized to the best match of their
+   * Accept-Language.
+   */
+  supportedLocales?: string[];
+}
+
+export interface ACPDiscoveryResponse {
+  protocol: {
+    name: 'acp';
+    version: string;
+    supported_versions: string[];
+    documentation_url?: string;
+  };
+  api_base_url: string;
+  transports: Array<'rest' | 'mcp'>;
+  capabilities: {
+    services: Array<'checkout' | 'orders' | 'delegate_payment' | 'carts'>;
+    extensions?: ACPDiscoveryExtension[];
+    intervention_types?: ACPInterventionType[];
+    supported_currencies?: string[];
+    supported_locales?: string[];
+  };
+}
+
+/** An extension the seller supports, as listed in discovery. */
+export interface ACPDiscoveryExtension {
+  name: string;
+  spec?: string;
+  schema?: string;
+}
+
+const ACP_DISCOVERY_PATHS = ['/.well-known/acp.json', '/.well-known/acp'];
+
+/** The only ACP API version this adapter implements. */
+export const ACP_API_VERSION = '2026-04-17';
+const ACP_SUPPORTED_API_VERSIONS = [ACP_API_VERSION];
+const ACP_API_VERSION_HEADER = 'api-version';
+
+
+
+/** A policy or support link shown with the checkout (2026-04-17 Link). */
+export interface ACPLink {
+  type:
+    | 'terms_of_use'
+    | 'privacy_policy'
+    | 'return_policy'
+    | 'shipping_policy'
+    | 'contact_us'
+    | 'about_us'
+    | 'faq'
+    | 'support';
+  /** Display text for the link. */
+  title?: string;
+  url: string;
+}
+
+export interface ReactionaryACPHttpHandler {
+  fetch(request: Request): Promise<Response>;
+  close(): Promise<void>;
+}
+
+export type ReactionaryACPNodeRequestHandler = (
+  request: IncomingMessage,
+  response: ServerResponse,
+) => Promise<void>;
+
+export class ReactionaryACPServer<
+  TClient extends ReactionaryACPClient = ReactionaryACPClient,
+> {
+  private readonly sessionStore: ReactionaryACPSessionStore;
+  private readonly checkoutSessionStore: ReactionaryACPCheckoutSessionStore;
+  private readonly idempotency: ACPIdempotency;
+  private readonly webhooks: ACPOrderWebhooks | undefined;
+  private readonly supportsDiscounts: boolean;
+  private readonly mcp: ACPMcpEndpoint | undefined;
+
+  public constructor(
+    private readonly clientFactory: ReactionaryACPClientFactory<TClient>,
+    private readonly options: ReactionaryACPServerOptions = {},
+  ) {
+    this.sessionStore = new ReactionaryACPSessionStore(
+      this.options.sessionCache ?? new MemoryCache(),
+      this.options.sessionTtlSeconds ?? 60 * 60 * 24,
+    );
+    this.checkoutSessionStore = new ReactionaryACPCheckoutSessionStore(
+      this.options.sessionCache ?? new MemoryCache(),
+      this.options.checkoutSessionTtlSeconds ?? 60 * 60 * 24,
+      this.options.orderTtlSeconds ?? 60 * 60 * 24 * 90,
+    );
+    this.idempotency = new ACPIdempotency(
+      this.options.sessionCache ?? new MemoryCache(),
+      Math.max(this.options.idempotencyTtlSeconds ?? 0, ACP_MIN_IDEMPOTENCY_TTL_SECONDS),
+    );
+    const client = this.clientFactory(createInitialRequestContext());
+    assertACPClient(client);
+    assertPaymentHandlers(this.options.paymentHandlers ?? []);
+    this.supportsDiscounts = Boolean(client.cart.applyCouponCode && client.cart.removeCouponCode);
+    this.mcp = this.options.mcp
+      ? new ACPMcpEndpoint(
+          { name: this.options.name ?? '@reactionary/acp', version: this.options.version ?? '0.0.1' },
+          (restRequest) => this.fetch(restRequest),
+        )
+      : undefined;
+    this.webhooks = this.options.webhooks ? new ACPOrderWebhooks(this.options.webhooks) : undefined;
+
+    if (this.webhooks && !client.order?.getById) {
+      throw new Error('ACP order webhooks need the client operation order.getById.');
+    }
+
+    if (!this.webhooks) {
+      console.warn('ACP: order webhooks are disabled; configure `webhooks` (ACP requires order_create/order_update events).');
+    }
+
+    if (!this.options.orderPermalinkUrl) {
+      console.warn('ACP: orders are returned without permalink_url; configure `orderPermalinkUrl` (ACP requires a permalink).');
+    } else if (!this.options.orderPermalinkUrl.includes('{orderId}')) {
+      throw new Error('ACP orderPermalinkUrl must contain an {orderId} placeholder.');
+    }
+
+    if (!this.options.authenticate) {
+      console.warn('ACP: checkout endpoints are unauthenticated; configure `authenticate` (ACP requires agents to authenticate).');
+    }
+  }
+
+  public async fetch(request: Request): Promise<Response> {
+    return traceProtocolInvocation(
+      {
+        protocol: 'acp',
+        operation: `${request.method} ${getAcpOperationPath(request, this.options.basePath)}`,
+        attributes: { 'http.request.method': request.method },
+      },
+      async () => echoRequestHeaders(request, await this.handleFetch(request)),
+      getHttpProtocolResultAttributes,
+    );
+  }
+
+  private async handleFetch(request: Request): Promise<Response> {
+    if (this.mcp && getProtocolPathname(request, this.options.basePath) === '/mcp') {
+      const basePath = (this.options.basePath ?? '/acp').replace(/\/$/, '');
+
+      return this.mcp.handle(request, `${new URL(request.url).origin}${basePath}`);
+    }
+
+    let agent: ACPAgent | undefined;
+
+    try {
+      agent = await this.authenticate(request);
+
+      if (isCheckoutPost(request, this.options.basePath)) {
+        assertSupportedApiVersion(request);
+      }
+    } catch (error) {
+      return toACPErrorResponse(error);
+    }
+
+    const sessionId = await this.resolveSessionId(request);
+    const requestContext = await this.createRequestContext(sessionId);
+    const locale = this.resolveLocale(request);
+
+    if (locale) {
+      requestContext.languageContext = { ...requestContext.languageContext, locale };
+    }
+
+    const currency = await this.resolveCheckoutCurrency(request);
+
+    if (currency) {
+      requestContext.languageContext = {
+        ...requestContext.languageContext,
+        currencyCode: currency,
+      };
+    }
+
+    const client = this.clientFactory(requestContext);
+    assertACPClient(client);
+
+    const handle = () => this.handleRequest(request, client, requestContext, sessionId, agent)
+      .catch((error: unknown) => toACPErrorResponse(error));
+    const response = isCheckoutPost(request, this.options.basePath)
+      ? await this.idempotency.run(request, agent?.id ?? 'anonymous', handle)
+      : await handle();
+    await this.sessionStore.put(sessionId, requestContext.session);
+    response.headers.set(ACP_SESSION_ID_HEADER, sessionId);
+
+    return response;
+  }
+
+  /**
+   * Checkout endpoints require an authenticated agent (checkout RFC §3.1),
+   * and a checkout session is visible only to the agent that created it, so
+   * another agent's session is reported as missing. Discovery and the
+   * readiness document stay public.
+   */
+  private async authenticate(request: Request): Promise<ACPAgent | undefined> {
+    const pathname = getProtocolPathname(request, this.options.basePath);
+
+    const cartRoute = getCartRoute(request, this.options.basePath);
+
+    if (!this.options.authenticate || (!pathname.startsWith('/checkout_sessions') && !cartRoute)) {
+      return undefined;
+    }
+
+    const agent = await this.options.authenticate(request);
+
+    if (!agent) {
+      throw new ACPHttpError(401, {
+        type: 'invalid_request',
+        code: 'unauthorized',
+        message: 'A valid Authorization bearer token is required.',
+      }, { 'www-authenticate': 'Bearer' });
+    }
+
+    const checkoutSessionId = getCheckoutSessionId(request, this.options.basePath);
+    const state = checkoutSessionId
+      ? await this.checkoutSessionStore.get(checkoutSessionId)
+      : cartRoute?.cartId ? await this.checkoutSessionStore.getCart(cartRoute.cartId) : undefined;
+
+    if (state?.agentId !== undefined && state.agentId !== agent.id) {
+      throw new ACPHttpError(404, {
+        type: 'invalid_request',
+        code: checkoutSessionId ? 'missing' : 'not_found',
+        message: checkoutSessionId ? `Checkout session not found: ${checkoutSessionId}` : `Cart not found: ${cartRoute?.cartId}`,
+      });
+    }
+
+    return agent;
+  }
+
+  /**
+   * Requests addressing a checkout session resume the session that created
+   * it: agents need not echo the ACP session header, but backends scope carts
+   * to that session's (anonymous) identity.
+   */
+  private async resolveSessionId(request: Request): Promise<string> {
+    const checkoutSessionId = getCheckoutSessionId(request, this.options.basePath);
+    const cartId = getCartRoute(request, this.options.basePath)?.cartId;
+    const state = checkoutSessionId
+      ? await this.checkoutSessionStore.get(checkoutSessionId)
+      : cartId ? await this.checkoutSessionStore.getCart(cartId) : undefined;
+
+    return state?.sessionId ?? getOrCreateSessionId(request);
+  }
+
+  /**
+   * The best supported locale for the request's Accept-Language: an exact
+   * tag, else one of the same language. Only locales advertised in
+   * `discovery.supportedLocales` are used, as backends may not localize
+   * others.
+   */
+  private resolveLocale(request: Request): string | undefined {
+    const supported = this.options.discovery?.supportedLocales ?? [];
+    const requested = parseAcceptLanguage(request.headers.get('accept-language'));
+
+    for (const tag of requested) {
+      const exact = supported.find((locale) => locale.toLowerCase() === tag.toLowerCase());
+      const sameLanguage = supported.find(
+        (locale) => locale.split('-')[0]?.toLowerCase() === tag.split('-')[0]?.toLowerCase(),
+      );
+
+      if (exact ?? sameLanguage) {
+        return exact ?? sameLanguage;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * The currency a checkout session is priced in: the one requested on its
+   * creation, which later requests for the session keep using.
+   */
+  private async resolveCheckoutCurrency(request: Request): Promise<Currency | undefined> {
+    const checkoutSessionId = getCheckoutSessionId(request, this.options.basePath);
+    let currency: unknown;
+
+    if (checkoutSessionId) {
+      currency = (await this.checkoutSessionStore.get(checkoutSessionId))?.currency;
+    } else if (request.method === 'POST' && getProtocolPathname(request, this.options.basePath) === '/checkout_sessions') {
+      const body: unknown = await request.clone().json().catch(() => undefined);
+      currency = typeof body === 'object' && body !== null ? Reflect.get(body, 'currency') : undefined;
+    }
+
+    const parsed = CurrencySchema.safeParse(typeof currency === 'string' ? currency.toUpperCase() : undefined);
+
+    return parsed.success ? parsed.data : undefined;
+  }
+
+  /**
+   * Sends an `order_update` event with the order's current state, e.g. when
+   * the OMS ships or cancels it. Returns false for orders not placed through
+   * an ACP checkout session, or when webhooks are not configured.
+   */
+  public async notifyOrderUpdated(orderId: string): Promise<boolean> {
+    const record = await this.checkoutSessionStore.getOrder(orderId);
+
+    if (!this.webhooks || !record) {
+      return false;
+    }
+
+    const requestContext = await this.createRequestContext(record.sessionId ?? crypto.randomUUID());
+    const client = this.clientFactory(requestContext);
+    assertACPClient(client);
+
+    return this.sendOrderEvent('order_update', record, client);
+  }
+
+  public getHandler(): ReactionaryACPHttpHandler {
+    return {
+      fetch: (request) => this.fetch(request),
+      close: () => this.close(),
+    };
+  }
+
+  public toNodeHandler(): ReactionaryACPNodeRequestHandler {
+    return async (request, response) => {
+      const webResponse = await this.fetch(await toWebRequest(request));
+      await sendWebResponse(response, webResponse);
+    };
+  }
+
+  public close(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  private async createRequestContext(
+    sessionId: string,
+  ): Promise<RequestContext> {
+    const restoredSession = await this.sessionStore.get(sessionId);
+    const requestContext = createInitialRequestContext();
+
+    if (restoredSession) {
+      requestContext.session = restoredSession;
+    }
+
+    return requestContext;
+  }
+
+  private async handleRequest(
+    request: Request,
+    client: ValidatedReactionaryACPClient,
+    requestContext: RequestContext,
+    sessionId: string,
+    agent: ACPAgent | undefined,
+  ): Promise<Response> {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          allow: 'GET, HEAD, OPTIONS, POST, PUT',
+        },
+      });
+    }
+
+    if (
+      (request.method === 'GET' || request.method === 'HEAD') &&
+      ACP_DISCOVERY_PATHS.includes(new URL(request.url).pathname)
+    ) {
+      return jsonResponse(this.getDiscoveryDocument(request), {
+        headers: { 'cache-control': 'public, max-age=3600' },
+        omitBody: request.method === 'HEAD',
+      });
+    }
+
+    const cartRoute = getCartRoute(request, this.options.basePath);
+
+    if (cartRoute) {
+      assertSupportedApiVersion(request);
+
+      return this.handleCartRequest(request, cartRoute, client, sessionId, agent);
+    }
+
+    if (request.method === 'GET' || request.method === 'HEAD') {
+      const checkoutSessionId = getCheckoutSessionId(
+        request,
+        this.options.basePath,
+      );
+
+      if (checkoutSessionId) {
+        assertSupportedApiVersion(request);
+
+        return this.getCheckoutSession(
+          checkoutSessionId,
+          client,
+          request.method === 'HEAD',
+        );
+      }
+
+      return jsonResponse(this.getReadinessDocument(), {
+        omitBody: request.method === 'HEAD',
+      });
+    }
+
+    if (request.method === 'POST') {
+      assertSupportedApiVersion(request);
+
+      return this.handlePost(request, client, requestContext, sessionId, agent);
+    }
+
+    return jsonResponse({
+      error: {
+        code: 'METHOD_NOT_ALLOWED',
+        message: `Unsupported method: ${request.method}`,
+      },
+    }, {
+      status: 405,
+      headers: {
+        allow: 'GET, HEAD, OPTIONS, POST, PUT',
+      },
+    });
+  }
+
+  /**
+   * The cart capability (cart RFC): pre-checkout baskets over a backend
+   * cart. Carts have no status — they exist, or answer 404 once canceled or
+   * expired — and no payment or negotiation, which belong to checkout.
+   */
+  private async handleCartRequest(
+    request: Request,
+    route: { cartId?: string; cancel: boolean },
+    client: ValidatedReactionaryACPClient,
+    sessionId: string,
+    agent: ACPAgent | undefined,
+  ): Promise<Response> {
+    if (!route.cartId) {
+      if (request.method !== 'POST') {
+        return methodNotAllowed(request.method, 'POST');
+      }
+
+      const input = await parseJsonBody(request, ACPCartCreateRequestSchema);
+      const cart = await this.createCartForItems(input.line_items, client);
+      const state: ACPCartState = {
+        id: `cart_${crypto.randomUUID()}`,
+        cartId: cart.identifier.key,
+        sessionId,
+        ...(agent ? { agentId: agent.id } : {}),
+        ...(input.buyer ? { buyer: input.buyer } : {}),
+        expiresAt: this.getCartExpiry(),
+      };
+
+      return jsonResponse(await this.toACPCart(state, client), { status: 201 });
+    }
+
+    const state = await this.checkoutSessionStore.getCart(route.cartId);
+
+    if (!state) {
+      return acpErrorResponse(404, { type: 'invalid_request', code: 'not_found', message: `Cart not found: ${route.cartId}` });
+    }
+
+    if (route.cancel) {
+      if (request.method !== 'POST') {
+        return methodNotAllowed(request.method, 'POST');
+      }
+
+      const final = await this.toACPCart(state, client);
+      await this.checkoutSessionStore.deleteCart(state.id);
+      await client.cart.deleteCart?.({ cart: { key: state.cartId } });
+
+      return jsonResponse(final);
+    }
+
+    if (request.method === 'GET' || request.method === 'HEAD') {
+      return jsonResponse(await this.toACPCart(state, client), { omitBody: request.method === 'HEAD' });
+    }
+
+    if (request.method === 'PUT') {
+      const input = await parseJsonBody(request, ACPCartUpdateRequestSchema);
+      const updated: ACPCartState = {
+        ...state,
+        cartId: await this.replaceCartItems(state.cartId, input.line_items, client),
+        buyer: mergeBuyer(state.buyer, input.buyer),
+        expiresAt: this.getCartExpiry(),
+      };
+
+      return jsonResponse(await this.toACPCart(updated, client));
+    }
+
+    return methodNotAllowed(request.method, 'GET, PUT');
+  }
+
+  private getCartExpiry(): string {
+    return new Date(Date.now() + (this.options.checkoutSessionTtlSeconds ?? 60 * 60 * 24) * 1000).toISOString();
+  }
+
+  /** A cart's authoritative state; totals are estimates without an address. */
+  private async toACPCart(state: ACPCartState, client: ValidatedReactionaryACPClient): Promise<Record<string, unknown>> {
+    await this.checkoutSessionStore.putCart(state);
+
+    const cart = await unwrapACPResult(client.cart.getById({ cart: { key: state.cartId } }));
+    const products = await getProducts(cart.items.map((item) => item.variant.sku), client);
+
+    return {
+      id: state.id,
+      line_items: cart.items.map((item) => toACPLineItem(item, products.get(item.variant.sku))),
+      ...(state.buyer ? { buyer: state.buyer } : {}),
+      currency: cart.price.grandTotal.currency.toLowerCase(),
+      totals: toACPTotals(cart.price),
+      messages: await this.getStockMessages(cart, client),
+      expires_at: state.expiresAt,
+    };
+  }
+
+  private getDiscoveryDocument(request: Request): ACPDiscoveryResponse {
+    const discovery = this.options.discovery ?? {};
+    const basePath = (this.options.basePath ?? '/acp').replace(/\/$/, '');
+    const apiBaseUrl =
+      discovery.apiBaseUrl ?? `${new URL(request.url).origin}${basePath}`;
+    const extensions = this.getDiscoveryExtensions();
+    const interventionTypes = [...new Set(this.options.interventions?.supported ?? [])];
+
+    return {
+      protocol: {
+        name: 'acp',
+        version: ACP_API_VERSION,
+        supported_versions: ACP_SUPPORTED_API_VERSIONS,
+        ...(discovery.documentationUrl
+          ? { documentation_url: discovery.documentationUrl }
+          : {}),
+      },
+      api_base_url: apiBaseUrl,
+      transports: this.mcp ? ['rest', 'mcp'] : ['rest'],
+      capabilities: {
+        // The services enum is closed per version: checkout, orders,
+        // delegate_payment and carts (discovery RFC §4.2).
+        services: this.webhooks ? ['checkout', 'orders', 'carts'] : ['checkout', 'carts'],
+        ...(extensions.length > 0 ? { extensions } : {}),
+        ...(interventionTypes.length > 0 ? { intervention_types: interventionTypes } : {}),
+        ...(discovery.supportedCurrencies
+          ? { supported_currencies: discovery.supportedCurrencies }
+          : {}),
+        ...(discovery.supportedLocales
+          ? { supported_locales: discovery.supportedLocales }
+          : {}),
+      },
+    };
+  }
+
+  /** The extensions the server implements; extension PRs add theirs here. */
+  private getDiscoveryExtensions(): ACPDiscoveryExtension[] {
+    return this.supportsDiscounts ? [{ name: ACP_DISCOUNT_EXTENSION.name }] : [];
+  }
+
+  private getReadinessDocument(): Record<string, unknown> {
+    return {
+      name: this.options.name ?? '@reactionary/acp',
+      version: this.options.version ?? '0.0.1',
+      protocol: 'acp',
+      status: 'ready',
+      actions: [
+        'POST /checkout_sessions',
+        'POST /checkout_sessions/{checkout_session_id}',
+        'GET /checkout_sessions/{checkout_session_id}',
+        'POST /checkout_sessions/{checkout_session_id}/complete',
+        'POST /checkout_sessions/{checkout_session_id}/cancel',
+        'POST /carts',
+        'GET /carts/{id}',
+        'PUT /carts/{id}',
+        'POST /carts/{id}/cancel',
+      ],
+    };
+  }
+
+  private async handlePost(
+    request: Request,
+    client: ValidatedReactionaryACPClient,
+    requestContext: RequestContext,
+    sessionId: string,
+    agent: ACPAgent | undefined,
+  ): Promise<Response> {
+    const checkoutSessionId = getCheckoutSessionId(
+      request,
+      this.options.basePath,
+    );
+
+    if (!checkoutSessionId) {
+      return this.createCheckoutSession(
+        await parseJsonBody(request, ACPCreateCheckoutSessionRequestSchema),
+        client,
+        requestContext,
+        sessionId,
+        agent,
+      );
+    }
+
+    if (isCheckoutSessionCompleteRequest(request, this.options.basePath)) {
+      return this.completeCheckoutSession(
+        checkoutSessionId,
+        await parseJsonBody(request, ACPCompleteCheckoutSessionRequestSchema),
+        client,
+      );
+    }
+
+    if (isCheckoutSessionCancelRequest(request, this.options.basePath)) {
+      return this.cancelCheckoutSession(
+        checkoutSessionId,
+        await parseOptionalJsonBody(request, ACPCancelCheckoutSessionRequestSchema),
+        client,
+      );
+    }
+
+    return this.updateCheckoutSession(
+      checkoutSessionId,
+      await parseJsonBody(request, ACPUpdateCheckoutSessionRequestSchema),
+      client,
+      requestContext,
+    );
+  }
+
+  private async createCheckoutSession(
+    input: ACPCreateCheckoutSessionRequest,
+    client: ValidatedReactionaryACPClient,
+    requestContext: RequestContext,
+    sessionId: string,
+    agent: ACPAgent | undefined,
+  ): Promise<Response> {
+    const cart = await this.createCartForItems(input.line_items, client);
+    const discounts = await this.applyRequestedDiscounts(
+      cart.identifier.key,
+      getRequestedDiscountCodes(input.discounts, input.coupons),
+      input.capabilities,
+      client,
+    );
+    const state: ACPCheckoutSessionState = {
+      ...discounts,
+      id: `checkout_session_${crypto.randomUUID()}`,
+      sessionId,
+      ...(agent ? { agentId: agent.id } : {}),
+      cartId: cart.identifier.key,
+      currency: input.currency.toLowerCase(),
+      agentCapabilities: input.capabilities,
+      ...(input.locale ? { locale: input.locale } : {}),
+      ...(input.timezone ? { timezone: input.timezone } : {}),
+      ...(input.affiliate_attribution
+        ? { firstTouchAttribution: { ...input.affiliate_attribution, touchpoint: 'first' } }
+        : {}),
+      status: 'not_ready_for_payment',
+      buyer: input.buyer,
+      fulfillmentDetails: input.fulfillment_details,
+    };
+
+    return jsonResponse(
+      await this.toACPCheckoutSession(state, client, requestContext),
+      { status: 201 },
+    );
+  }
+
+  private async updateCheckoutSession(
+    checkoutSessionId: string,
+    input: ACPUpdateCheckoutSessionRequest,
+    client: ValidatedReactionaryACPClient,
+    requestContext: RequestContext,
+  ): Promise<Response> {
+    const state = await this.getRequiredCheckoutSessionState(checkoutSessionId);
+
+    if (state.checkoutId || state.status === 'canceled') {
+      return acpErrorResponse(405, {
+        type: 'invalid_request',
+        code: 'invalid',
+        message: 'The checkout session can no longer be modified.',
+      });
+    }
+
+    const cartId = input.line_items
+      ? await this.replaceCartItems(state.cartId, input.line_items, client)
+      : state.cartId;
+    const discounts = await this.applyRequestedDiscounts(
+      cartId,
+      getRequestedDiscountCodes(input.discounts, input.coupons),
+      state.agentCapabilities,
+      client,
+    );
+    const updatedState: ACPCheckoutSessionState = {
+      ...state,
+      ...discounts,
+      cartId,
+      buyer: mergeBuyer(state.buyer, input.buyer),
+      // Changes to the session invalidate a pending authentication.
+      status: state.status === 'authentication_required' ? 'not_ready_for_payment' : state.status,
+      authenticationMetadata: undefined,
+      fulfillmentDetails: input.fulfillment_details === null
+        ? undefined
+        : input.fulfillment_details ?? state.fulfillmentDetails,
+      fulfillmentOptionId: input.selected_fulfillment_options === undefined
+        ? state.fulfillmentOptionId
+        : input.selected_fulfillment_options?.[0]?.option_id,
+    };
+
+    return jsonResponse(
+      await this.toACPCheckoutSession(updatedState, client, requestContext),
+    );
+  }
+
+  private async getCheckoutSession(
+    checkoutSessionId: string,
+    client: ValidatedReactionaryACPClient,
+    omitBody: boolean,
+  ): Promise<Response> {
+    const state = await this.checkoutSessionStore.get(checkoutSessionId);
+
+    if (!state) {
+      return acpErrorResponse(404, {
+        type: 'invalid_request',
+        code: 'missing',
+        message: `Checkout session not found: ${checkoutSessionId}`,
+      });
+    }
+
+    return jsonResponse(
+      await this.toACPCheckoutSession(state, client),
+      { omitBody },
+    );
+  }
+
+  /**
+   * Creates the real checkout from the session state and finalizes it. A
+   * payment the PSP has not authorized yet leaves the session
+   * `complete_in_progress`, without an order yet;
+   * a repeated complete retries finalization.
+   */
+  private async completeCheckoutSession(
+    checkoutSessionId: string,
+    input: ACPCompleteCheckoutSessionRequest,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<Response> {
+    const state = await this.getRequiredCheckoutSessionState(checkoutSessionId);
+
+    if (state.status === 'canceled') {
+      return acpErrorResponse(405, {
+        type: 'invalid_request',
+        code: 'invalid',
+        message: 'Canceled checkout sessions cannot be completed.',
+      });
+    }
+
+    const buyer = mergeBuyer(state.buyer, input.buyer);
+    let current: ACPCheckoutSessionState = {
+      ...state,
+      buyer,
+      ...(input.marketing_consents ? { marketingConsents: input.marketing_consents } : {}),
+      // Attribution is write-once: the first last-touch claim wins.
+      ...(input.affiliate_attribution && !state.lastTouchAttribution
+        ? { lastTouchAttribution: { ...input.affiliate_attribution, touchpoint: 'last' } }
+        : {}),
+    };
+
+    if (!current.checkoutId) {
+      const handler = this.resolvePaymentHandler(input.payment_data);
+      const view = await this.priceSession(current, client);
+
+      if (view.status === 'ready_for_payment') {
+        const authentication = await this.checkAuthentication(current, input, handler, view, client);
+
+        if (authentication) {
+          return authentication;
+        }
+      }
+
+      if (view.status !== 'ready_for_payment') {
+        const blocking = view.messages?.find((message) => message.type === 'error');
+
+        return acpErrorResponse(400, {
+          type: 'invalid_request',
+          code: blocking?.code ?? 'invalid',
+          message: blocking?.content ?? 'The checkout session is not ready for payment.',
+          ...(blocking?.param ? { param: blocking.param } : {}),
+        });
+      }
+
+      const checkout = await this.placeCheckout(current, input, handler, client);
+
+      if (!checkout) {
+        // A declined payment leaves the session payable with another
+        // instrument (lifecycle: in_progress → ready_for_payment).
+        return jsonResponse(await this.toACPCheckoutSession(current, client, undefined, [{
+          type: 'error',
+          code: 'payment_declined',
+          param: '$.payment_data',
+          content_type: 'plain',
+          content: 'The payment was declined. Please try a different payment method.',
+          resolution: 'requires_buyer_input',
+        }]));
+      }
+
+      current = {
+        ...current,
+        checkoutId: checkout.identifier.key,
+        status: 'complete_in_progress',
+      };
+      await this.checkoutSessionStore.put(current.id, current);
+    }
+
+    if (current.status !== 'completed' && current.checkoutId) {
+      const checkoutId = current.checkoutId;
+      const wait = {
+        ...DEFAULT_ACP_PAYMENT_AUTHORIZATION_WAIT,
+        ...this.options.paymentAuthorizationWait,
+      };
+      const checkout = await pollUntil(
+        () => unwrapACPResult(client.checkout.getById({ identifier: { key: checkoutId } })),
+        (candidate) => Boolean(candidate.resultingOrder || candidate.readyForFinalization),
+        wait,
+      );
+
+      const orderId = checkout.resultingOrder?.key ?? (checkout.readyForFinalization
+        ? (await unwrapACPResult(client.checkout.finalizeCheckout({ checkout: checkout.identifier }))).resultingOrder?.key
+        : undefined);
+
+      // Completed always comes with the order (CheckoutSessionWithOrder).
+      if (orderId) {
+        current = { ...current, status: 'completed', orderId };
+      }
+    }
+
+    const pending: ACPMessage[] = current.status === 'completed'
+      ? []
+      : [{
+          type: 'info',
+          content_type: 'plain',
+          content: 'The payment is awaiting authorization. Retrieve the session, or complete it again with a new Idempotency-Key, to receive the order.',
+        }];
+
+    return jsonResponse(await this.toACPCheckoutSession(current, client, undefined, pending));
+  }
+
+  private async cancelCheckoutSession(
+    checkoutSessionId: string,
+    input: ACPCancelCheckoutSessionRequest,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<Response> {
+    const state = await this.getRequiredCheckoutSessionState(checkoutSessionId);
+    // A placed checkout may have become an order since the last request.
+    const placed = state.checkoutId && state.status !== 'completed'
+      ? await this.getPlacedView(state, client)
+      : undefined;
+
+    if (state.status === 'completed' || state.status === 'canceled' || placed?.orderId) {
+      return acpErrorResponse(405, {
+        type: 'invalid_request',
+        code: 'invalid',
+        message: 'Completed or canceled checkout sessions cannot be canceled.',
+      });
+    }
+
+    // The trace is recorded but never returned (intent traces RFC §3.1);
+    // a failing hook does not stop the cancellation.
+    if (input.intent_trace) {
+      await Promise.resolve(this.options.onIntentTrace?.(input.intent_trace, {
+        checkoutSessionId: state.id,
+        ...(state.agentId ? { agentId: state.agentId } : {}),
+      }))?.catch((error: unknown) => console.error('ACP: onIntentTrace failed:', error));
+    }
+
+    // Any non-terminal session can be canceled (lifecycle), including one
+    // whose payment is awaiting authorization: it is then never finalized.
+    return jsonResponse(
+      await this.toACPCheckoutSession({
+        ...state,
+        status: 'canceled',
+        ...(input.intent_trace ? { intentTrace: input.intent_trace } : {}),
+      }, client, undefined, [{
+        type: 'info',
+        content_type: 'plain',
+        content: 'Checkout session has been canceled.',
+      }]),
+    );
+  }
+
+  /**
+   * Gives the session's cart exactly the requested items (line items are a
+   * full replacement), updating it in place where the backend supports it.
+   * Otherwise a new cart replaces it and the old one is deleted, if possible.
+   * Returns the cart key.
+   */
+  private async replaceCartItems(
+    cartId: string,
+    items: ACPItem[],
+    client: ValidatedReactionaryACPClient,
+  ): Promise<string> {
+    const cartCapability = client.cart;
+
+    // Called as methods: provider capabilities rely on their `this`.
+    if (!cartCapability.changeQuantity || !cartCapability.remove) {
+      const replacement = await this.createCartForItems(items, client);
+      await client.cart.deleteCart?.({ cart: { key: cartId } });
+      return replacement.identifier.key;
+    }
+
+    const requested = getRequestedQuantities(items);
+    let cart = await unwrapACPResult(client.cart.getById({ cart: { key: cartId } }));
+
+    for (const existing of cart.items) {
+      const wanted = requested.get(existing.variant.sku);
+
+      if (!wanted) {
+        cart = await unwrapACPResult(cartCapability.remove({ cart: cart.identifier, item: existing.identifier }));
+      } else if (wanted.quantity !== existing.quantity) {
+        cart = await unwrapACPResult(
+          cartCapability.changeQuantity({ cart: cart.identifier, item: existing.identifier, quantity: wanted.quantity }),
+          `$.line_items[${wanted.index}].quantity`,
+        );
+      }
+    }
+
+    const existingSkus = new Set(cart.items.map((item) => item.variant.sku));
+
+    for (const [sku, { quantity, index }] of requested) {
+      if (!existingSkus.has(sku)) {
+        cart = await unwrapACPResult(
+          client.cart.add({ cart: cart.identifier, variant: { sku }, quantity }),
+          `$.line_items[${index}].id`,
+        );
+      }
+    }
+
+    return cart.identifier.key;
+  }
+
+  private async createCartForItems(
+    items: ACPItem[],
+    client: ValidatedReactionaryACPClient,
+  ): Promise<Cart> {
+    let cart = await unwrapACPResult(client.cart.createCart({}));
+
+    for (const [sku, { quantity, index }] of getRequestedQuantities(items)) {
+      cart = await unwrapACPResult(
+        client.cart.add({
+          cart: cart.identifier,
+          variant: { sku },
+          quantity,
+        }),
+        `$.line_items[${index}].id`,
+      );
+    }
+
+    return cart;
+  }
+
+  private async getRequiredCheckoutSessionState(
+    checkoutSessionId: string,
+  ): Promise<ACPCheckoutSessionState> {
+    const state = await this.checkoutSessionStore.get(checkoutSessionId);
+
+    if (!state) {
+      throw new ACPHttpError(404, {
+        type: 'invalid_request',
+        code: 'missing',
+        message: `Checkout session not found: ${checkoutSessionId}`,
+      });
+    }
+
+    return state;
+  }
+
+  private async placeCheckout(
+    state: ACPCheckoutSessionState,
+    input: ACPCompleteCheckoutSessionRequest,
+    handler: ACPPaymentHandlerOption,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<Checkout | undefined> {
+    const cart = await unwrapACPResult(client.cart.getById({ cart: { key: state.cartId } }));
+    const address = state.fulfillmentDetails?.address;
+    const billingAddress = input.payment_data.billing_address ?? address;
+    let checkout = await unwrapACPResult(
+      client.checkout.initiateCheckoutForCart({
+        cart,
+        billingAddress: billingAddress ? toReactionaryAddress(billingAddress) : undefined,
+        notificationEmail: getContactEmail(state),
+        notificationPhone: getContactPhone(state),
+      }),
+    );
+
+    if (address) {
+      checkout = await unwrapACPResult(
+        client.checkout.setShippingAddress({ checkout: checkout.identifier, shippingAddress: toReactionaryAddress(address) }),
+      );
+    }
+
+    if (state.fulfillmentOptionId) {
+      checkout = await unwrapACPResult(
+        client.checkout.setShippingInstruction(toShippingInstruction(checkout, state.fulfillmentOptionId)),
+      );
+    }
+
+    // The delegated token is passed verbatim; the backend's payment
+    // integration for the provider confirms the payment with it.
+    const paid = await client.checkout.addPaymentInstruction({
+      checkout: checkout.identifier,
+      paymentInstruction: {
+        amount: checkout.price.grandTotal,
+        paymentMethod: getHandlerPaymentMethod(handler),
+        protocolData: [
+          {
+            key: 'delegated_payment_token',
+            value: input.payment_data.instrument.credential.token,
+          },
+          {
+            key: 'delegated_payment_provider',
+            value: handler.handler.psp,
+          },
+          { key: 'acp_payment_handler_id', value: handler.handler.id },
+          { key: 'acp_payment_instrument_type', value: input.payment_data.instrument.type },
+          { key: 'acp_payment_credential_type', value: input.payment_data.instrument.credential.type },
+          ...(input.authentication_result
+            ? [{ key: 'acp_authentication_result', value: JSON.stringify(input.authentication_result) }]
+            : []),
+        ],
+      },
+    });
+
+    if (!paid.success) {
+      // The declined checkout is discarded where it is a copy of the cart.
+      if (checkout.identifier.key !== cart.identifier.key && client.cart.deleteCart) {
+        await client.cart.deleteCart({ cart: checkout.identifier });
+      }
+
+      return undefined;
+    }
+
+    return paid.value;
+  }
+
+  /**
+   * Prices the open session with a transient checkout, which is discarded
+   * again: a reactionary checkout is a frozen snapshot, while an ACP session
+   * keeps changing until completion. Backends need an email to quote, so a
+   * placeholder stands in until the buyer supplies one.
+   */
+  private async priceSession(
+    state: ACPCheckoutSessionState,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<ACPSessionView> {
+    const cart = await unwrapACPResult(client.cart.getById({ cart: { key: state.cartId } }));
+
+    if (state.status === 'canceled') {
+      return { cart, price: cart.price, options: [], messages: [], status: 'canceled' };
+    }
+
+    const stockMessages = await this.getStockMessages(cart, client);
+    const address = state.fulfillmentDetails?.address;
+
+    if (!address) {
+      return {
+        cart,
+        price: cart.price,
+        options: [],
+        messages: [...stockMessages, ...getInputMessages(state, [], false, this.options.requireFulfillment ?? true)],
+        status: 'not_ready_for_payment',
+      };
+    }
+
+    let checkout = await unwrapACPResult(
+      client.checkout.initiateCheckoutForCart({
+        cart,
+        billingAddress: toReactionaryAddress(address),
+        notificationEmail: getContactEmail(state) ?? this.options.placeholderEmail ?? DEFAULT_ACP_PLACEHOLDER_EMAIL,
+        notificationPhone: getContactPhone(state),
+      }),
+    );
+
+    try {
+      const withAddress = await client.checkout.setShippingAddress({
+        checkout: checkout.identifier,
+        shippingAddress: toReactionaryAddress(address),
+      });
+      checkout = withAddress.success ? withAddress.value : checkout;
+
+      const shippingMethods = await client.checkout.getAvailableShippingMethods({ checkout: checkout.identifier });
+      const options = shippingMethods.success ? shippingMethods.value : [];
+      const selected = options.find((option) => option.identifier.key === state.fulfillmentOptionId);
+
+      if (selected) {
+        const withShipping = await client.checkout.setShippingInstruction(
+          toShippingInstruction(checkout, selected.identifier.key),
+        );
+        checkout = withShipping.success ? withShipping.value : checkout;
+      }
+
+      const messages = [
+        ...stockMessages,
+        ...this.getInterventionMessages(state),
+        ...getInputMessages(state, options, true, this.options.requireFulfillment ?? true),
+      ];
+      const ready = messages.every((message) => message.type !== 'error');
+
+      return {
+        messages,
+        cart,
+        checkout,
+        price: checkout.price,
+        options,
+        status: ready ? 'ready_for_payment' : 'not_ready_for_payment',
+      };
+    } finally {
+      // Where the checkout is a copy of the cart (e.g. commercetools), the
+      // copy would otherwise linger; where it is the cart itself, keep it.
+      if (checkout.identifier.key !== cart.identifier.key && client.cart.deleteCart) {
+        await client.cart.deleteCart({ cart: checkout.identifier });
+      }
+    }
+  }
+
+  private async toACPCheckoutSession(
+    state: ACPCheckoutSessionState,
+    client: ValidatedReactionaryACPClient,
+    requestContext = createInitialRequestContext(),
+    /** Messages about this request only, e.g. a declined payment. */
+    extraMessages: ACPMessage[] = [],
+  ): Promise<Record<string, unknown>> {
+    const view = state.checkoutId
+      ? await this.getPlacedView(state, client)
+      : await this.priceSession(state, client);
+    // A payable session keeps waiting for the agent's authentication result.
+    const awaitingAuthentication = state.status === 'authentication_required' && view.status === 'ready_for_payment';
+    const now = new Date().toISOString();
+    const persisted: ACPCheckoutSessionState = {
+      ...state,
+      createdAt: state.createdAt ?? now,
+      updatedAt: now,
+      status: awaitingAuthentication ? 'authentication_required' : view.status,
+      ...(view.orderId ? { orderId: view.orderId } : {}),
+    };
+    const lineItems = view.checkout?.items ?? view.cart?.items ?? [];
+    const products = await getProducts(lineItems.map((item) => item.variant.sku), client);
+    const optionTitles = getOptionTitles(view.options);
+    const selectedOption = view.options.find((option) => option.identifier.key === state.fulfillmentOptionId);
+    const discountsActive = this.isDiscountExtensionActive(persisted.agentCapabilities, client);
+
+    await this.checkoutSessionStore.put(persisted.id, persisted);
+    await this.recordOrder(persisted, client);
+
+    return {
+      id: persisted.id,
+      protocol: { version: ACP_API_VERSION },
+      capabilities: this.getNegotiatedCapabilities(persisted.agentCapabilities, client),
+      ...(persisted.buyer ? { buyer: persisted.buyer } : {}),
+      status: persisted.status,
+      ...(persisted.status === 'authentication_required' && persisted.authenticationMetadata
+        ? { authentication_metadata: persisted.authenticationMetadata }
+        : {}),
+      currency: getCurrency(view.price, requestContext),
+      locale: persisted.locale ?? requestContext.languageContext.locale,
+      ...(persisted.timezone ? { timezone: persisted.timezone } : {}),
+      line_items: lineItems.map((item) => toACPLineItem(item, products.get(item.variant.sku))),
+      ...(persisted.fulfillmentDetails
+        ? { fulfillment_details: persisted.fulfillmentDetails }
+        : {}),
+      fulfillment_options: view.options.map((option) => toACPFulfillmentOption(
+        option,
+        optionTitles.get(option.identifier.key) ?? option.identifier.key,
+        this.classifyFulfillmentOption(option),
+      )),
+      // A selection is only reported while it references an offered option.
+      ...(persisted.fulfillmentOptionId
+        && view.options.some((option) => option.identifier.key === persisted.fulfillmentOptionId)
+        ? {
+            selected_fulfillment_options: [{
+              type: selectedOption ? this.classifyFulfillmentOption(selectedOption).type : 'shipping',
+              option_id: persisted.fulfillmentOptionId,
+              item_ids: lineItems.map((lineItem) => lineItem.identifier.key),
+            }],
+          }
+        : {}),
+      totals: toACPTotals(view.price),
+      ...(persisted.orderId
+        ? {
+            order: {
+              type: 'order',
+              id: persisted.orderId,
+              checkout_session_id: persisted.id,
+              ...(this.options.orderPermalinkUrl
+                ? { permalink_url: toOrderPermalinkUrl(this.options.orderPermalinkUrl, persisted.orderId) }
+                : {}),
+            },
+          }
+        : {}),
+      ...(this.options.marketingConsent?.channels.length && persisted.status !== 'completed'
+        ? { marketing_consent_options: await this.getMarketingConsentOptions(persisted) }
+        : {}),
+      ...(discountsActive && view.cart
+        ? {
+            discounts: toACPDiscounts(view.cart, persisted.discountCodes ?? [], persisted.rejectedDiscounts ?? [], toMinorUnits),
+          }
+        : {}),
+      messages: [
+        ...extraMessages,
+        ...(view.messages ?? []),
+        ...(discountsActive ? getRejectedDiscountMessages(persisted) : []),
+      ],
+      links: this.options.links ?? [],
+      created_at: persisted.createdAt,
+      updated_at: persisted.updatedAt,
+      ...(isTerminal(persisted.status)
+        ? {}
+        : {
+            expires_at: new Date(Date.now() + (this.options.checkoutSessionTtlSeconds ?? 60 * 60 * 24) * 1000).toISOString(),
+            ...(this.options.continueUrl
+              ? { continue_url: this.options.continueUrl.replaceAll('{checkoutSessionId}', encodeURIComponent(persisted.id)) }
+              : {}),
+          }),
+    };
+  }
+
+  private classifyFulfillmentOption(method: ShippingMethod): ACPFulfillmentClassification {
+    return this.options.classifyFulfillmentOption?.(method) ?? { type: 'shipping' };
+  }
+
+  /**
+   * Whether the discount extension is active for a session: the backend can
+   * apply coupons, and the agent declared the extension.
+   */
+  private isDiscountExtensionActive(
+    agent: ACPAgentCapabilities | undefined,
+    client: ReactionaryACPClient,
+  ): boolean {
+    return Boolean(client.cart?.applyCouponCode && client.cart.removeCouponCode)
+      && (agent?.extensions ?? []).some((extension) => /^discount(@|$)/.test(extension));
+  }
+
+  /** Applies submitted discount codes, when the extension is active. */
+  private async applyRequestedDiscounts(
+    cartId: string,
+    codes: string[] | undefined,
+    agent: ACPAgentCapabilities | undefined,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<Pick<ACPCheckoutSessionState, 'discountCodes' | 'rejectedDiscounts'>> {
+    if (!codes || !this.isDiscountExtensionActive(agent, client)) {
+      return {};
+    }
+
+    const cart = await unwrapACPResult(client.cart.getById({ cart: { key: cartId } }));
+    const { rejected } = await applyDiscountCodes(client.cart, cart, codes);
+
+    return { discountCodes: codes, rejectedDiscounts: rejected };
+  }
+
+  /**
+   * 3D Secure (checkout RFC §4.4): when the authentication hook asks for it,
+   * the first completion answers `authentication_required` with the
+   * metadata; completing such a session without `authentication_result` is
+   * a 4XX `requires_3ds`. Failed or refused authentications are not
+   * authorized. Returns a response when completion must stop here.
+   */
+  private async checkAuthentication(
+    state: ACPCheckoutSessionState,
+    input: ACPCompleteCheckoutSessionRequest,
+    handler: ACPPaymentHandlerOption,
+    view: ACPSessionView,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<Response | undefined> {
+    const result = input.authentication_result;
+    const metadata = state.authenticationMetadata ?? (this.options.authentication
+      ? await this.options.authentication.getMetadata({
+          checkoutSessionId: state.id,
+          handler: handler.handler,
+          instrument: input.payment_data.instrument,
+          amount: view.price.grandTotal,
+        })
+      : undefined);
+
+    if (!metadata) {
+      return undefined;
+    }
+
+    if (!result) {
+      if (state.status === 'authentication_required') {
+        throw new ACPHttpError(400, {
+          type: 'invalid_request',
+          code: 'requires_3ds',
+          message: "This checkout session requires issuer authentication. The request must include 'authentication_result'.",
+          param: '$.authentication_result',
+        });
+      }
+
+      const pending: ACPCheckoutSessionState = { ...state, status: 'authentication_required', authenticationMetadata: metadata };
+      await this.checkoutSessionStore.put(pending.id, pending);
+
+      return jsonResponse(await this.toACPCheckoutSession(pending, client));
+    }
+
+    if (!(ACP_AUTHENTICATED_OUTCOMES as readonly string[]).includes(result.outcome)) {
+      const pending: ACPCheckoutSessionState = { ...state, status: 'authentication_required', authenticationMetadata: metadata };
+      await this.checkoutSessionStore.put(pending.id, pending);
+
+      return jsonResponse(await this.toACPCheckoutSession(pending, client, undefined, [{
+        type: 'error',
+        code: 'payment_declined',
+        param: '$.authentication_result',
+        content_type: 'plain',
+        content: `Card authentication did not succeed (${result.outcome}); the payment was not authorized.`,
+        resolution: 'requires_buyer_input',
+      }]));
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Records an order placed through a session once, and announces it to the
+   * creating agent's webhook receiver.
+   */
+  private async recordOrder(state: ACPCheckoutSessionState, client: ValidatedReactionaryACPClient): Promise<void> {
+    if (state.status !== 'completed' || !state.orderId || await this.checkoutSessionStore.getOrder(state.orderId)) {
+      return;
+    }
+
+    const record: ACPOrderRecord = {
+      id: state.orderId,
+      checkoutSessionId: state.id,
+      ...(state.sessionId ? { sessionId: state.sessionId } : {}),
+      ...(state.agentId ? { agentId: state.agentId } : {}),
+    };
+
+    await this.checkoutSessionStore.putOrder(record);
+    await this.reportAttribution(state, record);
+    await this.reportMarketingConsents(state, record);
+    await this.sendOrderEvent('order_create', record, client);
+  }
+
+  /**
+   * Reports the order's affiliate attribution once it exists: first touch
+   * from the session's creation, last touch from its completion. A failing
+   * hook never blocks the checkout.
+   */
+  private async reportAttribution(state: ACPCheckoutSessionState, record: ACPOrderRecord): Promise<void> {
+    const firstTouch = ACPAffiliateAttributionSchema.safeParse(state.firstTouchAttribution);
+    const lastTouch = ACPAffiliateAttributionSchema.safeParse(state.lastTouchAttribution);
+
+    if (!this.options.onOrderAttribution || (!firstTouch.success && !lastTouch.success)) {
+      return;
+    }
+
+    try {
+      await this.options.onOrderAttribution({
+        orderId: record.id,
+        checkoutSessionId: record.checkoutSessionId,
+        ...(record.agentId ? { agentId: record.agentId } : {}),
+        ...(firstTouch.success ? { firstTouch: firstTouch.data } : {}),
+        ...(lastTouch.success ? { lastTouch: lastTouch.data } : {}),
+      });
+    } catch {
+      // Attribution tokens are secret, so the error is not logged with them.
+      console.error(`ACP: onOrderAttribution failed for order ${record.id}.`);
+    }
+  }
+
+  /**
+   * Passes the buyer's consent decisions on, once the order exists. Only
+   * offered channels with a resolvable contact count: email uses the buyer's
+   * email, falling back to the fulfillment email; sms and whatsapp the phone
+   * likewise (marketing consent RFC §3.5). Omitted channels are not consent.
+   */
+  private async reportMarketingConsents(state: ACPCheckoutSessionState, record: ACPOrderRecord): Promise<void> {
+    const options = this.options.marketingConsent;
+    const offered = new Set(options?.channels.map((channel) => channel.channel));
+    const consents = (state.marketingConsents ?? []).flatMap((consent) => {
+      const contact = getConsentContact(state, consent.channel);
+      return offered.has(consent.channel) && contact ? [{ channel: consent.channel, opted_in: consent.opted_in, contact }] : [];
+    });
+
+    if (!options || consents.length === 0) {
+      return;
+    }
+
+    try {
+      await options.onConsents(consents, {
+        orderId: record.id,
+        checkoutSessionId: record.checkoutSessionId,
+        ...(record.agentId ? { agentId: record.agentId } : {}),
+      });
+    } catch (error) {
+      console.error(`ACP: marketing consents for order ${record.id} could not be recorded:`, error);
+    }
+  }
+
+  /** The offered marketing channels, with the buyer's subscription state. */
+  private async getMarketingConsentOptions(state: ACPCheckoutSessionState): Promise<Record<string, unknown>[]> {
+    const options = this.options.marketingConsent;
+
+    return Promise.all((options?.channels ?? []).map(async (channel) => {
+      const contact = getConsentContact(state, channel.channel);
+      const subscribed = contact && options?.isSubscribed ? await options.isSubscribed(contact, channel.channel) : false;
+
+      return { ...channel, is_subscribed: subscribed };
+    }));
+  }
+
+  private async sendOrderEvent(
+    type: ACPOrderEventType,
+    record: ACPOrderRecord,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<boolean> {
+    const endpoint = this.webhooks?.getEndpoint(record.agentId);
+    const order = endpoint ? await this.toACPOrder(record, client) : undefined;
+
+    if (!this.webhooks || !endpoint || !order) {
+      return false;
+    }
+
+    this.webhooks.deliver(endpoint, type, order);
+    return true;
+  }
+
+  /** The full current order (webhooks carry the whole order, not deltas). */
+  private async toACPOrder(
+    record: ACPOrderRecord,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<Record<string, unknown> | undefined> {
+    const result = await client.order?.getById({ order: { key: record.id } });
+
+    if (!result?.success) {
+      console.error(`ACP: order ${record.id} could not be read for its webhook:`, result?.error);
+      return undefined;
+    }
+
+    const order = result.value;
+    const products = await getProducts(order.items.map((item) => item.variant.sku), client);
+    const canceled = order.orderStatus === 'Cancelled';
+    const shipped = order.orderStatus === 'Shipped';
+    const lineItems = order.items.map((item) => {
+      const product = products.get(item.variant.sku);
+      const current = canceled ? 0 : item.quantity;
+
+      return {
+        id: item.identifier.key,
+        title: product?.name || item.variant.sku,
+        ...(product ? { product_id: product.identifier.key } : {}),
+        quantity: { ordered: item.quantity, current, fulfilled: shipped ? current : 0 },
+        unit_price: toMinorUnits(item.price.unitPrice),
+        subtotal: toMinorUnits(item.price.totalPrice),
+        status: canceled ? 'removed' : shipped ? 'fulfilled' : 'processing',
+      };
+    });
+
+    return {
+      type: 'order',
+      id: order.identifier.key,
+      checkout_session_id: record.checkoutSessionId,
+      ...(this.options.orderPermalinkUrl
+        ? { permalink_url: toOrderPermalinkUrl(this.options.orderPermalinkUrl, order.identifier.key) }
+        : {}),
+      status: toACPOrderStatus(order.orderStatus),
+      line_items: lineItems,
+      ...(order.shippingMethod
+        ? {
+            fulfillments: [{
+              id: 'fulfillment_1',
+              // Order fulfillments are shipping, pickup or digital.
+              type: toOrderFulfillmentType(this.classifyFulfillmentOption(order.shippingMethod).type),
+              status: canceled ? 'canceled' : shipped ? 'shipped' : 'processing',
+              line_items: lineItems
+                .filter((lineItem) => lineItem.quantity.current > 0)
+                .map((lineItem) => ({ id: lineItem.id, quantity: lineItem.quantity.current })),
+              ...(order.shippingMethod.carrier ? { carrier: order.shippingMethod.carrier } : {}),
+            }],
+          }
+        : {}),
+      totals: toACPTotals(order.price),
+    };
+  }
+
+  /**
+   * The advertised handler a completion pays with. Sellers MUST check the
+   * handler is one they declared (sellers guide, "Complete a checkout
+   * session"), and raw card numbers are refused unless explicitly accepted,
+   * so they never reach the backend's persisted payment data.
+   */
+  private resolvePaymentHandler(paymentData: ACPPaymentData): ACPPaymentHandlerOption {
+    const option = this.options.paymentHandlers?.find((candidate) => candidate.handler.id === paymentData.handler_id);
+
+    if (!option) {
+      throw new ACPHttpError(400, {
+        type: 'invalid_request',
+        code: 'invalid',
+        message: `Payment handler '${paymentData.handler_id}' is not offered for this checkout.`,
+        param: '$.payment_data.handler_id',
+      });
+    }
+
+    if (!this.options.acceptRawCardCredentials && isRawCardCredential(paymentData.instrument.credential)) {
+      throw new ACPHttpError(400, {
+        type: 'invalid_request',
+        code: 'invalid',
+        message: 'Raw card credentials are not accepted; submit a delegated payment token instead.',
+        param: '$.payment_data.instrument.credential',
+      });
+    }
+
+    return option;
+  }
+
+  /**
+   * The seller's capabilities for a session: interventions are the
+   * intersection of what the agent declared and what the seller supports,
+   * plus the seller's requirements (capability negotiation RFC §4.5.1).
+   */
+  private getNegotiatedCapabilities(
+    agent: ACPAgentCapabilities | undefined,
+    client: ReactionaryACPClient,
+  ): Record<string, unknown> {
+    const seller = this.options.interventions;
+    const required = seller?.required ?? [];
+
+    const handlers = this.options.paymentHandlers ?? [];
+
+    return {
+      ...(handlers.length > 0
+        ? { payment: { handlers: handlers.map((option) => option.handler) } }
+        : {}),
+      interventions: {
+        supported: getSupportedInterventions(agent, seller),
+        ...(required.length > 0
+          ? { required, enforcement: seller?.enforcement ?? 'conditional' }
+          : {}),
+      },
+      ...(this.isDiscountExtensionActive(agent, client) ? { extensions: [ACP_DISCOUNT_EXTENSION] } : {}),
+    };
+  }
+
+  /**
+   * An out_of_stock error per line item requesting more than the configured
+   * fulfillment centers hold (as in the UCP adapter). Back-ordered and
+   * pre-ordered items are always purchasable; without configured centers,
+   * stock is left to the backend.
+   */
+  private async getStockMessages(cart: Cart, client: ValidatedReactionaryACPClient): Promise<ACPMessage[]> {
+    const fulfillmentCenterKeys = this.options.inventory?.fulfillmentCenterKeys ?? [];
+    const inventoryCapability = client.inventory;
+
+    if (fulfillmentCenterKeys.length === 0 || !inventoryCapability) {
+      return [];
+    }
+
+    const messages = await Promise.all(cart.items.map(async (item, index): Promise<ACPMessage | undefined> => {
+      const results = await Promise.all(fulfillmentCenterKeys.map((key) => inventoryCapability.getBySKU({
+        variant: item.variant,
+        fulfilmentCenter: { key },
+      })));
+      const inventories = results.flatMap((result) => (result.success ? [result.value] : []));
+
+      if (
+        inventories.length === 0
+        || inventories.some((inventory) => inventory.status === 'onBackOrder' || inventory.status === 'preOrder')
+      ) {
+        return undefined;
+      }
+
+      const available = inventories.reduce(
+        (total, inventory) => total + (inventory.status === 'inStock' ? Math.max(inventory.quantity, 0) : 0),
+        0,
+      );
+
+      if (item.quantity <= available) {
+        return undefined;
+      }
+
+      const sku = item.variant.sku;
+
+      return {
+        type: 'error',
+        code: 'out_of_stock',
+        param: `$.line_items[${index}]`,
+        content_type: 'plain',
+        content: available > 0 ? `Only ${available} of ${sku} are in stock.` : `${sku} is out of stock.`,
+        resolution: 'requires_buyer_input',
+      };
+    }));
+
+    return messages.filter((message) => message !== undefined);
+  }
+
+  /**
+   * Required interventions the agent cannot perform block the session when
+   * they always apply (checkout RFC §5, intervention_required).
+   */
+  private getInterventionMessages(state: ACPCheckoutSessionState): ACPMessage[] {
+    const seller = this.options.interventions;
+    const supported = getSupportedInterventions(state.agentCapabilities, seller);
+    const missing = (seller?.required ?? []).filter((type) => !supported.includes(type));
+
+    if (missing.length === 0 || seller?.enforcement !== 'always') {
+      return [];
+    }
+
+    return [{
+      type: 'error',
+      code: 'intervention_required',
+      param: '$.capabilities.interventions',
+      content_type: 'plain',
+      content: `This checkout requires ${missing.join(', ')}, which the agent does not support.`,
+    }];
+  }
+
+  private async getPlacedView(
+    state: ACPCheckoutSessionState,
+    client: ValidatedReactionaryACPClient,
+  ): Promise<ACPSessionView> {
+    const checkout = await unwrapACPResult(
+      client.checkout.getById({ identifier: { key: state.checkoutId ?? '' } }),
+    );
+
+    // The backend may have finalized the order since (e.g. on the PSP's
+    // authorization webhook), which retrieval picks up.
+    const orderId = state.orderId ?? checkout.resultingOrder?.key;
+    const status = orderId ? 'completed' : state.status === 'canceled' ? 'canceled' : 'complete_in_progress';
+    // The chosen option stays listed, as the selection must reference one.
+    const methods = state.fulfillmentOptionId
+      ? await client.checkout.getAvailableShippingMethods({ checkout: checkout.identifier })
+      : undefined;
+    const options = methods?.success
+      ? methods.value.filter((method) => method.identifier.key === state.fulfillmentOptionId)
+      : [];
+
+    return {
+      checkout,
+      price: checkout.price,
+      options,
+      status,
+      ...(orderId ? { orderId } : {}),
+    };
+  }
+}
+
+interface ACPSessionView {
+  messages?: ACPMessage[];
+  /** The order a placed checkout resulted in. */
+  orderId?: string;
+  cart?: Cart;
+  checkout?: Checkout;
+  price: Checkout['price'];
+  options: ShippingMethod[];
+  status: ACPCheckoutSessionState['status'];
+}
+
+/**
+ * Requested quantity per SKU, with the index of its first line item for
+ * error paths. Quantities default to 1 and repeated ids add up.
+ */
+function getRequestedQuantities(items: ACPItem[]): Map<string, { quantity: number; index: number }> {
+  const quantities = new Map<string, { quantity: number; index: number }>();
+
+  for (const [index, item] of items.entries()) {
+    const current = quantities.get(item.id);
+    quantities.set(item.id, { quantity: (current?.quantity ?? 0) + (item.quantity ?? 1), index: current?.index ?? index });
+  }
+
+  return quantities;
+}
+
+/** The products of the given SKUs, for line item display fields. */
+async function getProducts(
+  skus: string[],
+  client: ValidatedReactionaryACPClient,
+): Promise<Map<string, Product>> {
+  const products = new Map<string, Product>();
+
+  await Promise.all([...new Set(skus)].map(async (sku) => {
+    const result = await client.product.getBySKU({ variant: { sku } });
+
+    if (result.success) {
+      products.set(sku, result.value);
+    }
+  }));
+
+  return products;
+}
+
+/** Constant-time string comparison (as in the UCP adapter). */
+function secureEquals(left: string, right: string): boolean {
+  const leftDigest = createHash('sha256').update(left).digest();
+  const rightDigest = createHash('sha256').update(right).digest();
+
+  return timingSafeEqual(leftDigest, rightDigest);
+}
+
+/** A credential carrying card account data rather than a token. */
+function isRawCardCredential(credential: Record<string, unknown>): boolean {
+  return credential['type'] === 'card'
+    || credential['type'] === 'pan'
+    || ['number', 'cvc', 'card_number'].some((field) => credential[field] !== undefined);
+}
+
+function toOrderFulfillmentType(type: ACPFulfillmentClassification['type']): 'shipping' | 'pickup' | 'digital' {
+  return type === 'local_delivery' ? 'shipping' : type;
+}
+
+function isTerminal(status: ACPCheckoutSessionState['status']): boolean {
+  return status === 'completed' || status === 'canceled';
+}
+
+/** The buyer's contact for a marketing channel, if any. */
+function getConsentContact(state: ACPCheckoutSessionState, channel: string): string | undefined {
+  if (channel === 'email') {
+    return getContactEmail(state);
+  }
+
+  return channel === 'sms' || channel === 'whatsapp' ? getContactPhone(state) : undefined;
+}
+
+/** Rejected discount codes, as warnings at their submitted position. */
+function getRejectedDiscountMessages(state: ACPCheckoutSessionState): ACPMessage[] {
+  const codes = state.discountCodes ?? [];
+
+  return (state.rejectedDiscounts ?? []).map((rejected) => ({
+    type: 'warning',
+    code: rejected.reason,
+    param: `$.discounts.codes[${Math.max(codes.indexOf(rejected.code), 0)}]`,
+    content_type: 'plain',
+    content: rejected.message ?? `Discount code '${rejected.code}' could not be applied.`,
+    resolution: 'requires_buyer_input',
+  }));
+}
+
+interface ACPMessage {
+  type: 'info' | 'warning' | 'error';
+  code?: string;
+  param?: string;
+  content_type: 'plain' | 'markdown';
+  content: string;
+  /** Who resolves it: the agent via the API, or the buyer. */
+  resolution?: 'recoverable' | 'requires_buyer_input' | 'requires_buyer_review';
+}
+
+/**
+ * What the session still needs before payment: each missing or invalid
+ * input as an error message at its JSONPath, so the agent can ask the buyer
+ * or correct its request.
+ */
+function getInputMessages(
+  state: ACPCheckoutSessionState,
+  options: ShippingMethod[],
+  hasAddress: boolean,
+  requireFulfillment: boolean,
+): ACPMessage[] {
+  const messages: ACPMessage[] = [];
+  const missing = (param: string, content: string): ACPMessage => ({
+    type: 'error',
+    code: 'missing',
+    param,
+    content_type: 'plain',
+    content,
+    resolution: 'requires_buyer_input',
+  });
+
+  if (!getContactEmail(state)) {
+    messages.push(missing('$.buyer.email', 'A buyer email is required.'));
+  }
+
+  if (!hasAddress) {
+    messages.push(missing('$.fulfillment_details.address', 'A shipping address is required.'));
+  }
+
+  const selected = options.some((option) => option.identifier.key === state.fulfillmentOptionId);
+
+  if (state.fulfillmentOptionId && hasAddress && !selected) {
+    messages.push({
+      type: 'error',
+      code: 'invalid',
+      param: '$.selected_fulfillment_options[0].option_id',
+      content_type: 'plain',
+      content: `Fulfillment option '${state.fulfillmentOptionId}' is not available for this checkout.`,
+      resolution: 'recoverable',
+    });
+  } else if (options.length > 0 && !state.fulfillmentOptionId) {
+    messages.push(missing('$.selected_fulfillment_options', 'A fulfillment option must be selected.'));
+  } else if (options.length === 0 && hasAddress && requireFulfillment) {
+    // Without a shipping method the order could not be fulfilled.
+    messages.push({
+      type: 'error',
+      code: 'region_restricted',
+      param: '$.fulfillment_details.address',
+      content_type: 'plain',
+      content: 'No fulfillment option is available for this address.',
+      resolution: 'requires_buyer_input',
+    });
+  }
+
+  return messages;
+}
+
+function getSupportedInterventions(
+  agent: ACPAgentCapabilities | undefined,
+  seller: ACPInterventionOptions | undefined,
+): ACPInterventionType[] {
+  const declared = new Set(agent?.interventions?.supported ?? []);
+
+  return (seller?.supported ?? []).filter(
+    (type) => ACP_INTERVENTION_TYPES.includes(type) && declared.has(type),
+  );
+}
+
+/**
+ * The buyer's contact details, falling back to the fulfillment contact
+ * (marketing consent RFC §3.5 resolves contacts the same way).
+ */
+function getContactEmail(state: ACPCheckoutSessionState): string | undefined {
+  return state.buyer?.email ?? state.fulfillmentDetails?.email;
+}
+
+function getContactPhone(state: ACPCheckoutSessionState): string | undefined {
+  return state.buyer?.phone_number ?? state.fulfillmentDetails?.phone_number;
+}
+
+/** Buyer updates refine what the session already knows about the buyer. */
+function mergeBuyer(
+  current: ACPBuyer | undefined,
+  update: ACPBuyer | undefined,
+): ACPBuyer | undefined {
+  return update ? { ...current, ...update } : current;
+}
+
+function toShippingInstruction(
+  checkout: Checkout,
+  fulfillmentOptionId: string,
+): { checkout: Checkout['identifier']; shippingInstruction: { shippingMethod: { key: string }; pickupPoint: string; instructions: string; consentForUnattendedDelivery: boolean } } {
+  return {
+    checkout: checkout.identifier,
+    shippingInstruction: {
+      shippingMethod: { key: fulfillmentOptionId },
+      pickupPoint: '',
+      instructions: '',
+      consentForUnattendedDelivery: false,
+    },
+  };
+}
+
+async function pollUntil<T>(
+  read: () => Promise<T>,
+  done: (value: T) => boolean,
+  wait: ACPPaymentAuthorizationWait,
+): Promise<T> {
+  const deadline = Date.now() + wait.timeoutMs;
+  let value = await read();
+
+  while (!done(value) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, Math.min(wait.intervalMs, Math.max(deadline - Date.now(), 0))));
+    value = await read();
+  }
+
+  return value;
+}
+
+class ACPHttpError extends Error {
+  public constructor(
+    public readonly status: number,
+    public readonly body: ACPErrorBody,
+    public readonly headers: Record<string, string> = {},
+  ) {
+    super(body.message);
+  }
+}
+
+interface ACPErrorBody {
+  type: 'invalid_request' | 'processing_error' | 'service_unavailable';
+  code: string;
+  message: string;
+  param?: string;
+  supported_versions?: string[];
+}
+
+/**
+ * Agents MUST send API-Version and servers MUST validate it; rejections list
+ * the supported versions (checkout RFC §2.1).
+ */
+function assertSupportedApiVersion(request: Request): void {
+  const version = request.headers.get(ACP_API_VERSION_HEADER);
+
+  if (version && ACP_SUPPORTED_API_VERSIONS.includes(version)) {
+    return;
+  }
+
+  throw new ACPHttpError(400, {
+    type: 'invalid_request',
+    code: version ? 'unsupported_api_version' : 'missing_api_version',
+    message: version
+      ? `API version '${version}' is not supported.`
+      : 'The API-Version header is required.',
+    supported_versions: ACP_SUPPORTED_API_VERSIONS,
+  });
+}
+
+class ReactionaryACPSessionStore {
+  public constructor(
+    private readonly cache: Cache,
+    private readonly ttlSeconds: number,
+  ) {}
+
+  public async get(sessionId: string): Promise<Session | undefined> {
+    return (
+      (await this.cache.get(
+        this.getCacheKey(sessionId),
+        SessionSchema,
+      )) ?? undefined
+    );
+  }
+
+  public async put(sessionId: string, session: Session): Promise<void> {
+    await this.cache.invalidate([this.getDependencyId(sessionId)]);
+    await this.cache.put(this.getCacheKey(sessionId), session, {
+      ttlSeconds: this.ttlSeconds,
+      dependencyIds: [this.getDependencyId(sessionId)],
+    });
+  }
+
+  private getCacheKey(sessionId: string): string {
+    return `${SESSION_CACHE_KEY_PREFIX}:${sessionId}`;
+  }
+
+  private getDependencyId(sessionId: string): string {
+    return `${SESSION_CACHE_KEY_PREFIX}:${sessionId}`;
+  }
+}
+
+class ReactionaryACPCheckoutSessionStore {
+  public constructor(
+    private readonly cache: Cache,
+    private readonly ttlSeconds: number,
+    private readonly orderTtlSeconds: number,
+  ) {}
+
+  public async get(
+    checkoutSessionId: string,
+  ): Promise<ACPCheckoutSessionState | undefined> {
+    return (
+      (await this.cache.get(
+        this.getCacheKey(checkoutSessionId),
+        ACPCheckoutSessionStateSchema,
+      )) ?? undefined
+    );
+  }
+
+  public async put(
+    checkoutSessionId: string,
+    session: ACPCheckoutSessionState,
+  ): Promise<void> {
+    await this.cache.invalidate([this.getDependencyId(checkoutSessionId)]);
+    await this.cache.put(this.getCacheKey(checkoutSessionId), session, {
+      ttlSeconds: this.ttlSeconds,
+      dependencyIds: [this.getDependencyId(checkoutSessionId)],
+    });
+  }
+
+  public async getCart(id: string): Promise<ACPCartState | undefined> {
+    const state = await this.cache.get(`${CART_CACHE_KEY_PREFIX}:${id}`, ACPCartStateSchema);
+
+    return state && Date.parse(state.expiresAt) > Date.now() ? state : undefined;
+  }
+
+  public async putCart(state: ACPCartState): Promise<void> {
+    const key = `${CART_CACHE_KEY_PREFIX}:${state.id}`;
+
+    await this.cache.invalidate([key]);
+    await this.cache.put(key, state, { ttlSeconds: this.ttlSeconds, dependencyIds: [key] });
+  }
+
+  public async deleteCart(id: string): Promise<void> {
+    await this.cache.invalidate([`${CART_CACHE_KEY_PREFIX}:${id}`]);
+  }
+
+  public async getOrder(orderId: string): Promise<ACPOrderRecord | undefined> {
+    return (await this.cache.get(`${ORDER_CACHE_KEY_PREFIX}:${orderId}`, ACPOrderRecordSchema)) ?? undefined;
+  }
+
+  public async putOrder(record: ACPOrderRecord): Promise<void> {
+    const key = `${ORDER_CACHE_KEY_PREFIX}:${record.id}`;
+
+    await this.cache.invalidate([key]);
+    await this.cache.put(key, record, { ttlSeconds: this.orderTtlSeconds, dependencyIds: [key] });
+  }
+
+  private getCacheKey(checkoutSessionId: string): string {
+    return `${CHECKOUT_SESSION_CACHE_KEY_PREFIX}:${checkoutSessionId}`;
+  }
+
+  private getDependencyId(checkoutSessionId: string): string {
+    return `${CHECKOUT_SESSION_CACHE_KEY_PREFIX}:${checkoutSessionId}`;
+  }
+}
+
+function getSessionId(request: Request): string | undefined {
+  return request.headers.get(ACP_SESSION_ID_HEADER) ?? undefined;
+}
+
+function getOrCreateSessionId(request: Request): string {
+  return getSessionId(request) ?? crypto.randomUUID();
+}
+
+function getCheckoutSessionId(
+  request: Request,
+  basePath: string | undefined,
+): string | undefined {
+  const pathname = getProtocolPathname(request, basePath);
+  const match = /^\/checkout_sessions\/([^/]+)(?:\/(?:complete|cancel))?$/.exec(
+    pathname,
+  );
+
+  return match?.[1];
+}
+
+/** Reactionary order statuses as ACP order statuses. */
+function toACPOrderStatus(status: Order['orderStatus']): string {
+  switch (status) {
+    case 'AwaitingPayment':
+      return 'created';
+    case 'ReleasedToFulfillment':
+      return 'confirmed';
+    case 'Shipped':
+      return 'shipped';
+    case 'Cancelled':
+      return 'canceled';
+  }
+}
+
+function toOrderPermalinkUrl(template: string, orderId: string): string {
+  return template.replaceAll('{orderId}', encodeURIComponent(orderId));
+}
+
+/** Responses echo Request-Id and, on POSTs, Idempotency-Key (checkout RFC §3.1). */
+function echoRequestHeaders(request: Request, response: Response): Response {
+  const requestId = request.headers.get('request-id');
+  const idempotencyKey = request.headers.get('idempotency-key');
+
+  if (requestId) {
+    response.headers.set('request-id', requestId);
+  }
+
+  if (idempotencyKey && request.method === 'POST') {
+    response.headers.set('idempotency-key', idempotencyKey);
+  }
+
+  return response;
+}
+
+/** Accept-Language tags by descending quality, e.g. `fi-FI,en;q=0.5` → fi-FI, en. */
+function parseAcceptLanguage(header: string | null): string[] {
+  return (header ?? '')
+    .split(',')
+    .map((part, index) => {
+      const [tag = '', ...parameters] = part.trim().split(';');
+      const quality = parameters
+        .map((parameter) => /^\s*q=([0-9.]+)\s*$/.exec(parameter)?.[1])
+        .find((value) => value !== undefined);
+
+      return { tag: tag.trim(), quality: quality === undefined ? 1 : Number(quality), index };
+    })
+    .filter((entry) => entry.tag && entry.tag !== '*' && entry.quality > 0)
+    .sort((left, right) => right.quality - left.quality || left.index - right.index)
+    .map((entry) => entry.tag);
+}
+
+/** POSTs to checkout and cart endpoints, which all require an Idempotency-Key. */
+function isCheckoutPost(request: Request, basePath: string | undefined): boolean {
+  const pathname = getProtocolPathname(request, basePath);
+
+  return request.method === 'POST'
+    && (pathname.startsWith('/checkout_sessions') || pathname === '/carts' || pathname.startsWith('/carts/'));
+}
+
+/** `/carts`, `/carts/{id}` or `/carts/{id}/cancel`. */
+function getCartRoute(
+  request: Request,
+  basePath: string | undefined,
+): { cartId?: string; cancel: boolean } | undefined {
+  const match = /^\/carts(?:\/([^/]+)(\/cancel)?)?$/.exec(getProtocolPathname(request, basePath));
+
+  return match ? { ...(match[1] ? { cartId: decodeURIComponent(match[1]) } : {}), cancel: Boolean(match[2]) } : undefined;
+}
+
+function methodNotAllowed(method: string, allow: string): Response {
+  return jsonResponse(
+    { type: 'invalid_request', code: 'method_not_allowed', message: `Unsupported method: ${method}` },
+    { status: 405, headers: { allow } },
+  );
+}
+
+function isCheckoutSessionCompleteRequest(
+  request: Request,
+  basePath: string | undefined,
+): boolean {
+  return getProtocolPathname(request, basePath).endsWith('/complete');
+}
+
+function isCheckoutSessionCancelRequest(
+  request: Request,
+  basePath: string | undefined,
+): boolean {
+  return getProtocolPathname(request, basePath).endsWith('/cancel');
+}
+
+function getProtocolPathname(
+  request: Request,
+  basePath = '/acp',
+): string {
+  const pathname = new URL(request.url).pathname;
+
+  if (pathname === basePath) {
+    return '/';
+  }
+
+  if (pathname.startsWith(`${basePath}/`)) {
+    return pathname.slice(basePath.length);
+  }
+
+  return pathname;
+}
+
+async function parseJsonBody<T>(
+  request: Request,
+  schema: z.ZodType<T>,
+): Promise<T> {
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    throw new ACPHttpError(400, {
+      type: 'invalid_request',
+      code: 'invalid_json',
+      message: 'The request body must be valid JSON.',
+    });
+  }
+
+  const parsed = schema.safeParse(body);
+
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+
+    throw new ACPHttpError(400, {
+      type: 'invalid_request',
+      code: issue?.code === 'invalid_type' && /received undefined/.test(issue.message) ? 'missing' : 'invalid',
+      message: issue?.message ?? 'Invalid request body',
+      ...(issue ? { param: toJsonPath(issue.path) } : {}),
+    });
+  }
+
+  return parsed.data;
+}
+
+/** A JSON body that may be absent, as on cancel. */
+async function parseOptionalJsonBody<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
+  const text = await request.clone().text();
+
+  return text.trim() ? parseJsonBody(request, schema) : schema.parse({});
+}
+
+/** An RFC 9535 JSONPath for a validation issue path, e.g. `$.line_items[0].id`. */
+function toJsonPath(path: PropertyKey[]): string {
+  return path.reduce<string>(
+    (jsonPath, segment) => typeof segment === 'number' ? `${jsonPath}[${segment}]` : `${jsonPath}.${String(segment)}`,
+    '$',
+  );
+}
+
+function jsonResponse(
+  body: unknown,
+  options: {
+    status?: number;
+    headers?: ProtocolHeaders;
+    omitBody?: boolean;
+  } = {},
+): Response {
+  const headers = new Headers(options.headers);
+  headers.set('content-type', 'application/json; charset=utf-8');
+
+  return new Response(
+    options.omitBody ? null : JSON.stringify(body),
+    {
+      status: options.status ?? 200,
+      headers,
+    },
+  );
+}
+
+function acpErrorResponse(status: number, body: ACPErrorBody): Response {
+  return jsonResponse(body, { status });
+}
+
+/** Handler configs MUST carry the merchant account and PSP (payment handlers RFC §10). */
+function assertPaymentHandlers(options: ACPPaymentHandlerOption[]): void {
+  const ids = new Set<string>();
+
+  for (const { handler } of options) {
+    if (ids.has(handler.id)) {
+      throw new Error(`ACP payment handler ids must be unique: ${handler.id}`);
+    }
+    ids.add(handler.id);
+
+    if (!handler.config.merchant_id || handler.config.psp !== handler.psp) {
+      throw new Error(`ACP payment handler ${handler.id} must configure merchant_id and the handler's psp.`);
+    }
+  }
+}
+
+function assertACPClient(
+  client: ReactionaryACPClient,
+): asserts client is ValidatedReactionaryACPClient {
+  const missing = getMissingACPClientOperations(client);
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Reactionary ACP server cannot initialize because the client is missing required operations: ${missing.join(', ')}`,
+    );
+  }
+}
+
+function toACPErrorResponse(error: unknown): Response {
+  if (error instanceof ACPHttpError) {
+    return jsonResponse(error.body, { status: error.status, headers: error.headers });
+  }
+
+  console.error('ACP: request failed:', error);
+
+  return acpErrorResponse(500, {
+    type: 'processing_error',
+    code: 'internal_error',
+    message: 'An unexpected error occurred.',
+  });
+}
+
+function getMissingACPClientOperations(client: ReactionaryACPClient): string[] {
+  return [
+    ['cart.createCart', client.cart?.createCart],
+    ['cart.add', client.cart?.add],
+    ['cart.getById', client.cart?.getById],
+    ['checkout.initiateCheckoutForCart', client.checkout?.initiateCheckoutForCart],
+    ['checkout.getById', client.checkout?.getById],
+    ['checkout.setShippingAddress', client.checkout?.setShippingAddress],
+    ['checkout.getAvailableShippingMethods', client.checkout?.getAvailableShippingMethods],
+    ['checkout.setShippingInstruction', client.checkout?.setShippingInstruction],
+    ['checkout.addPaymentInstruction', client.checkout?.addPaymentInstruction],
+    ['checkout.finalizeCheckout', client.checkout?.finalizeCheckout],
+    ['product.getBySKU', client.product?.getBySKU],
+  ]
+    .filter(([, operation]) => typeof operation !== 'function')
+    .map(([name]) => name as string);
+}
+
+/**
+ * The value of a backend result. Failures are reported without backend
+ * internals: invalid input or a missing resource the request referred to
+ * (at `param`) is the agent's error; anything else is a server-side
+ * processing error, logged for the operator.
+ */
+async function unwrapACPResult<T>(
+  resultPromise: Promise<Result<T>>,
+  param?: string,
+): Promise<T> {
+  const result = await resultPromise;
+
+  if (result.success) {
+    return result.value;
+  }
+
+  const errorType: unknown = typeof result.error === 'object' && result.error !== null
+    ? Reflect.get(result.error, 'type')
+    : undefined;
+
+  if (param && (errorType === 'NotFound' || errorType === 'InvalidInput')) {
+    throw new ACPHttpError(400, {
+      type: 'invalid_request',
+      code: errorType === 'NotFound' ? 'not_found' : 'invalid',
+      message: errorType === 'NotFound'
+        ? 'The referenced resource does not exist.'
+        : 'The request was rejected by the commerce backend.',
+      param,
+    });
+  }
+
+  console.error('ACP: commerce backend operation failed:', result.error);
+
+  throw new ACPHttpError(502, {
+    type: 'processing_error',
+    code: 'backend_error',
+    message: 'The commerce backend could not process the request.',
+  });
+}
+
+function getCurrency(
+  price: Checkout['price'],
+  requestContext: RequestContext,
+): string {
+  return (
+    price.grandTotal.currency ??
+    requestContext.languageContext.currencyCode
+  ).toLowerCase();
+}
+
+/**
+ * A 2026-04-17 line item: quantity and a totals breakdown, plus display
+ * fields from the product. Per-line tax is not known to the cart, so no tax
+ * entry is reported per line.
+ */
+function toACPLineItem(
+  item: Checkout['items'][number] | Cart['items'][number],
+  product: Product | undefined,
+): Record<string, unknown> {
+  const sku = item.variant.sku;
+  const variant = product
+    ? [product.mainVariant, ...product.variants].find((candidate) => candidate.identifier.sku === sku)
+    : undefined;
+  const baseAmount = toMinorUnits({ value: item.price.unitPrice.value * item.quantity, currency: item.price.unitPrice.currency });
+  const discount = Math.abs(toMinorUnits(item.price.totalDiscount));
+  const images = (variant?.images ?? product?.mainVariant.images ?? [])
+    .map((image) => image.sourceUrl)
+    .filter((url) => url.length > 0);
+  const name = variant?.name || product?.name;
+
+  return {
+    id: item.identifier.key,
+    item: { id: sku },
+    quantity: item.quantity,
+    ...(name ? { name } : {}),
+    ...(product?.description ? { description: product.description } : {}),
+    ...(images.length > 0 ? { images } : {}),
+    unit_amount: toMinorUnits(item.price.unitPrice),
+    ...(product ? { product_id: product.identifier.key } : {}),
+    sku,
+    ...(variant && variant.options.length > 0
+      ? { variant_options: variant.options.map((option) => ({ name: option.name, value: option.value.label })) }
+      : {}),
+    totals: [
+      { type: 'items_base_amount', display_text: 'Base Amount', amount: baseAmount },
+      ...(discount > 0 ? [{ type: 'discount', display_text: 'Discount', amount: discount }] : []),
+      { type: 'subtotal', display_text: 'Subtotal', amount: Math.max(baseAmount - discount, 0) },
+      { type: 'total', display_text: 'Total', amount: toMinorUnits(item.price.totalPrice) },
+    ],
+  };
+}
+
+function toACPTotals(price: Checkout['price']): Record<string, unknown>[] {
+  const base = toMinorUnits(price.totalProductPrice);
+  const discount = Math.abs(toMinorUnits(price.totalDiscount));
+  const subtotal = Math.max(base - discount, 0);
+  const fulfillment = toMinorUnits(price.totalShipping);
+  const tax = toMinorUnits(price.totalTax);
+  const total = toMinorUnits(price.grandTotal);
+
+  return [
+    {
+      type: 'items_base_amount',
+      display_text: 'Item(s) total',
+      amount: base,
+    },
+    {
+      type: 'items_discount',
+      display_text: 'Item discount',
+      amount: discount,
+    },
+    {
+      type: 'subtotal',
+      display_text: 'Subtotal',
+      amount: subtotal,
+    },
+    {
+      type: 'fulfillment',
+      display_text: 'Fulfillment',
+      amount: fulfillment,
+    },
+    {
+      type: 'tax',
+      display_text: 'Tax',
+      amount: tax,
+    },
+    {
+      type: 'total',
+      display_text: 'Total',
+      amount: total,
+    },
+  ];
+}
+
+/**
+ * A 2026-04-17 shipping option: its cost is a `totals[]` breakdown. The
+ * description carries the backend's delivery estimate, falling back to the
+ * method description. Backends report the estimate as free text, so no
+ * delivery timestamps are claimed.
+ */
+function toACPFulfillmentOption(
+  method: ShippingMethod,
+  title: string,
+  classification: ACPFulfillmentClassification,
+): Record<string, unknown> {
+  const description = method.deliveryTime || method.description;
+  const { type, ...details } = classification;
+
+  return {
+    type,
+    id: method.identifier.key,
+    title,
+    ...(description ? { description } : {}),
+    // Carriers belong to shipped options only.
+    ...(type === 'shipping' && method.carrier ? { carrier: method.carrier } : {}),
+    ...details,
+    totals: [{ type: 'total', display_text: title, amount: toMinorUnits(method.price) }],
+  };
+}
+
+/** Option titles by option key; sibling titles must be distinct for buyers to choose. */
+function getOptionTitles(options: ShippingMethod[]): Map<string, string> {
+  const titles = new Map<string, string>();
+  const used = new Set<string>();
+
+  for (const option of options) {
+    let title = option.name || option.identifier.key;
+    if (used.has(title)) {
+      title = `${title} (${option.identifier.key})`;
+    }
+    used.add(title);
+    titles.set(option.identifier.key, title);
+  }
+
+  return titles;
+}
+
+function toReactionaryAddress(address: ACPAddress): {
+  firstName: string;
+  lastName: string;
+  streetAddress: string;
+  streetNumber: string;
+  city: string;
+  region: string;
+  postalCode: string;
+  countryCode: string;
+} {
+  const [firstName, ...lastNameParts] = address.name.split(' ');
+
+  return {
+    firstName: firstName ?? address.name,
+    lastName: lastNameParts.join(' '),
+    streetAddress: address.line_one,
+    streetNumber: '',
+    city: address.city,
+    region: address.state,
+    postalCode: address.postal_code,
+    countryCode: address.country,
+  };
+}
+
+// ISO 4217 exponents that differ from the common 2 (as in the UCP adapter).
+const CURRENCY_EXPONENTS: Record<string, number> = {
+  BIF: 0, CLP: 0, DJF: 0, GNF: 0, ISK: 0, JPY: 0, KMF: 0, KRW: 0, PYG: 0,
+  RWF: 0, UGX: 0, UYI: 0, VND: 0, VUV: 0, XAF: 0, XOF: 0, XPF: 0,
+  BHD: 3, IQD: 3, JOD: 3, KWD: 3, LYD: 3, OMR: 3, TND: 3,
+};
+
+/** An amount in the currency's minor units, e.g. cents; signs are kept. */
+function toMinorUnits(amount: MonetaryAmount): number {
+  const exponent = CURRENCY_EXPONENTS[amount.currency.toUpperCase()] ?? 2;
+
+  return Math.round(amount.value * 10 ** exponent);
+}
+
+async function toWebRequest(request: IncomingMessage): Promise<Request> {
+  const headers = toWebHeaders(request.headers);
+  const url = new URL(
+    request.url ?? '/',
+    `http://${request.headers.host ?? 'localhost'}`,
+  );
+  const body = await readNodeRequestBody(request);
+
+  return new Request(url, {
+    method: request.method,
+    headers,
+    body,
+  });
+}
+
+function toWebHeaders(headers: IncomingHttpHeaders): Headers {
+  const webHeaders = new Headers();
+
+  for (const [key, value] of Object.entries(headers)) {
+    if (value === undefined) {
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        webHeaders.append(key, entry);
+      }
+      continue;
+    }
+
+    webHeaders.set(key, value);
+  }
+
+  return webHeaders;
+}
+
+async function readNodeRequestBody(
+  request: IncomingMessage,
+): Promise<Buffer | null> {
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    return null;
+  }
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  if (chunks.length === 0) {
+    return null;
+  }
+
+  return Buffer.concat(chunks);
+}
+
+async function sendWebResponse(
+  response: ServerResponse,
+  webResponse: Response,
+): Promise<void> {
+  response.writeHead(
+    webResponse.status,
+    Object.fromEntries(webResponse.headers.entries()),
+  );
+
+  if (webResponse.body) {
+    response.end(Buffer.from(await webResponse.arrayBuffer()));
+    return;
+  }
+
+  response.end();
+}
+
+function getAcpOperationPath(request: Request, basePath: string | undefined): string {
+  const pathname = getProtocolPathname(request, basePath);
+
+  return pathname
+    .replace(/^\/checkout_sessions\/[^/]+/, '/checkout_sessions/{id}')
+    .replace(/^\/carts\/[^/]+/, '/carts/{id}');
+}

@@ -1,18 +1,41 @@
-import type { StoreCart, StoreOrder } from '@medusajs/types';
+import { FetchError } from '@medusajs/js-sdk';
+import type { StoreCart } from '@medusajs/types';
 import type { CostBreakDown, Currency } from '@reactionary/core';
 import createDebug from 'debug';
 
 const debug = createDebug('reactionary:medusa:helpers');
 
 /**
+ * The Medusa SDK throws a FetchError for every non-2xx response. Returns true
+ * when the error is the SDK's way of saying the resource does not exist, so
+ * capabilities can answer with a typed NotFound result instead of throwing.
+ */
+export function isNotFoundFetchError(error: unknown): boolean {
+  return error instanceof FetchError && error.status === 404;
+}
+
+/**
+ * The subset of StoreCart/StoreOrder fields parseMedusaCostBreakdown reads.
+ * Narrowed (rather than StoreCart | StoreOrder) so tests can build a minimal,
+ * fully-typed fixture without casting.
+ */
+export type MedusaCostBreakdownSource = Pick<
+  StoreCart,
+  'total' | 'subtotal' | 'item_subtotal' | 'shipping_total' | 'tax_total' | 'discount_total' | 'currency_code'
+>;
+
+/**
  * Parses cost breakdown from Medusa StoreCart
  */
-export function parseMedusaCostBreakdown(remote: StoreCart | StoreOrder): CostBreakDown {
+export function parseMedusaCostBreakdown(remote: MedusaCostBreakdownSource): CostBreakDown {
   const grandTotal = remote.total || 0;
   const shippingTotal = remote.shipping_total || 0;
   const taxTotal = remote.tax_total || 0;
   const discountTotal = remote.discount_total || 0;
-  const subtotal = remote.subtotal || 0;
+  // `subtotal` is item_subtotal + shipping_subtotal in Medusa; use item_subtotal
+  // alone so totalProductPrice doesn't double-count shipping (already reported
+  // separately as totalShipping below).
+  const itemSubtotal = remote.item_subtotal || 0;
   const currency = (remote.currency_code || 'EUR').toUpperCase() as Currency;
 
   return {
@@ -33,7 +56,7 @@ export function parseMedusaCostBreakdown(remote: StoreCart | StoreOrder): CostBr
       currency,
     },
     totalProductPrice: {
-      value: subtotal,
+      value: itemSubtotal,
       currency,
     },
     grandTotal: {
@@ -87,3 +110,18 @@ export function handleProviderError(action: string, error: unknown): never {
     }`
   );
 }
+
+
+export  function safeBoolConvert(val?: unknown): boolean {
+    if (!val) {
+      return false;
+    }
+    return String(val).toLowerCase() === 'true';
+  }
+
+export function safeStringConvert(val?: unknown, defaultValue?: string): string | undefined {
+    if (!val) {
+      return defaultValue;
+    }
+    return String(val);
+  }

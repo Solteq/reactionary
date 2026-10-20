@@ -8,7 +8,7 @@ export const CategorySchema = BaseModelSchema.extend({
     name: z.string().default(''),
     slug: z.string().default(''),
     text: z.string().default(''),
-    images: z.array(ImageSchema.required()).default(() => []),
+    images: z.array(ImageSchema).default(() => []),
     parentCategory: CategoryIdentifierSchema.optional(),
 });
 

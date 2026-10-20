@@ -291,6 +291,7 @@ export class FakeCartCapability<
       isCouponCode: true,
       name: `Promotion for ${payload.couponCode}`,
       description: `Description for promotion with code ${payload.couponCode}`,
+      amount: { value: 10, currency: cart.price.grandTotal.currency }, // For simplicity, every coupon gives a $10 discount
     });
     cart.price.totalDiscount.value += 10; // For simplicity, every coupon gives a $10 discount
     cart.price.grandTotal.value -= 10;

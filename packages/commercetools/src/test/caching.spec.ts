@@ -1,6 +1,5 @@
-import 'dotenv/config';
 import { assert, describe, expect, it } from 'vitest';
-import { getCommercetoolsTestConfiguration } from './test-utils.js';
+import { useCommercetoolsFixtures } from './fixture-fetch.js';
 import {
   createInitialRequestContext,
   MemoryCache,
@@ -16,8 +15,10 @@ import { CommercetoolsProductFactory } from '../factories/product/product.factor
 import { CommercetoolsProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 
 describe('Caching', () => {
+  const fixtureConfig = useCommercetoolsFixtures('caching');
+
   it('should cache repeat look-ups for products', async () => {
-    const config = getCommercetoolsTestConfiguration();
+    const config = fixtureConfig;
     const context = createInitialRequestContext();
     const cache = new MemoryCache();
     const client = new CommercetoolsAPI(config, context);
@@ -30,7 +31,7 @@ describe('Caching', () => {
     );
 
     const identifier = {
-        key: 'product_10959528'
+        key: 'product_91375834'
     } satisfies ProductIdentifier;
 
     const uncached = await capability.getById({
@@ -55,7 +56,7 @@ describe('Caching', () => {
   });
 
   it('should cache repeat look-ups for product search', async () => {
-    const config = getCommercetoolsTestConfiguration();
+    const config = fixtureConfig;
     const context = createInitialRequestContext();
     const cache = new MemoryCache();
     const client = new CommercetoolsAPI(config, context);

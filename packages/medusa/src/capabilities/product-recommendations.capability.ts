@@ -11,6 +11,7 @@ import {
   type ProductRecommendation,
   type ProductRecommendationsByCollectionQuery,
   type ProductSearchResultItem,
+  type ProductSearchResultItemComplianceData,
   type ProductSearchResultItemVariant,
   type ProductVariantIdentifier,
   type RequestContext,
@@ -19,6 +20,7 @@ import {
 import createDebug from 'debug';
 import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
+import { parseProductSearchComplianceData } from '../utils/product-compliance.js';
 
 const debug = createDebug('reactionary:medusa:product-recommendations');
 
@@ -141,18 +143,23 @@ export class MedusaProductRecommendationsCapability extends ProductRecommendatio
        identifier,
        name,
        slug,
+       canAddToCartDirectly: (_body.variants?.length ?? 0) === 1,
        variants,
+       complianceData: this.buildProductComplianceData(_body),
      } satisfies ProductSearchResultItem;
 
      return result;
    }
+  protected buildProductComplianceData(product: StoreProduct): ProductSearchResultItemComplianceData {
+    return parseProductSearchComplianceData(product);
+  }
 
    protected parseVariant(
      variant: StoreProductVariant,
      product: StoreProduct
    ): ProductSearchResultItemVariant {
      const img = ImageSchema.parse({
-       sourceUrl: product.images?.[0].url ?? '',
+       sourceUrl: product.images?.[0]?.url ?? '',
        altText: product.title || undefined,
      });
 

@@ -17,7 +17,7 @@ import {
   type MedusaSession,
 } from '../index.js';
 import type { StoreProduct } from '@medusajs/types';
-const debug = createDebug('reactionary:medusa');
+const debug = createDebug('reactionary:medusa:client');
 
 export const SESSION_KEY = 'MEDUSA_PROVIDER';
 
@@ -57,10 +57,11 @@ export class RequestContextTokenStore implements MedusaCustomStorage {
       this.context.session[SESSION_KEY] = {};
     }
     if (debug.enabled) {
+      // Never log the value itself: it is typically an auth JWT.
       debug(
         `Setting token item for key: ${
           this.keyPrefix + '_' + key
-        } - Value: ${value}`
+        } - Value: <redacted, ${value.length} chars>`
       );
     }
     (this.context.session[SESSION_KEY] as MedusaSession)[this.keyPrefix + '_' + key] = value;
@@ -108,7 +109,7 @@ export class MedusaAdminAPI {
     this.client = new Medusa({
       baseUrl: this.config.apiUrl,
       apiKey: this.config.adminApiKey,
-      debug: false,
+      debug: debug.enabled,
       globalHeaders: {
         'x-medusa-locale': this.context.languageContext.locale,
       }
@@ -299,7 +300,7 @@ export class MedusaAPI {
     const authenticatedClient = new Medusa({
       baseUrl: this.config.apiUrl,
       publishableKey: this.config.publishable_key,
-      debug: false,
+      debug: debug.enabled,
       globalHeaders: {
         'x-medusa-locale': this.context.languageContext.locale,
       },

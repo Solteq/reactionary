@@ -1,5 +1,6 @@
 import {
   CategoryIdentifierSchema,
+  ProductComplianceDataSchema,
   ProductIdentifierSchema,
   type AnyProductSchema,
   type Image,
@@ -7,6 +8,7 @@ import {
   type ProductAttribute,
   type ProductAttributeIdentifier,
   type ProductAttributeValueIdentifier,
+  type ProductComplianceData,
   type ProductFactory,
   type ProductSchema,
   type ProductVariant,
@@ -50,6 +52,11 @@ export class MagentoProductFactory<
     protected config: MagentoConfiguration,
   ) {
     this.productSchema = productSchema;
+  }
+
+
+  protected parseComplianceData(context: RequestContext, data: MagentoProduct): ProductComplianceData {
+    return ProductComplianceDataSchema.parse({});
   }
 
   public parseProduct(
@@ -96,6 +103,7 @@ export class MagentoProductFactory<
       sharedAttributes,
       slug,
       variants: [],
+      complianceData: this.parseComplianceData(_context, data),
     } satisfies Product;
 
     return this.productSchema.parse(result);

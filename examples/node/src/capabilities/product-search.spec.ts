@@ -5,7 +5,7 @@ import { MemoryCache, type ProductSearchQueryCreateNavigationFilter } from '@rea
 
 const testData = {
   searchTerm: 'Bag',
-  searchTermWithLanguage: 'Task',
+  searchTermWithLanguage: 'kenwood',
   category: {
     lvl0: 'Work Tools & Hardware',
     lvl1: 'Work Tools & Hardware > Hand Tools',
@@ -313,7 +313,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
 
 
-describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA, PrimaryProvider.MAGENTO])('Multilingual Product Search', (provider) => {
+describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryProvider.MEILISEARCH, PrimaryProvider.MEDUSA, PrimaryProvider.MAGENTO])('Multilingual Product Search %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
 
@@ -347,7 +347,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
     const altLanguageClient = createClient(provider, {
       languageContext: {
         locale: 'da-DK',
-        currencyCode: 'EUR'
+        currencyCode: 'DKK'
       },
     });
 
@@ -443,11 +443,16 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
 
 
 
-describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Facets', (provider) => {
+describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Facets - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   it('should only return one category facet even if there are multiple levels of category hierarchy', async () => {
-    client = createClient(provider);
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'en-US',
+        currencyCode: 'USD'
+      }
+    });
 
     const result = await client.productSearch.queryByTerm({
       search: {
@@ -468,7 +473,12 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fac
     expect(categoryFacets.length).toBe(1);
   });
   it('should only return one category facet when a category facet value lvl 0 is set ', async () => {
-    client = createClient(provider);
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'en-US',
+        currencyCode: 'USD'
+      }
+    });
 
     const baseResult = await client.productSearch.queryByTerm({
       search: {
@@ -513,7 +523,12 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fac
 
   });
   it('should only return one category facet when a category facet value lvl 1 is set ', async () => {
-    client = createClient(provider);
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'en-US',
+        currencyCode: 'USD'
+      }
+    });
 
     const baseResult = await client.productSearch.queryByTerm({
       search: {
@@ -559,8 +574,13 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fac
   });
 
 
-  it('should only return no category facet when a category facet value lvl 2 is set ', async () => {
-    client = createClient(provider);
+  it('should only return no category facet when a leaf category facet is set ', async () => {
+    client = createClient(provider, {
+      languageContext: {
+        locale: 'en-US',
+        currencyCode: 'USD'
+      }
+    });
 
     const baseResult = await client.productSearch.queryByTerm({
       search: {
@@ -589,7 +609,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fac
           facet: {
             key: 'categories'
           },
-          key: testData.category.lvl2
+          key: testData.category.lvl3
         }],
         filters: [],
       },

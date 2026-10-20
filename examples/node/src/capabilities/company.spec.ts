@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
-import { createClient, PrimaryProvider } from '../utils.js';
+import { createClient, PrimaryProvider, uniqueTestId } from '../utils.js';
 import type { Address, Company, CompanyIdentifier } from '@reactionary/core';
 
 const testData = {
@@ -26,13 +26,13 @@ const testData = {
         email: `test-contact+${ts}@example.com`,
         phone: '+4512345678',
       },
-      dunsIdentifier: 'DUNS-123456789',
-      tinIdentifier: 'TIN-123456789',
+      dunsIdentifier: 'DUNS-' + ts,
+      tinIdentifier: 'TIN-' + ts,
     };
   },
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS])('Company - %s', (provider) => {
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Company - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
   let company: Company;
   let companyIdentifier: CompanyIdentifier;
@@ -43,7 +43,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Company - %s', (provider) => {
     client = createClient(provider);
     const time = new Date().getTime();
     testOrg = testData.requestTemplate(time.toString());
-    identityUsername = `testuser+${Date.now()}@example.com`;
+    identityUsername = `testuser+${uniqueTestId()}@example.com`;
 
     const identity = await client.identity.register({
       username: identityUsername,
@@ -137,7 +137,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])('Company - %s', (provider) => {
     expect(response.value.tinIdentifier).toBe(testOrg.tinIdentifier);
     expect(response.value.status).toBe('active');
     expect(response.value.isSelfManagementOfShippingAddressesAllowed).toBe(
-      true,
+      false,
     );
     expect(response.value.isCustomAddressesAllowed).toBe(false);
     expect(response.value.billingAddress).toMatchObject({

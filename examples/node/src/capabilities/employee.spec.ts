@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { describe, expect, it, beforeEach, assert } from 'vitest';
-import { createClient, PrimaryProvider } from '../utils.js';
+import { createClient, PrimaryProvider, uniqueTestId } from '../utils.js';
 import type {
   Company,
   EmployeeIssuedInvitation,
@@ -35,15 +35,15 @@ const testData = {
           email:  `test-contact+${ts}@example.com`,
           phone: '+4512345678',
         },
-        dunsIdentifier: 'DUNS-123456789',
-        tinIdentifier: 'TIN-123456789',
+        dunsIdentifier: 'DUNS-' + ts,
+        tinIdentifier: 'TIN-' + ts,
       };
   },
   employeeEmail: (ts: string) => `test-employee+${ts}@example.com`,
   wrongEmail: (ts: string) => `test-wrong-employee+${ts}@example.com`,
 };
 
-describe.each([PrimaryProvider.COMMERCETOOLS])(
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])(
   'Employees - %s',
   (provider) => {
     let client: ReturnType<typeof createClient>;
@@ -143,7 +143,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
     beforeEach(async () => {
       client = createClient(provider);
 
-      const time = Date.now().toString();
+      const time = uniqueTestId();
       testOrg = testData.requestTemplate(time);
       expect(testOrg.name.startsWith('TestOrg')).toBe(true);
 
@@ -188,7 +188,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
 
     describe('Roles', () => {
       it('allows admin to assign a role to an employee', async () => {
-        const inviteeEmail = testData.employeeEmail(Date.now().toString());
+        const inviteeEmail = testData.employeeEmail(uniqueTestId());
         const invite = await inviteEmployee(inviteeEmail, 'employee');
 
         const accepted = await registerAndAcceptInvitation(invite, inviteeEmail);
@@ -215,7 +215,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       }, 20000);
 
       it('allows admin to unassign a role from an employee', async () => {
-        const inviteeEmail = testData.employeeEmail(Date.now().toString());
+        const inviteeEmail = testData.employeeEmail(uniqueTestId());
         const invite = await inviteEmployee(inviteeEmail, 'admin');
 
         const accepted = await registerAndAcceptInvitation(invite, inviteeEmail);
@@ -241,7 +241,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
       }, 50000);
 
       it('allows admin to remove an employee from the company', async () => {
-        const inviteeEmail = testData.employeeEmail(Date.now().toString());
+        const inviteeEmail = testData.employeeEmail(uniqueTestId());
         const invite = await inviteEmployee(inviteeEmail, 'manager');
 
         const accepted = await registerAndAcceptInvitation(invite, inviteeEmail);
@@ -270,7 +270,7 @@ describe.each([PrimaryProvider.COMMERCETOOLS])(
 
 
       it('allows listing employees in an company', async () => {
-        const inviteeEmail = testData.employeeEmail(Date.now().toString());
+        const inviteeEmail = testData.employeeEmail(uniqueTestId());
         const invite = await inviteEmployee(inviteeEmail, 'manager');
 
         const accepted = await registerAndAcceptInvitation(invite, inviteeEmail);

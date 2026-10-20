@@ -1,0 +1,23 @@
+{
+  "ucp_version": "2026-08-25",
+  "required_capabilities": [
+    "dev.ucp.shopping.checkout",
+    "dev.ucp.shopping.order"
+  ],
+  "currency": "DKK",
+  "items": [
+    {
+      "id": "7313020077406",
+      "title": "EasyFold XT Carrying Bag 3",
+      "price": 173209
+    }
+  ],
+  "out_of_stock_item": {
+    "id": "7313020065489",
+    "title": "Bag (no stock in OnlineFfmChannel)"
+  },
+  "non_existent_item": {
+    "id": "sku-that-does-not-exist",
+    "title": "Non-existent Item"
+  }
+}

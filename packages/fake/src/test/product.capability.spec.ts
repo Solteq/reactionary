@@ -25,15 +25,15 @@ describe('Fake Product Provider', () => {
     const first = await provider.getById({ identifier: { key : '1234' }});
 
     if (!first.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(first.error));
     }
 
     expect(first.meta.cache.hit).toBe(false);
 
     const second = await provider.getById({ identifier: { key : '1234' }});
-    
+
     if (!second.success) {
-      assert.fail();
+      assert.fail(JSON.stringify(second.error));
     }
 
     expect(second.meta.cache.hit).toBe(true);

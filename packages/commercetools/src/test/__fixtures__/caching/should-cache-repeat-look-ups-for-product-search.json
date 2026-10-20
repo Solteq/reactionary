@@ -1,0 +1,35 @@
+{
+  "interactions": [
+    {
+      "method": "POST",
+      "url": "{authUrl}/oauth/{projectKey}/anonymous/token?grant_type=client_credentials",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "access_token": "redacted-access_token",
+        "expires_in": 10800,
+        "token_type": "Bearer",
+        "scope": "manage_my_business_units:{projectKey} manage_my_payments:{projectKey} view_categories:{projectKey} manage_my_profile:{projectKey} create_anonymous_token:{projectKey} anonymous_id:6a694d88-d9b4-446d-9efb-fd85fee8b6e0 view_standalone_prices:{projectKey} view_products:{projectKey} manage_my_shopping_lists:{projectKey} manage_my_quotes:{projectKey} manage_my_orders:{projectKey} manage_my_quote_requests:{projectKey} view_published_products:{projectKey}",
+        "refresh_token": "redacted-refresh_token"
+      }
+    },
+    {
+      "method": "POST",
+      "url": "{apiUrl}/{projectKey}/products/search",
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "total": 0,
+        "offset": 0,
+        "limit": 10,
+        "facets": [
+          {
+            "name": "categories",
+            "buckets": []
+          }
+        ],
+        "results": []
+      }
+    }
+  ]
+}

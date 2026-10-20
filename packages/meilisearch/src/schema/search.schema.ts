@@ -1,4 +1,4 @@
-import { ProductSearchIdentifierSchema, ProductSearchResultSchema } from '@reactionary/core';
+import { ProductSearchIdentifierSchema, ProductSearchResultSchema, type ProductSearchResultItemComplianceData } from '@reactionary/core';
 import * as z from 'zod';
 
 export const MeilisearchProductSearchIdentifierSchema = ProductSearchIdentifierSchema.extend({
@@ -22,4 +22,6 @@ export interface MeilisearchNativeRecord {
   slug?: string;
   name?: string;
   variants: Array<MeilisearchNativeVariant>;
+  complianceData?: ProductSearchResultItemComplianceData;
+  canAddToCartDirectly?: boolean;
 }

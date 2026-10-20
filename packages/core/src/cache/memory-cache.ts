@@ -1,32 +1,40 @@
 import { getReactionaryCacheMeter } from '../metrics/metrics.js';
-import { error, NotFoundErrorSchema, success, type NotFoundError } from '../schemas/index.js';
 import type { BaseModel } from '../schemas/models/index.js';
-import type { Result } from '../schemas/result.js';
 import type { Cache, CacheEntryOptions } from './cache.interface.js';
 import type * as z from 'zod';
 
+
+interface MemoryCacheEntry {
+  value: unknown;
+  options: CacheEntryOptions;
+  expiresAt: number;
+}
 
 /**
  * Memory version of the cache. Primarily useful for local development.
  * This is NOT suited for production use.
  */
 export class MemoryCache implements Cache {
-  protected entries = new Array<{ key: string; value: unknown, options: CacheEntryOptions }>();
+  protected entries = new Map<string, MemoryCacheEntry>();
   protected meter = getReactionaryCacheMeter();
 
 
   public async get<T extends BaseModel>(key: string, schema: z.ZodType<T>): Promise<T | null> {
-    const c = this.entries.find((x) => x.key === key);
+    const entry = this.entries.get(key);
 
-    if (!c) {
+    if (!entry || entry.expiresAt <= Date.now()) {
+      if (entry) {
+        this.entries.delete(key);
+      }
+
       this.meter.misses.add(1, {
         'labels.cache_type': 'memory',
       });
-      
+
       return null;
     }
 
-    const parsed = schema.parse(c.value);
+    const parsed = schema.parse(entry.value);
 
     this.meter.hits.add(1, {
       'labels.cache_type': 'memory',
@@ -37,16 +45,16 @@ export class MemoryCache implements Cache {
 
   public async put(
     key: string,
-    value: Result<unknown>,
+    value: unknown,
     options: CacheEntryOptions
   ): Promise<void> {
-    this.entries.push({
-        key,
-        value,
-        options
+    this.entries.set(key, {
+      value,
+      options,
+      expiresAt: Date.now() + options.ttlSeconds * 1000,
     });
 
-    this.meter.items.record(this.entries.length, {
+    this.meter.items.record(this.entries.size, {
       'labels.cache_type': 'memory',
     });
 
@@ -54,31 +62,22 @@ export class MemoryCache implements Cache {
   }
 
   public async invalidate(dependencyIds: Array<string>): Promise<void> {
-    let index = 0;
-    for (const entry of this.entries) {
-      for (const entryDependency of entry.options.dependencyIds) {
-        if (dependencyIds.indexOf(entryDependency) > -1) {
-          this.entries.splice(index, 1);
-        }
+    for (const [key, entry] of this.entries) {
+      if (entry.options.dependencyIds.some((dependencyId) => dependencyIds.includes(dependencyId))) {
+        this.entries.delete(key);
       }
-
-      index++;
     }
 
-    this.meter.items.record(this.entries.length, {
+    this.meter.items.record(this.entries.size, {
       'labels.cache_type': 'memory',
     });
-
-
   }
 
   public async clear(): Promise<void> {
-    this.entries = [];
+    this.entries = new Map();
 
-    this.meter.items.record(this.entries.length, {
+    this.meter.items.record(this.entries.size, {
       'labels.cache_type': 'memory',
     });
-
-
   }
 }

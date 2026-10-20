@@ -64,7 +64,7 @@ export class AlgoliaProductSearchCapability<
     }
 
     return {
-      indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale),
+      indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale, this.config),
       query: payload.search.term,
       page: payload.search.paginationOptions.pageNumber - 1,
       hitsPerPage: payload.search.paginationOptions.pageSize,

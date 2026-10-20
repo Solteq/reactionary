@@ -1,4 +1,4 @@
-import type { Product } from '../schemas/models/product.model.js';
+import type { Product, ProductComplianceData } from '../schemas/models/product.model.js';
 import { BaseCapability } from './base.capability.js';
 import type { ProductQueryById, ProductQueryBySKU, ProductQueryBySlug } from '../schemas/queries/product.query.js';
 import type { Result } from '../schemas/result.js';
@@ -71,6 +71,10 @@ export abstract class ProductCapability<TProduct extends Product = Product> exte
       sharedAttributes: [],
       slug: '',
       variants: [],
+      complianceData: {
+        ce_marking: false,
+        weee_symbol: false,
+      } satisfies ProductComplianceData
     } satisfies Product;
 
     return product as unknown as TProduct;

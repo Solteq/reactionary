@@ -119,7 +119,7 @@ export class CommercetoolsProductListCapability<
   }
 
   @Reactionary({
-    cache: true,
+    cache: false,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
     localeDependentCaching: false,
@@ -163,7 +163,7 @@ export class CommercetoolsProductListCapability<
 
 
   @Reactionary({
-    cache: true,
+    cache: false,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
     localeDependentCaching: false,
@@ -395,7 +395,7 @@ export class CommercetoolsProductListCapability<
   }
 
   @Reactionary({
-    cache: true,
+    cache: false,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
     localeDependentCaching: false,

@@ -12,6 +12,7 @@ import {
 import {
   AddressIdentifierSchema,
   MonetaryAmountSchema,
+  SHIPPING_PROTOCOL_DATA_KEYS,
   ShippingMethodIdentifierSchema,
   type Address,
   type AddressIdentifier,
@@ -32,9 +33,12 @@ import {
   type PaymentStatus,
   type PointOfContact,
   type RequestContext,
+  type ShippingFulfillmentType,
   type ShippingInstruction,
   type ShippingMethod,
   type ShippingMethodSchema,
+  type ShippingProtocolData,
+  type StoreIdentifier,
 } from '@reactionary/core';
 import type * as z from 'zod';
 import type {
@@ -45,6 +49,15 @@ import {
   parseMedusaCostBreakdown,
   parseMedusaItemPrice,
 } from '../../utils/medusa-helpers.js';
+
+/**
+ * A cart shipping option with the optional metadata relation, which the
+ * Medusa HTTP types do not declare on the store-level shipping option even
+ * though it can be requested via the fields parameter.
+ */
+export type MedusaShippingOptionWithMetadata = StoreCartShippingOptionWithServiceZone & {
+  metadata?: Record<string, unknown> | null;
+};
 
 export class MedusaCheckoutFactory<
   TCheckoutSchema extends AnyCheckoutSchema = typeof CheckoutSchema,
@@ -209,24 +222,38 @@ export class MedusaCheckoutFactory<
         ? data.metadata?.['consent_for_unattended_delivery'] === 'true'
         : undefined;
     const backupInstructions =
-      data.metadata?.['instructions'] !== undefined
-        ? data.metadata?.['instructions'] + ''
+      data.metadata?.['instructions'] != null
+        ? String(data.metadata['instructions'])
         : undefined;
     const backupPickupPoint =
-      data.metadata?.['pickup_point'] !== undefined
-        ? data.metadata?.['pickup_point'] + ''
+      data.metadata?.['pickup_point'] != null
+        ? String(data.metadata['pickup_point'])
         : undefined;
+    const backupPickupStore =
+      data.metadata?.['pickup_store'] != null && data.metadata['pickup_store'] !== ''
+        ? String(data.metadata['pickup_store'])
+        : undefined;
+    const backupShippingProtocolData = this.parseShippingProtocolData(
+      data.metadata?.['shipping_protocol_data'],
+    );
 
-    let shippingInstruction;
+    let shippingInstruction: ShippingInstruction | undefined;
     data.shipping_methods?.forEach((sm) => {
       let pickupPoint = '';
       let instructions = '';
       let consentForUnattendedDelivery = false;
+      let pickupStore: string | undefined;
+      let protocolData: ShippingProtocolData[] | undefined;
       if (sm.data) {
-        pickupPoint = sm.data['pickup_point'] + '' || '';
-        instructions = sm.data['instructions'] + '' || '';
+        pickupPoint = sm.data['pickup_point'] != null ? String(sm.data['pickup_point']) : '';
+        instructions = sm.data['instructions'] != null ? String(sm.data['instructions']) : '';
         consentForUnattendedDelivery =
           sm.data['consent_for_unattended_delivery'] === 'true';
+        pickupStore =
+          sm.data['pickup_store'] != null && sm.data['pickup_store'] !== ''
+            ? String(sm.data['pickup_store'])
+            : undefined;
+        protocolData = this.parseInstructionProtocolData(sm.data);
       }
 
       if (!pickupPoint) {
@@ -238,14 +265,22 @@ export class MedusaCheckoutFactory<
       if (!consentForUnattendedDelivery) {
         consentForUnattendedDelivery = backupUnattendedDelivery || false;
       }
+      if (!pickupStore) {
+        pickupStore = backupPickupStore;
+      }
+      if (!protocolData) {
+        protocolData = backupShippingProtocolData;
+      }
 
       // currently Medusa only supports one shipping method per cart
       shippingInstruction = {
-        shippingMethod: { key: sm.shipping_option_id },
+        shippingMethod: { key: sm.shipping_option_id || '' },
         consentForUnattendedDelivery,
         instructions,
         pickupPoint,
-      };
+        store: pickupStore ? ({ key: pickupStore } satisfies StoreIdentifier) : undefined,
+        protocolData,
+      } satisfies ShippingInstruction;
     });
 
     const paymentInstructions = new Array<PaymentInstruction>();
@@ -313,7 +348,7 @@ export class MedusaCheckoutFactory<
 
   public parseShippingMethod(
     _context: RequestContext,
-    data: StoreCartShippingOptionWithServiceZone,
+    data: MedusaShippingOptionWithMetadata,
   ): z.output<TShippingMethodSchema> {
     const sm = {
       identifier: ShippingMethodIdentifierSchema.parse({ key: data.id }),
@@ -322,12 +357,205 @@ export class MedusaCheckoutFactory<
       price: MonetaryAmountSchema.parse({
         value: data.calculated_price.calculated_amount || 0,
         currency:
-          data.calculated_price.currency_code?.toUpperCase() as Currency,
+          data.calculated_price.currency_code?.toUpperCase() as Currency || _context.languageContext.currencyCode ,
       } satisfies MonetaryAmount),
       deliveryTime: '',
+      carrier: this.parseShippingMethodCarrier(_context, data),
+      fulfillmentType: this.parseFulfillmentType(_context, data),
+      protocolData: this.mergeShippingMethodProtocolData(
+        this.parseShippingMethodProtocolData(_context, data),
+        this.parseShippingMethodStoreReference(_context, data),
+      ),
     } satisfies ShippingMethod;
 
     return this.shippingMethodSchema.parse(sm);
+  }
+
+  /**
+   * Appends a conventional entry to the provider-derived protocol data,
+   * unless the provider data already carries the same key (explicit provider
+   * data wins).
+   */
+  protected mergeShippingMethodProtocolData(
+    protocolData: ShippingProtocolData[] | undefined,
+    entry: ShippingProtocolData | undefined,
+  ): ShippingProtocolData[] | undefined {
+    if (!entry) {
+      return protocolData;
+    }
+    if ((protocolData ?? []).some((existing) => existing.key === entry.key)) {
+      return protocolData;
+    }
+    return [...(protocolData ?? []), entry];
+  }
+
+  /**
+   * Extension point emitting the conventional "pickup_store" protocol data
+   * entry for in-store pickup options: the stock location id of the service
+   * zone's fulfillment set, which equals the store capability's
+   * Store.identifier.key. Delivery options also carry a location (the
+   * warehouse), so the entry is emitted for pickup options only.
+   */
+  protected parseShippingMethodStoreReference(
+    _context: RequestContext,
+    data: MedusaShippingOptionWithMetadata,
+  ): ShippingProtocolData | undefined {
+    if (this.parseFulfillmentType(_context, data) !== 'pickup') {
+      return undefined;
+    }
+
+    const locationId = data.service_zone?.fulfillment_set?.location?.id;
+    if (!locationId) {
+      return undefined;
+    }
+
+    return { key: SHIPPING_PROTOCOL_DATA_KEYS.pickupStore, value: locationId };
+  }
+
+  /**
+   * Extension point to control how a Medusa shipping option maps to the core
+   * fulfillment type. A shipping option belonging to a fulfillment set of type
+   * "pickup" is in-store pickup (BOPIS); everything else is a delivery.
+   */
+  protected parseFulfillmentType(
+    _context: RequestContext,
+    data: MedusaShippingOptionWithMetadata,
+  ): ShippingFulfillmentType {
+    return data.service_zone?.fulfillment_set?.type === 'pickup'
+      ? 'pickup'
+      : 'delivery';
+  }
+
+  /**
+   * Extension point mapping a Medusa shipping option's `data` - the payload
+   * the fulfillment provider works with (e.g. nShift's option/carrier ids) -
+   * to the shipping method's protocolData, so provider-protocol data reaches
+   * the client. String and JSON-object values are kept as-is, other
+   * primitives are stringified, and arrays/null entries are skipped.
+   *
+   * Option `metadata` is deliberately NOT mapped: it is merchant free-form
+   * annotation, not protocol data. Override this hook to surface it.
+   */
+  protected parseShippingMethodProtocolData(
+    _context: RequestContext,
+    data: MedusaShippingOptionWithMetadata,
+  ): ShippingProtocolData[] | undefined {
+    if (!data.data) {
+      return undefined;
+    }
+
+    const entries = this.convertToProtocolDataEntries(data.data);
+    return entries.length > 0 ? entries : undefined;
+  }
+
+  /**
+   * Converts a Medusa key-value record into protocol data entries: string and
+   * JSON-object values are kept as-is, other primitives are stringified, and
+   * arrays/null entries are skipped. Keys listed in skipKeys are left out.
+   */
+  protected convertToProtocolDataEntries(
+    record: Record<string, unknown>,
+    skipKeys: readonly string[] = [],
+  ): ShippingProtocolData[] {
+    const entries: ShippingProtocolData[] = [];
+    for (const [key, value] of Object.entries(record)) {
+      if (skipKeys.includes(key)) {
+        continue;
+      }
+      if (typeof value === 'string') {
+        entries.push({ key, value });
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        entries.push({ key, value: String(value) });
+      } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        entries.push({ key, value });
+      }
+    }
+    return entries;
+  }
+
+  /**
+   * Extension point resolving the carrier of a shipping option from its
+   * provider data (e.g. nShift's carrier_id), when present.
+   */
+  protected parseShippingMethodCarrier(
+    _context: RequestContext,
+    data: MedusaShippingOptionWithMetadata,
+  ): string | undefined {
+    const carrierId = data.data?.['carrier_id'];
+    return typeof carrierId === 'string' && carrierId.length > 0 ? carrierId : undefined;
+  }
+
+  /**
+   * The persisted shipping method data keys that are NOT surfaced as
+   * instruction protocol data: keys already represented as first-class
+   * instruction fields, the legacy JSON blob, and provider-side values that
+   * would mislead (nShift's data.price is not the charged amount).
+   */
+  protected instructionProtocolDataSkipKeys: readonly string[] = [
+    'pickup_store',
+    'pickup_point',
+    'instructions',
+    'consent_for_unattended_delivery',
+    'shipping_protocol_data',
+    'price',
+    'currency_code',
+  ];
+
+  /**
+   * Builds the shipping instruction's protocolData from the persisted
+   * shipping method data: the provider payload enriched by the backend (e.g.
+   * nShift's session_id, carrier ids and optional delivery_time) merged with
+   * whatever the client sent when setting the instruction. First-class and
+   * misleading keys are skipped; the legacy shipping_protocol_data JSON blob
+   * still contributes entries whose keys are not already present.
+   */
+  protected parseInstructionProtocolData(
+    smData: Record<string, unknown>,
+  ): ShippingProtocolData[] | undefined {
+    const entries = this.convertToProtocolDataEntries(
+      smData,
+      this.instructionProtocolDataSkipKeys,
+    );
+
+    for (const legacyEntry of this.parseShippingProtocolData(smData['shipping_protocol_data']) ?? []) {
+      if (!entries.some((entry) => entry.key === legacyEntry.key)) {
+        entries.push(legacyEntry);
+      }
+    }
+
+    return entries.length > 0 ? entries : undefined;
+  }
+
+  /**
+   * Parses shipping protocol data persisted as a JSON object string (keys
+   * mapping to string or JSON-object values) back into protocol data entries.
+   * Returns undefined when nothing (valid) is stored, keeping the field absent
+   * for carts that never set it.
+   */
+  protected parseShippingProtocolData(raw: unknown): ShippingProtocolData[] | undefined {
+    if (typeof raw !== 'string' || raw.length === 0) {
+      return undefined;
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return undefined;
+      }
+
+      const entries: ShippingProtocolData[] = [];
+      for (const [key, value] of Object.entries(parsed)) {
+        if (typeof value === 'string') {
+          entries.push({ key, value });
+        } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          entries.push({ key, value: value as Record<string, unknown> });
+        }
+      }
+
+      return entries.length > 0 ? entries : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
 
