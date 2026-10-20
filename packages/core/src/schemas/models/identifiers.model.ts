@@ -160,6 +160,20 @@ export const CompanyIdentifierSchema = z.looseObject({
 });
 
 
+/**
+ * Sort fields with a shared meaning across providers. Providers map these to
+ * their own sort keys, and may ignore a well-known field they cannot sort by
+ * (falling back to their default order) rather than failing the search.
+ */
+export const ProductSearchSortWellKnownFieldSchema = z.enum(['relevance', 'name', 'price', 'createdAt']).meta({ description: 'A provider-independent sort field: "relevance" (the provider\'s default ranking), "name", "price" or "createdAt".' });
+
+export const ProductSearchSortDirectionSchema = z.enum(['asc', 'desc']).meta({ description: 'The sort direction: ascending or descending.' });
+
+export const ProductSearchSortSchema = z.looseObject({
+  field: z.string().meta({ description: 'The field to sort by. The well-known fields "relevance", "name", "price" and "createdAt" are understood by every provider that supports sorting; any other value is a provider-specific field name (e.g. an attribute code) and may be rejected as invalid input by providers that do not know it.' }),
+  direction: ProductSearchSortDirectionSchema,
+}).meta({ description: 'How to order the search results.' });
+
 export const ProductSearchIdentifierSchema = z.looseObject({
   term: z.string().meta({ description: 'The search term used to find products.' }),
   facets: z.array(FacetValueIdentifierSchema).meta({ description: 'The facets applied to filter the search results.' }),
@@ -167,6 +181,7 @@ export const ProductSearchIdentifierSchema = z.looseObject({
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
   categoryFilter: FacetValueIdentifierSchema.optional().meta({ description: 'An optional category filter applied to the search results.' }),
   company: CompanyIdentifierSchema.optional().meta({ description: 'The identifier for the company to search products within. This can be used to filter products by specific companies, which can be useful for B2B use cases.' }),
+  sort: ProductSearchSortSchema.optional().meta({ description: 'An optional sort order for the search results. When omitted, the provider\'s default order (usually relevance) applies.' }),
 //  personalizationProfile: PersonalizationProfileSchema.optional().meta({ description: 'The marketing profile of the user performing the search. This can be used to provide personalized search results based on the user\'s segments and other attributes defined in their marketing profile.' }),
 });
 
@@ -269,6 +284,9 @@ export type OrderSearchIdentifier = InferType<typeof OrderSearchIdentifierSchema
 export type ProductIdentifier = InferType<typeof ProductIdentifierSchema>;
 export type ProductVariantIdentifier = InferType<typeof ProductVariantIdentifierSchema>;
 export type SearchIdentifier = InferType<typeof ProductSearchIdentifierSchema>;
+export type ProductSearchSort = InferType<typeof ProductSearchSortSchema>;
+export type ProductSearchSortDirection = z.infer<typeof ProductSearchSortDirectionSchema>;
+export type ProductSearchSortWellKnownField = z.infer<typeof ProductSearchSortWellKnownFieldSchema>;
 export type FacetIdentifier = InferType<typeof FacetIdentifierSchema>;
 export type FacetValueIdentifier = InferType<typeof FacetValueIdentifierSchema>;
 export type CartIdentifier = InferType<typeof CartIdentifierSchema>;
