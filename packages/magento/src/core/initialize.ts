@@ -22,6 +22,20 @@ import {
   ProductRatingSummarySchema,
   ProductReviewSchema,
   ProductReviewPaginatedResultSchema,
+  ProductListSchema,
+  ProductListItemSchema,
+  ProductListPaginatedResultsSchema,
+  ProductListItemPaginatedResultsSchema,
+  StoreSchema,
+  PersonalizationProfileSchema,
+  CompanySchema,
+  CompanyPaginatedListSchema,
+  CompanyRegistrationRequestSchema,
+  EmployeeSchema,
+  EmployeePaginatedListSchema,
+  EmployeeInvitationSchema,
+  EmployeeIssuedInvitationSchema,
+  EmployeeInvitationPaginatedListSchema,
 } from '@reactionary/core';
 import { MagentoCartCapability } from '../capabilities/cart.capability.js';
 import { MagentoCategoryCapability } from '../capabilities/category.capability.js';
@@ -37,6 +51,13 @@ import { MagentoCheckoutCapability } from '../capabilities/checkout.capability.j
 import { MagentoProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import { MagentoProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import { MagentoProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
+import { MagentoProductListCapability } from '../capabilities/product-list.capability.js';
+import { MagentoStoreCapability } from '../capabilities/store.capability.js';
+import { MagentoPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
+import { MagentoCompanyCapability } from '../capabilities/company.capability.js';
+import { MagentoCompanyRegistrationCapability } from '../capabilities/company-registration.capability.js';
+import { MagentoEmployeeCapability } from '../capabilities/employee.capability.js';
+import { MagentoEmployeeInvitationCapability } from '../capabilities/employee-invitation.capability.js';
 import {
   MagentoCapabilitiesSchema,
   type MagentoCapabilities,
@@ -59,6 +80,13 @@ import {
   MagentoCheckoutFactory,
   MagentoProductAssociationsFactory,
   MagentoProductReviewsFactory,
+  MagentoProductListFactory,
+  MagentoStoreFactory,
+  MagentoPersonalizationProfileFactory,
+  MagentoCompanyFactory,
+  MagentoCompanyRegistrationFactory,
+  MagentoEmployeeFactory,
+  MagentoEmployeeInvitationFactory,
 } from '../factories/index.js';
 import {
   type MagentoClientFromCapabilities,
@@ -131,6 +159,7 @@ export function withMagentoCapabilities<T extends MagentoCapabilities>(
           factory: new MagentoCategoryFactory(
             CategorySchema,
             CategoryPaginatedResultSchema,
+            config,
           ),
           capability: (args) =>
             new MagentoCategoryCapability(
@@ -226,7 +255,9 @@ export function withMagentoCapabilities<T extends MagentoCapabilities>(
       client.profile = resolveCapabilityWithFactory(
         capabilities.profile,
         {
-          factory: new MagentoProfileFactory(ProfileSchema),
+          factory: new MagentoProfileFactory(ProfileSchema, {
+            addressNicknameAttribute: config.addressNicknameAttribute,
+          }),
           capability: (args) =>
             new MagentoProfileCapability(
               args.config,
@@ -350,6 +381,146 @@ export function withMagentoCapabilities<T extends MagentoCapabilities>(
           ),
           capability: (args) =>
             new MagentoProductReviewsCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.productList?.enabled) {
+      client.productList = resolveCapabilityWithFactory(
+        capabilities.productList,
+        {
+          factory: new MagentoProductListFactory(
+            ProductListSchema,
+            ProductListItemSchema,
+            ProductListPaginatedResultsSchema,
+            ProductListItemPaginatedResultsSchema,
+          ),
+          capability: (args) =>
+            new MagentoProductListCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.store?.enabled) {
+      client.store = resolveCapabilityWithFactory(
+        capabilities.store,
+        {
+          factory: new MagentoStoreFactory(StoreSchema),
+          capability: (args) =>
+            new MagentoStoreCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.personalizationProfile?.enabled) {
+      client.personalizationProfile = resolveCapabilityWithFactory(
+        capabilities.personalizationProfile,
+        {
+          factory: new MagentoPersonalizationProfileFactory(PersonalizationProfileSchema),
+          capability: (args) =>
+            new MagentoPersonalizationProfileCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.company?.enabled) {
+      client.company = resolveCapabilityWithFactory(
+        capabilities.company,
+        {
+          factory: new MagentoCompanyFactory(CompanySchema, CompanyPaginatedListSchema),
+          capability: (args) =>
+            new MagentoCompanyCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.companyRegistration?.enabled) {
+      client.companyRegistration = resolveCapabilityWithFactory(
+        capabilities.companyRegistration,
+        {
+          factory: new MagentoCompanyRegistrationFactory(CompanyRegistrationRequestSchema),
+          capability: (args) =>
+            new MagentoCompanyRegistrationCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.employee?.enabled) {
+      client.employee = resolveCapabilityWithFactory(
+        capabilities.employee,
+        {
+          factory: new MagentoEmployeeFactory(
+            EmployeeSchema,
+            EmployeePaginatedListSchema,
+            config.companyRoleMapping,
+          ),
+          capability: (args) =>
+            new MagentoEmployeeCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.employeeInvitation?.enabled) {
+      client.employeeInvitation = resolveCapabilityWithFactory(
+        capabilities.employeeInvitation,
+        {
+          factory: new MagentoEmployeeInvitationFactory(
+            EmployeeInvitationSchema,
+            EmployeeIssuedInvitationSchema,
+            EmployeeInvitationPaginatedListSchema,
+            config.companyRoleMapping,
+          ),
+          capability: (args) =>
+            new MagentoEmployeeInvitationCapability(
               args.config,
               args.cache,
               args.context,

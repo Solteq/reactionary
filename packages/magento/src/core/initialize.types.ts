@@ -12,6 +12,13 @@ import type {
   CheckoutFactory,
   ProductAssociationsFactory,
   ProductReviewsFactory,
+  ProductListFactory,
+  StoreFactory,
+  PersonalizationProfileFactory,
+  CompanyFactory,
+  CompanyRegistrationFactory,
+  EmployeeFactory,
+  EmployeeInvitationFactory,
 } from '@reactionary/core';
 import type { MagentoCapabilities } from '../schema/capabilities.schema.js';
 import type { MagentoCartFactory } from '../factories/cart/cart.factory.js';
@@ -26,6 +33,13 @@ import type { MagentoOrderFactory } from '../factories/order/order.factory.js';
 import type { MagentoCheckoutFactory } from '../factories/checkout/checkout.factory.js';
 import type { MagentoProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
 import type { MagentoProductReviewsFactory } from '../factories/product-reviews/product-reviews.factory.js';
+import type { MagentoProductListFactory } from '../factories/product-list/product-list.factory.js';
+import type { MagentoStoreFactory } from '../factories/store/store.factory.js';
+import type { MagentoPersonalizationProfileFactory } from '../factories/personalization-profile/personalization-profile.factory.js';
+import type { MagentoCompanyFactory } from '../factories/company/company.factory.js';
+import type { MagentoCompanyRegistrationFactory } from '../factories/company-registration/company-registration.factory.js';
+import type { MagentoEmployeeFactory } from '../factories/employee/employee.factory.js';
+import type { MagentoEmployeeInvitationFactory } from '../factories/employee-invitation/employee-invitation.factory.js';
 import type { MagentoCartCapability } from '../capabilities/cart.capability.js';
 import type { MagentoCategoryCapability } from '../capabilities/category.capability.js';
 import type { MagentoIdentityCapability } from '../capabilities/identity.capability.js';
@@ -40,6 +54,13 @@ import type { MagentoCheckoutCapability } from '../capabilities/checkout.capabil
 import type { MagentoProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import type { MagentoProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import type { MagentoProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
+import type { MagentoProductListCapability } from '../capabilities/product-list.capability.js';
+import type { MagentoStoreCapability } from '../capabilities/store.capability.js';
+import type { MagentoPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
+import type { MagentoCompanyCapability } from '../capabilities/company.capability.js';
+import type { MagentoCompanyRegistrationCapability } from '../capabilities/company-registration.capability.js';
+import type { MagentoEmployeeCapability } from '../capabilities/employee.capability.js';
+import type { MagentoEmployeeInvitationCapability } from '../capabilities/employee-invitation.capability.js';
 
 type OverridableCapabilityKey =
   | 'product'
@@ -53,7 +74,14 @@ type OverridableCapabilityKey =
   | 'order'
   | 'checkout'
   | 'productAssociations'
-  | 'productReviews';
+  | 'productReviews'
+  | 'productList'
+  | 'store'
+  | 'personalizationProfile'
+  | 'company'
+  | 'companyRegistration'
+  | 'employee'
+  | 'employeeInvitation';
 
 type DirectCapabilityKey = 'identity' | 'productRecommendations';
 
@@ -94,6 +122,13 @@ type FactoryContractMap = {
   checkout: CheckoutFactory;
   productAssociations: ProductAssociationsFactory;
   productReviews: ProductReviewsFactory;
+  productList: ProductListFactory;
+  store: StoreFactory;
+  personalizationProfile: PersonalizationProfileFactory;
+  company: CompanyFactory;
+  companyRegistration: CompanyRegistrationFactory;
+  employee: EmployeeFactory;
+  employeeInvitation: EmployeeInvitationFactory;
 };
 
 type DefaultFactoryMap = {
@@ -109,6 +144,13 @@ type DefaultFactoryMap = {
   checkout: MagentoCheckoutFactory;
   productAssociations: MagentoProductAssociationsFactory;
   productReviews: MagentoProductReviewsFactory;
+  productList: MagentoProductListFactory;
+  store: MagentoStoreFactory;
+  personalizationProfile: MagentoPersonalizationProfileFactory;
+  company: MagentoCompanyFactory;
+  companyRegistration: MagentoCompanyRegistrationFactory;
+  employee: MagentoEmployeeFactory;
+  employeeInvitation: MagentoEmployeeInvitationFactory;
 };
 
 type ResolvedFactoryMap<T extends MagentoCapabilities> = {
@@ -132,6 +174,13 @@ type DefaultCapabilityMap<T extends MagentoCapabilities> = {
   checkout: MagentoCheckoutCapability<ResolvedFactoryMap<T>['checkout']>;
   productAssociations: MagentoProductAssociationsCapability<ResolvedFactoryMap<T>['productAssociations']>;
   productReviews: MagentoProductReviewsCapability<ResolvedFactoryMap<T>['productReviews']>;
+  productList: MagentoProductListCapability<ResolvedFactoryMap<T>['productList']>;
+  store: MagentoStoreCapability<ResolvedFactoryMap<T>['store']>;
+  personalizationProfile: MagentoPersonalizationProfileCapability<ResolvedFactoryMap<T>['personalizationProfile']>;
+  company: MagentoCompanyCapability<ResolvedFactoryMap<T>['company']>;
+  companyRegistration: MagentoCompanyRegistrationCapability<ResolvedFactoryMap<T>['companyRegistration']>;
+  employee: MagentoEmployeeCapability<ResolvedFactoryMap<T>['employee']>;
+  employeeInvitation: MagentoEmployeeInvitationCapability<ResolvedFactoryMap<T>['employeeInvitation']>;
   productRecommendations: MagentoProductRecommendationsCapability;
   identity: MagentoIdentityCapability;
 };

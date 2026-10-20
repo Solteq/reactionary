@@ -37,6 +37,27 @@ import type {
   ProductReviewsFactory,
   ProductReviewsFactoryWithOutput,
   ProductReviewsCapability,
+  ProductListFactory,
+  ProductListFactoryWithOutput,
+  ProductListCapability,
+  StoreFactory,
+  StoreFactoryWithOutput,
+  StoreCapability,
+  PersonalizationProfileFactory,
+  PersonalizationProfileFactoryWithOutput,
+  PersonalizationProfileCapability,
+  CompanyFactory,
+  CompanyFactoryWithOutput,
+  CompanyCapability,
+  CompanyRegistrationFactory,
+  CompanyRegistrationFactoryWithOutput,
+  CompanyRegistrationCapability,
+  EmployeeFactory,
+  EmployeeFactoryWithOutput,
+  EmployeeCapability,
+  EmployeeInvitationFactory,
+  EmployeeInvitationFactoryWithOutput,
+  EmployeeInvitationCapability,
   RequestContext,
   Cache,
 } from '@reactionary/core';
@@ -71,6 +92,10 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
   productAssociations: true,
   productRecommendations: true,
   productReviews: true,
+  productList: true,
+  store: true,
+  personalizationProfile: true,
+  company: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -87,6 +112,13 @@ export const MagentoCapabilitiesSchema = CapabilitiesSchema.pick({
     productAssociations: OverridableCapabilitySchema.optional(),
     productRecommendations: DirectCapabilitySchema.optional(),
     productReviews: OverridableCapabilitySchema.optional(),
+    productList: OverridableCapabilitySchema.optional(),
+    store: OverridableCapabilitySchema.optional(),
+    personalizationProfile: OverridableCapabilitySchema.optional(),
+    company: OverridableCapabilitySchema.optional(),
+    companyRegistration: OverridableCapabilitySchema.optional(),
+    employee: OverridableCapabilitySchema.optional(),
+    employeeInvitation: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -179,6 +211,41 @@ export type MagentoProductReviewsCapabilityConfig = MagentoCapabilityConfig<
   ProductReviewsCapability
 >;
 
+export type MagentoProductListCapabilityConfig = MagentoCapabilityConfig<
+  ProductListFactoryWithOutput<ProductListFactory>,
+  ProductListCapability
+>;
+
+export type MagentoStoreCapabilityConfig = MagentoCapabilityConfig<
+  StoreFactoryWithOutput<StoreFactory>,
+  StoreCapability
+>;
+
+export type MagentoPersonalizationProfileCapabilityConfig = MagentoCapabilityConfig<
+  PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
+  PersonalizationProfileCapability
+>;
+
+export type MagentoCompanyCapabilityConfig = MagentoCapabilityConfig<
+  CompanyFactoryWithOutput<CompanyFactory>,
+  CompanyCapability
+>;
+
+export type MagentoCompanyRegistrationCapabilityConfig = MagentoCapabilityConfig<
+  CompanyRegistrationFactoryWithOutput<CompanyRegistrationFactory>,
+  CompanyRegistrationCapability
+>;
+
+export type MagentoEmployeeCapabilityConfig = MagentoCapabilityConfig<
+  EmployeeFactoryWithOutput<EmployeeFactory>,
+  EmployeeCapability
+>;
+
+export type MagentoEmployeeInvitationCapabilityConfig = MagentoCapabilityConfig<
+  EmployeeInvitationFactoryWithOutput<EmployeeInvitationFactory>,
+  EmployeeInvitationCapability
+>;
+
 export type MagentoCapabilities<
   TProductFactory extends ProductFactory = ProductFactory,
   TProductCapability extends ProductCapability = ProductCapability,
@@ -206,6 +273,20 @@ export type MagentoCapabilities<
   TProductRecommendationsCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
   TProductReviewsFactory extends ProductReviewsFactory = ProductReviewsFactory,
   TProductReviewsCapability extends ProductReviewsCapability = ProductReviewsCapability,
+  TProductListFactory extends ProductListFactory = ProductListFactory,
+  TProductListCapability extends ProductListCapability = ProductListCapability,
+  TStoreFactory extends StoreFactory = StoreFactory,
+  TStoreCapability extends StoreCapability = StoreCapability,
+  TPersonalizationProfileFactory extends PersonalizationProfileFactory = PersonalizationProfileFactory,
+  TPersonalizationProfileCapability extends PersonalizationProfileCapability = PersonalizationProfileCapability,
+  TCompanyFactory extends CompanyFactory = CompanyFactory,
+  TCompanyCapability extends CompanyCapability = CompanyCapability,
+  TCompanyRegistrationFactory extends CompanyRegistrationFactory = CompanyRegistrationFactory,
+  TCompanyRegistrationCapability extends CompanyRegistrationCapability = CompanyRegistrationCapability,
+  TEmployeeFactory extends EmployeeFactory = EmployeeFactory,
+  TEmployeeCapability extends EmployeeCapability = EmployeeCapability,
+  TEmployeeInvitationFactory extends EmployeeInvitationFactory = EmployeeInvitationFactory,
+  TEmployeeInvitationCapability extends EmployeeInvitationCapability = EmployeeInvitationCapability,
 > = {
   product?: MagentoCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MagentoCapabilityConfig<ProductSearchFactoryWithOutput<TProductSearchFactory>, TProductSearchCapability>;
@@ -221,4 +302,11 @@ export type MagentoCapabilities<
   productAssociations?: MagentoCapabilityConfig<ProductAssociationsFactoryWithOutput<TProductAssociationsFactory>, TProductAssociationsCapability>;
   productRecommendations?: MagentoDirectCapabilityConfig<TProductRecommendationsCapability>;
   productReviews?: MagentoCapabilityConfig<ProductReviewsFactoryWithOutput<TProductReviewsFactory>, TProductReviewsCapability>;
+  productList?: MagentoCapabilityConfig<ProductListFactoryWithOutput<TProductListFactory>, TProductListCapability>;
+  store?: MagentoCapabilityConfig<StoreFactoryWithOutput<TStoreFactory>, TStoreCapability>;
+  personalizationProfile?: MagentoCapabilityConfig<PersonalizationProfileFactoryWithOutput<TPersonalizationProfileFactory>, TPersonalizationProfileCapability>;
+  company?: MagentoCapabilityConfig<CompanyFactoryWithOutput<TCompanyFactory>, TCompanyCapability>;
+  companyRegistration?: MagentoCapabilityConfig<CompanyRegistrationFactoryWithOutput<TCompanyRegistrationFactory>, TCompanyRegistrationCapability>;
+  employee?: MagentoCapabilityConfig<EmployeeFactoryWithOutput<TEmployeeFactory>, TEmployeeCapability>;
+  employeeInvitation?: MagentoCapabilityConfig<EmployeeInvitationFactoryWithOutput<TEmployeeInvitationFactory>, TEmployeeInvitationCapability>;
 };
