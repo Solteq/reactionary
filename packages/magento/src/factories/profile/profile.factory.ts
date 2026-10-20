@@ -7,35 +7,41 @@ import type {
   RequestContext,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import {
+  type MagentoAddressPayload,
+  MagentoCustomerPayloadSchema,
+} from '../../schema/customer.types.js';
+import { toIsoTimestamp } from '../../utils/magento-review.js';
 
-export interface MagentoAddress {
-  id?: number;
-  customer_id?: number;
-  company?: string;
-  firstname?: string;
-  lastname?: string;
-  street?: string[];
-  city?: string;
-  region?: { region_code?: string; region?: string; region_id?: number };
-  region_id?: number;
-  postcode?: string;
-  country_id?: string;
-  telephone?: string;
-  default_billing?: boolean;
-  default_shipping?: boolean;
+export type { MagentoAddress, MagentoCustomer } from '../../schema/customer.types.js';
+
+export interface MagentoProfileFactoryOptions {
+  /**
+   * The customer-address custom attribute that holds the address nickname.
+   * Magento has no native address label, so by default the nickname is kept
+   * in the address `company` field.
+   */
+  addressNicknameAttribute?: string;
 }
 
-export interface MagentoCustomer {
-  id: number;
-  email: string;
-  firstname?: string;
-  lastname?: string;
-  created_at?: string;
-  updated_at?: string;
-  default_billing?: string;
-  default_shipping?: string;
-  addresses?: MagentoAddress[];
-  custom_attributes?: { attribute_code: string; value: string }[];
+/**
+ * Reads an address nickname from the configured custom attribute, falling
+ * back to `company` (Magento has no native address label).
+ */
+export function readMagentoAddressNickname(
+  address: {
+    company?: string;
+    custom_attributes?: ReadonlyArray<{ attribute_code: string; value: unknown }>;
+  },
+  addressNicknameAttribute?: string,
+): string {
+  if (addressNicknameAttribute) {
+    const value = address.custom_attributes?.find(
+      (a) => a.attribute_code === addressNicknameAttribute,
+    )?.value;
+    return typeof value === 'string' ? value : '';
+  }
+  return address.company ?? '';
 }
 
 export class MagentoProfileFactory<
@@ -43,42 +49,66 @@ export class MagentoProfileFactory<
 > implements ProfileFactory<TProfileSchema>
 {
   public readonly profileSchema: TProfileSchema;
+  protected readonly options: MagentoProfileFactoryOptions;
 
-  constructor(profileSchema: TProfileSchema) {
+  constructor(
+    profileSchema: TProfileSchema,
+    options: MagentoProfileFactoryOptions = {},
+  ) {
     this.profileSchema = profileSchema;
+    this.options = options;
   }
 
   public parseProfile(
     context: RequestContext,
     data: unknown,
   ): z.output<TProfileSchema> {
-    const customer = data as MagentoCustomer;
-
-    const phone =
-      customer.custom_attributes?.find((a) => a.attribute_code === 'phone')
-        ?.value ?? '';
+    const customer = MagentoCustomerPayloadSchema.parse(data);
 
     const addresses = customer.addresses ?? [];
-
     const billingId = customer.default_billing;
     const shippingId = customer.default_shipping;
 
     let billingAddress: Address | undefined;
     let shippingAddress: Address | undefined;
+    let billingTelephone: string | undefined;
+    let shippingTelephone: string | undefined;
     const alternateShippingAddresses: Address[] = [];
 
     for (const address of addresses) {
       const parsed = this.parseAddress(context, address);
       const id = address.id !== undefined ? String(address.id) : undefined;
+      const isBilling = id !== undefined && id === billingId;
+      const isShipping = id !== undefined && id === shippingId;
 
-      if (id && billingId && id === billingId) {
+      // An address can be the default for both billing and shipping.
+      if (isBilling) {
         billingAddress = parsed;
-      } else if (id && shippingId && id === shippingId) {
+        billingTelephone = address.telephone;
+      }
+      if (isShipping) {
         shippingAddress = parsed;
-      } else {
+        shippingTelephone = address.telephone;
+      }
+      if (!isBilling && !isShipping) {
         alternateShippingAddresses.push(parsed);
       }
     }
+
+    // Magento has no customer-level phone: its native phone field is the
+    // address `telephone`, so the default billing (then shipping) one is used.
+    const phone = billingTelephone || shippingTelephone || '';
+
+    // Magento only sets `confirmation` while the e-mail awaits confirmation.
+    const emailVerified = !customer.confirmation;
+
+    // Timestamps are passed through as Magento reports them; none is invented.
+    const createdAt = customer.created_at
+      ? toIsoTimestamp(customer.created_at)
+      : '';
+    const updatedAt = customer.updated_at
+      ? toIsoTimestamp(customer.updated_at)
+      : createdAt;
 
     const result = {
       identifier: {
@@ -87,14 +117,14 @@ export class MagentoProfileFactory<
       email: customer.email,
       firstName: customer.firstname,
       lastName: customer.lastname,
-      emailVerified: true,
+      emailVerified,
       phone,
       phoneVerified: false,
       billingAddress,
       shippingAddress,
       alternateShippingAddresses,
-      createdAt: new Date(customer.created_at || Date.now()).toISOString(),
-      updatedAt: new Date(customer.updated_at || Date.now()).toISOString(),
+      createdAt,
+      updatedAt,
     } satisfies Profile;
 
     return this.profileSchema.parse(result);
@@ -102,19 +132,22 @@ export class MagentoProfileFactory<
 
   protected parseAddress(
     _context: RequestContext,
-    address: MagentoAddress,
+    address: MagentoAddressPayload,
   ): Address {
     const street = address.street ?? [];
     return {
       identifier: {
-        nickName: address.company || '',
+        nickName: readMagentoAddressNickname(
+          address,
+          this.options.addressNicknameAttribute,
+        ),
       },
       firstName: address.firstname || '',
       lastName: address.lastname || '',
       streetAddress: street[0] || '',
       streetNumber: street[1] || '',
       city: address.city || '',
-      region: address.region?.region || '',
+      region: address.region?.region || address.region?.region_code || '',
       postalCode: address.postcode || '',
       countryCode: address.country_id || '',
     };
