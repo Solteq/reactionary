@@ -75,3 +75,16 @@ ${REVIEW_FIELDS}
     }
   }
 `;
+
+/**
+ * Whether the store accepts reviews from guests ("Allow Guests to Write
+ * Reviews", `catalog/review/allow_guest`). Magento renders the flag as a
+ * string ("1"/"0").
+ */
+export const PRODUCT_REVIEW_STORE_CONFIG_QUERY = `
+  query ReactionaryProductReviewStoreConfig {
+    storeConfig {
+      allow_guests_to_write_product_reviews
+    }
+  }
+`;
