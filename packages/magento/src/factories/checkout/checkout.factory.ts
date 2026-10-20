@@ -1,6 +1,8 @@
 import {
   AddressIdentifierSchema,
+  CurrencySchema,
   MonetaryAmountSchema,
+  PaymentStatusSchema,
   ShippingMethodIdentifierSchema,
   type Address,
   type AnyCheckoutSchema,
@@ -16,6 +18,7 @@ import {
   type PaymentInstruction,
   type PaymentMethod,
   type PaymentMethodSchema,
+  type PaymentStatus,
   type PointOfContact,
   type RequestContext,
   type ShippingInstruction,
@@ -31,9 +34,9 @@ import type {
   MagentoCheckoutAddress,
   MagentoCheckoutState,
   MagentoPaymentMethod,
-  MagentoShippingMethod,
   MagentoStoredPaymentInstruction,
 } from '../../schema/magento.types.js';
+import type { MagentoShippingMethodData } from '../../schema/checkout.types.js';
 
 export interface MagentoCheckoutData {
   cart: MagentoCart;
@@ -41,6 +44,37 @@ export interface MagentoCheckoutData {
   state?: MagentoCheckoutState;
   requestedKey?: string;
 }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isMagentoCheckoutData(data: unknown): data is MagentoCheckoutData {
+  return isRecord(data) && isRecord(data['cart']);
+}
+
+function isMagentoShippingMethod(data: unknown): data is MagentoShippingMethodData {
+  return (
+    isRecord(data) &&
+    typeof data['carrier_code'] === 'string' &&
+    typeof data['method_code'] === 'string'
+  );
+}
+
+function isMagentoPaymentMethod(data: unknown): data is MagentoPaymentMethod {
+  return (
+    isRecord(data) &&
+    typeof data['code'] === 'string' &&
+    typeof data['title'] === 'string'
+  );
+}
+
+/** Total segment codes of payment-fee / surcharge modules. */
+const SURCHARGE_SEGMENT_PATTERN = /fee|surcharge/i;
+
+/** A delivery estimate in a rate title, e.g. "Ground (3-5 business days)". */
+const DELIVERY_TIME_PATTERN =
+  /\d+(?:\s*(?:-|–|to)\s*\d+)?\s*(?:business\s+|working\s+)?days?/i;
 
 /**
  * Builds a stable shipping-method identifier key from a Magento carrier/method
@@ -84,12 +118,22 @@ export class MagentoCheckoutFactory<
   }
 
   protected resolveCurrency(data: MagentoCheckoutData): Currency {
-    const code =
+    return this.toCurrency(
       data.totals?.quote_currency_code ||
-      data.cart.quote_currency_code ||
-      this.config.defaultCurrency ||
-      'USD';
-    return code as Currency;
+        data.cart.quote_currency_code ||
+        data.cart.currency?.quote_currency_code,
+    );
+  }
+
+  /** A currency code, else the configured default currency, else USD. */
+  protected toCurrency(code: string | undefined): Currency {
+    for (const candidate of [code, this.config.defaultCurrency]) {
+      const parsed = CurrencySchema.safeParse(candidate);
+      if (parsed.success) {
+        return parsed.data;
+      }
+    }
+    return 'USD';
   }
 
   protected parseAddress(address: MagentoCheckoutAddress): Address {
@@ -136,7 +180,9 @@ export class MagentoCheckoutFactory<
         currency,
       },
       totalSurcharge: {
-        value: 0,
+        value: (data.totals?.total_segments ?? [])
+          .filter((s) => SURCHARGE_SEGMENT_PATTERN.test(s.code))
+          .reduce((sum, s) => sum + (s.value ?? 0), 0),
         currency,
       },
     };
@@ -186,14 +232,30 @@ export class MagentoCheckoutFactory<
     };
   }
 
+  /**
+   * The stored status, if it is a payment status. Magento authorizes (or,
+   * with an authorize-and-capture payment action, captures) the payment when
+   * the order is placed, so an instruction still marked pending once an order
+   * exists is reported as authorized.
+   */
+  protected parsePaymentStatus(
+    stored: MagentoStoredPaymentInstruction,
+    hasOrder: boolean,
+  ): PaymentStatus {
+    const parsed = PaymentStatusSchema.safeParse(stored.status);
+    const status = parsed.success ? parsed.data : 'pending';
+    return hasOrder && status === 'pending' ? 'authorized' : status;
+  }
+
   protected parsePaymentInstruction(
     stored: MagentoStoredPaymentInstruction,
+    hasOrder = false,
   ): PaymentInstruction {
     return {
       identifier: { key: stored.key },
       amount: {
         value: stored.amountValue,
-        currency: stored.amountCurrency as Currency,
+        currency: this.toCurrency(stored.amountCurrency),
       },
       paymentMethod: {
         method: stored.method,
@@ -201,7 +263,7 @@ export class MagentoCheckoutFactory<
         paymentProcessor: stored.paymentProcessor,
       },
       protocolData: stored.protocolData,
-      status: 'pending',
+      status: this.parsePaymentStatus(stored, hasOrder),
     };
   }
 
@@ -224,7 +286,10 @@ export class MagentoCheckoutFactory<
     _context: RequestContext,
     data: unknown,
   ): z.output<TCheckoutSchema> {
-    const checkoutData = data as MagentoCheckoutData;
+    if (!isMagentoCheckoutData(data)) {
+      throw new Error('MagentoCheckoutFactory.parseCheckout expects MagentoCheckoutData');
+    }
+    const checkoutData = data;
     const cart = checkoutData.cart;
     const state = checkoutData.state ?? {};
     const currency = this.resolveCurrency(checkoutData);
@@ -244,7 +309,7 @@ export class MagentoCheckoutFactory<
       : undefined;
 
     const paymentInstructions = (state.paymentInstructions ?? []).map((pi) =>
-      this.parsePaymentInstruction(pi),
+      this.parsePaymentInstruction(pi, Boolean(state.orderId)),
     );
 
     const readyForFinalization = Boolean(
@@ -281,8 +346,11 @@ export class MagentoCheckoutFactory<
     _context: RequestContext,
     data: unknown,
   ): z.output<TShippingMethodSchema> {
-    const method = data as MagentoShippingMethod;
-    const currency = (this.config.defaultCurrency || 'USD') as Currency;
+    if (!isMagentoShippingMethod(data)) {
+      throw new Error('MagentoCheckoutFactory.parseShippingMethod expects a Magento shipping rate');
+    }
+    const method = data;
+    const currency = this.toCurrency(method.quote_currency_code);
 
     const sm: ShippingMethod = {
       identifier: ShippingMethodIdentifierSchema.parse({
@@ -294,18 +362,40 @@ export class MagentoCheckoutFactory<
         value: method.amount ?? 0,
         currency,
       }),
-      deliveryTime: '',
+      deliveryTime: this.parseDeliveryTime(method),
       carrier: method.carrier_code,
     };
 
     return this.shippingMethodSchema.parse(sm);
   }
 
+  /**
+   * Magento rates carry no delivery estimate. One exposed by an extension as
+   * `extension_attributes.delivery_time` is used, else one written into the
+   * method or carrier title ("Ground (3-5 business days)"), else none.
+   */
+  protected parseDeliveryTime(method: MagentoShippingMethodData): string {
+    const attribute = method.extension_attributes?.['delivery_time'];
+    if (typeof attribute === 'string' && attribute !== '') {
+      return attribute;
+    }
+    for (const title of [method.method_title, method.carrier_title]) {
+      const match = title?.match(DELIVERY_TIME_PATTERN);
+      if (match) {
+        return match[0];
+      }
+    }
+    return '';
+  }
+
   public parsePaymentMethod(
     _context: RequestContext,
     data: unknown,
   ): z.output<TPaymentMethodSchema> {
-    const method = data as MagentoPaymentMethod;
+    if (!isMagentoPaymentMethod(data)) {
+      throw new Error('MagentoCheckoutFactory.parsePaymentMethod expects a Magento payment method');
+    }
+    const method = data;
 
     const pm: PaymentMethod = {
       identifier: {

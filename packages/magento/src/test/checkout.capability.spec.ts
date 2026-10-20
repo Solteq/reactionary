@@ -10,10 +10,13 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import { MagentoCheckoutCapability } from '../capabilities/checkout.capability.js';
 import type { MagentoClient } from '../core/client.js';
+import { MagentoApiError } from '../core/errors.js';
+import { wasMagentoOrderPlacedInSession } from '../core/order.api.js';
 import { MagentoCheckoutFactory } from '../factories/checkout/checkout.factory.js';
 import type { MagentoConfiguration } from '../schema/configuration.schema.js';
 import type {
   MagentoCart,
+  MagentoCartTotals,
   MagentoCheckoutAddress,
   MagentoCheckoutState,
   MagentoShippingMethod,
@@ -26,7 +29,7 @@ const config: MagentoConfiguration = {
   defaultCurrency: 'EUR',
   rootCategoryId: '2',
   allCurrencies: ['EUR'],
-  storeCode: 'default',
+  storeBaseCode: 'default',
   authStoreCode: 'default',
 };
 
@@ -86,6 +89,8 @@ function createBackend(
     customer: {},
     billing_address: billingAddressStub,
   };
+  const totals: MagentoCartTotals = { grand_total: 10, quote_currency_code: 'EUR' };
+  let activeCartId: string | null = CART_KEY;
   const placeOrder = vi.fn<MagentoClient['placeOrder']>(async () => 1001);
   const setCheckoutBillingAddress = vi.fn(
     async (_cartId: string | null, address: MagentoCheckoutAddress) => {
@@ -103,9 +108,18 @@ function createBackend(
 
   function request() {
     const session = new Map<string, MagentoCheckoutState>();
+    const sessionItems = new Map<string, string>();
     const magentoApi = {
+      getSessionItem: vi.fn(async (key: string) => sessionItems.get(key) ?? null),
+      setSessionItem: vi.fn(async (key: string, value: string) => {
+        sessionItems.set(key, value);
+      }),
       getCart: vi.fn(async () => structuredClone(quote)),
-      getCartTotals: vi.fn(async () => undefined),
+      getCartTotals: vi.fn(async () => structuredClone(totals)),
+      getActiveCartId: vi.fn(async () => activeCartId),
+      getPaymentMethods: vi.fn<MagentoClient['getPaymentMethods']>(async () => [
+        { code: 'checkmo', title: 'Check / Money order' },
+      ]),
       getCheckoutState: vi.fn(async (key: string) => structuredClone(session.get(key) ?? {})),
       setCheckoutState: vi.fn(async (key: string, state: MagentoCheckoutState) => {
         session.set(key, structuredClone(state));
@@ -114,7 +128,9 @@ function createBackend(
       estimateShippingMethods,
       setShippingInformation,
       placeOrder,
-      clearActiveCartId: vi.fn(async () => undefined),
+      clearActiveCartId: vi.fn(async () => {
+        activeCartId = null;
+      }),
     };
     const capability = new MagentoCheckoutCapability(
       backendConfig,
@@ -133,6 +149,11 @@ function createBackend(
 
   return {
     quote,
+    totals,
+    getActiveCartId: () => activeCartId,
+    setActiveCartId: (key: string | null) => {
+      activeCartId = key;
+    },
     request,
     placeOrder,
     setCheckoutBillingAddress,
@@ -320,8 +341,19 @@ describe('MagentoCheckoutCapability.finalizeCheckout', () => {
         protocolData,
       },
     });
-    return { backend, capability: req.capability };
+    return { backend, capability: req.capability, magentoApi: req.magentoApi };
   }
+
+  it('remembers the placed order in the session so a guest can view it', async () => {
+    const { capability, magentoApi } = await readyCheckout([]);
+    const client = magentoApi as unknown as MagentoClient;
+
+    expect(await wasMagentoOrderPlacedInSession(client, 1001)).toBe(false);
+    const result = await capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+
+    expect(result.success).toBe(true);
+    expect(await wasMagentoOrderPlacedInSession(client, 1001)).toBe(true);
+  });
 
   it('places the order only once when finalized twice', async () => {
     const { backend, capability } = await readyCheckout([]);
@@ -401,5 +433,303 @@ describe('MagentoCheckoutCapability.finalizeCheckout', () => {
         },
       }),
     );
+  });
+});
+
+function apiError(status: number, message = 'boom'): MagentoApiError {
+  return new MagentoApiError({
+    transport: 'rest',
+    status,
+    method: 'POST',
+    url: 'https://example.com/rest/V1/x',
+    magentoMessage: message,
+  });
+}
+
+const SHIPPING_INSTRUCTION = {
+  shippingMethod: { key: 'flatrate_flatrate' },
+  pickupPoint: '',
+  instructions: '',
+  consentForUnattendedDelivery: false,
+};
+
+const PAYMENT = {
+  paymentMethod: { method: 'psp', name: 'PSP', paymentProcessor: 'psp' },
+  amount: { value: 10, currency: 'EUR' as const },
+  protocolData: [],
+};
+
+describe('MagentoCheckoutCapability addresses', () => {
+  it('sends the notification phone as the address telephone', async () => {
+    const backend = createBackend(MAGENTO_STUB);
+    await backend.request().capability.initiateCheckoutForCart({
+      cart: CART_INPUT,
+      notificationEmail: EMAIL,
+      notificationPhone: '+372 5551234',
+      billingAddress: SHIPPING_ADDRESS,
+    });
+    expect(backend.setCheckoutBillingAddress).toHaveBeenLastCalledWith(
+      CART_KEY,
+      expect.objectContaining({ telephone: '+372 5551234' }),
+    );
+  });
+
+  it('falls back to the placeholder telephone Magento requires by default', async () => {
+    const backend = createBackend(MAGENTO_STUB);
+    await backend.request().capability.initiateCheckoutForCart({
+      cart: CART_INPUT,
+      billingAddress: SHIPPING_ADDRESS,
+    });
+    expect(backend.setCheckoutBillingAddress).toHaveBeenLastCalledWith(
+      CART_KEY,
+      expect.objectContaining({ telephone: '000' }),
+    );
+  });
+
+  it('sends no telephone when the fallback is configured empty', async () => {
+    const backend = createBackend(MAGENTO_STUB, { ...config, checkoutTelephoneFallback: '' });
+    await backend.request().capability.initiateCheckoutForCart({
+      cart: CART_INPUT,
+      billingAddress: SHIPPING_ADDRESS,
+    });
+    const sent = backend.setCheckoutBillingAddress.mock.lastCall?.[1];
+    expect(sent?.telephone).toBeUndefined();
+  });
+
+  it('reuses the phone stored on the quote in a later request', async () => {
+    const backend = createBackend(MAGENTO_STUB);
+    await backend.request().capability.initiateCheckoutForCart({
+      cart: CART_INPUT,
+      notificationEmail: EMAIL,
+      notificationPhone: '5551234',
+      billingAddress: SHIPPING_ADDRESS,
+    });
+    await backend.request().capability.setShippingAddress({
+      checkout: { key: CART_KEY },
+      shippingAddress: SHIPPING_ADDRESS,
+    });
+    expect(backend.setCheckoutBillingAddress).toHaveBeenLastCalledWith(
+      CART_KEY,
+      expect.objectContaining({ telephone: '5551234' }),
+    );
+  });
+});
+
+describe('MagentoCheckoutCapability typed errors', () => {
+  it('maps only a Magento 404 in getById to NotFound', async () => {
+    const backend = createBackend(MAGENTO_STUB);
+    const notFound = backend.request();
+    notFound.magentoApi.getCart.mockRejectedValue(apiError(404));
+    expect(await notFound.capability.getById({ identifier: { key: CART_KEY } })).toMatchObject({
+      success: false,
+      error: { type: 'NotFound' },
+    });
+
+    const failing = backend.request();
+    failing.magentoApi.getCart.mockRejectedValue(apiError(500));
+    expect(await failing.capability.getById({ identifier: { key: CART_KEY } })).toMatchObject({
+      success: false,
+      error: { type: 'Generic' },
+    });
+  });
+
+  it('propagates a totals failure instead of reporting zero prices', async () => {
+    const backend = createBackend(MAGENTO_STUB);
+    const req = backend.request();
+    req.magentoApi.getCartTotals.mockRejectedValue(apiError(503));
+    expect(await req.capability.getById({ identifier: { key: CART_KEY } })).toMatchObject({
+      success: false,
+      error: { type: 'Generic' },
+    });
+  });
+
+  it('returns a typed error when estimating shipping methods fails', async () => {
+    const backend = createBackend(MAGENTO_STUB);
+    await backend.request().capability.setShippingAddress({
+      checkout: { key: CART_KEY },
+      shippingAddress: SHIPPING_ADDRESS,
+    });
+    backend.estimateShippingMethods.mockRejectedValueOnce(apiError(400, 'Invalid address'));
+    const result = await backend
+      .request()
+      .capability.getAvailableShippingMethods({ checkout: { key: CART_KEY } });
+    expect(result).toMatchObject({
+      success: false,
+      error: { type: 'InvalidInput', error: 'Invalid address' },
+    });
+  });
+
+  it('returns a typed error when listing payment methods fails', async () => {
+    const backend = createBackend(MAGENTO_STUB);
+    const req = backend.request();
+    req.magentoApi.getPaymentMethods.mockRejectedValueOnce(apiError(500));
+    const result = await req.capability.getAvailablePaymentMethods({ checkout: { key: CART_KEY } });
+    expect(result).toMatchObject({ success: false, error: { type: 'Generic' } });
+  });
+});
+
+describe('MagentoCheckoutCapability shipping methods', () => {
+  it('prices rates in the quote currency, not the configured default', async () => {
+    const backend = createBackend(MAGENTO_STUB);
+    backend.totals.quote_currency_code = 'DKK';
+    await backend.request().capability.setShippingAddress({
+      checkout: { key: CART_KEY },
+      shippingAddress: SHIPPING_ADDRESS,
+    });
+    const result = await backend
+      .request()
+      .capability.getAvailableShippingMethods({ checkout: { key: CART_KEY } });
+    expect(result.success && result.value[0].price).toEqual({ value: 5, currency: 'DKK' });
+  });
+
+  it('reads a delivery estimate from the method title', () => {
+    const factory = new MagentoCheckoutFactory(
+      CheckoutSchema,
+      ShippingMethodSchema,
+      PaymentMethodSchema,
+      config,
+    );
+    const context = createInitialRequestContext();
+    const titled = factory.parseShippingMethod(context, {
+      ...FLATRATE,
+      method_title: 'Ground (3-5 business days)',
+    });
+    expect(titled.deliveryTime).toBe('3-5 business days');
+
+    const plain = factory.parseShippingMethod(context, FLATRATE);
+    expect(plain.deliveryTime).toBe('');
+  });
+});
+
+describe('MagentoCheckoutCapability payment instructions', () => {
+  async function checkoutWithShipping() {
+    const backend = createBackend(MAGENTO_STUB);
+    const req = backend.request();
+    await req.capability.initiateCheckoutForCart({
+      cart: CART_INPUT,
+      notificationEmail: EMAIL,
+      billingAddress: SHIPPING_ADDRESS,
+    });
+    await req.capability.setShippingInstruction({
+      checkout: { key: CART_KEY },
+      shippingInstruction: SHIPPING_INSTRUCTION,
+    });
+    return { backend, capability: req.capability };
+  }
+
+  it('gives every payment instruction a unique key', async () => {
+    const { capability } = await checkoutWithShipping();
+    vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+    try {
+      await capability.addPaymentInstruction({ checkout: { key: CART_KEY }, paymentInstruction: PAYMENT });
+      const second = await capability.addPaymentInstruction({
+        checkout: { key: CART_KEY },
+        paymentInstruction: PAYMENT,
+      });
+      const keys = second.success ? second.value.paymentInstructions.map((p) => p.identifier.key) : [];
+      expect(keys).toHaveLength(2);
+      expect(new Set(keys).size).toBe(2);
+      for (const key of keys) {
+        expect(key).toMatch(/^pi_[0-9a-f-]{36}$/);
+      }
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('rejects an amount that differs from the quote grand total', async () => {
+    const { capability } = await checkoutWithShipping();
+    const result = await capability.addPaymentInstruction({
+      checkout: { key: CART_KEY },
+      paymentInstruction: { ...PAYMENT, amount: { value: 9.5, currency: 'EUR' } },
+    });
+    expect(result).toMatchObject({ success: false, error: { type: 'InvalidInput' } });
+  });
+
+  it('rejects a currency that differs from the quote currency', async () => {
+    const { capability } = await checkoutWithShipping();
+    const result = await capability.addPaymentInstruction({
+      checkout: { key: CART_KEY },
+      paymentInstruction: { ...PAYMENT, amount: { value: 10, currency: 'USD' } },
+    });
+    expect(result).toMatchObject({ success: false, error: { type: 'InvalidInput' } });
+  });
+
+  it('reports the payment as pending before and authorized after the order', async () => {
+    const { capability } = await checkoutWithShipping();
+    const added = await capability.addPaymentInstruction({
+      checkout: { key: CART_KEY },
+      paymentInstruction: PAYMENT,
+    });
+    expect(added.success && added.value.paymentInstructions[0].status).toBe('pending');
+
+    const finalized = await capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+    expect(finalized.success && finalized.value.paymentInstructions[0].status).toBe('authorized');
+  });
+});
+
+describe('MagentoCheckoutCapability.finalizeCheckout errors', () => {
+  it('returns InvalidInput instead of throwing when the checkout is not ready', async () => {
+    const backend = createBackend(MAGENTO_STUB);
+    const result = await backend
+      .request()
+      .capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+    expect(result).toMatchObject({ success: false, error: { type: 'InvalidInput' } });
+    expect(backend.placeOrder).not.toHaveBeenCalled();
+  });
+
+  async function readyCheckout() {
+    const backend = createBackend(MAGENTO_STUB);
+    const req = backend.request();
+    await req.capability.initiateCheckoutForCart({
+      cart: CART_INPUT,
+      notificationEmail: EMAIL,
+      billingAddress: SHIPPING_ADDRESS,
+    });
+    await req.capability.setShippingInstruction({
+      checkout: { key: CART_KEY },
+      shippingInstruction: SHIPPING_INSTRUCTION,
+    });
+    await req.capability.addPaymentInstruction({
+      checkout: { key: CART_KEY },
+      paymentInstruction: PAYMENT,
+    });
+    return { backend, capability: req.capability };
+  }
+
+  it('rejects the order when the grand total moved after the payment was added', async () => {
+    const { backend, capability } = await readyCheckout();
+    backend.totals.grand_total = 15;
+    const result = await capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+    expect(result).toMatchObject({ success: false, error: { type: 'InvalidInput' } });
+    expect(backend.placeOrder).not.toHaveBeenCalled();
+  });
+
+  it('maps a rejected order placement to InvalidInput', async () => {
+    const { backend, capability } = await readyCheckout();
+    backend.placeOrder.mockRejectedValueOnce(apiError(400, 'The payment method is not available'));
+    const result = await capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+    expect(result).toMatchObject({
+      success: false,
+      error: { type: 'InvalidInput', error: 'The payment method is not available' },
+    });
+  });
+
+  it('maps a failed order placement to Generic', async () => {
+    const { backend, capability } = await readyCheckout();
+    backend.placeOrder.mockRejectedValueOnce(apiError(500));
+    const result = await capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+    expect(result).toMatchObject({ success: false, error: { type: 'Generic' } });
+  });
+
+  it('clears the active cart only when it is the checked-out cart', async () => {
+    const own = await readyCheckout();
+    await own.capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+    expect(own.backend.getActiveCartId()).toBeNull();
+
+    const other = await readyCheckout();
+    other.backend.setActiveCartId('another-cart');
+    await other.capability.finalizeCheckout({ checkout: { key: CART_KEY } });
+    expect(other.backend.getActiveCartId()).toBe('another-cart');
   });
 });

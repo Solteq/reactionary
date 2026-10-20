@@ -32,6 +32,7 @@ import {
   type CheckoutQueryById,
   type CheckoutQueryForAvailablePaymentMethods,
   type CheckoutQueryForAvailableShippingMethods,
+  type InvalidInputError,
   type NotFoundError,
   type RequestContext,
   type Result,
@@ -39,6 +40,7 @@ import {
 import createDebug from 'debug';
 import * as z from 'zod';
 import type { MagentoClient } from '../core/client.js';
+import { rememberMagentoOrderPlacedInSession } from '../core/order.api.js';
 import {
   encodeShippingMethodKey,
   type MagentoCheckoutData,
@@ -53,6 +55,8 @@ import type {
   MagentoPaymentMethodPayload,
   MagentoStoredPaymentInstruction,
 } from '../schema/magento.types.js';
+import type { MagentoShippingMethodData } from '../schema/checkout.types.js';
+import { handleMagentoProviderError } from '../utils/magento-errors.js';
 
 const debug = createDebug('reactionary:magento:checkout');
 
@@ -98,6 +102,14 @@ function parseQuoteAddress(
   };
 }
 
+/** The tolerance when comparing a payment amount to the quote grand total. */
+const AMOUNT_TOLERANCE = 0.005;
+
+/**
+ * @deprecated `finalizeCheckout` no longer throws it: a checkout that is not
+ * ready is reported as an `InvalidInput` error result. Kept for consumers
+ * that reference the class.
+ */
 export class CheckoutNotReadyForFinalizationError extends Error {
   constructor(public checkoutIdentifier: CheckoutIdentifier) {
     super(
@@ -129,9 +141,20 @@ export class MagentoCheckoutCapability<
     this.factory = factory;
   }
 
+  /**
+   * The placeholder telephone sent when the shopper gave no phone number.
+   * Magento requires a telephone on quote addresses by default, so it falls
+   * back to "000" unless `checkoutTelephoneFallback` says otherwise (an empty
+   * string sends none, for stores where the telephone is optional).
+   */
+  protected get telephoneFallback(): string {
+    return this.config.checkoutTelephoneFallback ?? '000';
+  }
+
   protected toMagentoAddress(
     address: Omit<Address, 'identifier'>,
     email?: string,
+    phone?: string,
   ): MagentoCheckoutAddress {
     return {
       firstname: address.firstName,
@@ -143,21 +166,22 @@ export class MagentoCheckoutCapability<
       region: address.region || undefined,
       postcode: address.postalCode,
       country_id: address.countryCode,
-      telephone: '000',
+      telephone: phone || this.telephoneFallback || undefined,
       email,
     };
   }
 
+  /**
+   * The quote and its totals. A failure of either call propagates: a
+   * checkout without totals would report zero prices.
+   */
   protected async loadCartAndTotals(
     cartKey: string,
   ): Promise<{ cart: MagentoCart; totals?: MagentoCartTotals }> {
-    const cart = (await this.magentoApi.getCart(cartKey)) as MagentoCart;
-    let totals: MagentoCartTotals | undefined;
-    try {
-      totals = (await this.magentoApi.getCartTotals(cartKey)) as MagentoCartTotals;
-    } catch (err) {
-      debug('Failed to fetch cart totals: %O', err);
-    }
+    const [cart, totals] = await Promise.all([
+      this.magentoApi.getCart(cartKey),
+      this.magentoApi.getCartTotals(cartKey),
+    ]);
     return { cart, totals };
   }
 
@@ -200,6 +224,10 @@ export class MagentoCheckoutCapability<
       const quote = await this.readQuoteBillingAddress(cartKey);
       state.email = state.email || quote.email;
       state.billingAddress = state.billingAddress ?? quote.address;
+    }
+    if (!state.phone) {
+      const telephone = state.billingAddress?.telephone;
+      state.phone = telephone && telephone !== this.telephoneFallback ? telephone : undefined;
     }
     return state;
   }
@@ -259,23 +287,28 @@ export class MagentoCheckoutCapability<
     payload: CheckoutMutationInitiateCheckout,
   ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const cartKey = payload.cart.identifier.key;
-    const state = await this.loadCheckoutState(cartKey);
+    try {
+      const state = await this.loadCheckoutState(cartKey);
 
-    state.email = payload.notificationEmail ?? state.email;
-    state.phone = payload.notificationPhone ?? state.phone;
+      state.email = payload.notificationEmail ?? state.email;
+      state.phone = payload.notificationPhone ?? state.phone;
 
-    if (payload.billingAddress) {
-      state.billingAddress = this.toMagentoAddress(
-        payload.billingAddress,
-        state.email,
-      );
-      await this.persistBillingAddressOnQuote(cartKey, state.billingAddress);
-    } else if (payload.notificationEmail) {
-      await this.persistEmailOnQuote(cartKey, state);
+      if (payload.billingAddress) {
+        state.billingAddress = this.toMagentoAddress(
+          payload.billingAddress,
+          state.email,
+          state.phone,
+        );
+        await this.persistBillingAddressOnQuote(cartKey, state.billingAddress);
+      } else if (payload.notificationEmail) {
+        await this.persistEmailOnQuote(cartKey, state);
+      }
+
+      await this.magentoApi.setCheckoutState(cartKey, state);
+      return success(await this.buildCheckout(cartKey, state));
+    } catch (err) {
+      return handleMagentoProviderError('initiate checkout', err, payload.cart.identifier);
     }
-
-    await this.magentoApi.setCheckoutState(cartKey, state);
-    return success(await this.buildCheckout(cartKey, state));
   }
 
   @Reactionary({
@@ -290,11 +323,7 @@ export class MagentoCheckoutCapability<
       const state = await this.loadCheckoutState(cartKey);
       return success(await this.buildCheckout(cartKey, state));
     } catch (err) {
-      debug('Failed to load checkout: %O', err);
-      return error<NotFoundError>({
-        type: 'NotFound',
-        identifier: payload.identifier,
-      });
+      return handleMagentoProviderError('get checkout', err, payload.identifier);
     }
   }
 
@@ -306,21 +335,26 @@ export class MagentoCheckoutCapability<
     payload: CheckoutMutationSetShippingAddress,
   ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const cartKey = payload.checkout.key;
-    const state = await this.loadCheckoutState(cartKey);
+    try {
+      const state = await this.loadCheckoutState(cartKey);
 
-    state.shippingAddress = this.toMagentoAddress(
-      payload.shippingAddress,
-      state.email,
-    );
+      state.shippingAddress = this.toMagentoAddress(
+        payload.shippingAddress,
+        state.email,
+        state.phone,
+      );
 
-    // Magento has no quote field for a shipping address without a shipping
-    // method, so the billing address is the only place it survives until the
-    // next request. Trade-off: a differing explicit billing address is only
-    // kept for this request until setShippingInstruction stores both.
-    await this.persistBillingAddressOnQuote(cartKey, state.shippingAddress);
+      // Magento has no quote field for a shipping address without a shipping
+      // method, so the billing address is the only place it survives until the
+      // next request. Trade-off: a differing explicit billing address is only
+      // kept for this request until setShippingInstruction stores both.
+      await this.persistBillingAddressOnQuote(cartKey, state.shippingAddress);
 
-    await this.magentoApi.setCheckoutState(cartKey, state);
-    return success(await this.buildCheckout(cartKey, state));
+      await this.magentoApi.setCheckoutState(cartKey, state);
+      return success(await this.buildCheckout(cartKey, state));
+    } catch (err) {
+      return handleMagentoProviderError('set shipping address', err, payload.checkout);
+    }
   }
 
   @Reactionary({
@@ -331,19 +365,34 @@ export class MagentoCheckoutCapability<
     payload: CheckoutQueryForAvailableShippingMethods,
   ): Promise<Result<CheckoutFactoryShippingMethodOutput<TFactory>[]>> {
     const cartKey = payload.checkout.key;
-    const state = await this.loadCheckoutState(cartKey);
-    const address = state.shippingAddress || state.billingAddress;
+    try {
+      const state = await this.loadCheckoutState(cartKey);
+      const address = state.shippingAddress || state.billingAddress;
 
-    if (!address) {
-      return success([]);
+      if (!address) {
+        return success([]);
+      }
+
+      // Rates are priced in the quote currency, which the rates do not name.
+      const [methods, totals] = await Promise.all([
+        this.magentoApi.estimateShippingMethods(cartKey, address),
+        this.magentoApi.getCartTotals(cartKey),
+      ]);
+      const quoteCurrency = totals?.quote_currency_code;
+      const shippingMethods = methods
+        .filter((method) => method.available)
+        .map((method) => {
+          const data: MagentoShippingMethodData = {
+            ...method,
+            quote_currency_code: quoteCurrency,
+          };
+          return this.factory.parseShippingMethod(this.context, data);
+        });
+
+      return success(shippingMethods);
+    } catch (err) {
+      return handleMagentoProviderError('get available shipping methods', err, payload.checkout);
     }
-
-    const methods = await this.magentoApi.estimateShippingMethods(cartKey, address);
-    const shippingMethods = methods
-      .filter((method) => method.available)
-      .map((method) => this.factory.parseShippingMethod(this.context, method));
-
-    return success(shippingMethods);
   }
 
   @Reactionary({
@@ -354,11 +403,15 @@ export class MagentoCheckoutCapability<
     payload: CheckoutQueryForAvailablePaymentMethods,
   ): Promise<Result<CheckoutFactoryPaymentMethodOutput<TFactory>[]>> {
     const cartKey = payload.checkout.key;
-    const methods = await this.magentoApi.getPaymentMethods(cartKey);
-    const paymentMethods = methods.map((method) =>
-      this.factory.parsePaymentMethod(this.context, method),
-    );
-    return success(paymentMethods);
+    try {
+      const methods = await this.magentoApi.getPaymentMethods(cartKey);
+      const paymentMethods = methods.map((method) =>
+        this.factory.parsePaymentMethod(this.context, method),
+      );
+      return success(paymentMethods);
+    } catch (err) {
+      return handleMagentoProviderError('get available payment methods', err, payload.checkout);
+    }
   }
 
   @Reactionary({
@@ -369,26 +422,86 @@ export class MagentoCheckoutCapability<
     payload: CheckoutMutationAddPaymentInstruction,
   ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const cartKey = payload.checkout.key;
-    const state = await this.loadCheckoutState(cartKey);
+    try {
+      const state = await this.loadCheckoutState(cartKey);
+      const { cart, totals } = await this.loadCartAndTotals(cartKey);
 
-    const instruction: MagentoStoredPaymentInstruction = {
-      key: `pi_${Date.now()}`,
-      method: payload.paymentInstruction.paymentMethod.method,
-      name: payload.paymentInstruction.paymentMethod.name,
-      paymentProcessor: payload.paymentInstruction.paymentMethod.paymentProcessor,
-      amountValue: payload.paymentInstruction.amount.value,
-      amountCurrency: payload.paymentInstruction.amount.currency,
-      protocolData: payload.paymentInstruction.protocolData,
-      status: 'pending',
-    };
+      const mismatch = this.validatePaymentAmount(
+        payload.paymentInstruction.amount.value,
+        payload.paymentInstruction.amount.currency,
+        cart,
+        totals,
+      );
+      if (mismatch) {
+        return mismatch;
+      }
 
-    state.paymentInstructions = [
-      ...(state.paymentInstructions ?? []),
-      instruction,
-    ];
+      const instruction: MagentoStoredPaymentInstruction = {
+        key: `pi_${crypto.randomUUID()}`,
+        method: payload.paymentInstruction.paymentMethod.method,
+        name: payload.paymentInstruction.paymentMethod.name,
+        paymentProcessor: payload.paymentInstruction.paymentMethod.paymentProcessor,
+        amountValue: payload.paymentInstruction.amount.value,
+        amountCurrency: payload.paymentInstruction.amount.currency,
+        protocolData: payload.paymentInstruction.protocolData,
+        status: 'pending',
+      };
 
-    await this.magentoApi.setCheckoutState(cartKey, state);
-    return success(await this.buildCheckout(cartKey, state));
+      state.paymentInstructions = [
+        ...(state.paymentInstructions ?? []),
+        instruction,
+      ];
+
+      await this.magentoApi.setCheckoutState(cartKey, state);
+      return success(
+        this.factory.parseCheckout(this.context, {
+          cart,
+          totals,
+          state,
+          requestedKey: cartKey,
+        } satisfies MagentoCheckoutData),
+      );
+    } catch (err) {
+      return handleMagentoProviderError('add payment instruction', err, payload.checkout);
+    }
+  }
+
+  /**
+   * Magento takes a single payment for the whole quote: the amount must be
+   * the quote grand total, in the quote currency. Returns the error result
+   * for a mismatch, or undefined when the amount fits.
+   */
+  protected validatePaymentAmount(
+    value: number,
+    currency: string,
+    cart: MagentoCart,
+    totals: MagentoCartTotals | undefined,
+  ): Result<never> | undefined {
+    const grandTotal = totals?.grand_total ?? cart.grand_total;
+    const quoteCurrency =
+      totals?.quote_currency_code ||
+      cart.quote_currency_code ||
+      cart.currency?.quote_currency_code;
+
+    if (grandTotal === undefined) {
+      return error<InvalidInputError>({
+        type: 'InvalidInput',
+        error: 'The quote grand total is unknown, so the payment amount cannot be checked',
+      });
+    }
+    if (quoteCurrency && quoteCurrency !== currency) {
+      return error<InvalidInputError>({
+        type: 'InvalidInput',
+        error: `The payment currency ${currency} does not match the quote currency ${quoteCurrency}`,
+      });
+    }
+    if (Math.abs(value - grandTotal) > AMOUNT_TOLERANCE) {
+      return error<InvalidInputError>({
+        type: 'InvalidInput',
+        error: `The payment amount ${value} does not match the quote grand total ${grandTotal}`,
+      });
+    }
+    return undefined;
   }
 
   @Reactionary({
@@ -399,14 +512,18 @@ export class MagentoCheckoutCapability<
     payload: CheckoutMutationRemovePaymentInstruction,
   ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const cartKey = payload.checkout.key;
-    const state = await this.loadCheckoutState(cartKey);
+    try {
+      const state = await this.loadCheckoutState(cartKey);
 
-    state.paymentInstructions = (state.paymentInstructions ?? []).filter(
-      (pi) => pi.key !== payload.paymentInstruction.key,
-    );
+      state.paymentInstructions = (state.paymentInstructions ?? []).filter(
+        (pi) => pi.key !== payload.paymentInstruction.key,
+      );
 
-    await this.magentoApi.setCheckoutState(cartKey, state);
-    return success(await this.buildCheckout(cartKey, state));
+      await this.magentoApi.setCheckoutState(cartKey, state);
+      return success(await this.buildCheckout(cartKey, state));
+    } catch (err) {
+      return handleMagentoProviderError('remove payment instruction', err, payload.checkout);
+    }
   }
 
   @Reactionary({
@@ -417,50 +534,54 @@ export class MagentoCheckoutCapability<
     payload: CheckoutMutationSetShippingInstruction,
   ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const cartKey = payload.checkout.key;
-    const state = await this.loadCheckoutState(cartKey);
-    const address = state.shippingAddress || state.billingAddress;
+    try {
+      const state = await this.loadCheckoutState(cartKey);
+      const address = state.shippingAddress || state.billingAddress;
 
-    if (!address) {
-      return error({
-        type: 'InvalidInput',
-        error: 'A shipping or billing address is required before selecting a shipping method',
+      if (!address) {
+        return error<InvalidInputError>({
+          type: 'InvalidInput',
+          error: 'A shipping or billing address is required before selecting a shipping method',
+        });
+      }
+
+      const requestedKey = payload.shippingInstruction.shippingMethod.key;
+      const methods = await this.magentoApi.estimateShippingMethods(cartKey, address);
+      const method = methods.find(
+        (m) => encodeShippingMethodKey(m.carrier_code, m.method_code) === requestedKey,
+      );
+
+      if (!method) {
+        return error<NotFoundError>({
+          type: 'NotFound',
+          identifier: payload.shippingInstruction.shippingMethod,
+        });
+      }
+
+      await this.magentoApi.setShippingInformation(cartKey, {
+        addressInformation: {
+          shipping_address: address,
+          billing_address: state.billingAddress ?? address,
+          shipping_method_code: method.method_code,
+          shipping_carrier_code: method.carrier_code,
+        },
       });
+
+      state.shippingInstruction = {
+        shippingMethodKey: requestedKey,
+        carrierCode: method.carrier_code,
+        methodCode: method.method_code,
+        instructions: payload.shippingInstruction.instructions || '',
+        pickupPoint: payload.shippingInstruction.pickupPoint || '',
+        consentForUnattendedDelivery:
+          payload.shippingInstruction.consentForUnattendedDelivery,
+      };
+
+      await this.magentoApi.setCheckoutState(cartKey, state);
+      return success(await this.buildCheckout(cartKey, state));
+    } catch (err) {
+      return handleMagentoProviderError('set shipping instruction', err, payload.checkout);
     }
-
-    const requestedKey = payload.shippingInstruction.shippingMethod.key;
-    const methods = await this.magentoApi.estimateShippingMethods(cartKey, address);
-    const method = methods.find(
-      (m) => encodeShippingMethodKey(m.carrier_code, m.method_code) === requestedKey,
-    );
-
-    if (!method) {
-      return error<NotFoundError>({
-        type: 'NotFound',
-        identifier: payload.shippingInstruction.shippingMethod,
-      });
-    }
-
-    await this.magentoApi.setShippingInformation(cartKey, {
-      addressInformation: {
-        shipping_address: address,
-        billing_address: state.billingAddress ?? address,
-        shipping_method_code: method.method_code,
-        shipping_carrier_code: method.carrier_code,
-      },
-    });
-
-    state.shippingInstruction = {
-      shippingMethodKey: requestedKey,
-      carrierCode: method.carrier_code,
-      methodCode: method.method_code,
-      instructions: payload.shippingInstruction.instructions || '',
-      pickupPoint: payload.shippingInstruction.pickupPoint || '',
-      consentForUnattendedDelivery:
-        payload.shippingInstruction.consentForUnattendedDelivery,
-    };
-
-    await this.magentoApi.setCheckoutState(cartKey, state);
-    return success(await this.buildCheckout(cartKey, state));
   }
 
   @Reactionary({
@@ -471,29 +592,56 @@ export class MagentoCheckoutCapability<
     payload: CheckoutMutationFinalizeCheckout,
   ): Promise<Result<CheckoutFactoryCheckoutOutput<TFactory>>> {
     const cartKey = payload.checkout.key;
-    const state = await this.loadCheckoutState(cartKey);
+    try {
+      const state = await this.loadCheckoutState(cartKey);
 
-    // A repeated submit must not attempt a second order.
-    if (state.orderId) {
+      // A repeated submit must not attempt a second order.
+      if (state.orderId) {
+        return success(await this.buildOrderedCheckout(cartKey, state));
+      }
+
+      const paymentInstruction = state.paymentInstructions?.[0];
+      if (!paymentInstruction || !state.shippingInstruction) {
+        return error<InvalidInputError>({
+          type: 'InvalidInput',
+          error: `Checkout ${cartKey} is not ready for finalization: a shipping instruction and a payment instruction are required`,
+        });
+      }
+
+      // The totals may have moved since the payment was added (e.g. a
+      // different shipping method), so the amount is checked again.
+      const { cart, totals } = await this.loadCartAndTotals(cartKey);
+      const mismatch = this.validatePaymentAmount(
+        paymentInstruction.amountValue,
+        paymentInstruction.amountCurrency,
+        cart,
+        totals,
+      );
+      if (mismatch) {
+        return mismatch;
+      }
+
+      const orderId = await this.magentoApi.placeOrder(cartKey, {
+        email: state.email,
+        paymentMethod: this.toMagentoPaymentMethod(paymentInstruction),
+        billingAddress: state.billingAddress,
+      });
+      // Lets the session (also a guest) read the order back on the confirmation page.
+      await rememberMagentoOrderPlacedInSession(this.magentoApi, orderId);
+
+      state.orderId = String(orderId);
+      state.paymentInstructions = (state.paymentInstructions ?? []).map((pi) =>
+        pi.key === paymentInstruction.key ? { ...pi, status: 'authorized' } : pi,
+      );
+      await this.magentoApi.setCheckoutState(cartKey, state);
+      if ((await this.magentoApi.getActiveCartId()) === cartKey) {
+        await this.magentoApi.clearActiveCartId();
+      }
+
       return success(await this.buildOrderedCheckout(cartKey, state));
+    } catch (err) {
+      return handleMagentoProviderError('finalize checkout', err, payload.checkout);
     }
-
-    const paymentInstruction = state.paymentInstructions?.[0];
-    if (!paymentInstruction || !state.shippingInstruction) {
-      throw new CheckoutNotReadyForFinalizationError(payload.checkout);
-    }
-
-    const orderId = await this.magentoApi.placeOrder(cartKey, {
-      email: state.email,
-      paymentMethod: this.toMagentoPaymentMethod(paymentInstruction),
-      billingAddress: state.billingAddress,
-    });
-
-    state.orderId = String(orderId);
-    await this.magentoApi.setCheckoutState(cartKey, state);
-    await this.magentoApi.clearActiveCartId();
-
-    return success(await this.buildOrderedCheckout(cartKey, state));
   }
 
   /**
