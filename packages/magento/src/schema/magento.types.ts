@@ -178,6 +178,12 @@ export interface MagentoSourceItem {
   status: number;
 }
 
+export interface MagentoSourceItemSearchResult {
+  items: MagentoSourceItem[];
+  total_count: number;
+  search_criteria?: Record<string, unknown>;
+}
+
 export interface MagentoInventory {
   stock_item?: MagentoStockStatus;
   source_items?: MagentoSourceItem[];
@@ -216,6 +222,24 @@ export interface MagentoProductSearchResult {
   items: MagentoProduct[];
   search_criteria?: Record<string, unknown>;
   total_count: number;
+}
+
+/** One selectable value of a configurable attribute, e.g. a colour option id. */
+export interface MagentoConfigurableProductOptionValue {
+  value_index: number;
+  extension_attributes?: Record<string, unknown>;
+}
+
+/** A configurable attribute (`/V1/configurable-products/{sku}/options/all`). */
+export interface MagentoConfigurableProductOption {
+  id?: number;
+  attribute_id: string;
+  label: string;
+  position?: number;
+  is_use_default?: boolean;
+  product_id?: number;
+  values: MagentoConfigurableProductOptionValue[];
+  extension_attributes?: Record<string, unknown>;
 }
 
 /** The native Magento product link types. */
@@ -361,6 +385,157 @@ export interface MagentoCheckoutState {
   shippingInstruction?: MagentoStoredShippingInstruction;
   paymentInstructions?: MagentoStoredPaymentInstruction[];
   orderId?: string;
+}
+
+/**
+ * The cart item payload for `POST /V1/carts/{mine|guest}/items`. The client
+ * adds the `quote_id` itself.
+ */
+export interface MagentoCartItemInput {
+  sku: string;
+  qty: number;
+  product_type?: string;
+  product_option?: Record<string, unknown>;
+  extension_attributes?: Record<string, unknown>;
+}
+
+/**
+ * The cart item payload for `PUT /V1/carts/{mine|guest}/items/{itemId}`. The
+ * client adds `item_id` and `quote_id` itself.
+ */
+export interface MagentoCartItemUpdateInput {
+  qty: number;
+  sku?: string;
+  item_id?: number;
+  product_option?: Record<string, unknown>;
+  extension_attributes?: Record<string, unknown>;
+}
+
+/** A customer address as returned and accepted by `/V1/customers/me`. */
+export interface MagentoCustomerAddressData {
+  id?: number;
+  customer_id?: number;
+  company?: string;
+  firstname?: string;
+  lastname?: string;
+  street?: string[];
+  city?: string;
+  region?: { region_code?: string; region?: string; region_id?: number };
+  region_id?: number;
+  postcode?: string;
+  country_id?: string;
+  telephone?: string;
+  default_billing?: boolean;
+  default_shipping?: boolean;
+}
+
+/** Magento's `customer-data-customer-interface` (`/V1/customers/me`). */
+export interface MagentoCustomerData {
+  id: number;
+  group_id?: number;
+  email: string;
+  firstname?: string;
+  lastname?: string;
+  default_billing?: string;
+  default_shipping?: string;
+  created_at?: string;
+  updated_at?: string;
+  store_id?: number;
+  website_id?: number;
+  addresses?: MagentoCustomerAddressData[];
+  custom_attributes?: MagentoCustomAttribute[];
+  extension_attributes?: Record<string, unknown>;
+}
+
+/** The `customer` payload for `POST /V1/customers`. */
+export interface MagentoCustomerCreateInput
+  extends Partial<Omit<MagentoCustomerData, 'id' | 'email' | 'firstname' | 'lastname'>> {
+  email: string;
+  firstname: string;
+  lastname: string;
+}
+
+/** The `customer` payload for `PUT /V1/customers/me`. */
+export type MagentoCustomerUpdateInput = Partial<MagentoCustomerData> &
+  Pick<MagentoCustomerData, 'email'>;
+
+export interface MagentoSalesOrderAddress {
+  entity_id?: number;
+  address_type?: string;
+  firstname?: string;
+  lastname?: string;
+  company?: string;
+  street?: string[];
+  city?: string;
+  region?: string;
+  region_code?: string;
+  postcode?: string;
+  country_id?: string;
+  telephone?: string;
+  email?: string;
+}
+
+export interface MagentoSalesOrderItem {
+  item_id: number;
+  sku: string;
+  name?: string;
+  product_type?: string;
+  parent_item_id?: number;
+  qty_ordered?: number;
+  price?: number;
+  row_total?: number;
+}
+
+export interface MagentoSalesOrderPayment {
+  method?: string;
+  amount_ordered?: number;
+  po_number?: string;
+  additional_information?: string[];
+}
+
+/** Magento's `sales-data-order-interface` (`/V1/orders/{id}`, admin scope). */
+export interface MagentoSalesOrder {
+  entity_id: number;
+  increment_id?: string;
+  store_id?: number;
+  customer_id?: number;
+  customer_is_guest?: number;
+  customer_group_id?: number;
+  customer_email?: string;
+  customer_firstname?: string;
+  customer_lastname?: string;
+  status?: string;
+  state?: string;
+  created_at?: string;
+  updated_at?: string;
+  order_currency_code?: string;
+  base_currency_code?: string;
+  grand_total?: number;
+  subtotal?: number;
+  shipping_amount?: number;
+  discount_amount?: number;
+  tax_amount?: number;
+  shipping_description?: string;
+  items?: MagentoSalesOrderItem[];
+  billing_address?: MagentoSalesOrderAddress;
+  payment?: MagentoSalesOrderPayment;
+  extension_attributes?: {
+    shipping_assignments?: Array<{
+      shipping?: { address?: MagentoSalesOrderAddress; method?: string };
+    }>;
+    [key: string]: unknown;
+  };
+}
+
+/** `GET /V1/orders?searchCriteria…` (admin scope). */
+export interface MagentoSalesOrderSearchResult {
+  items: MagentoSalesOrder[];
+  total_count: number;
+  search_criteria?: {
+    page_size?: number;
+    current_page?: number;
+    [key: string]: unknown;
+  };
 }
 
 /**
