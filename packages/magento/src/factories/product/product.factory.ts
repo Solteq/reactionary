@@ -3,42 +3,121 @@ import {
   ProductComplianceDataSchema,
   ProductIdentifierSchema,
   type AnyProductSchema,
+  type CategoryIdentifier,
   type Image,
   type Product,
   type ProductAttribute,
   type ProductAttributeIdentifier,
+  type ProductAttributeValue,
   type ProductAttributeValueIdentifier,
   type ProductComplianceData,
   type ProductFactory,
+  type ProductOption,
   type ProductSchema,
   type ProductVariant,
   type ProductVariantOption,
   type RequestContext,
 } from '@reactionary/core';
+import createDebug from 'debug';
 import type * as z from 'zod';
+import type {
+  MagentoAttributeCatalog,
+  MagentoAttributeMetadata,
+  MagentoProductDetails,
+} from '../../schema/catalog.types.js';
 import type { MagentoConfiguration } from '../../schema/configuration.schema.js';
 import type { MagentoProduct } from '../../schema/magento.types.js';
-import { getProductKey, parseDamImages } from '../../utils/magento-product.js';
+import {
+  getCustomAttribute,
+  getProductKey,
+  parseMagentoProductImages,
+} from '../../utils/magento-product.js';
 
-function getCustomAttribute(product: MagentoProduct, code: string): string | undefined {
-  if (!product.custom_attributes) return undefined;
-  const found = product.custom_attributes.find((a) => a.attribute_code === code);
-  if (found?.value === null || found?.value === undefined) return undefined;
-  return String(found.value);
+const debug = createDebug('reactionary:magento:product');
+
+/**
+ * System / layout attributes that are never shown to shoppers. Only consulted
+ * when the attribute set metadata (`is_visible_on_front`) cannot be read.
+ */
+export const MAGENTO_SYSTEM_ATTRIBUTE_CODES: ReadonlySet<string> = new Set([
+  'category_ids',
+  'cost',
+  'custom_design',
+  'custom_design_from',
+  'custom_design_to',
+  'custom_layout',
+  'custom_layout_update',
+  'custom_layout_update_file',
+  'description',
+  'external_id',
+  'gift_message_available',
+  'gift_wrapping_available',
+  'gift_wrapping_price',
+  'has_options',
+  'image',
+  'image_label',
+  'is_returnable',
+  'links_exist',
+  'links_purchased_separately',
+  'links_title',
+  'meta_description',
+  'meta_keyword',
+  'meta_title',
+  'minimal_price',
+  'msrp',
+  'msrp_display_actual_price_type',
+  'news_from_date',
+  'news_to_date',
+  'options_container',
+  'original_dam_reference',
+  'page_layout',
+  'price',
+  'price_type',
+  'price_view',
+  'quantity_and_stock_status',
+  'required_options',
+  'samples_title',
+  'shipment_type',
+  'short_description',
+  'sku_type',
+  'small_image',
+  'small_image_label',
+  'special_from_date',
+  'special_price',
+  'special_to_date',
+  'status',
+  'swatch_image',
+  'tax_class_id',
+  'thumbnail',
+  'thumbnail_label',
+  'tier_price',
+  'url_key',
+  'url_path',
+  'visibility',
+  'weight',
+  'weight_type',
+]);
+
+/** Attributes mapped onto dedicated product fields and therefore never repeated as shared attributes. */
+const DEDICATED_ATTRIBUTE_CODES: ReadonlySet<string> = new Set(['description', 'short_description']);
+
+/** A configurable attribute of a product, resolved to its attribute code and labels. */
+export interface MagentoProductOptionDefinition {
+  code: string;
+  name: string;
+  values: Array<{ value: string; label: string }>;
 }
 
-function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/+$/, '');
+export function isMagentoProductDetails(
+  data: MagentoProduct | MagentoProductDetails,
+): data is MagentoProductDetails {
+  return 'product' in data && typeof data.product === 'object' && data.product !== null;
 }
 
-function buildMagentoImageUrl(config: MagentoConfiguration, file: string): string {
-  const mediaUrl = config.mediaUrl;
-  if (mediaUrl) {
-    return `${mediaUrl.replace(/\/+$/, '')}${file.startsWith('/') ? '' : '/'}${file}`;
-  }
-
-  const storeBase = `${normalizeBaseUrl(config.baseUrl)}`;
-  return `${storeBase}/media/catalog/product${file.startsWith('/') ? '' : '/'}${file}`;
+function scalarToString(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return undefined;
 }
 
 export class MagentoProductFactory<
@@ -54,62 +133,172 @@ export class MagentoProductFactory<
     this.productSchema = productSchema;
   }
 
-
-  protected parseComplianceData(context: RequestContext, data: MagentoProduct): ProductComplianceData {
+  protected parseComplianceData(_context: RequestContext, _data: MagentoProduct): ProductComplianceData {
     return ProductComplianceDataSchema.parse({});
   }
 
+  /**
+   * Maps a Magento product. Accepts the bare REST product, or the
+   * `MagentoProductDetails` the capability assembles (configurable children
+   * and options, attribute metadata, category keys) for a complete mapping.
+   */
   public parseProduct(
-    _context: RequestContext,
-    data: MagentoProduct,
+    context: RequestContext,
+    data: MagentoProduct | MagentoProductDetails,
   ): z.output<TProductSchema> {
-    const sku = data.sku;
+    const details: MagentoProductDetails = isMagentoProductDetails(data) ? data : { product: data };
+    const product = details.product;
+    const sku = product.sku;
 
-    const identifier = ProductIdentifierSchema.parse({ key: getProductKey(data) });
+    const identifier = ProductIdentifierSchema.parse({ key: getProductKey(product) });
 
-    const name = data.name || sku;
+    const name = product.name || sku;
     const slug =
-      getCustomAttribute(data, 'url_key') ??
-      getCustomAttribute(data, 'url_path') ??
+      getCustomAttribute(product, 'url_key') ??
+      getCustomAttribute(product, 'url_path') ??
       '';
 
-    const description =
-      getCustomAttribute(data, 'description') ??
-      getCustomAttribute(data, 'short_description') ??
-      '';
+    const longDescription = getCustomAttribute(product, 'description') ?? '';
+    const description = getCustomAttribute(product, 'short_description') ?? longDescription;
 
-    const categoryLinks = data.extension_attributes?.category_links;
-    const parentCategories = categoryLinks
-      ? categoryLinks
-          .map((c) => c.category_id)
-          .filter((x) => x !== null && x !== undefined)
-          .map((cid) => CategoryIdentifierSchema.parse({ key: String(cid) }))
-      : [];
+    const parentCategories = this.parseParentCategories(product, details.categoryKeys);
 
-    const sharedAttributes = this.parseAttributes(data);
-    const mainVariant = this.parseVariant(data);
+    const optionDefinitions = this.parseOptionDefinitions(details);
+    const options = optionDefinitions.map((definition) => this.parseOption(definition));
+
+    const sharedAttributes = this.parseAttributes(
+      product,
+      details.attributes,
+      new Set(optionDefinitions.map((definition) => definition.code)),
+    );
+
+    const children = details.children ?? [];
+    const mainChild =
+      children.find((child) => child.sku === details.preferredSku) ?? children[0];
+    const mainVariant = mainChild
+      ? this.parseVariant(mainChild, product, optionDefinitions)
+      : this.parseVariant(product);
+    const variants = children
+      .filter((child) => child !== mainChild)
+      .map((child) => this.parseVariant(child, product, optionDefinitions));
+
+    const manufacturer = this.getAttributeLabel(product, 'manufacturer', details.attributes) ?? '';
+    const brand = this.getAttributeLabel(product, 'brand', details.attributes) ?? manufacturer;
 
     const result = {
-      brand: getCustomAttribute(data, 'manufacturer') ?? '',
+      brand,
       description,
       identifier,
-      longDescription: '',
+      longDescription,
       mainVariant,
-      manufacturer: getCustomAttribute(data, 'manufacturer') ?? '',
+      manufacturer,
       name,
-      options: [],
+      options,
       parentCategories,
-      published: true,
+      published: this.isPublished(product),
       sharedAttributes,
       slug,
-      variants: [],
-      complianceData: this.parseComplianceData(_context, data),
+      variants,
+      complianceData: this.parseComplianceData(context, product),
     } satisfies Product;
 
     return this.productSchema.parse(result);
   }
 
-  protected parseVariant(product: MagentoProduct): ProductVariant {
+  /** A product is published when it is enabled (`status` 1). */
+  protected isPublished(product: MagentoProduct): boolean {
+    return product.status === undefined || Number(product.status) === 1;
+  }
+
+  /**
+   * Category links carry Magento entity ids; categories are keyed by
+   * `external_id` (see `getCategoryKey`), so ids are translated through
+   * `categoryKeys`. Without a translation table the raw ids are kept.
+   */
+  protected parseParentCategories(
+    product: MagentoProduct,
+    categoryKeys: Record<string, string> | undefined,
+  ): CategoryIdentifier[] {
+    const ids = (product.extension_attributes?.category_links ?? [])
+      .map((link) => link.category_id)
+      .filter((id) => id !== null && id !== undefined)
+      .map((id) => String(id));
+
+    const keys = categoryKeys
+      ? ids.map((id) => categoryKeys[id]).filter((key): key is string => key !== undefined)
+      : ids;
+
+    return [...new Set(keys)].map((key) => CategoryIdentifierSchema.parse({ key }));
+  }
+
+  /**
+   * Resolves the configurable attributes (`attribute_id`) to attribute codes
+   * through the attribute metadata, keeping only the values at least one
+   * enabled child actually uses.
+   */
+  protected parseOptionDefinitions(details: MagentoProductDetails): MagentoProductOptionDefinition[] {
+    const configurableOptions = details.configurableOptions ?? [];
+    if (configurableOptions.length === 0) {
+      return [];
+    }
+
+    const byId = new Map<string, MagentoAttributeMetadata>();
+    for (const attribute of details.attributes?.attributes ?? []) {
+      if (attribute.attributeId) byId.set(attribute.attributeId, attribute);
+    }
+    const children = details.children ?? [];
+
+    const definitions: MagentoProductOptionDefinition[] = [];
+    for (const option of [...configurableOptions].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))) {
+      const metadata = byId.get(String(option.attribute_id));
+      if (!metadata) {
+        debug(`Configurable attribute ${option.attribute_id} has no metadata; option skipped`);
+        continue;
+      }
+      const usedValues = new Set(
+        children
+          .map((child) => getCustomAttribute(child, metadata.code))
+          .filter((value): value is string => value !== undefined),
+      );
+      const values = option.values
+        .map((value) => String(value.value_index))
+        .filter((value) => children.length === 0 || usedValues.has(value))
+        .map((value) => ({
+          value,
+          label: metadata.options.find((o) => o.value === value)?.label ?? value,
+        }));
+
+      definitions.push({
+        code: metadata.code,
+        name: option.label || metadata.label,
+        values,
+      });
+    }
+    return definitions;
+  }
+
+  protected parseOption(definition: MagentoProductOptionDefinition): ProductOption {
+    const optionIdentifier = { key: definition.code };
+    return {
+      identifier: optionIdentifier,
+      name: definition.name,
+      values: definition.values.map((value) => ({
+        identifier: { option: optionIdentifier, key: value.value },
+        label: value.label,
+      })),
+    } satisfies ProductOption;
+  }
+
+  /**
+   * Maps a sellable item. `parent` is the configurable product a child belongs
+   * to (its images are used when the child has none of its own) and
+   * `optionDefinitions` the configurable attributes the child's options are read from.
+   */
+  protected parseVariant(
+    product: MagentoProduct,
+    parent?: MagentoProduct,
+    optionDefinitions: MagentoProductOptionDefinition[] = [],
+  ): ProductVariant {
     const sku = product.sku;
 
     const ean =
@@ -120,9 +309,25 @@ export class MagentoProductFactory<
 
     const upc = getCustomAttribute(product, 'upc') ?? '';
 
-    const images = this.parseImages(product);
+    let images = this.parseImages(product);
+    if (images.length === 0 && parent) {
+      images = this.parseImages(parent);
+    }
 
     const options: ProductVariantOption[] = [];
+    for (const definition of optionDefinitions) {
+      const value = getCustomAttribute(product, definition.code);
+      if (value === undefined) continue;
+      const optionIdentifier = { key: definition.code };
+      options.push({
+        identifier: optionIdentifier,
+        name: definition.name,
+        value: {
+          identifier: { option: optionIdentifier, key: value },
+          label: definition.values.find((v) => v.value === value)?.label ?? value,
+        },
+      });
+    }
 
     return {
       identifier: { sku },
@@ -137,24 +342,15 @@ export class MagentoProductFactory<
   }
 
   protected parseImages(product: MagentoProduct): Image[] {
-    const altText = product.name || product.sku;
-
-    if (this.config.mediaSource === 'EXTERNAL') {
-      return parseDamImages(
-        getCustomAttribute(product, 'original_dam_reference'),
-        altText,
-      );
-    }
-
-    return (product.media_gallery_entries ?? [])
-      .filter((m) => m.file.length > 0)
-      .map((m) => ({
-        sourceUrl: buildMagentoImageUrl(this.config, m.file),
-        altText,
-      } satisfies Image));
+    return parseMagentoProductImages(this.config, product, 'image');
   }
 
-  protected createSynthAttribute(key: string, name: string, value: string): ProductAttribute {
+  protected createSynthAttribute(
+    key: string,
+    name: string,
+    value: string,
+    label: string = value,
+  ): ProductAttribute {
     const attributeIdentifier: ProductAttributeIdentifier = { key };
     const valueIdentifier: ProductAttributeValueIdentifier = { key: `${key}-${value}` };
 
@@ -165,32 +361,75 @@ export class MagentoProductFactory<
       values: [
         {
           identifier: valueIdentifier,
-          label: String(value),
+          label,
           value,
         },
       ],
     } satisfies ProductAttribute;
   }
 
-  protected parseAttributes(product: MagentoProduct): Array<ProductAttribute> {
+  /** The store label of an option-based attribute value (option ids resolved), or the raw value. */
+  protected getAttributeLabel(
+    product: MagentoProduct,
+    code: string,
+    attributes: MagentoAttributeCatalog | undefined,
+  ): string | undefined {
+    const raw = getCustomAttribute(product, code);
+    if (raw === undefined || raw === '') return undefined;
+    const metadata = attributes?.attributes.find((a) => a.code === code);
+    if (!metadata || metadata.options.length === 0) return raw;
+    return raw
+      .split(',')
+      .map((value) => metadata.options.find((o) => o.value === value.trim())?.label ?? value.trim())
+      .join(', ');
+  }
+
+  /**
+   * The shopper-facing technical attributes. With the attribute set metadata
+   * available only `is_visible_on_front` attributes are listed; otherwise the
+   * known system attributes are excluded. Option ids are resolved to labels.
+   */
+  protected parseAttributes(
+    product: MagentoProduct,
+    attributes?: MagentoAttributeCatalog,
+    excludedCodes: ReadonlySet<string> = new Set(),
+  ): Array<ProductAttribute> {
     const sharedAttributes: ProductAttribute[] = [];
+    const metadataByCode = new Map((attributes?.attributes ?? []).map((a) => [a.code, a]));
 
-    if (!product.custom_attributes) return sharedAttributes;
-
-    for (const entry of product.custom_attributes) {
+    for (const entry of product.custom_attributes ?? []) {
       const key = entry.attribute_code;
-      const value = entry.value;
+      if (!key || DEDICATED_ATTRIBUTE_CODES.has(key) || excludedCodes.has(key)) continue;
 
-      if (!key) continue;
-      if (key === 'description' || key === 'short_description') continue;
-      if (value === null || value === undefined) continue;
+      const metadata = metadataByCode.get(key);
+      if (attributes?.complete) {
+        if (!metadata?.visibleOnFront) continue;
+      } else if (MAGENTO_SYSTEM_ATTRIBUTE_CODES.has(key)) {
+        continue;
+      }
 
-      const stringValue =
-        typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-          ? String(value)
-          : JSON.stringify(value);
+      const raw = scalarToString(entry.value);
+      if (raw === undefined || raw.trim() === '') continue;
 
-      sharedAttributes.push(this.createSynthAttribute(key, key, stringValue));
+      const isOptionBased = metadata !== undefined && metadata.options.length > 0;
+      const rawValues = isOptionBased && metadata.frontendInput === 'multiselect'
+        ? raw.split(',').map((v) => v.trim()).filter((v) => v.length > 0)
+        : [raw];
+
+      const values: ProductAttributeValue[] = rawValues.map((value) => ({
+        identifier: { key: `${key}-${value}` },
+        value,
+        label: isOptionBased
+          ? metadata.options.find((o) => o.value === value)?.label ?? value
+          : value,
+      }));
+
+      sharedAttributes.push({
+        identifier: { key },
+        name: metadata?.label ?? key,
+        group: '',
+        values,
+      } satisfies ProductAttribute);
     }
 
     return sharedAttributes;

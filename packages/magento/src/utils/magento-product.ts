@@ -140,16 +140,62 @@ export function buildMagentoImageUrl(
   return `${storeBase}/media/catalog/product${file.startsWith('/') ? '' : '/'}${file}`;
 }
 
+/**
+ * The product's images in display order. With `mediaSource: 'EXTERNAL'` they
+ * come from the DAM reference attribute, otherwise from the enabled Magento
+ * media gallery entries (sorted by position, the `role` image first when given).
+ */
+export function parseMagentoProductImages(
+  config: MagentoConfiguration,
+  product: MagentoProduct,
+  role?: string,
+): Image[] {
+  const altText = product.name || product.sku;
+
+  if (config.mediaSource === 'EXTERNAL') {
+    return parseDamImages(getCustomAttribute(product, 'original_dam_reference'), altText);
+  }
+
+  const entries = (product.media_gallery_entries ?? [])
+    .filter((entry) => entry.file.length > 0 && !entry.disabled)
+    .filter((entry) => entry.media_type === undefined || entry.media_type === 'image')
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+
+  if (role) {
+    const primaryIndex = entries.findIndex((entry) => (entry.types ?? []).includes(role));
+    if (primaryIndex > 0) {
+      entries.unshift(...entries.splice(primaryIndex, 1));
+    }
+  }
+
+  return entries.map((entry) =>
+    ImageSchema.parse({
+      sourceUrl: buildMagentoImageUrl(config, entry.file),
+      altText: entry.label?.trim() || altText,
+    }),
+  );
+}
+
+/** Product types that require an option choice (or several products) before they can be carted. */
+const NOT_DIRECTLY_PURCHASABLE_TYPES = ['configurable', 'bundle', 'grouped'];
+
+/**
+ * Whether a PLP may offer add-to-cart for this product: configurable, bundle
+ * and grouped products always need the PDP to pick the concrete item(s).
+ */
+export function canAddMagentoProductToCartDirectly(product: MagentoProduct): boolean {
+  return !NOT_DIRECTLY_PURCHASABLE_TYPES.includes(product.type_id ?? 'simple');
+}
+
 export function buildProductSearchResultItemVariant(
   config: MagentoConfiguration,
   variant: MagentoProduct,
   product: MagentoProduct,
 ): ProductSearchResultItemVariant {
-  const media = product.media_gallery_entries;
-  const firstImage = media && media.length > 0 ? media[0].file : null;
+  const [first] = parseMagentoProductImages(config, product, 'small_image');
 
-  const img = ImageSchema.parse({
-    sourceUrl: firstImage ? buildMagentoImageUrl(config, firstImage) : '',
+  const img = first ?? ImageSchema.parse({
+    sourceUrl: '',
     altText: product.name || undefined,
   });
 
@@ -162,8 +208,9 @@ export function buildProductSearchResultItemVariant(
 }
 
 /**
- * Builds the search-result representation used by the association and
- * recommendation capabilities, which key products by their `external_id`.
+ * Builds the search-result representation of a product. Products are keyed by
+ * `getProductKey` (external_id, falling back to the entity id), the same key
+ * the product, search, association and recommendation capabilities use.
  */
 export function buildProductSearchResultItem(
   config: MagentoConfiguration,
@@ -181,12 +228,12 @@ export function buildProductSearchResultItem(
       getCustomAttribute(product, 'url_key') ??
       getCustomAttribute(product, 'url_path') ??
       '',
-    canAddToCartDirectly: variants.length === 1,
+    canAddToCartDirectly: variants.length === 1 && canAddMagentoProductToCartDirectly(product),
     variants,
     complianceData: buildProductComplianceData(product),
   } satisfies ProductSearchResultItem;
 }
-function buildProductComplianceData(product: MagentoProduct): ProductSearchResultItemComplianceData {
+
+function buildProductComplianceData(_product: MagentoProduct): ProductSearchResultItemComplianceData {
   return ProductSearchResultItemComplianceDataSchema.parse({});
 }
-
