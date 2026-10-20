@@ -29,12 +29,18 @@ import {
 import * as z from 'zod';
 import type { MagentoConfiguration } from '../schema/configuration.schema.js';
 import type { Magento, MagentoClient } from '../core/client.js';
+import { MagentoCatalogApi, type MagentoFilterGroup } from '../core/catalog.api.js';
 import type { MagentoCategoryFactory } from '../factories/category/category.factory.js';
-import createDebug from 'debug';
-import type { MagentoCategory, MagentoCategorySearchResult, MagentoCustomAttribute } from '../schema/magento.types.js';
+import type { MagentoCategory, MagentoCategorySearchResult } from '../schema/magento.types.js';
+import type { MagentoResolvedCategory } from '../schema/catalog.types.js';
+import { getCategoryPathBelowRoot } from '../utils/magento-category.js';
+import { handleMagentoProviderError } from '../utils/magento-errors.js';
 
-const debug = createDebug('reactionary:magento:category');
-
+/**
+ * Categories are keyed by `getCategoryKey`: the `external_id` attribute,
+ * falling back to the Magento entity id. All lookups are restricted to active
+ * categories beneath the configured `rootCategoryId`.
+ */
 export class MagentoCategoryCapability<
   TFactory extends CategoryFactory = MagentoCategoryFactory,
 > extends CategoryCapability<
@@ -43,6 +49,7 @@ export class MagentoCategoryCapability<
 > {
   protected config: MagentoConfiguration;
   protected factory: CategoryFactoryWithOutput<TFactory>;
+  protected catalog: MagentoCatalogApi;
 
   constructor(
     config: MagentoConfiguration,
@@ -54,6 +61,7 @@ export class MagentoCategoryCapability<
     super(cache, context);
     this.config = config;
     this.factory = factory;
+    this.catalog = new MagentoCatalogApi(magentoApi, cache, config, context);
   }
 
   @Reactionary({
@@ -63,23 +71,18 @@ export class MagentoCategoryCapability<
   public override async getById(
     payload: CategoryQueryById,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
-    const client = await this.magentoApi.getClient();
     try {
-      const response = await client.store.category.getByExternalId(payload.id.key);
-      if (!response) {
-        return error<NotFoundError>({
-          type: 'NotFound',
-          identifier: payload,
-        });
+      const category = await this.catalog.findCategoryByKey(
+        payload.id.key,
+        this.catalog.storefrontCategoryFilterGroups(),
+      );
+      if (!category) {
+        return error<NotFoundError>({ type: 'NotFound', identifier: payload.id });
       }
-      const cleanedResponse = await this.cleanupParentPointersForCategory(response);
-      return success(await this.factory.parseCategory(this.context, cleanedResponse));
+      const [resolved] = await this.resolveParentKeys([category]);
+      return success(this.factory.parseCategory(this.context, resolved));
     } catch (e) {
-      debug('Error getting category by id', e);
-      return error<NotFoundError>({
-        type: 'NotFound',
-        identifier: payload,
-      });
+      return handleMagentoProviderError('get category by id', e, payload.id);
     }
   }
 
@@ -90,35 +93,29 @@ export class MagentoCategoryCapability<
   public override async getBySlug(
     payload: CategoryQueryBySlug,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>, NotFoundError>> {
-    const client = await this.magentoApi.getClient();
-    const params = new URLSearchParams();
-    params.set('searchCriteria[filterGroups][0][filters][0][field]', 'url_key');
-    params.set('searchCriteria[filterGroups][0][filters][0][value]', payload.slug);
-    params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'eq');
-    params.set('searchCriteria[pageSize]', '1');
-
     try {
-      const response = await client.store.category.list(params);
-      if (!response.items || response.items.length === 0) {
-        return error<NotFoundError>({
-          type: 'NotFound',
-          identifier: payload,
-        });
-      }
-      return success(
-        await this.factory.parseCategory(this.context, await this.cleanupParentPointersForCategory(response.items[0]))
+      const response = await this.catalog.listCategories(
+        [
+          [{ field: 'url_key', value: payload.slug, conditionType: 'eq' }],
+          ...this.catalog.storefrontCategoryFilterGroups(),
+        ],
+        { pageSize: 1, currentPage: 1 },
       );
+      const category = response.items?.[0];
+      if (!category) {
+        return error<NotFoundError>({ type: 'NotFound', identifier: payload });
+      }
+      const [resolved] = await this.resolveParentKeys([category]);
+      return success(this.factory.parseCategory(this.context, resolved));
     } catch (e) {
-      debug('Error getting category by slug', e);
-      return error<NotFoundError>({
-        type: 'NotFound',
-        identifier: payload,
-      });
+      return handleMagentoProviderError('get category by slug', e, payload);
     }
   }
 
-
-
+  /**
+   * The active categories from the store root down to the requested one, read
+   * from the category `path`. Inactive ancestors are left out.
+   */
   @Reactionary({
     inputSchema: CategoryQueryForBreadcrumbSchema,
     outputSchema: z.array(CategorySchema),
@@ -126,48 +123,32 @@ export class MagentoCategoryCapability<
   public override async getBreadcrumbPathToCategory(
     payload: CategoryQueryForBreadcrumb,
   ): Promise<Result<CategoryFactoryCategoryOutput<TFactory>[]>> {
-    const client = await this.magentoApi.getClient();
     try {
-
-
-
-      const category = await client.store.category.getByExternalId(payload.id.key);
-      if (!category) {
-        return error({
-          type: 'NotFound',
-          identifier: payload.id,
-        });
+      const category = await this.catalog.findCategoryByKey(
+        payload.id.key,
+        this.catalog.storefrontCategoryFilterGroups(),
+      );
+      const pathIds = category ? getCategoryPathBelowRoot(category, this.config.rootCategoryId) : null;
+      if (!category || !pathIds || pathIds.length === 0) {
+        return error<NotFoundError>({ type: 'NotFound', identifier: payload.id });
       }
 
-      let pathIds: string[] = (category.path || '').split('/').filter(Boolean);
-      //remove all entries that above the root of the store. We ass-u-me you cant reparent categories, and we therefore can
-      // ass-u-me that any id smaller than our configured root, are above us in the hierachy..
-      pathIds = pathIds.filter(x => Number(x) > Number(this.config.rootCategoryId));
+      const response = await this.catalog.listCategories(
+        [
+          [{ field: 'entity_id', value: pathIds.join(','), conditionType: 'in' }],
+          [{ field: 'is_active', value: '1', conditionType: 'eq' }],
+        ],
+        { pageSize: pathIds.length, currentPage: 1 },
+      );
+      const byId = new Map((response.items ?? []).map((item) => [String(item.id), item]));
+      const path = pathIds
+        .map((id) => byId.get(id))
+        .filter((item): item is MagentoCategory => item !== undefined);
 
-      if (pathIds.length === 0) {
-        return success([ await this.factory.parseCategory(this.context, await this.cleanupParentPointersForCategory(category)) ]);
-      }
-
-      const params = new URLSearchParams();
-      params.set('searchCriteria[filterGroups][0][filters][0][field]', 'entity_id');
-      params.set('searchCriteria[filterGroups][0][filters][0][value]', pathIds.join(','));
-      params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'in');
-
-      const response = await client.store.category.list(params);
-      const items = response.items || [];
-
-      const results: CategoryFactoryCategoryOutput<TFactory>[] = [];
-      for (const id of pathIds) {
-        const found = items.find((c: MagentoCategory) => c.id === Number(id));
-        if (found) {
-          results.push(await this.factory.parseCategory(this.context, await this.cleanupParentPointersForCategory(found)));
-        }
-      }
-
-      return success(results);
+      const resolved = await this.resolveParentKeys(path);
+      return success(resolved.map((item) => this.factory.parseCategory(this.context, item)));
     } catch (e) {
-      debug('Error getting breadcrumb path', e);
-      throw new Error('Category not found or error fetching path: ' + payload.id.key);
+      return handleMagentoProviderError('get category breadcrumb', e, payload.id);
     }
   }
 
@@ -178,43 +159,29 @@ export class MagentoCategoryCapability<
   public override async findChildCategories(
     payload: CategoryQueryForChildCategories,
   ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>>> {
+    try {
+      const parentKey = payload.parentId.key;
+      const parentId = (await this.catalog.resolveCategoryIds([parentKey]))[parentKey];
+      if (parentId === undefined) {
+        return error<NotFoundError>({ type: 'NotFound', identifier: payload.parentId });
+      }
 
-    // since the key is the external_id which is not the actual category id in magento, we need to first fetch the category to get the real id, then fetch the children based on that id
-    // this is not ideal, but unfortunately magento does not support filtering by custom attributes in the way we would need to do it in a single query
-    const client = await this.magentoApi.getClient();
-
-    const parentId = await this.translateCategoryKeyToMagentoId(client, payload.parentId.key);
-    if (!parentId) {
-      return error({
-        type: 'NotFound',
-        identifier: payload.parentId,
-      });
+      const response = await this.listActiveChildren(parentId, payload);
+      return success(
+        this.factory.parseCategoryPaginatedResult(
+          this.context,
+          {
+            ...response,
+            items: (response.items ?? []).map((item) => ({ ...item, parentKey })),
+            pageSize: payload.paginationOptions.pageSize,
+            currentPage: payload.paginationOptions.pageNumber,
+          },
+          payload,
+        ),
+      );
+    } catch (e) {
+      return handleMagentoProviderError('find child categories', e, payload.parentId);
     }
-
-    const pageSize = payload.paginationOptions.pageSize;
-    const currentPage = payload.paginationOptions.pageNumber;
-
-    const params = new URLSearchParams();
-    params.set('searchCriteria[filterGroups][0][filters][0][field]', 'parent_id');
-    params.set('searchCriteria[filterGroups][0][filters][0][value]', parentId);
-    params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'eq');
-
-    params.set('searchCriteria[filterGroups][1][filters][0][field]', 'is_active');
-    params.set('searchCriteria[filterGroups][1][filters][0][value]', '1');
-    params.set('searchCriteria[filterGroups][1][filters][0][condition_type]', 'eq');
-
-
-    params.set('searchCriteria[pageSize]', String(pageSize));
-    params.set('searchCriteria[currentPage]', String(currentPage));
-
-    const response = await this.cleanupParentPointersForPaginatedResult(await client.store.category.list(params));
-    return success(
-        this.factory.parseCategoryPaginatedResult(this.context, {
-        ...response,
-        pageSize,
-        currentPage,
-      }, payload),
-    );
   }
 
   @Reactionary({
@@ -224,95 +191,86 @@ export class MagentoCategoryCapability<
   public override async findTopCategories(
     payload: CategoryQueryForTopCategories,
   ): Promise<Result<CategoryFactoryPaginatedOutput<TFactory>>> {
-    const client = await this.magentoApi.getClient();
-    const pageSize = payload.paginationOptions.pageSize;
-    const currentPage = payload.paginationOptions.pageNumber;
+    try {
+      const response = await this.listActiveChildren(this.config.rootCategoryId, payload);
+      return success(
+        this.factory.parseCategoryPaginatedResult(
+          this.context,
+          {
+            ...response,
+            items: (response.items ?? []).map((item) => ({ ...item, parentKey: null })),
+            pageSize: payload.paginationOptions.pageSize,
+            currentPage: payload.paginationOptions.pageNumber,
+          },
+          payload,
+        ),
+      );
+    } catch (e) {
+      return handleMagentoProviderError('find top categories', e);
+    }
+  }
 
-    const params = new URLSearchParams();
-    params.set('searchCriteria[filterGroups][0][filters][0][field]', 'parent_id');
-    params.set('searchCriteria[filterGroups][0][filters][0][value]', this.config.rootCategoryId);
-    params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'eq');
+  protected async listActiveChildren(
+    parentId: string,
+    payload: CategoryQueryForChildCategories | CategoryQueryForTopCategories,
+  ): Promise<MagentoCategorySearchResult> {
+    const groups: MagentoFilterGroup[] = [
+      [{ field: 'parent_id', value: parentId, conditionType: 'eq' }],
+      [{ field: 'is_active', value: '1', conditionType: 'eq' }],
+    ];
+    return this.catalog.listCategories(groups, {
+      pageSize: payload.paginationOptions.pageSize,
+      currentPage: payload.paginationOptions.pageNumber,
+      sortOrders: [{ field: 'position', direction: 'ASC' }],
+    });
+  }
 
-    params.set('searchCriteria[filterGroups][1][filters][0][field]', 'is_active');
-    params.set('searchCriteria[filterGroups][1][filters][0][value]', '1');
-    params.set('searchCriteria[filterGroups][1][filters][0][condition_type]', 'eq');
+  /**
+   * Adds `parentKey` (the parent's category key) to each category; null for
+   * children of the store root and for parents Magento no longer knows.
+   */
+  protected async resolveParentKeys(categories: MagentoCategory[]): Promise<MagentoResolvedCategory[]> {
+    const parentIds = categories
+      .map((category) => String(category.parent_id))
+      .filter((id) => !this.isRootOrAbove(id));
+    const keys = parentIds.length > 0 ? await this.catalog.resolveCategoryKeys(parentIds) : {};
+    return categories.map((category) => {
+      const parentId = String(category.parent_id);
+      return {
+        ...category,
+        parentKey: this.isRootOrAbove(parentId) ? null : keys[parentId] ?? null,
+      };
+    });
+  }
 
-    params.set('searchCriteria[pageSize]', String(pageSize));
-    params.set('searchCriteria[currentPage]', String(currentPage));
-
-    const response = await this.cleanupParentPointersForPaginatedResult(await client.store.category.list(params));
-    return success(
-      this.factory.parseCategoryPaginatedResult(this.context, {
-        ...response,
-        pageSize,
-        currentPage,
-      }, payload)
-    );
+  protected isRootOrAbove(categoryId: string): boolean {
+    return categoryId === this.config.rootCategoryId || categoryId === '0' || categoryId === '1';
   }
 
   protected async cacheCategoryKeyToIdMapping(key: string, id: string) {
-    await this.cache.put(`category_key_to_id:${key}`, id, {
-      ttlSeconds: 60 * 60, // cache for 1 hour
-      dependencyIds: [`category_key:${key}`],
-    });
-
-    await this.cache.put(`category_id_to_key:${id}`, key, {
-      ttlSeconds: 60 * 60, // cache for 1 hour
-      dependencyIds: [`category_id:${id}`],
-    });
+    await this.catalog.storeCategoryMapping(key, id);
   }
 
-  protected async translateCategoryKeyToMagentoId(client: Magento, key: string): Promise<string | null> {
-    // since the key is the external_id which is not the actual category id in magento, we need to first fetch the category to get the real id
-    // this is not ideal, but unfortunately magento does not support filtering by custom attributes in the way we would need to do it in a single query
-    const cachedValue = await this.cache.get(`category_key_to_id:${key}`, z.string());
-    if (cachedValue) {
-      return cachedValue;
-    }
-
-    const response = await client.store.category.getByExternalId(key);
-
-    if (!response) {
-      return null;
-    }
-
-    const magentoId = String(response.id);
-    await this.cacheCategoryKeyToIdMapping(key, magentoId);
-    return magentoId;
+  /** @deprecated use `this.catalog.resolveCategoryIds`. The client argument is unused. */
+  protected async translateCategoryKeyToMagentoId(_client: Magento, key: string): Promise<string | null> {
+    return (await this.catalog.resolveCategoryIds([key]))[key] ?? null;
   }
 
+  /** @deprecated use `this.catalog.resolveCategoryKeys`. */
   protected async translateMagentoIdToCategoryKey(magentoId: string): Promise<string | null> {
-    const categoryCacheKey = await this.cache.get(`category_id_to_key:${magentoId}`, z.string());
-    if (categoryCacheKey) {
-      return categoryCacheKey;
-    }
-
-    const client = await this.magentoApi.getClient();
-    const response = await client.store.category.getById(magentoId);
-    const keyAttr = response.custom_attributes?.find((a: MagentoCustomAttribute) => a.attribute_code === 'external_id');
-
-    const key = String(keyAttr?.value || '-');
-    await this.cacheCategoryKeyToIdMapping(key, magentoId);
-    return key;
+    return (await this.catalog.resolveCategoryKeys([magentoId]))[magentoId] ?? null;
   }
 
-
-  protected async cleanupParentPointersForCategory(category: MagentoCategory) {
-      if (String(category.parent_id) === this.config.rootCategoryId) {
-        category.parent_id = 0;
-      } else {
-        const parentKey = await this.translateMagentoIdToCategoryKey(String(category.parent_id));
-        if (parentKey) {
-          category.parent_id = Number(parentKey);
-        }
-      }
-      return category;
+  /** @deprecated use `resolveParentKeys`; the category is no longer mutated. */
+  protected async cleanupParentPointersForCategory(category: MagentoCategory): Promise<MagentoResolvedCategory> {
+    const [resolved] = await this.resolveParentKeys([category]);
+    return resolved;
   }
 
-  protected async cleanupParentPointersForPaginatedResult(paginatedResult: MagentoCategorySearchResult) {
-    for(const category of paginatedResult.items) {
-      await this.cleanupParentPointersForCategory(category);
-    }
-    return paginatedResult;
+  /** @deprecated use `resolveParentKeys`. */
+  protected async cleanupParentPointersForPaginatedResult(
+    paginatedResult: MagentoCategorySearchResult,
+  ): Promise<MagentoCategorySearchResult & { items: MagentoResolvedCategory[] }> {
+    return { ...paginatedResult, items: await this.resolveParentKeys(paginatedResult.items) };
   }
 }
