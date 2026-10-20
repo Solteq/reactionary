@@ -265,7 +265,7 @@ function getMagentoConfiguration(env: NodeJS.ProcessEnv): MagentoConfiguration {
   return {
     adminApiKey: env['MAGENTO_ADMIN_API_KEY'] || '',
     baseUrl: env['MAGENTO_BASE_URL'] || '',
-    storeCode: env['MAGENTO_STORE_CODE'] || '',
+    storeBaseCode: env['MAGENTO_STORE_BASE_CODE'] || '',
     authStoreCode: env['MAGENTO_AUTH_STORE_CODE'] || 'default',
     mediaUrl: env['MAGENTO_MEDIA_URL'] || undefined,
     mediaSource:
