@@ -1,19 +1,56 @@
-import type {
-  AnyInventorySchema,
-  Inventory,
-  InventoryFactory,
-  InventoryIdentifier,
-  InventorySchema,
-  InventoryStatus,
-  RequestContext,
+import {
+  InventoryStatusSchema,
+  type AnyInventorySchema,
+  type Inventory,
+  type InventoryFactory,
+  type InventoryIdentifier,
+  type InventorySchema,
+  type InventoryStatus,
+  type RequestContext,
 } from '@reactionary/core';
-import type * as z from 'zod';
+import * as z from 'zod';
 
-export interface MagentoInventoryParseInput {
-  sku: string;
-  fulfillmentCenterKey: string;
+/** What the inventory capability hands the factory. */
+export const MagentoInventoryParseInputSchema = z.object({
+  sku: z.string(),
+  fulfillmentCenterKey: z.string(),
+  quantity: z.number(),
+  /**
+   * The status the capability derived from Magento's stock flags and
+   * backorder setting. When omitted it is derived from `quantity` alone.
+   */
+  status: InventoryStatusSchema.optional(),
+});
+
+export type MagentoInventoryParseInput = z.input<
+  typeof MagentoInventoryParseInputSchema
+>;
+
+/**
+ * Maps Magento's stock flags onto a core inventory status:
+ * - in stock with quantity on hand → `inStock`;
+ * - in stock without quantity but with backorders enabled → `onBackOrder`;
+ * - in stock without quantity and without backorders → `outOfStock`
+ *   (Magento keeps such items "in stock" only when stock is not managed, in
+ *   which case `manageStock` should be passed as false);
+ * - out of stock → `outOfStock`.
+ */
+export function resolveMagentoInventoryStatus(input: {
+  isInStock: boolean;
   quantity: number;
-  status: 'inStock' | 'outOfStock';
+  backorders?: number;
+  manageStock?: boolean;
+}): InventoryStatus {
+  if (!input.isInStock) {
+    return 'outOfStock';
+  }
+  if (input.quantity > 0 || input.manageStock === false) {
+    return 'inStock';
+  }
+  if ((input.backorders ?? 0) > 0) {
+    return 'onBackOrder';
+  }
+  return 'outOfStock';
 }
 
 export class MagentoInventoryFactory<
@@ -30,20 +67,18 @@ export class MagentoInventoryFactory<
     _context: RequestContext,
     data: unknown,
   ): z.output<TInventorySchema> {
-    const input = data as MagentoInventoryParseInput;
-    const { sku, fulfillmentCenterKey, quantity } = input;
+    const { sku, fulfillmentCenterKey, quantity, status } =
+      MagentoInventoryParseInputSchema.parse(data);
 
     const identifier = {
       variant: { sku },
       fulfillmentCenter: { key: fulfillmentCenterKey },
     } satisfies InventoryIdentifier;
 
-    const status: InventoryStatus = quantity > 0 ? 'inStock' : 'outOfStock';
-
     const result = {
       identifier,
       quantity,
-      status,
+      status: status ?? (quantity > 0 ? 'inStock' : 'outOfStock'),
     } satisfies Inventory;
 
     return this.inventorySchema.parse(result);
