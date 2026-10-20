@@ -1,30 +1,31 @@
 import type { RequestContext } from '@reactionary/core';
 import { NoOpCache, OrderSchema, createInitialRequestContext } from '@reactionary/core';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MagentoOrderCapability } from '../capabilities/order.capability.js';
-import type { MagentoClient } from '../core/client.js';
+import { MagentoClient } from '../core/client.js';
+import { MagentoApiError } from '../core/errors.js';
+import { rememberMagentoOrderPlacedInSession } from '../core/order.api.js';
 import { MagentoOrderFactory } from '../factories/order/order.factory.js';
-import type { MagentoConfiguration } from '../schema/configuration.schema.js';
+import { MagentoConfigurationSchema } from '../schema/configuration.schema.js';
+import type { MagentoSalesOrder } from '../schema/magento.types.js';
 
-const config: MagentoConfiguration = {
+const config = MagentoConfigurationSchema.parse({
   adminApiKey: 'token',
   baseUrl: 'https://example.com',
-  mediaSource: 'DEFAULT',
   defaultCurrency: 'EUR',
-  rootCategoryId: '2',
   allCurrencies: ['EUR'],
   storeBaseCode: 'default',
-  authStoreCode: 'default',
-};
+});
 
-const SAMPLE_RAW_ORDER = {
+const SAMPLE_RAW_ORDER: MagentoSalesOrder = {
   entity_id: 42,
   increment_id: '000000042',
   customer_id: 7,
+  customer_is_guest: 0,
   customer_email: 'shopper@example.com',
   status: 'processing',
   state: 'processing',
-  created_at: '2026-08-20T10:00:00Z',
+  created_at: '2026-08-20 10:00:00',
   order_currency_code: 'EUR',
   grand_total: 100,
   subtotal: 90,
@@ -45,29 +46,43 @@ const SAMPLE_RAW_ORDER = {
   payment: { method: 'checkmo', amount_ordered: 100 },
 };
 
+const GUEST_ORDER: MagentoSalesOrder = {
+  ...SAMPLE_RAW_ORDER,
+  customer_id: undefined,
+  customer_is_guest: 1,
+};
+
 describe('MagentoOrderCapability', () => {
   let reqCtx: RequestContext;
-  let magentoApi: { getOrderById: ReturnType<typeof vi.fn> };
+  let client: MagentoClient;
   let capability: MagentoOrderCapability;
 
   beforeEach(() => {
+    // Every Magento call is stubbed per test; a real request is a test bug.
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('unexpected network call')));
     reqCtx = createInitialRequestContext();
-    magentoApi = { getOrderById: vi.fn() };
+    client = new MagentoClient(config, reqCtx);
     capability = new MagentoOrderCapability(
       config,
       new NoOpCache(),
       reqCtx,
-      magentoApi as unknown as MagentoClient,
+      client,
       new MagentoOrderFactory(OrderSchema),
     );
   });
 
-  it('returns the parsed order when Magento finds it', async () => {
-    magentoApi.getOrderById.mockResolvedValue(SAMPLE_RAW_ORDER);
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('returns the order to the customer who placed it', async () => {
+    vi.spyOn(client, 'getCustomerId').mockResolvedValue(7);
+    const getOrderById = vi.spyOn(client, 'getOrderById').mockResolvedValue(SAMPLE_RAW_ORDER);
 
     const result = await capability.getById({ order: { key: '42' } });
 
-    expect(magentoApi.getOrderById).toHaveBeenCalledWith('42');
+    expect(getOrderById).toHaveBeenCalledWith('42');
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.value.identifier.key).toBe('42');
@@ -75,8 +90,81 @@ describe('MagentoOrderCapability', () => {
     }
   });
 
+  it("reports another customer's order as NotFound", async () => {
+    vi.spyOn(client, 'getCustomerId').mockResolvedValue(8);
+    vi.spyOn(client, 'getOrderById').mockResolvedValue(SAMPLE_RAW_ORDER);
+
+    const result = await capability.getById({ order: { key: '42' } });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toMatchObject({ type: 'NotFound', identifier: { key: '42' } });
+    }
+  });
+
+  it('reports any order as NotFound to a guest without reading it', async () => {
+    vi.spyOn(client, 'getCustomerId').mockResolvedValue(null);
+    const getOrderById = vi.spyOn(client, 'getOrderById').mockResolvedValue(SAMPLE_RAW_ORDER);
+
+    const result = await capability.getById({ order: { key: '42' } });
+
+    expect(getOrderById).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.type).toBe('NotFound');
+    }
+  });
+
+  it('reports a guest order as NotFound to a signed-in customer', async () => {
+    vi.spyOn(client, 'getCustomerId').mockResolvedValue(7);
+    vi.spyOn(client, 'getOrderById').mockResolvedValue(GUEST_ORDER);
+
+    const result = await capability.getById({ order: { key: '42' } });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.type).toBe('NotFound');
+    }
+  });
+
+  it('lets a guest read back the order placed in the same session', async () => {
+    vi.spyOn(client, 'getCustomerId').mockResolvedValue(null);
+    vi.spyOn(client, 'getOrderById').mockResolvedValue(GUEST_ORDER);
+    await rememberMagentoOrderPlacedInSession(client, 42);
+
+    const result = await capability.getById({ order: { key: '42' } });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('does not let a session-placed order unlock a different order', async () => {
+    vi.spyOn(client, 'getCustomerId').mockResolvedValue(null);
+    const getOrderById = vi.spyOn(client, 'getOrderById').mockResolvedValue(GUEST_ORDER);
+    await rememberMagentoOrderPlacedInSession(client, 41);
+
+    const result = await capability.getById({ order: { key: '42' } });
+
+    expect(getOrderById).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a non-numeric order key without calling Magento', async () => {
+    const getCustomerId = vi.spyOn(client, 'getCustomerId').mockResolvedValue(7);
+    const getOrderById = vi.spyOn(client, 'getOrderById').mockResolvedValue(SAMPLE_RAW_ORDER);
+
+    const result = await capability.getById({ order: { key: '42/../1' } });
+
+    expect(getCustomerId).not.toHaveBeenCalled();
+    expect(getOrderById).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.type).toBe('NotFound');
+    }
+  });
+
   it('returns a NotFound error when Magento has no such order', async () => {
-    magentoApi.getOrderById.mockResolvedValue(undefined);
+    vi.spyOn(client, 'getCustomerId').mockResolvedValue(7);
+    vi.spyOn(client, 'getOrderById').mockResolvedValue(undefined);
 
     const result = await capability.getById({ order: { key: '999' } });
 
@@ -84,5 +172,60 @@ describe('MagentoOrderCapability', () => {
     if (!result.success) {
       expect(result.error).toMatchObject({ type: 'NotFound', identifier: { key: '999' } });
     }
+  });
+
+  it('returns a Generic error instead of throwing when Magento fails', async () => {
+    vi.spyOn(client, 'getCustomerId').mockResolvedValue(7);
+    vi.spyOn(client, 'getOrderById').mockRejectedValue(
+      new MagentoApiError({ transport: 'rest', status: 500, method: 'GET', url: '/V1/orders/42' }),
+    );
+
+    const result = await capability.getById({ order: { key: '42' } });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.type).toBe('Generic');
+    }
+  });
+
+  describe('B2B company', () => {
+    const B2B_ORDER: MagentoSalesOrder = {
+      ...SAMPLE_RAW_ORDER,
+      extension_attributes: {
+        company_order_attributes: { order_id: 42, company_id: 3, company_name: 'ACME' },
+      },
+    };
+
+    it('identifies the ordering company by its VAT id', async () => {
+      vi.spyOn(client, 'getCustomerId').mockResolvedValue(7);
+      vi.spyOn(client, 'getOrderById').mockResolvedValue(B2B_ORDER);
+      const adminRequest = vi
+        .spyOn(client, 'adminRequest')
+        .mockResolvedValue({ id: 3, company_name: 'ACME', vat_tax_id: 'EE123' });
+
+      const result = await capability.getById({ order: { key: '42' } });
+
+      expect(adminRequest).toHaveBeenCalledWith('GET', '/V1/company/3');
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.value.company?.taxIdentifier).toBe('EE123');
+      }
+    });
+
+    it('still returns the order when the company cannot be read', async () => {
+      vi.spyOn(client, 'getCustomerId').mockResolvedValue(7);
+      vi.spyOn(client, 'getOrderById').mockResolvedValue(B2B_ORDER);
+      vi.spyOn(client, 'adminRequest').mockRejectedValue(
+        new MagentoApiError({ transport: 'rest', status: 403, method: 'GET', url: '/V1/company/3' }),
+      );
+
+      const result = await capability.getById({ order: { key: '42' } });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Falls back to the company uid (base64 of the entity id).
+        expect(result.value.company?.taxIdentifier).toBe('Mw==');
+      }
+    });
   });
 });

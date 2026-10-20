@@ -1,83 +1,56 @@
-import {
-  AddressIdentifierSchema,
-  type Address,
-  type AnyOrderSchema,
-  type CostBreakDown,
-  type Currency,
-  type IdentityIdentifier,
-  type ItemCostBreakdown,
-  type Order,
-  type OrderFactory,
-  type OrderInventoryStatus,
-  type OrderItem,
-  type OrderSchema,
-  type PaymentInstruction,
-  type PaymentStatus,
-  type RequestContext,
-  type ShippingMethod,
+import type {
+  Address,
+  AnyOrderSchema,
+  CartIdentifier,
+  CompanyIdentifier,
+  CostBreakDown,
+  Currency,
+  IdentityIdentifier,
+  ItemCostBreakdown,
+  Order,
+  OrderFactory,
+  OrderItem,
+  OrderSchema,
+  PaymentInstruction,
+  PaymentStatus,
+  RequestContext,
+  ShippingMethod,
 } from '@reactionary/core';
 import type * as z from 'zod';
-import { mapMagentoOrderStatus } from '../order-search/order-search.factory.js';
+import { encodeMagentoUid } from '../../core/company.api.js';
+import {
+  MagentoOrderDetailSchema,
+  type MagentoOrderDetail,
+  type MagentoOrderDetailAddress,
+  type MagentoOrderDetailItem,
+} from '../../schema/order.types.js';
+import {
+  groupMagentoOrderLines,
+  magentoLineInventoryStatus,
+  magentoOrderInventoryStatus,
+  magentoOrderShippingAddress,
+  mapMagentoOrderStatus,
+  parseMagentoDate,
+  parseMagentoOrderAddress,
+  resolveMagentoOrderCurrency,
+} from './order-mapping.js';
+import { toMagentoCompanyIdentifier } from '../company/company.factory.js';
 
-export interface MagentoOrderDetailAddress {
-  firstname?: string;
-  lastname?: string;
-  street?: string[];
-  city?: string;
-  region?: string;
-  postcode?: string;
-  country_id?: string;
-  telephone?: string;
-  email?: string;
-  entity_id?: number;
-}
-
-export interface MagentoOrderDetailItem {
-  item_id: number;
-  sku: string;
-  name?: string;
-  qty_ordered?: number;
-  price?: number;
-  row_total?: number;
-}
-
-export interface MagentoOrderDetailPayment {
-  method?: string;
-  amount_ordered?: number;
-}
-
-export interface MagentoOrderDetail {
-  entity_id: number;
-  increment_id?: string;
-  customer_id?: number;
-  customer_email?: string;
-  customer_firstname?: string;
-  customer_lastname?: string;
-  status?: string;
-  state?: string;
-  created_at?: string;
-  order_currency_code?: string;
-  grand_total?: number;
-  subtotal?: number;
-  shipping_amount?: number;
-  discount_amount?: number;
-  tax_amount?: number;
-  shipping_description?: string;
-  items?: MagentoOrderDetailItem[];
-  billing_address?: MagentoOrderDetailAddress;
-  payment?: MagentoOrderDetailPayment;
-  extension_attributes?: {
-    shipping_assignments?: Array<{
-      shipping?: { address?: MagentoOrderDetailAddress; method?: string };
-    }>;
-  };
-}
+export type {
+  MagentoOrderCompanyAttributes,
+  MagentoOrderDetail,
+  MagentoOrderDetailAddress,
+  MagentoOrderDetailItem,
+  MagentoOrderDetailPayment,
+} from '../../schema/order.types.js';
 
 /**
  * Fields the confirmation-page use case needs that core's Order schema
  * doesn't declare (no date field at all, no contact info on Address). Order
  * schemas are z.looseObject-based, so these survive orderSchema.parse()
  * unchanged even though the base Order type doesn't know about them.
+ *
+ * `orderDate` is ISO 8601, or '' when Magento sent no `created_at`.
  */
 export interface MagentoOrderOutput extends Order {
   orderDate: string;
@@ -86,15 +59,34 @@ export interface MagentoOrderOutput extends Order {
   customerPhone?: string;
 }
 
-function mapMagentoPaymentStatus(state?: string): PaymentStatus {
-  switch (state) {
-    case 'complete':
+/**
+ * Derives the payment status from the amounts Magento tracks on the payment,
+ * falling back to the order state when the payload carries none of them.
+ */
+function mapMagentoPaymentStatus(order: MagentoOrderDetail): PaymentStatus {
+  if (order.state === 'canceled') {
+    return 'canceled';
+  }
+  const payment = order.payment;
+  const paid = payment?.amount_paid ?? 0;
+  const refunded = payment?.amount_refunded ?? 0;
+  const ordered = payment?.amount_ordered ?? order.grand_total ?? 0;
+  if (refunded > 0) {
+    return refunded >= paid ? 'refunded' : 'partial_refunded';
+  }
+  if (paid > 0) {
+    return paid >= ordered ? 'captured' : 'partial_captured';
+  }
+  if ((payment?.amount_authorized ?? 0) > 0) {
+    return 'authorized';
+  }
+  switch (order.state) {
     case 'closed':
+      return 'refunded';
+    case 'complete':
       return 'captured';
     case 'processing':
       return 'authorized';
-    case 'canceled':
-      return 'canceled';
     default:
       return 'pending';
   }
@@ -111,43 +103,40 @@ export class MagentoOrderFactory<
   }
 
   protected parseAddress(address?: MagentoOrderDetailAddress): Address | undefined {
-    if (!address) return undefined;
-    const street = address.street ?? [];
-    return {
-      identifier: AddressIdentifierSchema.parse({
-        nickName: address.entity_id ? String(address.entity_id) : 'address',
-      }),
-      firstName: address.firstname || '',
-      lastName: address.lastname || '',
-      streetAddress: street[0] || '',
-      streetNumber: street[1] || '',
-      city: address.city || '',
-      region: address.region || '',
-      postalCode: address.postcode || '',
-      countryCode: address.country_id || '',
-    };
+    return address ? parseMagentoOrderAddress(address, 'address') : undefined;
   }
 
+  /**
+   * Maps one order line. `children` are the line's child rows: for a
+   * configurable the selected simple, whose sku identifies the variant, while
+   * Magento keeps the price, discount and shipped quantity on the parent.
+   */
   protected parseOrderItem(
     order: MagentoOrderDetail,
     item: MagentoOrderDetailItem,
     currency: Currency,
+    children: MagentoOrderDetailItem[] = [],
   ): OrderItem {
+    const quantity = item.qty_ordered ?? 0;
     const unitPrice = item.price ?? 0;
-    const totalPrice = item.row_total ?? unitPrice * (item.qty_ordered ?? 1);
+    const totalPrice = item.row_total ?? unitPrice * quantity;
+    const totalDiscount = Math.abs(item.discount_amount ?? 0);
     const price: ItemCostBreakdown = {
       unitPrice: { value: unitPrice, currency },
       totalPrice: { value: totalPrice, currency },
-      unitDiscount: { value: 0, currency },
-      totalDiscount: { value: 0, currency },
+      unitDiscount: { value: quantity > 0 ? totalDiscount / quantity : 0, currency },
+      totalDiscount: { value: totalDiscount, currency },
     };
+
+    const variantSku =
+      item.product_type === 'configurable' && children.length > 0 ? children[0].sku : item.sku;
 
     return {
       identifier: { key: String(item.item_id) },
-      variant: { sku: item.sku },
-      quantity: item.qty_ordered ?? 0,
+      variant: { sku: variantSku },
+      quantity,
       price,
-      inventoryStatus: order.state === 'complete' ? 'Allocated' : 'NotAllocated',
+      inventoryStatus: magentoLineInventoryStatus({ item, children }, order.state),
     } satisfies OrderItem;
   }
 
@@ -169,7 +158,7 @@ export class MagentoOrderFactory<
       amount: { value: order.payment?.amount_ordered ?? order.grand_total ?? 0, currency },
       paymentMethod: { method, name: method, paymentProcessor: method },
       protocolData: [],
-      status: mapMagentoPaymentStatus(order.state),
+      status: mapMagentoPaymentStatus(order),
     } satisfies PaymentInstruction;
   }
 
@@ -188,26 +177,58 @@ export class MagentoOrderFactory<
     } satisfies ShippingMethod;
   }
 
-  public parseOrder(_context: RequestContext, data: unknown): z.output<TOrderSchema> {
-    const order = data as MagentoOrderDetail;
-    const currency = (order.order_currency_code || 'USD').toUpperCase() as Currency;
-    const orderStatus = mapMagentoOrderStatus(order.status);
-    const inventoryStatus: OrderInventoryStatus = order.state === 'complete' ? 'Allocated' : 'NotAllocated';
+  /**
+   * The ordering company of an Adobe Commerce B2B order, identified the way
+   * the company capability identifies it: by its VAT id when known (see
+   * `MagentoOrderCompanyAttributes.vat_tax_id`), else by its uid.
+   */
+  protected parseCompany(order: MagentoOrderDetail): CompanyIdentifier | undefined {
+    const attributes = order.extension_attributes?.company_order_attributes;
+    if (!attributes?.company_id) {
+      return undefined;
+    }
+    return toMagentoCompanyIdentifier({
+      id: encodeMagentoUid(String(attributes.company_id)),
+      vat_tax_id: attributes.vat_tax_id,
+    });
+  }
+
+  /**
+   * The quote the order was placed from. Only customer orders are linked:
+   * a customer cart is keyed by its quote id, whereas a guest cart is keyed
+   * by a masked id the order does not carry.
+   */
+  protected parseCartReference(order: MagentoOrderDetail): CartIdentifier | undefined {
+    if (order.quote_id === undefined || order.customer_is_guest === 1 || !order.customer_id) {
+      return undefined;
+    }
+    return { key: String(order.quote_id) };
+  }
+
+  public parseOrder(context: RequestContext, data: unknown): z.output<TOrderSchema> {
+    const order = MagentoOrderDetailSchema.parse(data);
+    const currency = resolveMagentoOrderCurrency(order.order_currency_code, context);
     const userId: IdentityIdentifier = { userId: order.customer_id ? String(order.customer_id) : '' };
-    const shippingAssignment = order.extension_attributes?.shipping_assignments?.[0]?.shipping;
+    const shipping = order.extension_attributes?.shipping_assignments?.[0]?.shipping;
+    const lines = groupMagentoOrderLines(order.items ?? []);
 
     const result = {
       identifier: { key: String(order.entity_id) },
       userId,
-      items: (order.items ?? []).map((item) => this.parseOrderItem(order, item, currency)),
+      company: this.parseCompany(order),
+      name: order.increment_id,
+      description: order.customer_note || undefined,
+      items: lines.map((line) => this.parseOrderItem(order, line.item, currency, line.children)),
       price: this.parseCostBreakdown(order, currency),
-      orderStatus,
-      inventoryStatus,
+      orderStatus: mapMagentoOrderStatus(order.status, order.state),
+      inventoryStatus: magentoOrderInventoryStatus(order),
       paymentInstructions: order.payment ? [this.parsePaymentInstruction(order, currency)] : [],
-      shippingAddress: this.parseAddress(shippingAssignment?.address ?? order.billing_address),
+      // Virtual orders have no shipment assignment, hence no shipping address.
+      shippingAddress: this.parseAddress(magentoOrderShippingAddress(order)),
       billingAddress: this.parseAddress(order.billing_address),
-      shippingMethod: this.parseShippingMethod(order, shippingAssignment?.method, currency),
-      orderDate: new Date(order.created_at || Date.now()).toISOString(),
+      shippingMethod: this.parseShippingMethod(order, shipping?.method, currency),
+      cartReference: this.parseCartReference(order),
+      orderDate: parseMagentoDate(order.created_at),
       incrementId: order.increment_id,
       customerEmail: order.customer_email || order.billing_address?.email,
       customerPhone: order.billing_address?.telephone,
