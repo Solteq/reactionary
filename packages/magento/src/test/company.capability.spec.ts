@@ -1,13 +1,17 @@
 import {
   CompanyPaginatedListSchema,
+  CompanyRegistrationRequestSchema,
   CompanySchema,
   NoOpCache,
   createInitialRequestContext,
 } from '@reactionary/core';
 import { describe, expect, it, vi } from 'vitest';
+import { MagentoCompanyRegistrationCapability } from '../capabilities/company-registration.capability.js';
 import { MagentoCompanyCapability } from '../capabilities/company.capability.js';
 import type { MagentoClient, MagentoGraphQLRequestOptions } from '../core/client.js';
+import { createRegistrationKey } from '../core/company.api.js';
 import { MagentoApiError } from '../core/errors.js';
+import { MagentoCompanyRegistrationFactory } from '../factories/company-registration/company-registration.factory.js';
 import {
   MagentoCompanyFactory,
   type MagentoCompanyIdentifier,
@@ -665,5 +669,189 @@ describe('MagentoCompanyCapability', () => {
       if (!result.success) expect(result.error.type).toBe('Generic');
       expect(callsOf(magentoApi, 'ReactionaryCreateCompanyAddress')).toHaveLength(0);
     });
+  });
+});
+
+describe('MagentoCompanyRegistrationCapability', () => {
+  const context = createInitialRequestContext();
+  const factory = new MagentoCompanyRegistrationFactory(CompanyRegistrationRequestSchema);
+
+  function createCapability(handlers: Record<string, GraphqlHandler>) {
+    const magentoApi = createMagentoApi(handlers);
+    const capability = new MagentoCompanyRegistrationCapability(
+      config,
+      new NoOpCache(),
+      context,
+      magentoApi as unknown as MagentoClient,
+      factory,
+    );
+    return { capability, magentoApi };
+  }
+
+  const registration = {
+    taxIdentifier: 'US-123',
+    name: 'Initech',
+    pointOfContact: { email: 'peter@initech.test', phone: '5551234' },
+    billingAddress: {
+      identifier: { nickName: 'hq' },
+      firstName: 'Peter',
+      lastName: 'Gibbons',
+      streetAddress: 'Initech Way',
+      streetNumber: '1',
+      city: 'Austin',
+      region: 'tx',
+      postalCode: '73301',
+      countryCode: 'US',
+    },
+  };
+
+  it('creates a pending company and hands out a signed request key', async () => {
+    const { capability, magentoApi } = createCapability({
+      ReactionaryCountryRegions: () => ({
+        country: { available_regions: [{ id: 57, code: 'TX', name: 'Texas' }] },
+      }),
+      ReactionaryCreateCompany: () => ({
+        createCompany: {
+          company: {
+            id: 'Nw==',
+            name: 'Initech',
+            email: 'peter@initech.test',
+            vat_tax_id: 'US-123',
+            legal_address: { telephone: '5551234' },
+          },
+        },
+      }),
+    });
+
+    const result = await capability.requestRegistration(registration);
+
+    if (!result.success) throw new Error(JSON.stringify(result.error));
+    expect(result.value.status).toBe('pending');
+    expect(result.value.identifier.key).toBe(createRegistrationKey('admin-secret', '7'));
+    expect(result.value.companyIdentifier).toEqual({ taxIdentifier: 'US-123', key: 'Nw==' });
+
+    const createCall = magentoApi.graphqlRequest.mock.calls.find(
+      ([document]) => operationName(document) === 'ReactionaryCreateCompany',
+    );
+    expect(createCall?.[1]).toEqual({
+      input: {
+        company_name: 'Initech',
+        legal_name: 'Initech',
+        company_email: 'peter@initech.test',
+        vat_tax_id: 'US-123',
+        company_admin: {
+          email: 'peter@initech.test',
+          firstname: 'Peter',
+          lastname: 'Gibbons',
+          telephone: '5551234',
+        },
+        legal_address: {
+          street: ['Initech Way', '1'],
+          city: 'Austin',
+          region: { region: 'Texas', region_code: 'TX', region_id: 57 },
+          postcode: '73301',
+          country_id: 'US',
+          telephone: '5551234',
+        },
+      },
+    });
+  });
+
+  it('requires a telephone', async () => {
+    const { capability, magentoApi } = createCapability({});
+
+    const result = await capability.requestRegistration({
+      ...registration,
+      pointOfContact: { email: 'peter@initech.test' },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.type).toBe('InvalidInput');
+    expect(magentoApi.graphqlRequest).not.toHaveBeenCalled();
+  });
+
+  it('rejects a region the country does not know', async () => {
+    const { capability } = createCapability({
+      ReactionaryCountryRegions: () => ({
+        country: { available_regions: [{ id: 57, code: 'TX', name: 'Texas' }] },
+      }),
+    });
+
+    const result = await capability.requestRegistration({
+      ...registration,
+      billingAddress: { ...registration.billingAddress, region: 'Atlantis' },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.type).toBe('InvalidInput');
+  });
+
+  it('reads the approval status of a signed request through the admin API', async () => {
+    const { capability, magentoApi } = createCapability({});
+    magentoApi.adminRequest.mockResolvedValue({
+      id: 7,
+      status: 2,
+      company_name: 'Initech',
+      company_email: 'peter@initech.test',
+      vat_tax_id: 'US-123',
+      telephone: '5551234',
+      reject_reason: 'Missing documents',
+    });
+    const key = createRegistrationKey('admin-secret', '7');
+
+    const result = await capability.checkRequestStatus({ requestIdentifier: { key } });
+
+    if (!result.success) throw new Error(JSON.stringify(result.error));
+    expect(magentoApi.adminRequest).toHaveBeenCalledWith('GET', '/V1/company/7');
+    expect(result.value.status).toBe('denied');
+    expect(result.value.comment).toBe('Missing documents');
+    expect(result.value.companyIdentifier).toEqual({ taxIdentifier: 'US-123', key: 'Nw==' });
+  });
+
+  it('maps an approved company', async () => {
+    const { capability, magentoApi } = createCapability({});
+    magentoApi.adminRequest.mockResolvedValue({
+      id: 7,
+      status: 1,
+      company_name: 'Initech',
+      company_email: 'peter@initech.test',
+    });
+
+    const result = await capability.checkRequestStatus({
+      requestIdentifier: { key: createRegistrationKey('admin-secret', '7') },
+    });
+
+    if (!result.success) throw new Error(JSON.stringify(result.error));
+    expect(result.value.status).toBe('approved');
+  });
+
+  it('never looks up an unsigned or forged key', async () => {
+    const { capability, magentoApi } = createCapability({});
+
+    for (const key of ['7', '7.forged', createRegistrationKey('other-secret', '7'), '../7.x']) {
+      const result = await capability.checkRequestStatus({ requestIdentifier: { key } });
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.type).toBe('NotFound');
+    }
+    expect(magentoApi.adminRequest).not.toHaveBeenCalled();
+  });
+
+  it('returns NotFound when the company no longer exists', async () => {
+    const { capability, magentoApi } = createCapability({});
+    magentoApi.adminRequest.mockRejectedValue(
+      new MagentoApiError({
+        transport: 'rest',
+        status: 404,
+        method: 'GET',
+        url: 'https://example.com/rest/default/V1/company/7',
+      }),
+    );
+
+    const result = await capability.checkRequestStatus({
+      requestIdentifier: { key: createRegistrationKey('admin-secret', '7') },
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.type).toBe('NotFound');
   });
 });
