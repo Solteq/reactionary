@@ -1,12 +1,17 @@
 import {
+  EmployeeInvitationPaginatedListSchema,
+  EmployeeInvitationSchema,
+  EmployeeIssuedInvitationSchema,
   EmployeePaginatedListSchema,
   EmployeeSchema,
   NoOpCache,
   createInitialRequestContext,
 } from '@reactionary/core';
 import { describe, expect, it, vi } from 'vitest';
+import { MagentoEmployeeInvitationCapability } from '../capabilities/employee-invitation.capability.js';
 import { MagentoEmployeeCapability } from '../capabilities/employee.capability.js';
 import type { MagentoClient } from '../core/client.js';
+import { MagentoEmployeeInvitationFactory } from '../factories/employee-invitation/employee-invitation.factory.js';
 import type { MagentoCompanyRoleMapping } from '../factories/employee/employee-role.js';
 import { MagentoEmployeeFactory } from '../factories/employee/employee.factory.js';
 import type { MagentoConfiguration } from '../schema/configuration.schema.js';
@@ -310,5 +315,140 @@ describe('MagentoEmployeeCapability', () => {
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error.type).toBe('NotFound');
     expect(findCall(magentoApi, 'ReactionaryDeleteCompanyUser')).toBeUndefined();
+  });
+});
+
+describe('MagentoEmployeeInvitationCapability', () => {
+  const context = createInitialRequestContext();
+
+  function createCapability(handlers: Record<string, GraphqlHandler>) {
+    const magentoApi = createMagentoApi(handlers);
+    const capability = new MagentoEmployeeInvitationCapability(
+      config,
+      new NoOpCache(),
+      context,
+      magentoApi as unknown as MagentoClient,
+      new MagentoEmployeeInvitationFactory(
+        EmployeeInvitationSchema,
+        EmployeeIssuedInvitationSchema,
+        EmployeeInvitationPaginatedListSchema,
+        roleMapping,
+      ),
+    );
+    return { capability, magentoApi };
+  }
+
+  it('invites through createCompanyUser with placeholder details', async () => {
+    const { capability, magentoApi } = createCapability({
+      ReactionaryCompany: () => ({ company: COMPANY }),
+      ReactionaryCompanyRoles: () => ({ company: { id: 'Mw==', roles: { items: ROLES } } }),
+      ReactionaryCreateCompanyUser: () => ({
+        createCompanyUser: {
+          user: { id: 'OQ==', email: 'new@acme.test', role: { id: 'MTE=', name: 'Buyer Manager' } },
+        },
+      }),
+    });
+
+    const result = await capability.inviteEmployee({
+      company: ACME,
+      email: 'new@acme.test',
+      role: 'manager',
+    });
+
+    if (!result.success) throw new Error(JSON.stringify(result.error));
+    expect(result.value).toMatchObject({
+      identifier: { key: '3:9' },
+      company: { taxIdentifier: 'DK12345678', key: 'Mw==' },
+      status: 'invited',
+      email: 'new@acme.test',
+      role: 'manager',
+      securityToken: '',
+    });
+    expect(findCall(magentoApi, 'ReactionaryCreateCompanyUser')?.[1]).toEqual({
+      input: {
+        email: 'new@acme.test',
+        firstname: 'new',
+        lastname: 'N/A',
+        job_title: 'N/A',
+        telephone: 'N/A',
+        role_id: 'MTE=',
+        status: 'ACTIVE',
+      },
+    });
+  });
+
+  it('cannot invite an administrator', async () => {
+    const { capability, magentoApi } = createCapability({});
+
+    const result = await capability.inviteEmployee({
+      company: ACME,
+      email: 'new@acme.test',
+      role: 'admin',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.type).toBe('InvalidInput');
+    expect(magentoApi.graphqlRequest).not.toHaveBeenCalled();
+  });
+
+  it('accepts an invitation with the emailed code', async () => {
+    const { capability, magentoApi } = createCapability({
+      ReactionaryAcceptCompanyInvitation: () => ({ acceptCompanyInvitation: { success: true } }),
+      ReactionaryCompany: () => ({ company: COMPANY }),
+    });
+    magentoApi.getCustomerId.mockResolvedValue(9);
+    magentoApi.getMe.mockResolvedValue({ id: 9, email: 'new@acme.test' });
+
+    const result = await capability.acceptInvitation({
+      invitationIdentifier: { key: '3:9:17' },
+      securityToken: 'emailed-code',
+      currentUserEmail: 'new@acme.test',
+    });
+
+    if (!result.success) throw new Error(JSON.stringify(result.error));
+    expect(result.value).toMatchObject({
+      identifier: { key: '3:9' },
+      company: { taxIdentifier: 'DK12345678', key: 'Mw==' },
+      status: 'accepted',
+      email: 'new@acme.test',
+      role: 'employee',
+    });
+    expect(findCall(magentoApi, 'ReactionaryAcceptCompanyInvitation')?.[1]).toEqual({
+      input: {
+        code: 'emailed-code',
+        role_id: 'MTc=',
+        user: { company_id: 'Mw==', customer_id: 'OQ==', status: 'ACTIVE' },
+      },
+    });
+  });
+
+  it('rejects an acceptance by a different customer', async () => {
+    const { capability, magentoApi } = createCapability({});
+    magentoApi.getCustomerId.mockResolvedValue(9);
+    magentoApi.getMe.mockResolvedValue({ id: 9, email: 'someone@else.test' });
+
+    const result = await capability.acceptInvitation({
+      invitationIdentifier: { key: '3:9' },
+      securityToken: 'emailed-code',
+      currentUserEmail: 'new@acme.test',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.type).toBe('InvalidInput');
+    expect(magentoApi.graphqlRequest).not.toHaveBeenCalled();
+  });
+
+  it('reports listing and revoking invitations as not supported', async () => {
+    const { capability } = createCapability({});
+
+    const list = await capability.listInvitations({
+      search: { paginationOptions: { pageNumber: 1, pageSize: 20 } },
+    });
+    const revoke = await capability.revokeInvitation({ invitationIdentifier: { key: '3:9' } });
+
+    for (const result of [list, revoke]) {
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.type).toBe('Generic');
+    }
   });
 });
