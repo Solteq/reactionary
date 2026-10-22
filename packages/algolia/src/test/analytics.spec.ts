@@ -347,6 +347,28 @@ describe('Algolia analytics provider', async () => {
       expect(pushed()).toEqual([expect.objectContaining({ userToken: 'visitor-1', authenticatedUserToken: hash('sha256', 'user-1') })]);
     });
 
+    it('uses the personalization profile passed to the deprecated track as the userToken, and the session id otherwise', async () => {
+      const { client } = setup((context) => {
+        context.session.marketingContext.identifier.key = 'session-visitor';
+      });
+      const source = { type: 'search', identifier: searchIdentifier } as const;
+
+      await client.analytics.track({
+        event: 'product-summary-click',
+        product: { key: 'product-1' },
+        position: 0,
+        source,
+        personalizationProfile: { identifier: { key: 'unomi-profile' }, segments: [], blurb: '' },
+      });
+      await client.analytics.track({ event: 'product-summary-click', product: { key: 'product-1' }, position: 0, source });
+      await client.analytics.flush();
+
+      expect(pushed()).toEqual([
+        expect.objectContaining({ userToken: 'unomi-profile', positions: [1], queryID: 'query-1' }),
+        expect.objectContaining({ userToken: 'session-visitor', positions: [1], queryID: 'query-1' }),
+      ]);
+    });
+
     it('takes the identity from emit time, not from when the provider was built', async () => {
       const { client, context } = setup();
 
