@@ -1,4 +1,5 @@
 export * from './analytics.model.js';
+export * from './analytics/index.js';
 export * from './base.model.js';
 export * from './cart.model.js';
 export * from './category.model.js';
