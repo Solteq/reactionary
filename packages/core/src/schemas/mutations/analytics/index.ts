@@ -22,3 +22,4 @@ export * from './product-summary-click.mutation.js';
 export * from './product-summary-view.mutation.js';
 export * from './purchase.mutation.js';
 export * from './base-event.mutation.js'
+export * from './events/index.js';
