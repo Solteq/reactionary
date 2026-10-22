@@ -49,6 +49,17 @@ describe('createReactionaryClientFromEnv', () => {
     );
   });
 
+  it('does not expose analytics as MCP tools, although every client has the capability', () => {
+    const { client } = createReactionaryClientFromEnv({
+      env: { ENABLED_FAKE: 'true' },
+    });
+
+    expect('analytics' in client).toBe(true);
+    const names = discoverReactionaryMCPTools(client).map((tool) => tool.name);
+    expect(names.filter((name) => name.startsWith('analytics.'))).toEqual([]);
+    expect(names).toContain('product.getBySKU');
+  });
+
   it('serves MCP initialize for a fake-backed client', async () => {
     const server = new ReactionaryMCPServer(
       (requestContext) =>

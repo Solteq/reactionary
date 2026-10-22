@@ -1,4 +1,5 @@
 import {
+  AnalyticsCapability,
   BaseCapability,
   getReactionaryEntrypoints,
   type ReactionaryEntrypointMetadata,
@@ -27,6 +28,11 @@ export function discoverReactionaryMCPTools(
 
   return Object.values(client).flatMap((value) => {
     if (!(value instanceof BaseCapability)) {
+      return [];
+    }
+
+    // Analytics is storefront telemetry, not something an agent should do, and its 36 helpers carry whole carts and orders as input.
+    if (value instanceof AnalyticsCapability) {
       return [];
     }
 
