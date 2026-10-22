@@ -11,4 +11,5 @@ export const AnalyticsResultSchema = BaseModelSchema.extend({
     outcomes: z.array(AnalyticsProviderOutcomeSchema),
 });
 
+export type AnalyticsOutcome = InferType<typeof AnalyticsOutcomeSchema>;
 export type AnalyticsResult = InferType<typeof AnalyticsResultSchema>;
