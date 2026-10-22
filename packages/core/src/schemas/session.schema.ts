@@ -3,6 +3,7 @@ import { WebStoreIdentifierSchema } from './models/identifiers.model.js';
 import { CurrencySchema } from './models/currency.model.js';
 import { IdentitySchema } from './models/identity.model.js';
 import { PersonalizationProfileSchema } from './models/personalization-profile.model.js';
+import { AnalyticsConsentSchema } from './models/analytics/consent.model.js';
 
 /**
  * The language and locale context for the current request.
@@ -21,6 +22,7 @@ export const IdentityContextSchema = z.looseObject({
 export const SessionSchema = z.looseObject({
     identityContext: IdentityContextSchema,
     marketingContext: PersonalizationProfileSchema.default(() => PersonalizationProfileSchema.parse({})),
+    consent: AnalyticsConsentSchema.optional().meta({ description: 'The visitor\'s consent for analytics and marketing processing, if known. When absent, the analytics dispatcher applies its configured default.' }),
 });
 
 export const TaxJurisdictionSchema = z.object( {
