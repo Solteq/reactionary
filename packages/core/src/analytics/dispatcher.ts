@@ -47,6 +47,15 @@ export interface AnalyticsDispatcherDependencies {
     options?: AnalyticsDispatchOptions;
 }
 
+/**
+ * Per-emit overrides, for internal callers such as the deprecated `track` adapter. The storefront-facing helpers take none:
+ * the visitor's identity is `session.marketingContext`.
+ */
+export interface AnalyticsEmitOptions {
+    /** Identifies the visitor for this event instead of `session.marketingContext.identifier`. */
+    marketingIdentifier?: EventContextSnapshot['marketingIdentifier'];
+}
+
 const DEFAULT_CONSENT: AnalyticsConsent = { analytics: true, marketing: true };
 
 /**
@@ -112,7 +121,7 @@ export class AnalyticsDispatcher {
      * Validates the input, captures request state, enqueues the event and schedules delivery.
      * Never throws: invalid input and emits made from inside a subscriber are logged and dropped.
      */
-    emit<K extends AnalyticsEventType>(type: K, input: AnalyticsEventInput<K>): Result<AnalyticsEventResult> {
+    emit<K extends AnalyticsEventType>(type: K, input: AnalyticsEventInput<K>, options: AnalyticsEmitOptions = {}): Result<AnalyticsEventResult> {
         if (insideHandler.getStore()) {
             console.warn(`Analytics event '${type}' was emitted from inside a subscriber and has been dropped`);
             return error<InvalidInputError>({ type: 'InvalidInput', error: 'Events cannot be emitted from inside an analytics subscriber' });
@@ -139,7 +148,7 @@ export class AnalyticsDispatcher {
                 occurredAt: new Date().toISOString(),
                 origin,
                 properties,
-                context: this.snapshot(),
+                context: this.snapshot(options),
                 payload,
             });
             if (!event.success) {
@@ -165,15 +174,18 @@ export class AnalyticsDispatcher {
         await Promise.all([...this.inflight]);
     }
 
-    private snapshot(): EventContextSnapshot {
-        const { session, languageContext, referrer } = this.requestContext;
+    private snapshot(options: AnalyticsEmitOptions): EventContextSnapshot {
+        const { session, languageContext, referrer, userAgent, clientIp, isBot } = this.requestContext;
         return {
-            marketingIdentifier: { ...session.marketingContext.identifier },
+            marketingIdentifier: { ...(options.marketingIdentifier ?? session.marketingContext.identifier) },
             identity: session.identityContext.identity,
             locale: languageContext.locale,
             currency: languageContext.currencyCode,
             consent: session.consent ?? this.defaultConsent,
             page: referrer ? { referrer } : undefined,
+            userAgent: userAgent || undefined,
+            clientIp: clientIp || undefined,
+            isBot,
         };
     }
 
