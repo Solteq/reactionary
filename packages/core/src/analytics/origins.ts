@@ -84,3 +84,16 @@ export function fromPDP(upstream?: Origin): OriginPdp {
 export function fromDirect(): OriginDirect {
     return { type: 'direct' };
 }
+
+/**
+ * The search an origin leads back to, looking through `fromPDP(upstream)`.
+ */
+export function searchOriginOf(origin: Origin | undefined): OriginSearch | undefined {
+  if (origin?.type === 'search') {
+    return origin;
+  }
+  if (origin?.type === 'pdp') {
+    return searchOriginOf(origin.upstream);
+  }
+  return undefined;
+}
