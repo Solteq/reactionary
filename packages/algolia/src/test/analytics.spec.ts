@@ -186,20 +186,25 @@ describe('Algolia analytics provider', async () => {
       expect(pushed()).toEqual([expect.objectContaining({ positions: [5], queryID: 'query-1' })]);
     });
 
-    it('sends nothing without a search origin or without a queryID', async () => {
+    it('sends the plain click event, without query or position, when there is no search or no queryID', async () => {
       const { client } = setup();
+      const withoutQueryId = { ...searchIdentifier, key: '' };
 
       await client.analytics.productClicked({ product: { key: 'product-1' }, origin: fromDirect() });
-      await client.analytics.productClicked({ product: { key: 'product-1' } });
+      await client.analytics.productClicked({ product: { key: 'product-2' } });
       await client.analytics.productClicked({
-        product: { key: 'product-1' },
+        product: { key: 'product-3' },
         origin: fromSearch({ term: 'q', facets: [], filters: [], paginationOptions: { pageNumber: 1, pageSize: 10 } }, 0),
       });
-      const withoutQueryId = { ...searchIdentifier, key: '' };
-      await client.analytics.productClicked({ product: { key: 'product-1' }, origin: fromSearch(withoutQueryId, 0) });
+      await client.analytics.productClicked({ product: { key: 'product-4' }, origin: fromSearch(withoutQueryId, 0) });
       await client.analytics.flush();
 
-      expect(mocks.pushEvents).not.toHaveBeenCalled();
+      expect(pushed()).toHaveLength(4);
+      for (const [i, event] of pushed().entries()) {
+        expect(event).toMatchObject({ eventType: 'click', objectIDs: [`product-${i + 1}`], index: 'products_da' });
+        expect(event).not.toHaveProperty('queryID');
+        expect(event).not.toHaveProperty('positions');
+      }
     });
   });
 
@@ -227,16 +232,28 @@ describe('Algolia analytics provider', async () => {
       ]);
     });
 
-    it('sends nothing without a search origin or when the variant is not in the cart', async () => {
+    it('sends the plain add-to-cart conversion without a queryID when there is no search origin', async () => {
       const { client } = setup();
 
-      await client.analytics.cartItemAdded({ cart: cartWithLine(), variant: { sku: 'SKU-1' }, quantity: 1 });
-      await client.analytics.cartItemAdded({
-        cart: cartWithLine(),
-        variant: { sku: 'SKU-9' },
-        quantity: 1,
-        origin: fromSearch(searchIdentifier, 0),
-      });
+      await client.analytics.cartItemAdded({ cart: cartWithLine(), variant: { sku: 'SKU-1' }, quantity: 1, origin: fromDirect() });
+      await client.analytics.flush();
+
+      expect(pushed()).toEqual([
+        expect.objectContaining({
+          eventType: 'conversion',
+          eventSubtype: 'addToCart',
+          objectIDs: ['product-1'],
+          objectData: [{ price: 25, quantity: 1 }],
+          currency: 'USD',
+        }),
+      ]);
+      expect(pushed()[0]).not.toHaveProperty('queryID');
+    });
+
+    it('sends nothing when the variant is not in the cart', async () => {
+      const { client } = setup();
+
+      await client.analytics.cartItemAdded({ cart: cartWithLine(), variant: { sku: 'SKU-9' }, quantity: 1, origin: fromSearch(searchIdentifier, 0) });
       await client.analytics.flush();
 
       expect(mocks.pushEvents).not.toHaveBeenCalled();
@@ -278,6 +295,27 @@ describe('Algolia analytics provider', async () => {
           ],
           currency: 'USD',
           value: 150,
+        }),
+      ]);
+      for (const data of (pushed()[0] as { objectData: object[] }).objectData) {
+        expect(data).not.toHaveProperty('queryID');
+      }
+    });
+
+    it('attributes each purchased object to the search when the order is placed with a search origin', async () => {
+      const { client } = setup();
+
+      await client.analytics.orderPlaced({ order: order(['SKU-1', 'SKU-2']), origin: fromPDP(fromSearch(searchIdentifier, 2)) });
+      await client.analytics.flush();
+
+      expect(pushed()).toEqual([
+        expect.objectContaining({
+          eventSubtype: 'purchase',
+          objectIDs: ['product-1', 'product-2'],
+          objectData: [
+            { price: 50, quantity: 1, queryID: 'query-1' },
+            { price: 50, quantity: 2, queryID: 'query-1' },
+          ],
         }),
       ]);
     });
