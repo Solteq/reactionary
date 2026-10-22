@@ -13,9 +13,12 @@ import {
 import {
   type InsightsClient,
   type ViewedObjectIDs,
+  type ClickedObjectIDs,
   type ClickedObjectIDsAfterSearch,
+  type AddedToCartObjectIDs,
   type AddedToCartObjectIDsAfterSearch,
   type PurchasedObjectIDs,
+  type PurchasedObjectIDsAfterSearch,
   algoliasearch,
 } from 'algoliasearch';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
@@ -27,9 +30,10 @@ import { hash } from 'node:crypto';
 const MAX_OBJECT_IDS_PER_EVENT = 20;
 
 /**
- * Sends search insights to Algolia: result views, clicks and add-to-cart conversions attributed to the search
- * they came from, and purchases. Attribution needs the `queryID` of the search, which it takes from the event's origin
- * (looking through `fromPDP(upstream)`), so conversions on a PDP stay attributed to the search that led there.
+ * Sends search insights to Algolia: result views, clicks, add-to-cart conversions and purchases. When the event's origin
+ * leads back to a search with a `queryID` (looking through `fromPDP(upstream)`, so conversions on a PDP stay attributed to
+ * the search that led there) the `...AfterSearch` event is sent with that query and, for clicks, the position. Without one
+ * the plain click, add-to-cart and purchase events are sent, which still count but are not attributed to a search.
  */
 export class AlgoliaAnalyticsCapability extends AnalyticsProvider {
   public readonly types: ReadonlyArray<AnalyticsEventType | `${string}*`> = [
@@ -98,34 +102,36 @@ export class AlgoliaAnalyticsCapability extends AnalyticsProvider {
 
   private async productClicked(event: AnalyticsEvent<'product-clicked'>): Promise<AnalyticsOutcome> {
     const search = this.searchFor(event);
-    if (!search) {
-      return 'ignored';
-    }
-
-    const algoliaEvent = {
+    const common = {
       eventName: 'click',
       eventType: 'click',
       index: this.indexFor(event),
       objectIDs: [productKey(event.payload.product)],
-      // Algolia positions are absolute and start at 1; origins are absolute and start at 0.
-      positions: [search.position + 1],
-      queryID: search.queryID,
       ...this.userFor(event),
       timestamp: this.timestampFor(event),
-    } satisfies ClickedObjectIDsAfterSearch;
+    } satisfies ClickedObjectIDs;
+
+    const algoliaEvent: ClickedObjectIDsAfterSearch | ClickedObjectIDs = search
+      ? {
+          ...common,
+          // Algolia positions are absolute and start at 1; origins are absolute and start at 0.
+          positions: [search.position + 1],
+          queryID: search.queryID,
+        }
+      : common;
 
     await this.client.pushEvents({ events: [algoliaEvent] });
     return 'accepted';
   }
 
   private async cartItemAdded(event: AnalyticsEvent<'cart-item-added'>): Promise<AnalyticsOutcome> {
-    const search = this.searchFor(event);
     const line = event.payload.cart.items.find((item) => item.variant.sku === event.payload.variant.sku);
-    if (!search || !line) {
+    if (!line) {
       return 'ignored';
     }
 
-    const algoliaEvent = {
+    const search = this.searchFor(event);
+    const common = {
       eventName: 'addToCart',
       eventType: 'conversion',
       eventSubtype: 'addToCart',
@@ -133,10 +139,13 @@ export class AlgoliaAnalyticsCapability extends AnalyticsProvider {
       objectIDs: [line.product.key],
       objectData: [{ price: line.price.unitPrice.value, quantity: event.payload.quantity }],
       currency: line.price.unitPrice.currency,
-      queryID: search.queryID,
       ...this.userFor(event),
       timestamp: this.timestampFor(event),
-    } satisfies AddedToCartObjectIDsAfterSearch;
+    } satisfies AddedToCartObjectIDs;
+
+    const algoliaEvent: AddedToCartObjectIDsAfterSearch | AddedToCartObjectIDs = search
+      ? { ...common, queryID: search.queryID }
+      : common;
 
     await this.client.pushEvents({ events: [algoliaEvent] });
     return 'accepted';
@@ -155,19 +164,25 @@ export class AlgoliaAnalyticsCapability extends AnalyticsProvider {
       return 'ignored';
     }
 
+    // Orders are usually not tied to a search; when the storefront passes a search origin, attribute the purchase to it.
+    const search = this.searchFor(event);
     const total = event.payload.order.price.grandTotal;
-    const algoliaEvent = {
+    const common = {
       eventName: 'purchase',
       eventType: 'conversion',
       eventSubtype: 'purchase',
       index: this.indexFor(event),
       objectIDs: resolved.map((line) => line.objectID),
-      objectData: resolved.map((line) => ({ price: line.item.price.unitPrice.value, quantity: line.item.quantity })),
       currency: total.currency,
       value: total.value,
       ...this.userFor(event),
       timestamp: this.timestampFor(event),
     } satisfies PurchasedObjectIDs;
+    const objectData = resolved.map((line) => ({ price: line.item.price.unitPrice.value, quantity: line.item.quantity }));
+
+    const algoliaEvent: PurchasedObjectIDsAfterSearch | PurchasedObjectIDs = search
+      ? { ...common, objectData: objectData.map((data) => ({ ...data, queryID: search.queryID })) }
+      : { ...common, objectData };
 
     await this.client.pushEvents({ events: [algoliaEvent] });
     return 'accepted';
