@@ -65,7 +65,8 @@ Where a visitor met a product matters to vendors (Algolia needs the search `quer
 
 Each built client has its own dispatcher. It is internal to analytics (not a general event bus) and is never shared between requests.
 
-- **Snapshot at emit time.** The event carries the marketing identifier, identity, locale, currency, consent and referrer as they were when it was emitted, because delivery happens later and the session may have changed by then.
+- **Snapshot at emit time.** The event carries the visitor's marketing identifier, identity, locale, currency, consent, referrer, user agent, client IP and bot flag as they were when it was emitted, because delivery happens later and the request and session may have changed by then. The client IP is personal data: it is captured, but each provider decides what to send to its vendor, and the bundled providers do not forward it.
+- **The visitor.** The marketing identifier is `requestContext.session.marketingContext.identifier`, the visitor's personalization profile. The helpers take no profile argument; set `session.marketingContext` to the profile the personalization engine resolved before emitting.
 - **After the response.** Pass `waitUntil` to the builder so vendor calls finish after the response is sent. Without it delivery is fire-and-forget and errors are logged.
 - **Flush.** `await client.analytics.flush()` delivers everything queued and resolves when delivery is done, for scripts, tests and runtimes without `waitUntil`. It never rejects.
 - **Isolation.** Each subscriber runs in its own try/catch and its own OpenTelemetry span. One failing vendor never affects another. A subscriber receives events in emit order; different subscribers run in parallel.
@@ -148,7 +149,26 @@ expect(recorder.eventsOfType('product-viewed')).toHaveLength(1);
 | `product-cart-add` | `cartItemAdded`. The legacy event has no cart, so the active cart and the product's main variant are looked up |
 | `purchase` | `orderPlaced` |
 
-Compatibility is at the API level only. `track` still returns an `AnalyticsResult`, but it holds one `accepted` outcome for the analytics capability (or `rejected` when the event could not be queued); the outcomes no longer reflect what each provider did, because nothing waits for providers. A legacy `personalizationProfile` is passed on as `properties.personalizationProfile`; the bundled providers identify the visitor from the session's marketing identifier.
+Compatibility is at the API level only. `track` still returns an `AnalyticsResult`, but it holds one `accepted` outcome for the analytics capability (or `rejected` when the event could not be queued); the outcomes no longer reflect what each provider did, because nothing waits for providers. A `personalizationProfile` on the legacy event identifies the visitor for that event only, as before. Prefer setting `session.marketingContext` and using the helpers.
+
+`track` used to wait for the vendor calls; it now returns once the event is queued. In a runtime that freezes after the response (serverless), delivery has to be kept alive, or the vendor call can be cut off:
+
+```ts
+// Next.js: keep delivery alive after the response
+after(async () => {
+  const client = await createClient();
+  await client.analytics.track({ event: 'product-summary-view', products, source });
+  await client.analytics.flush();   // or build the client with .withAnalyticsDispatch({ waitUntil: after })
+});
+```
+
+### What changes without touching your code
+
+- `client.analytics` is no longer exposed to MCP clients as tools. It is storefront telemetry, and every client has the capability whether or not a provider is enabled.
+- Algolia sends the plain `click`, `addToCart` and `purchase` events when an event has no search `queryID`, and the `...AfterSearch` events when it has. Click positions are sent 1-based (origins are 0-based), so a caller that already passed 1-based positions to the old `product-summary-click` will be one off.
+- Google Analytics sends `user_id` as a hash of the user id for registered visitors only, where it used to send the marketing id. Add-to-cart events carry price, quantity and currency.
+- Unomi ignores events without a marketing identifier, and is skipped when marketing consent is not granted.
+- Events are delivered with the identity, locale, currency and consent captured when they were emitted, not those at delivery time.
 
 ### From `AnalyticsCapability` subclasses
 
