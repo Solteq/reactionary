@@ -40,6 +40,9 @@ import {
 } from '../../mutations/analytics/events/index.js';
 import { AnalyticsEventEnvelopeSchema } from './envelope.model.js';
 
+/** InferType strips index signatures, which would turn `properties` into `{}`; this keeps it readable for subscribers. */
+type WithProperties<T> = T & { properties?: Record<string, unknown> };
+
 const omitEnvelopeFields = { origin: true, properties: true } as const;
 
 /**
@@ -258,43 +261,43 @@ export const AnalyticsEventSchema = z.discriminatedUnion('type', [
     AnalyticsEventCustomSchema,
 ]);
 
-export type AnalyticsEventPageViewed = InferType<typeof AnalyticsEventPageViewedSchema>;
-export type AnalyticsEventSearchResultsViewed = InferType<typeof AnalyticsEventSearchResultsViewedSchema>;
-export type AnalyticsEventAutocompleteSuggestionSelected = InferType<typeof AnalyticsEventAutocompleteSuggestionSelectedSchema>;
-export type AnalyticsEventCategoryViewed = InferType<typeof AnalyticsEventCategoryViewedSchema>;
-export type AnalyticsEventProductCarouselViewed = InferType<typeof AnalyticsEventProductCarouselViewedSchema>;
-export type AnalyticsEventProductClicked = InferType<typeof AnalyticsEventProductClickedSchema>;
-export type AnalyticsEventProductViewed = InferType<typeof AnalyticsEventProductViewedSchema>;
-export type AnalyticsEventPromotionViewed = InferType<typeof AnalyticsEventPromotionViewedSchema>;
-export type AnalyticsEventPromotionClicked = InferType<typeof AnalyticsEventPromotionClickedSchema>;
-export type AnalyticsEventCartItemAdded = InferType<typeof AnalyticsEventCartItemAddedSchema>;
-export type AnalyticsEventCartItemRemoved = InferType<typeof AnalyticsEventCartItemRemovedSchema>;
-export type AnalyticsEventCartItemQuantityChanged = InferType<typeof AnalyticsEventCartItemQuantityChangedSchema>;
-export type AnalyticsEventCartViewed = InferType<typeof AnalyticsEventCartViewedSchema>;
-export type AnalyticsEventCouponApplied = InferType<typeof AnalyticsEventCouponAppliedSchema>;
-export type AnalyticsEventCouponRejected = InferType<typeof AnalyticsEventCouponRejectedSchema>;
-export type AnalyticsEventCheckoutStarted = InferType<typeof AnalyticsEventCheckoutStartedSchema>;
-export type AnalyticsEventShippingInfoAdded = InferType<typeof AnalyticsEventShippingInfoAddedSchema>;
-export type AnalyticsEventPaymentInfoAdded = InferType<typeof AnalyticsEventPaymentInfoAddedSchema>;
-export type AnalyticsEventOrderPlaced = InferType<typeof AnalyticsEventOrderPlacedSchema>;
-export type AnalyticsEventQuoteRequested = InferType<typeof AnalyticsEventQuoteRequestedSchema>;
-export type AnalyticsEventOrderReordered = InferType<typeof AnalyticsEventOrderReorderedSchema>;
-export type AnalyticsEventCompanyRegistered = InferType<typeof AnalyticsEventCompanyRegisteredSchema>;
-export type AnalyticsEventUserLoggedIn = InferType<typeof AnalyticsEventUserLoggedInSchema>;
-export type AnalyticsEventUserLoggedOut = InferType<typeof AnalyticsEventUserLoggedOutSchema>;
-export type AnalyticsEventUserRegistered = InferType<typeof AnalyticsEventUserRegisteredSchema>;
-export type AnalyticsEventProfileUpdated = InferType<typeof AnalyticsEventProfileUpdatedSchema>;
-export type AnalyticsEventConsentChanged = InferType<typeof AnalyticsEventConsentChangedSchema>;
-export type AnalyticsEventNewsletterSubscribed = InferType<typeof AnalyticsEventNewsletterSubscribedSchema>;
-export type AnalyticsEventWishlistItemAdded = InferType<typeof AnalyticsEventWishlistItemAddedSchema>;
-export type AnalyticsEventWishlistItemRemoved = InferType<typeof AnalyticsEventWishlistItemRemovedSchema>;
-export type AnalyticsEventBackInStockRequested = InferType<typeof AnalyticsEventBackInStockRequestedSchema>;
-export type AnalyticsEventReviewSubmitted = InferType<typeof AnalyticsEventReviewSubmittedSchema>;
-export type AnalyticsEventStoreSelected = InferType<typeof AnalyticsEventStoreSelectedSchema>;
-export type AnalyticsEventProductShared = InferType<typeof AnalyticsEventProductSharedSchema>;
-export type AnalyticsEventCustom = InferType<typeof AnalyticsEventCustomSchema>;
+export type AnalyticsEventPageViewed = WithProperties<InferType<typeof AnalyticsEventPageViewedSchema>>;
+export type AnalyticsEventSearchResultsViewed = WithProperties<InferType<typeof AnalyticsEventSearchResultsViewedSchema>>;
+export type AnalyticsEventAutocompleteSuggestionSelected = WithProperties<InferType<typeof AnalyticsEventAutocompleteSuggestionSelectedSchema>>;
+export type AnalyticsEventCategoryViewed = WithProperties<InferType<typeof AnalyticsEventCategoryViewedSchema>>;
+export type AnalyticsEventProductCarouselViewed = WithProperties<InferType<typeof AnalyticsEventProductCarouselViewedSchema>>;
+export type AnalyticsEventProductClicked = WithProperties<InferType<typeof AnalyticsEventProductClickedSchema>>;
+export type AnalyticsEventProductViewed = WithProperties<InferType<typeof AnalyticsEventProductViewedSchema>>;
+export type AnalyticsEventPromotionViewed = WithProperties<InferType<typeof AnalyticsEventPromotionViewedSchema>>;
+export type AnalyticsEventPromotionClicked = WithProperties<InferType<typeof AnalyticsEventPromotionClickedSchema>>;
+export type AnalyticsEventCartItemAdded = WithProperties<InferType<typeof AnalyticsEventCartItemAddedSchema>>;
+export type AnalyticsEventCartItemRemoved = WithProperties<InferType<typeof AnalyticsEventCartItemRemovedSchema>>;
+export type AnalyticsEventCartItemQuantityChanged = WithProperties<InferType<typeof AnalyticsEventCartItemQuantityChangedSchema>>;
+export type AnalyticsEventCartViewed = WithProperties<InferType<typeof AnalyticsEventCartViewedSchema>>;
+export type AnalyticsEventCouponApplied = WithProperties<InferType<typeof AnalyticsEventCouponAppliedSchema>>;
+export type AnalyticsEventCouponRejected = WithProperties<InferType<typeof AnalyticsEventCouponRejectedSchema>>;
+export type AnalyticsEventCheckoutStarted = WithProperties<InferType<typeof AnalyticsEventCheckoutStartedSchema>>;
+export type AnalyticsEventShippingInfoAdded = WithProperties<InferType<typeof AnalyticsEventShippingInfoAddedSchema>>;
+export type AnalyticsEventPaymentInfoAdded = WithProperties<InferType<typeof AnalyticsEventPaymentInfoAddedSchema>>;
+export type AnalyticsEventOrderPlaced = WithProperties<InferType<typeof AnalyticsEventOrderPlacedSchema>>;
+export type AnalyticsEventQuoteRequested = WithProperties<InferType<typeof AnalyticsEventQuoteRequestedSchema>>;
+export type AnalyticsEventOrderReordered = WithProperties<InferType<typeof AnalyticsEventOrderReorderedSchema>>;
+export type AnalyticsEventCompanyRegistered = WithProperties<InferType<typeof AnalyticsEventCompanyRegisteredSchema>>;
+export type AnalyticsEventUserLoggedIn = WithProperties<InferType<typeof AnalyticsEventUserLoggedInSchema>>;
+export type AnalyticsEventUserLoggedOut = WithProperties<InferType<typeof AnalyticsEventUserLoggedOutSchema>>;
+export type AnalyticsEventUserRegistered = WithProperties<InferType<typeof AnalyticsEventUserRegisteredSchema>>;
+export type AnalyticsEventProfileUpdated = WithProperties<InferType<typeof AnalyticsEventProfileUpdatedSchema>>;
+export type AnalyticsEventConsentChanged = WithProperties<InferType<typeof AnalyticsEventConsentChangedSchema>>;
+export type AnalyticsEventNewsletterSubscribed = WithProperties<InferType<typeof AnalyticsEventNewsletterSubscribedSchema>>;
+export type AnalyticsEventWishlistItemAdded = WithProperties<InferType<typeof AnalyticsEventWishlistItemAddedSchema>>;
+export type AnalyticsEventWishlistItemRemoved = WithProperties<InferType<typeof AnalyticsEventWishlistItemRemovedSchema>>;
+export type AnalyticsEventBackInStockRequested = WithProperties<InferType<typeof AnalyticsEventBackInStockRequestedSchema>>;
+export type AnalyticsEventReviewSubmitted = WithProperties<InferType<typeof AnalyticsEventReviewSubmittedSchema>>;
+export type AnalyticsEventStoreSelected = WithProperties<InferType<typeof AnalyticsEventStoreSelectedSchema>>;
+export type AnalyticsEventProductShared = WithProperties<InferType<typeof AnalyticsEventProductSharedSchema>>;
+export type AnalyticsEventCustom = WithProperties<InferType<typeof AnalyticsEventCustomSchema>>;
 
-export type AnalyticsEventUnion = InferType<typeof AnalyticsEventSchema>;
+export type AnalyticsEventUnion = WithProperties<InferType<typeof AnalyticsEventSchema>>;
 /** An event of type `K`, or any event. */
 export type AnalyticsEvent<K extends AnalyticsEventType = AnalyticsEventType> = Extract<AnalyticsEventUnion, { type: K }>;
 export type AnalyticsEventPayload<K extends AnalyticsEventType = AnalyticsEventType> = AnalyticsEvent<K>['payload'];

@@ -174,6 +174,13 @@ export class AnalyticsDispatcher {
         await Promise.all([...this.inflight]);
     }
 
+    /**
+     * A fresh lookup context, for analytics code that has to resolve something before it can emit (the legacy adapter).
+     */
+    lookups(): AnalyticsContext {
+        return this.createContext();
+    }
+
     private snapshot(options: AnalyticsEmitOptions): EventContextSnapshot {
         const { session, languageContext, referrer, userAgent, clientIp, isBot } = this.requestContext;
         return {
