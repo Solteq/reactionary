@@ -22,6 +22,9 @@ export const EventContextSnapshotSchema = z.looseObject({
     currency: CurrencySchema,
     consent: AnalyticsConsentSchema.optional().meta({ description: 'Consent at emit time. Absent when the request carried none and no default applied.' }),
     page: AnalyticsPageSchema.optional(),
+    userAgent: z.string().optional().meta({ description: 'The user agent of the visitor\'s request, if known. Delivery happens after the request, so subscribers cannot read it from the request context later.' }),
+    clientIp: z.string().optional().meta({ description: 'The IP address of the visitor\'s request, if known. Personal data: capturing it does not forward it, each subscriber decides what to send to its vendor.' }),
+    isBot: z.boolean().optional().meta({ description: 'True if the request was identified as a bot or crawler.' }),
 });
 
 /**
