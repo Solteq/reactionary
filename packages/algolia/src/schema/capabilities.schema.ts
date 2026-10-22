@@ -1,5 +1,5 @@
 import type {
-  AnalyticsCapability,
+  AnalyticsProvider,
   Cache,
   ProductRecommendationsCapability,
   ProductSearchFactory,
@@ -56,7 +56,7 @@ export interface AlgoliaProductSearchCapabilityConfig<
 }
 
 export interface AlgoliaAnalyticsCapabilityConfig<
-  TCapability extends AnalyticsCapability = AnalyticsCapability,
+  TCapability extends AnalyticsProvider = AnalyticsProvider,
 > {
   enabled: boolean;
   capability?: (args: AlgoliaCapabilityFactoryArgs) => TCapability;
@@ -72,7 +72,7 @@ export interface AlgoliaProductRecommendationsCapabilityConfig<
 export type AlgoliaCapabilities<
   TProductSearchFactory extends ProductSearchFactory = ProductSearchFactory,
   TProductSearchCapability extends ProductSearchCapability = ProductSearchCapability,
-  TAnalyticsCapability extends AnalyticsCapability = AnalyticsCapability,
+  TAnalyticsCapability extends AnalyticsProvider = AnalyticsProvider,
   TProductRecommendationsCapability extends ProductRecommendationsCapability = ProductRecommendationsCapability,
 > = {
   productSearch?: AlgoliaProductSearchCapabilityConfig<

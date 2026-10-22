@@ -1,4 +1,4 @@
-import type { AnalyticsCapability, Cache, RequestContext } from '@reactionary/core';
+import type { AnalyticsProvider, Cache, RequestContext } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
 import type { GoogleAnalyticsConfiguration } from './configuration.schema.js';
 import * as z from 'zod';
@@ -23,14 +23,14 @@ export interface GoogleAnalyticsCapabilityFactoryArgs {
 }
 
 export interface GoogleAnalyticsAnalyticsCapabilityConfig<
-  TCapability extends AnalyticsCapability = AnalyticsCapability,
+  TCapability extends AnalyticsProvider = AnalyticsProvider,
 > {
   enabled: boolean;
   capability?: (args: GoogleAnalyticsCapabilityFactoryArgs) => TCapability;
 }
 
 export type GoogleAnalyticsCapabilities<
-  TAnalyticsCapability extends AnalyticsCapability = AnalyticsCapability,
+  TAnalyticsCapability extends AnalyticsProvider = AnalyticsProvider,
 > = {
   analytics?: GoogleAnalyticsAnalyticsCapabilityConfig<TAnalyticsCapability>;
 };

@@ -1,5 +1,5 @@
 import {
-  AnalyticsCapability,
+  LegacyAnalyticsProvider,
   type RequestContext,
   type Cache,
   type AnalyticsMutationProductSummaryViewEvent,
@@ -10,7 +10,7 @@ import {
 } from '@reactionary/core';
 import type { GoogleAnalyticsConfiguration } from '../schema/configuration.schema.js';
 
-export class GoogleAnalyticsAnalyticsCapability extends AnalyticsCapability {
+export class GoogleAnalyticsAnalyticsCapability extends LegacyAnalyticsProvider {
   protected config: GoogleAnalyticsConfiguration;
   constructor(
     cache: Cache,
