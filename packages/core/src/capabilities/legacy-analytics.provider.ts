@@ -1,3 +1,4 @@
+import { searchOriginOf } from '../analytics/origins.js';
 import { productKey } from '../analytics/refs.js';
 import type {
   AnalyticsEvent,
@@ -11,23 +12,8 @@ import type {
   AnalyticsOutcome,
   AnalyticsPurpose,
   AnalyticsResult,
-  Origin,
-  OriginSearch,
 } from '../schemas/index.js';
 import { AnalyticsProvider } from './analytics.provider.js';
-
-/**
- * The search an origin leads back to, looking through `fromPDP(upstream)`.
- */
-export function searchOriginOf(origin: Origin | undefined): OriginSearch | undefined {
-  if (origin?.type === 'search') {
-    return origin;
-  }
-  if (origin?.type === 'pdp') {
-    return searchOriginOf(origin.upstream);
-  }
-  return undefined;
-}
 
 /**
  * Transitional base for providers that still implement the five legacy `process*` hooks. It adapts the new events
