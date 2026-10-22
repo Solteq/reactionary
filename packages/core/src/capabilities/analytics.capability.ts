@@ -1,8 +1,13 @@
+import { emitLegacyAnalyticsEvent } from '../analytics/legacy-adapter.js';
 import type { AnalyticsDispatcher } from '../analytics/dispatcher.js';
 import type { Cache } from '../cache/cache.interface.js';
 import { Reactionary } from '../decorators/reactionary.decorator.js';
 import {
   AnalyticsEventResultSchema,
+  AnalyticsMutationSchema,
+  AnalyticsResultSchema,
+  type AnalyticsMutation,
+  type AnalyticsResult,
   AnalyticsMutationPageViewedSchema,
   AnalyticsMutationSearchResultsViewedSchema,
   AnalyticsMutationAutocompleteSuggestionSelectedSchema,
@@ -104,6 +109,22 @@ export class AnalyticsCapability extends BaseCapability {
    */
   public async flush(): Promise<void> {
     await this.dispatcher.flush();
+  }
+
+  /**
+   * @deprecated Use the event helpers, e.g. `productViewed`, `cartItemAdded`, `orderPlaced`.
+   *
+   * Compatibility is at the API level only: the event is converted to its new equivalent and enqueued exactly like the helpers
+   * do, with no immediate dispatch and no waiting on providers. The returned `AnalyticsResult` keeps its shape so callers
+   * keep compiling, but its outcomes no longer reflect what providers did: it holds one `accepted` outcome for the analytics
+   * capability when the event was enqueued, or `rejected` when it could not be (invalid input, or for `product-cart-add`
+   * when the active cart or the product could not be looked up). A legacy `personalizationProfile` is passed on as
+   * `properties.personalizationProfile`.
+   */
+  @Reactionary({ inputSchema: AnalyticsMutationSchema, outputSchema: AnalyticsResultSchema })
+  public async track(event: AnalyticsMutation): Promise<AnalyticsResult> {
+    const result = await emitLegacyAnalyticsEvent(event, this.dispatcher);
+    return { outcomes: [{ provider: this.getResourceName(), outcome: result.success ? 'accepted' : 'rejected' }] };
   }
 
   @Reactionary({ inputSchema: AnalyticsMutationPageViewedSchema, outputSchema: AnalyticsEventResultSchema })
