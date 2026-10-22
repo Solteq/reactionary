@@ -209,3 +209,6 @@ So to use
 #### "Why", you may ask, couldn't you just add the filter directly at this point? 
 Because its not a random filter field. It's a domain expression of a business condition you need to make sure is being addressed everywhere. Specifically, you will probably be using the productSearch for other kinds of calls, than purely PLP entries. And you want to guarantee in your project, that whomever makes a call to the product search, has considered whether to include rx products in the potential result set, or not.
 
+## Customizing analytics
+
+Analytics is customized differently from the other capabilities. The storefront calls `client.analytics`, and vendors receive events through providers that extend `AnalyticsProvider` and implement `handle(event, ctx)`. To change what a bundled provider sends, extend it and override `handle`, and wire it in with the provider's `analytics: { enabled: true, capability: (args) => new MyProvider(...) }` option. To add a destination that is not a capability, use `ClientBuilder.withAnalyticsSubscriber`. See [Tracking customer interactions](./8-tracking.md#providers-and-custom-subscribers).
