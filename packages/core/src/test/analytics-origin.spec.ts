@@ -100,6 +100,13 @@ describe('analytics envelope and consent', () => {
     ).toBe(true);
   });
 
+  it('accepts request metadata on the snapshot', () => {
+    const parsed = EventContextSnapshotSchema.parse({ ...snapshot, userAgent: 'Mozilla/5.0', clientIp: '203.0.113.7', isBot: false });
+
+    expect(parsed).toMatchObject({ userAgent: 'Mozilla/5.0', clientIp: '203.0.113.7', isBot: false });
+    expect(EventContextSnapshotSchema.safeParse({ ...snapshot, isBot: 'no' }).success).toBe(false);
+  });
+
   it('validates the envelope fields', () => {
     const envelope = { id: crypto.randomUUID(), occurredAt: new Date().toISOString(), context: snapshot, origin: fromDirect() };
 
