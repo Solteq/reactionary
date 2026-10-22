@@ -1,5 +1,5 @@
 import {
-  AnalyticsCapability,
+  LegacyAnalyticsProvider,
   AnalyticsMutationSchema,
   AnalyticsResultSchema,
   type AnalyticsMutation,
@@ -17,7 +17,7 @@ import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
 import { SESSION_KEY_PERSONALIZATION_ID } from '../core/session-keys.js';
 
-export class HclAnalyticsCapability extends AnalyticsCapability {
+export class HclAnalyticsCapability extends LegacyAnalyticsProvider {
   constructor(
     cache: Cache,
     context: RequestContext,
@@ -25,6 +25,10 @@ export class HclAnalyticsCapability extends AnalyticsCapability {
     protected readonly client: HclClient,
   ) {
     super(cache, context);
+  }
+
+  protected override getResourceName(): string {
+    return 'hcl-analytics';
   }
 
   @Reactionary({

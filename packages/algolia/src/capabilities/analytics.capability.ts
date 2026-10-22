@@ -1,5 +1,5 @@
 import {
-  AnalyticsCapability,
+  LegacyAnalyticsProvider,
   type AnalyticsMutationProductAddToCartEvent,
   type AnalyticsMutationProductSummaryClickEvent,
   type AnalyticsMutationProductSummaryViewEvent,
@@ -20,7 +20,7 @@ import type { AlgoliaProductSearchIdentifier } from '../schema/search.schema.js'
 import { getProductIndexNameForLocale } from '../core/index-utils.js';
 import { hash } from 'node:crypto';
 
-export class AlgoliaAnalyticsCapability extends AnalyticsCapability {
+export class AlgoliaAnalyticsCapability extends LegacyAnalyticsProvider {
   protected client: InsightsClient;
   protected config: AlgoliaConfiguration;
   protected authenticatedUserToken: string | undefined = undefined;

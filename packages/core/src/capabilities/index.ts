@@ -1,4 +1,6 @@
 export * from './analytics.capability.js';
+export * from './analytics.provider.js';
+export * from './legacy-analytics.provider.js';
 export * from './base.capability.js';
 export * from './cart.capability.js';
 export * from './category.capability.js';

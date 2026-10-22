@@ -1,5 +1,5 @@
 import {
-  AnalyticsCapability,
+  LegacyAnalyticsProvider,
   AnalyticsMutationSchema,
   AnalyticsResultSchema,
   type AnalyticsMutation,
@@ -16,7 +16,7 @@ import { Reactionary } from '@reactionary/core';
 import { UnomiAPI } from '../core/client.js';
 import type { UnomiConfiguration } from '../schema/configuration.schema.js';
 
-export class UnomiAnalyticsCapability extends AnalyticsCapability {
+export class UnomiAnalyticsCapability extends LegacyAnalyticsProvider {
   protected readonly api: UnomiAPI;
 
   constructor(
@@ -26,6 +26,10 @@ export class UnomiAnalyticsCapability extends AnalyticsCapability {
   ) {
     super(cache, context);
     this.api = new UnomiAPI(config, context);
+  }
+
+  protected override getResourceName(): string {
+    return 'unomi-analytics';
   }
 
   @Reactionary({

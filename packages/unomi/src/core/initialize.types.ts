@@ -1,5 +1,5 @@
 import type {
-  AnalyticsCapability,
+  AnalyticsProvider,
   ClientFromCapabilities,
   PersonalizationProfileFactory,
 } from '@reactionary/core';
@@ -36,7 +36,7 @@ type ResolvedFactoryMap<T extends UnomiCapabilities> = {
 };
 
 type DefaultCapabilityMap<T extends UnomiCapabilities> = {
-  analytics: AnalyticsCapability;
+  analytics: AnalyticsProvider;
   personalizationProfile: UnomiPersonalizationProfileCapability<
     ResolvedFactoryMap<T>['personalizationProfile']
   >;

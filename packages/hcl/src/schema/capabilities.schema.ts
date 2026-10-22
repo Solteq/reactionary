@@ -1,7 +1,7 @@
 import type {
   Cache,
   RequestContext,
-  AnalyticsCapability,
+  AnalyticsProvider,
   CartFactory,
   CartFactoryWithOutput,
   CartCapability,
@@ -185,7 +185,7 @@ export type HclOrderSearchCapabilityConfig = HclCapabilityConfig<
 /** Analytics does not use a factory — the capability writes events directly. */
 export type HclAnalyticsCapabilityConfig = HclCapabilityConfig<
   never,
-  AnalyticsCapability
+  AnalyticsProvider
 >;
 
 export type HclProductAssociationsCapabilityConfig = HclCapabilityConfig<

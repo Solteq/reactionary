@@ -311,7 +311,26 @@ function normalizeOutputValueSchema(schema: z.ZodType): z.ZodType {
   return schema.nullable();
 }
 
+/**
+ * Schemas being prepared right now. A schema that refers back to itself (such as an origin that nests its upstream origin)
+ * would otherwise recurse forever, so the inner reference is left unconstrained in the tool schema.
+ */
+const schemasInPreparation = new Set<z.ZodType>();
+
 function prepareForJsonSchema(schema: z.ZodType): z.ZodType {
+  if (schemasInPreparation.has(schema)) {
+    return z.unknown();
+  }
+
+  schemasInPreparation.add(schema);
+  try {
+    return prepareSchemaForJsonSchema(schema);
+  } finally {
+    schemasInPreparation.delete(schema);
+  }
+}
+
+function prepareSchemaForJsonSchema(schema: z.ZodType): z.ZodType {
   const def = getZodDef(schema);
 
   switch (def.type) {

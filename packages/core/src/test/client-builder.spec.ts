@@ -2,52 +2,42 @@ import { describe, expect, it } from "vitest";
 import type { Capabilities, ClientFromCapabilities } from "../schemas/capabilities.schema.js";
 import type { Cache } from '../cache/cache.interface.js';
 import type { RequestContext } from "../schemas/session.schema.js";
-import { AnalyticsCapability } from "../capabilities/analytics.capability.js";
-import type { AnalyticsMutation, AnalyticsResult } from "../schemas/index.js";
+import { AnalyticsProvider } from "../capabilities/analytics.provider.js";
+import type { AnalyticsEvent } from "../schemas/index.js";
 import { NoOpCache } from "../cache/noop-cache.js";
 import { createInitialRequestContext } from "../initialization.js";
-import { ClientBuilder, type ClientBuilderFactoryArgs } from "../client/client-builder.js";
-import type { Client } from "../client/client.js";
+import { ClientBuilder, type ClientBuilderFactoryArgs, type ClientCapabilities } from "../client/client-builder.js";
 import { ProductCapability } from "../capabilities/product.capability.js";
 
-export class MockPrimaryAnalyticsCapability extends AnalyticsCapability {
-    public events: Array<AnalyticsMutation> = [];
+abstract class MockAnalyticsProvider extends AnalyticsProvider {
+    public readonly types = ['*'] as const;
+    public readonly purpose = 'necessary' as const;
+    public events: Array<AnalyticsEvent> = [];
 
-    public override async track(event: AnalyticsMutation): Promise<AnalyticsResult> {
+    public override async handle(event: AnalyticsEvent) {
         this.events.push(event);
-
-        return {
-          outcomes: [{
-            provider: 'primary',
-            outcome: 'accepted',
-          }]
-        };
+        return 'accepted' as const;
     }
 }
 
-export class MockSecondaryAnalyticsCapability extends AnalyticsCapability {
-    public events: Array<AnalyticsMutation> = [];
-
-    public override async track(event: AnalyticsMutation): Promise<AnalyticsResult> {
-        this.events.push(event);
-
-        return {
-          outcomes: [{
-            provider: 'secondary',
-            outcome: 'accepted',
-          }]
-        };
+export class MockPrimaryAnalyticsCapability extends MockAnalyticsProvider {
+    protected override getResourceName(): string {
+        return 'primary';
     }
 }
 
-
+export class MockSecondaryAnalyticsCapability extends MockAnalyticsProvider {
+    protected override getResourceName(): string {
+        return 'secondary';
+    }
+}
 
 export interface MockConfiguration {
     mock?: string;
 }
 
 export function withMockCapabilities<T extends Partial<Capabilities>>(
-  client: Partial<Client>
+  client: ClientCapabilities
 ) {
   return (
     cache: Cache,
@@ -58,7 +48,7 @@ export function withMockCapabilities<T extends Partial<Capabilities>>(
 };
 
 describe('Client Builder', () => {
-  it('should properly multicast analytics events to all analytics providers that register themselves', async () => {
+  it('registers analytics providers from capability factories as subscribers and delivers helper events to all of them', async () => {
     const cache = new NoOpCache();
     const context = createInitialRequestContext();
     const builder = new ClientBuilder(context);
@@ -70,21 +60,18 @@ describe('Client Builder', () => {
         .withCapability(withMockCapabilities({ analytics: secondaryAnalyticsCapability }))
         .build();
 
-    const track = await client.analytics.track({
-        event: 'product-details-view',
+    const result = await client.analytics.productViewed({
         product: {
           key: 'P-1000'
         }
     });
+    await client.analytics.flush();
 
-    expect(track.outcomes.length).toBe(2);
-    expect(track.outcomes.filter(x => x.outcome === 'accepted').length).toBe(2);
-    expect(track.outcomes.filter(x => x.provider === 'primary').length).toBe(1);
-    expect(track.outcomes.filter(x => x.provider === 'secondary').length).toBe(1);
+    expect(result.success).toBe(true);
     expect(analyticsCapability.events.length).toBe(1);
-    expect(analyticsCapability.events[0].event).toBe('product-details-view');
+    expect(analyticsCapability.events[0].type).toBe('product-viewed');
     expect(secondaryAnalyticsCapability.events.length).toBe(1);
-    expect(secondaryAnalyticsCapability.events[0].event).toBe('product-details-view');
+    expect(secondaryAnalyticsCapability.events[0].type).toBe('product-viewed');
   });
 
   it('supports capability factories with args object signature', () => {

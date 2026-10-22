@@ -1,5 +1,5 @@
 import type {
-  AnalyticsCapability,
+  AnalyticsProvider,
   PersonalizationProfileCapability,
 } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
@@ -47,5 +47,5 @@ export interface UnomiPersonalizationProfileCapabilityConfig {
 
 export interface UnomiAnalyticsCapabilityConfig {
   enabled: boolean;
-  capability?: (args: UnomiCapabilityFactoryArgs) => AnalyticsCapability;
+  capability?: (args: UnomiCapabilityFactoryArgs) => AnalyticsProvider;
 }
