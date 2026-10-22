@@ -289,18 +289,45 @@ function acceptsUndefined(schema: z.ZodType): boolean {
   return schema.safeParse(undefined).success;
 }
 
-function toMcpSchema(schema: z.ZodType) {
+type McpSchema = ReturnType<typeof convertToMcpSchema>;
+
+/**
+ * A server is built per request and registers every tool, and the schemas are module level constants, so the
+ * (expensive) conversion is cached per schema instance instead of repeated on every request.
+ */
+const inputSchemaCache = new WeakMap<z.ZodType, McpSchema>();
+const outputSchemaCache = new WeakMap<z.ZodType, McpSchema>();
+
+function toMcpSchema(schema: z.ZodType): McpSchema {
+  const cached = inputSchemaCache.get(schema);
+  if (cached) {
+    return cached;
+  }
+
+  const converted = convertToMcpSchema(schema);
+  inputSchemaCache.set(schema, converted);
+  return converted;
+}
+
+function toMcpOutputSchema(schema: z.ZodType): McpSchema {
+  const cached = outputSchemaCache.get(schema);
+  if (cached) {
+    return cached;
+  }
+
+  const converted = convertToMcpSchema(z.object({
+    value: normalizeOutputValueSchema(schema),
+  }));
+  outputSchemaCache.set(schema, converted);
+  return converted;
+}
+
+function convertToMcpSchema(schema: z.ZodType) {
   return fromJsonSchema(
     z.toJSONSchema(prepareForJsonSchema(schema), {
       io: 'input',
     }) as Record<string, unknown>,
   );
-}
-
-function toMcpOutputSchema(schema: z.ZodType) {
-  return toMcpSchema(z.object({
-    value: normalizeOutputValueSchema(schema),
-  }));
 }
 
 function normalizeOutputValueSchema(schema: z.ZodType): z.ZodType {
