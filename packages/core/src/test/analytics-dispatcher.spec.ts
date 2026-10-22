@@ -96,6 +96,43 @@ describe('AnalyticsDispatcher', () => {
       expect(recorder.events[0].context.identity.type).toBe('Anonymous');
     });
 
+    it('captures user agent, ip and bot flag at emit time, and leaves out empty values', async () => {
+      const recorder = new RecordingAnalyticsSubscriber();
+      const requestContext = createInitialRequestContext();
+      requestContext.userAgent = 'Mozilla/5.0';
+      requestContext.clientIp = '203.0.113.7';
+      requestContext.isBot = true;
+      const { dispatcher } = setup([recorder], undefined, requestContext);
+
+      dispatcher.emit('product-viewed', viewed('p1'));
+      requestContext.userAgent = 'changed';
+      requestContext.isBot = false;
+      await dispatcher.flush();
+
+      expect(recorder.events[0].context).toMatchObject({ userAgent: 'Mozilla/5.0', clientIp: '203.0.113.7', isBot: true });
+
+      const empty = new RecordingAnalyticsSubscriber();
+      const second = setup([empty]);
+      second.dispatcher.emit('product-viewed', viewed('p1'));
+      await second.dispatcher.flush();
+      expect(empty.events[0].context.userAgent).toBeUndefined();
+      expect(empty.events[0].context.clientIp).toBeUndefined();
+      expect(empty.events[0].context.isBot).toBe(false);
+    });
+
+    it('lets an internal caller override the visitor identifier for one event only', async () => {
+      const recorder = new RecordingAnalyticsSubscriber();
+      const { dispatcher, requestContext } = setup([recorder]);
+      requestContext.session.marketingContext.identifier.key = 'session-visitor';
+
+      dispatcher.emit('product-viewed', viewed('p1'), { marketingIdentifier: { key: 'explicit-visitor' } });
+      dispatcher.emit('product-viewed', viewed('p2'));
+      await dispatcher.flush();
+
+      expect(recorder.events.map((e) => e.context.marketingIdentifier.key)).toEqual(['explicit-visitor', 'session-visitor']);
+      expect(requestContext.session.marketingContext.identifier.key).toBe('session-visitor');
+    });
+
     it('never throws on invalid input, and drops the event', async () => {
       const recorder = new RecordingAnalyticsSubscriber();
       const { dispatcher } = setup([recorder]);
