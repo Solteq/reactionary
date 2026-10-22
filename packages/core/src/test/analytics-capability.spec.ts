@@ -13,7 +13,8 @@ import {
   fromSearch,
   success,
 } from '../index.js';
-import type { AnalyticsSubscriber, Product, Result, SearchIdentifier } from '../index.js';
+import type { AnalyticsEvent, AnalyticsSubscriber, Product, Result, SearchIdentifier } from '../index.js';
+import { AnalyticsProvider } from '../index.js';
 
 const cart = CartSchema.parse({
   identifier: { key: 'c1' },
@@ -37,6 +38,16 @@ class StubProductCapability extends ProductCapability {
   }
   public override async getBySKU(): Promise<Result<Product>> {
     return error({ type: 'NotFound', identifier: 'x' });
+  }
+}
+
+class StubAnalyticsProvider extends AnalyticsProvider {
+  public readonly types = ['*'] as const;
+  public readonly purpose = 'necessary' as const;
+  public events: AnalyticsEvent[] = [];
+  public async handle(event: AnalyticsEvent) {
+    this.events.push(event);
+    return 'accepted' as const;
   }
 }
 
@@ -179,6 +190,25 @@ describe('client.analytics', () => {
 
     expect(name).toBe('Product p1');
     expect(product.lookups).toEqual(['p1']);
+  });
+
+  it('keeps compiling the builder pattern that reassigns the builder in a loop of optional capabilities', async () => {
+    const context = createInitialRequestContext();
+    const provider = new StubAnalyticsProvider(new NoOpCache(), context);
+    const product = new StubProductCapability(new NoOpCache(), context);
+
+    // As in a storefront: start from the default builder type and reassign it as capabilities are switched on.
+    let cb = new ClientBuilder(context);
+    cb = cb.withCapability(() => ({ product }));
+    cb = cb.withCapability(() => ({ analytics: provider }));
+    const client = cb.withCache(new NoOpCache()).build();
+
+    await client.analytics.productViewed({ product: { key: 'p1' } });
+    await client.analytics.flush();
+
+    expect(client.analytics).toBeInstanceOf(AnalyticsCapability);
+    expect(client.product).toBe(product);
+    expect(provider.events.map((e) => e.type)).toEqual(['product-viewed']);
   });
 
   it('rejects two subscribers with the same name at build time', () => {
