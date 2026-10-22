@@ -1,14 +1,20 @@
-import type {
-  AnalyticsMutation,
-  Cache,
-  RequestContext} from '@reactionary/core';
 import {
-  LegacyAnalyticsProvider
+  AnalyticsProvider,
+  type AnalyticsEventType,
+  type AnalyticsOutcome,
+  type AnalyticsPurpose,
+  type Cache,
+  type RequestContext,
 } from '@reactionary/core';
-import type * as z from 'zod';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 
-export class FakeAnalyticsCapability extends LegacyAnalyticsProvider {
+/**
+ * Analytics provider for fake-backed clients. It subscribes to everything and ignores it all.
+ */
+export class FakeAnalyticsCapability extends AnalyticsProvider {
+  public readonly types: ReadonlyArray<AnalyticsEventType | `${string}*`> = ['*'];
+  public readonly purpose: AnalyticsPurpose = 'necessary';
+
   protected config: FakeConfiguration;
 
   constructor(config: FakeConfiguration, cache: Cache, context: RequestContext) {
@@ -21,7 +27,7 @@ export class FakeAnalyticsCapability extends LegacyAnalyticsProvider {
     return 'fake-analytics';
   }
 
-  public override async track(event: AnalyticsMutation) {
-    return this.ignored();
+  public async handle(): Promise<AnalyticsOutcome> {
+    return 'ignored';
   }
 }

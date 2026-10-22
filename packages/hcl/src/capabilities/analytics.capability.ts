@@ -1,23 +1,36 @@
 import {
-  LegacyAnalyticsProvider,
-  AnalyticsMutationSchema,
-  AnalyticsResultSchema,
-  type AnalyticsMutation,
-  type AnalyticsMutationProductAddToCartEvent,
-  type AnalyticsMutationProductDetailsViewEvent,
-  type AnalyticsMutationProductSummaryClickEvent,
-  type AnalyticsMutationProductSummaryViewEvent,
-  type AnalyticsMutationPurchaseEvent,
-  type AnalyticsResult,
+  AnalyticsProvider,
+  productKey,
+  type AnalyticsEvent,
+  type AnalyticsEventType,
+  type AnalyticsOutcome,
+  type AnalyticsPurpose,
   type Cache,
   type RequestContext,
-  Reactionary,
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
 import { SESSION_KEY_PERSONALIZATION_ID } from '../core/session-keys.js';
 
-export class HclAnalyticsCapability extends LegacyAnalyticsProvider {
+/**
+ * Reports product interactions to HCL Commerce's event endpoint, which feeds its personalization. HCL only needs the
+ * product (or, for purchases, the sku) and the personalization id of the session.
+ *
+ * The personalization id is read from the session when the event is sent, as the HCL client does for its own requests,
+ * so it is the one HCL currently has for the session even if a login happened after the event was emitted.
+ */
+export class HclAnalyticsCapability extends AnalyticsProvider {
+  public readonly types: ReadonlyArray<AnalyticsEventType | `${string}*`> = [
+    'search-results-viewed',
+    'product-carousel-viewed',
+    'product-clicked',
+    'product-viewed',
+    'cart-item-added',
+    'order-placed',
+  ];
+
+  public readonly purpose: AnalyticsPurpose = 'analytics';
+
   constructor(
     cache: Cache,
     context: RequestContext,
@@ -31,72 +44,35 @@ export class HclAnalyticsCapability extends LegacyAnalyticsProvider {
     return 'hcl-analytics';
   }
 
-  @Reactionary({
-    inputSchema: AnalyticsMutationSchema,
-    outputSchema: AnalyticsResultSchema,
-  })
-  public override async track(
-    event: AnalyticsMutation,
-  ): Promise<AnalyticsResult> {
-    return super.track(event);
-  }
+  public async handle(event: AnalyticsEvent): Promise<AnalyticsOutcome | void> {
+    switch (event.type) {
+      case 'search-results-viewed':
+      case 'product-carousel-viewed':
+        // One event per product, sent in order, as HCL has no batch endpoint.
+        for (const product of event.payload.products) {
+          await this.fireEvent({ productId: productKey(product) });
+        }
+        return 'accepted';
 
-  protected override async processProductSummaryView(
-    event: AnalyticsMutationProductSummaryViewEvent,
-  ): Promise<AnalyticsResult> {
-    try {
-      for (const product of event.products) {
-        await this.fireEvent({ productId: product.key });
+      case 'product-clicked':
+      case 'product-viewed':
+        await this.fireEvent({ productId: productKey(event.payload.product) });
+        return 'accepted';
+
+      case 'cart-item-added': {
+        const line = event.payload.cart.items.find((item) => item.variant.sku === event.payload.variant.sku);
+        await this.fireEvent({ productId: line?.product.key ?? event.payload.variant.sku });
+        return 'accepted';
       }
-      return this.accepted();
-    } catch {
-      return this.rejected();
-    }
-  }
 
-  protected override async processProductSummaryClick(
-    event: AnalyticsMutationProductSummaryClickEvent,
-  ): Promise<AnalyticsResult> {
-    try {
-      await this.fireEvent({ productId: event.product.key });
-      return this.accepted();
-    } catch {
-      return this.rejected();
-    }
-  }
+      case 'order-placed':
+        for (const item of event.payload.order.items) {
+          await this.fireEvent({ productId: item.variant.sku });
+        }
+        return 'accepted';
 
-  protected override async processProductDetailsView(
-    event: AnalyticsMutationProductDetailsViewEvent,
-  ): Promise<AnalyticsResult> {
-    try {
-      await this.fireEvent({ productId: event.product.key });
-      return this.accepted();
-    } catch {
-      return this.rejected();
-    }
-  }
-
-  protected override async processProductAddToCart(
-    event: AnalyticsMutationProductAddToCartEvent,
-  ): Promise<AnalyticsResult> {
-    try {
-      await this.fireEvent({ productId: event.product.key });
-      return this.accepted();
-    } catch {
-      return this.rejected();
-    }
-  }
-
-  protected override async processPurchase(
-    event: AnalyticsMutationPurchaseEvent,
-  ): Promise<AnalyticsResult> {
-    try {
-      for (const item of event.order.items) {
-        await this.fireEvent({ productId: item.variant.sku });
-      }
-      return this.accepted();
-    } catch {
-      return this.rejected();
+      default:
+        return 'ignored';
     }
   }
 
