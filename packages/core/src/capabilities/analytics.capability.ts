@@ -118,8 +118,9 @@ export class AnalyticsCapability extends BaseCapability {
    * do, with no immediate dispatch and no waiting on providers. The returned `AnalyticsResult` keeps its shape so callers
    * keep compiling, but its outcomes no longer reflect what providers did: it holds one `accepted` outcome for the analytics
    * capability when the event was enqueued, or `rejected` when it could not be (invalid input, or for `product-cart-add`
-   * when the active cart or the product could not be looked up). A legacy `personalizationProfile` is passed on as
-   * `properties.personalizationProfile`.
+   * when the active cart or the product could not be looked up). A `personalizationProfile` on the legacy
+   * event identifies the visitor for that event only. Prefer setting `session.marketingContext` to the resolved profile
+   * and emitting through the helpers, which take no profile.
    */
   @Reactionary({ inputSchema: AnalyticsMutationSchema, outputSchema: AnalyticsResultSchema })
   public async track(event: AnalyticsMutation): Promise<AnalyticsResult> {

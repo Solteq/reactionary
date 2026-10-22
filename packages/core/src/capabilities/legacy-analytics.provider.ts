@@ -14,7 +14,6 @@ import type {
   Origin,
   OriginSearch,
 } from '../schemas/index.js';
-import { PersonalizationProfileSchema } from '../schemas/index.js';
 import { AnalyticsProvider } from './analytics.provider.js';
 
 /**
@@ -113,13 +112,7 @@ export abstract class LegacyAnalyticsProvider extends AnalyticsProvider {
  */
 export function toLegacyMutation(event: AnalyticsEvent): AnalyticsMutation | undefined {
   const marketing = event.context.marketingIdentifier;
-  // A profile passed on a legacy track call travels in properties; otherwise use the session's marketing identifier.
-  const passedProfile = PersonalizationProfileSchema.safeParse(event.properties?.['personalizationProfile']);
-  const personalizationProfile = passedProfile.success
-    ? passedProfile.data
-    : marketing.key
-      ? { identifier: marketing, segments: [], blurb: '' }
-      : undefined;
+  const personalizationProfile = marketing.key ? { identifier: marketing, segments: [], blurb: '' } : undefined;
   const search = searchOriginOf(event.origin);
   const source = search ? ({ type: 'search', identifier: search.identifier } as const) : undefined;
 

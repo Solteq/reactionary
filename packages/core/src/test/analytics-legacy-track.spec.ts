@@ -6,7 +6,6 @@ import {
   AnalyticsDispatcher,
   CartSchema,
   CostBreakDownSchema,
-  LegacyAnalyticsProvider,
   OrderSchema,
   RecordingAnalyticsSubscriber,
   createAnalyticsContext,
@@ -15,10 +14,8 @@ import {
   success,
 } from '../index.js';
 import type {
-  AnalyticsMutationProductDetailsViewEvent,
   AnalyticsResult,
   AnalyticsSubscriber,
-  PersonalizationProfile,
   Product,
   SearchIdentifier,
 } from '../index.js';
@@ -147,27 +144,34 @@ describe('legacy client.analytics.track', () => {
     expect(recorder.events).toHaveLength(0);
   });
 
-  it('passes a legacy personalization profile on to providers that still read it', async () => {
-    class ProfileCapturingProvider extends LegacyAnalyticsProvider {
-      public profile: PersonalizationProfile | undefined;
-      protected override async processProductDetailsView(event: AnalyticsMutationProductDetailsViewEvent): Promise<AnalyticsResult> {
-        this.profile = event.personalizationProfile;
-        return this.accepted();
-      }
-    }
+  it('uses a personalization profile on the legacy event as the visitor identity for that event only', async () => {
     const requestContext = createInitialRequestContext();
     requestContext.session.marketingContext.identifier.key = 'session-visitor';
-    const provider = new ProfileCapturingProvider(new NoOpCache(), requestContext);
-    const client = new ClientBuilder(requestContext).withCapability(() => ({ analytics: provider })).build();
+    const recorder = new RecordingAnalyticsSubscriber();
+    const client = new ClientBuilder(requestContext).withAnalyticsSubscriber(recorder).build();
 
     await client.analytics.track({
       event: 'product-details-view',
       product: { key: 'p1' },
       personalizationProfile: { identifier: { key: 'legacy-visitor' }, segments: ['vip'], blurb: '' },
     });
+    await client.analytics.track({ event: 'product-details-view', product: { key: 'p2' } });
     await client.analytics.flush();
 
-    expect(provider.profile).toMatchObject({ identifier: { key: 'legacy-visitor' }, segments: ['vip'] });
+    expect(recorder.events.map((e) => e.context.marketingIdentifier.key)).toEqual(['legacy-visitor', 'session-visitor']);
+    expect(recorder.events[0].properties).toBeUndefined();
+    expect(requestContext.session.marketingContext.identifier.key).toBe('session-visitor');
+  });
+
+  it('applies the legacy profile to every converted event type', async () => {
+    const { recorder, client } = setup();
+    const personalizationProfile = { identifier: { key: 'legacy-visitor' }, segments: [], blurb: '' };
+
+    await client.analytics.track({ event: 'product-summary-view', products: [{ key: 'p1' }], personalizationProfile });
+    await client.analytics.track({ event: 'product-summary-click', product: { key: 'p1' }, position: 0, personalizationProfile });
+    await client.analytics.flush();
+
+    expect(recorder.events.map((e) => e.context.marketingIdentifier.key)).toEqual(['legacy-visitor', 'legacy-visitor']);
   });
 });
 
