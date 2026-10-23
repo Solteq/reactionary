@@ -19,6 +19,7 @@ export const IdentityMutationRegisterSchema = BaseMutationSchema.extend({
 export const IdentityMutationStartExternalLoginSchema = BaseMutationSchema.extend({
     provider: IdentityProviderIdentifierSchema,
     callbackUrl: z.url().meta({ description: 'The storefront URL the identity provider returns the shopper to. Must be registered with the identity provider.' }),
+    prompt: z.enum(['login', 'consent', 'select_account']).optional().meta({ description: 'The OpenID Connect prompt parameter. login makes the identity provider ask the shopper to authenticate again even if they still have a session there, which keeps a shared device from signing straight back in. Ignored by backends that do not use OpenID Connect.' }),
 });
 
 export const IdentityMutationCompleteExternalLoginSchema = BaseMutationSchema.extend({

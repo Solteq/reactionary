@@ -79,6 +79,21 @@ describe('Medusa external login', () => {
     expect(reqCtx.session.identityContext.pendingExternalLogin?.state).toBe('abc123');
   });
 
+  it('passes the prompt on to Medusa when the storefront asks for one', async () => {
+    const stub = createStub({ callbackToken: '' });
+    const result = await capability(stub).startExternalLogin({ provider, callbackUrl, prompt: 'login' });
+    assert(result.success);
+    expect(stub.auth.login).toHaveBeenCalledWith('customer', 'oidc-auth0', { callback_url: callbackUrl, prompt: 'login' });
+  });
+
+  it('rejects a prompt value that is not an OpenID Connect prompt', async () => {
+    const stub = createStub({ callbackToken: '' });
+    const result = await capability(stub).startExternalLogin({ provider, callbackUrl, prompt: 'bogus' as 'login' });
+    assert(!result.success);
+    expect(result.error.type).toBe('InvalidInput');
+    expect(stub.auth.login).not.toHaveBeenCalled();
+  });
+
   it('logs in an existing customer without creating one', async () => {
     const stub = createStub({ callbackToken: jwt({ actor_id: 'cus_1' }) });
     const identity = capability(stub);
