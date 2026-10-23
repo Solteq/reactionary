@@ -31,6 +31,9 @@ let config: MedusaConfiguration;
 /** Every request the stub served, in order, with any parsed JSON body. */
 let requests: Array<{ method: string; url: string; body?: Record<string, unknown> }> = [];
 
+/** When set, updating a cart is refused with this status and message, as Medusa does for a completed cart. */
+let updateFailure: { status: number; message: string } | undefined;
+
 /** The order payload the next completion responds with. */
 let completionOrder: Record<string, unknown> = { id: 'order_1', display_id: 7 };
 
@@ -80,6 +83,11 @@ beforeAll(async () => {
       }
 
       const cartMatch = req.url?.match(/^\/store\/carts\/([^/?]+)/);
+      if (cartMatch && req.method === 'POST' && updateFailure) {
+        res.statusCode = updateFailure.status;
+        res.end(JSON.stringify({ type: 'invalid_data', message: updateFailure.message }));
+        return;
+      }
       if (cartMatch) {
         res.end(JSON.stringify({ cart: finalizableCart(cartMatch[1]) }));
         return;
@@ -122,6 +130,7 @@ describe('Medusa checkout resulting order', () => {
   beforeEach(() => {
     requests = [];
     completionOrder = { id: 'order_1', display_id: 7 };
+    updateFailure = undefined;
     context = createInitialRequestContext();
     capability = buildCapability(context);
   });
@@ -158,6 +167,29 @@ describe('Medusa checkout resulting order', () => {
     expect(updateIndex).toBeGreaterThanOrEqual(0);
     expect(completeIndex).toBeGreaterThan(updateIndex);
     expect(requests[updateIndex].body).toEqual({ metadata: { cart_id: 'cart_fin_3' } });
+  });
+
+  it('still completes the cart when it was completed in the meantime', async () => {
+    // Medusa refuses to update a completed cart, but completing it again
+    // answers with the existing order
+    updateFailure = { status: 400, message: 'Cart cart_fin_5 is already completed.' };
+
+    const result = await capability.finalizeCheckout({ checkout: { key: 'cart_fin_5' } });
+
+    assert(result.success, `finalize failed: ${JSON.stringify(result)}`);
+    expect(result.value.resultingOrder).toEqual({ key: 'order_1', display_id: 7 });
+    expect(
+      requests.some((request) => request.url.includes('/store/carts/cart_fin_5/complete')),
+    ).toBe(true);
+  });
+
+  it('does not complete the cart when stamping its metadata fails for another reason', async () => {
+    updateFailure = { status: 400, message: 'Something else is wrong with the cart.' };
+
+    const result = await capability.finalizeCheckout({ checkout: { key: 'cart_fin_6' } });
+
+    expect(result.success).toBe(false);
+    expect(requests.some((request) => request.url.includes('/complete'))).toBe(false);
   });
 
   it('remembers the finalized order in the session and hydrates later reads', async () => {
