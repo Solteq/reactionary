@@ -14,7 +14,7 @@ import {
 import type { Price, Product, ProductQueryBySKU, RequestContext, Result, SearchIdentifier } from '@reactionary/core';
 import { hash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GoogleAnalyticsAnalyticsCapability } from '../capabilities/analytics.capability.js';
+import { GoogleAnalyticsAnalyticsCapability, sessionIdAt } from '../capabilities/analytics.capability.js';
 import type { GoogleAnalyticsConfiguration } from '../schema/configuration.schema.js';
 
 const fetchMock = vi.fn<typeof fetch>();
@@ -76,7 +76,14 @@ describe('Google Analytics analytics provider', () => {
   /** The Measurement Protocol payloads sent so far. */
   const sent = () =>
     fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)) as { client_id: string; user_id?: string; timestamp_micros: number; events: { name: string; params: Record<string, unknown> }[] });
-  const sentEvents = () => sent().flatMap((payload) => payload.events);
+  /** The events sent, without the session and engagement fields every event carries (see its own test). */
+  const sentEvents = () =>
+    sent().flatMap((payload) =>
+      payload.events.map(({ name, params }) => ({
+        name,
+        params: Object.fromEntries(Object.entries(params).filter(([key]) => key !== 'session_id' && key !== 'engagement_time_msec')),
+      }))
+    );
 
   const cart = () =>
     CartSchema.parse({
@@ -115,6 +122,34 @@ describe('Google Analytics analytics provider', () => {
     );
     expect(sent()[0]).toMatchObject({ client_id: 'visitor-1', timestamp_micros: expect.any(Number) });
     expect(sentEvents()).toEqual([{ name: 'page_view', params: { page_location: 'https://shop.example/', page_title: 'Home' } }]);
+  });
+
+  it('sends a session id and an engagement time on every event', async () => {
+    const client = buildClient();
+
+    await client.analytics.pageViewed({ page: { type: 'home' } });
+    await client.analytics.pageViewed({ page: { type: 'home' } });
+    await client.analytics.flush();
+
+    const [first, second] = sent().flatMap((payload) => payload.events);
+    expect(first.params['engagement_time_msec']).toBe(100);
+    expect(first.params['session_id']).toMatch(/^\d+$/);
+    expect(second.params['session_id']).toBe(first.params['session_id']);
+  });
+
+  it('uses the session id of the request as the GA session', async () => {
+    context.session.id = 'session-abc';
+    const client = buildClient();
+
+    await client.analytics.pageViewed({ page: { type: 'home' } });
+    await client.analytics.flush();
+
+    expect(sent()[0].events[0].params['session_id']).toBe('session-abc');
+  });
+
+  it('puts events in the same session within a 30 minute window and in another one after it', () => {
+    expect(sessionIdAt('2026-10-23T10:00:00.000Z')).toBe(sessionIdAt('2026-10-23T10:29:59.000Z'));
+    expect(sessionIdAt('2026-10-23T10:00:00.000Z')).not.toBe(sessionIdAt('2026-10-23T10:30:00.000Z'));
   });
 
   it('uses a hashed user id for registered visitors and none for anonymous ones', async () => {

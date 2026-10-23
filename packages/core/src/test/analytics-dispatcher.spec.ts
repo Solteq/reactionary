@@ -120,6 +120,25 @@ describe('AnalyticsDispatcher', () => {
       expect(empty.events[0].context.isBot).toBe(false);
     });
 
+    it('captures the session id at emit time, and leaves it out when the session has none', async () => {
+      const recorder = new RecordingAnalyticsSubscriber();
+      const requestContext = createInitialRequestContext();
+      requestContext.session.id = 'session-1';
+      const { dispatcher } = setup([recorder], undefined, requestContext);
+
+      dispatcher.emit('product-viewed', viewed('p1'));
+      requestContext.session.id = 'session-2';
+      await dispatcher.flush();
+
+      expect(recorder.events[0].context.sessionId).toBe('session-1');
+
+      const empty = new RecordingAnalyticsSubscriber();
+      const second = setup([empty]);
+      second.dispatcher.emit('product-viewed', viewed('p1'));
+      await second.dispatcher.flush();
+      expect(empty.events[0].context.sessionId).toBeUndefined();
+    });
+
     it('lets an internal caller override the visitor identifier for one event only', async () => {
       const recorder = new RecordingAnalyticsSubscriber();
       const { dispatcher, requestContext } = setup([recorder]);

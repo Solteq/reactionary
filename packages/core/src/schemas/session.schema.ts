@@ -20,6 +20,7 @@ export const IdentityContextSchema = z.looseObject({
 });
 
 export const SessionSchema = z.looseObject({
+    id: z.string().optional().meta({ description: 'The id of the visitor\'s current session, set by the storefront. A long-lived visitor id belongs in marketingContext.identifier, not here.' }),
     identityContext: IdentityContextSchema,
     marketingContext: PersonalizationProfileSchema.default(() => PersonalizationProfileSchema.parse({})),
     consent: AnalyticsConsentSchema.optional().meta({ description: 'The visitor\'s consent for analytics and marketing processing, if known. When absent, the analytics dispatcher applies its configured default.' }),
