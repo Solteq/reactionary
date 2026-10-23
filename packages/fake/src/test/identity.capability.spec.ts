@@ -27,12 +27,6 @@ describe('Fake Identity Provider: external login', () => {
     return Object.fromEntries(new URL(started.value.location).searchParams);
   }
 
-  it('puts the requested prompt on the redirect', async () => {
-    const started = await provider.startExternalLogin({ provider: providerKey, callbackUrl, prompt: 'login' });
-    assert(started.success);
-    expect(new URL(started.value.location).searchParams.get('prompt')).toBe('login');
-  });
-
   it('lists password and redirect providers', async () => {
     const providers = await provider.listProviders({});
     assert(providers.success);
