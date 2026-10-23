@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
 import { traceSpan } from '../decorators/reactionary.decorator.js';
 import {
     AnalyticsEventMutationSchemas,
@@ -58,11 +57,47 @@ export interface AnalyticsEmitOptions {
 
 const DEFAULT_CONSENT: AnalyticsConsent = { analytics: true, marketing: true };
 
+interface HandlerScope {
+    /** Runs a handler call, marking everything it starts. */
+    run<T>(fn: () => Promise<T>): Promise<T>;
+    /** True when called from inside a handler call. */
+    active(): boolean;
+}
+
 /**
  * Marks async work started by a subscriber handler, so emits made from inside a handler are recognised and dropped
  * without affecting emits made concurrently by storefront code.
+ *
+ * AsyncLocalStorage does that precisely. It is looked up with `process.getBuiltinModule` instead of being imported, because
+ * a static `node:` import makes bundlers building for the browser (Storybook, client components) fail on any module that
+ * loads this package. Where it is not available the scope is a counter: emits are dropped while any handler is running,
+ * which is coarser but still stops a handler from feeding the dispatcher it is called by.
  */
-const insideHandler = new AsyncLocalStorage<true>();
+function createHandlerScope(): HandlerScope {
+    const asyncHooks = typeof process !== 'undefined' ? process.getBuiltinModule?.('node:async_hooks') : undefined;
+    if (asyncHooks) {
+        const storage = new asyncHooks.AsyncLocalStorage<true>();
+        return {
+            run: (fn) => storage.run(true, fn),
+            active: () => storage.getStore() === true,
+        };
+    }
+
+    let running = 0;
+    return {
+        async run(fn) {
+            running++;
+            try {
+                return await fn();
+            } finally {
+                running--;
+            }
+        },
+        active: () => running > 0,
+    };
+}
+
+const insideHandler = createHandlerScope();
 
 export function eventTypeMatches(pattern: string, type: string): boolean {
     if (pattern === '*') {
@@ -122,7 +157,7 @@ export class AnalyticsDispatcher {
      * Never throws: invalid input and emits made from inside a subscriber are logged and dropped.
      */
     emit<K extends AnalyticsEventType>(type: K, input: AnalyticsEventInput<K>, options: AnalyticsEmitOptions = {}): Result<AnalyticsEventResult> {
-        if (insideHandler.getStore()) {
+        if (insideHandler.active()) {
             console.warn(`Analytics event '${type}' was emitted from inside a subscriber and has been dropped`);
             return error<InvalidInputError>({ type: 'InvalidInput', error: 'Events cannot be emitted from inside an analytics subscriber' });
         }
@@ -246,7 +281,7 @@ export class AnalyticsDispatcher {
     private async runSubscriber(subscriber: AnalyticsSubscriber, events: AnalyticsEvent[], ctx: AnalyticsContext): Promise<void> {
         for (const event of events) {
             try {
-                const outcome = await insideHandler.run(true, () =>
+                const outcome = await insideHandler.run(() =>
                     traceSpan(`AnalyticsSubscriber.${subscriber.name}.handle`, () => subscriber.handle(event, ctx)),
                 );
                 if (outcome === 'rejected') {
