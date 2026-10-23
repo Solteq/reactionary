@@ -79,9 +79,11 @@ import {
   type AnalyticsMutationStoreSelected,
   type AnalyticsMutationProductShared,
   type AnalyticsMutationCustom,
+  type GenericError,
   type RequestContext,
   type Result,
 } from '../schemas/index.js';
+import { error } from '../schemas/result.js';
 import { BaseCapability } from './base.capability.js';
 
 /**
@@ -220,6 +222,9 @@ export class AnalyticsCapability extends BaseCapability {
 
   @Reactionary({ inputSchema: AnalyticsMutationOrderPlacedSchema, outputSchema: AnalyticsEventResultSchema })
   public async orderPlaced(payload: AnalyticsMutationOrderPlaced): Promise<Result<AnalyticsEventResult>> {
+    if (!payload.checkout && !payload.order) {
+      return error<GenericError>({ type: 'Generic', message: 'orderPlaced needs a checkout (or the deprecated order)' });
+    }
     return this.dispatcher.emit('order-placed', payload);
   }
 

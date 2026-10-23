@@ -1,6 +1,7 @@
 import {
   AnalyticsProvider,
   productKey,
+  summarizePlacedOrder,
   searchOriginOf,
   type AnalyticsContext,
   type AnalyticsEvent,
@@ -128,18 +129,21 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
       }
 
       case 'order-placed': {
-        const order = event.payload.order;
+        const placed = summarizePlacedOrder(event.payload);
+        if (!placed) {
+          return [];
+        }
         return [
           {
             eventType: 'purchaseComplete',
             scope,
-            target: { itemId: order.identifier.key, itemType: 'order' },
+            target: { itemId: placed.transactionId, itemType: 'order' },
             properties: {
-              orderId: order.identifier.key,
-              totalAmount: order.price.grandTotal.value,
-              currency: order.price.grandTotal.currency,
-              itemCount: order.items.length,
-              items: order.items.map((item) => ({
+              orderId: placed.transactionId,
+              totalAmount: placed.price.grandTotal.value,
+              currency: placed.price.grandTotal.currency,
+              itemCount: placed.items.length,
+              items: placed.items.map((item) => ({
                 sku: item.variant.sku,
                 quantity: item.quantity,
                 price: item.price.unitPrice.value,

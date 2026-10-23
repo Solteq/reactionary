@@ -30,11 +30,13 @@ A helper returns `Result<{ eventId }>` as soon as the event is validated and que
 |---|---|
 | Browse | `pageViewed`, `searchResultsViewed`, `autocompleteSuggestionSelected`, `categoryViewed`, `productCarouselViewed`, `productClicked`, `productViewed`, `promotionViewed`, `promotionClicked` |
 | Cart | `cartItemAdded`, `cartItemRemoved`, `cartItemQuantityChanged`, `cartViewed`, `couponApplied`, `couponRejected` |
-| Checkout | `checkoutStarted`, `shippingInfoAdded`, `paymentInfoAdded`, `orderPlaced` |
+| Checkout | `checkoutStarted`, `shippingInfoAdded`, `paymentInfoAdded`, `orderPlaced({ checkout })` |
 | Account | `userLoggedIn`, `userLoggedOut`, `userRegistered`, `profileUpdated`, `consentChanged`, `newsletterSubscribed` |
 | Engagement | `wishlistItemAdded`, `wishlistItemRemoved`, `backInStockRequested`, `reviewSubmitted`, `storeSelected`, `productShared` |
 | B2B | `quoteRequested`, `orderReordered`, `companyRegistered` |
 | Escape hatch | `custom({ name, payload })`. Providers ignore names they do not recognise. |
+
+`orderPlaced` takes the finalized checkout, as that is what the customer placed and it exists before the OMS has created the order. Passing `order` still works but is deprecated. Subscribers read it through `summarizePlacedOrder(event.payload)`, which returns the transaction id (the order key when known, else the checkout key), the lines and the price from whichever was given.
 
 Product, category and store arguments accept either the model or its identifier. The storefront does not need to load anything just to describe an event: a `cartItemRemoved` takes the line it rendered (or its sku), and providers look up what they need (names, prices, brands) through a cache-backed, read-only context.
 
@@ -110,7 +112,8 @@ class AuditLogProvider extends AnalyticsProvider {
   async handle(event: AnalyticsEvent, ctx: AnalyticsContext) {
     if (event.type !== 'order-placed') return 'ignored';
     const customer = await ctx.self.profile();   // Result, so degrade instead of failing
-    await writeAudit(event.id, event.payload.order.identifier.key, customer.success ? customer.value.email : undefined);
+    const placed = summarizePlacedOrder(event.payload);   // from the checkout, or the deprecated order
+    await writeAudit(event.id, placed?.transactionId, customer.success ? customer.value.email : undefined);
     return 'accepted';
   }
 }
@@ -147,7 +150,7 @@ expect(recorder.eventsOfType('product-viewed')).toHaveLength(1);
 | `product-summary-click` | `productClicked` with `fromSearch(identifier, position)` or `fromDirect()` |
 | `product-details-view` | `productViewed` |
 | `product-cart-add` | `cartItemAdded`. The legacy event has no cart, so the active cart and the product's main variant are looked up |
-| `purchase` | `orderPlaced` |
+| `purchase` | `orderPlaced`, with the legacy event's `order` (deprecated in favour of `checkout`) |
 
 Compatibility is at the API level only. `track` still returns an `AnalyticsResult`, but it holds one `accepted` outcome for the analytics capability (or `rejected` when the event could not be queued); the outcomes no longer reflect what each provider did, because nothing waits for providers. A `personalizationProfile` on the legacy event identifies the visitor for that event only, as before. Prefer setting `session.marketingContext` and using the helpers.
 
