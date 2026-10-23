@@ -23,6 +23,28 @@ interface GaEvent {
 }
 
 /**
+ * Measurement Protocol hits only count as user activity in Realtime and in session and engagement reports when they
+ * carry a session id and an engagement time. Sent on every event.
+ */
+const ENGAGEMENT_TIME_MSEC = 100;
+
+/** Hits further apart than this start a new session, as GA4 does with its default session timeout. */
+const SESSION_WINDOW_SECONDS = 30 * 60;
+
+/**
+ * The session id for events of storefronts that set no `session.id`: the start of the 30 minute window the event
+ * happened in. The same visitor gets the same id for events in the same window, without anything having to be stored
+ * between requests. A visit that straddles a window boundary is split into two sessions.
+ *
+ * GA4 ends a session after 30 minutes of inactivity, so its reports are only accurate when the storefront's own
+ * session behaves similarly.
+ */
+export function sessionIdAt(occurredAt: string): string {
+  const seconds = Math.floor(Date.parse(occurredAt) / 1000);
+  return String(seconds - (seconds % SESSION_WINDOW_SECONDS));
+}
+
+/**
  * Sends ecommerce events to GA4 through the Measurement Protocol.
  *
  * Item ids: variant-level events (cart, checkout, purchase) use the sku as `item_id`, with the product key as
@@ -296,7 +318,10 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
         // An opaque, hashed id: GA4 must not receive anything that identifies the person.
         user_id: identity.type === 'Registered' ? hash('sha256', identity.id.userId) : undefined,
         timestamp_micros: Date.parse(source.occurredAt) * 1000,
-        events,
+        events: events.map((event) => ({
+          ...event,
+          params: { ...event.params, session_id: source.context.sessionId ?? sessionIdAt(source.occurredAt), engagement_time_msec: ENGAGEMENT_TIME_MSEC },
+        })),
       }),
     });
 

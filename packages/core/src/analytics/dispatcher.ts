@@ -228,6 +228,7 @@ export class AnalyticsDispatcher {
             userAgent: userAgent || undefined,
             clientIp: clientIp || undefined,
             isBot,
+            sessionId: session.id || undefined,
         };
     }
 

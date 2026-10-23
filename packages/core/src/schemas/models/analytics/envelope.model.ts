@@ -25,6 +25,7 @@ export const EventContextSnapshotSchema = z.looseObject({
     userAgent: z.string().optional().meta({ description: 'The user agent of the visitor\'s request, if known. Delivery happens after the request, so subscribers cannot read it from the request context later.' }),
     clientIp: z.string().optional().meta({ description: 'The IP address of the visitor\'s request, if known. Personal data: capturing it does not forward it, each subscriber decides what to send to its vendor.' }),
     isBot: z.boolean().optional().meta({ description: 'True if the request was identified as a bot or crawler.' }),
+    sessionId: z.string().optional().meta({ description: 'The id of the visitor\'s session at emit time (`session.id`), if the storefront sets one.' }),
 });
 
 /**
