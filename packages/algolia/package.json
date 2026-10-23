@@ -14,7 +14,7 @@
     "algoliasearch": "^5.48.0"
   },
   "devDependencies": {
-    "vitest": "^4.0.9"
+    "vitest": "^4.1.12"
   },
   "sideEffects": false
 }

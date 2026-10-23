@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/node": "2.1.0",
-    "@modelcontextprotocol/server": "2.2.0",
+    "@modelcontextprotocol/server": "2.3.1",
     "@reactionary/algolia": "0.0.1",
     "@reactionary/commercetools": "0.0.1",
     "@reactionary/core": "0.0.1",
@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "@swc-node/register": "1.11.1",
-    "vitest": "^4.0.9"
+    "vitest": "^4.1.12"
   },
   "sideEffects": false
 }
