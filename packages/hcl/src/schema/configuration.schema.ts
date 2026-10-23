@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { ExternalIdentityProviderSchema } from '@reactionary/oidc';
 
 /**
  * HCL Commerce uses "profiles" to control what data is returned by the Query
@@ -34,6 +35,26 @@ const HclProfilesSchema = z
     productSearch: 'HCL_V2_findProductsBySearchTermWithPrice',
     categoryBrowse: 'HCL_V2_findProductsByCategoryWithPriceRange',
   }));
+
+/**
+ * An OpenID Connect identity provider shoppers can sign in with. Reactionary runs the OpenID Connect flow and then
+ * hands the verified token to HCL Commerce (POST /loginidentity/oauth_validate), which must have the provider
+ * registered and a token validation command that accepts it. HCL's stock validation calls a provider verify-token
+ * URL that OpenID Connect providers such as Azure AD do not have, so those need a custom OAuthTokenValidationCmd
+ * that validates the ID token against the provider's JWKS.
+ */
+export const HclExternalIdentityProviderSchema = ExternalIdentityProviderSchema.extend({
+  authorizationProvider: z.string().optional().meta({
+    description:
+      'The provider name registered in HCL Commerce (the SNSName used in STORECONF, for example AD). Defaults to key.',
+  }),
+  tokenType: z.enum(['id_token', 'access_token']).optional().meta({
+    description:
+      'Which token is sent to oauth_validate as accessToken. Defaults to id_token, which is what OpenID Connect validators check.',
+  }),
+});
+
+export type HclExternalIdentityProvider = z.infer<typeof HclExternalIdentityProviderSchema>;
 
 export const HclConfigurationSchema = z.looseObject({
   apiUrl: z.string().meta({
@@ -91,6 +112,10 @@ export const HclConfigurationSchema = z.looseObject({
    * Each algorithm calls the corresponding named espot via the WCS Transaction Service.
    * These espots must be configured in HCL Commerce to return catalog entry data.
    */
+  externalIdentityProviders: z.array(HclExternalIdentityProviderSchema).optional().meta({
+    description:
+      'OpenID Connect identity providers shoppers can sign in with. HCL Commerce cannot list its own providers, so they are configured here.',
+  }),
   espotNames: z
     .looseObject({
       frequentlyBoughtTogether: z
