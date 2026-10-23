@@ -21,6 +21,7 @@ export const IdentityContextSchema = z.looseObject({
         provider: z.string(),
         state: z.string(),
         createdAt: z.coerce.date(),
+        data: z.record(z.string(), z.string()).optional().meta({ description: 'Provider specific values that must survive the redirect, such as a PKCE code verifier and nonce.' }),
     }).optional().meta({ description: 'An external login that has been started but not completed. Binds the callback to the browser that started it.' }),
 });
 

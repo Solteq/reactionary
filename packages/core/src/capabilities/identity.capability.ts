@@ -30,18 +30,34 @@ export abstract class IdentityCapability<TIdentity extends Identity = Identity> 
     this.context.session.identityContext.identity = identity as Identity;
   }
 
-  protected setPendingExternalLogin(provider: string, state: string) {
-    this.context.session.identityContext.pendingExternalLogin = { provider, state, createdAt: new Date() };
+  protected setPendingExternalLogin(provider: string, state: string, data?: Record<string, string>) {
+    this.context.session.identityContext.pendingExternalLogin = {
+      provider,
+      state,
+      createdAt: new Date(),
+      ...(data ? { data } : {}),
+    };
+  }
+
+  /**
+   * Returns the pending login, and clears it, when provider and state match a login started in this session within
+   * the last 10 minutes. Returns undefined otherwise. A pending login can only be taken once.
+   */
+  protected takePendingExternalLogin(provider: string, state: string | undefined): { data: Record<string, string> } | undefined {
+    const pending = this.context.session.identityContext.pendingExternalLogin;
+    delete this.context.session.identityContext.pendingExternalLogin;
+    if (!pending || !state) {
+      return undefined;
+    }
+    const fresh = Date.now() - new Date(pending.createdAt).getTime() <= PENDING_EXTERNAL_LOGIN_TTL_MS;
+    if (!fresh || pending.provider !== provider || pending.state !== state) {
+      return undefined;
+    }
+    return { data: pending.data ?? {} };
   }
 
   /** Returns true, and clears the pending login, when provider and state match a login started in this session within the last 10 minutes. */
   protected consumePendingExternalLogin(provider: string, state: string | undefined): boolean {
-    const pending = this.context.session.identityContext.pendingExternalLogin;
-    delete this.context.session.identityContext.pendingExternalLogin;
-    if (!pending || !state) {
-      return false;
-    }
-    const fresh = Date.now() - new Date(pending.createdAt).getTime() <= PENDING_EXTERNAL_LOGIN_TTL_MS;
-    return fresh && pending.provider === provider && pending.state === state;
+    return this.takePendingExternalLogin(provider, state) !== undefined;
   }
 }
