@@ -149,9 +149,6 @@ export class FakeIdentityCapability<
     const location = new URL(payload.callbackUrl);
     location.searchParams.set('code', 'fake-code');
     location.searchParams.set('state', state);
-    if (payload.prompt) {
-      location.searchParams.set('prompt', payload.prompt);
-    }
     return success({ location: location.toString() });
   }
 

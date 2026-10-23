@@ -213,8 +213,7 @@ export class MedusaIdentityCapability extends IdentityCapability {
   ): Promise<Result<ExternalLoginRedirect>> {
     const { location, state } = await this.medusaApi.startExternalLogin(
       payload.provider.key,
-      payload.callbackUrl,
-      payload.prompt
+      payload.callbackUrl
     );
     this.setPendingExternalLogin(payload.provider.key, state);
     return success({ location });
