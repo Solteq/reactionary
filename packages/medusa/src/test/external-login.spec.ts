@@ -71,6 +71,40 @@ describe('Medusa external login', () => {
     ]);
   });
 
+  it('gives each provider a brand for the storefront icon', async () => {
+    const stub = createStub({ callbackToken: '' });
+    stub.auth.listProviders.mockResolvedValue({
+      providers: [
+        { id: 'emailpass', identifier: 'emailpass', display_name: 'Email', flow: 'credentials' },
+        { id: 'oidc-auth0-google-oauth2', identifier: 'oidc', display_name: 'Google', flow: 'redirect' },
+        { id: 'oidc-auth0-windowslive', identifier: 'oidc', display_name: 'Microsoft', flow: 'redirect' },
+        { id: 'oidc-auth0-username-password-authentication', identifier: 'oidc', display_name: 'Email', flow: 'redirect' },
+        { id: 'oidc-corp', identifier: 'oidc', display_name: 'Corporate', flow: 'redirect' },
+      ],
+    });
+    const config = { ...getMedusaTestConfiguration(), identityProviderBrands: { 'oidc-corp': 'microsoft' } };
+    const identity = new MedusaIdentityCapability(config, new NoOpCache(), reqCtx, new StubbedMedusaAPI(reqCtx, stub));
+    const result = await identity.listProviders({});
+    assert(result.success);
+    expect(result.value.map((p) => [p.identifier.key, p.brand])).toEqual([
+      ['emailpass', 'email'],
+      ['oidc-auth0-google-oauth2', 'google'],
+      ['oidc-auth0-windowslive', 'microsoft'],
+      ['oidc-auth0-username-password-authentication', 'email'],
+      ['oidc-corp', 'microsoft'],
+    ]);
+  });
+
+  it('leaves the brand off when nothing matches', async () => {
+    const stub = createStub({ callbackToken: '' });
+    stub.auth.listProviders.mockResolvedValue({
+      providers: [{ id: 'oidc-acme', identifier: 'oidc', display_name: 'Acme', flow: 'redirect' }],
+    });
+    const result = await capability(stub).listProviders({});
+    assert(result.success);
+    expect(result.value[0]).not.toHaveProperty('brand');
+  });
+
   it('starts a login and binds the Medusa state to the session', async () => {
     const stub = createStub({ callbackToken: '' });
     const result = await capability(stub).startExternalLogin({ provider, callbackUrl });
