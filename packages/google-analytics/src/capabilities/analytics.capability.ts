@@ -1,6 +1,7 @@
 import {
   AnalyticsProvider,
   productKey,
+  summarizePlacedOrder,
   searchOriginOf,
   type AnalyticsContext,
   type AnalyticsEvent,
@@ -196,17 +197,21 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
         return [this.cartEvent('add_payment_info', event.payload.cart, { payment_type: event.payload.paymentMethod.identifier.method })];
 
       case 'order-placed': {
-        const price = event.payload.order.price;
+        const placed = summarizePlacedOrder(event.payload);
+        if (!placed) {
+          return [];
+        }
+        const price = placed.price;
         return [
           {
             name: 'purchase',
             params: {
               currency: price.grandTotal.currency,
-              transaction_id: event.payload.order.identifier.key,
+              transaction_id: placed.transactionId,
               value: price.grandTotal.value,
               tax: price.totalTax.value,
               shipping: price.totalShipping.value,
-              items: event.payload.order.items.map((item) => ({
+              items: placed.items.map((item) => ({
                 item_id: item.variant.sku,
                 quantity: item.quantity,
                 price: item.price.unitPrice.value,
