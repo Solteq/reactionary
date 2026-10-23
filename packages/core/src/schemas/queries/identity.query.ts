@@ -6,4 +6,9 @@ export const IdentityQuerySelfSchema = BaseQuerySchema.extend({
 
 });
 
+export const IdentityQueryProvidersSchema = BaseQuerySchema.extend({
+
+});
+
+export type IdentityQueryProviders = InferType<typeof IdentityQueryProvidersSchema>;
 export type IdentityQuerySelf = InferType<typeof IdentityQuerySelfSchema>;

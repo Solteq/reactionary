@@ -6,6 +6,7 @@ export * from './category.model.js';
 export * from './currency.model.js';
 export * from './identifiers.model.js';
 export * from './identity.model.js';
+export * from './identity-provider.model.js';
 export * from './inventory.model.js';
 export * from './payment.model.js';
 export * from './price.model.js';

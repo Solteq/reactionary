@@ -16,7 +16,12 @@ export const LanguageContextSchema = z.looseObject( {
 
 export const IdentityContextSchema = z.looseObject({
     identity: IdentitySchema,
-    lastUpdated: z.coerce.date()
+    lastUpdated: z.coerce.date(),
+    pendingExternalLogin: z.looseObject({
+        provider: z.string(),
+        state: z.string(),
+        createdAt: z.coerce.date(),
+    }).optional().meta({ description: 'An external login that has been started but not completed. Binds the callback to the browser that started it.' }),
 });
 
 export const SessionSchema = z.looseObject({

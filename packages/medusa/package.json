@@ -9,10 +9,10 @@
     "url": "git+https://github.com/Solteq/reactionary.git"
   },
   "dependencies": {
-    "@medusajs/js-sdk": "^2.13.3",
+    "@medusajs/js-sdk": "^2.21.0",
     "@reactionary/core": "0.0.1",
     "debug": "^4.4.3",
-    "@medusajs/types": "^2.13.3",
+    "@medusajs/types": "^2.21.0",
     "zod": "4.1.9"
   },
   "devDependencies": {

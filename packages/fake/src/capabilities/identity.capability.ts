@@ -1,6 +1,19 @@
 import {
   type AnonymousIdentity,
   type Cache,
+  type ExternalLoginRedirect,
+  ExternalLoginRedirectSchema,
+  type IdentityConflictError,
+  type IdentityMutationCompleteExternalLogin,
+  IdentityMutationCompleteExternalLoginSchema,
+  type IdentityMutationStartExternalLogin,
+  IdentityMutationStartExternalLoginSchema,
+  type IdentityProvider,
+  IdentityProviderSchema,
+  type IdentityQueryProviders,
+  IdentityQueryProvidersSchema,
+  PASSWORD_IDENTITY_PROVIDER,
+  error,
   type Identity,
   type IdentityFactory,
   type IdentityFactoryOutput,
@@ -104,5 +117,61 @@ export class FakeIdentityCapability<
     _payload: IdentityMutationRegister,
   ): Promise<Result<IdentityFactoryOutput<TFactory>>> {
     throw new Error('Method not implemented.');
+  }
+
+  @Reactionary({
+    inputSchema: IdentityQueryProvidersSchema,
+    outputSchema: IdentityProviderSchema.array(),
+  })
+  public override async listProviders(
+    _payload: IdentityQueryProviders,
+  ): Promise<Result<IdentityProvider[]>> {
+    return success([
+      PASSWORD_IDENTITY_PROVIDER,
+      IdentityProviderSchema.parse({
+        identifier: { key: 'fake-oidc' },
+        displayName: 'Fake OIDC',
+        flow: 'redirect',
+      }),
+    ]);
+  }
+
+  @Reactionary({
+    inputSchema: IdentityMutationStartExternalLoginSchema,
+    outputSchema: ExternalLoginRedirectSchema,
+  })
+  public override async startExternalLogin(
+    payload: IdentityMutationStartExternalLogin,
+  ): Promise<Result<ExternalLoginRedirect>> {
+    const state = new Faker({ locale: [en, base] }).string.alphanumeric(32);
+    this.setPendingExternalLogin(payload.provider.key, state);
+
+    const location = new URL(payload.callbackUrl);
+    location.searchParams.set('code', 'fake-code');
+    location.searchParams.set('state', state);
+    return success({ location: location.toString() });
+  }
+
+  @Reactionary({
+    inputSchema: IdentityMutationCompleteExternalLoginSchema,
+    outputSchema: IdentitySchema,
+  })
+  public override async completeExternalLogin(
+    payload: IdentityMutationCompleteExternalLogin,
+  ): Promise<Result<IdentityFactoryOutput<TFactory>, IdentityConflictError>> {
+    if (!this.consumePendingExternalLogin(payload.provider.key, payload.callbackParameters['state'])) {
+      return error({ type: 'InvalidInput', error: 'The login was not started in this session, or has expired' });
+    }
+    if (payload.callbackParameters['code'] === 'conflict') {
+      return error({ type: 'IdentityConflict', message: 'An account with this email already exists' });
+    }
+
+    this.currentIdentity = {
+      type: 'Registered',
+      id: { userId: `external-${payload.provider.key}` },
+    } satisfies RegisteredIdentity;
+    const identity = this.factory.parseIdentity(this.context, this.currentIdentity);
+    this.updateIdentityContext(identity);
+    return success(identity);
   }
 }

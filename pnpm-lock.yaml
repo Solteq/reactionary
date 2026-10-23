@@ -18,8 +18,8 @@ importers:
         specifier: ^9.8.0
         version: 9.9.0
       '@medusajs/js-sdk':
-        specifier: ^2.18.0
-        version: 2.18.0
+        specifier: ^2.21.0
+        version: 2.22.1
       '@modelcontextprotocol/node':
         specifier: 2.1.0
         version: 2.1.0(@modelcontextprotocol/server@2.2.0)(hono@4.13.12)
@@ -70,8 +70,8 @@ importers:
         specifier: ^9.8.0
         version: 9.39.4
       '@medusajs/types':
-        specifier: ^2.18.0
-        version: 2.18.0(vite@8.1.4(@types/node@24.13.2)(esbuild@0.27.7)(jiti@1.21.7)(terser@5.48.0)(yaml@2.9.0))
+        specifier: ^2.21.0
+        version: 2.22.1(vite@8.1.4(@types/node@24.13.2)(esbuild@0.27.7)(jiti@1.21.7)(terser@5.48.0)(yaml@2.9.0))
       '@nx/devkit':
         specifier: 23.0.2
         version: 23.0.2(nx@23.0.2(@swc-node/register@1.11.1(@swc/core@1.15.8(@swc/helpers@0.5.23))(@swc/types@0.1.27)(typescript@5.9.3))(@swc/core@1.15.8(@swc/helpers@0.5.23)))
@@ -2163,16 +2163,16 @@ packages:
       '@types/react': '>=16'
       react: '>=16'
 
-  '@medusajs/js-sdk@2.18.0':
-    resolution: {integrity: sha512-ul9DXLP3GHyAvr9S5qizlfLi9nUlV8g8u1ulcaOxVzsNqifydlAYy+ReOGqmq/+taxQaI/gAOQq+tOfZuQPNeQ==}
-    engines: {node: '>=20'}
+  '@medusajs/js-sdk@2.22.1':
+    resolution: {integrity: sha512-e77ZaCyCXD4yFtSCWcwpgcoLDkL1EQO5H05l1NxugzF7b+1QsFJhiNaRmOit6v2rHP3Q4bl/E1oeGSlpQ/GZmg==}
+    engines: {node: '>=22.22.0'}
 
-  '@medusajs/types@2.18.0':
-    resolution: {integrity: sha512-jOIBAPjkToJnXpfh++0s8W3Z1qspOg+yiwNR8qsFPFWuIlTfhzCbFk+LBTp7cvHiafsrkwTp1DsW4W3zfCerEg==}
-    engines: {node: '>=20'}
+  '@medusajs/types@2.22.1':
+    resolution: {integrity: sha512-0++p5qXCTi9ihu/vZod+rClq8USkzwfzxVNYNtxe55Oib8leunsuqDVXe3L94fiLlTbQPCw959YSHq1pJq+mEg==}
+    engines: {node: '>=22.22.0'}
     peerDependencies:
       ioredis: ^5.4.1
-      vite: ^5.4.21
+      vite: '>=5'
     peerDependenciesMeta:
       ioredis:
         optional: true
@@ -12076,12 +12076,12 @@ snapshots:
       '@types/react': 19.2.18
       react: 19.2.7
 
-  '@medusajs/js-sdk@2.18.0':
+  '@medusajs/js-sdk@2.22.1':
     dependencies:
       fetch-event-stream: 0.1.6
       qs: 6.15.3
 
-  '@medusajs/types@2.18.0(vite@8.1.4(@types/node@24.13.2)(esbuild@0.27.7)(jiti@1.21.7)(terser@5.48.0)(yaml@2.9.0))':
+  '@medusajs/types@2.22.1(vite@8.1.4(@types/node@24.13.2)(esbuild@0.27.7)(jiti@1.21.7)(terser@5.48.0)(yaml@2.9.0))':
     dependencies:
       bignumber.js: 9.3.1
     optionalDependencies:

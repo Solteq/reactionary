@@ -6,6 +6,18 @@ import {
   type IdentityQuerySelf,
   type RequestContext,
   type Cache,
+  type ExternalLoginRedirect,
+  ExternalLoginRedirectSchema,
+  type IdentityConflictError,
+  type IdentityMutationCompleteExternalLogin,
+  IdentityMutationCompleteExternalLoginSchema,
+  type IdentityMutationStartExternalLogin,
+  IdentityMutationStartExternalLoginSchema,
+  type IdentityProvider,
+  IdentityProviderSchema,
+  type IdentityQueryProviders,
+  IdentityQueryProvidersSchema,
+  error,
   IdentityCapability,
   Reactionary,
   IdentityQuerySelfSchema,
@@ -171,5 +183,70 @@ export class MedusaIdentityCapability extends IdentityCapability {
     this.updateIdentityContext(identity);
 
     return success(identity);
+  }
+
+  @Reactionary({
+    inputSchema: IdentityQueryProvidersSchema,
+    outputSchema: IdentityProviderSchema.array(),
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+  })
+  public override async listProviders(
+    _payload: IdentityQueryProviders
+  ): Promise<Result<IdentityProvider[]>> {
+    const providers = await this.medusaApi.listAuthProviders();
+    return success(
+      providers.map((provider) => ({
+        identifier: { key: provider.id },
+        displayName: provider.displayName,
+        flow: provider.flow,
+      }))
+    );
+  }
+
+  @Reactionary({
+    inputSchema: IdentityMutationStartExternalLoginSchema,
+    outputSchema: ExternalLoginRedirectSchema,
+  })
+  public override async startExternalLogin(
+    payload: IdentityMutationStartExternalLogin
+  ): Promise<Result<ExternalLoginRedirect>> {
+    const { location, state } = await this.medusaApi.startExternalLogin(
+      payload.provider.key,
+      payload.callbackUrl
+    );
+    this.setPendingExternalLogin(payload.provider.key, state);
+    return success({ location });
+  }
+
+  @Reactionary({
+    inputSchema: IdentityMutationCompleteExternalLoginSchema,
+    outputSchema: IdentitySchema,
+  })
+  public override async completeExternalLogin(
+    payload: IdentityMutationCompleteExternalLogin
+  ): Promise<Result<Identity, IdentityConflictError>> {
+    if (
+      !this.consumePendingExternalLogin(
+        payload.provider.key,
+        payload.callbackParameters['state']
+      )
+    ) {
+      return error({
+        type: 'InvalidInput',
+        error: 'The login was not started in this session, or has expired',
+      });
+    }
+
+    const outcome = await this.medusaApi.completeExternalLogin(
+      payload.provider.key,
+      payload.callbackParameters
+    );
+    if (outcome.type === 'Conflict') {
+      return error({ type: 'IdentityConflict', message: outcome.message });
+    }
+
+    this.updateIdentityContext(outcome.identity);
+    return success(outcome.identity);
   }
 }

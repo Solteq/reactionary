@@ -20,6 +20,19 @@ import {
   type Result,
   Reactionary,
   success,
+  type ExternalLoginRedirect,
+  ExternalLoginRedirectSchema,
+  type IdentityConflictError,
+  type IdentityMutationCompleteExternalLogin,
+  IdentityMutationCompleteExternalLoginSchema,
+  type IdentityMutationStartExternalLogin,
+  IdentityMutationStartExternalLoginSchema,
+  type IdentityProvider,
+  IdentityProviderSchema,
+  type IdentityQueryProviders,
+  IdentityQueryProvidersSchema,
+  PASSWORD_IDENTITY_PROVIDER,
+  error,
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
@@ -281,5 +294,35 @@ export class HclIdentityCapability<
     logonPasswordVerify: string;
   } {
     return { logonId, logonPassword, logonPasswordVerify: logonPassword };
+  }
+
+  @Reactionary({
+    inputSchema: IdentityQueryProvidersSchema,
+    outputSchema: IdentityProviderSchema.array(),
+  })
+  public override async listProviders(
+    _payload: IdentityQueryProviders,
+  ): Promise<Result<IdentityProvider[]>> {
+    return success([PASSWORD_IDENTITY_PROVIDER]);
+  }
+
+  @Reactionary({
+    inputSchema: IdentityMutationStartExternalLoginSchema,
+    outputSchema: ExternalLoginRedirectSchema,
+  })
+  public override async startExternalLogin(
+    _payload: IdentityMutationStartExternalLogin,
+  ): Promise<Result<ExternalLoginRedirect>> {
+    return error({ type: 'InvalidInput', error: 'External login is not supported by HCL' });
+  }
+
+  @Reactionary({
+    inputSchema: IdentityMutationCompleteExternalLoginSchema,
+    outputSchema: IdentitySchema,
+  })
+  public override async completeExternalLogin(
+    _payload: IdentityMutationCompleteExternalLogin,
+  ): Promise<Result<IdentityFactoryOutput<TFactory>, IdentityConflictError>> {
+    return error({ type: 'InvalidInput', error: 'External login is not supported by HCL' });
   }
 }
