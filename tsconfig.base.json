@@ -18,6 +18,8 @@
       "@reactionary/examples-node": ["examples/node/src/index.ts"],
       "@reactionary/commercetools": ["packages/commercetools/src/index.ts"],
       "@reactionary/core": ["packages/core/src/index.ts"],
+      "@reactionary/oidc": ["packages/oidc/src/index.ts"],
+      "@reactionary/oidc/testing": ["packages/oidc/src/testing/index.ts"],
       "@reactionary/algolia": ["packages/algolia/src/index.ts"],
       "@reactionary/fake": ["packages/fake/src/index.ts"],
       "@reactionary/google-analytics": [
