@@ -293,10 +293,16 @@ export class MedusaAPI {
    * Starts a redirect login. Returns the identity provider location and the state Medusa
    * generated, which the caller binds to the session.
    */
-  public async startExternalLogin(providerKey: string, callbackUrl: string) {
+  public async startExternalLogin(
+    providerKey: string,
+    callbackUrl: string,
+    prompt?: 'login' | 'consent' | 'select_account'
+  ) {
     const client = await this.getClient();
     const result = await client.auth.login('customer', providerKey, {
       callback_url: callbackUrl,
+      // Only providers that support it act on this; the stock auth-oidc provider ignores unknown fields.
+      ...(prompt ? { prompt } : {}),
     });
     if (typeof result === 'string' || !('location' in result)) {
       throw new Error(`Auth provider ${providerKey} does not use a redirect flow`);
