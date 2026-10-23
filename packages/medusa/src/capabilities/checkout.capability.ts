@@ -581,11 +581,12 @@ export class MedusaCheckoutCapability<
           },
         });
       } catch (error) {
-        // Something else may have completed the cart since it was read: an
-        // earlier or concurrent finalization (a page polling for the payment
-        // does this), or Medusa's own handling of the payment. Medusa refuses
+        // The cart is often completed already: some payment providers (Paytrail
+        // for one) create the order themselves in the payment callback, and the
+        // store cart endpoint does not say which order that was. Medusa refuses
         // to update a completed cart, but completing it again is idempotent and
-        // answers with the existing order, so carry on to that.
+        // answers with the existing order, so carry on to that to learn it. An
+        // earlier or concurrent finalization leaves the cart the same way.
         if (!isCartAlreadyCompleted(error)) {
           throw error;
         }
