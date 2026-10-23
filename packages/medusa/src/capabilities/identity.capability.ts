@@ -32,6 +32,7 @@ import {
 } from '@reactionary/core';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 import type { MedusaAPI } from '../core/client.js';
+import { brandForProvider } from '../utils/identity-provider-brand.js';
 import createDebug from 'debug';
 
 const debug = createDebug('reactionary:medusa:identity');
@@ -196,11 +197,15 @@ export class MedusaIdentityCapability extends IdentityCapability {
   ): Promise<Result<IdentityProvider[]>> {
     const providers = await this.medusaApi.listAuthProviders();
     return success(
-      providers.map((provider) => ({
-        identifier: { key: provider.id },
-        displayName: provider.displayName,
-        flow: provider.flow,
-      }))
+      providers.map((provider) => {
+        const brand = brandForProvider(provider.id, this.config.identityProviderBrands);
+        return {
+          identifier: { key: provider.id },
+          displayName: provider.displayName,
+          flow: provider.flow,
+          ...(brand ? { brand } : {}),
+        };
+      })
     );
   }
 
