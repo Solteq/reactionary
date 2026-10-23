@@ -74,6 +74,11 @@ export class CheckoutNotReadyForFinalizationError extends Error {
   }
 }
 
+/** Whether Medusa refused a request because the cart has already been completed. */
+function isCartAlreadyCompleted(error: unknown): boolean {
+  return error instanceof Error && /is already completed/i.test(error.message);
+}
+
 export class MedusaCheckoutCapability<
   TFactory extends CheckoutFactory = MedusaCheckoutFactory,
 > extends CheckoutCapability<
@@ -569,13 +574,25 @@ export class MedusaCheckoutCapability<
       // Stamp the cart's own id into its metadata so Medusa's completion
       // copies it onto the created order. Write-only for now: nothing reads
       // it back yet, it is recorded for future order-to-cart correlation.
-      await client.store.cart.update(medusaId.key, {
-        metadata: {
-          cart_id: medusaId.key,
-        },
-      });
+      try {
+        await client.store.cart.update(medusaId.key, {
+          metadata: {
+            cart_id: medusaId.key,
+          },
+        });
+      } catch (error) {
+        // Something else may have completed the cart since it was read: an
+        // earlier or concurrent finalization (a page polling for the payment
+        // does this), or Medusa's own handling of the payment. Medusa refuses
+        // to update a completed cart, but completing it again is idempotent and
+        // answers with the existing order, so carry on to that.
+        if (!isCartAlreadyCompleted(error)) {
+          throw error;
+        }
+      }
 
-      // Complete the cart to create an order
+      // Complete the cart to create an order, or to get hold of the order that
+      // an earlier completion created
       const response = await client.store.cart.complete(medusaId.key);
 
       if (response.type === 'order') {
