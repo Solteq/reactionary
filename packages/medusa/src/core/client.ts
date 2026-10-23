@@ -271,6 +271,102 @@ export class MedusaAPI {
     }
   }
 
+  public async listAuthProviders(): Promise<
+    Array<{ id: string; displayName: string; flow: 'credentials' | 'redirect' }>
+  > {
+    const client = await this.getClient();
+    try {
+      const { providers } = await client.auth.listProviders('customer');
+      return providers.map((provider) => ({
+        id: provider.id,
+        displayName: provider.display_name ?? provider.id,
+        flow: provider.flow === 'redirect' ? 'redirect' : 'credentials',
+      }));
+    } catch (error) {
+      // Backends older than Medusa 2.19 have no provider listing; they only do email and password.
+      debug('Listing auth providers failed, assuming emailpass only:', error);
+      return [{ id: 'emailpass', displayName: 'Email and password', flow: 'credentials' }];
+    }
+  }
+
+  /**
+   * Starts a redirect login. Returns the identity provider location and the state Medusa
+   * generated, which the caller binds to the session.
+   */
+  public async startExternalLogin(providerKey: string, callbackUrl: string) {
+    const client = await this.getClient();
+    const result = await client.auth.login('customer', providerKey, {
+      callback_url: callbackUrl,
+    });
+    if (typeof result === 'string' || !('location' in result)) {
+      throw new Error(`Auth provider ${providerKey} does not use a redirect flow`);
+    }
+    const state = new URL(result.location).searchParams.get('state');
+    if (!state) {
+      throw new Error(`Auth provider ${providerKey} returned no state`);
+    }
+    return { location: result.location, state };
+  }
+
+  /**
+   * Completes a redirect login. A first-time external identity has no Medusa customer yet,
+   * so one is created from the identity provider claims in the token.
+   * Returns a conflict when a customer with that email already has an account.
+   */
+  public async completeExternalLogin(
+    providerKey: string,
+    callbackParameters: Record<string, string>
+  ): Promise<
+    | { type: 'Registered'; identity: RegisteredIdentity }
+    | { type: 'Conflict'; message: string }
+  > {
+    const client = await this.getClient();
+    const callbackResult = await client.auth.callback('customer', providerKey, callbackParameters);
+    if (typeof callbackResult !== 'string') {
+      throw new Error('Multi-factor and verification steps are not supported for external login');
+    }
+    await client.client.setToken(callbackResult);
+
+    const claims = decodeJwtPayload(callbackResult);
+    if (!claims.actor_id) {
+      const metadata = claims.user_metadata ?? {};
+      const email = typeof metadata['email'] === 'string' ? metadata['email'] : undefined;
+      if (!email) {
+        throw new Error('The identity provider did not return an email address');
+      }
+      const [fallbackFirst, ...fallbackRest] = String(metadata['name'] ?? '').split(' ');
+      try {
+        await client.store.customer.create({
+          email,
+          first_name: String(metadata['given_name'] ?? fallbackFirst ?? ''),
+          last_name: String(metadata['family_name'] ?? fallbackRest.join(' ')),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (/already has an account/i.test(message)) {
+          await client.client.clearToken();
+          return { type: 'Conflict', message };
+        }
+        throw error;
+      }
+      // The token was issued before the customer existed; refresh to pick up the actor.
+      const refreshed = await client.auth.refresh();
+      if (typeof refreshed === 'string' || !('token' in refreshed) || typeof refreshed.token !== 'string') {
+        throw new Error('Could not refresh the token after creating the customer');
+      }
+      await client.client.setToken(refreshed.token);
+    }
+
+    const customerResponse = await client.store.customer.retrieve();
+    return {
+      type: 'Registered',
+      identity: {
+        id: { userId: customerResponse.customer.id },
+        type: 'Registered',
+      } satisfies RegisteredIdentity,
+    };
+  }
+
   public async logout(reqCtx: RequestContext) {
     const identity = {
       type: 'Anonymous',
@@ -326,4 +422,22 @@ export class MedusaAPI {
 
     return authenticatedClient;
   }
+}
+
+
+type MedusaTokenClaims = {
+  actor_id?: string;
+  user_metadata?: Record<string, unknown>;
+};
+
+/**
+ * Reads the claims of a JWT without verifying it. Medusa has already verified the token,
+ * and it was received directly from Medusa, so this is only used to read the claims.
+ */
+function decodeJwtPayload(token: string): MedusaTokenClaims {
+  const segment = token.split('.')[1] ?? '';
+  const base64 = segment.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+  const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes)) as MedusaTokenClaims;
 }
