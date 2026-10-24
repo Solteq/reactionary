@@ -1,10 +1,12 @@
 import {
   AnalyticsProvider,
+  categoryKey,
   productKey,
   summarizePlacedOrder,
   searchOriginOf,
   type AnalyticsContext,
   type AnalyticsEvent,
+  type AnalyticsCategoryRef,
   type AnalyticsEventType,
   type AnalyticsOutcome,
   type AnalyticsProductRef,
@@ -12,6 +14,11 @@ import {
   type Cache,
   type Cart,
   type CartItem,
+  type Origin,
+  type OriginCategory,
+  type Product,
+  type ProductIdentifier,
+  type ProductVariantIdentifier,
   type RequestContext,
 } from '@reactionary/core';
 import { hash } from 'node:crypto';
@@ -45,13 +52,40 @@ export function sessionIdAt(occurredAt: string): string {
   return String(seconds - (seconds % SESSION_WINDOW_SECONDS));
 }
 
+/** The category listing an origin leads back to, looking through `fromPDP(upstream)`. */
+function categoryOriginOf(origin: Origin | undefined): OriginCategory | undefined {
+  if (origin?.type === 'category') {
+    return origin;
+  }
+  if (origin?.type === 'pdp') {
+    return categoryOriginOf(origin.upstream);
+  }
+  return undefined;
+}
+
+/** `Red / XL`: the option labels of the variant, or its name when it has no options. */
+function variantLabel(product: Product, sku: string): string | undefined {
+  const variant = [product.mainVariant, ...product.variants].find((candidate) => candidate.identifier.sku === sku);
+  if (!variant) {
+    return undefined;
+  }
+  const labels = variant.options.map((option) => option.value.label).filter(Boolean);
+  return labels.length > 0 ? labels.join(' / ') : variant.name || undefined;
+}
+
+/** GA4 takes at most five category levels, as `item_category` and `item_category2`..`item_category5`. */
+const MAX_CATEGORY_LEVELS = 5;
+
 /**
  * Sends ecommerce events to GA4 through the Measurement Protocol.
  *
  * Item ids: variant-level events (cart, checkout, purchase) use the sku as `item_id`, with the product key as
  * `item_group_id`; product-level events (lists, clicks, product views) use the product key, as no sku is known there.
- * Only single-product events look the product up for its name and brand; list, cart and order events send ids,
- * quantities and prices only, so a request never triggers dozens of lookups just for analytics.
+ *
+ * Every item is enriched with name, brand, category hierarchy and, for variant-level events, the variant, so GA4 can
+ * report on them. The product comes from the event when it carries one and from the analytics context otherwise; the
+ * context memoizes lookups for the flush and goes through the cached capabilities. The categories are the breadcrumb of
+ * the product's first parent category. A field that cannot be resolved is left out, the event is still sent.
  */
 export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
   public readonly types: ReadonlyArray<AnalyticsEventType | `${string}*`> = [
@@ -59,6 +93,8 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
     'search-results-viewed',
     'product-clicked',
     'product-viewed',
+    'category-viewed',
+    'product-carousel-viewed',
     'promotion-viewed',
     'promotion-clicked',
     'cart-item-added',
@@ -113,6 +149,7 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
       case 'search-results-viewed': {
         const search = event.payload.search;
         const first = (search.paginationOptions.pageNumber - 1) * search.paginationOptions.pageSize;
+        const items = await this.itemsForRefs(event.payload.products, ctx);
         return [
           { name: 'search', params: { search_term: search.term } },
           {
@@ -120,28 +157,54 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
             params: {
               item_list_id: 'search',
               item_list_name: search.term ? `Search: ${search.term}` : 'Search',
-              items: event.payload.products.map((product, i) => ({ item_id: productKey(product), index: first + i })),
+              items: items.map((item, i) => ({ ...item, index: first + i })),
+            },
+          },
+        ];
+      }
+
+      case 'category-viewed': {
+        const refs = event.payload.products ?? [];
+        if (refs.length === 0) {
+          return [];
+        }
+        const [list, items] = await Promise.all([this.categoryList(event.payload.category, ctx), this.itemsForRefs(refs, ctx)]);
+        return [{ name: 'view_item_list', params: { ...list, items } }];
+      }
+
+      case 'product-carousel-viewed': {
+        const { carousel, products } = event.payload;
+        if (products.length === 0) {
+          return [];
+        }
+        const items = await this.itemsForRefs(products, ctx);
+        return [
+          {
+            name: 'view_item_list',
+            params: {
+              item_list_id: carousel.recommendationId?.key ?? carousel.carouselName,
+              item_list_name: carousel.carouselName,
+              items: items.map((item, i) => ({ ...item, index: i })),
             },
           },
         ];
       }
 
       case 'product-clicked': {
-        const item = await this.productItem(event.payload.product, ctx);
+        const [item] = await this.itemsForRefs([event.payload.product], ctx);
         const search = searchOriginOf(event.origin);
-        return [
-          {
-            name: 'select_item',
-            params: {
-              ...(search ? { item_list_id: 'search', item_list_name: `Search: ${search.identifier.term}` } : {}),
-              items: [{ ...item, ...(search ? { index: search.position } : {}) }],
-            },
-          },
-        ];
+        const category = search ? undefined : categoryOriginOf(event.origin);
+        const list = search
+          ? { item_list_id: 'search', item_list_name: `Search: ${search.identifier.term}` }
+          : category
+            ? await this.categoryList(category.categoryId, ctx)
+            : {};
+        const position = search?.position ?? category?.position;
+        return [{ name: 'select_item', params: { ...list, items: [{ ...item, ...(position === undefined ? {} : { index: position }) }] } }];
       }
 
       case 'product-viewed': {
-        const item = await this.productItem(event.payload.product, ctx);
+        const [item] = await this.itemsForRefs([event.payload.product], ctx);
         const prices = await this.productPrice(event.payload.product, ctx);
         return [
           {
@@ -171,7 +234,7 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
       case 'cart-item-removed': {
         const removed = event.payload.removed;
         if ('quantity' in removed) {
-          return [this.lineEvent('remove_from_cart', removed, event.payload.quantity ?? removed.quantity, event.payload.cart.price.grandTotal.currency)];
+          return [await this.lineEvent('remove_from_cart', removed, event.payload.quantity ?? removed.quantity, event.payload.cart.price.grandTotal.currency, ctx)];
         }
         return this.cartLineChange('remove_from_cart', event.payload.cart, removed.sku, event.payload.quantity, ctx);
       }
@@ -185,16 +248,16 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
       }
 
       case 'cart-viewed':
-        return [this.cartEvent('view_cart', event.payload.cart)];
+        return [await this.cartEvent('view_cart', event.payload.cart, ctx)];
 
       case 'checkout-started':
-        return [this.cartEvent('begin_checkout', event.payload.cart)];
+        return [await this.cartEvent('begin_checkout', event.payload.cart, ctx)];
 
       case 'shipping-info-added':
-        return [this.cartEvent('add_shipping_info', event.payload.cart, { shipping_tier: event.payload.shippingMethod?.name })];
+        return [await this.cartEvent('add_shipping_info', event.payload.cart, ctx, { shipping_tier: event.payload.shippingMethod?.name })];
 
       case 'payment-info-added':
-        return [this.cartEvent('add_payment_info', event.payload.cart, { payment_type: event.payload.paymentMethod.identifier.method })];
+        return [await this.cartEvent('add_payment_info', event.payload.cart, ctx, { payment_type: event.payload.paymentMethod.identifier.method })];
 
       case 'order-placed': {
         const placed = summarizePlacedOrder(event.payload);
@@ -211,19 +274,21 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
               value: price.grandTotal.value,
               tax: price.totalTax.value,
               shipping: price.totalShipping.value,
-              items: placed.items.map((item) => ({
-                item_id: item.variant.sku,
-                quantity: item.quantity,
-                price: item.price.unitPrice.value,
-                discount: item.price.unitDiscount.value,
-              })),
+              items: await Promise.all(
+                placed.items.map(async (item) => ({
+                  ...(await this.variantItem(item.variant, ctx)),
+                  quantity: item.quantity,
+                  price: item.price.unitPrice.value,
+                  discount: item.price.unitDiscount.value,
+                }))
+              ),
             },
           },
         ];
       }
 
       case 'wishlist-item-added':
-        return [{ name: 'add_to_wishlist', params: { items: [{ item_id: event.payload.variant.sku }] } }];
+        return [{ name: 'add_to_wishlist', params: { items: [await this.variantItem(event.payload.variant, ctx)] } }];
 
       case 'product-shared':
         return [
@@ -241,56 +306,124 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
     }
   }
 
-  private cartEvent(name: string, cart: Cart, params: Record<string, unknown> = {}): GaEvent {
+  private async cartEvent(name: string, cart: Cart, ctx: AnalyticsContext, params: Record<string, unknown> = {}): Promise<GaEvent> {
     return {
       name,
       params: {
         currency: cart.price.grandTotal.currency,
         value: cart.price.totalProductPrice.value,
         ...params,
-        items: cart.items.map((item) => this.cartItem(item, item.quantity)),
+        items: await Promise.all(cart.items.map((item) => this.cartItem(item, item.quantity, ctx))),
       },
     };
   }
 
-  private cartItem(item: CartItem, quantity: number): GaItem {
+  /** A cart line with the name, brand, categories and variant of its product. */
+  private async cartItem(item: CartItem, quantity: number, ctx: AnalyticsContext): Promise<GaItem> {
+    const product = await ctx.products.byId(item.product);
     return {
       item_id: item.variant.sku,
       item_group_id: item.product.key,
       quantity,
       price: item.price.unitPrice.value,
       discount: item.price.unitDiscount.value,
+      ...(product.success ? await this.describeProduct(product.value, item.variant.sku, ctx) : {}),
     };
   }
 
-  private lineEvent(name: string, item: CartItem, quantity: number, currency: string): GaEvent {
+  private async lineEvent(name: string, item: CartItem, quantity: number, currency: string, ctx: AnalyticsContext): Promise<GaEvent> {
     return {
       name,
-      params: { currency, value: item.price.unitPrice.value * quantity, items: [this.cartItem(item, quantity)] },
+      params: { currency, value: item.price.unitPrice.value * quantity, items: [await this.cartItem(item, quantity, ctx)] },
     };
   }
 
-  /** add/remove of one line. Uses the line in the cart, and a product lookup for its name. */
+  /** add/remove of one line. Uses the line in the cart. */
   private async cartLineChange(name: string, cart: Cart, sku: string, quantity: number | undefined, ctx: AnalyticsContext): Promise<GaEvent[]> {
     const line = cart.items.find((item) => item.variant.sku === sku);
     if (!line) {
       return [];
     }
-    const base = this.lineEvent(name, line, quantity ?? line.quantity, cart.price.grandTotal.currency);
-    const product = await ctx.products.byId(line.product);
-    const [item] = base.params['items'] as GaItem[];
-    return [
-      {
-        ...base,
-        params: { ...base.params, items: [{ ...item, ...(product.success ? { item_name: product.value.name, item_brand: product.value.brand } : {}) }] },
-      },
-    ];
+    return [await this.lineEvent(name, line, quantity ?? line.quantity, cart.price.grandTotal.currency, ctx)];
   }
 
-  private async productItem(ref: AnalyticsProductRef, ctx: AnalyticsContext): Promise<GaItem> {
-    const key = productKey(ref);
-    const product = 'identifier' in ref ? ref : await this.lookupProduct(key, ctx);
-    return { item_id: key, ...(product ? { item_name: product.name, item_brand: product.brand } : {}) };
+  /** An item of a variant-level event that has no product key: the product is looked up by sku. */
+  private async variantItem(variant: ProductVariantIdentifier, ctx: AnalyticsContext): Promise<GaItem> {
+    const product = await ctx.products.bySku(variant);
+    return {
+      item_id: variant.sku,
+      ...(product.success ? { item_group_id: product.value.identifier.key, ...(await this.describeProduct(product.value, variant.sku, ctx)) } : {}),
+    };
+  }
+
+  /**
+   * One item per ref, in order, with the product keyed as `item_id`. Products the refs do not carry are looked up
+   * together, so the context can limit the concurrency.
+   */
+  private async itemsForRefs(refs: AnalyticsProductRef[], ctx: AnalyticsContext): Promise<GaItem[]> {
+    const identifiers: ProductIdentifier[] = [];
+    for (const ref of refs) {
+      if (!('identifier' in ref)) {
+        identifiers.push(ref);
+      }
+    }
+    const found = await ctx.products.many(identifiers);
+
+    let next = 0;
+    return Promise.all(
+      refs.map(async (ref) => {
+        let product: Product | undefined;
+        if ('identifier' in ref) {
+          product = ref;
+        } else {
+          const result = found[next++];
+          product = result?.success ? result.value : undefined;
+        }
+        return { item_id: productKey(ref), ...(product ? await this.describeProduct(product, undefined, ctx) : {}) };
+      })
+    );
+  }
+
+  /**
+   * Name, brand, category hierarchy and, when a sku is given, the variant of a product. Empty values and anything that
+   * cannot be resolved are left out.
+   */
+  private async describeProduct(product: Product, sku: string | undefined, ctx: AnalyticsContext): Promise<GaItem> {
+    const variant = sku ? variantLabel(product, sku) : undefined;
+    return {
+      ...(product.name ? { item_name: product.name } : {}),
+      ...(product.brand ? { item_brand: product.brand } : {}),
+      ...(await this.categoryFields(product, ctx)),
+      ...(variant ? { item_variant: variant } : {}),
+    };
+  }
+
+  /** `item_category`..`item_category5`: the breadcrumb of the first parent category, root first. */
+  private async categoryFields(product: Product, ctx: AnalyticsContext): Promise<GaItem> {
+    const parent = product.parentCategories[0];
+    if (!parent) {
+      return {};
+    }
+    const path = await ctx.categories.path(parent);
+    if (!path.success) {
+      return {};
+    }
+    return Object.fromEntries(
+      path.value.slice(0, MAX_CATEGORY_LEVELS).map((category, i) => [i === 0 ? 'item_category' : `item_category${i + 1}`, category.name])
+    );
+  }
+
+  /** The list a category listing is reported as: its key, and its name when it can be resolved. */
+  private async categoryList(ref: AnalyticsCategoryRef, ctx: AnalyticsContext): Promise<Record<string, string>> {
+    const key = categoryKey(ref);
+    let name: string | undefined;
+    if ('identifier' in ref) {
+      name = ref.name;
+    } else {
+      const category = await ctx.categories.byId(ref);
+      name = category.success ? category.value.name : undefined;
+    }
+    return { item_list_id: key, ...(name ? { item_list_name: name } : {}) };
   }
 
   private async lookupProduct(key: string, ctx: AnalyticsContext) {
@@ -310,16 +443,19 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
   }
 
   protected async sendEvents(source: AnalyticsEvent, events: GaEvent[]): Promise<void> {
-    const { identity, marketingIdentifier } = source.context;
+    const { identity, marketingIdentifier, clientIp, userAgent } = source.context;
     const url = `${this.config.url}?measurement_id=${this.config.measurementId}&api_secret=${this.config.apiSecret}`;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        // The request comes from the server, so GA4 would otherwise see the server as the visitor's device and location.
+        ...(userAgent ? { 'User-Agent': userAgent } : {}),
       },
       body: JSON.stringify({
         client_id: marketingIdentifier.key || 'anonymous',
+        ip_override: clientIp,
         // An opaque, hashed id: GA4 must not receive anything that identifies the person.
         user_id: identity.type === 'Registered' ? hash('sha256', identity.id.userId) : undefined,
         timestamp_micros: Date.parse(source.occurredAt) * 1000,
