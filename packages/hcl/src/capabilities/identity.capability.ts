@@ -2,6 +2,7 @@ import {
   type AnonymousIdentity,
   type Cache,
   type GuestIdentity,
+  type IdentityConflictError,
   type IdentityFactory,
   type IdentityFactoryOutput,
   type IdentityFactoryWithOutput,
@@ -13,14 +14,15 @@ import {
   IdentityMutationRegisterSchema,
   type IdentityQuerySelf,
   IdentityQuerySelfSchema,
-  IdentityCapability,
   IdentitySchema,
   type RegisteredIdentity,
   type RequestContext,
   type Result,
   Reactionary,
+  error,
   success,
 } from '@reactionary/core';
+import { OidcIdentityCapability, type ExchangeExternalIdentityInput } from '@reactionary/oidc';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
 import type { HclIdentityFactory } from '../factories/identity/identity.factory.js';
@@ -38,7 +40,7 @@ const debug = createDebug('reactionary:hcl:identity');
 
 export class HclIdentityCapability<
   TFactory extends IdentityFactory = HclIdentityFactory,
-> extends IdentityCapability<IdentityFactoryOutput<TFactory>> {
+> extends OidcIdentityCapability<IdentityFactoryOutput<TFactory>> {
   protected config: HclConfiguration;
   protected client: HclClient;
   protected factory: IdentityFactoryWithOutput<TFactory>;
@@ -50,7 +52,7 @@ export class HclIdentityCapability<
     client: HclClient,
     factory: IdentityFactoryWithOutput<TFactory>,
   ) {
-    super(cache, context);
+    super(cache, context, config.externalIdentityProviders);
     this.config = config;
     this.client = client;
     this.factory = factory;
@@ -281,5 +283,59 @@ export class HclIdentityCapability<
     logonPasswordVerify: string;
   } {
     return { logonId, logonPassword, logonPasswordVerify: logonPassword };
+  }
+
+  /**
+   * The shared OpenID Connect client has verified the identity; HCL Commerce validates the token again with its own
+   * OAuthTokenValidationCmd, creates the user when it is new, and returns the same WCToken/WCTrustedToken as a
+   * password login. The current guest tokens are sent as headers by the client, so WCS merges the guest cart on its
+   * own: nothing to do here.
+   */
+  protected override async exchangeExternalIdentity(
+    input: ExchangeExternalIdentityInput,
+  ): Promise<Result<IdentityFactoryOutput<TFactory>, IdentityConflictError>> {
+    const provider = this.config.externalIdentityProviders?.find(
+      (candidate) => candidate.key === input.provider.key,
+    );
+    const token =
+      provider?.tokenType === 'access_token'
+        ? input.tokens.accessToken
+        : input.tokens.idToken;
+    if (!token) {
+      return error({
+        type: 'InvalidInput',
+        error: 'The identity provider did not return the token HCL Commerce needs',
+      });
+    }
+
+    const response = await this.client.callPost<HclWcsIdentityResponse>(
+      this.oauthValidateUrl(),
+      this.oauthValidatePayload(provider?.authorizationProvider ?? input.provider.key, token),
+    );
+
+    this.storeSessionTokens(
+      response.WCToken,
+      response.WCTrustedToken,
+      response.userId,
+      'registered',
+      response.personalizationID,
+    );
+
+    const parsed = this.factory.parseIdentity(this.context, {
+      type: 'Registered',
+      id: { userId: response.userId },
+    } satisfies RegisteredIdentity) as IdentityFactoryOutput<TFactory>;
+    return success(parsed);
+  }
+
+  protected oauthValidateUrl(): string {
+    return `${this.client.transactionBaseUrl}/loginidentity/oauth_validate`;
+  }
+
+  protected oauthValidatePayload(
+    authorizationProvider: string,
+    accessToken: string,
+  ): { authorizationProvider: string; accessToken: string } {
+    return { authorizationProvider, accessToken };
   }
 }

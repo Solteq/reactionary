@@ -1,5 +1,6 @@
 import * as z from 'zod';
 import { BaseMutationSchema } from './base.mutation.js';
+import { IdentityProviderIdentifierSchema } from '../models/identity-provider.model.js';
 import type { InferType } from '../../zod-utils.js';
 
 export const IdentityMutationLoginSchema = BaseMutationSchema.extend({
@@ -15,7 +16,22 @@ export const IdentityMutationRegisterSchema = BaseMutationSchema.extend({
     password: z.string()
 });
 
+export const IdentityMutationStartExternalLoginSchema = BaseMutationSchema.extend({
+    provider: IdentityProviderIdentifierSchema,
+    callbackUrl: z.url().meta({ description: 'The storefront URL the identity provider returns the shopper to. Must be registered with the identity provider.' }),
+});
+
+export const IdentityMutationCompleteExternalLoginSchema = BaseMutationSchema.extend({
+    provider: IdentityProviderIdentifierSchema,
+    callbackUrl: z.url().meta({ description: 'The same callbackUrl that was passed to startExternalLogin.' }),
+    callbackParameters: z.record(z.string(), z.string()).meta({ description: 'The query parameters the identity provider appended to the callback URL, passed through unchanged.' }),
+});
 
 export type IdentityMutationLogin = InferType<typeof IdentityMutationLoginSchema>;
 export type IdentityMutationLogout = InferType<typeof IdentityMutationLogoutSchema>;
 export type IdentityMutationRegister = InferType<typeof IdentityMutationRegisterSchema>;
+export type IdentityMutationStartExternalLogin = InferType<typeof IdentityMutationStartExternalLoginSchema>;
+// InferType strips index signatures, which would reduce callbackParameters to {}.
+export type IdentityMutationCompleteExternalLogin = Omit<InferType<typeof IdentityMutationCompleteExternalLoginSchema>, 'callbackParameters'> & {
+    callbackParameters: Record<string, string>;
+};

@@ -1,6 +1,7 @@
 import {
   AnalyticsProvider,
   productKey,
+  summarizePlacedOrder,
   type AnalyticsEvent,
   type AnalyticsEventType,
   type AnalyticsOutcome,
@@ -65,11 +66,16 @@ export class HclAnalyticsCapability extends AnalyticsProvider {
         return 'accepted';
       }
 
-      case 'order-placed':
-        for (const item of event.payload.order.items) {
+      case 'order-placed': {
+        const placed = summarizePlacedOrder(event.payload);
+        if (!placed) {
+          return 'ignored';
+        }
+        for (const item of placed.items) {
           await this.fireEvent({ productId: item.variant.sku });
         }
         return 'accepted';
+      }
 
       default:
         return 'ignored';

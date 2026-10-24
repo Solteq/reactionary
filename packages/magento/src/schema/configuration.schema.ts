@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { ExternalIdentityProviderSchema } from '@reactionary/oidc';
 
 export const MagentoConfigurationSchema = z.looseObject({
   adminApiKey: z.string().meta({ description: 'The API key for Magento admin operations. Needed for the few tasks that require admin access.' }),
@@ -12,6 +13,7 @@ export const MagentoConfigurationSchema = z.looseObject({
   reviewRatingCode: z.string().optional().meta({ description: 'The name of the Magento review rating (as listed by `productReviewRatingsMetadata`) that carries the overall star rating. Defaults to "Rating"; the first available rating is used as a fallback.' }),
   storeCode: z.string().default(''),
   checkoutAgreementIds: z.array(z.string()).optional().meta({ description: 'Ids of the Magento terms and conditions (Magento_CheckoutAgreements) the shopper accepts when placing an order. Required by stores with "Enable Terms and Conditions" on, which otherwise reject order placement. Sent as the payment method\'s `extension_attributes.agreement_ids`. The storefront must collect the shopper\'s consent before finalizing checkout.' }),
+  externalIdentityProviders: z.array(ExternalIdentityProviderSchema).optional().meta({ description: 'OpenID Connect identity providers shoppers can sign in with. Stock Magento has no social login, so reactionary runs the OpenID Connect flow and then creates or finds the customer by verified email and issues a customer token (Adobe\'s documented pattern). The admin API key needs the Magento_Customer::retrieve_tokens permission and the Storefront Compatibility Package (4.7.6 or newer) must be installed.' }),
   authStoreCode: z.string().default('default').meta({ description: 'The store/website scope used for customer authentication and account operations (token, customers/me). Customers typically live on the default website, which may differ from the catalog storeCode.' }),
 });
 

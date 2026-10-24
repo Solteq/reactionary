@@ -1,6 +1,7 @@
 import {
   AnalyticsProvider,
   productKey,
+  summarizePlacedOrder,
   searchOriginOf,
   type AnalyticsContext,
   type AnalyticsEvent,
@@ -152,9 +153,14 @@ export class AlgoliaAnalyticsCapability extends AnalyticsProvider {
   }
 
   private async orderPlaced(event: AnalyticsEvent<'order-placed'>, ctx: AnalyticsContext): Promise<AnalyticsOutcome> {
+    const placed = summarizePlacedOrder(event.payload);
+    if (!placed) {
+      return 'ignored';
+    }
+
     // The index holds products, while orders only know SKUs, so resolve each line's product.
     const lines = await Promise.all(
-      event.payload.order.items.map(async (item) => {
+      placed.items.map(async (item) => {
         const product = await ctx.products.bySku(item.variant);
         return product.success ? { objectID: product.value.identifier.key, item } : undefined;
       }),
@@ -166,7 +172,7 @@ export class AlgoliaAnalyticsCapability extends AnalyticsProvider {
 
     // Orders are usually not tied to a search; when the storefront passes a search origin, attribute the purchase to it.
     const search = this.searchFor(event);
-    const total = event.payload.order.price.grandTotal;
+    const total = placed.price.grandTotal;
     const common = {
       eventName: 'purchase',
       eventType: 'conversion',

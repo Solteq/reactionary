@@ -5,6 +5,7 @@ export const MedusaConfigurationSchema = z.looseObject({
     adminApiKey: z.string().meta({ description: 'The API key for Medusa admin operations. Needed for the few tasks that require admin access.' }),
     apiUrl: z.string().meta({ description: 'The base URL for the Medusa API.' }),
     defaultCurrency: z.string().default(''),
+    identityProviderBrands: z.record(z.string(), z.string()).optional().meta({ description: 'Brand slug (google, apple, ...) per Medusa auth provider id, for storefront icons. Providers without an entry get a brand guessed from their id.' }),
     allCurrencies: z.array(z.string()).default(() => []),
 });
 

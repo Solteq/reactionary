@@ -1,12 +1,12 @@
 import {
   type Identity,
+  type IdentityConflictError,
   type IdentityMutationLogin,
   type IdentityMutationLogout,
   type IdentityMutationRegister,
   type IdentityQuerySelf,
   type RequestContext,
   type Cache,
-  IdentityCapability,
   Reactionary,
   IdentityQuerySelfSchema,
   IdentitySchema,
@@ -17,15 +17,17 @@ import {
   type RegisteredIdentity,
   type GuestIdentity,
   type Result,
+  error,
   success,
 } from '@reactionary/core';
+import { OidcIdentityCapability, type ExchangeExternalIdentityInput } from '@reactionary/oidc';
 import type { MagentoClient } from '../core/client.js';
 import type { MagentoConfiguration } from '../schema/configuration.schema.js';
 import createDebug from 'debug';
 
 const debug = createDebug('reactionary:magento:identity');
 
-export class MagentoIdentityCapability extends IdentityCapability {
+export class MagentoIdentityCapability extends OidcIdentityCapability {
   protected config: MagentoConfiguration;
 
   constructor(
@@ -34,7 +36,7 @@ export class MagentoIdentityCapability extends IdentityCapability {
     context: RequestContext,
     public magentoApi: MagentoClient,
   ) {
-    super(cache, context);
+    super(cache, context, config.externalIdentityProviders);
     this.config = config;
   }
 
@@ -140,4 +142,36 @@ export class MagentoIdentityCapability extends IdentityCapability {
       password: payload.password,
     });
   }
+
+  /**
+   * Stock Magento has no external login. Once the shared OpenID Connect client has verified the identity, this
+   * finds or creates the customer by verified email (the pattern in Adobe's social login guide) and issues a
+   * customer token. An existing account with the same email is signed in, which is only appropriate for identity
+   * providers the shop owner trusts: that is what the configured provider list is.
+   */
+  protected override async exchangeExternalIdentity(
+    input: ExchangeExternalIdentityInput,
+  ): Promise<Result<Identity, IdentityConflictError>> {
+    const email = input.claims['email'];
+    if (typeof email !== 'string' || email.length === 0) {
+      return error({ type: 'InvalidInput', error: 'The identity provider did not return an email address' });
+    }
+
+    await this.magentoApi.loginWithExternalIdentity({ email, ...namesFromClaims(input.claims) });
+
+    const me = await this.magentoApi.getMe();
+    return success({ type: 'Registered', id: { userId: String(me.id) } } satisfies RegisteredIdentity);
+  }
+}
+
+/** Magento requires both names; fall back to the defaults register() uses. */
+function namesFromClaims(claims: ExchangeExternalIdentityInput['claims']): { firstName: string; lastName: string } {
+  const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
+  const given = text(claims['given_name']);
+  const family = text(claims['family_name']);
+  if (given || family) {
+    return { firstName: given ?? 'User', lastName: family ?? 'Account' };
+  }
+  const [first, ...rest] = (text(claims['name']) ?? '').split(' ').filter(Boolean);
+  return { firstName: first ?? 'User', lastName: rest.join(' ') || 'Account' };
 }

@@ -45,6 +45,13 @@ export function ensureMagentoPasswordPolicy(password: string): string {
   return `${password}${suffix}`;
 }
 
+/** A long random password for customers created through external login; nobody ever types it. */
+function randomMagentoPassword(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return ensureMagentoPasswordPolicy(btoa(String.fromCharCode(...bytes)));
+}
+
 type MagentoSession = {
   customerToken?: string | null;
 };
@@ -233,6 +240,37 @@ export class Magento {
       return normalized;
     },
 
+    /**
+     * Establishes a customer session for a verified external identity, the way Adobe's social login guide does:
+     * find the customer by email, create it if there is none, then issue a customer token with the admin key.
+     * Needs the Storefront Compatibility Package (4.7.6+) for POST /V1/customers/{id}/token.
+     */
+    loginWithExternalIdentity: async (identity: { email: string; firstName: string; lastName: string }) => {
+      const params = new URLSearchParams();
+      params.set('searchCriteria[filterGroups][0][filters][0][field]', 'email');
+      params.set('searchCriteria[filterGroups][0][filters][0][value]', identity.email);
+      params.set('searchCriteria[filterGroups][0][filters][0][condition_type]', 'eq');
+      params.set('searchCriteria[pageSize]', '1');
+      const found = await this.adminRest.request<{ items?: Array<{ id: number }> }>(
+        'GET',
+        `/V1/customers/search?${params.toString()}`
+      );
+
+      let customerId = found.items?.[0]?.id;
+      if (customerId === undefined) {
+        const created = await this.adminRest.request<{ id: number }>('POST', '/V1/customers', {
+          customer: { email: identity.email, firstname: identity.firstName, lastname: identity.lastName },
+          password: randomMagentoPassword(),
+        });
+        customerId = created.id;
+      }
+
+      const token = await this.adminRest.request<string>('POST', `/V1/customers/${customerId}/token`);
+      const normalized = typeof token === 'string' ? token.replace(/^"|"$/g, '') : String(token);
+      await this.tokenStore.setItem('customerToken', normalized);
+      return normalized;
+    },
+
     logout: async () => {
       await this.tokenStore.removeItem('customerToken');
     },
@@ -394,6 +432,16 @@ export class Magento {
       },
     },
     cart: {
+      /**
+       * Moves a guest cart's items into the signed-in customer's cart (Adobe's recommended step after login).
+       * Must run with the customer token already stored.
+       */
+      mergeGuestCart: async (guestCartId: string) => {
+        await this.gql.request<{ mergeCarts: { id: string } }>(
+          'mutation MergeGuestCart($source: String!) { mergeCarts(source_cart_id: $source) { id } }',
+          { source: guestCartId }
+        );
+      },
       create: async (customerToken?: string | null) => {
         if (customerToken) {
           const res = await this.rest.request<any>('POST', '/V1/carts/mine');
@@ -572,6 +620,26 @@ export class MagentoClient {
   async login(email: string, password: string) {
     const client = await this.getClient();
     return client.auth.login(email, password);
+  }
+
+  /**
+   * Signs in a verified external identity (see Magento.auth.loginWithExternalIdentity) and carries a guest cart over.
+   * The guest cart id is cleared either way: after login the cart endpoints use /carts/mine, and a stale id would
+   * make getSelf report a guest after the next logout.
+   */
+  async loginWithExternalIdentity(identity: { email: string; firstName: string; lastName: string }) {
+    const client = await this.getClient();
+    const guestCartId = await this.getActiveCartId();
+    const token = await client.auth.loginWithExternalIdentity(identity);
+    if (guestCartId) {
+      try {
+        await client.store.cart.mergeGuestCart(guestCartId);
+      } catch (err) {
+        debug('Could not merge the guest cart after external login:', err);
+      }
+      await this.clearActiveCartId();
+    }
+    return token;
   }
 
   async logout() {

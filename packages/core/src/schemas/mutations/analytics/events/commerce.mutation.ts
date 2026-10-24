@@ -2,6 +2,7 @@ import * as z from 'zod';
 import type { InferType } from '../../../../zod-utils.js';
 import { AnalyticsCouponRejectionReasonSchema, AnalyticsStoreRefSchema } from '../../../models/analytics/event-parts.model.js';
 import { CartItemSchema, CartSchema } from '../../../models/cart.model.js';
+import { CheckoutSchema } from '../../../models/checkout.model.js';
 import { CompanySchema } from '../../../models/company.model.js';
 import { ProductVariantIdentifierSchema } from '../../../models/identifiers.model.js';
 import { OrderSchema } from '../../../models/order.model.js';
@@ -64,7 +65,8 @@ export const AnalyticsMutationPaymentInfoAddedSchema = AnalyticsEventMutationBas
 });
 
 export const AnalyticsMutationOrderPlacedSchema = AnalyticsEventMutationBaseSchema.extend({
-    order: OrderSchema,
+    checkout: CheckoutSchema.optional().meta({ description: 'The finalized checkout: what the customer placed. Preferred over order, as the order may not exist yet when the OMS is the order source. Either checkout or order is required.' }),
+    order: OrderSchema.optional().meta({ description: 'Deprecated: pass the checkout instead. Either checkout or order is required.', deprecated: true }),
 });
 
 // B2B

@@ -15,6 +15,19 @@ import {
   IdentityMutationLoginSchema,
   type Result,
   success,
+  type ExternalLoginRedirect,
+  ExternalLoginRedirectSchema,
+  type IdentityConflictError,
+  type IdentityMutationCompleteExternalLogin,
+  IdentityMutationCompleteExternalLoginSchema,
+  type IdentityMutationStartExternalLogin,
+  IdentityMutationStartExternalLoginSchema,
+  type IdentityProvider,
+  IdentityProviderSchema,
+  type IdentityQueryProviders,
+  IdentityQueryProvidersSchema,
+  PASSWORD_IDENTITY_PROVIDER,
+  error,
 } from '@reactionary/core';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { CommercetoolsAPI } from '../core/client.js';
@@ -106,5 +119,35 @@ export class CommercetoolsIdentityCapability<
     this.updateIdentityContext(identity);
 
     return success(identity);
+  }
+
+  @Reactionary({
+    inputSchema: IdentityQueryProvidersSchema,
+    outputSchema: IdentityProviderSchema.array(),
+  })
+  public override async listProviders(
+    _payload: IdentityQueryProviders,
+  ): Promise<Result<IdentityProvider[]>> {
+    return success([PASSWORD_IDENTITY_PROVIDER]);
+  }
+
+  @Reactionary({
+    inputSchema: IdentityMutationStartExternalLoginSchema,
+    outputSchema: ExternalLoginRedirectSchema,
+  })
+  public override async startExternalLogin(
+    _payload: IdentityMutationStartExternalLogin,
+  ): Promise<Result<ExternalLoginRedirect>> {
+    return error({ type: 'InvalidInput', error: 'External login is not supported by commercetools' });
+  }
+
+  @Reactionary({
+    inputSchema: IdentityMutationCompleteExternalLoginSchema,
+    outputSchema: IdentitySchema,
+  })
+  public override async completeExternalLogin(
+    _payload: IdentityMutationCompleteExternalLogin,
+  ): Promise<Result<IdentityFactoryOutput<TFactory>, IdentityConflictError>> {
+    return error({ type: 'InvalidInput', error: 'External login is not supported by commercetools' });
   }
 }

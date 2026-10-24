@@ -595,6 +595,23 @@ export class CommercetoolsCheckoutCapability<
       throw new Error('Unable to fetch checkout after finalization.');
     }
 
+    // The checkout is a replica of the shopper's cart (see initiateCheckoutForCart), so the
+    // cart it was copied from is now stale. Remove it; failing to do so must not fail the order.
+    const originalCartId = result.value.originalCartReference?.key;
+    if (originalCartId && originalCartId !== ctId.key) {
+      try {
+        const originalCart = await client.carts.withId({ ID: originalCartId }).get().execute();
+        await client.carts
+          .withId({ ID: originalCartId })
+          .delete({
+            queryArgs: { version: originalCart.body.version, dataErasure: false },
+          })
+          .execute();
+      } catch (e) {
+        console.error(`Unable to delete original cart ${originalCartId} after finalizing checkout`, e);
+      }
+    }
+
     return success(result.value);
   }
 
