@@ -52,6 +52,37 @@ export function sessionIdAt(occurredAt: string): string {
   return String(seconds - (seconds % SESSION_WINDOW_SECONDS));
 }
 
+/** UTM query parameters and the `campaign_details` parameter each one is sent as. */
+const CAMPAIGN_PARAMETERS = {
+  utm_id: 'campaign_id',
+  utm_campaign: 'campaign',
+  utm_source: 'source',
+  utm_medium: 'medium',
+  utm_term: 'term',
+  utm_content: 'content',
+} as const;
+
+/** The campaign a landing URL was tagged with, if it carries any UTM parameter. */
+function campaignDetails(url: string | undefined): Record<string, string> | undefined {
+  if (!url) {
+    return undefined;
+  }
+  let query: URLSearchParams;
+  try {
+    query = new URL(url).searchParams;
+  } catch {
+    return undefined;
+  }
+  const details: Record<string, string> = {};
+  for (const [utm, param] of Object.entries(CAMPAIGN_PARAMETERS)) {
+    const value = query.get(utm);
+    if (value) {
+      details[param] = value;
+    }
+  }
+  return Object.keys(details).length > 0 ? details : undefined;
+}
+
 /** The category listing an origin leads back to, looking through `fromPDP(upstream)`. */
 function categoryOriginOf(origin: Origin | undefined): OriginCategory | undefined {
   if (origin?.type === 'category') {
@@ -143,8 +174,23 @@ export class GoogleAnalyticsAnalyticsCapability extends AnalyticsProvider {
     const currency = event.context.currency;
 
     switch (event.type) {
-      case 'page-viewed':
-        return [{ name: 'page_view', params: { page_location: event.payload.page.url, page_title: event.payload.page.title } }];
+      case 'page-viewed': {
+        const referrer = event.context.page?.referrer;
+        const campaign = campaignDetails(event.payload.page.url);
+        return [
+          // Applies to the events from its timestamp on, so it goes first. The Measurement Protocol does not read the
+          // campaign from page_location the way the browser tag does.
+          ...(campaign ? [{ name: 'campaign_details', params: campaign }] : []),
+          {
+            name: 'page_view',
+            params: {
+              page_location: event.payload.page.url,
+              page_title: event.payload.page.title,
+              ...(referrer ? { page_referrer: referrer } : {}),
+            },
+          },
+        ];
+      }
 
       case 'search-results-viewed': {
         const search = event.payload.search;
