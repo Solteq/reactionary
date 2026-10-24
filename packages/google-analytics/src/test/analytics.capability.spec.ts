@@ -1,5 +1,6 @@
 import {
   CartSchema,
+  CategoryCapability,
   ClientBuilder,
   CostBreakDownSchema,
   NoOpCache,
@@ -8,10 +9,12 @@ import {
   ProductCapability,
   createInitialRequestContext,
   error,
+  fromCategory,
+  fromPDP,
   fromSearch,
   success,
 } from '@reactionary/core';
-import type { Price, Product, ProductQueryBySKU, RequestContext, Result, SearchIdentifier } from '@reactionary/core';
+import type { Category, Price, Product, ProductQueryBySKU, RequestContext, Result, SearchIdentifier } from '@reactionary/core';
 import { hash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GoogleAnalyticsAnalyticsCapability, sessionIdAt } from '../capabilities/analytics.capability.js';
@@ -26,21 +29,64 @@ const itemPrice = (value: number, discount = 0) => ({
   totalDiscount: { value: discount, currency: 'EUR' },
 });
 
+const category = (key: string, name: string) => ({ identifier: { key }, name }) as unknown as Category;
+
+/** Root to leaf. The product's parent category is the leaf; `deep` has more levels than GA4 takes. */
+const categoryPaths: Record<string, Category[]> = {
+  shoes: [category('men', 'Men'), category('shoes', 'Shoes')],
+  deep: ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((key) => category(key, key.toUpperCase())),
+};
+
 const product = (key: string, name: string) =>
-  ({ identifier: { key }, name, brand: `${name} brand`, mainVariant: { identifier: { sku: `${key}-main` } } }) as unknown as Product;
+  ({
+    identifier: { key },
+    name,
+    brand: `${name} brand`,
+    parentCategories: [{ key: 'shoes' }],
+    mainVariant: { identifier: { sku: `${key}-main` }, name: 'Main', options: [] },
+    variants: [
+      { identifier: { sku: `${key}-main` }, name: 'Main', options: [] },
+      { identifier: { sku: `${key}-red-xl` }, name: 'Red XL', options: [{ value: { label: 'Red' } }, { value: { label: 'XL' } }] },
+    ],
+  }) as unknown as Product;
 
 class StubProductCapability extends ProductCapability {
   public lookups: string[] = [];
+  /** Products by key that differ from the default: for the missing-data cases. */
+  public overrides: Record<string, Partial<Product>> = {};
   public override async getById(payload: { identifier: { key: string } }): Promise<Result<Product>> {
     this.lookups.push(payload.identifier.key);
-    return payload.identifier.key === 'missing'
+    const key = payload.identifier.key;
+    return key === 'missing'
       ? error({ type: 'NotFound', identifier: 'missing' })
-      : success(product(payload.identifier.key, `Name of ${payload.identifier.key}`));
+      : success({ ...product(key, `Name of ${key}`), ...this.overrides[key] });
   }
   public override async getBySlug(): Promise<never> {
     throw new Error('not implemented');
   }
-  public override async getBySKU(_payload: ProductQueryBySKU): Promise<never> {
+  public override async getBySKU(payload: ProductQueryBySKU): Promise<Result<Product>> {
+    const sku = payload.variant.sku;
+    // SKU-1 belongs to p1 and so on; the stub skus end in the number.
+    const key = sku.startsWith('SKU-') ? `p${sku.slice(4)}` : sku.replace(/-.*$/, '');
+    return this.getById({ identifier: { key } });
+  }
+}
+
+class StubCategoryCapability extends CategoryCapability {
+  public override async getById(payload: { id: { key: string } }): Promise<Result<Category, never>> {
+    const path = categoryPaths[payload.id.key];
+    return success(path ? path[path.length - 1] : category(payload.id.key, `Category ${payload.id.key}`)) as never;
+  }
+  public override async getBreadcrumbPathToCategory(payload: { id: { key: string } }): Promise<Result<Category[]>> {
+    return success(categoryPaths[payload.id.key] ?? []);
+  }
+  public override async getBySlug(): Promise<never> {
+    throw new Error('not implemented');
+  }
+  public override async findChildCategories(): Promise<never> {
+    throw new Error('not implemented');
+  }
+  public override async findTopCategories(): Promise<never> {
     throw new Error('not implemented');
   }
 }
@@ -70,7 +116,7 @@ describe('Google Analytics analytics provider', () => {
     new ClientBuilder(context)
       .withCache(new NoOpCache())
       .withCapability(() => ({ analytics: new GoogleAnalyticsAnalyticsCapability(new NoOpCache(), context, config) }))
-      .withCapability(() => ({ product: products, price: new StubPriceCapability(new NoOpCache(), context) }))
+      .withCapability(() => ({ product: products, category: new StubCategoryCapability(new NoOpCache(), context), price: new StubPriceCapability(new NoOpCache(), context) }))
       .build();
 
   /** The Measurement Protocol payloads sent so far. */
@@ -178,13 +224,13 @@ describe('Google Analytics analytics provider', () => {
           item_list_id: 'search',
           item_list_name: 'Search: drill',
           items: [
-            { item_id: 'p1', index: 20 },
-            { item_id: 'p2', index: 21 },
+            { item_id: 'p1', item_name: 'Name of p1', item_brand: 'Name of p1 brand', item_category: 'Men', item_category2: 'Shoes', index: 20 },
+            { item_id: 'p2', item_name: 'Name of p2', item_brand: 'Name of p2 brand', item_category: 'Men', item_category2: 'Shoes', index: 21 },
           ],
         },
       },
     ]);
-    expect(products.lookups).toEqual([]);
+    expect(products.lookups).toEqual(['p1', 'p2']);
   });
 
   it('sends select_item with the list and position from the search origin, and the product name', async () => {
@@ -200,10 +246,10 @@ describe('Google Analytics analytics provider', () => {
         params: {
           item_list_id: 'search',
           item_list_name: 'Search: drill',
-          items: [{ item_id: 'p1', item_name: 'Name of p1', item_brand: 'Name of p1 brand', index: 24 }],
+          items: [{ item_id: 'p1', item_name: 'Name of p1', item_brand: 'Name of p1 brand', item_category: 'Men', item_category2: 'Shoes', index: 24 }],
         },
       },
-      { name: 'select_item', params: { items: [{ item_id: 'p2', item_name: 'Name of p2', item_brand: 'Name of p2 brand' }] } },
+      { name: 'select_item', params: { items: [{ item_id: 'p2', item_name: 'Name of p2', item_brand: 'Name of p2 brand', item_category: 'Men', item_category2: 'Shoes' }] } },
     ]);
   });
 
@@ -215,9 +261,107 @@ describe('Google Analytics analytics provider', () => {
     await client.analytics.flush();
 
     expect(sentEvents()).toEqual([
-      { name: 'view_item', params: { currency: 'EUR', value: 15, items: [{ item_id: 'p1', item_name: 'Name of p1', item_brand: 'Name of p1 brand', price: 15 }] } },
+      { name: 'view_item', params: { currency: 'EUR', value: 15, items: [{ item_id: 'p1', item_name: 'Name of p1', item_brand: 'Name of p1 brand', item_category: 'Men', item_category2: 'Shoes', price: 15 }] } },
       { name: 'view_item', params: { currency: context.languageContext.currencyCode, items: [{ item_id: 'missing' }] } },
     ]);
+  });
+
+  describe('item enrichment', () => {
+    it('sends at most five category levels, root first', async () => {
+      products.overrides['p1'] = { parentCategories: [{ key: 'deep' }] };
+      const client = buildClient();
+
+      await client.analytics.productViewed({ product: { key: 'p1' } });
+      await client.analytics.flush();
+
+      expect(sentEvents()[0].params['items']).toEqual([
+        expect.objectContaining({ item_category: 'A', item_category2: 'B', item_category3: 'C', item_category4: 'D', item_category5: 'E' }),
+      ]);
+      expect(sentEvents()[0].params['items']).toEqual([expect.not.objectContaining({ item_category6: expect.anything() })]);
+    });
+
+    it('leaves out brand and categories the product does not have', async () => {
+      products.overrides['p1'] = { brand: '', parentCategories: [] };
+      const client = buildClient();
+
+      await client.analytics.productViewed({ product: { key: 'p1' } });
+      await client.analytics.flush();
+
+      expect(sentEvents()[0].params['items']).toEqual([{ item_id: 'p1', item_name: 'Name of p1', price: 15 }]);
+    });
+
+    it('sends the option labels of the variant as item_variant, and the variant name when it has no options', async () => {
+      const client = buildClient();
+      const line = (sku: string) =>
+        CartSchema.parse({
+          identifier: { key: 'cart-1' },
+          user: { userId: 'user-1' },
+          items: [{ identifier: { key: 'l1' }, product: { key: 'p1' }, variant: { sku }, quantity: 1, price: itemPrice(25) }],
+          price: { ...CostBreakDownSchema.parse({}), grandTotal: { value: 25, currency: 'EUR' }, totalProductPrice: { value: 25, currency: 'EUR' } },
+        });
+
+      await client.analytics.cartItemAdded({ cart: line('p1-red-xl'), variant: { sku: 'p1-red-xl' }, quantity: 1 });
+      await client.analytics.cartItemAdded({ cart: line('p1-main'), variant: { sku: 'p1-main' }, quantity: 1 });
+      await client.analytics.flush();
+
+      const variants = sentEvents().map((e) => (e.params['items'] as { item_variant?: string }[])[0].item_variant);
+      expect(variants).toEqual(['Red / XL', 'Main']);
+    });
+
+    it('sends view_item_list for a category with the category as the list', async () => {
+      const client = buildClient();
+
+      await client.analytics.categoryViewed({ category: { key: 'shoes' }, products: [{ key: 'p1' }, { key: 'p2' }] });
+      await client.analytics.categoryViewed({ category: { key: 'shoes' }, products: [] });
+      await client.analytics.flush();
+
+      expect(sentEvents()).toEqual([
+        {
+          name: 'view_item_list',
+          params: {
+            item_list_id: 'shoes',
+            item_list_name: 'Shoes',
+            items: [
+              { item_id: 'p1', item_name: 'Name of p1', item_brand: 'Name of p1 brand', item_category: 'Men', item_category2: 'Shoes' },
+              { item_id: 'p2', item_name: 'Name of p2', item_brand: 'Name of p2 brand', item_category: 'Men', item_category2: 'Shoes' },
+            ],
+          },
+        },
+      ]);
+    });
+
+    it('sends view_item_list for a carousel with positions', async () => {
+      const client = buildClient();
+
+      await client.analytics.productCarouselViewed({ carousel: { carouselName: 'Also bought' }, products: [{ key: 'p1' }, { key: 'p2' }] });
+      await client.analytics.flush();
+
+      expect(sentEvents()[0]).toMatchObject({
+        name: 'view_item_list',
+        params: { item_list_id: 'Also bought', item_list_name: 'Also bought', items: [expect.objectContaining({ item_id: 'p1', index: 0 }), expect.objectContaining({ item_id: 'p2', index: 1 })] },
+      });
+    });
+
+    it('sends select_item with the category listing and position from a category origin', async () => {
+      const client = buildClient();
+
+      await client.analytics.productClicked({ product: { key: 'p1' }, origin: fromPDP(fromCategory({ key: 'shoes' }, [], 7)) });
+      await client.analytics.flush();
+
+      expect(sentEvents()[0].params).toMatchObject({ item_list_id: 'shoes', item_list_name: 'Shoes', items: [expect.objectContaining({ item_id: 'p1', index: 7 })] });
+    });
+  });
+
+  it('forwards the client ip and user agent of the visitor', async () => {
+    context.clientIp = '203.0.113.7';
+    context.userAgent = 'Mozilla/5.0 (Test)';
+    const client = buildClient();
+
+    await client.analytics.pageViewed({ page: { type: 'home' } });
+    await client.analytics.flush();
+
+    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({ 'User-Agent': 'Mozilla/5.0 (Test)' });
+    expect(sent()[0]).toMatchObject({ ip_override: '203.0.113.7' });
   });
 
   it('sends promotions', async () => {
@@ -244,7 +388,7 @@ describe('Google Analytics analytics provider', () => {
           params: {
             currency: 'EUR',
             value: 25,
-            items: [{ item_id: 'SKU-1', item_group_id: 'p1', quantity: 1, price: 25, discount: 5, item_name: 'Name of p1', item_brand: 'Name of p1 brand' }],
+            items: [{ item_id: 'SKU-1', item_group_id: 'p1', quantity: 1, price: 25, discount: 5, item_name: 'Name of p1', item_brand: 'Name of p1 brand', item_category: 'Men', item_category2: 'Shoes' }],
           },
         },
       ]);
@@ -300,8 +444,8 @@ describe('Google Analytics analytics provider', () => {
         currency: 'EUR',
         value: 60,
         items: [
-          { item_id: 'SKU-1', item_group_id: 'p1', quantity: 2, price: 25, discount: 5 },
-          { item_id: 'SKU-2', item_group_id: 'p2', quantity: 1, price: 10, discount: 0 },
+          { item_id: 'SKU-1', item_group_id: 'p1', quantity: 2, price: 25, discount: 5, item_name: 'Name of p1', item_brand: 'Name of p1 brand', item_category: 'Men', item_category2: 'Shoes' },
+          { item_id: 'SKU-2', item_group_id: 'p2', quantity: 1, price: 10, discount: 0, item_name: 'Name of p2', item_brand: 'Name of p2 brand', item_category: 'Men', item_category2: 'Shoes' },
         ],
       });
       expect(sentEvents()[2].params).toMatchObject({ shipping_tier: 'DHL' });
@@ -343,8 +487,8 @@ describe('Google Analytics analytics provider', () => {
           tax: 21.99,
           shipping: 4.99,
           items: [
-            { item_id: 'SKU-001', quantity: 2, price: 29.99, discount: 0 },
-            { item_id: 'SKU-002', quantity: 1, price: 49.99, discount: 5 },
+            { item_id: 'SKU-001', item_group_id: 'p001', item_name: 'Name of p001', item_brand: 'Name of p001 brand', item_category: 'Men', item_category2: 'Shoes', quantity: 2, price: 29.99, discount: 0 },
+            { item_id: 'SKU-002', item_group_id: 'p002', item_name: 'Name of p002', item_brand: 'Name of p002 brand', item_category: 'Men', item_category2: 'Shoes', quantity: 1, price: 49.99, discount: 5 },
           ],
         },
       },
@@ -363,7 +507,7 @@ describe('Google Analytics analytics provider', () => {
     expect(sentEvents()).toEqual([
       { name: 'login', params: {} },
       { name: 'sign_up', params: {} },
-      { name: 'add_to_wishlist', params: { items: [{ item_id: 'SKU-1' }] } },
+      { name: 'add_to_wishlist', params: { items: [{ item_id: 'SKU-1', item_group_id: 'p1', item_name: 'Name of p1', item_brand: 'Name of p1 brand', item_category: 'Men', item_category2: 'Shoes' }] } },
       { name: 'share', params: { method: 'email', content_type: 'product', item_id: 'p1' } },
     ]);
   });
