@@ -364,6 +364,42 @@ describe('Google Analytics analytics provider', () => {
     expect(sent()[0]).toMatchObject({ ip_override: '203.0.113.7' });
   });
 
+  describe('campaign attribution', () => {
+    it('sends campaign_details before the page_view of a URL tagged with UTM parameters', async () => {
+      const client = buildClient();
+
+      await client.analytics.pageViewed({
+        page: { type: 'home', url: 'https://shop.example/?utm_source=newsletter&utm_medium=email&utm_campaign=spring&utm_id=c-1&utm_term=drill&utm_content=hero', title: 'Home' },
+      });
+      await client.analytics.flush();
+
+      expect(sentEvents().map((e) => e.name)).toEqual(['campaign_details', 'page_view']);
+      expect(sentEvents()[0].params).toEqual({ campaign_id: 'c-1', campaign: 'spring', source: 'newsletter', medium: 'email', term: 'drill', content: 'hero' });
+    });
+
+    it('sends only the UTM parameters that are present, and nothing for untagged or malformed URLs', async () => {
+      const client = buildClient();
+
+      await client.analytics.pageViewed({ page: { type: 'home', url: 'https://shop.example/?utm_source=google&q=1' } });
+      await client.analytics.pageViewed({ page: { type: 'home', url: 'https://shop.example/?q=1' } });
+      await client.analytics.pageViewed({ page: { type: 'home', url: 'not a url' } });
+      await client.analytics.flush();
+
+      expect(sentEvents().map((e) => e.name)).toEqual(['campaign_details', 'page_view', 'page_view', 'page_view']);
+      expect(sentEvents()[0].params).toEqual({ source: 'google' });
+    });
+
+    it('sends the referrer of the request as page_referrer', async () => {
+      context.referrer = 'https://www.google.com/';
+      const client = buildClient();
+
+      await client.analytics.pageViewed({ page: { type: 'home', url: 'https://shop.example/' } });
+      await client.analytics.flush();
+
+      expect(sentEvents()[0].params).toMatchObject({ page_referrer: 'https://www.google.com/' });
+    });
+  });
+
   it('sends promotions', async () => {
     const client = buildClient();
 
