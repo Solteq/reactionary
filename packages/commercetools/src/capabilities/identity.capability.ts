@@ -1,4 +1,5 @@
 import {
+  type IdentityConflictError,
   type IdentityFactory,
   type IdentityFactoryOutput,
   type IdentityFactoryWithOutput,
@@ -6,7 +7,6 @@ import {
   type IdentityQuerySelf,
   type RequestContext,
   type Cache,
-  IdentityCapability,
   type IdentityMutationRegister,
   Reactionary,
   IdentityQuerySelfSchema,
@@ -14,28 +14,17 @@ import {
   IdentityMutationRegisterSchema,
   IdentityMutationLoginSchema,
   type Result,
-  success,
-  type ExternalLoginRedirect,
-  ExternalLoginRedirectSchema,
-  type IdentityConflictError,
-  type IdentityMutationCompleteExternalLogin,
-  IdentityMutationCompleteExternalLoginSchema,
-  type IdentityMutationStartExternalLogin,
-  IdentityMutationStartExternalLoginSchema,
-  type IdentityProvider,
-  IdentityProviderSchema,
-  type IdentityQueryProviders,
-  IdentityQueryProvidersSchema,
-  PASSWORD_IDENTITY_PROVIDER,
   error,
+  success,
 } from '@reactionary/core';
+import { OidcIdentityCapability, type ExchangeExternalIdentityInput } from '@reactionary/oidc';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { CommercetoolsIdentityFactory } from '../factories/identity/identity.factory.js';
 
 export class CommercetoolsIdentityCapability<
   TFactory extends IdentityFactory = CommercetoolsIdentityFactory,
-> extends IdentityCapability<IdentityFactoryOutput<TFactory>> {
+> extends OidcIdentityCapability<IdentityFactoryOutput<TFactory>> {
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
   protected factory: IdentityFactoryWithOutput<TFactory>;
@@ -47,7 +36,7 @@ export class CommercetoolsIdentityCapability<
     commercetools: CommercetoolsAPI,
     factory: IdentityFactoryWithOutput<TFactory>,
   ) {
-    super(cache, context);
+    super(cache, context, config.externalIdentityProviders);
 
     this.config = config;
     this.commercetools = commercetools;
@@ -121,33 +110,48 @@ export class CommercetoolsIdentityCapability<
     return success(identity);
   }
 
-  @Reactionary({
-    inputSchema: IdentityQueryProvidersSchema,
-    outputSchema: IdentityProviderSchema.array(),
-  })
-  public override async listProviders(
-    _payload: IdentityQueryProviders,
-  ): Promise<Result<IdentityProvider[]>> {
-    return success([PASSWORD_IDENTITY_PROVIDER]);
-  }
-
-  @Reactionary({
-    inputSchema: IdentityMutationStartExternalLoginSchema,
-    outputSchema: ExternalLoginRedirectSchema,
-  })
-  public override async startExternalLogin(
-    _payload: IdentityMutationStartExternalLogin,
-  ): Promise<Result<ExternalLoginRedirect>> {
-    return error({ type: 'InvalidInput', error: 'External login is not supported by commercetools' });
-  }
-
-  @Reactionary({
-    inputSchema: IdentityMutationCompleteExternalLoginSchema,
-    outputSchema: IdentitySchema,
-  })
-  public override async completeExternalLogin(
-    _payload: IdentityMutationCompleteExternalLogin,
+  /**
+   * The shared OpenID Connect client has verified the identity. commercetools gets the identity provider's access
+   * token as the session token, so that is what must be present; the customer is found or created by externalId.
+   */
+  protected override async exchangeExternalIdentity(
+    input: ExchangeExternalIdentityInput,
   ): Promise<Result<IdentityFactoryOutput<TFactory>, IdentityConflictError>> {
-    return error({ type: 'InvalidInput', error: 'External login is not supported by commercetools' });
+    const { claims, tokens, provider } = input;
+    if (!tokens.accessToken) {
+      return error({
+        type: 'InvalidInput',
+        error: 'The identity provider returned no access token, which commercetools needs',
+      });
+    }
+    const text = (value: unknown) => (typeof value === 'string' && value.length > 0 ? value : undefined);
+    const email = text(claims['email']);
+    const issuer = text(claims.iss);
+    const subject = text(claims.sub);
+    if (!email || !issuer || !subject) {
+      return error({
+        type: 'InvalidInput',
+        error: 'The identity provider did not return an email address, issuer and subject',
+      });
+    }
+
+    const outcome = await this.commercetools.loginWithExternalIdentity({
+      provider,
+      externalId: `${issuer}|${subject}`,
+      email,
+      ...(text(claims['given_name']) ? { firstName: text(claims['given_name']) } : {}),
+      ...(text(claims['family_name']) ? { lastName: text(claims['family_name']) } : {}),
+      tokens: { ...tokens, accessToken: tokens.accessToken },
+    });
+    if (outcome.type === 'Conflict') {
+      return error({ type: 'IdentityConflict', message: outcome.message });
+    }
+
+    return success(
+      this.factory.parseIdentity(this.context, {
+        type: 'Registered',
+        id: { userId: outcome.customerId },
+      }),
+    );
   }
 }
