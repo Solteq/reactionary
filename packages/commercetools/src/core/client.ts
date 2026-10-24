@@ -1,4 +1,4 @@
-import { ClientBuilder } from '@commercetools/ts-client';
+import { ClientBuilder, type Middleware } from '@commercetools/ts-client';
 import {
   createApiBuilderFromCtpClient,
   type ApiRoot,
@@ -17,6 +17,12 @@ import {
 } from '@reactionary/core';
 import * as crypto from 'crypto';
 import createDebug from 'debug';
+import {
+  refreshTokens,
+  resolveMetadata,
+  type ExternalIdentityProvider,
+  type OidcTokens,
+} from '@reactionary/oidc';
 import { RequestContextTokenCache } from './token-cache.js';
 import {
   CommercetoolsSessionSchema,
@@ -29,6 +35,17 @@ import {
 const debug = createDebug('reactionary:commercetools');
 
 export const PROVIDER_SESSION_KEY = 'COMMERCETOOLS_PROVIDER';
+
+/** One minute before the identity provider says the access token expires; falls back to five minutes. */
+function externalExpiration(expiresIn: number | undefined): number {
+  return Date.now() + (expiresIn ?? 300) * 1000 - 60 * 1000;
+}
+
+function isDuplicateEmail(err: unknown): boolean {
+  const errors = (err as { body?: { errors?: Array<{ code?: string; field?: string }> } } | undefined)?.body?.errors;
+  return Boolean(errors?.some((e) => e.code === 'DuplicateField' && e.field === 'email'));
+}
+
 
 export class CommercetoolsAPI {
   protected config: CommercetoolsConfiguration;
@@ -194,6 +211,15 @@ export class CommercetoolsAPI {
   }
 
   protected async createClient() {
+    const external = this.getSessionData();
+    if (external.tokenSource === 'external' && external.externalProvider) {
+      return createApiBuilderFromCtpClient(
+        this.createBaseClientBuilder()
+          .withMiddleware(this.externalAuthMiddleware(external.externalProvider))
+          .build(),
+      );
+    }
+
     let session = await this.tokenCache.get();
     const isNewSession = !session || !session.refreshToken;
 
@@ -252,6 +278,9 @@ export class CommercetoolsAPI {
   }
 
   public async login(username: string, password: string) {
+    if (this.getSessionData().tokenSource === 'external') {
+      this.clearExternalSession();
+    }
     const loginBuilder = this.createBaseClientBuilder().withPasswordFlow({
       host: this.config.authUrl,
       projectKey: this.config.projectKey,
@@ -298,6 +327,7 @@ export class CommercetoolsAPI {
       refreshToken: '',
       expirationTime: 0,
     });
+    this.clearExternalSession();
 
     // TODO: We could do token revocation here, if we wanted to. The above simply whacks the session.
     const identity = {
@@ -317,6 +347,13 @@ export class CommercetoolsAPI {
       } satisfies AnonymousIdentity;
 
       return identity;
+    }
+
+    // commercetools' own introspection does not know an identity provider's token, so an external session is
+    // judged by its stored customer and whether its token is still good or can be refreshed.
+    const sessionData = this.getSessionData();
+    if (sessionData.tokenSource === 'external') {
+      return this.introspectExternalSession(sessionData);
     }
 
     let body = await this.introspectToken(session.token);
@@ -429,6 +466,196 @@ export class CommercetoolsAPI {
     });
 
     return result.access_token;
+  }
+
+  /**
+   * Signs in a verified external identity. The customer is found by externalId (<iss>|<sub>); a customer with the
+   * same email but another externalId is reported as a conflict rather than linked. The shopper's guest cart goes
+   * with them. The identity provider's access token becomes the session token, which commercetools accepts
+   * through the project's externalOAuth introspection endpoint.
+   */
+  public async loginWithExternalIdentity(input: {
+    provider: ExternalIdentityProvider;
+    externalId: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    tokens: OidcTokens & { accessToken: string };
+  }): Promise<{ type: 'Registered'; customerId: string } | { type: 'Conflict'; message: string }> {
+    const admin = (await this.getAdminClient()).withProjectKey({
+      projectKey: this.config.projectKey,
+    });
+    const guestId = await this.currentGuestId();
+
+    const existing = (
+      await admin
+        .customers()
+        .get({ queryArgs: { where: 'externalId = :e', 'var.e': input.externalId, limit: 1 } })
+        .execute()
+    ).body.results[0];
+
+    let customerId = existing?.id;
+    if (customerId) {
+      if (guestId) {
+        await this.assignGuestCarts(guestId, customerId);
+      }
+    } else {
+      const sameEmail = (
+        await admin
+          .customers()
+          .get({
+            queryArgs: {
+              where: 'email in (:a, :b)',
+              'var.a': input.email,
+              'var.b': input.email.toLowerCase(),
+              limit: 1,
+            },
+          })
+          .execute()
+      ).body.results[0];
+      if (sameEmail) {
+        return { type: 'Conflict', message: 'A customer with this email address already exists' };
+      }
+
+      try {
+        const created = await admin
+          .customers()
+          .post({
+            body: {
+              email: input.email,
+              externalId: input.externalId,
+              authenticationMode: 'ExternalAuth',
+              isEmailVerified: true,
+              ...(input.firstName ? { firstName: input.firstName } : {}),
+              ...(input.lastName ? { lastName: input.lastName } : {}),
+              // Assigns the guest's carts to the new customer
+              ...(guestId ? { anonymousId: guestId } : {}),
+            },
+          })
+          .execute();
+        customerId = created.body.customer.id;
+      } catch (err) {
+        // commercetools keeps emails unique regardless of case, which the lookup above can miss
+        if (isDuplicateEmail(err)) {
+          return { type: 'Conflict', message: 'A customer with this email address already exists' };
+        }
+        throw err;
+      }
+    }
+
+    await this.tokenCache.set({
+      token: input.tokens.accessToken,
+      refreshToken: input.tokens.refreshToken,
+      expirationTime: externalExpiration(input.tokens.expiresIn),
+    });
+    this.setSessionData({
+      tokenSource: 'external',
+      externalProvider: input.provider.key,
+      customerId,
+    });
+    // The memoized client was built for the guest session
+    this.client = undefined;
+
+    return { type: 'Registered', customerId };
+  }
+
+  /** The anonymous id of the current guest session, if there is one. */
+  protected async currentGuestId(): Promise<string | undefined> {
+    try {
+      const identity = await this.introspect();
+      return identity.type === 'Guest' ? identity.id.userId : undefined;
+    } catch (err) {
+      debug('Could not read the guest session before external login: %o', err);
+      return undefined;
+    }
+  }
+
+  /** Hands a guest's active carts to a customer that already existed. */
+  protected async assignGuestCarts(anonymousId: string, customerId: string): Promise<void> {
+    const admin = (await this.getAdminClient()).withProjectKey({
+      projectKey: this.config.projectKey,
+    });
+    const carts = await admin
+      .carts()
+      .get({
+        queryArgs: {
+          where: 'anonymousId = :a and cartState = "Active"',
+          'var.a': anonymousId,
+        },
+      })
+      .execute();
+    for (const cart of carts.body.results) {
+      await admin
+        .carts()
+        .withId({ ID: cart.id })
+        .post({
+          body: { version: cart.version, actions: [{ action: 'setCustomerId', customerId }] },
+        })
+        .execute();
+    }
+  }
+
+  /** Adds the external session's access token to every request, refreshing it through the identity provider first when it has expired. */
+  protected externalAuthMiddleware(providerKey: string): Middleware {
+    return (next) => async (request) => {
+      const token = await this.currentExternalAccessToken(providerKey);
+      return next({
+        ...request,
+        headers: { ...request.headers, Authorization: `Bearer ${token}` },
+      });
+    };
+  }
+
+  protected async currentExternalAccessToken(providerKey: string): Promise<string> {
+    const session = await this.tokenCache.get();
+    if (session?.token && session.expirationTime > Date.now()) {
+      return session.token;
+    }
+
+    const provider = this.config.externalIdentityProviders?.find((candidate) => candidate.key === providerKey);
+    if (!provider || !session?.refreshToken) {
+      this.clearExternalSession();
+      throw new Error('The external login has expired, sign in again');
+    }
+
+    try {
+      const refreshed = await refreshTokens(provider, await resolveMetadata(provider), session.refreshToken);
+      await this.tokenCache.set({
+        token: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken ?? session.refreshToken,
+        expirationTime: externalExpiration(refreshed.expiresIn),
+      });
+      return refreshed.accessToken;
+    } catch (err) {
+      debug('Refreshing the external login failed: %o', err);
+      this.clearExternalSession();
+      throw new Error('The external login has expired, sign in again');
+    }
+  }
+
+  protected async introspectExternalSession(
+    session: CommercetoolsSession,
+  ): Promise<AnonymousIdentity | RegisteredIdentity> {
+    if (!session.customerId || !session.externalProvider) {
+      return { type: 'Anonymous' } satisfies AnonymousIdentity;
+    }
+    try {
+      await this.currentExternalAccessToken(session.externalProvider);
+    } catch {
+      return { type: 'Anonymous' } satisfies AnonymousIdentity;
+    }
+    return { type: 'Registered', id: { userId: session.customerId } } satisfies RegisteredIdentity;
+  }
+
+  /** Forgets that the session belongs to an external login, and the client built for it. */
+  protected clearExternalSession(): void {
+    const data = this.context.session[PROVIDER_SESSION_KEY] as Partial<CommercetoolsSession> | undefined;
+    if (data) {
+      delete data.tokenSource;
+      delete data.externalProvider;
+      delete data.customerId;
+    }
+    this.client = undefined;
   }
 
   protected async becomeGuest() {

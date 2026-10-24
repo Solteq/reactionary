@@ -13,6 +13,21 @@ export type OidcTokens = {
   expiresIn?: number;
 };
 
+export type OidcRefreshedTokens = {
+  accessToken: string;
+  /** The identity provider rotates refresh tokens only sometimes; when it does not, the old one stays valid. */
+  refreshToken?: string;
+  idToken?: string;
+  expiresIn?: number;
+};
+
+const RefreshResponseSchema = z.looseObject({
+  access_token: z.string(),
+  refresh_token: z.string().optional(),
+  id_token: z.string().optional(),
+  expires_in: z.number().optional(),
+});
+
 const TokenResponseSchema = z.looseObject({
   id_token: z.string(),
   access_token: z.string().optional(),
@@ -70,6 +85,39 @@ export async function exchangeCode(
     idToken: tokens.id_token,
     ...(tokens.access_token ? { accessToken: tokens.access_token } : {}),
     ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
+    ...(tokens.expires_in !== undefined ? { expiresIn: tokens.expires_in } : {}),
+  };
+}
+
+/** Trades a refresh token for a new access token, authenticating the client the same way exchangeCode does. */
+export async function refreshTokens(
+  provider: ExternalIdentityProvider,
+  metadata: OidcMetadata,
+  refreshToken: string,
+): Promise<OidcRefreshedTokens> {
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    client_id: provider.clientId,
+  });
+  if (provider.clientSecret) {
+    body.set('client_secret', provider.clientSecret);
+  }
+
+  const response = await fetch(metadata.tokenEndpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+    body,
+  });
+  if (!response.ok) {
+    throw new Error(`The identity provider refused the refresh token: HTTP ${response.status}`);
+  }
+
+  const tokens = RefreshResponseSchema.parse(await response.json());
+  return {
+    accessToken: tokens.access_token,
+    ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
+    ...(tokens.id_token ? { idToken: tokens.id_token } : {}),
     ...(tokens.expires_in !== undefined ? { expiresIn: tokens.expires_in } : {}),
   };
 }

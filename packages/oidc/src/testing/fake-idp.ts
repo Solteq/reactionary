@@ -31,6 +31,10 @@ export class FakeOidcProvider {
   readonly clientId = 'test-client';
   readonly clientSecret = 'test-secret';
   failTokenEndpoint = false;
+  omitAccessToken = false;
+  /** Refresh tokens the provider has issued and not yet seen refused. */
+  refreshCalls = 0;
+  rotateRefreshToken = false;
 
   private readonly codes = new Map<string, IssuedCode>();
   private constructor(
@@ -139,6 +143,18 @@ export class FakeOidcProvider {
         chunks.push(chunk as Buffer);
       }
       const form = new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
+      if (form.get('grant_type') === 'refresh_token') {
+        this.refreshCalls += 1;
+        if (this.failTokenEndpoint || form.get('refresh_token') !== 'refresh-token' || form.get('client_id') !== this.clientId) {
+          return send(400, { error: 'invalid_grant' });
+        }
+        return send(200, {
+          token_type: 'Bearer',
+          access_token: `access-token-${this.refreshCalls + 1}`,
+          expires_in: 300,
+          ...(this.rotateRefreshToken ? { refresh_token: 'refresh-token' } : {}),
+        });
+      }
       const issued = this.codes.get(form.get('code') ?? '');
       this.codes.delete(form.get('code') ?? '');
       const challenge = createHash('sha256')
@@ -156,7 +172,8 @@ export class FakeOidcProvider {
       }
       return send(200, {
         token_type: 'Bearer',
-        access_token: 'access-token',
+        ...(this.omitAccessToken ? {} : { access_token: 'access-token' }),
+        refresh_token: 'refresh-token',
         expires_in: 300,
         id_token: await this.idToken(issued),
       });

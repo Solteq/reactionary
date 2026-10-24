@@ -14,6 +14,8 @@ import {
   clearDiscoveryCache,
   codeChallenge,
   randomToken,
+  refreshTokens,
+  resolveMetadata,
   type ExchangeExternalIdentityInput,
   type ExternalIdentityProvider,
 } from '../index.js';
@@ -147,6 +149,41 @@ describe('OidcIdentityCapability', () => {
       callbackUrl,
     });
     assert(!started.success);
+  });
+});
+
+describe('refreshTokens', () => {
+  let idp: FakeOidcProvider;
+  let provider: ExternalIdentityProvider;
+
+  beforeAll(async () => {
+    idp = await FakeOidcProvider.start();
+    provider = { key: 'fake', displayName: 'Fake', issuer: idp.issuer, clientId: idp.clientId, clientSecret: idp.clientSecret };
+  });
+  afterAll(async () => {
+    await idp.close();
+  });
+  beforeEach(() => {
+    clearDiscoveryCache();
+    idp.failTokenEndpoint = false;
+    idp.rotateRefreshToken = false;
+  });
+
+  it('gets a new access token and keeps the old refresh token when none is returned', async () => {
+    const refreshed = await refreshTokens(provider, await resolveMetadata(provider), 'refresh-token');
+    expect(refreshed.accessToken).toMatch(/^access-token-/);
+    expect(refreshed.refreshToken).toBeUndefined();
+    expect(refreshed.expiresIn).toBe(300);
+  });
+
+  it('returns a rotated refresh token', async () => {
+    idp.rotateRefreshToken = true;
+    const refreshed = await refreshTokens(provider, await resolveMetadata(provider), 'refresh-token');
+    expect(refreshed.refreshToken).toBe('refresh-token');
+  });
+
+  it('fails when the identity provider refuses the refresh token', async () => {
+    await expect(refreshTokens(provider, await resolveMetadata(provider), 'revoked')).rejects.toThrow(/refused the refresh token/);
   });
 });
 
