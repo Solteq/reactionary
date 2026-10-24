@@ -125,12 +125,12 @@ export class FakeProductCapability<
           product_identifier: 'BATCH-' + generator.number.int({ min: 1000, max: 9999 }),
           manufacturer: {
             name: generator.company.name(),
-            postal_address: generator.address.streetAddress() + ' ' + generator.address.country() + '-' + generator.address.zipCode() + ' ' + generator.address.city(),
+            postal_address: generator.location.streetAddress() + ' ' + generator.location.country() + '-' + generator.location.zipCode() + ' ' + generator.location.city(),
             electronic_address: generator.internet.email({ provider: 'example.com' }),
           },
           eu_responsible_person: {
             name: generator.company.name(),
-            postal_address: generator.address.streetAddress() + ' ' + generator.address.country() + '-' + generator.address.zipCode() + ' ' + generator.address.city(),
+            postal_address: generator.location.streetAddress() + ' ' + generator.location.country() + '-' + generator.location.zipCode() + ' ' + generator.location.city(),
             electronic_address: generator.internet.email({ provider: 'example.com' }),
           }
         }
