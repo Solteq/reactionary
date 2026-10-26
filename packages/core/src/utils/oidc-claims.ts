@@ -14,6 +14,14 @@ function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+/** A boolean claim; some providers (Cognito) send it as the string "true" or "false". */
+function flag(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  return value === 'true' ? true : value === 'false' ? false : undefined;
+}
+
 /**
  * Reads the OpenID Connect standard claims (OpenID Connect Core section 5.1) the way every backend should:
  * names fall back to splitting `name`, and the address becomes a billing address only if it is complete enough to ship to.
@@ -32,6 +40,8 @@ export function profileFromOidcClaims(claims: Record<string, unknown>): ProfileF
   const emails = claims['emails'];
   const email = text(claims['email']) ?? (Array.isArray(emails) ? text(emails[0]) : undefined);
   const phone = text(claims['phone_number']);
+  const emailVerified = flag(claims['email_verified']);
+  const phoneVerified = flag(claims['phone_number_verified']);
 
   const rawAddress = claims['address'];
   const address = rawAddress && typeof rawAddress === 'object' ? (rawAddress as Record<string, unknown>) : {};
@@ -57,11 +67,11 @@ export function profileFromOidcClaims(claims: Record<string, unknown>): ProfileF
 
   return {
     ...(email ? { email } : {}),
-    ...(typeof claims['email_verified'] === 'boolean' ? { emailVerified: claims['email_verified'] } : {}),
+    ...(emailVerified !== undefined ? { emailVerified } : {}),
     ...(firstName ? { firstName } : {}),
     ...(lastName ? { lastName } : {}),
     ...(phone ? { phone } : {}),
-    ...(typeof claims['phone_number_verified'] === 'boolean' ? { phoneVerified: claims['phone_number_verified'] } : {}),
+    ...(phoneVerified !== undefined ? { phoneVerified } : {}),
     ...(billingAddress ? { billingAddress } : {}),
   };
 }

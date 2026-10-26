@@ -31,6 +31,7 @@ export abstract class IdentityCapability<TIdentity extends Identity = Identity> 
     if (identity.type === 'Registered') {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { externalLogin, ...registered } = identity;
+      // The cast is needed because TIdentity is generic: the compiler cannot see that what is left of a subclass's identity is an Identity
       this.context.session.identityContext.identity = registered as Identity;
       return;
     }
