@@ -10,6 +10,9 @@ export type OidcMetadata = {
   tokenEndpoint: string;
   jwksUri: string;
   endSessionEndpoint?: string;
+  userinfoEndpoint?: string;
+  /** token_endpoint_auth_methods_supported, when the provider lists it. */
+  tokenEndpointAuthMethods?: string[];
 };
 
 const DiscoveryDocumentSchema = z.looseObject({
@@ -18,6 +21,8 @@ const DiscoveryDocumentSchema = z.looseObject({
   token_endpoint: z.string(),
   jwks_uri: z.string(),
   end_session_endpoint: z.string().optional(),
+  userinfo_endpoint: z.string().optional(),
+  token_endpoint_auth_methods_supported: z.array(z.string()).optional(),
 });
 
 const cache = new Map<string, { expires: number; metadata: OidcMetadata }>();
@@ -38,6 +43,7 @@ export async function resolveMetadata(provider: ExternalIdentityProvider): Promi
       authorizationEndpoint: provider.authorizationEndpoint,
       tokenEndpoint: provider.tokenEndpoint,
       jwksUri: provider.jwksUri,
+      ...(provider.userinfoEndpoint ? { userinfoEndpoint: provider.userinfoEndpoint } : {}),
     };
   }
 
@@ -61,6 +67,10 @@ export async function resolveMetadata(provider: ExternalIdentityProvider): Promi
         tokenEndpoint: document.token_endpoint,
         jwksUri: document.jwks_uri,
         ...(document.end_session_endpoint ? { endSessionEndpoint: document.end_session_endpoint } : {}),
+        ...(document.userinfo_endpoint ? { userinfoEndpoint: document.userinfo_endpoint } : {}),
+        ...(document.token_endpoint_auth_methods_supported
+          ? { tokenEndpointAuthMethods: document.token_endpoint_auth_methods_supported }
+          : {}),
       },
     };
     cache.set(provider.issuer, discovered);
@@ -71,5 +81,8 @@ export async function resolveMetadata(provider: ExternalIdentityProvider): Promi
     authorizationEndpoint: provider.authorizationEndpoint ?? discovered.metadata.authorizationEndpoint,
     tokenEndpoint: provider.tokenEndpoint ?? discovered.metadata.tokenEndpoint,
     jwksUri: provider.jwksUri ?? discovered.metadata.jwksUri,
+    ...(provider.userinfoEndpoint ?? discovered.metadata.userinfoEndpoint
+      ? { userinfoEndpoint: (provider.userinfoEndpoint ?? discovered.metadata.userinfoEndpoint) as string }
+      : {}),
   };
 }

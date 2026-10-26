@@ -43,9 +43,18 @@ export const ExternalIdentityProviderSchema = z.looseObject({
     .optional()
     .meta({ description: 'Fixed extra authorize parameters, e.g. { prompt: "login" } or { connection: "apple" } for Auth0.' }),
   requireVerifiedEmail: z.boolean().optional().meta({ description: 'Require email_verified to be true. Defaults to true; some providers (Azure B2C) never send the claim.' }),
+  tokenEndpointAuthMethod: z
+    .enum(['client_secret_basic', 'client_secret_post', 'none'])
+    .optional()
+    .meta({ description: 'How the client authenticates at the token endpoint. Defaults to none without a secret, otherwise to what discovery lists, preferring client_secret_post and falling back to client_secret_basic.' }),
+  userinfo: z
+    .enum(['never', 'when-missing', 'always'])
+    .optional()
+    .meta({ description: 'Whether to fetch claims from the userinfo endpoint. Defaults to when-missing: only when the ID token lacks the email, a name or email_verified. ID token claims always win over userinfo claims.' }),
   authorizationEndpoint: secureUrlSchema.optional(),
   tokenEndpoint: secureUrlSchema.optional(),
   jwksUri: secureUrlSchema.optional(),
+  userinfoEndpoint: secureUrlSchema.optional(),
 });
 
 export type ExternalIdentityProvider = z.infer<typeof ExternalIdentityProviderSchema>;

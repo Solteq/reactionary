@@ -55,6 +55,45 @@ export function buildAuthorizationUrl(
   return url.toString();
 }
 
+export type TokenEndpointAuthMethod = NonNullable<ExternalIdentityProvider['tokenEndpointAuthMethod']>;
+
+/**
+ * How the client authenticates at the token endpoint: the configured method; none without a secret; otherwise
+ * client_secret_post unless the provider lists methods and not that one, then client_secret_basic.
+ */
+export function tokenEndpointAuthMethod(provider: ExternalIdentityProvider, metadata: OidcMetadata): TokenEndpointAuthMethod {
+  if (provider.tokenEndpointAuthMethod) {
+    return provider.tokenEndpointAuthMethod;
+  }
+  if (!provider.clientSecret) {
+    return 'none';
+  }
+  const supported = metadata.tokenEndpointAuthMethods;
+  if (!supported || supported.length === 0 || supported.includes('client_secret_post')) {
+    return 'client_secret_post';
+  }
+  return supported.includes('client_secret_basic') ? 'client_secret_basic' : 'client_secret_post';
+}
+
+/** Adds the client's credentials to a token request, as RFC 6749 section 2.3.1 describes for each method. */
+function authenticateClient(
+  provider: ExternalIdentityProvider,
+  metadata: OidcMetadata,
+  body: URLSearchParams,
+  headers: Record<string, string>,
+) {
+  const method = tokenEndpointAuthMethod(provider, metadata);
+  if (method === 'client_secret_basic' && provider.clientSecret) {
+    const credentials = `${encodeURIComponent(provider.clientId)}:${encodeURIComponent(provider.clientSecret)}`;
+    headers['authorization'] = `Basic ${Buffer.from(credentials).toString('base64')}`;
+    return;
+  }
+  body.set('client_id', provider.clientId);
+  if (method === 'client_secret_post' && provider.clientSecret) {
+    body.set('client_secret', provider.clientSecret);
+  }
+}
+
 export async function exchangeCode(
   provider: ExternalIdentityProvider,
   metadata: OidcMetadata,
@@ -64,18 +103,12 @@ export async function exchangeCode(
     grant_type: 'authorization_code',
     code: request.code,
     redirect_uri: request.callbackUrl,
-    client_id: provider.clientId,
     code_verifier: request.codeVerifier,
   });
-  if (provider.clientSecret) {
-    body.set('client_secret', provider.clientSecret);
-  }
+  const headers: Record<string, string> = { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' };
+  authenticateClient(provider, metadata, body, headers);
 
-  const response = await fetch(metadata.tokenEndpoint, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
-    body,
-  });
+  const response = await fetch(metadata.tokenEndpoint, { method: 'POST', headers, body });
   if (!response.ok) {
     throw new Error(`The identity provider refused the authorization code: HTTP ${response.status}`);
   }
@@ -98,17 +131,11 @@ export async function refreshTokens(
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
-    client_id: provider.clientId,
   });
-  if (provider.clientSecret) {
-    body.set('client_secret', provider.clientSecret);
-  }
+  const headers: Record<string, string> = { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' };
+  authenticateClient(provider, metadata, body, headers);
 
-  const response = await fetch(metadata.tokenEndpoint, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
-    body,
-  });
+  const response = await fetch(metadata.tokenEndpoint, { method: 'POST', headers, body });
   if (!response.ok) {
     throw new Error(`The identity provider refused the refresh token: HTTP ${response.status}`);
   }
@@ -150,4 +177,27 @@ export async function verifyIdToken(
     throw new Error('The ID token nonce does not match this login');
   }
   return payload;
+}
+
+/**
+ * The claims of the userinfo endpoint, or undefined when the provider has none, answers with anything but a JSON
+ * object (signed JWT responses are not supported), or names another subject than the ID token: the userinfo
+ * response is only trusted for the subject that was authenticated (OpenID Connect Core section 5.3.2).
+ */
+export async function fetchUserinfo(
+  metadata: OidcMetadata,
+  accessToken: string,
+  expectedSubject: string,
+): Promise<JWTPayload | undefined> {
+  if (!metadata.userinfoEndpoint) {
+    return undefined;
+  }
+  const response = await fetch(metadata.userinfoEndpoint, {
+    headers: { authorization: `Bearer ${accessToken}`, accept: 'application/json' },
+  });
+  if (!response.ok || !response.headers.get('content-type')?.includes('json')) {
+    return undefined;
+  }
+  const parsed = z.looseObject({ sub: z.string() }).safeParse(await response.json());
+  return parsed.success && parsed.data.sub === expectedSubject ? parsed.data : undefined;
 }

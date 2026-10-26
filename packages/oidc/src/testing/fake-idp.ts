@@ -35,6 +35,14 @@ export class FakeOidcProvider {
   /** Refresh tokens the provider has issued and not yet seen refused. */
   refreshCalls = 0;
   rotateRefreshToken = false;
+  /** Advertised as token_endpoint_auth_methods_supported and enforced when set: the one way clients may authenticate. */
+  tokenEndpointAuthMethods: Array<'client_secret_basic' | 'client_secret_post'> | undefined;
+  /** Serves a userinfo endpoint (and advertises it) with these claims, on top of sub; undefined means no endpoint. */
+  userinfoClaims: JWTPayload | undefined;
+  /** Makes the userinfo endpoint answer for another subject than the ID token's. */
+  userinfoSubMismatch = false;
+  /** Omits these claims from issued ID tokens, e.g. email, so that a client has to ask userinfo for them. */
+  omitIdTokenClaims: string[] = [];
 
   private readonly codes = new Map<string, IssuedCode>();
   private constructor(
@@ -104,6 +112,9 @@ export class FakeOidcProvider {
       ...issued.approval.claims,
       nonce: tamper === 'nonce' ? 'someone-elses-nonce' : issued.nonce,
     };
+    for (const name of this.omitIdTokenClaims) {
+      delete claims[name];
+    }
     return new SignJWT(claims)
       .setProtectedHeader({ alg: 'RS256', kid: KEY_ID })
       .setIssuer(tamper === 'issuer' ? 'https://evil.example' : this.issuer)
@@ -111,6 +122,25 @@ export class FakeOidcProvider {
       .setIssuedAt(tamper === 'expired' ? now - 7200 : now)
       .setExpirationTime(tamper === 'expired' ? now - 3600 : now + 300)
       .sign(tamper === 'signature' ? this.otherKey : this.signingKey);
+  }
+
+  /** Rejects a token request that authenticates in a way the provider does not allow (when restricted) or with the wrong secret. */
+  private clientAuthenticatesCorrectly(form: URLSearchParams, authorization: string | undefined): boolean {
+    const [scheme, encoded] = (authorization ?? '').split(' ');
+    const usesBasic = scheme?.toLowerCase() === 'basic';
+    if (usesBasic) {
+      const [id, secret] = Buffer.from(encoded ?? '', 'base64').toString('utf8').split(':');
+      if (decodeURIComponent(id ?? '') !== this.clientId || decodeURIComponent(secret ?? '') !== this.clientSecret) {
+        return false;
+      }
+    }
+    if (this.tokenEndpointAuthMethods) {
+      const usesPost = form.has('client_secret');
+      const allowed = (usesBasic && this.tokenEndpointAuthMethods.includes('client_secret_basic')) ||
+        (usesPost && this.tokenEndpointAuthMethods.includes('client_secret_post'));
+      return allowed;
+    }
+    return true;
   }
 
   private async handle(
@@ -132,7 +162,15 @@ export class FakeOidcProvider {
         token_endpoint: `${this.issuer}/token`,
         jwks_uri: `${this.issuer}/jwks`,
         end_session_endpoint: `${this.issuer}/logout`,
+        ...(this.userinfoClaims ? { userinfo_endpoint: `${this.issuer}/userinfo` } : {}),
+        ...(this.tokenEndpointAuthMethods ? { token_endpoint_auth_methods_supported: this.tokenEndpointAuthMethods } : {}),
       });
+    }
+    if (path === '/userinfo' && this.userinfoClaims) {
+      if (req.headers.authorization !== 'Bearer access-token') {
+        return send(401, { error: 'invalid_token' });
+      }
+      return send(200, { sub: this.userinfoSubMismatch ? 'someone-else' : 'user-1', ...this.userinfoClaims });
     }
     if (path === '/jwks') {
       return send(200, { keys: [this.jwk] });
@@ -143,9 +181,12 @@ export class FakeOidcProvider {
         chunks.push(chunk as Buffer);
       }
       const form = new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
+      if (!this.clientAuthenticatesCorrectly(form, req.headers.authorization)) {
+        return send(401, { error: 'invalid_client' });
+      }
       if (form.get('grant_type') === 'refresh_token') {
         this.refreshCalls += 1;
-        if (this.failTokenEndpoint || form.get('refresh_token') !== 'refresh-token' || form.get('client_id') !== this.clientId) {
+        if (this.failTokenEndpoint || form.get('refresh_token') !== 'refresh-token' || (form.get('client_id') ?? this.clientId) !== this.clientId) {
           return send(400, { error: 'invalid_grant' });
         }
         return send(200, {
@@ -163,7 +204,7 @@ export class FakeOidcProvider {
       if (
         this.failTokenEndpoint ||
         !issued ||
-        form.get('client_id') !== issued.clientId ||
+        (form.get('client_id') ?? issued.clientId) !== issued.clientId ||
         form.get('redirect_uri') !== issued.redirectUri ||
         challenge !== issued.codeChallenge ||
         (form.has('client_secret') && form.get('client_secret') !== this.clientSecret)
