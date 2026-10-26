@@ -80,6 +80,12 @@ describe('externalLoginResult', () => {
     });
   });
 
+  it('carries what the provider says about the email, and nothing when it says nothing', () => {
+    expect(externalLoginResult({ ...claims, email_verified: true }, true).profile.emailVerified).toBe(true);
+    expect(externalLoginResult({ ...claims, email_verified: false }, true).profile.emailVerified).toBe(false);
+    expect(externalLoginResult(claims, true).profile).not.toHaveProperty('emailVerified');
+  });
+
   it('carries nothing for a returning customer', () => {
     expect(externalLoginResult(claims, false)).toEqual({ isNewCustomer: false, profile: {} });
   });

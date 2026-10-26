@@ -478,6 +478,8 @@ export class CommercetoolsAPI {
     provider: ExternalIdentityProvider;
     externalId: string;
     email: string;
+    /** What the identity provider says about the email; commercetools stores it on the new customer. */
+    emailVerified: boolean;
     firstName?: string;
     lastName?: string;
     tokens: OidcTokens & { accessToken: string };
@@ -525,7 +527,7 @@ export class CommercetoolsAPI {
               email: input.email,
               externalId: input.externalId,
               authenticationMode: 'ExternalAuth',
-              isEmailVerified: true,
+              isEmailVerified: input.emailVerified,
               ...(input.firstName ? { firstName: input.firstName } : {}),
               ...(input.lastName ? { lastName: input.lastName } : {}),
               // Assigns the guest's carts to the new customer
