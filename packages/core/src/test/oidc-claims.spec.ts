@@ -28,6 +28,11 @@ describe('profileFromOidcClaims', () => {
     });
   });
 
+  it('reads verified flags that arrive as strings', () => {
+    expect(profileFromOidcClaims({ email_verified: 'true', phone_number_verified: 'false' })).toEqual({ emailVerified: true, phoneVerified: false });
+    expect(profileFromOidcClaims({ phone_number_verified: 'yes' })).toEqual({});
+  });
+
   it('splits name when given_name and family_name are missing', () => {
     expect(profileFromOidcClaims({ name: 'Ada King Lovelace' })).toEqual({ firstName: 'Ada', lastName: 'King Lovelace' });
     expect(profileFromOidcClaims({ name: 'Cher' })).toEqual({ firstName: 'Cher' });
