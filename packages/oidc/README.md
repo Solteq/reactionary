@@ -22,6 +22,8 @@ Two settings matter when moving to another identity provider:
 
 Backends create the customer with the email and names only. What else the identity provider knows (phone number, a complete address) comes back on the identity that `completeExternalLogin` returns, as `externalLogin: { isNewCustomer, profile }` (never stored in the session). The storefront calls `applyExternalLoginProfile(client, identity)` from `@reactionary/core` after the login, which writes the phone number and the billing address to the profile, and only when the login created the customer (calling it after a later login writes nothing). The phone number is written only when the identity provider verified it (`phone_number_verified`); pass `{ requireVerifiedPhone: false }` for a provider you trust. The address claim has no verified flag. `onError` receives write failures (default `console.warn`).
 
+`profile.emailVerified` is what the provider says about the email: its `email_verified` claim, or `true` for a provider configured with `assumeEmailVerified` (Azure B2C). It is absent when the provider says nothing, which means unknown, not unverified. commercetools stores it as `isEmailVerified` on the new customer (false when unknown). Magento and Medusa cannot store it, so they only report it. The address may also come from an Azure B2C `emails` array.
+
 The profile data is personal data: do not serialise the identity to the browser or log it as it is.
 
 HCL creates the user inside its own login and reports no profile data. For Medusa the data comes from the auth provider's `user_metadata`, which only holds `email`, `name` and what the backend's `claim_mappings` add: map `phone_number`, `phone_number_verified` and `address` there for them to reach the profile.

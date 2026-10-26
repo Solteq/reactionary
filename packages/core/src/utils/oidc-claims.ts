@@ -1,14 +1,5 @@
-import * as z from 'zod';
-import { ExternalLoginProfileSchema, type ExternalLoginResult } from '../schemas/models/identity.model.js';
+import type { ExternalLoginProfile, ExternalLoginResult } from '../schemas/models/identity.model.js';
 import { AddressSchema, type Address } from '../schemas/models/profile.model.js';
-import type { InferType } from '../zod-utils.js';
-
-/** What a storefront can put on a profile, from the standard claims of an OpenID Connect identity. */
-export const ProfileFromOidcClaimsSchema = ExternalLoginProfileSchema.extend({
-  emailVerified: z.boolean().optional(),
-});
-
-export type ProfileFromOidcClaims = InferType<typeof ProfileFromOidcClaimsSchema>;
 
 function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
@@ -25,9 +16,10 @@ function flag(value: unknown): boolean | undefined {
 /**
  * Reads the OpenID Connect standard claims (OpenID Connect Core section 5.1) the way every backend should:
  * names fall back to splitting `name`, and the address becomes a billing address only if it is complete enough to ship to.
+ * What a storefront can put on a profile, from the standard claims of an OpenID Connect identity.
  * Nothing is invented, so a backend that needs a value (Magento wants both names) applies its own default.
  */
-export function profileFromOidcClaims(claims: Record<string, unknown>): ProfileFromOidcClaims {
+export function profileFromOidcClaims(claims: Record<string, unknown>): ExternalLoginProfile {
   let firstName = text(claims['given_name']);
   let lastName = text(claims['family_name']);
   if (!firstName && !lastName) {
@@ -84,11 +76,12 @@ export function externalLoginResult(claims: Record<string, unknown>, isNewCustom
   if (!isNewCustomer) {
     return { isNewCustomer, profile: {} };
   }
-  const { email, firstName, lastName, phone, phoneVerified, billingAddress } = profileFromOidcClaims(claims);
+  const { email, emailVerified, firstName, lastName, phone, phoneVerified, billingAddress } = profileFromOidcClaims(claims);
   return {
     isNewCustomer,
     profile: {
       ...(email ? { email } : {}),
+      ...(email && emailVerified !== undefined ? { emailVerified } : {}),
       ...(firstName ? { firstName } : {}),
       ...(lastName ? { lastName } : {}),
       ...(phone ? { phone } : {}),

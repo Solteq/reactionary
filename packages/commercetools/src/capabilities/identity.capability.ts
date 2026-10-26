@@ -127,7 +127,8 @@ export class CommercetoolsIdentityCapability<
       });
     }
     const text = (value: unknown) => (typeof value === 'string' && value.length > 0 ? value : undefined);
-    const email = text(claims['email']);
+    const profile = profileFromOidcClaims(claims);
+    const email = profile.email;
     const issuer = text(claims.iss);
     const subject = text(claims.sub);
     if (!email || !issuer || !subject) {
@@ -137,13 +138,13 @@ export class CommercetoolsIdentityCapability<
       });
     }
 
-    const names = profileFromOidcClaims(claims);
     const outcome = await this.commercetools.loginWithExternalIdentity({
       provider,
       externalId: `${issuer}|${subject}`,
       email,
-      ...(names.firstName ? { firstName: names.firstName } : {}),
-      ...(names.lastName ? { lastName: names.lastName } : {}),
+      emailVerified: profile.emailVerified === true,
+      ...(profile.firstName ? { firstName: profile.firstName } : {}),
+      ...(profile.lastName ? { lastName: profile.lastName } : {}),
       tokens: { ...tokens, accessToken: tokens.accessToken },
     });
     if (outcome.type === 'Conflict') {

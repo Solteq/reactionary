@@ -19,6 +19,7 @@ import {
   type Result,
   error,
   externalLoginResult,
+  profileFromOidcClaims,
   success,
 } from '@reactionary/core';
 import { OidcIdentityCapability, type ExchangeExternalIdentityInput } from '@reactionary/oidc';
@@ -153,8 +154,9 @@ export class MagentoIdentityCapability extends OidcIdentityCapability {
   protected override async exchangeExternalIdentity(
     input: ExchangeExternalIdentityInput,
   ): Promise<Result<Identity, IdentityConflictError>> {
-    const email = input.claims['email'];
-    if (typeof email !== 'string' || email.length === 0) {
+    // Magento has no email verification status to store, so emailVerified is only reported on the identity
+    const { email } = profileFromOidcClaims(input.claims);
+    if (!email) {
       return error({ type: 'InvalidInput', error: 'The identity provider did not return an email address' });
     }
 

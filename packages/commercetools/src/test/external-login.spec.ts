@@ -199,6 +199,24 @@ describe('commercetools external login', () => {
     expect(context.session.identityContext.identity).toEqual({ type: 'Registered', id: { userId: 'customer-1' } });
   });
 
+  it('stores an assumed email verification and reads the address of an Azure B2C emails array', async () => {
+    const { identity } = createCommercetools([{ ...provider, assumeEmailVerified: true }], context);
+    const completed = await login(identity, { email: undefined, emails: ['grace@example.com'], email_verified: undefined });
+    assert(completed.success);
+    assert(completed.value.type === 'Registered');
+    expect(commercetools.createdBodies[0]).toMatchObject({ email: 'grace@example.com', isEmailVerified: true });
+    expect(completed.value.externalLogin?.profile).toMatchObject({ email: 'grace@example.com', emailVerified: true });
+  });
+
+  it('does not mark the email verified when the provider opted out of the check and said nothing', async () => {
+    const { identity } = createCommercetools([{ ...provider, requireVerifiedEmail: false }], context);
+    const completed = await login(identity, { email: 'grace@example.com', email_verified: undefined });
+    assert(completed.success);
+    assert(completed.value.type === 'Registered');
+    expect(commercetools.createdBodies[0]).toMatchObject({ isEmailVerified: false });
+    expect(completed.value.externalLogin?.profile.emailVerified).toBeUndefined();
+  });
+
   it('reuses the customer that already has this externalId and moves the guest cart to it', async () => {
     commercetools.customers.push({ id: 'customer-9', email: 'ada@example.com', externalId: `${idp.issuer}|user-1` });
     commercetools.carts.push({ id: 'cart-1', version: 1, anonymousId: 'guest-1', cartState: 'Active' });

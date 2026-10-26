@@ -19,6 +19,7 @@ export const GuestIdentitySchema = BaseModelSchema.extend({
  */
 export const ExternalLoginProfileSchema = z.looseObject({
     email: z.string().optional(),
+    emailVerified: z.boolean().optional().meta({ description: 'What the identity provider says about the email (email_verified, or true when the provider is configured with assumeEmailVerified). Absent when it does not say: unknown, not unverified.' }),
     phone: z.string().optional(),
     phoneVerified: z.boolean().optional().meta({ description: 'What the identity provider says about the phone number (phone_number_verified). Absent when it does not say.' }),
     firstName: z.string().optional(),
