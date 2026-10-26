@@ -127,7 +127,9 @@ export abstract class OidcIdentityCapability<TIdentity extends Identity = Identi
     const metadata = await resolveMetadata(provider);
     const tokens = await exchangeCode(provider, metadata, { code, callbackUrl: payload.callbackUrl, codeVerifier });
     const idTokenClaims = await verifyIdToken(provider, metadata, tokens.idToken, nonce);
-    const claims = await this.withUserinfoClaims(provider, metadata, tokens, idTokenClaims);
+    const withUserinfo = await this.withUserinfoClaims(provider, metadata, tokens, idTokenClaims);
+    const claims =
+      provider.assumeEmailVerified && withUserinfo['email_verified'] === undefined ? { ...withUserinfo, email_verified: true } : withUserinfo;
 
     if (provider.requireVerifiedEmail !== false && claims['email_verified'] !== true) {
       return error({ type: 'InvalidInput', error: 'The identity provider did not confirm a verified email address' });

@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { profileFromOidcClaims } from '../utils/oidc-claims.js';
 
 describe('profileFromOidcClaims', () => {
+  it('reads the first address of an Azure B2C emails array when there is no email claim', () => {
+    expect(profileFromOidcClaims({ emails: ['ada@example.com', 'other@example.com'] }).email).toBe('ada@example.com');
+    expect(profileFromOidcClaims({ email: 'ada@example.com', emails: ['other@example.com'] }).email).toBe('ada@example.com');
+    expect(profileFromOidcClaims({ emails: [] }).email).toBeUndefined();
+  });
+
   it('reads email, names and phone', () => {
     expect(
       profileFromOidcClaims({

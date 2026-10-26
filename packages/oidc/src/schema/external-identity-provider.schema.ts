@@ -43,6 +43,7 @@ export const ExternalIdentityProviderSchema = z.looseObject({
     .optional()
     .meta({ description: 'Fixed extra authorize parameters, e.g. { prompt: "login" } or { connection: "apple" } for Auth0.' }),
   requireVerifiedEmail: z.boolean().optional().meta({ description: 'Require email_verified to be true. Defaults to true; some providers (Azure B2C) never send the claim.' }),
+  assumeEmailVerified: z.boolean().optional().meta({ description: 'Treat the email as verified when the provider sends no email_verified claim (Azure B2C verifies the address during sign-up but does not say so). Off by default; a claim the provider does send is never overridden.' }),
   tokenEndpointAuthMethod: z
     .enum(['client_secret_basic', 'client_secret_post', 'none'])
     .optional()

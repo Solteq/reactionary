@@ -14,6 +14,7 @@ Two settings matter when moving to another identity provider:
 
 - `tokenEndpointAuthMethod`: how the client authenticates at the token endpoint. By default it is `client_secret_post`, unless the provider's discovery document lists methods and not that one, then `client_secret_basic`. Set it explicitly for providers whose discovery document is wrong or missing.
 - `userinfo` (`never`, `when-missing` (default) or `always`): claims the ID token lacks (email, name, `email_verified`) are filled from the userinfo endpoint. ID token claims win, and a userinfo answer for another subject is ignored. `userinfoEndpoint` is only needed when discovery is skipped.
+- `assumeEmailVerified`: treat the email as verified when the provider sends no `email_verified` claim, for providers that verify the address during sign-up without saying so (Azure B2C). Off by default, and a claim the provider does send is never overridden. Without it, such a provider needs `requireVerifiedEmail: false`, and the verification status stays unknown to the backend.
 
 `profileFromOidcClaims` in `@reactionary/core` reads the standard claims (names, phone, address) the same way for every backend.
 
