@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { profileFromOidcClaims } from '../utils/oidc-claims.js';
+import { externalLoginResult, profileFromOidcClaims } from '../utils/oidc-claims.js';
 
 describe('profileFromOidcClaims', () => {
   it('reads the first address of an Azure B2C emails array when there is no email claim', () => {
@@ -62,5 +62,20 @@ describe('profileFromOidcClaims', () => {
     ['a country name instead of an ISO code', { street_address: 'Main Street 1', locality: 'Copenhagen', postal_code: '1000', country: 'Denmark' }],
   ])('drops an address with %s', (_title, address) => {
     expect(profileFromOidcClaims({ address }).billingAddress).toBeUndefined();
+  });
+});
+
+describe('externalLoginResult', () => {
+  const claims = { email: 'ada@example.com', given_name: 'Ada', phone_number: '+4512345678' };
+
+  it('carries the profile data of a new customer', () => {
+    expect(externalLoginResult(claims, true)).toEqual({
+      isNewCustomer: true,
+      profile: { email: 'ada@example.com', firstName: 'Ada', phone: '+4512345678' },
+    });
+  });
+
+  it('carries nothing for a returning customer', () => {
+    expect(externalLoginResult(claims, false)).toEqual({ isNewCustomer: false, profile: {} });
   });
 });

@@ -122,6 +122,8 @@ describe('Medusa external login', () => {
     expect(result.value).toMatchObject({ type: 'Registered', id: { userId: 'cus_1' } });
     expect(stub.store.customer.create).not.toHaveBeenCalled();
     expect(stub.auth.refresh).not.toHaveBeenCalled();
+    expect(result.value).toMatchObject({ externalLogin: { isNewCustomer: false, profile: {} } });
+    expect(reqCtx.session.identityContext.identity).toEqual({ type: 'Registered', id: { userId: 'cus_1' } });
   });
 
   it('creates the customer on first login, then refreshes the token', async () => {
@@ -134,6 +136,29 @@ describe('Medusa external login', () => {
     assert(result.success);
     expect(stub.store.customer.create).toHaveBeenCalledWith({ email: 'a@b.test', first_name: 'Ada', last_name: 'Lovelace' });
     expect(stub.auth.refresh).toHaveBeenCalledOnce();
+    expect(result.value).toMatchObject({ externalLogin: { isNewCustomer: true, profile: { email: 'a@b.test', firstName: 'Ada', lastName: 'Lovelace' } } });
+  });
+
+  it('reports the phone and a complete address of a new customer for the profile', async () => {
+    const stub = createStub({
+      callbackToken: jwt({
+        actor_id: '',
+        user_metadata: {
+          email: 'a@b.test',
+          given_name: 'Ada',
+          family_name: 'Lovelace',
+          phone_number: '+4512345678',
+          address: { street_address: 'Main Street 1', locality: 'Copenhagen', postal_code: '1000', country: 'DK' },
+        },
+      }),
+    });
+    const identity = capability(stub);
+    await identity.startExternalLogin({ provider, callbackUrl });
+    const result = await identity.completeExternalLogin({ provider, callbackUrl, callbackParameters: { code: 'c', state: 'abc123' } });
+    assert(result.success);
+    expect(result.value).toMatchObject({
+      externalLogin: { isNewCustomer: true, profile: { phone: '+4512345678', billingAddress: { city: 'Copenhagen', countryCode: 'DK' } } },
+    });
   });
 
   it('falls back to splitting the name claim', async () => {

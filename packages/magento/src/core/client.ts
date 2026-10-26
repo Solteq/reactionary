@@ -257,6 +257,7 @@ export class Magento {
       );
 
       let customerId = found.items?.[0]?.id;
+      const created = customerId === undefined;
       if (customerId === undefined) {
         const created = await this.adminRest.request<{ id: number }>('POST', '/V1/customers', {
           customer: { email: identity.email, firstname: identity.firstName, lastname: identity.lastName },
@@ -268,7 +269,7 @@ export class Magento {
       const token = await this.adminRest.request<string>('POST', `/V1/customers/${customerId}/token`);
       const normalized = typeof token === 'string' ? token.replace(/^"|"$/g, '') : String(token);
       await this.tokenStore.setItem('customerToken', normalized);
-      return normalized;
+      return { token: normalized, created };
     },
 
     logout: async () => {
@@ -630,7 +631,7 @@ export class MagentoClient {
   async loginWithExternalIdentity(identity: { email: string; firstName: string; lastName: string }) {
     const client = await this.getClient();
     const guestCartId = await this.getActiveCartId();
-    const token = await client.auth.loginWithExternalIdentity(identity);
+    const { token, created } = await client.auth.loginWithExternalIdentity(identity);
     if (guestCartId) {
       try {
         await client.store.cart.mergeGuestCart(guestCartId);
@@ -639,7 +640,7 @@ export class MagentoClient {
       }
       await this.clearActiveCartId();
     }
-    return token;
+    return { token, created };
   }
 
   async logout() {

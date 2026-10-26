@@ -481,7 +481,7 @@ export class CommercetoolsAPI {
     firstName?: string;
     lastName?: string;
     tokens: OidcTokens & { accessToken: string };
-  }): Promise<{ type: 'Registered'; customerId: string } | { type: 'Conflict'; message: string }> {
+  }): Promise<{ type: 'Registered'; customerId: string; created: boolean } | { type: 'Conflict'; message: string }> {
     const admin = (await this.getAdminClient()).withProjectKey({
       projectKey: this.config.projectKey,
     });
@@ -556,7 +556,7 @@ export class CommercetoolsAPI {
     // The memoized client was built for the guest session
     this.client = undefined;
 
-    return { type: 'Registered', customerId };
+    return { type: 'Registered', customerId, created: !existing };
   }
 
   /** The anonymous id of the current guest session, if there is one. */

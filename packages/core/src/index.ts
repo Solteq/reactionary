@@ -7,5 +7,6 @@ export * from './analytics/index.js';
 export * from './schemas/index.js';
 export * from './initialization.js';
 export * from './metrics/protocol.js';
+export * from './utils/external-login-profile.js';
 export * from './utils/oidc-claims.js';
 export type { InferType } from './zod-utils.js';

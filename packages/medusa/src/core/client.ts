@@ -5,6 +5,7 @@ import {
   GuestIdentitySchema,
   Reactionary,
   RegisteredIdentitySchema,
+  externalLoginResult,
   type AnonymousIdentity,
   type Currency,
   type RegisteredIdentity,
@@ -328,6 +329,7 @@ export class MedusaAPI {
     await client.client.setToken(callbackResult);
 
     const claims = decodeJwtPayload(callbackResult);
+    const created = !claims.actor_id;
     if (!claims.actor_id) {
       const metadata = claims.user_metadata ?? {};
       const email = typeof metadata['email'] === 'string' ? metadata['email'] : undefined;
@@ -363,6 +365,7 @@ export class MedusaAPI {
       identity: {
         id: { userId: customerResponse.customer.id },
         type: 'Registered',
+        externalLogin: externalLoginResult(claims.user_metadata ?? {}, created),
       } satisfies RegisteredIdentity,
     };
   }

@@ -18,6 +18,10 @@ Two settings matter when moving to another identity provider:
 
 `profileFromOidcClaims` in `@reactionary/core` reads the standard claims (names, phone, address) the same way for every backend.
 
+## Profile data after the first login
+
+Backends create the customer with the email and names only. What else the identity provider knows (phone number, a complete address) comes back on the identity that `completeExternalLogin` returns, as `externalLogin: { isNewCustomer, profile }` (never stored in the session). The storefront calls `applyExternalLoginProfile(client, identity)` from `@reactionary/core` once, which writes the phone number and the billing address to the profile, and only when the login created the customer. HCL creates the user inside its own login and reports no profile data.
+
 ## Testing
 
 `@reactionary/oidc/testing` exports a fake identity provider (a local HTTP server with discovery, JWKS, token endpoint and signed ID tokens) and `runExternalLoginConformance`, which every backend's spec should run.
