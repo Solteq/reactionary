@@ -55,6 +55,9 @@ export function buildAuthorizationUrl(
   return url.toString();
 }
 
+/** Userinfo is best effort and sits in the login path, so a slow endpoint must not hold the login up. */
+const USERINFO_TIMEOUT_MS = 5000;
+
 export type TokenEndpointAuthMethod = NonNullable<ExternalIdentityProvider['tokenEndpointAuthMethod']>;
 
 /**
@@ -194,6 +197,7 @@ export async function fetchUserinfo(
   }
   const response = await fetch(metadata.userinfoEndpoint, {
     headers: { authorization: `Bearer ${accessToken}`, accept: 'application/json' },
+    signal: AbortSignal.timeout(USERINFO_TIMEOUT_MS),
   });
   if (!response.ok || !response.headers.get('content-type')?.includes('json')) {
     return undefined;

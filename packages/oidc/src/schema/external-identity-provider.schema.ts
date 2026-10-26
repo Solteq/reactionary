@@ -15,7 +15,7 @@ export const RESERVED_AUTHORIZATION_PARAMS = [
 export const DEFAULT_SCOPES = ['openid', 'email', 'profile'];
 
 /** https everywhere except loopback, which is what local development and tests use. */
-function isSecureUrl(value: string): boolean {
+export function isSecureUrl(value: string): boolean {
   const url = new URL(value);
   return url.protocol === 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 }

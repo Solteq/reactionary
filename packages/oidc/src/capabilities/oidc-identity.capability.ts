@@ -141,11 +141,24 @@ export abstract class OidcIdentityCapability<TIdentity extends Identity = Identi
   }
 
   /**
+   * email_verified only vouches for the email it arrived with. When the ID token has its own email, the userinfo
+   * response may only supply email_verified if it names that same address; otherwise it could mark an address
+   * the provider never verified as verified.
+   */
+  protected trustedUserinfo(userinfo: JWTPayload, claims: JWTPayload): JWTPayload {
+    const sameEmail = String(userinfo['email'] ?? '').toLowerCase() === String(claims['email'] ?? '').toLowerCase();
+    if (!claims['email'] || sameEmail) {
+      return userinfo;
+    }
+    return Object.fromEntries(Object.entries(userinfo).filter(([name]) => name !== 'email' && name !== 'email_verified'));
+  }
+
+  /**
    * Fills what the ID token lacks from the userinfo endpoint (the ID token wins where both have a claim). Userinfo is
    * best effort: any failure leaves the ID token claims as they are, and the login fails later only if a required
    * claim is still missing.
    */
-  private async withUserinfoClaims(
+  protected async withUserinfoClaims(
     provider: ExternalIdentityProvider,
     metadata: OidcMetadata,
     tokens: OidcTokens,
@@ -158,7 +171,7 @@ export abstract class OidcIdentityCapability<TIdentity extends Identity = Identi
     }
     try {
       const userinfo = await fetchUserinfo(metadata, tokens.accessToken, String(claims.sub));
-      return userinfo ? { ...userinfo, ...claims } : claims;
+      return userinfo ? { ...this.trustedUserinfo(userinfo, claims), ...claims } : claims;
     } catch {
       return claims;
     }

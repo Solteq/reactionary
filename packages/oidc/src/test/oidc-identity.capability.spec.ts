@@ -7,7 +7,7 @@ import {
   type RequestContext,
   type Result,
 } from '@reactionary/core';
-import { afterAll, assert, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, assert, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ExternalIdentityProviderSchema,
   OidcIdentityCapability,
@@ -255,6 +255,42 @@ describe('client authentication and userinfo', () => {
     const completed = await login(identity);
     expect(identity.exchanged[0]?.claims['email']).toBeUndefined();
     expect(completed.success).toBe(true);
+  });
+
+  it('does not let userinfo verify a different email than the ID token carries', async () => {
+    idp.omitIdTokenClaims = ['email_verified'];
+    idp.userinfoClaims = { email: 'other@example.com', email_verified: true };
+    const identity = backend();
+    const completed = await login(identity);
+    expect(completed.success).toBe(false);
+    expect(identity.exchanged).toHaveLength(0);
+  });
+
+  it('takes email_verified from userinfo when it names the same email', async () => {
+    idp.omitIdTokenClaims = ['email_verified'];
+    idp.userinfoClaims = { email: 'Ada@Example.com', email_verified: true };
+    const identity = backend();
+    const completed = await login(identity);
+    assert(completed.success);
+    expect(identity.exchanged[0]?.claims['email']).toBe('ada@example.com');
+    expect(identity.exchanged[0]?.claims['email_verified']).toBe(true);
+  });
+
+  it('drops a discovered userinfo endpoint that is not https', async () => {
+    const document = {
+      issuer: 'https://idp.example',
+      authorization_endpoint: 'https://idp.example/authorize',
+      token_endpoint: 'https://idp.example/token',
+      jwks_uri: 'https://idp.example/jwks',
+      userinfo_endpoint: 'http://idp.example/userinfo',
+    };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(document), { status: 200 }));
+    try {
+      const metadata = await resolveMetadata({ ...provider, issuer: 'https://idp.example' });
+      expect(metadata.userinfoEndpoint).toBeUndefined();
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   it('never calls userinfo when the provider opts out', async () => {
