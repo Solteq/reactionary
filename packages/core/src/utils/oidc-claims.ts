@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import type { ExternalLoginResult } from '../schemas/models/identity.model.js';
 import { AddressSchema, type Address } from '../schemas/models/profile.model.js';
 import type { InferType } from '../zod-utils.js';
 
@@ -68,5 +69,26 @@ export function profileFromOidcClaims(claims: Record<string, unknown>): ProfileF
     ...(phone ? { phone } : {}),
     ...(typeof claims['phone_number_verified'] === 'boolean' ? { phoneVerified: claims['phone_number_verified'] } : {}),
     ...(billingAddress ? { billingAddress } : {}),
+  };
+}
+
+/**
+ * What a backend reports about an external login, for the storefront to put on the profile (see applyExternalLoginProfile).
+ * A returning customer carries no profile data: nothing the identity provider says may overwrite what the shop knows.
+ */
+export function externalLoginResult(claims: Record<string, unknown>, isNewCustomer: boolean): ExternalLoginResult {
+  if (!isNewCustomer) {
+    return { isNewCustomer, profile: {} };
+  }
+  const { email, firstName, lastName, phone, billingAddress } = profileFromOidcClaims(claims);
+  return {
+    isNewCustomer,
+    profile: {
+      ...(email ? { email } : {}),
+      ...(firstName ? { firstName } : {}),
+      ...(lastName ? { lastName } : {}),
+      ...(phone ? { phone } : {}),
+      ...(billingAddress ? { billingAddress } : {}),
+    },
   };
 }

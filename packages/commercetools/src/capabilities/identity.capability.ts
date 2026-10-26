@@ -15,6 +15,8 @@ import {
   IdentityMutationLoginSchema,
   type Result,
   error,
+  externalLoginResult,
+  profileFromOidcClaims,
   success,
 } from '@reactionary/core';
 import { OidcIdentityCapability, type ExchangeExternalIdentityInput } from '@reactionary/oidc';
@@ -135,12 +137,13 @@ export class CommercetoolsIdentityCapability<
       });
     }
 
+    const names = profileFromOidcClaims(claims);
     const outcome = await this.commercetools.loginWithExternalIdentity({
       provider,
       externalId: `${issuer}|${subject}`,
       email,
-      ...(text(claims['given_name']) ? { firstName: text(claims['given_name']) } : {}),
-      ...(text(claims['family_name']) ? { lastName: text(claims['family_name']) } : {}),
+      ...(names.firstName ? { firstName: names.firstName } : {}),
+      ...(names.lastName ? { lastName: names.lastName } : {}),
       tokens: { ...tokens, accessToken: tokens.accessToken },
     });
     if (outcome.type === 'Conflict') {
@@ -151,6 +154,7 @@ export class CommercetoolsIdentityCapability<
       this.factory.parseIdentity(this.context, {
         type: 'Registered',
         id: { userId: outcome.customerId },
+        externalLogin: externalLoginResult(claims, outcome.created),
       }),
     );
   }

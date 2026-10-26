@@ -189,6 +189,16 @@ describe('commercetools external login', () => {
     expect(session()).toMatchObject({ tokenSource: 'external', externalProvider: 'fake', customerId: 'customer-1', token: 'access-token' });
   });
 
+  it('reports the phone of a new customer for the profile, and uses the name claim when given and family name are missing', async () => {
+    const { identity } = createCommercetools([provider], context);
+    const completed = await login(identity, { email: 'grace@example.com', given_name: undefined, family_name: undefined, name: 'Grace Hopper', phone_number: '+4512345678' });
+    assert(completed.success);
+    assert(completed.value.type === 'Registered');
+    expect(completed.value.externalLogin).toMatchObject({ isNewCustomer: true, profile: { phone: '+4512345678', firstName: 'Grace', lastName: 'Hopper' } });
+    expect(commercetools.createdBodies[0]).toMatchObject({ firstName: 'Grace', lastName: 'Hopper' });
+    expect(context.session.identityContext.identity).toEqual({ type: 'Registered', id: { userId: 'customer-1' } });
+  });
+
   it('reuses the customer that already has this externalId and moves the guest cart to it', async () => {
     commercetools.customers.push({ id: 'customer-9', email: 'ada@example.com', externalId: `${idp.issuer}|user-1` });
     commercetools.carts.push({ id: 'cart-1', version: 1, anonymousId: 'guest-1', cartState: 'Active' });
@@ -196,7 +206,7 @@ describe('commercetools external login', () => {
     await api.getClient();
     const completed = await login(identity);
     assert(completed.success);
-    expect(completed.value).toMatchObject({ id: { userId: 'customer-9' } });
+    expect(completed.value).toMatchObject({ id: { userId: 'customer-9' }, externalLogin: { isNewCustomer: false, profile: {} } });
     expect(commercetools.customers).toHaveLength(1);
     expect(commercetools.carts[0]?.customerId).toBe('customer-9');
   });

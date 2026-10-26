@@ -135,12 +135,36 @@ describe('Magento external login', () => {
     expect(magento.createdPasswords[0]).toMatch(/[^A-Za-z0-9]/);
   });
 
+  it('reports the phone and a complete address of a new customer for the profile, and keeps them out of the session', async () => {
+    const { identity } = createMagento([provider], context);
+    const completed = await login(identity, {
+      email: 'grace@example.com',
+      given_name: 'Grace',
+      family_name: 'Hopper',
+      phone_number: '+4512345678',
+      address: { street_address: 'Main Street 1', locality: 'Copenhagen', postal_code: '1000', country: 'DK' },
+    });
+    assert(completed.success);
+    assert(completed.value.type === 'Registered');
+    expect(completed.value.externalLogin).toMatchObject({
+      isNewCustomer: true,
+      profile: {
+        email: 'grace@example.com',
+        phone: '+4512345678',
+        billingAddress: { streetAddress: 'Main Street 1', city: 'Copenhagen', postalCode: '1000', countryCode: 'DK' },
+      },
+    });
+    expect(context.session.identityContext.identity).toEqual({ type: 'Registered', id: { userId: '1' } });
+  });
+
   it('signs in an existing customer with the same email instead of creating another', async () => {
     magento.customers.push({ id: 7, email: 'ada@example.com', firstname: 'Ada', lastname: 'Lovelace' });
     const { identity } = createMagento([provider], context);
     const completed = await login(identity);
     assert(completed.success);
     expect(completed.value).toMatchObject({ id: { userId: '7' } });
+    assert(completed.value.type === 'Registered');
+    expect(completed.value.externalLogin).toEqual({ isNewCustomer: false, profile: {} });
     expect(magento.customers).toHaveLength(1);
   });
 
