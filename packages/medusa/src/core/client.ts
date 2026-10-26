@@ -365,6 +365,8 @@ export class MedusaAPI {
       identity: {
         id: { userId: customerResponse.customer.id },
         type: 'Registered',
+        // Medusa's auth-oidc only keeps email, name and the claims in its `claim_mappings` in user_metadata, so phone_number,
+        // phone_number_verified and address reach the profile only when the backend maps them
         externalLogin: externalLoginResult(claims.user_metadata ?? {}, created),
       } satisfies RegisteredIdentity,
     };
