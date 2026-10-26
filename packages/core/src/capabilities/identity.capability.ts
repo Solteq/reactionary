@@ -28,9 +28,9 @@ export abstract class IdentityCapability<TIdentity extends Identity = Identity> 
   protected updateIdentityContext(identity: TIdentity) {
     this.context.session.identityContext.lastUpdated = new Date();
     // What an external login learned about the shopper goes to the caller of completeExternalLogin, not into the session
-    if (identity.type === 'Registered' && 'externalLogin' in identity) {
-      const registered = { ...identity };
-      delete registered.externalLogin;
+    if (identity.type === 'Registered') {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { externalLogin, ...registered } = identity;
       this.context.session.identityContext.identity = registered as Identity;
       return;
     }

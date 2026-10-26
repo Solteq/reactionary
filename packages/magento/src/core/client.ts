@@ -245,7 +245,11 @@ export class Magento {
      * find the customer by email, create it if there is none, then issue a customer token with the admin key.
      * Needs the Storefront Compatibility Package (4.7.6+) for POST /V1/customers/{id}/token.
      */
-    loginWithExternalIdentity: async (identity: { email: string; firstName: string; lastName: string }) => {
+    loginWithExternalIdentity: async (identity: { email: string; firstName: string; lastName: string }) =>
+      (await this.auth.signInExternalIdentity(identity)).token,
+
+    /** Like loginWithExternalIdentity, and also reports whether this login created the customer. */
+    signInExternalIdentity: async (identity: { email: string; firstName: string; lastName: string }) => {
       const params = new URLSearchParams();
       params.set('searchCriteria[filterGroups][0][filters][0][field]', 'email');
       params.set('searchCriteria[filterGroups][0][filters][0][value]', identity.email);
@@ -257,19 +261,19 @@ export class Magento {
       );
 
       let customerId = found.items?.[0]?.id;
-      const created = customerId === undefined;
+      const isNewCustomer = customerId === undefined;
       if (customerId === undefined) {
-        const created = await this.adminRest.request<{ id: number }>('POST', '/V1/customers', {
+        const customer = await this.adminRest.request<{ id: number }>('POST', '/V1/customers', {
           customer: { email: identity.email, firstname: identity.firstName, lastname: identity.lastName },
           password: randomMagentoPassword(),
         });
-        customerId = created.id;
+        customerId = customer.id;
       }
 
       const token = await this.adminRest.request<string>('POST', `/V1/customers/${customerId}/token`);
       const normalized = typeof token === 'string' ? token.replace(/^"|"$/g, '') : String(token);
       await this.tokenStore.setItem('customerToken', normalized);
-      return { token: normalized, created };
+      return { token: normalized, isNewCustomer };
     },
 
     logout: async () => {
@@ -629,9 +633,14 @@ export class MagentoClient {
    * make getSelf report a guest after the next logout.
    */
   async loginWithExternalIdentity(identity: { email: string; firstName: string; lastName: string }) {
+    return (await this.signInExternalIdentity(identity)).token;
+  }
+
+  /** Like loginWithExternalIdentity, and also reports whether this login created the customer. */
+  async signInExternalIdentity(identity: { email: string; firstName: string; lastName: string }) {
     const client = await this.getClient();
     const guestCartId = await this.getActiveCartId();
-    const { token, created } = await client.auth.loginWithExternalIdentity(identity);
+    const { token, isNewCustomer } = await client.auth.signInExternalIdentity(identity);
     if (guestCartId) {
       try {
         await client.store.cart.mergeGuestCart(guestCartId);
@@ -640,7 +649,7 @@ export class MagentoClient {
       }
       await this.clearActiveCartId();
     }
-    return { token, created };
+    return { token, isNewCustomer };
   }
 
   async logout() {

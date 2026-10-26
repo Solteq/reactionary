@@ -66,12 +66,12 @@ describe('profileFromOidcClaims', () => {
 });
 
 describe('externalLoginResult', () => {
-  const claims = { email: 'ada@example.com', given_name: 'Ada', phone_number: '+4512345678' };
+  const claims = { email: 'ada@example.com', given_name: 'Ada', phone_number: '+4512345678', phone_number_verified: true };
 
   it('carries the profile data of a new customer', () => {
     expect(externalLoginResult(claims, true)).toEqual({
       isNewCustomer: true,
-      profile: { email: 'ada@example.com', firstName: 'Ada', phone: '+4512345678' },
+      profile: { email: 'ada@example.com', firstName: 'Ada', phone: '+4512345678', phoneVerified: true },
     });
   });
 

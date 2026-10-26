@@ -1,17 +1,11 @@
 import * as z from 'zod';
-import type { ExternalLoginResult } from '../schemas/models/identity.model.js';
+import { ExternalLoginProfileSchema, type ExternalLoginResult } from '../schemas/models/identity.model.js';
 import { AddressSchema, type Address } from '../schemas/models/profile.model.js';
 import type { InferType } from '../zod-utils.js';
 
 /** What a storefront can put on a profile, from the standard claims of an OpenID Connect identity. */
-export const ProfileFromOidcClaimsSchema = z.looseObject({
-  email: z.string().optional(),
+export const ProfileFromOidcClaimsSchema = ExternalLoginProfileSchema.extend({
   emailVerified: z.boolean().optional(),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  phone: z.string().optional(),
-  phoneVerified: z.boolean().optional(),
-  billingAddress: AddressSchema.optional().meta({ description: 'Only when the address claim is complete: street, city, postal code and a two letter country.' }),
 });
 
 export type ProfileFromOidcClaims = InferType<typeof ProfileFromOidcClaimsSchema>;
@@ -80,7 +74,7 @@ export function externalLoginResult(claims: Record<string, unknown>, isNewCustom
   if (!isNewCustomer) {
     return { isNewCustomer, profile: {} };
   }
-  const { email, firstName, lastName, phone, billingAddress } = profileFromOidcClaims(claims);
+  const { email, firstName, lastName, phone, phoneVerified, billingAddress } = profileFromOidcClaims(claims);
   return {
     isNewCustomer,
     profile: {
@@ -88,6 +82,7 @@ export function externalLoginResult(claims: Record<string, unknown>, isNewCustom
       ...(firstName ? { firstName } : {}),
       ...(lastName ? { lastName } : {}),
       ...(phone ? { phone } : {}),
+      ...(phone && phoneVerified !== undefined ? { phoneVerified } : {}),
       ...(billingAddress ? { billingAddress } : {}),
     },
   };

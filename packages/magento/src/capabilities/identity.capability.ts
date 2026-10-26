@@ -18,9 +18,9 @@ import {
   type GuestIdentity,
   type Result,
   error,
+  externalLoginResult,
   success,
 } from '@reactionary/core';
-import { externalLoginResult } from '@reactionary/core';
 import { OidcIdentityCapability, type ExchangeExternalIdentityInput } from '@reactionary/oidc';
 import type { MagentoClient } from '../core/client.js';
 import type { MagentoConfiguration } from '../schema/configuration.schema.js';
@@ -158,13 +158,13 @@ export class MagentoIdentityCapability extends OidcIdentityCapability {
       return error({ type: 'InvalidInput', error: 'The identity provider did not return an email address' });
     }
 
-    const { created } = await this.magentoApi.loginWithExternalIdentity({ email, ...namesFromClaims(input.claims) });
+    const { isNewCustomer } = await this.magentoApi.signInExternalIdentity({ email, ...namesFromClaims(input.claims) });
 
     const me = await this.magentoApi.getMe();
     return success({
       type: 'Registered',
       id: { userId: String(me.id) },
-      externalLogin: externalLoginResult(input.claims, created),
+      externalLogin: externalLoginResult(input.claims, isNewCustomer),
     } satisfies RegisteredIdentity);
   }
 }

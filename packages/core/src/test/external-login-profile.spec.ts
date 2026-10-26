@@ -45,7 +45,7 @@ function fakeClient() {
 describe('applyExternalLoginProfile', () => {
   it('writes the phone number and the billing address of a new customer', async () => {
     const { client, profile } = fakeClient();
-    await applyExternalLoginProfile(client, login({ isNewCustomer: true, profile: { email: 'ada@example.com', phone: '+4512345678', billingAddress: address } }));
+    await applyExternalLoginProfile(client, login({ isNewCustomer: true, profile: { email: 'ada@example.com', phone: '+4512345678', phoneVerified: true, billingAddress: address } }));
     expect(profile.update).toHaveBeenCalledWith({ identifier: { userId: 'u1' }, email: 'ada@example.com', phone: '+4512345678' });
     expect(profile.setBillingAddress).toHaveBeenCalledWith({ identifier: { userId: 'u1' }, address });
     expect(profile.getById).not.toHaveBeenCalled();
@@ -63,8 +63,20 @@ describe('applyExternalLoginProfile', () => {
 
   it('reads the stored email when the claims have none, since the update needs one', async () => {
     const { client, profile } = fakeClient();
-    await applyExternalLoginProfile(client, login({ isNewCustomer: true, profile: { phone: '+4512345678' } }));
+    await applyExternalLoginProfile(client, login({ isNewCustomer: true, profile: { phone: '+4512345678', phoneVerified: true } }));
     expect(profile.update).toHaveBeenCalledWith({ identifier: { userId: 'u1' }, email: 'stored@example.com', phone: '+4512345678' });
+  });
+
+  it('writes the phone number only when the provider verified it, unless told otherwise', async () => {
+    const { client, profile } = fakeClient();
+    const unverified = login({ isNewCustomer: true, profile: { email: 'a@b.dk', phone: '+4512345678', billingAddress: address } });
+    await applyExternalLoginProfile(client, unverified);
+    await applyExternalLoginProfile(client, login({ isNewCustomer: true, profile: { email: 'a@b.dk', phone: '+4512345678', phoneVerified: false } }));
+    expect(profile.update).not.toHaveBeenCalled();
+    expect(profile.setBillingAddress).toHaveBeenCalledOnce();
+
+    await applyExternalLoginProfile(client, unverified, { requireVerifiedPhone: false });
+    expect(profile.update).toHaveBeenCalledOnce();
   });
 
   it('keeps going and reports when a write fails or throws', async () => {
@@ -72,7 +84,7 @@ describe('applyExternalLoginProfile', () => {
     profile.update.mockRejectedValueOnce(new Error('boom'));
     profile.setBillingAddress.mockResolvedValueOnce(error({ type: 'NotFound', identifier: { userId: 'u1' } }));
     const onError = vi.fn();
-    await applyExternalLoginProfile(client, login({ isNewCustomer: true, profile: { email: 'a@b.dk', phone: '1', billingAddress: address } }), onError);
+    await applyExternalLoginProfile(client, login({ isNewCustomer: true, profile: { email: 'a@b.dk', phone: '1', phoneVerified: true, billingAddress: address } }), { onError });
     expect(onError).toHaveBeenCalledTimes(2);
   });
 });
