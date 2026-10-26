@@ -1,16 +1,19 @@
+import * as z from 'zod';
 import { AddressSchema, type Address } from '../schemas/models/profile.model.js';
+import type { InferType } from '../zod-utils.js';
 
 /** What a storefront can put on a profile, from the standard claims of an OpenID Connect identity. */
-export type ProfileFromOidcClaims = {
-  email?: string;
-  emailVerified?: boolean;
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  phoneVerified?: boolean;
-  /** Only when the address claim is complete: street, city, postal code and a two letter country. */
-  billingAddress?: Address;
-};
+export const ProfileFromOidcClaimsSchema = z.looseObject({
+  email: z.string().optional(),
+  emailVerified: z.boolean().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  phone: z.string().optional(),
+  phoneVerified: z.boolean().optional(),
+  billingAddress: AddressSchema.optional().meta({ description: 'Only when the address claim is complete: street, city, postal code and a two letter country.' }),
+});
+
+export type ProfileFromOidcClaims = InferType<typeof ProfileFromOidcClaimsSchema>;
 
 function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
