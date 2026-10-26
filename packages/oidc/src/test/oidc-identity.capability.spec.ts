@@ -276,6 +276,32 @@ describe('client authentication and userinfo', () => {
     expect(identity.exchanged[0]?.claims['email_verified']).toBe(true);
   });
 
+  it('refuses a provider that sends no email_verified unless the email is assumed verified', async () => {
+    idp.omitIdTokenClaims = ['email_verified'];
+    expect((await login(backend())).success).toBe(false);
+
+    const identity = backend({ assumeEmailVerified: true });
+    const completed = await login(identity);
+    assert(completed.success);
+    expect(identity.exchanged[0]?.claims['email_verified']).toBe(true);
+  });
+
+  it('leaves email_verified unknown when the provider opts out of the check without assuming', async () => {
+    idp.omitIdTokenClaims = ['email_verified'];
+    const identity = backend({ requireVerifiedEmail: false });
+    const completed = await login(identity);
+    assert(completed.success);
+    expect(identity.exchanged[0]?.claims['email_verified']).toBeUndefined();
+  });
+
+  it('does not override an email_verified the provider sends, even when assuming', async () => {
+    idp.omitIdTokenClaims = ['email_verified'];
+    idp.userinfoClaims = { email: 'ada@example.com', email_verified: false };
+    const identity = backend({ assumeEmailVerified: true });
+    const completed = await login(identity);
+    expect(completed.success).toBe(false);
+  });
+
   it('drops a discovered userinfo endpoint that is not https', async () => {
     const document = {
       issuer: 'https://idp.example',

@@ -33,7 +33,9 @@ export function profileFromOidcClaims(claims: Record<string, unknown>): ProfileF
     lastName = rest.join(' ') || undefined;
   }
 
-  const email = text(claims['email']);
+  // Azure B2C can deliver the address as an `emails` array instead of `email`.
+  const emails = claims['emails'];
+  const email = text(claims['email']) ?? (Array.isArray(emails) ? text(emails[0]) : undefined);
   const phone = text(claims['phone_number']);
 
   const rawAddress = claims['address'];
