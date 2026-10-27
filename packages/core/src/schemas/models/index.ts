@@ -11,6 +11,7 @@ export * from './inventory.model.js';
 export * from './payment.model.js';
 export * from './price.model.js';
 export * from './product.model.js';
+export * from './seo.model.js';
 export * from './product-search.model.js';
 export * from './product-reviews.model.js';
 export * from './profile.model.js';
