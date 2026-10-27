@@ -80,11 +80,12 @@ export class FakeProductCapability<
     });
 
     const isOrganic = generator.datatype.boolean({ probability: 0.2});
+    const name = generator.commerce.productName();
     const result = {
       identifier: {
         key: body,
       },
-      name: generator.commerce.productName(),
+      name,
       slug: body,
       brand: '',
       longDescription: '',
@@ -134,7 +135,15 @@ export class FakeProductCapability<
             electronic_address: generator.internet.email({ provider: 'example.com' }),
           }
         }
-      }
+      },
+      // Authored on about half of the products, so both authored and derived values show up in demos.
+      seo: generator.datatype.boolean({ probability: 0.5 })
+        ? {
+            title: `${name} | Buy online`,
+            description: generator.lorem.sentence(),
+            robots: generator.datatype.boolean({ probability: 0.1 }) ? 'noindex, follow' : undefined,
+          }
+        : undefined,
     } satisfies Product;
 
     return this.factory.parseProduct(this.context, result);

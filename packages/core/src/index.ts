@@ -9,4 +9,5 @@ export * from './initialization.js';
 export * from './metrics/protocol.js';
 export * from './utils/external-login-profile.js';
 export * from './utils/oidc-claims.js';
+export * from './utils/seo.js';
 export type { InferType } from './zod-utils.js';

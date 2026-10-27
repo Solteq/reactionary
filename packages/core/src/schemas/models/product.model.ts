@@ -1,6 +1,7 @@
 import * as z from 'zod';
 import { CategoryIdentifierSchema, ProductAttributeIdentifierSchema, ProductAttributeValueIdentifierSchema, ProductIdentifierSchema, ProductOptionIdentifierSchema, ProductOptionValueIdentifierSchema, ProductVariantIdentifierSchema } from './identifiers.model.js';
 import { BaseModelSchema, ImageSchema } from './base.model.js';
+import { SeoSchema } from './seo.model.js';
 import type { InferType } from '../../zod-utils.js';
 
 
@@ -103,6 +104,7 @@ export const ProductSchema = BaseModelSchema.extend({
     mainVariant: ProductVariantSchema.describe('The primary SKU for the product'),
     variants: z.array(ProductVariantSchema).default([]).meta({ description: 'A list of all SKUs for the product. Can be empty or omitted if product is single-sku' }),
     complianceData: ProductComplianceDataSchema.optional().describe('Compliance information for the product, including certifications and regulatory markings.'),
+    seo: SeoSchema.optional().describe('Authored SEO metadata for the product page. Only explicitly authored values are set, see resolveSeo for applying fallbacks.'),
 }).describe('A product is a wrapper around sellable items. It contains all the shared information for a set of SKUs. All products have at least one SKU, but can potentially have hundreds.');
 
 

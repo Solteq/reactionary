@@ -26,6 +26,7 @@ import type * as z from 'zod';
 import createDebug from 'debug';
 import { safeStringConvert } from '../../utils/medusa-helpers.js';
 import { parseProductSearchComplianceData } from '../../utils/product-compliance.js';
+import { isMedusaSeoMetadataKey, parseMedusaSeo } from '../../utils/seo.js';
 
 const debug = createDebug('reactionary:medusa:product');
 
@@ -170,6 +171,9 @@ export class MedusaProductFactory<
         if (key.startsWith('compliance_data')) {
           continue;
         }
+        if (isMedusaSeoMetadataKey(key)) {
+          continue;
+        }
         sharedAttributes.push(
           this.createSynthAttribute(key, key, String(value)),
         );
@@ -246,6 +250,7 @@ export class MedusaProductFactory<
 
 
     const complianceData = this.parseComplianceData(context, data);
+    const seo = parseMedusaSeo(context, data.metadata);
 
 
     if (!data.variants) {
@@ -277,7 +282,8 @@ export class MedusaProductFactory<
       sharedAttributes,
       slug,
       variants: otherVariants,
-      complianceData: complianceData
+      complianceData: complianceData,
+      seo,
     } satisfies Product;
 
     return this.productSchema.parse(result);

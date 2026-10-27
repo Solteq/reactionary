@@ -13,6 +13,7 @@ import {
 } from '@reactionary/core';
 import type * as z from 'zod';
 import type { MagentoCategory, MagentoCategorySearchResult } from '../../schema/magento.types.js';
+import { parseMagentoSeo } from '../../utils/seo.js';
 
 export interface MagentoCategoryPaginatedInput extends MagentoCategorySearchResult {
   pageSize: number;
@@ -63,6 +64,7 @@ export class MagentoCategoryFactory<
       text,
       parentCategory,
       images: [],
+      seo: parseMagentoSeo(data),
     } satisfies Category;
 
     return this.categorySchema.parse(result);

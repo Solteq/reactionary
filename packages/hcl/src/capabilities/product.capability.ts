@@ -125,7 +125,11 @@ export class HclProductCapability<
 
     const value = this.factory.parseProduct(
       this.context,
-      await this.withResolvedParentCategories(data),
+      {
+        ...(await this.withResolvedParentCategories(data)),
+        // SEO data only comes with the URL token, so it is only available on lookups by slug.
+        seoPage: token.page,
+      },
     );
     return success(value);
   }
