@@ -23,6 +23,17 @@ export type SearchDocumentTaxonomy = InferType<typeof SearchDocumentTaxonomySche
 export const SEARCH_TERM_FACET_PREFIX = 'terms.';
 
 /**
+ * Names a vocabulary after its id, e.g. power-source becomes "Power Source".
+ */
+export function getVocabularyName(vocabulary: string): string {
+  return vocabulary
+    .split(/[-_\s]+/)
+    .filter((word) => word !== '')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/**
  * Names the facet of a vocabulary after the vocabulary id, e.g. terms.power-source becomes "Power Source".
  * Returns undefined for facets that are not term facets.
  */
@@ -30,12 +41,7 @@ export function getTermFacetName(facetKey: string): string | undefined {
   if (!facetKey.startsWith(SEARCH_TERM_FACET_PREFIX) || facetKey.length === SEARCH_TERM_FACET_PREFIX.length) {
     return undefined;
   }
-  return facetKey
-    .slice(SEARCH_TERM_FACET_PREFIX.length)
-    .split(/[-_\s]+/)
-    .filter((word) => word !== '')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+  return getVocabularyName(facetKey.slice(SEARCH_TERM_FACET_PREFIX.length));
 }
 
 /**

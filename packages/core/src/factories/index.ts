@@ -20,3 +20,4 @@ export * from './product-reviews.factory.js';
 export * from './product-search.factory.js';
 export * from './profile.factory.js';
 export * from './store.factory.js';
+export * from './taxonomy.factory.js';
