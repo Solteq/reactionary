@@ -38,7 +38,7 @@ A helper returns `Result<{ eventId }>` as soon as the event is validated and que
 
 `orderPlaced` takes the finalized checkout, as that is what the customer placed and it exists before the OMS has created the order. Passing `order` still works but is deprecated. Subscribers read it through `summarizePlacedOrder(event.payload)`, which returns the transaction id (the order key when known, else the checkout key), the lines and the price from whichever was given.
 
-`contentViewed` records a view of a CMS article or page. The CMS is not a capability, so the caller passes the ids of the taxonomy concepts the content is tagged with (`{ content: { key: 'article-1', type: 'article' }, concepts: ['features/cordless'] }`). A provider that follows visitor interests can use them.
+`contentViewed` records a view of a CMS article or page. The CMS is not a capability, so the caller passes the ids of the taxonomy concepts the content is tagged with (`{ content: { key: 'article-1', type: 'article' }, concepts: ['features/cordless'] }`). Pass the direct tags of the article only, not their ancestors, most important first: a provider that follows visitor interests takes the list as it is and keeps the first ones when it has to cap it. At most 50 ids of at most 128 characters.
 
 Product, category and store arguments accept either the model or its identifier. The storefront does not need to load anything just to describe an event: a `cartItemRemoved` takes the line it rendered (or its sku), and providers look up what they need (names, prices, brands) through a cache-backed, read-only context.
 

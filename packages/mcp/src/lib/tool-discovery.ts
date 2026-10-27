@@ -31,7 +31,7 @@ export function discoverReactionaryMCPTools(
       return [];
     }
 
-    // Analytics is storefront telemetry, not something an agent should do, and its 36 helpers carry whole carts and orders as input.
+    // Analytics is storefront telemetry, not something an agent should do, and its helpers carry whole carts and orders as input.
     if (value instanceof AnalyticsCapability) {
       return [];
     }
