@@ -23,6 +23,8 @@ import {
   StoreSchema as CoreStoreSchema,
   FeatureFlagSchema as CoreFeatureFlagSchema,
   PersonalizationProfileSchema as CorePersonalizationProfileSchema,
+  ConceptSchema as CoreConceptSchema,
+  VocabularySchema as CoreVocabularySchema,
 } from '@reactionary/core';
 import { FakeProductCapability } from '../capabilities/product.capability.js';
 import { FakeProductSearchCapability } from '../capabilities/product-search.capability.js';
@@ -45,6 +47,7 @@ import { FakeProductReviewsCapability } from '../capabilities/product-reviews.ca
 import { FakeProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import { FakeFeatureFlagCapability } from '../capabilities/feature-flag.capability.js';
 import { FakePersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
+import { FakeTaxonomyCapability } from '../capabilities/taxonomy.capability.js';
 import {
   FakeCartFactory,
   FakeCategoryFactory,
@@ -62,6 +65,7 @@ import {
   FakeProductSearchFactory,
   FakeProfileFactory,
   FakeStoreFactory,
+  FakeTaxonomyFactory,
 } from '../factories/index.js';
 import {
   type FakeClientFromCapabilities,
@@ -161,6 +165,18 @@ export function withFakeCapabilities<T extends FakeCapabilities>(
           factory: new FakeStoreFactory(CoreStoreSchema),
           capability: (args) =>
             new FakeStoreCapability(args.config, args.cache, args.context, args.factory),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.taxonomy?.enabled) {
+      client.taxonomy = resolveCapabilityWithFactory(
+        capabilities.taxonomy,
+        {
+          factory: new FakeTaxonomyFactory(CoreConceptSchema, CoreVocabularySchema),
+          capability: (args) =>
+            new FakeTaxonomyCapability(args.config, args.cache, args.context, args.factory),
         },
         buildCapabilityArgs,
       );
