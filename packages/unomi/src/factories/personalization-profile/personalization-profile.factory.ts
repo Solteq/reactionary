@@ -30,6 +30,11 @@ export class UnomiPersonalizationProfileFactory<
     const segments = (data.segments ?? [])
       .map((segment) => typeof segment === 'string' ? segment : segment.name ?? segment.id)
       .filter((segment): segment is string => Boolean(segment));
+    // The affinity segments can be named by either the name or the id of a segment object, both are read
+    // and the highest band of a concept wins.
+    const segmentNames = (data.segments ?? [])
+      .flatMap((segment) => (typeof segment === 'string' ? [segment] : [segment.name, segment.id]))
+      .filter((segment): segment is string => Boolean(segment));
     const blurb = typeof data.properties?.['description'] === 'string'
       ? data.properties['description']
       : '';
@@ -39,7 +44,7 @@ export class UnomiPersonalizationProfileFactory<
       segments,
       // The CDP exposes concept interest as banded affinity.<vocabulary>.<slug>.<low|medium|high> segments, never as
       // raw scores. Any other CDP provider can fill affinities with this one line from its segments.
-      affinities: affinitiesFromSegments(segments),
+      affinities: affinitiesFromSegments(segmentNames),
       blurb,
     });
   }
