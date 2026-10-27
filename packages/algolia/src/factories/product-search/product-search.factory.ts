@@ -12,6 +12,8 @@ import type {
   RequestContext,
 } from '@reactionary/core';
 import {
+  getTermFacetName,
+  parseSearchDocumentTaxonomy,
   FacetIdentifierSchema,
   FacetValueIdentifierSchema,
   ImageSchema,
@@ -116,6 +118,7 @@ export class AlgoliaProductSearchFactory<
       name: body.name || body.objectID,
       slug: body.slug || body.objectID,
       complianceData: this.parseComplianceData(body),
+      ...parseSearchDocumentTaxonomy(body),
       canAddToCartDirectly: body.canAddToCartDirectly ?? variants.length === 1,
       variants,
     } satisfies ProductSearchResultItem;
@@ -142,7 +145,7 @@ export class AlgoliaProductSearchFactory<
   ): ProductSearchResultFacet {
     const result = ProductSearchResultFacetSchema.parse({
       identifier: facetIdentifier,
-      name: facetIdentifier.key,
+      name: getTermFacetName(facetIdentifier.key) ?? facetIdentifier.key,
       values: [],
     } satisfies Partial<ProductSearchResultFacet>);
 

@@ -22,6 +22,8 @@ import {
   ProductSearchResultItemComplianceDataSchema,
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
+  getTermFacetName,
+  parseSearchDocumentTaxonomy,
   ProductSearchResultSchema,
   Reactionary,
   type RequestContext,
@@ -169,6 +171,7 @@ export class MeilisearchProductSearchCapability<
       name: body.name || body.objectID,
       slug: body.slug || body.objectID,
       complianceData: this.parseComplianceData(body),
+      ...parseSearchDocumentTaxonomy(body),
       canAddToCartDirectly: body.canAddToCartDirectly ?? variants.length === 1,
       variants,
     } satisfies ProductSearchResultItem;
@@ -258,7 +261,7 @@ export class MeilisearchProductSearchCapability<
   protected parseFacet(facetIdentifier: FacetIdentifier, facetValues: Record<string, number>): ProductSearchResultFacet {
     const result: ProductSearchResultFacet = ProductSearchResultFacetSchema.parse({
       identifier: facetIdentifier,
-      name: facetIdentifier.key.replace(/_/g, ' '),
+      name: getTermFacetName(facetIdentifier.key) ?? facetIdentifier.key.replace(/_/g, ' '),
       values: []
     });
 

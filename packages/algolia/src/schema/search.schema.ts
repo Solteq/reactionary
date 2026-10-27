@@ -1,4 +1,4 @@
-import { ProductSearchIdentifierSchema, ProductSearchResultSchema, type ProductSearchResultItemComplianceData } from '@reactionary/core';
+import { ProductSearchIdentifierSchema, ProductSearchResultSchema, type ProductSearchResultItemComplianceData, type SearchDocumentTaxonomy } from '@reactionary/core';
 import * as z from 'zod';
 
 export const AlgoliaProductSearchIdentifierSchema = ProductSearchIdentifierSchema.extend({
@@ -26,4 +26,7 @@ export interface AlgoliaNativeRecord {
   variants: Array<AlgoliaNativeVariant>;
   complianceData?: ProductSearchResultItemComplianceData;
   canAddToCartDirectly?: boolean;
+  productType?: SearchDocumentTaxonomy['productType'];
+  terms?: SearchDocumentTaxonomy['terms'];
+  termIds?: SearchDocumentTaxonomy['termIds'];
 }
