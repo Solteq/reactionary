@@ -1,0 +1,94 @@
+{
+  "interactions": [
+    {
+      "method": "POST",
+      "url": "{authUrl}/oauth/{projectKey}/anonymous/token?grant_type=client_credentials",
+      "status": 200,
+      "contentType": "application/json; charset=utf-8",
+      "body": {
+        "access_token": "redacted-access_token",
+        "expires_in": 10800,
+        "token_type": "Bearer",
+        "scope": "view_products:{projectKey} view_published_products:{projectKey}",
+        "refresh_token": "redacted-refresh_token"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "{apiUrl}/{projectKey}/product-projections/key=drill-1",
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "id": "id-drill-1",
+        "version": 1,
+        "key": "drill-1",
+        "productType": {
+          "typeId": "product-type",
+          "id": "pt-1"
+        },
+        "name": {
+          "en": "Drill drill-1",
+          "da": "Bor drill-1"
+        },
+        "slug": {
+          "en": "drill-1",
+          "da": "drill-1"
+        },
+        "description": {
+          "en": "d",
+          "da": "d"
+        },
+        "categories": [],
+        "masterVariant": {
+          "id": 1,
+          "sku": "sku-drill-1",
+          "images": [],
+          "prices": [],
+          "attributes": [
+            {
+              "name": "icecat-feature-1765",
+              "value": [
+                {
+                  "en": "18 V",
+                  "da": "18 V"
+                }
+              ]
+            },
+            {
+              "name": "term_features",
+              "value": [
+                {
+                  "key": "features__cordless",
+                  "label": {
+                    "en": "Cordless",
+                    "da": "Traadloes"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "flags",
+              "value": [
+                {
+                  "key": "ageRestricted",
+                  "label": "Age restricted"
+                }
+              ]
+            },
+            {
+              "name": "colour",
+              "value": "red"
+            }
+          ]
+        },
+        "variants": [],
+        "searchKeywords": {},
+        "attributes": [],
+        "published": true,
+        "hasStagedChanges": false,
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "lastModifiedAt": "2026-01-01T00:00:00.000Z"
+      }
+    }
+  ]
+}

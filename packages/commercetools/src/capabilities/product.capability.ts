@@ -88,7 +88,8 @@ export class CommercetoolsProductCapability<
         });
       }
       return { ...projection, productType: { ...projection.productType, obj: productType } };
-    } catch {
+    } catch (err) {
+      console.error(`Unable to fetch product type ${id}, the attributes of the product keep their machine names`, err);
       return projection;
     }
   }

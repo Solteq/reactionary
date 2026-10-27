@@ -89,12 +89,14 @@ export class CommercetoolsProductFactory<
     );
 
     const allAttributes = [...productLevelAttributes, ...variantLevelAttributes];
+    // only the product types that recalcitrant manages get the taxonomy handling, everything else maps as it always did
+    const managed = this.isManagedProductType(productType);
     const sharedAttributes = allAttributes
-      .filter((x) => !this.isTaxonomyAttribute(x))
+      .filter((x) => !managed || !this.isTaxonomyAttribute(x))
       .map((x) => this.parseAttribute(context, x, productType))
-      .filter((x) => x.values.length > 0);
-    const terms = this.parseTerms(context, allAttributes);
-    const flags = this.parseFlags(allAttributes);
+      .filter((x) => !managed || x.values.length > 0);
+    const terms = managed ? this.parseTerms(context, allAttributes) : [];
+    const flags = managed ? this.parseFlags(allAttributes) : [];
 
     const mainVariant = this.parseVariant(context, data.masterVariant, data);
 
@@ -120,7 +122,7 @@ export class CommercetoolsProductFactory<
       published: true,
       variants: otherVariants,
       complianceData: this.parseComplianceData(context, data),
-      productType: this.parseProductType(productType),
+      productType: managed ? this.parseProductType(productType) : undefined,
       terms,
       flags,
     } satisfies Product;
@@ -129,6 +131,14 @@ export class CommercetoolsProductFactory<
     // probably fair, given that this relationship can't be expressed in TS otherwise...
     // unless we were willing to accept ownership of the responsibility and do an 'as T'
     return this.productSchema.parse(result);
+  }
+
+  /**
+   * Whether the product type is one that recalcitrant manages (key rc-<typeID>). Labels, taxonomy attributes
+   * and the stricter value parsing only apply to those, other product types map as they did before.
+   */
+  protected isManagedProductType(productType: CTProductType | undefined): boolean {
+    return productType?.key?.startsWith(MANAGED_PRODUCT_TYPE_KEY_PREFIX) ?? false;
   }
 
   protected parseProductType(productType: CTProductType | undefined): ProductType | undefined {
@@ -214,6 +224,9 @@ export class CommercetoolsProductFactory<
    * @returns true if the attribute is an option
    */
   protected isVariantAttributeAnOption(attr: CTAttribute, productType?: CTProductType): boolean {
+    if (!this.isManagedProductType(productType)) {
+      return true;
+    }
     // taxonomy attributes and attributes that are the same for all variants describe the product, not a variant
     if (this.isTaxonomyAttribute(attr)) {
       return false;
@@ -250,7 +263,9 @@ export class CommercetoolsProductFactory<
       (variant.attributes ?? [])
         .filter((attr) => this.isVariantAttributeAnOption(attr, product.productType?.obj))
         .map((attr) => {
-          const attrVal = this.parseAttributeValue(context, attr);
+          const attrVal = this.isManagedProductType(product.productType?.obj)
+            ? this.parseManagedAttributeValue(context, attr)
+            : this.parseAttributeValue(context, attr);
           const optionIdentifier: ProductOptionIdentifier = {
             key: attr.name,
           };
@@ -304,13 +319,24 @@ export class CommercetoolsProductFactory<
     attr: CTAttribute,
     productType?: CTProductType,
   ): ProductAttribute {
+    if (!this.isManagedProductType(productType)) {
+      return ProductAttributeSchema.parse({
+        identifier: ProductAttributeIdentifierSchema.parse({
+          key: attr.name,
+        } satisfies Partial<ProductAttributeIdentifier>),
+        group: '',
+        name: attr.name,
+        values: [this.parseAttributeValue(context, attr)],
+      } satisfies Partial<ProductAttribute>);
+    }
+
     // sets carry one value per entry
     const entries: unknown[] = Array.isArray(attr.value) ? attr.value : [attr.value];
     const values = entries.map((entry) =>
-      this.parseAttributeValue(context, { name: attr.name, value: entry }),
+      this.parseManagedAttributeValue(context, { name: attr.name, value: entry }),
     );
 
-    const result = ProductAttributeSchema.parse({
+    return ProductAttributeSchema.parse({
       identifier: ProductAttributeIdentifierSchema.parse({
         key: attr.name,
       } satisfies Partial<ProductAttributeIdentifier>),
@@ -318,22 +344,51 @@ export class CommercetoolsProductFactory<
       name: this.parseAttributeName(context, attr, productType),
       values,
     } satisfies Partial<ProductAttribute>);
-
-    return result;
   }
 
   protected parseAttributeValue(context: RequestContext, attr: CTAttribute): ProductAttributeValue {
+    let attrValue = '';
+    if (attr.value && Array.isArray(attr.value)) {
+      attrValue = attr.value[0];
+    }
+    const localeStr = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
+    if (attr.value && typeof attr.value === 'object') {
+      if (localeStr in attr.value) {
+        attrValue = attr.value[localeStr];
+      } else {
+        attrValue = '-';
+      }
+    }
+
+    if (typeof attr.value === 'string') {
+      attrValue = attr.value;
+    }
+
+    const attrVal = ProductAttributeValueSchema.parse({
+      identifier: ProductAttributeValueIdentifierSchema.parse({
+        key: attrValue,
+      } satisfies Partial<ProductAttributeValueIdentifier>),
+      value: String(attrValue),
+      label: String(attrValue),
+    } satisfies Partial<ProductAttributeValue>);
+
+    return attrVal;
+  }
+
+  /**
+   * Parses the value of an attribute of a managed product type: plain values, localized text and (localized)
+   * enums, by key and label, with any translation as the fallback.
+   */
+  protected parseManagedAttributeValue(context: RequestContext, attr: CTAttribute): ProductAttributeValue {
     const language = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
     const { key, label } = getAttributeValueKeyAndLabel(attr.value, language);
 
-    const attrVal = ProductAttributeValueSchema.parse({
+    return ProductAttributeValueSchema.parse({
       identifier: ProductAttributeValueIdentifierSchema.parse({
         key,
       } satisfies Partial<ProductAttributeValueIdentifier>),
       value: key,
       label,
     } satisfies Partial<ProductAttributeValue>);
-
-    return attrVal;
   }
 }
