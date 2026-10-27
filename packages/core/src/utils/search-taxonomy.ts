@@ -71,9 +71,12 @@ export function getTaxonomyFacetName(facetKey: string): string | undefined {
 
 /**
  * Maps the taxonomy fields of a search hit to the product type and terms of a search result item.
- * The localized names are listed per vocabulary and are matched to the term ids in order within the
- * vocabulary. A term without a matching name gets the last part of its id as name. Terms are only
- * produced from termIds, as a name alone cannot identify a term.
+ *
+ * The contract with the indexer (recalcitrant) is that termIds are sorted ascending and include the ancestors
+ * of the assigned terms, and that terms[<vocabulary>] holds one localized name per term of that vocabulary, in
+ * ascending term id order. The names are therefore matched to the term ids by position within the vocabulary.
+ * If the counts of a vocabulary differ, the pairing cannot be trusted and its terms get the last part of their
+ * id as name. Terms are only produced from termIds, as a name alone cannot identify a term.
  */
 export function parseSearchDocumentTaxonomy(hit: unknown): { productType?: ProductType; terms?: ProductTerm[] } {
   const parsed = SearchDocumentTaxonomySchema.safeParse(hit);
