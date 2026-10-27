@@ -32,7 +32,8 @@ import { mapLimit } from '../utils/map-limit.js';
 const debug = createDebug('reactionary:medusa:product');
 
 /**
- * How long a fetched product type is reused. Product types change rarely, and every product needs one.
+ * How long a fetched product type is reused. Product types change rarely, and every product needs one. The entry
+ * is shared by all locales.
  */
 const PRODUCT_TYPE_CACHE_TTL_SECONDS = 3600;
 /**
@@ -75,12 +76,13 @@ export class MedusaProductCapability<
   }
 
   /**
-   * Fetches a product type by its id with the metadata and the external id, in the language of the request, which
-   * is why the translated value is part of the cache key. A failed fetch is logged and not cached, the product then
-   * keeps its machine keys.
+   * Fetches a product type by its id with the metadata and the external id. The entry is the same for every
+   * locale: the attribute definitions and the localized names are in the metadata, so the translated value of the
+   * type, which is the only part that depends on the language of the request, is left out of the cache and the
+   * entry is kept once per type. A failed fetch is logged and not cached, the product then keeps its machine keys.
    */
   protected async fetchProductType(id: string): Promise<StoreProductType | undefined> {
-    const cacheKey = this.generateCacheKeyForQuery('medusa-product-type', { id }, this.context.languageContext.locale, 'all');
+    const cacheKey = this.generateCacheKeyForQuery('medusa-product-type', { id }, 'all', 'all');
     try {
       const cached: StoreProductType | null = await this.cache.get(cacheKey, MedusaProductTypeSchema);
       if (cached) {
@@ -91,11 +93,14 @@ export class MedusaProductCapability<
         `/store/product-types/${encodeURIComponent(id)}`,
         { method: 'GET', query: { fields: '+metadata,+external_id' } },
       );
-      await this.cache.put(cacheKey, response.product_type, {
+      // the value is translated for the language of the first request, it must not be served to another language,
+      // the name of the type comes from metadata.names and falls back to its key, see parseProductType
+      const type: StoreProductType = { ...response.product_type, value: '' };
+      await this.cache.put(cacheKey, type, {
         ttlSeconds: PRODUCT_TYPE_CACHE_TTL_SECONDS,
         dependencyIds: [],
       });
-      return response.product_type;
+      return type;
     } catch (err) {
       console.error(`Unable to fetch product type ${id}, the attributes of the products keep their machine keys`, err);
       return undefined;
