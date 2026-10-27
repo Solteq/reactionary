@@ -5,11 +5,14 @@ import {
   ProductAttributeValueIdentifierSchema,
   ProductAttributeValueSchema,
   ProductComplianceDataSchema,
+  ProductFlagSchema,
   type AnyProductSchema,
   type Product,
   type ProductFactory,
   type ProductIdentifier,
   type ProductVariant,
+  type ProductTerm,
+  type ProductType,
   type ProductVariantIdentifier,
   type RequestContext,
 } from '@reactionary/core';
@@ -17,6 +20,7 @@ import type * as z from 'zod';
 import type {
   ProductProjection,
   ProductVariant as CTProductVariant,
+  ProductType as CTProductType,
   Attribute as CTAttribute,
 } from '@commercetools/platform-sdk';
 import type {
@@ -31,6 +35,17 @@ import type {
   ProductSchema,
   ProductComplianceData} from '@reactionary/core';
 import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
+import { getAttributeValueKeyAndLabel } from '../../core/attribute-utils.js';
+
+/**
+ * The product types that recalcitrant manages are keyed rc-<typeID>.
+ */
+const MANAGED_PRODUCT_TYPE_KEY_PREFIX = 'rc-';
+/**
+ * Taxonomy terms are carried by attributes named term_<vocabulary>.
+ */
+const TERM_ATTRIBUTE_PREFIX = 'term_';
+const FLAGS_ATTRIBUTE = 'flags';
 
 export class CommercetoolsProductFactory<
   TProductSchema extends AnyProductSchema = typeof ProductSchema,
@@ -59,10 +74,9 @@ export class CommercetoolsProductFactory<
       description = data.description[localeStr];
     }
 
-    const variantLevelAttributes =
-      data.masterVariant.attributes?.map((x) =>
-        this.parseAttribute(context, x),
-      ) || [];
+    const productType = data.productType?.obj;
+
+    const variantLevelAttributes = data.masterVariant.attributes ?? [];
 
     const specialAttributes = [
       'reactionaryaccessories',
@@ -70,15 +84,18 @@ export class CommercetoolsProductFactory<
       'reactionaryreplacements',
     ];
 
-    const productLevelAttributes =
-      data.attributes
-        .filter((x) => !specialAttributes.includes(x.name))
-        .map((x) => this.parseAttribute(context, x)) || [];
+    const productLevelAttributes = (data.attributes ?? []).filter(
+      (x) => !specialAttributes.includes(x.name),
+    );
 
-    const sharedAttributes = [
-      ...productLevelAttributes,
-      ...variantLevelAttributes,
-    ];
+    const allAttributes = [...productLevelAttributes, ...variantLevelAttributes];
+    const sharedAttributes = allAttributes
+      .filter((x) => !this.isTaxonomyAttribute(x))
+      .map((x) => this.parseAttribute(context, x, productType))
+      .filter((x) => x.values.length > 0);
+    const terms = this.parseTerms(context, allAttributes);
+    const flags = this.parseFlags(allAttributes);
+
     const mainVariant = this.parseVariant(context, data.masterVariant, data);
 
     const otherVariants = [];
@@ -103,14 +120,88 @@ export class CommercetoolsProductFactory<
       published: true,
       variants: otherVariants,
       complianceData: this.parseComplianceData(context, data),
-      terms: [],
-      flags: [],
+      productType: this.parseProductType(productType),
+      terms,
+      flags,
     } satisfies Product;
 
     // PAIN: having to actually do the parse here to guarantee that the generics are satisfied.
     // probably fair, given that this relationship can't be expressed in TS otherwise...
     // unless we were willing to accept ownership of the responsibility and do an 'as T'
     return this.productSchema.parse(result);
+  }
+
+  protected parseProductType(productType: CTProductType | undefined): ProductType | undefined {
+    if (!productType) {
+      return undefined;
+    }
+    const key = productType.key ?? productType.id;
+    return {
+      identifier: {
+        key: key.startsWith(MANAGED_PRODUCT_TYPE_KEY_PREFIX) ? key.slice(MANAGED_PRODUCT_TYPE_KEY_PREFIX.length) : key,
+      },
+      name: productType.name,
+    };
+  }
+
+  /**
+   * The term_<vocabulary> and flags attributes carry taxonomy data, they are no product attributes.
+   */
+  protected isTaxonomyAttribute(attr: CTAttribute): boolean {
+    return attr.name === FLAGS_ATTRIBUTE || attr.name.startsWith(TERM_ATTRIBUTE_PREFIX);
+  }
+
+  /**
+   * Maps the term_<vocabulary> attributes (sets of enums) to terms. The enum key is the term id with
+   * the first '/' encoded as '__', and the enum label holds the localized names.
+   */
+  protected parseTerms(context: RequestContext, attributes: CTAttribute[]): ProductTerm[] {
+    const language = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
+    const terms: ProductTerm[] = [];
+    for (const attr of attributes) {
+      if (!attr.name.startsWith(TERM_ATTRIBUTE_PREFIX)) {
+        continue;
+      }
+      const attributeVocabulary = attr.name.slice(TERM_ATTRIBUTE_PREFIX.length);
+      const entries: unknown[] = Array.isArray(attr.value) ? attr.value : [attr.value];
+      for (const entry of entries) {
+        const { key, label } = getAttributeValueKeyAndLabel(entry, language);
+        if (!key) {
+          continue;
+        }
+        const id = key.replace('__', '/');
+        if (terms.some((term) => term.identifier.key === id)) {
+          continue;
+        }
+        const separator = id.indexOf('/');
+        terms.push({
+          identifier: { key: id },
+          vocabulary: separator > 0 ? id.slice(0, separator) : attributeVocabulary,
+          name: label || (separator >= 0 ? id.slice(separator + 1) : id),
+        });
+      }
+    }
+    return terms;
+  }
+
+  /**
+   * Maps the flags attribute (set of enum) to the closed list of flags, dropping unknown keys.
+   */
+  protected parseFlags(attributes: CTAttribute[]): string[] {
+    const flags: string[] = [];
+    for (const attr of attributes) {
+      if (attr.name !== FLAGS_ATTRIBUTE) {
+        continue;
+      }
+      const entries: unknown[] = Array.isArray(attr.value) ? attr.value : [attr.value];
+      for (const entry of entries) {
+        const parsed = ProductFlagSchema.safeParse(getAttributeValueKeyAndLabel(entry, 'en').key);
+        if (parsed.success && !flags.includes(parsed.data)) {
+          flags.push(parsed.data);
+        }
+      }
+    }
+    return flags;
   }
 
   protected parseComplianceData(context: RequestContext, data: ProductProjection): ProductComplianceData {
@@ -122,9 +213,16 @@ export class CommercetoolsProductFactory<
    * @param attr a variant attribute
    * @returns true if the attribute is an option
    */
-  protected isVariantAttributeAnOption(attr: CTAttribute): boolean {
-    // for now, the assumption is that any variant attribute is a defining attribute (ie an option)
-    // ideally this should be verified with the product type.
+  protected isVariantAttributeAnOption(attr: CTAttribute, productType?: CTProductType): boolean {
+    // taxonomy attributes and attributes that are the same for all variants describe the product, not a variant
+    if (this.isTaxonomyAttribute(attr)) {
+      return false;
+    }
+    const definition = productType?.attributes?.find((x) => x.name === attr.name);
+    if (definition?.attributeConstraint === 'SameForAll') {
+      return false;
+    }
+    // otherwise the assumption is that any variant attribute is a defining attribute (ie an option)
     return true;
   }
 
@@ -150,7 +248,7 @@ export class CommercetoolsProductFactory<
 
     const options =
       (variant.attributes ?? [])
-        .filter((attr) => this.isVariantAttributeAnOption(attr))
+        .filter((attr) => this.isVariantAttributeAnOption(attr, product.productType?.obj))
         .map((attr) => {
           const attrVal = this.parseAttributeValue(context, attr);
           const optionIdentifier: ProductOptionIdentifier = {
@@ -184,46 +282,56 @@ export class CommercetoolsProductFactory<
     return result;
   }
 
+  /**
+   * Picks the label of an attribute from the product type definition for the request locale,
+   * falling back to en, any label, and finally the machine name of the attribute.
+   */
+  protected parseAttributeName(
+    context: RequestContext,
+    attr: CTAttribute,
+    productType?: CTProductType,
+  ): string {
+    const label = productType?.attributes?.find((x) => x.name === attr.name)?.label;
+    if (!label) {
+      return attr.name;
+    }
+    const language = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
+    return label[language] || label['en'] || Object.values(label).find((x) => !!x) || attr.name;
+  }
+
   protected parseAttribute(
     context: RequestContext,
     attr: CTAttribute,
+    productType?: CTProductType,
   ): ProductAttribute {
+    // sets carry one value per entry
+    const entries: unknown[] = Array.isArray(attr.value) ? attr.value : [attr.value];
+    const values = entries.map((entry) =>
+      this.parseAttributeValue(context, { name: attr.name, value: entry }),
+    );
+
     const result = ProductAttributeSchema.parse({
       identifier: ProductAttributeIdentifierSchema.parse({
         key: attr.name,
       } satisfies Partial<ProductAttributeIdentifier>),
       group: '',
-      name: attr.name,
-      values: [this.parseAttributeValue(context, attr)],
+      name: this.parseAttributeName(context, attr, productType),
+      values,
     } satisfies Partial<ProductAttribute>);
 
     return result;
   }
 
   protected parseAttributeValue(context: RequestContext, attr: CTAttribute): ProductAttributeValue {
-    let attrValue = '';
-    if (attr.value && Array.isArray(attr.value)) {
-      attrValue = attr.value[0];
-    }
-    const localeStr = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
-    if (attr.value && typeof attr.value === 'object') {
-      if (localeStr in attr.value) {
-        attrValue = attr.value[localeStr];
-      } else {
-        attrValue = '-';
-      }
-    }
-
-    if (typeof attr.value === 'string') {
-      attrValue = attr.value;
-    }
+    const language = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
+    const { key, label } = getAttributeValueKeyAndLabel(attr.value, language);
 
     const attrVal = ProductAttributeValueSchema.parse({
       identifier: ProductAttributeValueIdentifierSchema.parse({
-        key: attrValue,
+        key,
       } satisfies Partial<ProductAttributeValueIdentifier>),
-      value: String(attrValue),
-      label: String(attrValue),
+      value: key,
+      label,
     } satisfies Partial<ProductAttributeValue>);
 
     return attrVal;
