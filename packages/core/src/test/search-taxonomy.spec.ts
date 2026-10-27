@@ -56,6 +56,43 @@ describe('parseSearchDocumentTaxonomy', () => {
     ]);
   });
 
+  it('pins the pairing contract with the indexer on a realistic hit', () => {
+    // termIds ascending, ancestors included. Names per vocabulary in ascending term id order, one per term.
+    // features/outdoor-rated has no translated name, so the indexer wrote its slug.
+    const result = parseSearchDocumentTaxonomy({
+      termIds: [
+        'brands/acme',
+        'brands/acme-pro',
+        'features/outdoor',
+        'features/outdoor-rated',
+        'features/power',
+        'features/power/cordless',
+      ],
+      terms: {
+        brands: ['Acme', 'Acme Pro'],
+        features: ['Outdoor', 'outdoor-rated', 'Power', 'Cordless'],
+      },
+    });
+
+    expect(result.terms?.map((t) => [t.identifier.key, t.vocabulary, t.name])).toEqual([
+      ['brands/acme', 'brands', 'Acme'],
+      ['brands/acme-pro', 'brands', 'Acme Pro'],
+      ['features/outdoor', 'features', 'Outdoor'],
+      ['features/outdoor-rated', 'features', 'outdoor-rated'],
+      ['features/power', 'features', 'Power'],
+      ['features/power/cordless', 'features', 'Cordless'],
+    ]);
+  });
+
+  it('only gives up on the vocabulary whose counts differ', () => {
+    const tooMany = parseSearchDocumentTaxonomy({
+      termIds: ['brands/acme', 'features/a', 'features/b'],
+      terms: { brands: ['Acme', 'Extra'], features: ['A', 'B'] },
+    });
+
+    expect(tooMany.terms?.map((t) => t.name)).toEqual(['acme', 'A', 'B']);
+  });
+
   it('falls back to the id slug when names and ids do not line up', () => {
     const result = parseSearchDocumentTaxonomy({
       terms: { features: ['Cordless'] },
