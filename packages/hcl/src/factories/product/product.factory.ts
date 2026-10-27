@@ -26,6 +26,7 @@ import type {
   HclProductAttribute,
   HclProductAttributeValue,
 } from '../../schema/hcl.schema.js';
+import { parseHclSeo } from '../../core/seo.js';
 
 const USAGE_DEFINING = 'Defining';
 const USAGE_DESCRIPTIVE = 'Descriptive';
@@ -237,6 +238,7 @@ export class HclProductFactory<
       mainVariant,
       variants,
       complianceData: this.parseComplianceData(_context, data),
+      seo: parseHclSeo(data.seoPage),
     } satisfies Product;
 
     return this.productSchema.parse(result);

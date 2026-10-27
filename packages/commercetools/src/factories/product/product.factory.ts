@@ -31,6 +31,7 @@ import type {
   ProductSchema,
   ProductComplianceData} from '@reactionary/core';
 import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
+import { parseCommercetoolsSeo } from '../../core/seo-utils.js';
 
 export class CommercetoolsProductFactory<
   TProductSchema extends AnyProductSchema = typeof ProductSchema,
@@ -103,6 +104,7 @@ export class CommercetoolsProductFactory<
       published: true,
       variants: otherVariants,
       complianceData: this.parseComplianceData(context, data),
+      seo: parseCommercetoolsSeo(localeStr, data),
     } satisfies Product;
 
     // PAIN: having to actually do the parse here to guarantee that the generics are satisfied.

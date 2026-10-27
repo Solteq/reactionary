@@ -19,6 +19,7 @@ import type * as z from 'zod';
 import type { MagentoConfiguration } from '../../schema/configuration.schema.js';
 import type { MagentoProduct } from '../../schema/magento.types.js';
 import { getProductKey, parseDamImages } from '../../utils/magento-product.js';
+import { parseMagentoSeo } from '../../utils/seo.js';
 
 function getCustomAttribute(product: MagentoProduct, code: string): string | undefined {
   if (!product.custom_attributes) return undefined;
@@ -104,6 +105,7 @@ export class MagentoProductFactory<
       slug,
       variants: [],
       complianceData: this.parseComplianceData(_context, data),
+      seo: parseMagentoSeo(data),
     } satisfies Product;
 
     return this.productSchema.parse(result);

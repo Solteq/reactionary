@@ -18,6 +18,7 @@ import {
   type Image,
 } from '@reactionary/core';
 import type * as z from 'zod';
+import { parseMedusaSeo } from '../../utils/seo.js';
 
 export class MedusaCategoryFactory<
   TCategorySchema extends AnyCategorySchema = typeof CategorySchema,
@@ -37,7 +38,7 @@ export class MedusaCategoryFactory<
   }
 
   public parseCategory(
-    _context: RequestContext,
+    context: RequestContext,
     data: StoreProductCategory,
   ): z.output<TCategorySchema> {
     const identifier = CategoryIdentifierSchema.parse({
@@ -69,6 +70,7 @@ export class MedusaCategoryFactory<
       text,
       parentCategory,
       images,
+      seo: parseMedusaSeo(context, data.metadata),
     } satisfies Category;
 
     return this.categorySchema.parse(result);

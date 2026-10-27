@@ -11,6 +11,7 @@ import type {
 import type * as z from 'zod';
 import type { HclCategoryResponse } from '../../schema/hcl.schema.js';
 import { type CategoryPaginatedResultSchema } from '@reactionary/core';
+import { parseHclSeo } from '../../core/seo.js';
 import type { HclCategorySchema } from '../../schema/category.schema.js';
 
 export class HclCategoryFactory<
@@ -84,6 +85,7 @@ export class HclCategoryFactory<
       slug,
       text: data.shortDescription ?? data.description ?? '',
       images,
+      seo: parseHclSeo(data.seoPage),
     } satisfies Category;
 
     return this.categorySchema.parse({
