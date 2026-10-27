@@ -47,6 +47,14 @@ describe('resolveSeo', () => {
     expect(result.description).toBe('Fast & quiet 1 L Black');
   });
 
+  it('decodes entities once, so escaped markup stays literal text', () => {
+    const { description } = resolveSeo({
+      fallbackTitle: 'T',
+      fallbackDescription: '&amp;lt;b&amp;gt; &#8211; &#x2013; caf&eacute;',
+    });
+    expect(description).toBe('&lt;b&gt; \u2013 \u2013 caf&eacute;');
+  });
+
   it('cuts the fallback description at a word boundary', () => {
     const words = Array.from({ length: 60 }, (_, i) => `word${i}`).join(' ');
     const { description } = resolveSeo({ fallbackTitle: 'T', fallbackDescription: words });

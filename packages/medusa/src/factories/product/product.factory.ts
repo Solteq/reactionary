@@ -26,7 +26,7 @@ import type * as z from 'zod';
 import createDebug from 'debug';
 import { safeStringConvert } from '../../utils/medusa-helpers.js';
 import { parseProductSearchComplianceData } from '../../utils/product-compliance.js';
-import { parseMedusaSeo, SEO_METADATA_PREFIX } from '../../utils/seo.js';
+import { isMedusaSeoMetadataKey, parseMedusaSeo } from '../../utils/seo.js';
 
 const debug = createDebug('reactionary:medusa:product');
 
@@ -171,7 +171,7 @@ export class MedusaProductFactory<
         if (key.startsWith('compliance_data')) {
           continue;
         }
-        if (key.startsWith(SEO_METADATA_PREFIX)) {
+        if (isMedusaSeoMetadataKey(key)) {
           continue;
         }
         sharedAttributes.push(
