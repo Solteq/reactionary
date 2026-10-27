@@ -46,7 +46,7 @@ export const AnalyticsMutationProductViewedSchema = AnalyticsEventMutationBaseSc
 
 export const AnalyticsMutationContentViewedSchema = AnalyticsEventMutationBaseSchema.extend({
     content: AnalyticsContentSchema,
-    concepts: z.array(z.string()).meta({ description: 'The ids of the taxonomy concepts the content is tagged with, e.g. "features/cordless". The caller supplies them, because the CMS is not a capability. An empty list is allowed.' }),
+    concepts: z.array(z.string().max(128)).max(50).meta({ description: 'The ids of the taxonomy concepts the content is tagged with, e.g. "features/cordless". The caller supplies them, because the CMS is not a capability: pass the direct tags of the content, not their ancestors, most important first. At most 50, each at most 128 characters. An empty list is allowed.' }),
 });
 
 export const AnalyticsMutationPromotionViewedSchema = AnalyticsEventMutationBaseSchema.extend({

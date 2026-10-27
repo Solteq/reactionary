@@ -88,6 +88,11 @@ describe('analytics event schemas', () => {
     expect(schema.safeParse({ content: { key: 'a1' }, concepts: [] }).success).toBe(true);
     expect(schema.safeParse({ content: { key: 'a1' } }).success).toBe(false);
     expect(schema.safeParse({ content: { key: 'a1' }, concepts: 'features/cordless' }).success).toBe(false);
+    // at most 50 ids of at most 128 characters
+    expect(schema.safeParse({ content: { key: 'a1' }, concepts: Array.from({ length: 50 }, (_, i) => `features/c${i}`) }).success).toBe(true);
+    expect(schema.safeParse({ content: { key: 'a1' }, concepts: Array.from({ length: 51 }, (_, i) => `features/c${i}`) }).success).toBe(false);
+    expect(schema.safeParse({ content: { key: 'a1' }, concepts: [`features/${'x'.repeat(119)}`] }).success).toBe(true);
+    expect(schema.safeParse({ content: { key: 'a1' }, concepts: [`features/${'x'.repeat(120)}`] }).success).toBe(false);
   });
 
   it('requires a name on custom events', () => {

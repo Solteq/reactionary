@@ -170,6 +170,9 @@ export class AnalyticsCapability extends BaseCapability {
   /**
    * A CMS article or page was viewed. The CMS is not a capability, so the caller passes the ids of the taxonomy
    * concepts the content is tagged with, which lets a provider record the interest of the visitor in them.
+   * Pass the direct tags of the content only, not the closure over their ancestors (a provider takes the list as it
+   * is, and an ancestor would count as interest of its own), most important first, as a provider that has to cap
+   * the list keeps the first ones. At most 50 ids of at most 128 characters.
    */
   @Reactionary({ inputSchema: AnalyticsMutationContentViewedSchema, outputSchema: AnalyticsEventResultSchema })
   public async contentViewed(payload: AnalyticsMutationContentViewed): Promise<Result<AnalyticsEventResult>> {
