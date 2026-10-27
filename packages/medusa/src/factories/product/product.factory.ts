@@ -36,7 +36,7 @@ import {
   pickMetadataName,
   type MedusaAttributeDefinition,
 } from '../../utils/taxonomy.js';
-import { parseMedusaSeo, SEO_METADATA_PREFIX } from '../../utils/seo.js';
+import { isMedusaSeoMetadataKey, parseMedusaSeo } from '../../utils/seo.js';
 
 const debug = createDebug('reactionary:medusa:product');
 
@@ -222,7 +222,7 @@ export class MedusaProductFactory<
           });
           continue;
         }
-        if (key.startsWith(SEO_METADATA_PREFIX)) {
+        if (isMedusaSeoMetadataKey(key)) {
           continue;
         }
         sharedAttributes.push(
