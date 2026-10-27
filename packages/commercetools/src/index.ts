@@ -15,7 +15,6 @@ export * from './capabilities/company.capability.js';
 export * from './capabilities/employee.capability.js';
 export * from './capabilities/employee-invitation.capability.js';
 export * from './capabilities/personalization-profile.capability.js';
-export * from './capabilities/taxonomy.capability.js';
 export * from './factories/product/product.factory.js';
 export * from './factories/checkout/checkout.factory.js';
 export * from './factories/product-search/product-search.factory.js';
