@@ -27,7 +27,7 @@ After the usual Unomi event of a product view, product click, add to cart, order
 }
 ```
 
-- `target.itemId` is the concept id, `<vocabulary>/<slug>`. The sender only sends ids that match `^[a-z0-9_-]+/[a-z0-9_-]+$` (lowercase letters, digits, `_` and `-`, so no dots, at most 128 characters). Ids of content are trimmed and lowercased first, ids that do not match are dropped and duplicates are sent once.
+- `target.itemId` is the concept id, `<vocabulary>/<slug>`. The sender only sends ids that match `^[a-z0-9_-]+/[a-z0-9_-]+$` (lowercase letters, digits, `_` and `-`, so no dots, at most 128 characters). This holds for the concepts of products and of content alike: ids are trimmed and lowercased first, ids that do not match are dropped, duplicates are sent once, and `conceptInterestVocabularies` is compared in lowercase. The same concept therefore always arrives under the same id, whether a product or an article caused it.
 - `properties.vocabulary` is the vocabulary of the concept.
 - `properties.source` says what the visitor did:
 
@@ -46,6 +46,8 @@ After the usual Unomi event of a product view, product click, add to cart, order
 - Which concepts are kept when the cap bites: of a product the most specific first (the longest parent chain), for an order then the concepts that are on more lines first. Within equal specificity the vocabularies take turns, in the order the concepts appear on the product, so no vocabulary is favoured.
 - Content: the storefront passes the direct tags of the article, most important first. They are sent in that order and the cap keeps the first ones. Pass the tags the article has, not their ancestors: a list that includes ancestors is sent as it is.
 - A `concept_interest` event goes in the same request as the usual event of the visitor action, and is only sent when the visitor has a marketing profile.
+
+Warnings: when concepts cannot be added to an event (for example the product lookup fails), the event is sent without them and a warning with the event type and the kind of error is logged, at most once per event type per minute and never with payload, ids or messages.
 
 ### What to set up in Unomi
 
