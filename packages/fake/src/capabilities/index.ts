@@ -15,3 +15,4 @@ export * from './product-reviews.capability.js';
 export * from './product-search.capability.js';
 export * from './profile.capability.js';
 export * from './store.capability.js';
+export * from './taxonomy.capability.js';
