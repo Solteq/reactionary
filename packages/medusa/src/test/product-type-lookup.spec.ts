@@ -46,6 +46,7 @@ describe('Medusa product capability product type lookup', () => {
     b: product('b', 'ptyp_1'),
     c: product('c', 'ptyp_2'),
     none: product('none', null),
+    d: product('d', 'ptyp_nonames'),
   };
 
   beforeEach(() => {
@@ -65,12 +66,14 @@ describe('Medusa product capability product type lookup', () => {
             return jsonResponse({ message: 'down' }, typeStatus);
           }
           const locale = headers.get('x-medusa-locale') ?? '';
+          // the value is translated for the language of the request, the names are in the metadata
+          const names = id === 'ptyp_nonames' ? {} : { names: { en: 'Drills', da: 'Boremaskiner' } };
           return jsonResponse({
             product_type: {
               id,
               value: locale.startsWith('da') ? 'Boremaskiner' : 'Drills',
               external_id: `icecat-cat-${id}`,
-              metadata: { attribute_definitions: definitions },
+              metadata: { attribute_definitions: definitions, ...names },
               created_at: '',
               updated_at: '',
             },
@@ -140,7 +143,7 @@ describe('Medusa product capability product type lookup', () => {
     expect(typeRequests.map((r) => r.url.pathname)).toEqual(['/store/product-types/ptyp_2']);
   });
 
-  it('keeps the cache of different locales apart', async () => {
+  it('keeps one cache entry per type for all locales and still names the type per locale', async () => {
     const cache = new MemoryCache();
 
     const english = await capability(cache, 'en-US').getById({ identifier: { key: 'a' } });
@@ -150,10 +153,28 @@ describe('Medusa product capability product type lookup', () => {
     if (!english.success || !danish.success || !danishAgain.success) {
       assert.fail();
     }
-    expect(typeRequests.map((r) => r.locale)).toEqual(['en-US', 'da-DK']);
+    // one request for the type, not one per locale
+    expect(typeRequests).toHaveLength(1);
     expect(english.value.productType?.name).toBe('Drills');
     expect(danish.value.productType?.name).toBe('Boremaskiner');
     expect(danishAgain.value.productType?.name).toBe('Boremaskiner');
+    // and the labels of the attributes resolve per locale from the shared definitions
+    expect(english.value.sharedAttributes[0].name).toBe('Weight');
+    expect(danish.value.sharedAttributes[0].name).toBe('Vaegt');
+  });
+
+  it('does not serve the translated value of one locale to another, a type without names falls back to its key', async () => {
+    const cache = new MemoryCache();
+
+    const danish = await capability(cache, 'da-DK').getById({ identifier: { key: 'd' } });
+    const english = await capability(cache, 'en-US').getById({ identifier: { key: 'd' } });
+
+    if (!danish.success || !english.success) {
+      assert.fail();
+    }
+    expect(typeRequests).toHaveLength(1);
+    expect(danish.value.productType?.name).toBe('icecat-cat-ptyp_nonames');
+    expect(english.value.productType?.name).toBe('icecat-cat-ptyp_nonames');
   });
 
   it('degrades when the type cannot be fetched, logs it, and tries again the next time', async () => {
