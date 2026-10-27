@@ -1,8 +1,45 @@
+import * as z from 'zod';
+import { Reactionary } from '../decorators/reactionary.decorator.js';
 import type { NotFoundError } from '../schemas/errors/not-found.error.js';
-import type { Concept, Vocabulary } from '../schemas/models/taxonomy.model.js';
-import type { TaxonomyQueryGetConcepts, TaxonomyQueryGetVocabulary } from '../schemas/queries/taxonomy.query.js';
-import type { Result } from '../schemas/result.js';
+import {
+  ConceptRankedItemSchema,
+  ExpandedConceptSchema,
+  RelatedConceptSchema,
+  type Concept,
+  type ConceptExpansionPolicy,
+  type ConceptRankedItem,
+  type ExpandedConcept,
+  type RelatedConcept,
+  type Vocabulary,
+} from '../schemas/models/taxonomy.model.js';
+import {
+  TaxonomyQueryExpandAffinitiesSchema,
+  TaxonomyQueryExpandConceptsSchema,
+  TaxonomyQueryGetRelatedConceptsSchema,
+  TaxonomyQueryRankByConceptsSchema,
+  type TaxonomyQueryExpandAffinities,
+  type TaxonomyQueryExpandConcepts,
+  type TaxonomyQueryGetConcepts,
+  type TaxonomyQueryGetRelatedConcepts,
+  type TaxonomyQueryGetVocabulary,
+  type TaxonomyQueryRankByConcepts,
+} from '../schemas/queries/taxonomy.query.js';
+import { success, type Result } from '../schemas/result.js';
+import {
+  affinitiesToSeeds,
+  buildConceptIndex,
+  DEFAULT_EXPANSION_POLICY,
+  expandConcepts,
+  findRelatedConcepts,
+  rankItems,
+  type ConceptIndex,
+} from '../utils/taxonomy-navigation.js';
 import { BaseCapability } from './base.capability.js';
+
+function vocabularyOfConceptId(id: string): string {
+  const separator = id.indexOf('/');
+  return separator > 0 ? id.slice(0, separator) : '';
+}
 
 /**
  * TaxonomyCapability
@@ -10,10 +47,28 @@ import { BaseCapability } from './base.capability.js';
  * Gives access to the taxonomy that products are classified with: vocabularies of concepts, e.g. "features"
  * with features/cordless. Products carry their concepts on Product.concepts, search results on the item concepts
  * and in the concept facets. This capability resolves the concepts behind those references.
+ *
+ * On top of the two abstract lookups it offers concrete helpers to navigate the concepts and to rank content by
+ * them, for example to find the CMS articles that fit the product on a PDP. The helpers fetch through
+ * getVocabulary, so the caching of the provider applies, and run the pure functions of taxonomy-navigation.
+ * Subclasses can override any of them, but note that an override that does not repeat @Reactionary (or use
+ * applyReactionary) loses the input and output validation, tracing and caching of the original.
+ *
+ * @example PDP, articles that share concepts with the product, boosted by what the visitor is interested in
+ * ```ts
+ * const context = await client.taxonomy.expandConcepts({ concepts: product.concepts });
+ * const affinity = await client.taxonomy.expandAffinities({ affinities: profile.affinities });
+ * const ranked = await client.taxonomy.rankByConcepts({
+ *   items: articles.map((a) => ({ key: a.id, concepts: a.conceptIds })),
+ *   context: context.success ? context.value : [],
+ *   affinity: affinity.success ? affinity.value : [],
+ *   personalization: { mode: 'blend', strength: 0.5 },
+ * });
+ * ```
  */
 export abstract class TaxonomyCapability<
   TVocabulary extends Vocabulary = Vocabulary,
-  TTerm extends Concept = Concept,
+  TConcept extends Concept = Concept,
 > extends BaseCapability {
   /**
    * Gets a vocabulary with the tree of its concepts, localized for the request locale.
@@ -28,7 +83,135 @@ export abstract class TaxonomyCapability<
    *
    * Usecase: You have concept ids from a search filter, a url or a marketing system, and need their names.
    */
-  public abstract getConcepts(payload: TaxonomyQueryGetConcepts): Promise<Result<TTerm[]>>;
+  public abstract getConcepts(payload: TaxonomyQueryGetConcepts): Promise<Result<TConcept[]>>;
+
+  /**
+   * The weights and limits every expansion starts from. A policy given with a call wins over these.
+   * Override to tune the weights of a project.
+   */
+  protected defaultExpansionPolicy(): ConceptExpansionPolicy {
+    return { ...DEFAULT_EXPANSION_POLICY };
+  }
+
+  /**
+   * Loads the vocabularies and indexes their concepts. A vocabulary the provider does not know is skipped,
+   * any other failure of getVocabulary is returned as it is.
+   */
+  protected async loadConceptIndex(vocabularies: string[]): Promise<Result<ConceptIndex>> {
+    const unique = [...new Set(vocabularies.filter((vocabulary) => vocabulary !== ''))];
+    const results = await Promise.all(unique.map((key) => this.getVocabulary({ vocabulary: { key } })));
+    const loaded: Vocabulary[] = [];
+    for (const result of results) {
+      if (result.success) {
+        loaded.push(result.value);
+      } else if (result.error.type !== 'NotFound') {
+        return result;
+      }
+    }
+    return success(buildConceptIndex(loaded));
+  }
+
+  protected resolveExpansionPolicy(policy: ConceptExpansionPolicy | undefined): ConceptExpansionPolicy {
+    const given = Object.fromEntries(Object.entries(policy ?? {}).filter(([, value]) => value !== undefined));
+    return { ...this.defaultExpansionPolicy(), ...given };
+  }
+
+  /**
+   * Gets the concepts around concepts: their ancestors (broader), descendants (narrower) and related concepts.
+   *
+   * Usecase: You show "more in this area" for a concept, or want to know what a concept is part of.
+   */
+  @Reactionary({
+    inputSchema: TaxonomyQueryGetRelatedConceptsSchema,
+    outputSchema: z.array(RelatedConceptSchema),
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    localeDependentCaching: false,
+  })
+  public async getRelatedConcepts(payload: TaxonomyQueryGetRelatedConcepts): Promise<Result<RelatedConcept[]>> {
+    const keys = payload.concepts.map((concept) => concept.key);
+    const loaded = await this.loadConceptIndex(keys.map(vocabularyOfConceptId));
+    if (!loaded.success) {
+      return loaded;
+    }
+    return success(
+      findRelatedConcepts(loaded.value, keys, { relations: payload.relations, maxDepth: payload.maxDepth }),
+    );
+  }
+
+  /**
+   * Expands concepts, typically Product.concepts, to the concepts around them with a weight: the concepts
+   * themselves (exact), their descendants (narrower), related concepts and ancestors (broader). The result is
+   * sorted by weight and is the context for rankByConcepts. The vocabularies to load come from the concepts.
+   *
+   * Usecase: PDP, find the CMS articles that share concepts with the product shown.
+   */
+  @Reactionary({
+    inputSchema: TaxonomyQueryExpandConceptsSchema,
+    outputSchema: z.array(ExpandedConceptSchema),
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    localeDependentCaching: true,
+  })
+  public async expandConcepts(payload: TaxonomyQueryExpandConcepts): Promise<Result<ExpandedConcept[]>> {
+    const policy = this.resolveExpansionPolicy(payload.policy);
+    const vocabularies = [
+      ...payload.concepts.map((concept) => concept.vocabulary || vocabularyOfConceptId(concept.identifier.key)),
+      ...(policy.vocabularies ?? []),
+    ];
+    const loaded = await this.loadConceptIndex(vocabularies);
+    if (!loaded.success) {
+      return loaded;
+    }
+    return success(expandConcepts(loaded.value, payload.concepts, policy));
+  }
+
+  /**
+   * Expands the interests of a visitor, the affinities of the personalization profile, the same way as
+   * expandConcepts. The scores are normalized by the highest one so a heavy profile cannot swamp relevance.
+   *
+   * The affinities are personal data: the result is never cached. Call it on the server only.
+   */
+  @Reactionary({
+    inputSchema: TaxonomyQueryExpandAffinitiesSchema,
+    outputSchema: z.array(ExpandedConceptSchema),
+    cache: false,
+  })
+  public async expandAffinities(payload: TaxonomyQueryExpandAffinities): Promise<Result<ExpandedConcept[]>> {
+    const policy = this.resolveExpansionPolicy(payload.policy);
+    const seeds = affinitiesToSeeds(payload.affinities, { topN: payload.topN });
+    const loaded = await this.loadConceptIndex([
+      ...seeds.map((seed) => seed.vocabulary ?? ''),
+      ...(policy.vocabularies ?? []),
+    ]);
+    if (!loaded.success) {
+      return loaded;
+    }
+    return success(expandConcepts(loaded.value, seeds, policy));
+  }
+
+  /**
+   * Ranks items, e.g. CMS articles, by the concepts they share with a context, optionally reordered by the
+   * interests of the visitor. Relevance is the score against the context, affinity the score against the
+   * profile. In the default blend mode the score is relevance * (1 + strength * affinity), so the profile only
+   * reorders relevant items and adds at most the strength. See rankItems for all modes.
+   *
+   * Nothing is fetched or cached, the payload may hold the expanded interests of a person.
+   */
+  @Reactionary({
+    inputSchema: TaxonomyQueryRankByConceptsSchema,
+    outputSchema: z.array(ConceptRankedItemSchema),
+    cache: false,
+  })
+  public async rankByConcepts(payload: TaxonomyQueryRankByConcepts): Promise<Result<ConceptRankedItem[]>> {
+    return success(
+      rankItems(payload.items, {
+        context: payload.context,
+        affinity: payload.affinity,
+        personalization: payload.personalization,
+      }),
+    );
+  }
 
   protected override getResourceName(): string {
     return 'taxonomy';

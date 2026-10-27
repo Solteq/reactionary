@@ -1,6 +1,8 @@
 import type {
   Concept,
   ConceptExpansionPolicy,
+  ConceptPersonalization,
+  ConceptRankedItem,
   ConceptRankingItem,
   ExpandedConcept,
   RelatedConcept,
@@ -235,7 +237,8 @@ export function expandConcepts(
       return;
     }
     const current = best.get(id);
-    if (current && current.weight >= weight) {
+    // the best weight wins, an exact concept wins a tie against one that was merely reached
+    if (current && (current.weight > weight || (current.weight === weight && (via !== 'exact' || current.via === 'exact')))) {
       return;
     }
     best.set(id, {
@@ -336,9 +339,10 @@ export function scoreItems(
 }
 
 /**
- * Turns profile affinities (concept id to raw interest score) into seeds. Scores that are not finite or not
- * above zero are ignored, the top N are kept and normalized to (0, 1] by the highest score, so a profile with
- * very large scores cannot swamp the relevance of the content.
+ * Turns affinities (concept id to interest score) into seeds. Scores that are not finite or not above zero are
+ * ignored and the top N are kept. If the highest score is above 1 the scores are scaled down by it, so arbitrary
+ * large numbers cannot swamp the relevance of the content. Scores that are already within (0, 1], like the
+ * banded ones of affinitiesFromSegments, are kept as they are, which makes the normalization idempotent.
  */
 export function affinitiesToSeeds(affinities: Record<string, number>, options: { topN?: number } = {}): ConceptSeed[] {
   const topN = options.topN ?? 20;
@@ -349,10 +353,109 @@ export function affinitiesToSeeds(affinities: Record<string, number>, options: {
   if (top.length === 0) {
     return [];
   }
-  const max = top[0][1];
+  const max = Math.max(1, top[0][1]);
   return top.map(([id, score]) => ({
     identifier: { key: id },
     vocabulary: vocabularyOfId(id),
     weight: score / max,
   }));
+}
+
+/**
+ * Ranks items by how well their concepts match a context (e.g. the concepts of the product on the page), and
+ * optionally by the interests of a profile.
+ *
+ * - relevance is the score against the context, affinity the score against the profile.
+ * - mode context ranks on relevance only.
+ * - mode blend (the default) ranks on relevance * (1 + strength * affinity). The profile can therefore only
+ *   reorder relevant items, and by at most the strength (default 0.5, clamped to 0..1, the affinity counts at
+ *   most 1 here). An item without relevance stays at 0.
+ * - mode profile ranks on affinity only. Blend does the same when there is no context, e.g. a "for you" feed.
+ * - without a profile, every mode ranks exactly like the context alone.
+ *
+ * The result is sorted by score, highest first. Equal scores are ordered by relevance, then by input order.
+ */
+export function rankItems(
+  items: ConceptRankingItem[],
+  options: {
+    context?: ExpandedConcept[];
+    affinity?: ExpandedConcept[];
+    personalization?: ConceptPersonalization;
+  } = {},
+): ConceptRankedItem[] {
+  const context = options.context ?? [];
+  const affinity = options.affinity ?? [];
+  const requested = options.personalization?.mode ?? 'blend';
+  const mode = requested === 'blend' && context.length === 0 ? 'profile' : requested;
+  const rawStrength = options.personalization?.strength;
+  const strength =
+    typeof rawStrength === 'number' && Number.isFinite(rawStrength) ? Math.min(1, Math.max(0, rawStrength)) : 0.5;
+
+  return items
+    .map((item) => {
+      const relevance = scoreConceptIds(item.concepts, context);
+      const affinityScore = scoreConceptIds(item.concepts, affinity);
+      let score: number;
+      if (mode === 'profile') {
+        score = affinityScore;
+      } else if (mode === 'context') {
+        score = relevance;
+      } else {
+        score = relevance * (1 + strength * Math.min(1, affinityScore));
+      }
+      return { key: item.key, score, relevance, affinity: affinityScore };
+    })
+    // the profile comes in a few coarse bands, so ties are common: relevance decides first, then the input order
+    .sort((a, b) => b.score - a.score || b.relevance - a.relevance);
+}
+
+/**
+ * The weight of a band in affinitiesFromSegments.
+ */
+export interface AffinityBandWeights {
+  low: number;
+  medium: number;
+  high: number;
+}
+
+export const DEFAULT_AFFINITY_BAND_WEIGHTS: AffinityBandWeights = { low: 0.3, medium: 0.6, high: 1 };
+
+/**
+ * Reads the interest of a visitor in concepts from the segments of the personalization profile.
+ *
+ * A segment named affinity.<vocabulary>.<slug>.<band>, band being low, medium or high, means that the visitor has
+ * that interest in the concept <vocabulary>/<slug>, e.g. affinity.features.cordless.high is features/cordless.
+ * Vocabulary ids and slugs never contain a dot, so the segment is split on the dots and must have exactly four
+ * parts. Everything else is some other segment and ignored. Several bands for one concept keep the highest.
+ * The weights are in (0, 1], the thresholds of the bands are a concern of the CDP, the raw scores never leave it.
+ */
+export function affinitiesFromSegments(
+  segments: string[],
+  options: { bandWeights?: Partial<AffinityBandWeights> } = {},
+): Record<string, number> {
+  const weights: AffinityBandWeights = { ...DEFAULT_AFFINITY_BAND_WEIGHTS };
+  for (const band of ['low', 'medium', 'high'] as const) {
+    const custom = options.bandWeights?.[band];
+    if (typeof custom === 'number' && Number.isFinite(custom) && custom > 0) {
+      weights[band] = Math.min(1, custom);
+    }
+  }
+
+  const affinities: Record<string, number> = {};
+  for (const segment of segments) {
+    if (typeof segment !== 'string') {
+      continue;
+    }
+    const parts = segment.split('.');
+    if (parts.length !== 4 || parts[0] !== 'affinity' || parts[1] === '' || parts[2] === '') {
+      continue;
+    }
+    const band = parts[3];
+    if (band !== 'low' && band !== 'medium' && band !== 'high') {
+      continue;
+    }
+    const id = `${parts[1]}/${parts[2]}`;
+    affinities[id] = Math.max(affinities[id] ?? 0, weights[band]);
+  }
+  return affinities;
 }
