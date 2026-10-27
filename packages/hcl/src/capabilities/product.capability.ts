@@ -50,7 +50,7 @@ export class HclProductCapability<
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
-    localeDependentCaching: false,
+    localeDependentCaching: true,
   })
   public override async getById(
     payload: ProductQueryById,
@@ -83,7 +83,7 @@ export class HclProductCapability<
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
-    localeDependentCaching: false,
+    localeDependentCaching: true,
   })
   public override async getBySlug(
     payload: ProductQueryBySlug,
@@ -136,7 +136,7 @@ export class HclProductCapability<
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
-    localeDependentCaching: false,
+    localeDependentCaching: true,
   })
   public override async getBySKU(
     payload: ProductQueryBySKU,
