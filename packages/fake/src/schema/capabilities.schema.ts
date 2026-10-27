@@ -49,6 +49,9 @@ import type {
   StoreFactory,
   StoreFactoryWithOutput,
   StoreCapability,
+  TaxonomyFactory,
+  TaxonomyFactoryWithOutput,
+  TaxonomyCapability,
 } from '@reactionary/core';
 import { CapabilitiesSchema } from '@reactionary/core';
 import type { FakeConfiguration } from './configuration.schema.js';
@@ -77,6 +80,7 @@ export const FakeCapabilitiesSchema = CapabilitiesSchema.pick({
   productAssociations: true,
   featureFlag: true,
   personalizationProfile: true,
+  taxonomy: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -95,6 +99,7 @@ export const FakeCapabilitiesSchema = CapabilitiesSchema.pick({
     productAssociations: OverridableCapabilitySchema.optional(),
     featureFlag: OverridableCapabilitySchema.optional(),
     personalizationProfile: OverridableCapabilitySchema.optional(),
+    taxonomy: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -176,6 +181,11 @@ export type FakePersonalizationProfileCapabilityConfig = FakeCapabilityConfig<
   PersonalizationProfileCapability
 >;
 
+export type FakeTaxonomyCapabilityConfig = FakeCapabilityConfig<
+  TaxonomyFactoryWithOutput<TaxonomyFactory>,
+  TaxonomyCapability
+>;
+
 export type FakeCapabilities = {
   product?: FakeProductCapabilityConfig;
   productSearch?: FakeProductSearchCapabilityConfig;
@@ -193,6 +203,7 @@ export type FakeCapabilities = {
   productAssociations?: FakeProductAssociationsCapabilityConfig;
   featureFlag?: FakeFeatureFlagCapabilityConfig;
   personalizationProfile?: FakePersonalizationProfileCapabilityConfig;
+  taxonomy?: FakeTaxonomyCapabilityConfig;
 };
 
 export type ParsedFakeCapabilities = z.infer<typeof FakeCapabilitiesSchema>;
