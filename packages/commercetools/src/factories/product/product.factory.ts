@@ -46,6 +46,7 @@ const MANAGED_PRODUCT_TYPE_KEY_PREFIX = 'rc-';
  */
 const CONCEPT_ATTRIBUTE_PREFIX = 'concept_';
 const FLAGS_ATTRIBUTE = 'flags';
+import { parseCommercetoolsSeo } from '../../core/seo-utils.js';
 
 export class CommercetoolsProductFactory<
   TProductSchema extends AnyProductSchema = typeof ProductSchema,
@@ -125,6 +126,7 @@ export class CommercetoolsProductFactory<
       productType: managed ? this.parseProductType(productType) : undefined,
       concepts,
       flags,
+      seo: parseCommercetoolsSeo(localeStr, data),
     } satisfies Product;
 
     // PAIN: having to actually do the parse here to guarantee that the generics are satisfied.

@@ -36,6 +36,7 @@ import {
   pickMetadataName,
   type MedusaAttributeDefinition,
 } from '../../utils/taxonomy.js';
+import { parseMedusaSeo, SEO_METADATA_PREFIX } from '../../utils/seo.js';
 
 const debug = createDebug('reactionary:medusa:product');
 
@@ -221,6 +222,9 @@ export class MedusaProductFactory<
           });
           continue;
         }
+        if (key.startsWith(SEO_METADATA_PREFIX)) {
+          continue;
+        }
         sharedAttributes.push(
           this.createSynthAttribute(key, key, String(value)),
         );
@@ -336,6 +340,8 @@ export class MedusaProductFactory<
     const productType = this.parseProductType(context, data);
     const concepts = this.parseConcepts(context, data);
     const flags = parseFlags(data.metadata?.['flags']);
+    const seo = parseMedusaSeo(context, data.metadata);
+
 
     if (!data.variants) {
       debug('Product has no variants', data);
@@ -370,6 +376,7 @@ export class MedusaProductFactory<
       productType,
       concepts,
       flags,
+      seo,
     } satisfies Product;
 
     return this.productSchema.parse(result);

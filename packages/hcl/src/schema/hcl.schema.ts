@@ -231,6 +231,11 @@ export interface HclProductSearchItem {
  * Use this type in product detail factories.
  */
 export interface HclProductResponse extends HclProductSearchItem {
+  /**
+   * Not part of the Query Service response. Added by the capability from the
+   * /api/v2/urls token on lookups by slug, so it is absent on other lookups.
+   */
+  seoPage?: HclSeoPage;
   /** Variant SKUs with full detail data — only present in detail profile responses */
   items: HclProductResponse[];
   /** Kit/bundle SKU list */
@@ -296,6 +301,22 @@ export interface HclProductQueryResponse {
 }
 
 /**
+ * SEO page definition attached to a URL token by /api/v2/urls.
+ * HCL resolves its title and descriptions from SEO page templates, so they are
+ * filled even when nothing was authored for the entity.
+ */
+export interface HclSeoPage {
+  /** Page template name, e.g. 'PRODUCT_PAGE' or 'CATEGORY_PAGE' */
+  name?: string;
+  type: string;
+  title: string;
+  metaDescription: string;
+  metaKeyword: string;
+  imageAlternateDescription?: string;
+  redirect?: string;
+}
+
+/**
  * Response from /api/v2/urls — resolves a URL slug to a token/identifier.
  * Reference: karkkainen-commerce-storefront/integration/data/core/types/IncomingContent.ts
  */
@@ -319,16 +340,7 @@ export interface HclUrlResponse {
   /** Store type, e.g. 'CPS' */
   'store.type'?: string;
   redirect?: string;
-  page?: {
-    /** Page template name, e.g. 'PRODUCT_PAGE' or 'CATEGORY_PAGE' */
-    name?: string;
-    type: string;
-    title: string;
-    metaDescription: string;
-    metaKeyword: string;
-    imageAlternateDescription?: string;
-    redirect?: string;
-  };
+  page?: HclSeoPage;
 }
 
 export interface HclUrlQueryResponse {
@@ -360,6 +372,11 @@ export interface HclCategoryLinks {
  * A single category entry as returned by the HCL Commerce Query Service.
  */
 export interface HclCategoryResponse {
+  /**
+   * Not part of the Query Service response. Added by the capability from the
+   * /api/v2/urls token on lookups by slug, so it is absent on other lookups.
+   */
+  seoPage?: HclSeoPage;
   uniqueID: string;
   /** Alias for uniqueID — both fields are returned by the API */
   id?: string;
