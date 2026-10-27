@@ -35,7 +35,7 @@ describe('analytics event schemas', () => {
     const inUnion = AnalyticsEventSchema.options.map((option) => option.shape.type.value).sort();
 
     expect(inUnion).toEqual(registered);
-    expect(registered).toHaveLength(35);
+    expect(registered).toHaveLength(36);
   });
 
   it('uses noun-verb kebab-case names', () => {
@@ -79,6 +79,15 @@ describe('analytics event schemas', () => {
 
     expect(AnalyticsMutationUserLoggedInSchema.safeParse({ identity }).success).toBe(true);
     expect(AnalyticsMutationUserLoggedInSchema.safeParse({ identity, previousMarketingId: { key: 'old' } }).success).toBe(true);
+  });
+
+  it('accepts a content-viewed payload with a list of concept ids', () => {
+    const schema = AnalyticsEventMutationSchemas['content-viewed'];
+
+    expect(schema.safeParse({ content: { key: 'a1', type: 'article' }, concepts: ['features/cordless'] }).success).toBe(true);
+    expect(schema.safeParse({ content: { key: 'a1' }, concepts: [] }).success).toBe(true);
+    expect(schema.safeParse({ content: { key: 'a1' } }).success).toBe(false);
+    expect(schema.safeParse({ content: { key: 'a1' }, concepts: 'features/cordless' }).success).toBe(false);
   });
 
   it('requires a name on custom events', () => {

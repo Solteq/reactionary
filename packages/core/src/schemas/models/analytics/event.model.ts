@@ -9,6 +9,7 @@ import {
     AnalyticsMutationProductCarouselViewedSchema,
     AnalyticsMutationProductClickedSchema,
     AnalyticsMutationProductViewedSchema,
+    AnalyticsMutationContentViewedSchema,
     AnalyticsMutationPromotionViewedSchema,
     AnalyticsMutationPromotionClickedSchema,
     AnalyticsMutationCartItemAddedSchema,
@@ -81,6 +82,11 @@ export const AnalyticsEventProductClickedSchema = AnalyticsEventEnvelopeSchema.e
 export const AnalyticsEventProductViewedSchema = AnalyticsEventEnvelopeSchema.extend({
     type: z.literal('product-viewed'),
     payload: AnalyticsMutationProductViewedSchema.omit(omitEnvelopeFields),
+});
+
+export const AnalyticsEventContentViewedSchema = AnalyticsEventEnvelopeSchema.extend({
+    type: z.literal('content-viewed'),
+    payload: AnalyticsMutationContentViewedSchema.omit(omitEnvelopeFields),
 });
 
 export const AnalyticsEventPromotionViewedSchema = AnalyticsEventEnvelopeSchema.extend({
@@ -231,6 +237,7 @@ export const AnalyticsEventSchema = z.discriminatedUnion('type', [
     AnalyticsEventProductCarouselViewedSchema,
     AnalyticsEventProductClickedSchema,
     AnalyticsEventProductViewedSchema,
+    AnalyticsEventContentViewedSchema,
     AnalyticsEventPromotionViewedSchema,
     AnalyticsEventPromotionClickedSchema,
     AnalyticsEventCartItemAddedSchema,
@@ -268,6 +275,7 @@ export type AnalyticsEventCategoryViewed = WithProperties<InferType<typeof Analy
 export type AnalyticsEventProductCarouselViewed = WithProperties<InferType<typeof AnalyticsEventProductCarouselViewedSchema>>;
 export type AnalyticsEventProductClicked = WithProperties<InferType<typeof AnalyticsEventProductClickedSchema>>;
 export type AnalyticsEventProductViewed = WithProperties<InferType<typeof AnalyticsEventProductViewedSchema>>;
+export type AnalyticsEventContentViewed = WithProperties<InferType<typeof AnalyticsEventContentViewedSchema>>;
 export type AnalyticsEventPromotionViewed = WithProperties<InferType<typeof AnalyticsEventPromotionViewedSchema>>;
 export type AnalyticsEventPromotionClicked = WithProperties<InferType<typeof AnalyticsEventPromotionClickedSchema>>;
 export type AnalyticsEventCartItemAdded = WithProperties<InferType<typeof AnalyticsEventCartItemAddedSchema>>;

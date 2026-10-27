@@ -553,6 +553,7 @@ describe('Google Analytics analytics provider', () => {
 
     await client.analytics.custom({ name: 'x', payload: {} });
     await client.analytics.couponApplied({ cart: cart(), code: 'SAVE' });
+    await client.analytics.contentViewed({ content: { key: 'article-1' }, concepts: ['features/cordless'] });
     await client.analytics.flush();
 
     expect(fetchMock).not.toHaveBeenCalled();

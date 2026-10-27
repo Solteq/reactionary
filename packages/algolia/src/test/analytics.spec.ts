@@ -395,6 +395,7 @@ describe('Algolia analytics provider', async () => {
 
       await client.analytics.cartViewed({ cart: cartWithLine() });
       await client.analytics.productViewed({ product: { key: 'product-1' } });
+      await client.analytics.contentViewed({ content: { key: 'article-1' }, concepts: ['features/cordless'] });
       await client.analytics.flush();
 
       expect(mocks.pushEvents).not.toHaveBeenCalled();

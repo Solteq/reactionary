@@ -4,6 +4,7 @@ import {
     AnalyticsAutocompleteSuggestionSchema,
     AnalyticsCarouselSchema,
     AnalyticsCategoryRefSchema,
+    AnalyticsContentSchema,
     AnalyticsPageViewSchema,
     AnalyticsProductRefSchema,
     AnalyticsPromotionSchema,
@@ -43,6 +44,11 @@ export const AnalyticsMutationProductViewedSchema = AnalyticsEventMutationBaseSc
     product: AnalyticsProductRefSchema,
 });
 
+export const AnalyticsMutationContentViewedSchema = AnalyticsEventMutationBaseSchema.extend({
+    content: AnalyticsContentSchema,
+    concepts: z.array(z.string()).meta({ description: 'The ids of the taxonomy concepts the content is tagged with, e.g. "features/cordless". The caller supplies them, because the CMS is not a capability. An empty list is allowed.' }),
+});
+
 export const AnalyticsMutationPromotionViewedSchema = AnalyticsEventMutationBaseSchema.extend({
     promotion: AnalyticsPromotionSchema,
 });
@@ -58,5 +64,6 @@ export type AnalyticsMutationCategoryViewed = InferType<typeof AnalyticsMutation
 export type AnalyticsMutationProductCarouselViewed = InferType<typeof AnalyticsMutationProductCarouselViewedSchema>;
 export type AnalyticsMutationProductClicked = InferType<typeof AnalyticsMutationProductClickedSchema>;
 export type AnalyticsMutationProductViewed = InferType<typeof AnalyticsMutationProductViewedSchema>;
+export type AnalyticsMutationContentViewed = InferType<typeof AnalyticsMutationContentViewedSchema>;
 export type AnalyticsMutationPromotionViewed = InferType<typeof AnalyticsMutationPromotionViewedSchema>;
 export type AnalyticsMutationPromotionClicked = InferType<typeof AnalyticsMutationPromotionClickedSchema>;
