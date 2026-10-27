@@ -109,6 +109,58 @@ describe('client.analytics', () => {
     expect(recorder.events).toHaveLength(0);
   });
 
+  it('records a content view with the concepts of the content, end to end', async () => {
+    const recorder = new RecordingAnalyticsSubscriber();
+    const client = builder().withAnalyticsSubscriber(recorder).build();
+
+    const result = await client.analytics.contentViewed({
+      content: { key: 'article-1', type: 'article' },
+      concepts: ['features/cordless', 'brands/acme'],
+      properties: { abVariant: 'b' },
+    });
+    await client.analytics.flush();
+
+    expect(result.success && result.value.eventId).toBe(recorder.events[0].id);
+    expect(recorder.events[0]).toMatchObject({
+      type: 'content-viewed',
+      payload: { content: { key: 'article-1', type: 'article' }, concepts: ['features/cordless', 'brands/acme'] },
+      properties: { abVariant: 'b' },
+    });
+  });
+
+  it('accepts a content view without concepts but not without the list or a content key', async () => {
+    const recorder = new RecordingAnalyticsSubscriber();
+    const client = builder().withAnalyticsSubscriber(recorder).build();
+
+    expect((await client.analytics.contentViewed({ content: { key: 'a1' }, concepts: [] })).success).toBe(true);
+    // @ts-expect-error concepts is required
+    expect((await client.analytics.contentViewed({ content: { key: 'a1' } })).success).toBe(false);
+    // @ts-expect-error the content needs a key
+    expect((await client.analytics.contentViewed({ content: {}, concepts: [] })).success).toBe(false);
+    await client.analytics.flush();
+    expect(recorder.events).toHaveLength(1);
+  });
+
+  it('does not deliver a content view to a provider that does not handle the type', async () => {
+    class ProductOnlyProvider extends AnalyticsProvider {
+      public readonly types = ['product-viewed'] as const;
+      public readonly purpose = 'necessary' as const;
+      public events: AnalyticsEvent[] = [];
+      public async handle(event: AnalyticsEvent) {
+        this.events.push(event);
+        return 'accepted' as const;
+      }
+    }
+    const provider = new ProductOnlyProvider(new NoOpCache(), createInitialRequestContext());
+    const client = builder().withCapability(() => ({ analytics: provider })).build();
+
+    await client.analytics.contentViewed({ content: { key: 'a1' }, concepts: ['features/cordless'] });
+    await client.analytics.productViewed({ product: { key: 'p1' } });
+    await client.analytics.flush();
+
+    expect(provider.events.map((e) => e.type)).toEqual(['product-viewed']);
+  });
+
   it('supports custom events', async () => {
     const recorder = new RecordingAnalyticsSubscriber();
     const client = builder().withAnalyticsSubscriber(recorder).build();

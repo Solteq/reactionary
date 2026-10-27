@@ -28,7 +28,7 @@ A helper returns `Result<{ eventId }>` as soon as the event is validated and que
 
 | Family | Helpers |
 |---|---|
-| Browse | `pageViewed`, `searchResultsViewed`, `autocompleteSuggestionSelected`, `categoryViewed`, `productCarouselViewed`, `productClicked`, `productViewed`, `promotionViewed`, `promotionClicked` |
+| Browse | `pageViewed`, `searchResultsViewed`, `autocompleteSuggestionSelected`, `categoryViewed`, `productCarouselViewed`, `productClicked`, `productViewed`, `contentViewed({ content, concepts })`, `promotionViewed`, `promotionClicked` |
 | Cart | `cartItemAdded`, `cartItemRemoved`, `cartItemQuantityChanged`, `cartViewed`, `couponApplied`, `couponRejected` |
 | Checkout | `checkoutStarted`, `shippingInfoAdded`, `paymentInfoAdded`, `orderPlaced({ checkout })` |
 | Account | `userLoggedIn`, `userLoggedOut`, `userRegistered`, `profileUpdated`, `consentChanged`, `newsletterSubscribed` |
@@ -37,6 +37,8 @@ A helper returns `Result<{ eventId }>` as soon as the event is validated and que
 | Escape hatch | `custom({ name, payload })`. Providers ignore names they do not recognise. |
 
 `orderPlaced` takes the finalized checkout, as that is what the customer placed and it exists before the OMS has created the order. Passing `order` still works but is deprecated. Subscribers read it through `summarizePlacedOrder(event.payload)`, which returns the transaction id (the order key when known, else the checkout key), the lines and the price from whichever was given.
+
+`contentViewed` records a view of a CMS article or page. The CMS is not a capability, so the caller passes the ids of the taxonomy concepts the content is tagged with (`{ content: { key: 'article-1', type: 'article' }, concepts: ['features/cordless'] }`). A provider that follows visitor interests can use them.
 
 Product, category and store arguments accept either the model or its identifier. The storefront does not need to load anything just to describe an event: a `cartItemRemoved` takes the line it rendered (or its sku), and providers look up what they need (names, prices, brands) through a cache-backed, read-only context.
 

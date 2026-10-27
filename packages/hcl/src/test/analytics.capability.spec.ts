@@ -116,6 +116,7 @@ describe('HCL Analytics Capability', () => {
   it('ignores events HCL has no use for', async () => {
     await client.analytics.cartViewed({ cart: cart() });
     await client.analytics.custom({ name: 'x', payload: {} });
+    await client.analytics.contentViewed({ content: { key: 'article-1' }, concepts: ['features/cordless'] });
     await client.analytics.flush();
 
     expect(callPost).not.toHaveBeenCalled();

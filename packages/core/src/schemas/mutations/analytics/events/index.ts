@@ -6,6 +6,7 @@ import {
     AnalyticsMutationProductCarouselViewedSchema,
     AnalyticsMutationProductClickedSchema,
     AnalyticsMutationProductViewedSchema,
+    AnalyticsMutationContentViewedSchema,
     AnalyticsMutationPromotionViewedSchema,
     AnalyticsMutationPromotionClickedSchema,
 } from './browse.mutation.js';
@@ -56,6 +57,7 @@ export const AnalyticsEventMutationSchemas = {
     'product-carousel-viewed': AnalyticsMutationProductCarouselViewedSchema,
     'product-clicked': AnalyticsMutationProductClickedSchema,
     'product-viewed': AnalyticsMutationProductViewedSchema,
+    'content-viewed': AnalyticsMutationContentViewedSchema,
     'promotion-viewed': AnalyticsMutationPromotionViewedSchema,
     'promotion-clicked': AnalyticsMutationPromotionClickedSchema,
     'cart-item-added': AnalyticsMutationCartItemAddedSchema,

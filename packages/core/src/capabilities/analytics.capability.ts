@@ -15,6 +15,7 @@ import {
   AnalyticsMutationProductCarouselViewedSchema,
   AnalyticsMutationProductClickedSchema,
   AnalyticsMutationProductViewedSchema,
+  AnalyticsMutationContentViewedSchema,
   AnalyticsMutationPromotionViewedSchema,
   AnalyticsMutationPromotionClickedSchema,
   AnalyticsMutationCartItemAddedSchema,
@@ -51,6 +52,7 @@ import {
   type AnalyticsMutationProductCarouselViewed,
   type AnalyticsMutationProductClicked,
   type AnalyticsMutationProductViewed,
+  type AnalyticsMutationContentViewed,
   type AnalyticsMutationPromotionViewed,
   type AnalyticsMutationPromotionClicked,
   type AnalyticsMutationCartItemAdded,
@@ -163,6 +165,15 @@ export class AnalyticsCapability extends BaseCapability {
   @Reactionary({ inputSchema: AnalyticsMutationProductViewedSchema, outputSchema: AnalyticsEventResultSchema })
   public async productViewed(payload: AnalyticsMutationProductViewed): Promise<Result<AnalyticsEventResult>> {
     return this.dispatcher.emit('product-viewed', payload);
+  }
+
+  /**
+   * A CMS article or page was viewed. The CMS is not a capability, so the caller passes the ids of the taxonomy
+   * concepts the content is tagged with, which lets a provider record the interest of the visitor in them.
+   */
+  @Reactionary({ inputSchema: AnalyticsMutationContentViewedSchema, outputSchema: AnalyticsEventResultSchema })
+  public async contentViewed(payload: AnalyticsMutationContentViewed): Promise<Result<AnalyticsEventResult>> {
+    return this.dispatcher.emit('content-viewed', payload);
   }
 
   @Reactionary({ inputSchema: AnalyticsMutationPromotionViewedSchema, outputSchema: AnalyticsEventResultSchema })
