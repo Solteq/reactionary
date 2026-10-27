@@ -88,6 +88,20 @@ describe('parseMedusaSeo', () => {
     expect(seo?.description).toBeUndefined();
   });
 
+  it('matches locale suffixes regardless of case and underscores', () => {
+    expect(parseMedusaSeo(contextWithLocale('da-DK'), { seo_title_da_dk: 'Hånd', seo_description_DA: 'Beskrivelse' })).toEqual({
+      title: 'Hånd',
+      description: 'Beskrivelse',
+    });
+    expect(parseMedusaSeo(contextWithLocale('da_DK'), { 'seo_title_da-DK': 'Hånd' })?.title).toBe('Hånd');
+  });
+
+  it('ignores values that are not strings', () => {
+    expect(
+      parseMedusaSeo(contextWithLocale('da-DK'), { seo_title_da: 12, seo_description_da: { a: 1 }, seo_robots: true }),
+    ).toBeUndefined();
+  });
+
   it('applies robots regardless of locale', () => {
     expect(parseMedusaSeo(contextWithLocale('fi-FI'), metadata)?.robots).toBe('noindex, follow');
   });
@@ -126,11 +140,17 @@ describe('Medusa SEO in factories', () => {
       }
     }
     const factory = new ExposedProductFactory(ProductSchema);
-    const product: StoreProduct = { ...baseProduct, metadata: { ...metadata, warranty: '2 years' } };
+    const product: StoreProduct = {
+      ...baseProduct,
+      metadata: { ...metadata, warranty: '2 years', seo_keywords: 'coffee, maker', seo_canonical: '/coffee' },
+    };
 
     const attributes = factory.exposeAttributes(contextWithLocale('da-DK'), product);
     const keys = attributes.map((attribute) => attribute.identifier.key);
-    expect(keys.some((key) => key.startsWith('seo_'))).toBe(false);
+    expect(keys.filter((key) => /^seo_(title|description)_|^seo_robots$/.test(key))).toEqual([]);
     expect(keys).toContain('warranty');
+    // other seo_ keys are not ours to swallow
+    expect(keys).toContain('seo_keywords');
+    expect(keys).toContain('seo_canonical');
   });
 });
