@@ -34,6 +34,23 @@ describe('UnomiPersonalizationProfileFactory affinities', () => {
     expect(profile.identifier.key).toBe('profile-1');
   });
 
+  it('reads the affinity from both the name and the id of a segment object, the highest band wins', () => {
+    const profile = parse([
+      { id: 'affinity.features.cordless.low', name: 'affinity.features.outdoor.high' },
+      { id: 'affinity.features.cordless.high', name: 'Cordless lovers' },
+      { id: 'affinity.brands.acme.medium', name: 'affinity.brands.acme.low' },
+      { id: 'segment-id-1' },
+    ]);
+
+    expect(profile.affinities).toEqual({
+      'features/cordless': 1,
+      'features/outdoor': 1,
+      'brands/acme': 0.6,
+    });
+    // the segment list keeps preferring the name
+    expect(profile.segments).toEqual(['affinity.features.outdoor.high', 'Cordless lovers', 'affinity.brands.acme.low', 'segment-id-1']);
+  });
+
   it('has no affinities without affinity segments', () => {
     expect(parse(['vip', 'trait.craftsmantype.lumberjack.high']).affinities).toEqual({});
     expect(parse([]).affinities).toEqual({});
