@@ -277,7 +277,9 @@ export class MedusaProductFactory<
       sharedAttributes,
       slug,
       variants: otherVariants,
-      complianceData: complianceData
+      complianceData: complianceData,
+      terms: [],
+      flags: [],
     } satisfies Product;
 
     return this.productSchema.parse(result);

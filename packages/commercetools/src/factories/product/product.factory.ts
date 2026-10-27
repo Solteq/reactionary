@@ -103,6 +103,8 @@ export class CommercetoolsProductFactory<
       published: true,
       variants: otherVariants,
       complianceData: this.parseComplianceData(context, data),
+      terms: [],
+      flags: [],
     } satisfies Product;
 
     // PAIN: having to actually do the parse here to guarantee that the generics are satisfied.

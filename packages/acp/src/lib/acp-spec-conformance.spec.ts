@@ -469,6 +469,8 @@ function createConformanceClient(state: { authorized: boolean }, declinePayments
           options: [],
         },
         variants: [],
+        terms: [],
+        flags: [],
       }),
     },
     order: {
