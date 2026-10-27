@@ -27,7 +27,7 @@ After the usual Unomi event of a product view, product click, add to cart, order
 }
 ```
 
-- `target.itemId` is the concept id, `<vocabulary>/<slug>`. Ids and vocabularies are lowercase letters, digits, `_` and `-`.
+- `target.itemId` is the concept id, `<vocabulary>/<slug>`. The sender only sends ids that match `^[a-z0-9_-]+/[a-z0-9_-]+$` (lowercase letters, digits, `_` and `-`, so no dots, at most 128 characters). Ids of content are trimmed and lowercased first, ids that do not match are dropped and duplicates are sent once.
 - `properties.vocabulary` is the vocabulary of the concept.
 - `properties.source` says what the visitor did:
 
@@ -39,12 +39,18 @@ After the usual Unomi event of a product view, product click, add to cart, order
 | `purchase` | an order was placed | `orderId` |
 | `content_view` | a CMS article or page was viewed | `contentId`, `contentType` when known |
 
-- Only the most specific concepts of a product are sent, the ones assigned to it. Their broader concepts (the parents) are not sent, nor are narrower or related ones. Reactionary expands them when it reads the interest, so Unomi only has to count what it receives.
+- Only the concepts assigned to a product are sent (its direct concepts). Their broader concepts (the parents) are not sent, nor are narrower or related ones. Reactionary expands them when it reads the interest, so Unomi only has to count what it receives.
 - Impressions (search results, carousels) are not interest and send no `concept_interest`.
 - An event with no concepts, or a product that cannot be resolved, sends the usual events and no `concept_interest`.
-- At most `maxConceptsPerEvent` concepts are sent per event (default 5, the most specific first), and `maxConceptsPerOrder` (default 10) for a whole order.
+- At most `maxConceptsPerEvent` concepts are sent per event (default 5), and `maxConceptsPerOrder` (default 10) for a whole order. `0` sends no concept events for that kind of event, and no product is looked up for it.
+- Which concepts are kept when the cap bites: of a product the most specific first (the longest parent chain), for an order then the concepts that are on more lines first. Within equal specificity the vocabularies take turns, in the order the concepts appear on the product, so no vocabulary is favoured.
+- Content: the storefront passes the direct tags of the article, most important first. They are sent in that order and the cap keeps the first ones. Pass the tags the article has, not their ancestors: a list that includes ancestors is sent as it is.
+- A `concept_interest` event goes in the same request as the usual event of the visitor action, and is only sent when the visitor has a marketing profile.
 
 ### What to set up in Unomi
+
+Unomi has to accept the event type `concept_interest` and the item type `concept` (register them the way the `addToCart` event and its `customItemType` are set up). Reactionary does not register anything in Unomi. This was not verified against a running Unomi 3.
+
 
 1. **A rule per event** that adds to a counter of the profile per concept, for example a property `concepts.<vocabulary>.<slug>` incremented from every `concept_interest` event. Weight the increment by `properties.source`. A suggested order, the numbers are for the Unomi owner to decide: `product_view` < `product_click` < `add_to_cart` < `purchase`, and `content_view` comparable to `product_view`.
 2. **Segments for the bands.** The thresholds live in Unomi only, Reactionary never sees a raw score. Create segments named
@@ -60,7 +66,7 @@ Reactionary reads the segments from the profile (`PersonalizationProfile.segment
 
 ### Configuration
 
-All keys are optional:
+`apiUrl` is required, the rest has a default, and the concept keys below can be left out:
 
 | key | default | |
 |---|---|---|
@@ -69,5 +75,7 @@ All keys are optional:
 | `maxConceptsPerEvent` | `5` | The most concepts for one product or content event. |
 | `maxConceptsPerOrder` | `10` | The most concepts for one order, in total over its lines. |
 | `encodeConceptIdSlash` | `false` | Sends `/` as `__` in `target.itemId` (`features__cordless`), for a Unomi that does not accept a slash in an id. The concept id stays `vocabulary/slug` everywhere else in Reactionary. The segment names always use the dotted form. |
+
+`withUnomiCapabilities` and the constructor of the analytics provider take the configuration with the keys that have a default left out, the defaults are applied for them.
 
 The slash and the `__`: a concept id is `vocabulary/slug`. When your Unomi setup cannot store a `/` in an item id, switch `encodeConceptIdSlash` on and expect `features__cordless` in `target.itemId`. Everything else (the `vocabulary` property, the segments) is unaffected.
