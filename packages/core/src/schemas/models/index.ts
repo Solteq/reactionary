@@ -16,6 +16,7 @@ export * from './product-reviews.model.js';
 export * from './profile.model.js';
 export * from './shipping-method.model.js';
 export * from './store.model.js';
+export * from './taxonomy.model.js';
 export * from './order.model.js';
 export * from './cost.model.js';
 export * from './checkout.model.js';
