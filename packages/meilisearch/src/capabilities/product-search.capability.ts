@@ -22,8 +22,10 @@ import {
   ProductSearchResultItemComplianceDataSchema,
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
+  createSearchFacetPolicy,
   getTaxonomyFacetName,
   isHiddenSearchFacet,
+  type SearchFacetPolicy,
   parseSearchDocumentTaxonomy,
   ProductSearchResultSchema,
   Reactionary,
@@ -43,6 +45,7 @@ export class MeilisearchProductSearchCapability<
 > extends ProductSearchCapability<ProductSearchFactoryOutput<TFactory>> {
   protected config: MeilisearchConfiguration;
   protected factory: ProductSearchFactoryWithOutput<TFactory>;
+  protected facetPolicy: SearchFacetPolicy;
 
   constructor(
     config: MeilisearchConfiguration,
@@ -53,6 +56,7 @@ export class MeilisearchProductSearchCapability<
     super(cache, context);
     this.config = config;
     this.factory = factory;
+    this.facetPolicy = createSearchFacetPolicy(config.facets);
   }
 
   protected queryByTermPayload(payload: ProductSearchQueryByTerm) {
@@ -204,7 +208,7 @@ export class MeilisearchProductSearchCapability<
     if (body.facetDistribution) {
       for (const id in body.facetDistribution) {
         // facets: ['*'] also returns the facets that must never reach the storefront
-        if (isHiddenSearchFacet(id)) {
+        if (isHiddenSearchFacet(id, this.facetPolicy)) {
           continue;
         }
         const f = body.facetDistribution[id];
@@ -266,7 +270,7 @@ export class MeilisearchProductSearchCapability<
   protected parseFacet(facetIdentifier: FacetIdentifier, facetValues: Record<string, number>): ProductSearchResultFacet {
     const result: ProductSearchResultFacet = ProductSearchResultFacetSchema.parse({
       identifier: facetIdentifier,
-      name: getTaxonomyFacetName(facetIdentifier.key) ?? facetIdentifier.key.replace(/_/g, ' '),
+      name: getTaxonomyFacetName(facetIdentifier.key, this.facetPolicy) ?? facetIdentifier.key.replace(/_/g, ' '),
       values: []
     });
 

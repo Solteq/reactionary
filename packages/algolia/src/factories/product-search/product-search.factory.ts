@@ -10,8 +10,11 @@ import type {
   ProductSearchResultItemComplianceData,
   ProductSearchResultItemVariant,
   RequestContext,
+  SearchFacetPolicy,
+  SearchFacetPolicyOptions,
 } from '@reactionary/core';
 import {
+  createSearchFacetPolicy,
   getTaxonomyFacetName,
   isHiddenSearchFacet,
   parseSearchDocumentTaxonomy,
@@ -37,9 +40,14 @@ export class AlgoliaProductSearchFactory<
 > implements ProductSearchFactory<TProductSearchResultSchema>
 {
   public readonly productSearchResultSchema: TProductSearchResultSchema;
+  protected readonly facetPolicy: SearchFacetPolicy;
 
-  constructor(productSearchResultSchema: TProductSearchResultSchema) {
+  /**
+   * @param facets which facets to hide and how to name them, on top of the defaults, see the facets of the configuration
+   */
+  constructor(productSearchResultSchema: TProductSearchResultSchema, facets?: SearchFacetPolicyOptions) {
     this.productSearchResultSchema = productSearchResultSchema;
+    this.facetPolicy = createSearchFacetPolicy(facets);
   }
 
   public parseSearchResult(
@@ -53,7 +61,7 @@ export class AlgoliaProductSearchFactory<
     let facets: ProductSearchResultFacet[] = [];
     for (const id in body.facets) {
       // defensive, an index may facet attributes that must never reach the storefront
-      if (isHiddenSearchFacet(id)) {
+      if (isHiddenSearchFacet(id, this.facetPolicy)) {
         continue;
       }
       const values = body.facets[id];
@@ -150,7 +158,7 @@ export class AlgoliaProductSearchFactory<
   ): ProductSearchResultFacet {
     const result = ProductSearchResultFacetSchema.parse({
       identifier: facetIdentifier,
-      name: getTaxonomyFacetName(facetIdentifier.key) ?? facetIdentifier.key,
+      name: getTaxonomyFacetName(facetIdentifier.key, this.facetPolicy) ?? facetIdentifier.key,
       values: [],
     } satisfies Partial<ProductSearchResultFacet>);
 

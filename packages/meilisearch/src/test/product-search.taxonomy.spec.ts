@@ -75,6 +75,46 @@ const response: SearchResponse<MeilisearchNativeRecord> = {
   },
 };
 
+describe('Meilisearch product search facet configuration', () => {
+  const baseConfig = { apiUrl: 'http://localhost:7700', apiKey: 'key', indexName: 'products', orderIndexName: 'orders' };
+
+  function capabilityWith(facets?: { hidden?: string[]; names?: Record<string, string> }) {
+    return new TestCapability(
+      MeilisearchConfigurationSchema.parse({ ...baseConfig, ...(facets ? { facets } : {}) }),
+      new NoOpCache(),
+      createInitialRequestContext(),
+      new MeilisearchProductSearchFactory(ProductSearchResultSchema),
+    );
+  }
+
+  it('leaves the defaults when the configuration has no facet options', () => {
+    expect(MeilisearchConfigurationSchema.parse(baseConfig).facets).toBeUndefined();
+    expect(MeilisearchConfigurationSchema.safeParse({ ...baseConfig, facets: { names: { a: 1 } } }).success).toBe(false);
+    expect(capabilityWith().parseResponse(response, createQuery()).facets.map((f) => f.identifier.key)).toEqual([
+      'concepts.features',
+      'concepts.power-source',
+      'productType.name',
+      'brand_name',
+    ]);
+  });
+
+  it('hides and renames the configured facets and keeps the defaults', () => {
+    const body: SearchResponse<MeilisearchNativeRecord> = {
+      ...response,
+      facetDistribution: { ...response.facetDistribution, internal: { x: 1 }, 'internal.sub': { y: 1 } },
+    };
+
+    const result = capabilityWith({ hidden: ['internal'], names: { brand_name: 'Brand', 'productType.name': 'Kind' } }).parseResponse(body, createQuery());
+
+    expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
+      ['concepts.features', 'Features'],
+      ['concepts.power-source', 'Power Source'],
+      ['productType.name', 'Kind'],
+      ['brand_name', 'Brand'],
+    ]);
+  });
+});
+
 describe('Meilisearch product search taxonomy', () => {
   it('maps product type and concepts from hits', () => {
     const result = createCapability().parseResponse(response, createQuery());

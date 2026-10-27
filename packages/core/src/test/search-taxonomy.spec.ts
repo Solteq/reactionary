@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getTaxonomyFacetName, getConceptFacetName, isHiddenSearchFacet, parseSearchDocumentTaxonomy } from '../utils/search-taxonomy.js';
+import { DEFAULT_SEARCH_FACET_POLICY, SearchFacetPolicyOptionsSchema, createSearchFacetPolicy, getTaxonomyFacetName, getConceptFacetName, isHiddenSearchFacet, parseSearchDocumentTaxonomy } from '../utils/search-taxonomy.js';
 
 describe('getConceptFacetName', () => {
   it('names a concept facet after its title-cased vocabulary', () => {
@@ -108,5 +108,46 @@ describe('parseSearchDocumentTaxonomy', () => {
 
   it('ignores malformed taxonomy fields', () => {
     expect(parseSearchDocumentTaxonomy({ productType: 'x', conceptIds: 3 })).toEqual({});
+  });
+});
+
+describe('search facet policy', () => {
+  it('has the defaults: flags and conceptIds hidden, the product type named, concept facets named after the vocabulary', () => {
+    expect(DEFAULT_SEARCH_FACET_POLICY).toEqual({ hidden: ['flags', 'conceptIds'], names: { 'productType.name': 'Product type' } });
+    expect(createSearchFacetPolicy()).toEqual(DEFAULT_SEARCH_FACET_POLICY);
+    expect(createSearchFacetPolicy({})).toEqual(DEFAULT_SEARCH_FACET_POLICY);
+    expect(isHiddenSearchFacet('flags')).toBe(true);
+    expect(isHiddenSearchFacet('conceptIds')).toBe(true);
+    expect(getTaxonomyFacetName('productType.name')).toBe('Product type');
+    expect(getTaxonomyFacetName('concepts.power-source')).toBe('Power Source');
+  });
+
+  it('adds hidden facets to the defaults, which stay hidden', () => {
+    const policy = createSearchFacetPolicy({ hidden: ['internal', 'flags'] });
+
+    expect(policy.hidden).toEqual(['flags', 'conceptIds', 'internal']);
+    expect(isHiddenSearchFacet('internal', policy)).toBe(true);
+    expect(isHiddenSearchFacet('flags', policy)).toBe(true);
+    expect(isHiddenSearchFacet('conceptIds', policy)).toBe(true);
+    expect(isHiddenSearchFacet('brand', policy)).toBe(false);
+    // the defaults are not changed by building a policy
+    expect(DEFAULT_SEARCH_FACET_POLICY.hidden).toEqual(['flags', 'conceptIds']);
+  });
+
+  it('renames facets, a configured name wins over the defaults, other facets have no name', () => {
+    const policy = createSearchFacetPolicy({ names: { brand: 'Brand', 'productType.name': 'Kind', 'concepts.features': 'Product features' } });
+
+    expect(getTaxonomyFacetName('brand', policy)).toBe('Brand');
+    expect(getTaxonomyFacetName('productType.name', policy)).toBe('Kind');
+    expect(getTaxonomyFacetName('concepts.features', policy)).toBe('Product features');
+    expect(getTaxonomyFacetName('concepts.campaigns', policy)).toBe('Campaigns');
+    expect(getTaxonomyFacetName('colour', policy)).toBeUndefined();
+  });
+
+  it('validates the options', () => {
+    expect(SearchFacetPolicyOptionsSchema.safeParse({ hidden: ['a'], names: { a: 'A' } }).success).toBe(true);
+    expect(SearchFacetPolicyOptionsSchema.safeParse({}).success).toBe(true);
+    expect(SearchFacetPolicyOptionsSchema.safeParse({ hidden: 'a' }).success).toBe(false);
+    expect(SearchFacetPolicyOptionsSchema.safeParse({ names: { a: 1 } }).success).toBe(false);
   });
 });
