@@ -75,6 +75,33 @@ const response: SearchResponse<MeilisearchNativeRecord> = {
   },
 };
 
+describe('Meilisearch product search facets that only look like hidden ones', () => {
+  it('keeps flagship, flags_extra and conceptIdsLegacy and hides flags, flags.x and conceptIds', () => {
+    const body: SearchResponse<MeilisearchNativeRecord> = {
+      ...response,
+      facetDistribution: {
+        brand_name: { Acme: 4 },
+        flags: { ageRestricted: 1 },
+        'flags.x': { y: 1 },
+        conceptIds: { 'features/cordless': 3 },
+        flagship: { yes: 2 },
+        flags_extra: { a: 1 },
+        conceptIdsLegacy: { 'features/cordless': 1 },
+      },
+    };
+
+    const result = createCapability().parseResponse(body, createQuery());
+
+    // other facets are not renamed, Meilisearch only replaces underscores of its facet keys by spaces
+    expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
+      ['brand_name', 'brand name'],
+      ['flagship', 'flagship'],
+      ['flags_extra', 'flags extra'],
+      ['conceptIdsLegacy', 'conceptIdsLegacy'],
+    ]);
+  });
+});
+
 describe('Meilisearch product search facet configuration', () => {
   const baseConfig = { apiUrl: 'http://localhost:7700', apiKey: 'key', indexName: 'products', orderIndexName: 'orders' };
 
