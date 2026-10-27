@@ -135,9 +135,13 @@ export function buildConceptIndex(vocabularies: Vocabulary[]): ConceptIndex {
 
 /**
  * Splits the concepts of a product into the ones assigned to it and the ones that are only there because they
- * are an ancestor of another one. Product.concepts holds the closure over the ancestors, so a concept that is
- * the parent (transitively, through ProductConcept.parent) of another product concept is broader, the rest are
- * direct. An explicit set of direct ids, when the producer knows them, overrides the inference.
+ * are an ancestor of another one. Product.concepts holds the closure over the ancestors: the assigned concepts
+ * and every ancestor of them. A concept that is the parent (transitively, through ProductConcept.parent) of
+ * another concept in the list is therefore taken as broader, the rest are direct.
+ *
+ * The inference cannot tell a concept that was assigned explicitly and also is the ancestor of another assigned
+ * concept (a product tagged with both power and cordless) from a pure ancestor, it counts it as broader. An
+ * explicit set of direct ids, when the producer knows them, overrides the inference.
  */
 export function splitDirectAndBroader(
   productConcepts: Array<Pick<ProductConcept, 'identifier' | 'parent'>>,
@@ -207,9 +211,14 @@ export const DEFAULT_EXPANSION_POLICY: ResolvedExpansionPolicy = {
 /**
  * Expands the seeds to the concepts around them: the seed itself (exact, weight 1), its descendants (narrower,
  * decaying per level), its related concepts (one hop, never transitive) and its ancestors (broader, decaying per
- * hop). The weights are multiplied by the weight of the seed, concepts below the minimum weight are dropped, and
- * only the vocabularies of the seeds are reached unless the policy names others. A concept reached in several
- * ways keeps its best weight. The result is sorted by weight, highest first.
+ * hop). The weights are multiplied by the weight of the seed, and concepts below the minimum weight are dropped,
+ * without walking the part of the tree below the cut. The vocabularies of the seeds are always reached, the
+ * vocabularies of the policy come on top of them, e.g. to follow related links into another vocabulary.
+ * Seeds for the same concept are merged and keep the highest weight. A concept reached in several ways keeps its
+ * best weight. The result is sorted by weight, highest first.
+ *
+ * The seeds must be the concepts that were assigned, not the closure over their ancestors (see
+ * splitDirectAndBroader), otherwise an ancestor is treated as an exact match and its other children as narrower.
  */
 export function expandConcepts(
   index: ConceptIndex,
@@ -227,9 +236,18 @@ export function expandConcepts(
     minWeight: pick(policy.minWeight, DEFAULT_EXPANSION_POLICY.minWeight),
   };
   const vocabularyOf = (id: string) => index.get(id)?.vocabulary ?? vocabularyOfId(id);
-  const allowed = new Set(
-    policy.vocabularies ?? seeds.map((seed) => seed.vocabulary || vocabularyOfId(seed.identifier.key)),
-  );
+  // merge the seeds of one concept, the highest weight wins
+  const merged = new Map<string, ConceptSeed>();
+  for (const seed of seeds) {
+    const known = merged.get(seed.identifier.key);
+    if (!known || (seed.weight ?? 1) > (known.weight ?? 1)) {
+      merged.set(seed.identifier.key, seed);
+    }
+  }
+  const allowed = new Set([
+    ...[...merged.values()].map((seed) => seed.vocabulary || vocabularyOfId(seed.identifier.key)),
+    ...(policy.vocabularies ?? []),
+  ]);
 
   const best = new Map<string, ExpandedConcept>();
   const offer = (id: string, weight: number, via: ExpandedConcept['via'], source: string) => {
@@ -249,7 +267,12 @@ export function expandConcepts(
     });
   };
 
-  for (const seed of seeds) {
+  // a weight that shrinks with the level lets the walk stop at the first level below the minimum
+  const stopsWhenBelowMinimum = (decay: number) => decay <= 1;
+  const narrowerWeightAt = (seedWeight: number, depth: number) =>
+    seedWeight * resolved.narrowerWeight * resolved.narrowerDecay ** (depth - 1);
+
+  for (const seed of merged.values()) {
     const id = seed.identifier.key;
     const seedWeight = seed.weight ?? 1;
     if (!Number.isFinite(seedWeight) || seedWeight <= 0) {
@@ -258,8 +281,17 @@ export function expandConcepts(
 
     offer(id, seedWeight, 'exact', id);
 
-    for (const { id: descendant, depth } of index.descendants(id)) {
-      offer(descendant, seedWeight * resolved.narrowerWeight * resolved.narrowerDecay ** (depth - 1), 'narrower', id);
+    let maxDepth = MAX_NAVIGATION_DEPTH;
+    if (stopsWhenBelowMinimum(resolved.narrowerDecay)) {
+      maxDepth = 0;
+      while (maxDepth < MAX_NAVIGATION_DEPTH && narrowerWeightAt(seedWeight, maxDepth + 1) >= resolved.minWeight) {
+        maxDepth += 1;
+      }
+    }
+    if (maxDepth > 0) {
+      for (const { id: descendant, depth } of index.descendants(id, { maxDepth })) {
+        offer(descendant, narrowerWeightAt(seedWeight, depth), 'narrower', id);
+      }
     }
 
     for (const related of index.related(id)) {
@@ -268,9 +300,13 @@ export function expandConcepts(
 
     // the seed carries its own parent, which covers a taxonomy that is not (fully) loaded
     const chain = index.get(id) || !seed.parent ? index.ancestors(id) : [seed.parent.key, ...index.ancestors(seed.parent.key)];
-    chain.forEach((ancestor, hop) => {
-      offer(ancestor, seedWeight * resolved.broaderWeight * resolved.broaderDecay ** hop, 'broader', id);
-    });
+    for (let hop = 0; hop < chain.length; hop++) {
+      const weight = seedWeight * resolved.broaderWeight * resolved.broaderDecay ** hop;
+      if (weight < resolved.minWeight && stopsWhenBelowMinimum(resolved.broaderDecay)) {
+        break;
+      }
+      offer(chain[hop], weight, 'broader', id);
+    }
   }
 
   // the sort is stable, so equal weights keep the order they were found in
@@ -314,7 +350,27 @@ export function findRelatedConcepts(
  * The score of one item: its best matching concept dominates, the others add a quarter of their weight.
  */
 export function scoreConceptIds(conceptIds: string[], expansion: ExpandedConcept[]): number {
-  const weights = new Map(expansion.map((concept) => [concept.identifier.key, concept.weight]));
+  return scoreWithWeights(conceptIds, conceptWeights(expansion));
+}
+
+/**
+ * The weight per concept id of an expansion, built once to score many items against it.
+ */
+export function conceptWeights(expansion: ExpandedConcept[]): Map<string, number> {
+  const weights = new Map<string, number>();
+  for (const concept of expansion) {
+    const known = weights.get(concept.identifier.key);
+    if (known === undefined || concept.weight > known) {
+      weights.set(concept.identifier.key, concept.weight);
+    }
+  }
+  return weights;
+}
+
+/**
+ * Like scoreConceptIds with the weights of conceptWeights.
+ */
+export function scoreWithWeights(conceptIds: string[], weights: Map<string, number>): number {
   const matches = [...new Set(conceptIds)]
     .map((id) => weights.get(id))
     .filter((weight): weight is number => weight !== undefined)
@@ -333,8 +389,9 @@ export function scoreItems(
   items: ConceptRankingItem[],
   expansion: ExpandedConcept[],
 ): Array<{ key: string; score: number }> {
+  const weights = conceptWeights(expansion);
   return items
-    .map((item) => ({ key: item.key, score: scoreConceptIds(item.concepts, expansion) }))
+    .map((item) => ({ key: item.key, score: scoreWithWeights(item.concepts, weights) }))
     .sort((a, b) => b.score - a.score);
 }
 
@@ -371,7 +428,10 @@ export function affinitiesToSeeds(affinities: Record<string, number>, options: {
  *   reorder relevant items, and by at most the strength (default 0.5, clamped to 0..1, the affinity counts at
  *   most 1 here). An item without relevance stays at 0.
  * - mode profile ranks on affinity only. Blend does the same when there is no context, e.g. a "for you" feed.
- * - without a profile, every mode ranks exactly like the context alone.
+ * - without a profile (no affinity), the context and blend modes rank exactly like the context alone. The profile
+ *   mode then has nothing to rank on and scores every item 0.
+ * - Scores below 0 are treated as 0, so a malformed weight cannot push an item down. The strength may be any
+ *   number, it is clamped to 0..1 (not a number: the default).
  *
  * The result is sorted by score, highest first. Equal scores are ordered by relevance, then by input order.
  */
@@ -389,12 +449,15 @@ export function rankItems(
   const mode = requested === 'blend' && context.length === 0 ? 'profile' : requested;
   const rawStrength = options.personalization?.strength;
   const strength =
-    typeof rawStrength === 'number' && Number.isFinite(rawStrength) ? Math.min(1, Math.max(0, rawStrength)) : 0.5;
+    typeof rawStrength === 'number' && !Number.isNaN(rawStrength) ? Math.min(1, Math.max(0, rawStrength)) : 0.5;
+  // the weights of an expansion are built once, not once per item
+  const contextWeights = conceptWeights(context);
+  const affinityWeights = conceptWeights(affinity);
 
   return items
     .map((item) => {
-      const relevance = scoreConceptIds(item.concepts, context);
-      const affinityScore = scoreConceptIds(item.concepts, affinity);
+      const relevance = Math.max(0, scoreWithWeights(item.concepts, contextWeights));
+      const affinityScore = Math.max(0, scoreWithWeights(item.concepts, affinityWeights));
       let score: number;
       if (mode === 'profile') {
         score = affinityScore;

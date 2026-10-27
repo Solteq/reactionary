@@ -102,7 +102,7 @@ describe('TaxonomyCapability.expandConcepts', () => {
     expect((await capability.expandAffinities({ affinities: { 'features/cordless': 1 } })).success).toBe(false);
   });
 
-  it('is cached', async () => {
+  it('does not cache, so every call loads the vocabularies through the provider', async () => {
     const capability = new StubTaxonomyCapability(new MemoryCache());
 
     const first = await capability.expandConcepts({ concepts: [cordlessSeed] });
@@ -112,28 +112,56 @@ describe('TaxonomyCapability.expandConcepts', () => {
       assert.fail();
     }
     expect(first.meta.cache.hit).toBe(false);
-    expect(second.meta.cache.hit).toBe(true);
-    expect(capability.requested).toEqual(['features']);
+    expect(second.meta.cache.hit).toBe(false);
+    expect(capability.requested).toEqual(['features', 'features']);
   });
 
   it('takes the default policy from a hook that subclasses can override, and the call wins', async () => {
     class Tuned extends StubTaxonomyCapability {
       protected override defaultExpansionPolicy() {
-        return { relatedWeight: 0.9, minWeight: 0.3 };
+        return { relatedWeight: 0.9, minWeight: 0.5 };
       }
     }
     const capability = new Tuned();
 
     const tuned = await capability.expandConcepts({ concepts: [cordlessSeed] });
-    const overridden = await capability.expandConcepts({ concepts: [cordlessSeed], policy: { relatedWeight: 0.35 } });
+    const overridden = await capability.expandConcepts({ concepts: [cordlessSeed], policy: { relatedWeight: 0.6, minWeight: 0.1 } });
 
     if (!tuned.success || !overridden.success) {
       assert.fail();
     }
     expect(tuned.value.find((e) => e.identifier.key === 'features/outdoor')?.weight).toBe(0.9);
-    // minWeight 0.3 from the hook cuts the broader concepts of 0.4 * decay
-    expect(keys(tuned.value)).toContain('features/power');
-    expect(overridden.value.find((e) => e.identifier.key === 'features/outdoor')?.weight).toBe(0.35);
+    // the broader concept power gets 0.4, below the minimum weight of the hook
+    expect(keys(tuned.value)).not.toContain('features/power');
+    // the policy of the call replaces the values of the hook
+    expect(overridden.value.find((e) => e.identifier.key === 'features/outdoor')?.weight).toBe(0.6);
+    expect(keys(overridden.value)).toContain('features/power');
+  });
+
+  it('honours the policy hook of each subclass when they share a cache', async () => {
+    class Loose extends StubTaxonomyCapability {
+      protected override defaultExpansionPolicy() {
+        return { relatedWeight: 0.9 };
+      }
+    }
+    class Strict extends StubTaxonomyCapability {
+      protected override defaultExpansionPolicy() {
+        return { relatedWeight: 0.2, minWeight: 0.5 };
+      }
+    }
+    const cache = new MemoryCache();
+    const payload = { concepts: [cordlessSeed] };
+
+    const loose = await new Loose(cache).expandConcepts(payload);
+    const strict = await new Strict(cache).expandConcepts(payload);
+    const looseRelated = await new Loose(cache).getRelatedConcepts({ concepts: [{ key: 'features/cordless' }] });
+
+    if (!loose.success || !strict.success || !looseRelated.success) {
+      assert.fail();
+    }
+    expect(loose.value.find((e) => e.identifier.key === 'features/outdoor')?.weight).toBe(0.9);
+    expect(keys(strict.value)).not.toContain('features/outdoor');
+    expect(looseRelated.meta.cache.hit).toBe(false);
   });
 
   it('rejects an invalid payload', async () => {
@@ -264,6 +292,9 @@ describe('TaxonomyCapability.rankByConcepts', () => {
     }
     expect(await rank(capability, { items, context })).toEqual(contextOnly);
     expect(await rank(capability, { items, context, affinity: [] })).toEqual(contextOnly);
+    // the profile mode has nothing to rank on without a profile, every item scores 0 in input order
+    const profileOnly = await rank(capability, { items, context, personalization: { mode: 'profile' } });
+    expect(profileOnly.map((r) => [r.key, r.score])).toEqual(items.map((item) => [item.key, 0]));
   });
 
   it('lets the affinity reorder relevant items by at most the strength', async () => {
@@ -288,12 +319,15 @@ describe('TaxonomyCapability.rankByConcepts', () => {
     for (const item of blended) {
       expect(item.score).toBeLessThanOrEqual(item.relevance * 1.5 + 1e-9);
     }
-    // the strength is clamped to 1, so at most doubling
-    const strong = await rank(capability, { items: twoItems, context, affinity, personalization: { strength: 5 } });
+    // at full strength the score at most doubles
+    const strong = await rank(capability, { items: twoItems, context, affinity, personalization: { strength: 1 } });
     expect(strong.find((r) => r.key === 'liked')?.score).toBeCloseTo(1.8, 10);
     for (const item of strong) {
       expect(item.score).toBeLessThanOrEqual(item.relevance * 2 + 1e-9);
     }
+    // a strength outside of 0..1 is no valid payload
+    const invalid = await capability.rankByConcepts({ items: twoItems, context, affinity, personalization: { strength: 5 } });
+    expect(invalid.success).toBe(false);
   });
 
   it('breaks ties between equal scores by relevance first, then by input order', async () => {
@@ -364,5 +398,200 @@ describe('TaxonomyCapability.rankByConcepts', () => {
     });
 
     expect(result.map((r) => r.key)).toEqual(['b', 'a']);
+  });
+});
+
+describe('TaxonomyCapability.expandConcepts with the closure of Product.concepts', () => {
+  // what a product tagged with features/cordless carries: the concept and its ancestor
+  const closure = [
+    { identifier: { key: 'features/power' }, vocabulary: 'features', name: 'power' },
+    { identifier: { key: 'features/cordless' }, vocabulary: 'features', name: 'cordless', parent: { key: 'features/power' } },
+  ];
+
+  function byKey(expansion: ExpandedConcept[]) {
+    return Object.fromEntries(expansion.map((e) => [e.identifier.key, [e.weight, e.via]]));
+  }
+
+  it('expands the assigned concept only, the ancestor is broader and its other children are not reached', async () => {
+    const result = await new StubTaxonomyCapability().expandConcepts({ concepts: closure });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    const weights = byKey(result.value);
+    expect(weights['features/cordless']).toEqual([1, 'exact']);
+    expect(weights['features/power']).toEqual([0.4, 'broader']);
+    expect(weights['features/battery-18v']).toEqual([0.8, 'narrower']);
+    expect(weights['features/outdoor']).toEqual([0.5, 'related']);
+    // corded is a sibling, only reachable by treating power as an exact match
+    expect(weights['features/corded']).toBeUndefined();
+  });
+
+  it('ranks a related concept of the assigned one above the sibling', async () => {
+    const capability = new StubTaxonomyCapability();
+    const context = await capability.expandConcepts({ concepts: closure });
+    if (!context.success) {
+      assert.fail();
+    }
+
+    const result = await capability.rankByConcepts({
+      items: [
+        { key: 'about-corded', concepts: ['features/corded'] },
+        { key: 'about-outdoor', concepts: ['features/outdoor'] },
+        { key: 'about-power', concepts: ['features/power'] },
+      ],
+      context: context.value,
+    });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    expect(result.value.map((r) => [r.key, r.score])).toEqual([
+      ['about-outdoor', 0.5],
+      ['about-power', 0.4],
+      ['about-corded', 0],
+    ]);
+  });
+
+  it('takes an ancestor that was assigned as well as broader without directConcepts, and as exact with them', async () => {
+    const capability = new StubTaxonomyCapability();
+
+    const inferred = await capability.expandConcepts({ concepts: closure });
+    const explicit = await capability.expandConcepts({
+      concepts: closure,
+      directConcepts: [{ key: 'features/power' }, { key: 'features/cordless' }],
+    });
+
+    if (!inferred.success || !explicit.success) {
+      assert.fail();
+    }
+    expect(byKey(inferred.value)['features/power']).toEqual([0.4, 'broader']);
+    expect(byKey(inferred.value)['features/corded']).toBeUndefined();
+    expect(byKey(explicit.value)['features/power']).toEqual([1, 'exact']);
+    expect(byKey(explicit.value)['features/corded']).toEqual([0.8, 'narrower']);
+  });
+
+  it('lets directConcepts override the inference, an empty list counts as left out', async () => {
+    const capability = new StubTaxonomyCapability();
+
+    const onlyPower = await capability.expandConcepts({ concepts: closure, directConcepts: [{ key: 'features/power' }] });
+    const empty = await capability.expandConcepts({ concepts: closure, directConcepts: [] });
+
+    if (!onlyPower.success || !empty.success) {
+      assert.fail();
+    }
+    expect(byKey(onlyPower.value)['features/power']).toEqual([1, 'exact']);
+    expect(byKey(onlyPower.value)['features/cordless']).toEqual([0.8, 'narrower']);
+    expect(byKey(empty.value)['features/cordless']).toEqual([1, 'exact']);
+  });
+
+  it('widens to the vocabularies of the policy and keeps the ones of the concepts', async () => {
+    const capability = new StubTaxonomyCapability();
+
+    const result = await capability.expandConcepts({ concepts: closure, policy: { vocabularies: ['brands'] } });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    const weights = byKey(result.value);
+    expect(weights['features/cordless']).toEqual([1, 'exact']);
+    expect(weights['features/outdoor']).toEqual([0.5, 'related']);
+    expect(weights['brands/acme']).toEqual([0.5, 'related']);
+    expect(capability.requested.sort()).toEqual(['brands', 'features']);
+  });
+});
+
+describe('TaxonomyCapability input bounds', () => {
+  const ids = (count: number, prefix = 'features/c') => Array.from({ length: count }, (_, i) => ({ key: `${prefix}${i}` }));
+  const productConcepts = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({ identifier: { key: `features/c${i}` }, vocabulary: 'features', name: `c${i}` }));
+  const expanded = (count: number): ExpandedConcept[] =>
+    Array.from({ length: count }, (_, i) => ({ identifier: { key: `features/c${i}` }, weight: 0.5, via: 'exact' as const }));
+
+  async function expectInvalid(result: Result<unknown>) {
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.type).toBe('InvalidInput');
+    }
+  }
+
+  it('accepts the maximum and rejects one more', async () => {
+    const capability = new StubTaxonomyCapability();
+
+    expect((await capability.expandConcepts({ concepts: productConcepts(200) })).success).toBe(true);
+    await expectInvalid(await capability.expandConcepts({ concepts: productConcepts(201) }));
+    await expectInvalid(await capability.expandConcepts({ concepts: productConcepts(1), directConcepts: ids(201) }));
+    await expectInvalid(await capability.expandConcepts({ concepts: [], policy: { vocabularies: Array.from({ length: 21 }, (_, i) => `v${i}`) } }));
+    await expectInvalid(await capability.getRelatedConcepts({ concepts: ids(201) }));
+    await expectInvalid(await capability.getRelatedConcepts({ concepts: ids(1), maxDepth: 17 }));
+    await expectInvalid(await capability.getRelatedConcepts({ concepts: ids(1), maxDepth: 0 }));
+  });
+
+  it('bounds the affinities and the top N', async () => {
+    const capability = new StubTaxonomyCapability();
+    const affinities = (count: number) => Object.fromEntries(Array.from({ length: count }, (_, i) => [`features/c${i}`, 0.5]));
+
+    expect((await capability.expandAffinities({ affinities: affinities(200), topN: 100 })).success).toBe(true);
+    await expectInvalid(await capability.expandAffinities({ affinities: affinities(201) }));
+    await expectInvalid(await capability.expandAffinities({ affinities: {}, topN: 101 }));
+  });
+
+  it('bounds the items, their concepts and the expansions of a ranking', async () => {
+    const capability = new StubTaxonomyCapability();
+    const items = (count: number, concepts = 1) =>
+      Array.from({ length: count }, (_, i) => ({ key: `a${i}`, concepts: Array.from({ length: concepts }, (_, c) => `features/c${c}`) }));
+
+    expect((await capability.rankByConcepts({ items: items(1000, 100), context: expanded(2000), affinity: expanded(2000) })).success).toBe(true);
+    await expectInvalid(await capability.rankByConcepts({ items: items(1001) }));
+    await expectInvalid(await capability.rankByConcepts({ items: items(1, 101) }));
+    await expectInvalid(await capability.rankByConcepts({ items: [], context: expanded(2001) }));
+    await expectInvalid(await capability.rankByConcepts({ items: [], affinity: expanded(2001) }));
+  });
+
+  it('rejects negative weights and a strength outside of 0..1', async () => {
+    const capability = new StubTaxonomyCapability();
+    const negative: ExpandedConcept[] = [{ identifier: { key: 'features/c1' }, weight: -100, via: 'exact' }];
+
+    await expectInvalid(await capability.rankByConcepts({ items: [], affinity: negative }));
+    await expectInvalid(await capability.rankByConcepts({ items: [], personalization: { strength: -0.1 } }));
+    await expectInvalid(await capability.expandConcepts({ concepts: [], policy: { relatedWeight: -1 } }));
+    await expectInvalid(await capability.expandConcepts({ concepts: [], policy: { minWeight: -0.5 } }));
+  });
+
+  it('loads at most four vocabularies at a time and at most forty in a call', async () => {
+    class Slow extends StubTaxonomyCapability {
+      public active = 0;
+      public peak = 0;
+      public override async getVocabulary(payload: TaxonomyQueryGetVocabulary): Promise<Result<Vocabulary, NotFoundError>> {
+        this.active += 1;
+        this.peak = Math.max(this.peak, this.active);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        this.active -= 1;
+        return super.getVocabulary(payload);
+      }
+    }
+    const capability = new Slow();
+    const concepts = Array.from({ length: 50 }, (_, i) => ({ identifier: { key: `vocab${i}/x` }, vocabulary: `vocab${i}`, name: 'x' }));
+
+    const result = await capability.expandConcepts({ concepts });
+
+    expect(result.success).toBe(true);
+    expect(capability.peak).toBeLessThanOrEqual(4);
+    expect(capability.requested).toHaveLength(40);
+    expect(new Set(capability.requested).size).toBe(40);
+  });
+
+  it('ranks a thousand items against two thousand concepts well under a second', async () => {
+    const capability = new StubTaxonomyCapability();
+    const items = Array.from({ length: 1000 }, (_, i) => ({
+      key: `a${i}`,
+      concepts: Array.from({ length: 20 }, (_, c) => `features/c${(i * 7 + c * 13) % 4000}`),
+    }));
+    const started = performance.now();
+
+    const result = await capability.rankByConcepts({ items, context: expanded(2000), affinity: expanded(2000) });
+
+    expect(result.success).toBe(true);
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 });

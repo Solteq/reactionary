@@ -51,13 +51,13 @@ export const RelatedConceptSchema = z.looseObject({
  * Every value is optional, the defaults of the TaxonomyCapability apply for what is left out.
  */
 export const ConceptExpansionPolicySchema = z.looseObject({
-  narrowerWeight: z.number().optional().meta({ description: 'Weight of a direct narrower concept (a child). Default 0.8.' }),
-  narrowerDecay: z.number().optional().meta({ description: 'Factor applied per further level down. Default 0.8.' }),
-  relatedWeight: z.number().optional().meta({ description: 'Weight of a related concept, one hop only and never transitive. Default 0.5.' }),
-  broaderWeight: z.number().optional().meta({ description: 'Weight of a direct broader concept (the parent). Default 0.4.' }),
-  broaderDecay: z.number().optional().meta({ description: 'Factor applied per further level up. Default 0.6.' }),
-  minWeight: z.number().optional().meta({ description: 'Concepts that would get a lower weight are left out. Default 0.15.' }),
-  vocabularies: z.array(z.string()).optional().meta({ description: 'The vocabularies the expansion may reach. Defaults to the vocabularies of the starting concepts.' }),
+  narrowerWeight: z.number().min(0).optional().meta({ description: 'Weight of a direct narrower concept (a child). Default 0.8.' }),
+  narrowerDecay: z.number().min(0).optional().meta({ description: 'Factor applied per further level down. Default 0.8.' }),
+  relatedWeight: z.number().min(0).optional().meta({ description: 'Weight of a related concept, one hop only and never transitive. Default 0.5.' }),
+  broaderWeight: z.number().min(0).optional().meta({ description: 'Weight of a direct broader concept (the parent). Default 0.4.' }),
+  broaderDecay: z.number().min(0).optional().meta({ description: 'Factor applied per further level up. Default 0.6.' }),
+  minWeight: z.number().min(0).optional().meta({ description: 'Concepts that would get a lower weight are left out. Default 0.15.' }),
+  vocabularies: z.array(z.string()).max(20).optional().meta({ description: 'Extra vocabularies the expansion may reach into, e.g. through related links. They come on top of the vocabularies of the starting concepts, which are always reached.' }),
 });
 
 /**
@@ -65,7 +65,7 @@ export const ConceptExpansionPolicySchema = z.looseObject({
  */
 export const ExpandedConceptSchema = z.looseObject({
   identifier: ConceptIdentifierSchema.describe('The concept.'),
-  weight: z.number().meta({ description: 'How strongly the concept counts, 1 for an exact concept at full weight.' }),
+  weight: z.number().min(0).meta({ description: 'How strongly the concept counts, 1 for an exact concept at full weight.' }),
   via: z.enum(['exact', 'narrower', 'related', 'broader']).meta({ description: 'How the concept was reached, exact for the starting concepts themselves.' }),
   source: ConceptIdentifierSchema.optional().meta({ description: 'The starting concept the weight came from. Not set for exact concepts.' }),
 });
@@ -75,7 +75,7 @@ export const ExpandedConceptSchema = z.looseObject({
  */
 export const ConceptPersonalizationSchema = z.looseObject({
   mode: z.enum(['context', 'blend', 'profile']).optional().meta({ description: 'context ranks on relevance only, blend (default) lets the profile reorder relevant items, profile ranks on the profile only.' }),
-  strength: z.number().optional().meta({ description: 'In blend mode, the most the profile can add to the relevance of an item, as a factor between 0 and 1. Default 0.5.' }),
+  strength: z.number().min(0).max(1).optional().meta({ description: 'In blend mode, the most the profile can add to the relevance of an item, as a factor between 0 and 1. Default 0.5.' }),
 });
 
 /**
@@ -83,7 +83,7 @@ export const ConceptPersonalizationSchema = z.looseObject({
  */
 export const ConceptRankingItemSchema = z.looseObject({
   key: z.string().meta({ description: 'The key of the item, e.g. the id of a CMS article. Returned unchanged.' }),
-  concepts: z.array(z.string()).meta({ description: 'The ids of the concepts the item is tagged with.' }),
+  concepts: z.array(z.string()).max(100).meta({ description: 'The ids of the concepts the item is tagged with.' }),
 });
 
 export const ConceptRankedItemSchema = z.looseObject({
