@@ -15,3 +15,5 @@ export const UnomiConfigurationSchema = z.looseObject({
 });
 
 export type UnomiConfiguration = z.infer<typeof UnomiConfigurationSchema>;
+/** What a caller passes: the keys with a default can be left out. */
+export type UnomiConfigurationInput = z.input<typeof UnomiConfigurationSchema>;
