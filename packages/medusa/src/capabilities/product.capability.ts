@@ -36,6 +36,8 @@ export class MedusaProductCapability<
     '+metadata',
     '+categories.external_id',
     '+external_id',
+    '+type.*',
+    '+tags.*',
   ];
   protected factory: ProductFactoryWithOutput<TFactory>;
 
