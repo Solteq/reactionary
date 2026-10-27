@@ -1,6 +1,7 @@
 import * as z from 'zod';
 import { CategoryIdentifierSchema, ProductAttributeIdentifierSchema, ProductAttributeValueIdentifierSchema, ProductIdentifierSchema, ProductOptionIdentifierSchema, ProductOptionValueIdentifierSchema, ProductTypeIdentifierSchema, ProductVariantIdentifierSchema, ConceptIdentifierSchema } from './identifiers.model.js';
 import { BaseModelSchema, ImageSchema } from './base.model.js';
+import { SeoSchema } from './seo.model.js';
 import type { InferType } from '../../zod-utils.js';
 
 
@@ -132,6 +133,7 @@ export const ProductSchema = BaseModelSchema.extend({
     productType: ProductTypeSchema.optional().describe('The product type the product belongs to, if the platform has one.'),
     concepts: z.array(ProductConceptSchema).default([]).meta({ description: 'The taxonomy concepts assigned to the product, across all vocabularies.' }),
     flags: z.array(z.string()).default([]).meta({ description: 'Behavioural flags of the product, see ProductFlagSchema for the known values. Never displayed.' }),
+    seo: SeoSchema.optional().describe('Authored SEO metadata for the product page. Only explicitly authored values are set, see resolveSeo for applying fallbacks.'),
 }).describe('A product is a wrapper around sellable items. It contains all the shared information for a set of SKUs. All products have at least one SKU, but can potentially have hundreds.');
 
 
