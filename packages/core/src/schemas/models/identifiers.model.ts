@@ -52,6 +52,18 @@ export const ProductIdentifierSchema = z.looseObject({
   key: z.string()
 });
 
+export const ProductTypeIdentifierSchema = z.looseObject({
+  key: z.string().meta({ description: 'The unique identifier of the product type, e.g. "icecat-cat-8862".' }),
+});
+
+export const VocabularyIdentifierSchema = z.looseObject({
+  key: z.string().meta({ description: 'The unique identifier (slug) of the vocabulary, e.g. "features".' }),
+});
+
+export const TermIdentifierSchema = z.looseObject({
+  key: z.string().meta({ description: 'The unique identifier of the term, prefixed by its vocabulary, e.g. "features/cordless".' }),
+});
+
 
 export const CartIdentifierSchema = z.looseObject({
   key: z.string(),

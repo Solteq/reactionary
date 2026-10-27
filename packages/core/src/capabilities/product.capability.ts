@@ -71,6 +71,8 @@ export abstract class ProductCapability<TProduct extends Product = Product> exte
       sharedAttributes: [],
       slug: '',
       variants: [],
+      terms: [],
+      flags: [],
       complianceData: {
         ce_marking: false,
         weee_symbol: false,

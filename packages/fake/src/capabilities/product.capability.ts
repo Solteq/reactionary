@@ -107,6 +107,8 @@ export class FakeProductCapability<
       published: true,
       sharedAttributes: [],
       variants: [],
+      terms: [],
+      flags: [],
       complianceData: {
         ce_marking: generator.datatype.boolean({ probability: 0.2}),
         weee_symbol: generator.datatype.boolean({ probability: 0.2}),
