@@ -358,7 +358,7 @@ describe('Algolia analytics provider', async () => {
         product: { key: 'product-1' },
         position: 0,
         source,
-        personalizationProfile: { identifier: { key: 'unomi-profile' }, segments: [], blurb: '' },
+        personalizationProfile: { identifier: { key: 'unomi-profile' }, segments: [], affinities: {}, blurb: '' },
       });
       await client.analytics.track({ event: 'product-summary-click', product: { key: 'product-1' }, position: 0, source });
       await client.analytics.flush();

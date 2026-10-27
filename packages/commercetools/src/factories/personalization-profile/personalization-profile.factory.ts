@@ -30,6 +30,7 @@ export class CommercetoolsPersonalizationProfileFactory<
     const result = {
       identifier: { key: data.id } satisfies PersonalizationProfileIdentifier,
       segments,
+      affinities: {},
       blurb: '',
     } satisfies PersonalizationProfile
 

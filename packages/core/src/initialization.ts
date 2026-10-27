@@ -26,6 +26,7 @@ export function createInitialRequestContext(): RequestContext {
       marketingContext: {
         identifier: { key: '' },
         segments: [],
+        affinities: {},
         blurb: '',
       },
     },
