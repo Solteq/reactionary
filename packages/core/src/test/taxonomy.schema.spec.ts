@@ -31,6 +31,21 @@ describe('Taxonomy schemas', () => {
     expect(vocabulary.concepts[0].synonyms).toBeUndefined();
   });
 
+  it('parses the optional SKOS fields', () => {
+    const concept = ConceptSchema.parse({
+      identifier: { key: 'features/cordless' },
+      vocabulary: 'features',
+      name: 'Cordless',
+      notation: 'C-01',
+      definition: 'Runs on a battery',
+      related: [{ key: 'features/battery' }],
+    });
+
+    expect(concept.notation).toBe('C-01');
+    expect(concept.definition).toBe('Runs on a battery');
+    expect(concept.related?.[0].key).toBe('features/battery');
+  });
+
   it('rejects a concept without a vocabulary', () => {
     expect(ConceptSchema.safeParse({ identifier: { key: 'features/cordless' }, name: 'Cordless' }).success).toBe(false);
   });

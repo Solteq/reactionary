@@ -10,7 +10,7 @@ import type {
 } from '@reactionary/core';
 import { getVocabularyName } from '@reactionary/core';
 import type * as z from 'zod';
-import { parseTagAsConcept, parseTagSynonyms } from '../../utils/taxonomy.js';
+import { parseTagAsConcept, parseTagDefinition, parseTagRelated, parseTagSynonyms } from '../../utils/taxonomy.js';
 
 export class MedusaTaxonomyFactory<
   TConceptSchema extends AnyConceptSchema = typeof ConceptSchema,
@@ -34,10 +34,15 @@ export class MedusaTaxonomyFactory<
     if (!concept) {
       throw new Error(`Product tag ${data.id} has no concept id`);
     }
-    const synonyms = parseTagSynonyms(data, context.languageContext.locale);
+    const locale = context.languageContext.locale;
+    const synonyms = parseTagSynonyms(data, locale);
+    const definition = parseTagDefinition(data, locale);
+    const related = parseTagRelated(data, concept.identifier.key);
     return this.conceptSchema.parse({
       ...concept,
       ...(synonyms.length > 0 ? { synonyms } : {}),
+      ...(definition ? { definition } : {}),
+      ...(related.length > 0 ? { related: related.map((key) => ({ key })) } : {}),
     });
   }
 

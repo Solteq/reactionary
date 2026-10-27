@@ -146,6 +146,69 @@ describe('Medusa taxonomy capability', () => {
     }
   });
 
+  it('maps notation, the localized definition and related concepts', async () => {
+    const original = [...tags];
+    tags.push(
+      tag('skos/full', 'Full', {
+        vocabulary: 'skos',
+        notation: 'F-1',
+        definition: { en: 'English definition', da: 'Dansk definition' },
+        related: ['skos/other', 'brands/acme'],
+      }),
+      tag('skos/language', 'Language', { vocabulary: 'skos', definition: { en: 'English', da: 'Dansk' } }),
+      tag('skos/fallback', 'Fallback', { vocabulary: 'skos', definition: { en: 'Only english' } }),
+      tag('skos/garbage', 'Garbage', {
+        vocabulary: 'skos',
+        notation: 42,
+        definition: ['not', 'a', 'map'],
+        related: 'skos/full',
+      }),
+      tag('skos/mixed', 'Mixed', {
+        vocabulary: 'skos',
+        notation: '',
+        definition: { en: 3 },
+        related: ['skos/full', 7, null, '', 'skos/full', 'skos/mixed', { key: 'x' }],
+      }),
+      tag('skos/plain', 'Plain', { vocabulary: 'skos', definition: 'A plain definition' }),
+    );
+
+    try {
+      const result = await createCapability('da-DK').getConcepts({
+        concepts: ['skos/full', 'skos/language', 'skos/fallback', 'skos/garbage', 'skos/mixed', 'skos/plain'].map((key) => ({ key })),
+      });
+
+      if (!result.success) {
+        assert.fail();
+      }
+      const [full, language, fallback, garbage, mixed, plain] = result.value;
+      expect(full).toMatchObject({
+        notation: 'F-1',
+        definition: 'Dansk definition',
+        related: [{ key: 'skos/other' }, { key: 'brands/acme' }],
+      });
+      expect(language.definition).toBe('Dansk');
+      expect(fallback.definition).toBe('Only english');
+      expect(plain.definition).toBe('A plain definition');
+      for (const concept of [garbage, mixed]) {
+        expect(concept.notation).toBeUndefined();
+        expect(concept.definition).toBeUndefined();
+      }
+      expect(garbage.related).toBeUndefined();
+      expect(mixed.related).toEqual([{ key: 'skos/full' }]);
+      // a concept without the SKOS metadata stays as before
+      const plainResult = await createCapability().getConcepts({ concepts: [{ key: 'brands/acme' }] });
+      if (!plainResult.success) {
+        assert.fail();
+      }
+      expect(plainResult.value[0].notation).toBeUndefined();
+      expect(plainResult.value[0].definition).toBeUndefined();
+      expect(plainResult.value[0].related).toBeUndefined();
+    } finally {
+      tags.length = 0;
+      tags.push(...original);
+    }
+  });
+
   it('returns NotFound for a vocabulary without concepts', async () => {
     const result = await createCapability().getVocabulary({ vocabulary: { key: 'unknown' } });
 

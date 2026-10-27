@@ -243,6 +243,24 @@ describe('Medusa product factory taxonomy mapping', () => {
   });
 
 
+  it('carries the notation on the product concepts and ignores a garbage one', () => {
+    const product = factory.parseProduct(
+      createContext('en-US'),
+      createProduct({
+        tags: [
+          { id: 'ptag_1', value: 'Cordless', external_id: 'features/cordless', created_at: '', updated_at: '', metadata: { notation: 'C-01', definition: { en: 'x' }, related: ['a/b'] } },
+          { id: 'ptag_2', value: 'Corded', external_id: 'features/corded', created_at: '', updated_at: '', metadata: { notation: { code: 1 } } },
+        ],
+      }),
+    );
+
+    expect(product.concepts[0].notation).toBe('C-01');
+    // the product concepts stay light, definition and related are only on the taxonomy concepts
+    expect(product.concepts[0]).not.toHaveProperty('definition');
+    expect(product.concepts[0]).not.toHaveProperty('related');
+    expect(product.concepts[1].notation).toBeUndefined();
+  });
+
   it('names a concept from the metadata for the request locale even when the value is English', () => {
     const tags = [
       {
