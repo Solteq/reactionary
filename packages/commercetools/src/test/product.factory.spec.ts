@@ -1,4 +1,5 @@
-import { assert, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { assert, describe, expect, it, vi } from 'vitest';
 import type { ProductProjection, ProductType, Attribute } from '@commercetools/platform-sdk';
 import { createInitialRequestContext, MemoryCache, ProductSchema } from '@reactionary/core';
 import { CommercetoolsProductFactory } from '../factories/product/product.factory.js';
@@ -163,6 +164,50 @@ describe('Commercetools product factory taxonomy mapping', () => {
   });
 });
 
+function readFixture<T>(name: string): T {
+  return JSON.parse(readFileSync(new URL(`./__fixtures__/product/${name}`, import.meta.url), 'utf8'));
+}
+
+describe('Commercetools product factory for product types that are not managed', () => {
+  // The golden files were produced by the factory as it was before the taxonomy support, for the same projection.
+  // The projection has attributes named term_length and flags, SameForAll style names and mixed value shapes.
+  const projection = readFixture<ProductProjection>('non-managed-type-projection.json');
+
+  it.each([
+    ['en-US', 'non-managed-type-golden-en-us.json'],
+    ['da-DK', 'non-managed-type-golden-da-dk.json'],
+  ])('maps exactly as before for %s', (locale, golden) => {
+    const { context, factory } = setup(locale);
+
+    const product = factory.parseProduct(context, projection);
+
+    expect(product).toEqual({ ...readFixture<object>(golden), terms: [], flags: [] });
+    expect(product.productType).toBeUndefined();
+    expect(product.sharedAttributes.map((a) => a.identifier.key)).toContain('term_length');
+    expect(product.sharedAttributes.map((a) => a.identifier.key)).toContain('flags');
+    expect(product.mainVariant.options.map((o) => o.identifier.key)).toContain('term_length');
+  });
+
+  it('applies the new behaviour to the same projection once the product type is managed', () => {
+    const { context, factory } = setup('da-DK');
+    const managed: ProductProjection = {
+      ...projection,
+      productType: { ...projection.productType, obj: projection.productType.obj && { ...projection.productType.obj, key: 'rc-legacy' } },
+    };
+
+    const product = factory.parseProduct(context, managed);
+
+    const keys = product.sharedAttributes.map((a) => a.identifier.key);
+    expect(keys).not.toContain('term_length');
+    expect(keys).not.toContain('flags');
+    expect(product.terms).toEqual([{ identifier: { key: '5 meter' }, vocabulary: 'length', name: '5 meter' }]);
+    expect(product.flags).toEqual([]);
+    expect(product.productType?.identifier.key).toBe('legacy');
+    expect(product.sharedAttributes.find((a) => a.identifier.key === 'features')?.values.map((v) => v.label)).toEqual(['a', 'b']);
+    expect(product.sharedAttributes.find((a) => a.identifier.key === 'material')?.values[0].label).toBe('Steel');
+  });
+});
+
 describe('Commercetools product capability product types', () => {
   const config = useCommercetoolsFixtures('product');
 
@@ -189,5 +234,33 @@ describe('Commercetools product capability product types', () => {
     expect(first.value.sharedAttributes.find((a) => a.identifier.key === 'icecat-feature-1765')?.name).toBe('Batterispaending');
     expect(first.value.terms[0]).toMatchObject({ identifier: { key: 'features/cordless' }, name: 'Traadloes' });
     expect(first.value.flags).toEqual(['ageRestricted']);
+  });
+});
+
+describe('Commercetools product capability product type fetch failures', () => {
+  const config = useCommercetoolsFixtures('product');
+
+  it('logs a failed product type fetch and still maps the product', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const context = createInitialRequestContext();
+    const capability = new CommercetoolsProductCapability(
+      new MemoryCache(),
+      context,
+      config,
+      new CommercetoolsAPI(config, context),
+      new CommercetoolsProductFactory(ProductSchema),
+    );
+
+    // the cassette holds no product type request, so fetching it fails
+    const result = await capability.getById({ identifier: { key: 'drill-1' } });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('pt-1'), expect.anything());
+    expect(result.value.name).toBe('Bor drill-1');
+    expect(result.value.productType).toBeUndefined();
+    expect(result.value.sharedAttributes.find((a) => a.identifier.key === 'colour')?.name).toBe('colour');
+    error.mockRestore();
   });
 });

@@ -1,0 +1,138 @@
+{
+  "id": "id-legacy",
+  "version": 1,
+  "key": "legacy-1",
+  "productType": {
+    "typeId": "product-type",
+    "id": "pt-legacy",
+    "obj": {
+      "id": "pt-legacy",
+      "version": 1,
+      "key": "legacy-type",
+      "name": "Legacy",
+      "description": "",
+      "classifier": "Complex",
+      "attributes": [
+        {
+          "name": "term_length",
+          "label": {
+            "en": "Length"
+          },
+          "level": "Product",
+          "isRequired": false,
+          "attributeConstraint": "SameForAll",
+          "inputHint": "SingleLine",
+          "isSearchable": false,
+          "type": {
+            "name": "text"
+          }
+        },
+        {
+          "name": "colour",
+          "label": {
+            "en": "Colour"
+          },
+          "level": "Variant",
+          "isRequired": false,
+          "attributeConstraint": "None",
+          "inputHint": "SingleLine",
+          "isSearchable": false,
+          "type": {
+            "name": "text"
+          }
+        }
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "lastModifiedAt": "2026-01-01T00:00:00.000Z"
+    }
+  },
+  "name": {
+    "en": "Legacy drill",
+    "da": "Gammel bor"
+  },
+  "slug": {
+    "en": "legacy",
+    "da": "legacy"
+  },
+  "description": {
+    "en": "d",
+    "da": "d"
+  },
+  "categories": [],
+  "masterVariant": {
+    "id": 1,
+    "sku": "sku-legacy",
+    "images": [],
+    "prices": [],
+    "attributes": [
+      {
+        "name": "term_length",
+        "value": {
+          "en": "5 m",
+          "da": "5 meter"
+        }
+      },
+      {
+        "name": "flags",
+        "value": "fragile"
+      },
+      {
+        "name": "colour",
+        "value": "red"
+      },
+      {
+        "name": "material",
+        "value": {
+          "en": "Steel"
+        }
+      },
+      {
+        "name": "features",
+        "value": [
+          "a",
+          "b"
+        ]
+      },
+      {
+        "name": "tags",
+        "value": [
+          {
+            "key": "k",
+            "label": {
+              "en": "L"
+            }
+          }
+        ]
+      },
+      {
+        "name": "size",
+        "value": {
+          "key": "xl",
+          "label": {
+            "en": "Extra large",
+            "da": "Ekstra stor"
+          }
+        }
+      }
+    ]
+  },
+  "variants": [],
+  "searchKeywords": {},
+  "attributes": [
+    {
+      "name": "weight",
+      "value": {
+        "en": "3",
+        "da": "3"
+      }
+    },
+    {
+      "name": "reactionaryaccessories",
+      "value": []
+    }
+  ],
+  "published": true,
+  "hasStagedChanges": false,
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "lastModifiedAt": "2026-01-01T00:00:00.000Z"
+}

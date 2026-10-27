@@ -1,0 +1,267 @@
+{
+  "identifier": {
+    "key": "legacy-1"
+  },
+  "name": "Gammel bor",
+  "slug": "legacy",
+  "description": "d",
+  "longDescription": "",
+  "brand": "",
+  "manufacturer": "",
+  "parentCategories": [],
+  "published": true,
+  "sharedAttributes": [
+    {
+      "identifier": {
+        "key": "weight"
+      },
+      "group": "",
+      "name": "weight",
+      "values": [
+        {
+          "identifier": {
+            "key": "3"
+          },
+          "value": "3",
+          "label": "3"
+        }
+      ]
+    },
+    {
+      "identifier": {
+        "key": "term_length"
+      },
+      "group": "",
+      "name": "term_length",
+      "values": [
+        {
+          "identifier": {
+            "key": "5 meter"
+          },
+          "value": "5 meter",
+          "label": "5 meter"
+        }
+      ]
+    },
+    {
+      "identifier": {
+        "key": "flags"
+      },
+      "group": "",
+      "name": "flags",
+      "values": [
+        {
+          "identifier": {
+            "key": "fragile"
+          },
+          "value": "fragile",
+          "label": "fragile"
+        }
+      ]
+    },
+    {
+      "identifier": {
+        "key": "colour"
+      },
+      "group": "",
+      "name": "colour",
+      "values": [
+        {
+          "identifier": {
+            "key": "red"
+          },
+          "value": "red",
+          "label": "red"
+        }
+      ]
+    },
+    {
+      "identifier": {
+        "key": "material"
+      },
+      "group": "",
+      "name": "material",
+      "values": [
+        {
+          "identifier": {
+            "key": "-"
+          },
+          "value": "-",
+          "label": "-"
+        }
+      ]
+    },
+    {
+      "identifier": {
+        "key": "features"
+      },
+      "group": "",
+      "name": "features",
+      "values": [
+        {
+          "identifier": {
+            "key": "-"
+          },
+          "value": "-",
+          "label": "-"
+        }
+      ]
+    },
+    {
+      "identifier": {
+        "key": "tags"
+      },
+      "group": "",
+      "name": "tags",
+      "values": [
+        {
+          "identifier": {
+            "key": "-"
+          },
+          "value": "-",
+          "label": "-"
+        }
+      ]
+    },
+    {
+      "identifier": {
+        "key": "size"
+      },
+      "group": "",
+      "name": "size",
+      "values": [
+        {
+          "identifier": {
+            "key": "-"
+          },
+          "value": "-",
+          "label": "-"
+        }
+      ]
+    }
+  ],
+  "options": [],
+  "mainVariant": {
+    "identifier": {
+      "sku": "sku-legacy"
+    },
+    "name": "Gammel bor",
+    "images": [],
+    "ean": "",
+    "gtin": "",
+    "upc": "",
+    "barcode": "",
+    "options": [
+      {
+        "identifier": {
+          "key": "term_length"
+        },
+        "name": "term_length",
+        "value": {
+          "identifier": {
+            "option": {
+              "key": "term_length"
+            },
+            "key": "5 meter"
+          },
+          "label": "5 meter"
+        }
+      },
+      {
+        "identifier": {
+          "key": "flags"
+        },
+        "name": "flags",
+        "value": {
+          "identifier": {
+            "option": {
+              "key": "flags"
+            },
+            "key": "fragile"
+          },
+          "label": "fragile"
+        }
+      },
+      {
+        "identifier": {
+          "key": "colour"
+        },
+        "name": "colour",
+        "value": {
+          "identifier": {
+            "option": {
+              "key": "colour"
+            },
+            "key": "red"
+          },
+          "label": "red"
+        }
+      },
+      {
+        "identifier": {
+          "key": "material"
+        },
+        "name": "material",
+        "value": {
+          "identifier": {
+            "option": {
+              "key": "material"
+            },
+            "key": "-"
+          },
+          "label": "-"
+        }
+      },
+      {
+        "identifier": {
+          "key": "features"
+        },
+        "name": "features",
+        "value": {
+          "identifier": {
+            "option": {
+              "key": "features"
+            },
+            "key": "-"
+          },
+          "label": "-"
+        }
+      },
+      {
+        "identifier": {
+          "key": "tags"
+        },
+        "name": "tags",
+        "value": {
+          "identifier": {
+            "option": {
+              "key": "tags"
+            },
+            "key": "-"
+          },
+          "label": "-"
+        }
+      },
+      {
+        "identifier": {
+          "key": "size"
+        },
+        "name": "size",
+        "value": {
+          "identifier": {
+            "option": {
+              "key": "size"
+            },
+            "key": "-"
+          },
+          "label": "-"
+        }
+      }
+    ]
+  },
+  "variants": [],
+  "complianceData": {
+    "ce_marking": false,
+    "weee_symbol": false
+  }
+}
