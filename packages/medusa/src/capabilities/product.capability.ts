@@ -1,3 +1,4 @@
+import type { StoreProduct, StoreProductType } from '@medusajs/types';
 import type {
   Cache,
   NotFoundError,
@@ -21,12 +22,31 @@ import {
   success,
 } from '@reactionary/core';
 import createDebug from 'debug';
+import * as z from 'zod';
 import type { MedusaAPI } from '../core/client.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
 
 import type { MedusaProductFactory } from '../factories/product/product.factory.js';
+import { mapLimit } from '../utils/map-limit.js';
 
 const debug = createDebug('reactionary:medusa:product');
+
+/**
+ * How long a fetched product type is reused. Product types change rarely, and every product needs one.
+ */
+const PRODUCT_TYPE_CACHE_TTL_SECONDS = 3600;
+/**
+ * How many product types are fetched at the same time for the products of one call.
+ */
+const PRODUCT_TYPE_CONCURRENCY = 5;
+
+/**
+ * Validates that a cached value is a Medusa product type, as far as the factory needs it to be.
+ */
+const MedusaProductTypeSchema = z.custom<StoreProductType>(
+  (value) => typeof value === 'object' && value !== null && 'id' in value && typeof value.id === 'string',
+  { error: 'Expected a Medusa product type' },
+);
 
 export class MedusaProductCapability<
   TFactory extends ProductFactory = MedusaProductFactory,
@@ -36,7 +56,8 @@ export class MedusaProductCapability<
     '+metadata',
     '+categories.external_id',
     '+external_id',
-    '+type.*',
+    // only the id of the type, the type itself is looked up once per type, see resolveProductTypes
+    '+type.id',
     '+tags.*',
   ];
   protected factory: ProductFactoryWithOutput<TFactory>;
@@ -51,6 +72,59 @@ export class MedusaProductCapability<
     super(cache, context);
     this.config = config;
     this.factory = factory;
+  }
+
+  /**
+   * Fetches a product type by its id with the metadata and the external id, in the language of the request, which
+   * is why the translated value is part of the cache key. A failed fetch is logged and not cached, the product then
+   * keeps its machine keys.
+   */
+  protected async fetchProductType(id: string): Promise<StoreProductType | undefined> {
+    const cacheKey = this.generateCacheKeyForQuery('medusa-product-type', { id }, this.context.languageContext.locale, 'all');
+    try {
+      const cached: StoreProductType | null = await this.cache.get(cacheKey, MedusaProductTypeSchema);
+      if (cached) {
+        return cached;
+      }
+      const client = await this.medusaApi.getClient();
+      const response = await client.client.fetch<{ product_type: StoreProductType }>(
+        `/store/product-types/${encodeURIComponent(id)}`,
+        { method: 'GET', query: { fields: '+metadata,+external_id' } },
+      );
+      await this.cache.put(cacheKey, response.product_type, {
+        ttlSeconds: PRODUCT_TYPE_CACHE_TTL_SECONDS,
+        dependencyIds: [],
+      });
+      return response.product_type;
+    } catch (err) {
+      console.error(`Unable to fetch product type ${id}, the attributes of the products keep their machine keys`, err);
+      return undefined;
+    }
+  }
+
+  /**
+   * The products are requested with the id of their type only. The types are looked up once per distinct type
+   * (at most five at a time, from the cache when possible) and put on the products, so the factory finds the full
+   * type where it always did.
+   */
+  protected async resolveProductTypes(products: StoreProduct[]): Promise<StoreProduct[]> {
+    const ids = [...new Set(products.map((product) => product.type?.id ?? product.type_id).filter((id): id is string => !!id))];
+    if (ids.length === 0) {
+      return products;
+    }
+    const fetched = await mapLimit(ids, PRODUCT_TYPE_CONCURRENCY, (id) => this.fetchProductType(id));
+    const types = new Map<string, StoreProductType>();
+    ids.forEach((id, position) => {
+      const type = fetched[position];
+      if (type) {
+        types.set(id, type);
+      }
+    });
+    return products.map((product) => {
+      const id = product.type?.id ?? product.type_id;
+      const type = id ? types.get(id) : undefined;
+      return type ? { ...product, type } : product;
+    });
   }
 
   protected getByIdPayload(payload: ProductQueryById) {
@@ -87,7 +161,8 @@ export class MedusaProductCapability<
         identifier: payload,
       });
     }
-    return success(this.factory.parseProduct(this.context, response.products[0]));
+    const [product] = await this.resolveProductTypes([response.products[0]]);
+    return success(this.factory.parseProduct(this.context, product));
   }
 
   protected getBySlugPayload(payload: ProductQueryBySlug) {
@@ -129,9 +204,8 @@ export class MedusaProductCapability<
         identifier: payload,
       });
     }
-    return success(
-      this.factory.parseProduct(this.context, response.products[0]),
-    );
+    const [product] = await this.resolveProductTypes([response.products[0]]);
+    return success(this.factory.parseProduct(this.context, product));
   }
 
   @Reactionary({
@@ -178,6 +252,7 @@ export class MedusaProductCapability<
         .concat(product.variants?.filter((v) => v.sku !== sku)) || [];
 
     // For simplicity, return the first matched product
-    return success(this.factory.parseProduct(this.context, product));
+    const [resolved] = await this.resolveProductTypes([product]);
+    return success(this.factory.parseProduct(this.context, resolved));
   }
 }
