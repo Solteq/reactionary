@@ -28,7 +28,7 @@ export const TaxonomyQueryGetRelatedConceptsSchema = BaseQuerySchema.extend({
 
 export const TaxonomyQueryExpandConceptsSchema = BaseQuerySchema.extend({
   concepts: z.array(ProductConceptSchema).max(MAX_CONCEPTS).meta({ description: 'The concepts to expand, typically Product.concepts, which holds the assigned concepts and all their ancestors. At most 200.' }),
-  directConcepts: z.array(ConceptIdentifierSchema).max(MAX_CONCEPTS).optional().meta({ description: 'The concepts that were assigned, when known. Only these are expanded, the ancestors in concepts are reached from them. When left out, the ancestors are recognised by the parent links in concepts. An empty list counts as left out.' }),
+  directConcepts: z.array(ConceptIdentifierSchema).max(MAX_CONCEPTS).optional().meta({ description: 'The concepts that were assigned, when known. Authoritative: exactly these are expanded, also ids that are not in concepts, and the ancestors are reached from them. When left out, the ancestors are recognised by the parent links in concepts. An empty list counts as left out.' }),
   policy: ConceptExpansionPolicySchema.optional().meta({ description: 'Overrides the weights and limits of the expansion for this call.' }),
 });
 
@@ -42,8 +42,8 @@ export const TaxonomyQueryExpandAffinitiesSchema = BaseQuerySchema.extend({
 
 export const TaxonomyQueryRankByConceptsSchema = BaseQuerySchema.extend({
   items: z.array(ConceptRankingItemSchema).max(MAX_RANKING_ITEMS).meta({ description: 'The items to rank, by key, with the ids of their concepts. At most 1000.' }),
-  context: z.array(ExpandedConceptSchema).max(MAX_EXPANSION).optional().meta({ description: 'The expanded concepts of what the visitor is looking at, from expandConcepts. At most 2000.' }),
-  affinity: z.array(ExpandedConceptSchema).max(MAX_EXPANSION).optional().meta({ description: 'The expanded concepts of the visitor interests, from expandAffinities. At most 2000.' }),
+  context: z.array(ExpandedConceptSchema).max(MAX_EXPANSION).optional().meta({ description: 'The expanded concepts of what the visitor is looking at, from expandConcepts, which returns at most 2000. At most 2000.' }),
+  affinity: z.array(ExpandedConceptSchema).max(MAX_EXPANSION).optional().meta({ description: 'The expanded concepts of the visitor interests, from expandAffinities, which returns at most 2000. At most 2000.' }),
   personalization: ConceptPersonalizationSchema.optional().meta({ description: 'How strongly the affinity influences the ranking.' }),
 });
 

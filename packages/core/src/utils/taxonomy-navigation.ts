@@ -141,7 +141,8 @@ export function buildConceptIndex(vocabularies: Vocabulary[]): ConceptIndex {
  *
  * The inference cannot tell a concept that was assigned explicitly and also is the ancestor of another assigned
  * concept (a product tagged with both power and cordless) from a pure ancestor, it counts it as broader. An
- * explicit set of direct ids, when the producer knows them, overrides the inference.
+ * explicit set of direct ids, when the producer knows them, overrides the inference. Parent links that form a
+ * circle leave no direct concept, in that case all of them are taken as direct.
  */
 export function splitDirectAndBroader(
   productConcepts: Array<Pick<ProductConcept, 'identifier' | 'parent'>>,
@@ -174,10 +175,13 @@ export function splitDirectAndBroader(
       current = parentOf.get(current);
     }
   }
-  return {
-    direct: ids.filter((id) => !broaderIds.has(id)),
-    broader: ids.filter((id) => broaderIds.has(id)),
-  };
+  const direct = ids.filter((id) => !broaderIds.has(id));
+  // parent links that go round in a circle make every concept the ancestor of another, then nothing can be told
+  // apart and all of them count as direct, which is better than expanding nothing
+  if (direct.length === 0 && ids.length > 0) {
+    return { direct: ids, broader: [] };
+  }
+  return { direct, broader: ids.filter((id) => broaderIds.has(id)) };
 }
 
 /**
@@ -347,6 +351,25 @@ export function findRelatedConcepts(
 }
 
 /**
+ * The most concepts an expansion holds. It is what rankByConcepts takes as context or affinity.
+ */
+export const MAX_EXPANSION_SIZE = 2000;
+
+/**
+ * Cuts an expansion to the highest weights: the exact concepts first, then the others by weight, highest first.
+ * The order of the expansion is kept. Stable, so equal weights keep the order they were found in.
+ */
+export function limitExpansion(expansion: ExpandedConcept[], max: number = MAX_EXPANSION_SIZE): ExpandedConcept[] {
+  if (expansion.length <= max) {
+    return expansion;
+  }
+  const exact = expansion.filter((concept) => concept.via === 'exact');
+  const others = expansion.filter((concept) => concept.via !== 'exact');
+  const kept = new Set<ExpandedConcept>([...exact, ...others.sort((a, b) => b.weight - a.weight)].slice(0, max));
+  return expansion.filter((concept) => kept.has(concept));
+}
+
+/**
  * The score of one item: its best matching concept dominates, the others add a quarter of their weight.
  */
 export function scoreConceptIds(conceptIds: string[], expansion: ExpandedConcept[]): number {
@@ -421,6 +444,9 @@ export function affinitiesToSeeds(affinities: Record<string, number>, options: {
 /**
  * Ranks items by how well their concepts match a context (e.g. the concepts of the product on the page), and
  * optionally by the interests of a profile.
+ *
+ * This function is lenient: weights below 0 count as 0 and the strength is clamped. The capability method
+ * rankByConcepts is strict, its schema rejects negative weights and a strength outside 0..1 as InvalidInput.
  *
  * - relevance is the score against the context, affinity the score against the profile.
  * - mode context ranks on relevance only.

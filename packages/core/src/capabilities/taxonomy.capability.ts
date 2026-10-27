@@ -24,16 +24,19 @@ import {
   type TaxonomyQueryGetVocabulary,
   type TaxonomyQueryRankByConcepts,
 } from '../schemas/queries/taxonomy.query.js';
-import { success, type Result } from '../schemas/result.js';
+import type { InvalidInputError } from '../schemas/errors/invalid-input.error.js';
+import { error, success, type Result } from '../schemas/result.js';
 import {
   affinitiesToSeeds,
   buildConceptIndex,
   DEFAULT_EXPANSION_POLICY,
   expandConcepts,
   findRelatedConcepts,
+  limitExpansion,
   rankItems,
   splitDirectAndBroader,
   type ConceptIndex,
+  type ConceptSeed,
 } from '../utils/taxonomy-navigation.js';
 import { BaseCapability } from './base.capability.js';
 
@@ -114,7 +117,13 @@ export abstract class TaxonomyCapability<
    * any other failure of getVocabulary is returned as it is.
    */
   protected async loadConceptIndex(vocabularies: string[]): Promise<Result<ConceptIndex>> {
-    const unique = [...new Set(vocabularies.filter((vocabulary) => vocabulary !== ''))].slice(0, MAX_VOCABULARIES_PER_CALL);
+    const unique = [...new Set(vocabularies.filter((vocabulary) => vocabulary !== ''))];
+    if (unique.length > MAX_VOCABULARIES_PER_CALL) {
+      return error<InvalidInputError>({
+        type: 'InvalidInput',
+        error: `The call reaches ${unique.length} vocabularies, at most ${MAX_VOCABULARIES_PER_CALL} are supported.`,
+      });
+    }
     const results: Array<Result<TVocabulary, NotFoundError> | undefined> = new Array(unique.length).fill(undefined);
     let next = 0;
     const worker = async () => {
@@ -169,7 +178,11 @@ export abstract class TaxonomyCapability<
    * the extra ones of the policy.
    *
    * The concepts are expected to be the closure over the ancestors, like Product.concepts: only the assigned
-   * concepts are expanded, see directConcepts and splitDirectAndBroader.
+   * concepts are expanded, see directConcepts and splitDirectAndBroader. A given directConcepts is authoritative:
+   * exactly those ids are expanded, also ids that are not in concepts.
+   *
+   * The result holds at most 2000 concepts, the exact ones first and then the highest weights, which is what
+   * rankByConcepts takes as context.
    *
    * Usecase: PDP, find the CMS articles that share concepts with the product shown.
    */
@@ -191,21 +204,27 @@ export abstract class TaxonomyCapability<
     }
 
     // Product.concepts holds the ancestors too, only the assigned concepts are expanded, the ancestors are
-    // reached through the walk up from them
-    const explicit = payload.directConcepts && payload.directConcepts.length > 0
-      ? payload.directConcepts.map((concept) => concept.key)
-      : undefined;
-    const { direct } = splitDirectAndBroader(payload.concepts, explicit);
-    const directIds = new Set(direct);
-    const seeds = payload.concepts.filter((concept) => directIds.has(concept.identifier.key));
-    return success(expandConcepts(loaded.value, seeds, policy));
+    // reached through the walk up from them. A given directConcepts is authoritative, its ids are the seeds.
+    let seeds: ConceptSeed[];
+    if (payload.directConcepts && payload.directConcepts.length > 0) {
+      const given = new Map(payload.concepts.map((concept) => [concept.identifier.key, concept]));
+      seeds = payload.directConcepts.map((direct) => ({
+        identifier: { key: direct.key },
+        vocabulary: vocabularyOfConceptId(direct.key),
+        parent: given.get(direct.key)?.parent,
+      }));
+    } else {
+      const directIds = new Set(splitDirectAndBroader(payload.concepts).direct);
+      seeds = payload.concepts.filter((concept) => directIds.has(concept.identifier.key));
+    }
+    return success(limitExpansion(expandConcepts(loaded.value, seeds, policy)));
   }
 
   /**
    * Expands the interests of a visitor, the affinities of the personalization profile, the same way as
    * expandConcepts. Only the top N affinities count and, if the highest is above 1, they are scaled down by it,
    * so arbitrary large scores cannot swamp relevance. Weights within (0, 1], like the banded ones of a profile,
-   * are kept as they are.
+   * are kept as they are. The result holds at most 2000 concepts, the exact ones first and then the highest weights.
    *
    * The affinities are personal data: the result is never cached. Call it on the server only.
    */
@@ -224,7 +243,7 @@ export abstract class TaxonomyCapability<
     if (!loaded.success) {
       return loaded;
     }
-    return success(expandConcepts(loaded.value, seeds, policy));
+    return success(limitExpansion(expandConcepts(loaded.value, seeds, policy)));
   }
 
   /**
@@ -234,6 +253,9 @@ export abstract class TaxonomyCapability<
    * reorders relevant items and adds at most the strength. See rankItems for all modes.
    *
    * Nothing is fetched or cached, the payload may hold the expanded interests of a person.
+   *
+   * The payload is validated strictly: negative weights, a strength outside 0..1 and more than 2000 concepts in
+   * the context or the affinity fail as InvalidInput. (The pure rankItems it uses is lenient and clamps.)
    */
   @Reactionary({
     inputSchema: TaxonomyQueryRankByConceptsSchema,
