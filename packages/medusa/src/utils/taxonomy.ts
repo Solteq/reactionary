@@ -119,3 +119,16 @@ export function parseTagAsTerm(tag: MedusaTag, locale: string): ProductTerm | un
   }
   return term;
 }
+
+/**
+ * The synonyms of a tag in the request locale, falling back to en and then to any other locale.
+ */
+export function parseTagSynonyms(tag: MedusaTag, locale: string): string[] {
+  const parsed = z.record(z.string(), z.array(z.string())).safeParse(tag.metadata?.['synonyms']);
+  if (!parsed.success) {
+    return [];
+  }
+  const language = locale.split(/[-_]/)[0];
+  const synonyms = parsed.data[locale] ?? parsed.data[language] ?? parsed.data['en'] ?? Object.values(parsed.data)[0];
+  return synonyms ?? [];
+}

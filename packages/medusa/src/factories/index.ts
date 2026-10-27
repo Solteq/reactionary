@@ -16,3 +16,4 @@ export * from './product-search/product-search.factory.js';
 export * from './profile/profile.factory.js';
 export * from './personalization-profile/personalization-profile.factory.js';
 export * from './store/store.factory.js';
+export * from './taxonomy/taxonomy.factory.js';
