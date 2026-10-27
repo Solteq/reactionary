@@ -32,9 +32,17 @@ import {
   expandConcepts,
   findRelatedConcepts,
   rankItems,
+  splitDirectAndBroader,
   type ConceptIndex,
 } from '../utils/taxonomy-navigation.js';
 import { BaseCapability } from './base.capability.js';
+
+/**
+ * How many getVocabulary calls run at the same time, and how many distinct vocabularies one call loads.
+ * The helpers are exposed as tools, so what a single call can fan out to is bounded.
+ */
+const VOCABULARY_CONCURRENCY = 4;
+const MAX_VOCABULARIES_PER_CALL = 40;
 
 function vocabularyOfConceptId(id: string): string {
   const separator = id.indexOf('/');
@@ -53,6 +61,14 @@ function vocabularyOfConceptId(id: string): string {
  * getVocabulary, so the caching of the provider applies, and run the pure functions of taxonomy-navigation.
  * Subclasses can override any of them, but note that an override that does not repeat @Reactionary (or use
  * applyReactionary) loses the input and output validation, tracing and caching of the original.
+ *
+ * Nothing in these helpers is cached by them: the expensive part, loading the vocabularies, is cached by the
+ * provider behind getVocabulary, the expansion and the ranking are cheap.
+ *
+ * Product.concepts holds the concepts assigned to the product and all their ancestors. expandConcepts takes that
+ * list as it is, recognises the assigned concepts (the ones that are no ancestor of another) and expands only
+ * those, so an ancestor is reached as broader and not as an exact match with all its other children as narrower.
+ * Pass directConcepts when the assigned concepts are known, it overrides the recognition.
  *
  * @example PDP, articles that share concepts with the product, boosted by what the visitor is interested in
  * ```ts
@@ -98,13 +114,22 @@ export abstract class TaxonomyCapability<
    * any other failure of getVocabulary is returned as it is.
    */
   protected async loadConceptIndex(vocabularies: string[]): Promise<Result<ConceptIndex>> {
-    const unique = [...new Set(vocabularies.filter((vocabulary) => vocabulary !== ''))];
-    const results = await Promise.all(unique.map((key) => this.getVocabulary({ vocabulary: { key } })));
+    const unique = [...new Set(vocabularies.filter((vocabulary) => vocabulary !== ''))].slice(0, MAX_VOCABULARIES_PER_CALL);
+    const results: Array<Result<TVocabulary, NotFoundError> | undefined> = new Array(unique.length).fill(undefined);
+    let next = 0;
+    const worker = async () => {
+      while (next < unique.length) {
+        const position = next++;
+        results[position] = await this.getVocabulary({ vocabulary: { key: unique[position] } });
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(VOCABULARY_CONCURRENCY, unique.length) }, worker));
+
     const loaded: Vocabulary[] = [];
     for (const result of results) {
-      if (result.success) {
+      if (result?.success) {
         loaded.push(result.value);
-      } else if (result.error.type !== 'NotFound') {
+      } else if (result && result.error.type !== 'NotFound') {
         return result;
       }
     }
@@ -124,9 +149,7 @@ export abstract class TaxonomyCapability<
   @Reactionary({
     inputSchema: TaxonomyQueryGetRelatedConceptsSchema,
     outputSchema: z.array(RelatedConceptSchema),
-    cache: true,
-    cacheTimeToLiveInSeconds: 300,
-    localeDependentCaching: false,
+    cache: false,
   })
   public async getRelatedConcepts(payload: TaxonomyQueryGetRelatedConcepts): Promise<Result<RelatedConcept[]>> {
     const keys = payload.concepts.map((concept) => concept.key);
@@ -142,33 +165,47 @@ export abstract class TaxonomyCapability<
   /**
    * Expands concepts, typically Product.concepts, to the concepts around them with a weight: the concepts
    * themselves (exact), their descendants (narrower), related concepts and ancestors (broader). The result is
-   * sorted by weight and is the context for rankByConcepts. The vocabularies to load come from the concepts.
+   * sorted by weight and is the context for rankByConcepts. The vocabularies to load come from the concepts, plus
+   * the extra ones of the policy.
+   *
+   * The concepts are expected to be the closure over the ancestors, like Product.concepts: only the assigned
+   * concepts are expanded, see directConcepts and splitDirectAndBroader.
    *
    * Usecase: PDP, find the CMS articles that share concepts with the product shown.
    */
   @Reactionary({
     inputSchema: TaxonomyQueryExpandConceptsSchema,
     outputSchema: z.array(ExpandedConceptSchema),
-    cache: true,
-    cacheTimeToLiveInSeconds: 300,
-    localeDependentCaching: true,
+    cache: false,
   })
   public async expandConcepts(payload: TaxonomyQueryExpandConcepts): Promise<Result<ExpandedConcept[]>> {
     const policy = this.resolveExpansionPolicy(payload.policy);
     const vocabularies = [
       ...payload.concepts.map((concept) => concept.vocabulary || vocabularyOfConceptId(concept.identifier.key)),
+      ...(payload.directConcepts ?? []).map((concept) => vocabularyOfConceptId(concept.key)),
       ...(policy.vocabularies ?? []),
     ];
     const loaded = await this.loadConceptIndex(vocabularies);
     if (!loaded.success) {
       return loaded;
     }
-    return success(expandConcepts(loaded.value, payload.concepts, policy));
+
+    // Product.concepts holds the ancestors too, only the assigned concepts are expanded, the ancestors are
+    // reached through the walk up from them
+    const explicit = payload.directConcepts && payload.directConcepts.length > 0
+      ? payload.directConcepts.map((concept) => concept.key)
+      : undefined;
+    const { direct } = splitDirectAndBroader(payload.concepts, explicit);
+    const directIds = new Set(direct);
+    const seeds = payload.concepts.filter((concept) => directIds.has(concept.identifier.key));
+    return success(expandConcepts(loaded.value, seeds, policy));
   }
 
   /**
    * Expands the interests of a visitor, the affinities of the personalization profile, the same way as
-   * expandConcepts. The scores are normalized by the highest one so a heavy profile cannot swamp relevance.
+   * expandConcepts. Only the top N affinities count and, if the highest is above 1, they are scaled down by it,
+   * so arbitrary large scores cannot swamp relevance. Weights within (0, 1], like the banded ones of a profile,
+   * are kept as they are.
    *
    * The affinities are personal data: the result is never cached. Call it on the server only.
    */

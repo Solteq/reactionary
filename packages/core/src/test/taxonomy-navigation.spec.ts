@@ -5,9 +5,11 @@ import {
   buildConceptIndex,
   expandConcepts,
   findRelatedConcepts,
+  rankItems,
   scoreItems,
   splitDirectAndBroader,
 } from '../utils/taxonomy-navigation.js';
+import type { ExpandedConcept } from '../schemas/models/taxonomy.model.js';
 import { concept, createVocabularies, vocabulary } from './taxonomy-fixtures.js';
 
 function weights(expansion: ReturnType<typeof expandConcepts>) {
@@ -133,6 +135,41 @@ describe('expandConcepts', () => {
 
     const wide = weights(expandConcepts(index, [seed('features/cordless')], { vocabularies: ['features', 'brands'] }));
     expect(wide['brands/acme']).toEqual([0.5, 'related']);
+  });
+
+  it('widens to the vocabularies of the policy and never removes the ones of the seeds', () => {
+    const result = weights(expandConcepts(index, [seed('features/cordless')], { vocabularies: ['brands'] }));
+
+    expect(result['features/cordless']).toEqual([1, 'exact']);
+    expect(result['features/outdoor']).toEqual([0.5, 'related']);
+    expect(result['brands/acme']).toEqual([0.5, 'related']);
+    // a list of the seed vocabulary alone changes nothing
+    expect(expandConcepts(index, [seed('features/cordless')], { vocabularies: ['features'] })).toEqual(expandConcepts(index, [seed('features/cordless')]));
+  });
+
+  it('merges seeds for the same concept and keeps the highest weight', () => {
+    const result = expandConcepts(index, [seed('features/power', { weight: 0.5 }), seed('features/power', { weight: 1 }), seed('features/power', { weight: 0.2 })]);
+
+    expect(result.filter((e) => e.identifier.key === 'features/power')).toEqual([{ identifier: { key: 'features/power' }, weight: 1, via: 'exact' }]);
+    expect(weights(result)['features/cordless']).toEqual([0.8, 'narrower']);
+  });
+
+  it('does not walk the part of the tree below the minimum weight', () => {
+    const requested: Array<number | undefined> = [];
+    const spy = {
+      ...index,
+      descendants: (id: string, options?: { maxDepth?: number }) => {
+        requested.push(options?.maxDepth);
+        return index.descendants(id, options);
+      },
+    };
+
+    // 0.8, 0.64, 0.512, 0.41, 0.328: five levels stay above 0.3
+    expandConcepts(spy, [seed('features/power')], { minWeight: 0.3 });
+    // nothing below the seed reaches 0.9
+    expandConcepts(spy, [seed('features/power')], { minWeight: 0.9 });
+
+    expect(requested).toEqual([5]);
   });
 
   it('lets the policy change weights and sorts by weight', () => {
@@ -366,5 +403,62 @@ describe('affinitiesFromSegments', () => {
 
   it('returns an empty record for no segments', () => {
     expect(affinitiesFromSegments([])).toEqual({});
+  });
+});
+
+describe('rankItems with unusable weights', () => {
+  const context: ExpandedConcept[] = [{ identifier: { key: 'a/one' }, weight: 1, via: 'exact' }];
+  const items = [
+    { key: 'relevant', concepts: ['a/one', 'a/liked'] },
+    { key: 'irrelevant', concepts: ['a/liked'] },
+  ];
+  const find = (result: ReturnType<typeof rankItems>, key: string) => result.find((r) => r.key === key);
+
+  it('does not let a negative affinity push a blended score below the relevance, and zero relevance stays zero', () => {
+    const affinity: ExpandedConcept[] = [{ identifier: { key: 'a/liked' }, weight: -100, via: 'exact' }];
+
+    const result = rankItems(items, { context, affinity, personalization: { strength: 1 } });
+
+    expect(find(result, 'relevant')).toMatchObject({ score: 1, relevance: 1, affinity: 0 });
+    expect(find(result, 'irrelevant')).toMatchObject({ score: 0, relevance: 0, affinity: 0 });
+  });
+
+  it('does not let a negative context weight produce a negative score', () => {
+    const result = rankItems(items, { context: [{ identifier: { key: 'a/one' }, weight: -5, via: 'exact' }] });
+
+    expect(result.every((r) => r.score >= 0 && r.relevance >= 0)).toBe(true);
+  });
+
+  it('caps the affinity at 1 for the blend, however large', () => {
+    const affinity: ExpandedConcept[] = [{ identifier: { key: 'a/liked' }, weight: 1e9, via: 'exact' }];
+
+    const result = rankItems(items, { context, affinity, personalization: { strength: 0.5 } });
+
+    expect(find(result, 'relevant')?.score).toBeCloseTo(1.5, 10);
+  });
+
+  it('reads the strength: not a number is the default, infinities are clamped', () => {
+    const affinity: ExpandedConcept[] = [{ identifier: { key: 'a/liked' }, weight: 1, via: 'exact' }];
+    const scoreWith = (strength: number) => find(rankItems(items, { context, affinity, personalization: { strength } }), 'relevant')?.score;
+
+    expect(scoreWith(Number.NaN)).toBeCloseTo(1.5, 10);
+    expect(scoreWith(Number.POSITIVE_INFINITY)).toBeCloseTo(2, 10);
+    expect(scoreWith(Number.NEGATIVE_INFINITY)).toBeCloseTo(1, 10);
+    expect(scoreWith(-3)).toBeCloseTo(1, 10);
+    expect(scoreWith(7)).toBeCloseTo(2, 10);
+  });
+
+  it('ranks 5000 items against 2000 concepts well under a second', () => {
+    const expansion: ExpandedConcept[] = Array.from({ length: 2000 }, (_, i) => ({ identifier: { key: `a/c${i}` }, weight: 0.5, via: 'exact' }));
+    const many = Array.from({ length: 5000 }, (_, i) => ({
+      key: `item${i}`,
+      concepts: Array.from({ length: 20 }, (_, c) => `a/c${(i * 7 + c * 13) % 4000}`),
+    }));
+    const started = performance.now();
+
+    const result = rankItems(many, { context: expansion, affinity: expansion });
+
+    expect(result).toHaveLength(5000);
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 });

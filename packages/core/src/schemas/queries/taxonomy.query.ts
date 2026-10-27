@@ -13,27 +13,37 @@ export const TaxonomyQueryGetConceptsSchema = BaseQuerySchema.extend({
   concepts: z.array(ConceptIdentifierSchema).meta({ description: 'The concepts to fetch.' }),
 });
 
+/**
+ * The most items one call takes. The helpers are exposed as tools, so their input is bounded.
+ */
+const MAX_CONCEPTS = 200;
+const MAX_RANKING_ITEMS = 1000;
+const MAX_EXPANSION = 2000;
+
 export const TaxonomyQueryGetRelatedConceptsSchema = BaseQuerySchema.extend({
-  concepts: z.array(ConceptIdentifierSchema).meta({ description: 'The concepts to navigate from.' }),
-  relations: z.array(ConceptRelationSchema).optional().meta({ description: 'The directions to navigate in. Defaults to broader, narrower and related.' }),
-  maxDepth: z.int().min(1).optional().meta({ description: 'How many levels up or down to follow. Defaults to 1. Related concepts are always one hop.' }),
+  concepts: z.array(ConceptIdentifierSchema).max(MAX_CONCEPTS).meta({ description: 'The concepts to navigate from. At most 200.' }),
+  relations: z.array(ConceptRelationSchema).max(3).optional().meta({ description: 'The directions to navigate in. Defaults to broader, narrower and related.' }),
+  maxDepth: z.int().min(1).max(16).optional().meta({ description: 'How many levels up or down to follow. Defaults to 1, at most 16. Related concepts are always one hop.' }),
 });
 
 export const TaxonomyQueryExpandConceptsSchema = BaseQuerySchema.extend({
-  concepts: z.array(ProductConceptSchema).meta({ description: 'The concepts to expand, typically Product.concepts.' }),
+  concepts: z.array(ProductConceptSchema).max(MAX_CONCEPTS).meta({ description: 'The concepts to expand, typically Product.concepts, which holds the assigned concepts and all their ancestors. At most 200.' }),
+  directConcepts: z.array(ConceptIdentifierSchema).max(MAX_CONCEPTS).optional().meta({ description: 'The concepts that were assigned, when known. Only these are expanded, the ancestors in concepts are reached from them. When left out, the ancestors are recognised by the parent links in concepts. An empty list counts as left out.' }),
   policy: ConceptExpansionPolicySchema.optional().meta({ description: 'Overrides the weights and limits of the expansion for this call.' }),
 });
 
 export const TaxonomyQueryExpandAffinitiesSchema = BaseQuerySchema.extend({
-  affinities: z.record(z.string(), z.number()).meta({ description: 'Concept id to raw interest score, from the personalization profile. Personal data.' }),
+  affinities: z.record(z.string(), z.number())
+    .refine((affinities) => Object.keys(affinities).length <= MAX_CONCEPTS, { error: 'At most 200 affinities.' })
+    .meta({ description: 'Concept id to interest weight, from the personalization profile. Personal data. At most 200.' }),
   policy: ConceptExpansionPolicySchema.optional().meta({ description: 'Overrides the weights and limits of the expansion for this call.' }),
-  topN: z.int().min(0).optional().meta({ description: 'How many of the highest affinities are used. Defaults to 20.' }),
+  topN: z.int().min(0).max(100).optional().meta({ description: 'How many of the highest affinities are used. Defaults to 20, at most 100.' }),
 });
 
 export const TaxonomyQueryRankByConceptsSchema = BaseQuerySchema.extend({
-  items: z.array(ConceptRankingItemSchema).meta({ description: 'The items to rank, by key, with the ids of their concepts.' }),
-  context: z.array(ExpandedConceptSchema).optional().meta({ description: 'The expanded concepts of what the visitor is looking at, from expandConcepts.' }),
-  affinity: z.array(ExpandedConceptSchema).optional().meta({ description: 'The expanded concepts of the visitor interests, from expandAffinities.' }),
+  items: z.array(ConceptRankingItemSchema).max(MAX_RANKING_ITEMS).meta({ description: 'The items to rank, by key, with the ids of their concepts. At most 1000.' }),
+  context: z.array(ExpandedConceptSchema).max(MAX_EXPANSION).optional().meta({ description: 'The expanded concepts of what the visitor is looking at, from expandConcepts. At most 2000.' }),
+  affinity: z.array(ExpandedConceptSchema).max(MAX_EXPANSION).optional().meta({ description: 'The expanded concepts of the visitor interests, from expandAffinities. At most 2000.' }),
   personalization: ConceptPersonalizationSchema.optional().meta({ description: 'How strongly the affinity influences the ranking.' }),
 });
 
