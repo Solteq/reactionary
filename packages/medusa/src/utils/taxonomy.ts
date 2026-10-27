@@ -6,16 +6,48 @@ import * as z from 'zod';
  * The attribute definitions that recalcitrant stores in the metadata of a product type.
  * The parsing is lenient, a definition that does not fit is dropped rather than failing the product.
  */
+/**
+ * A map of localized strings. The producer is written in Go and emits null for nil maps.
+ */
+const LocalizedStringsSchema = z
+  .record(z.string(), z.string())
+  .nullish()
+  .transform((value) => value ?? {});
+
+/**
+ * A unit is a map per locale, or a plain string that is the unit for every locale.
+ */
+const UnitSchema = z
+  .union([z.string(), z.record(z.string(), z.string())])
+  .nullish()
+  .transform((value): Record<string, string> => {
+    if (typeof value === 'string') {
+      return value === '' ? {} : { '*': value };
+    }
+    return value ?? {};
+  });
+
+const OrderSchema = z
+  .union([z.number(), z.string()])
+  .nullish()
+  .transform((value) => {
+    const order = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+    return typeof order === 'number' && Number.isFinite(order) ? order : 0;
+  });
+
 export const MedusaAttributeDefinitionSchema = z.looseObject({
-  key: z.string(),
-  names: z.record(z.string(), z.string()).default({}),
-  groups: z.record(z.string(), z.string()).default({}),
-  unit: z.record(z.string(), z.string()).default({}),
-  order: z.number().default(0),
-  data_type: z.string().optional(),
+  key: z.string().min(1),
+  names: LocalizedStringsSchema,
+  groups: LocalizedStringsSchema,
+  unit: UnitSchema,
+  order: OrderSchema,
+  data_type: z
+    .string()
+    .nullish()
+    .transform((value) => value || undefined),
 });
 
-export type MedusaAttributeDefinition = z.infer<typeof MedusaAttributeDefinitionSchema>;
+export type MedusaAttributeDefinition = z.output<typeof MedusaAttributeDefinitionSchema>;
 
 type MedusaTag = NonNullable<StoreProduct['tags']>[number];
 
@@ -39,6 +71,20 @@ export function pickLocalized(values: Record<string, string> | undefined, locale
     return lowered[1];
   }
   return Object.values(values).find((value) => !!value);
+}
+
+/**
+ * The name from the metadata map names of a product type or tag, for the request locale: the exact locale,
+ * its language, then en. Returns undefined when the map has none of them, the caller then falls back to the
+ * (possibly translated) value. This is deterministic and works without Medusa's translation module.
+ */
+export function pickMetadataName(metadata: Record<string, unknown> | null | undefined, locale: string): string | undefined {
+  const names = asStringRecord(metadata?.['names']);
+  if (!names) {
+    return undefined;
+  }
+  const language = locale.split(/[-_]/)[0];
+  return names[locale] || names[language] || names['en'] || undefined;
 }
 
 /**
@@ -106,7 +152,7 @@ export function parseTagAsTerm(tag: MedusaTag, locale: string): ProductTerm | un
   const slashIndex = id.indexOf('/');
   const vocabulary = asString(metadata['vocabulary']) ?? (slashIndex > 0 ? id.slice(0, slashIndex) : '');
   const slug = slashIndex >= 0 ? id.slice(slashIndex + 1) : id;
-  const name = asString(tag.value) ?? pickLocalized(asStringRecord(metadata['names']), locale) ?? slug;
+  const name = pickMetadataName(metadata, locale) ?? asString(tag.value) ?? slug;
   const parent = asString(metadata['parent']);
 
   const term: ProductTerm = {

@@ -33,6 +33,7 @@ import {
   parseFlags,
   parseTagAsTerm,
   pickLocalized,
+  pickMetadataName,
   type MedusaAttributeDefinition,
 } from '../../utils/taxonomy.js';
 
@@ -293,8 +294,8 @@ export class MedusaProductFactory<
     }
     return {
       identifier: { key },
-      // the value is the English name and translated by Medusa for the request locale
-      name: type.value ?? '',
+      // the localized names are in the metadata, the value is the English name, translated by Medusa when it can
+      name: pickMetadataName(type.metadata, context.languageContext.locale) || type.value || key,
     };
   }
 
