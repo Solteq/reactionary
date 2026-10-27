@@ -2,16 +2,16 @@ import type {
   GenericError,
   NotFoundError,
   Result,
-  TaxonomyQueryGetTerms,
+  TaxonomyQueryGetConcepts,
   TaxonomyQueryGetVocabulary,
 } from '@reactionary/core';
 import {
   error,
   Reactionary,
   TaxonomyCapability,
-  TaxonomyQueryGetTermsSchema,
+  TaxonomyQueryGetConceptsSchema,
   TaxonomyQueryGetVocabularySchema,
-  TermSchema,
+  ConceptSchema,
   VocabularySchema,
 } from '@reactionary/core';
 import * as z from 'zod';
@@ -35,12 +35,12 @@ export class CommercetoolsTaxonomyCapability extends TaxonomyCapability {
   }
 
   @Reactionary({
-    inputSchema: TaxonomyQueryGetTermsSchema,
-    outputSchema: z.array(TermSchema),
+    inputSchema: TaxonomyQueryGetConceptsSchema,
+    outputSchema: z.array(ConceptSchema),
   })
-  public override async getTerms(
-    _payload: TaxonomyQueryGetTerms,
-  ): Promise<Result<Array<z.output<typeof TermSchema>>>> {
+  public override async getConcepts(
+    _payload: TaxonomyQueryGetConcepts,
+  ): Promise<Result<Array<z.output<typeof ConceptSchema>>>> {
     return error<GenericError>({
       type: 'Generic',
       message: 'Commercetools does not support the taxonomy capability',

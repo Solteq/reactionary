@@ -1,25 +1,25 @@
 import type * as z from 'zod';
-import type { TermSchema, VocabularySchema } from '../schemas/models/taxonomy.model.js';
+import type { ConceptSchema, VocabularySchema } from '../schemas/models/taxonomy.model.js';
 import type { RequestContext } from '../schemas/session.schema.js';
 
-export type AnyTermSchema = z.ZodType<z.output<typeof TermSchema>>;
+export type AnyConceptSchema = z.ZodType<z.output<typeof ConceptSchema>>;
 export type AnyVocabularySchema = z.ZodType<z.output<typeof VocabularySchema>>;
 
 export interface TaxonomyFactory<
-  TTermSchema extends AnyTermSchema = AnyTermSchema,
+  TConceptSchema extends AnyConceptSchema = AnyConceptSchema,
   TVocabularySchema extends AnyVocabularySchema = AnyVocabularySchema,
 > {
-  termSchema: TTermSchema;
+  conceptSchema: TConceptSchema;
   vocabularySchema: TVocabularySchema;
-  parseTerm(context: RequestContext, data: unknown): z.output<TTermSchema>;
+  parseConcept(context: RequestContext, data: unknown): z.output<TConceptSchema>;
   /**
-   * Builds the vocabulary and its term tree from the terms of that vocabulary.
+   * Builds the vocabulary and its concept tree from the concepts of that vocabulary.
    */
-  parseVocabulary(context: RequestContext, vocabulary: string, terms: unknown[]): z.output<TVocabularySchema>;
+  parseVocabulary(context: RequestContext, vocabulary: string, concepts: unknown[]): z.output<TVocabularySchema>;
 }
 
-export type TaxonomyFactoryTermOutput<TFactory extends TaxonomyFactory> = ReturnType<
-  TFactory['parseTerm']
+export type TaxonomyFactoryConceptOutput<TFactory extends TaxonomyFactory> = ReturnType<
+  TFactory['parseConcept']
 >;
 
 export type TaxonomyFactoryVocabularyOutput<TFactory extends TaxonomyFactory> = ReturnType<
@@ -28,8 +28,8 @@ export type TaxonomyFactoryVocabularyOutput<TFactory extends TaxonomyFactory> = 
 
 export type TaxonomyFactoryWithOutput<TFactory extends TaxonomyFactory> = Omit<
   TFactory,
-  'parseTerm' | 'parseVocabulary'
+  'parseConcept' | 'parseVocabulary'
 > & {
-  parseTerm(context: RequestContext, data: unknown): TaxonomyFactoryTermOutput<TFactory>;
-  parseVocabulary(context: RequestContext, vocabulary: string, terms: unknown[]): TaxonomyFactoryVocabularyOutput<TFactory>;
+  parseConcept(context: RequestContext, data: unknown): TaxonomyFactoryConceptOutput<TFactory>;
+  parseVocabulary(context: RequestContext, vocabulary: string, concepts: unknown[]): TaxonomyFactoryVocabularyOutput<TFactory>;
 };

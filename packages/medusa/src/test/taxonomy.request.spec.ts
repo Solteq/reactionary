@@ -2,7 +2,7 @@ import { assert, afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createInitialRequestContext,
   NoOpCache,
-  TermSchema,
+  ConceptSchema,
   VocabularySchema,
 } from '@reactionary/core';
 import { MedusaTaxonomyCapability } from '../capabilities/taxonomy.capability.js';
@@ -46,7 +46,7 @@ function setup(respond: (url: URL) => unknown) {
     new NoOpCache(),
     context,
     new MedusaAPI(config, context),
-    new MedusaTaxonomyFactory(TermSchema, VocabularySchema),
+    new MedusaTaxonomyFactory(ConceptSchema, VocabularySchema),
   );
   return { capability, requests };
 }
@@ -56,7 +56,7 @@ describe('Medusa taxonomy capability requests', () => {
     vi.unstubAllGlobals();
   });
 
-  it('requests getTerms from the product-tags endpoint with the external ids, fields and locale', async () => {
+  it('requests getConcepts from the product-tags endpoint with the external ids, fields and locale', async () => {
     const { capability, requests } = setup(() => ({
       product_tags: [tag('features/cordless', 'features'), tag('brands/acme', 'brands')],
       count: 2,
@@ -64,7 +64,7 @@ describe('Medusa taxonomy capability requests', () => {
       limit: 2,
     }));
 
-    const result = await capability.getTerms({ terms: [{ key: 'features/cordless' }, { key: 'brands/acme' }] });
+    const result = await capability.getConcepts({ concepts: [{ key: 'features/cordless' }, { key: 'brands/acme' }] });
 
     if (!result.success) {
       assert.fail();
@@ -100,7 +100,7 @@ describe('Medusa taxonomy capability requests', () => {
       ['/store/product-tags', '100', '100'],
       ['/store/product-tags', '200', '100'],
     ]);
-    expect(result.value.terms).toHaveLength(250);
+    expect(result.value.concepts).toHaveLength(250);
     expect(requests.every((r) => r.url.searchParams.get('fields') === '+external_id,+metadata')).toBe(true);
     expect(requests.every((r) => r.headers.get('x-medusa-locale') === 'da-DK')).toBe(true);
   });

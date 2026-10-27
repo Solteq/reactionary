@@ -1,15 +1,15 @@
 import * as z from 'zod';
 import type { InferType } from '../../zod-utils.js';
-import { TermIdentifierSchema, VocabularyIdentifierSchema } from '../models/identifiers.model.js';
+import { ConceptIdentifierSchema, VocabularyIdentifierSchema } from '../models/identifiers.model.js';
 import { BaseQuerySchema } from './base.query.js';
 
 export const TaxonomyQueryGetVocabularySchema = BaseQuerySchema.extend({
-  vocabulary: VocabularyIdentifierSchema.meta({ description: 'The vocabulary to fetch, with its term tree.' }),
+  vocabulary: VocabularyIdentifierSchema.meta({ description: 'The vocabulary to fetch, with its concept tree.' }),
 });
 
-export const TaxonomyQueryGetTermsSchema = BaseQuerySchema.extend({
-  terms: z.array(TermIdentifierSchema).meta({ description: 'The terms to fetch.' }),
+export const TaxonomyQueryGetConceptsSchema = BaseQuerySchema.extend({
+  concepts: z.array(ConceptIdentifierSchema).meta({ description: 'The concepts to fetch.' }),
 });
 
 export type TaxonomyQueryGetVocabulary = InferType<typeof TaxonomyQueryGetVocabularySchema>;
-export type TaxonomyQueryGetTerms = InferType<typeof TaxonomyQueryGetTermsSchema>;
+export type TaxonomyQueryGetConcepts = InferType<typeof TaxonomyQueryGetConceptsSchema>;

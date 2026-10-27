@@ -45,6 +45,22 @@
     },
     {
       "identifier": {
+        "key": "concept_length"
+      },
+      "group": "",
+      "name": "concept_length",
+      "values": [
+        {
+          "identifier": {
+            "key": "7 meter"
+          },
+          "value": "7 meter",
+          "label": "7 meter"
+        }
+      ]
+    },
+    {
+      "identifier": {
         "key": "flags"
       },
       "group": "",
@@ -165,6 +181,21 @@
             "key": "5 meter"
           },
           "label": "5 meter"
+        }
+      },
+      {
+        "identifier": {
+          "key": "concept_length"
+        },
+        "name": "concept_length",
+        "value": {
+          "identifier": {
+            "option": {
+              "key": "concept_length"
+            },
+            "key": "7 meter"
+          },
+          "label": "7 meter"
         }
       },
       {

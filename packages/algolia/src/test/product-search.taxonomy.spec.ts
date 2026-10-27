@@ -34,8 +34,8 @@ const response = {
       slug: 'drill',
       variants: [{ sku: 'sku-1', image: 'https://cdn.example/1.png' }],
       productType: { id: 'icecat-cat-8862', name: 'Drills' },
-      terms: { features: ['Cordless', 'Outdoor rated'] },
-      termIds: ['features/cordless', 'features/outdoor-rated'],
+      concepts: { features: ['Cordless', 'Outdoor rated'] },
+      conceptIds: ['features/cordless', 'features/outdoor-rated'],
     },
     {
       objectID: 'p2',
@@ -45,64 +45,64 @@ const response = {
     },
   ],
   facets: {
-    'terms.features': { Cordless: 3, 'Outdoor rated': 1 },
-    'terms.power-source': { Battery: 2 },
+    'concepts.features': { Cordless: 3, 'Outdoor rated': 1 },
+    'concepts.power-source': { Battery: 2 },
     'productType.name': { Drills: 1 },
     brand: { Acme: 4 },
     flags: { ageRestricted: 1 },
-    termIds: { 'features/cordless': 3 },
+    conceptIds: { 'features/cordless': 3 },
   },
 };
 
 describe('Algolia product search taxonomy', () => {
   const factory = new AlgoliaProductSearchFactory(AlgoliaProductSearchResultSchema);
 
-  it('maps product type and terms from hits', () => {
+  it('maps product type and concepts from hits', () => {
     const result = factory.parseSearchResult(createInitialRequestContext(), response, createQuery());
 
     expect(result.items[0].productType).toEqual({ identifier: { key: 'icecat-cat-8862' }, name: 'Drills' });
-    expect(result.items[0].terms).toEqual([
+    expect(result.items[0].concepts).toEqual([
       { identifier: { key: 'features/cordless' }, vocabulary: 'features', name: 'Cordless' },
       { identifier: { key: 'features/outdoor-rated' }, vocabulary: 'features', name: 'Outdoor rated' },
     ]);
   });
 
-  it('leaves product type and terms undefined on hits without them', () => {
+  it('leaves product type and concepts undefined on hits without them', () => {
     const result = factory.parseSearchResult(createInitialRequestContext(), response, createQuery());
 
     expect(result.items[1].productType).toBeUndefined();
-    expect(result.items[1].terms).toBeUndefined();
+    expect(result.items[1].concepts).toBeUndefined();
   });
 
-  it('names term facets after their vocabulary and keeps other facets', () => {
+  it('names concept facets after their vocabulary and keeps other facets', () => {
     const result = factory.parseSearchResult(createInitialRequestContext(), response, createQuery());
 
     expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
-      ['terms.features', 'Features'],
-      ['terms.power-source', 'Power Source'],
+      ['concepts.features', 'Features'],
+      ['concepts.power-source', 'Power Source'],
       ['productType.name', 'Product type'],
       ['brand', 'brand'],
     ]);
   });
 
-  it('never exposes the flags and termIds facets', () => {
+  it('never exposes the flags and conceptIds facets', () => {
     const result = factory.parseSearchResult(createInitialRequestContext(), response, createQuery());
 
     const keys = result.facets.map((f) => f.identifier.key);
     expect(keys).not.toContain('flags');
-    expect(keys).not.toContain('termIds');
-    expect(keys).toContain('terms.features');
+    expect(keys).not.toContain('conceptIds');
+    expect(keys).toContain('concepts.features');
   });
 });
 
-describe('Algolia product search term id filter', () => {
+describe('Algolia product search concept id filter', () => {
   class TestCapability extends AlgoliaProductSearchCapability {
     public buildPayload(payload: ProductSearchQueryByTerm) {
       return this.queryByTermPayload(payload);
     }
   }
 
-  it('passes a termIds facet filter through to the engine', () => {
+  it('passes a conceptIds facet filter through to the engine', () => {
     const context = createInitialRequestContext();
     const capability = new TestCapability(
       new NoOpCache(),
@@ -112,9 +112,9 @@ describe('Algolia product search term id filter', () => {
     );
 
     const payload = capability.buildPayload(
-      createQuery([{ facet: { key: 'termIds' }, key: 'features/outdoor-rated' }]),
+      createQuery([{ facet: { key: 'conceptIds' }, key: 'features/outdoor-rated' }]),
     );
 
-    expect(payload.facetFilters).toEqual(['termIds:features/outdoor-rated']);
+    expect(payload.facetFilters).toEqual(['conceptIds:features/outdoor-rated']);
   });
 });

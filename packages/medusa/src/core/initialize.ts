@@ -29,7 +29,7 @@ import {
   PersonalizationProfileSchema,
   ShippingMethodSchema,
   StoreSchema,
-  TermSchema,
+  ConceptSchema,
   VocabularySchema,
 } from '@reactionary/core';
 import { MedusaCartCapability } from '../capabilities/cart.capability.js';
@@ -454,7 +454,7 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
       client.taxonomy = resolveCapabilityWithFactory(
         capabilities.taxonomy,
         {
-          factory: new MedusaTaxonomyFactory(TermSchema, VocabularySchema),
+          factory: new MedusaTaxonomyFactory(ConceptSchema, VocabularySchema),
           capability: (args) =>
             new MedusaTaxonomyCapability(
               args.config,

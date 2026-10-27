@@ -10,7 +10,7 @@ import {
   type Image,
   type Product,
   type ProductComplianceData,
-  type ProductTerm,
+  type ProductConcept,
   type ProductType,
   type ProductAttribute,
   type ProductAttributeIdentifier,
@@ -31,7 +31,7 @@ import { parseProductSearchComplianceData } from '../../utils/product-compliance
 import {
   parseAttributeDefinitions,
   parseFlags,
-  parseTagAsTerm,
+  parseTagAsConcept,
   pickLocalized,
   pickMetadataName,
   type MedusaAttributeDefinition,
@@ -299,18 +299,18 @@ export class MedusaProductFactory<
     };
   }
 
-  protected parseTerms(
+  protected parseConcepts(
     context: RequestContext,
     data: StoreProduct,
-  ): ProductTerm[] {
-    const terms: ProductTerm[] = [];
+  ): ProductConcept[] {
+    const concepts: ProductConcept[] = [];
     for (const tag of data.tags ?? []) {
-      const term = parseTagAsTerm(tag, context.languageContext.locale);
-      if (term) {
-        terms.push(term);
+      const concept = parseTagAsConcept(tag, context.languageContext.locale);
+      if (concept) {
+        concepts.push(concept);
       }
     }
-    return terms;
+    return concepts;
   }
 
   public parseProduct(
@@ -334,7 +334,7 @@ export class MedusaProductFactory<
 
     const complianceData = this.parseComplianceData(context, data);
     const productType = this.parseProductType(context, data);
-    const terms = this.parseTerms(context, data);
+    const concepts = this.parseConcepts(context, data);
     const flags = parseFlags(data.metadata?.['flags']);
 
     if (!data.variants) {
@@ -368,7 +368,7 @@ export class MedusaProductFactory<
       variants: otherVariants,
       complianceData: complianceData,
       productType,
-      terms,
+      concepts,
       flags,
     } satisfies Product;
 

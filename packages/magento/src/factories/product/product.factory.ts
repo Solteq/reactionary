@@ -104,7 +104,7 @@ export class MagentoProductFactory<
       slug,
       variants: [],
       complianceData: this.parseComplianceData(_context, data),
-      terms: [],
+      concepts: [],
       flags: [],
     } satisfies Product;
 

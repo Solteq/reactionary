@@ -55,7 +55,7 @@
               ]
             },
             {
-              "name": "term_features",
+              "name": "concept_features",
               "value": [
                 {
                   "key": "features__cordless",
@@ -136,7 +136,7 @@
             "level": "Product"
           },
           {
-            "name": "term_features",
+            "name": "concept_features",
             "label": {
               "en": "Features"
             },
@@ -200,7 +200,7 @@
               ]
             },
             {
-              "name": "term_features",
+              "name": "concept_features",
               "value": [
                 {
                   "key": "features__cordless",

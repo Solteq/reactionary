@@ -55,8 +55,8 @@ const response: SearchResponse<MeilisearchNativeRecord> = {
       slug: 'drill',
       variants: [{ sku: 'sku-1', image: 'https://cdn.example/1.png' }],
       productType: { id: 'icecat-cat-8862', name: 'Drills' },
-      terms: { features: ['Cordless'] },
-      termIds: ['features/cordless'],
+      concepts: { features: ['Cordless'] },
+      conceptIds: ['features/cordless'],
     },
     { objectID: 'p2', name: 'Hammer', slug: 'hammer', variants: [] },
   ],
@@ -66,52 +66,52 @@ const response: SearchResponse<MeilisearchNativeRecord> = {
   limit: 10,
   offset: 0,
   facetDistribution: {
-    'terms.features': { Cordless: 3 },
-    'terms.power-source': { Battery: 2 },
+    'concepts.features': { Cordless: 3 },
+    'concepts.power-source': { Battery: 2 },
     'productType.name': { Drills: 1 },
     brand_name: { Acme: 4 },
     flags: { ageRestricted: 1 },
-    termIds: { 'features/cordless': 3 },
+    conceptIds: { 'features/cordless': 3 },
   },
 };
 
 describe('Meilisearch product search taxonomy', () => {
-  it('maps product type and terms from hits', () => {
+  it('maps product type and concepts from hits', () => {
     const result = createCapability().parseResponse(response, createQuery());
 
     expect(result.items[0].productType).toEqual({ identifier: { key: 'icecat-cat-8862' }, name: 'Drills' });
-    expect(result.items[0].terms).toEqual([
+    expect(result.items[0].concepts).toEqual([
       { identifier: { key: 'features/cordless' }, vocabulary: 'features', name: 'Cordless' },
     ]);
     expect(result.items[1].productType).toBeUndefined();
-    expect(result.items[1].terms).toBeUndefined();
+    expect(result.items[1].concepts).toBeUndefined();
   });
 
-  it('names term facets after their vocabulary and keeps other facet naming', () => {
+  it('names concept facets after their vocabulary and keeps other facet naming', () => {
     const result = createCapability().parseResponse(response, createQuery());
 
     expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
-      ['terms.features', 'Features'],
-      ['terms.power-source', 'Power Source'],
+      ['concepts.features', 'Features'],
+      ['concepts.power-source', 'Power Source'],
       ['productType.name', 'Product type'],
       ['brand_name', 'brand name'],
     ]);
   });
 
-  it('never exposes the flags and termIds facets', () => {
+  it('never exposes the flags and conceptIds facets', () => {
     const result = createCapability().parseResponse(response, createQuery());
 
     const keys = result.facets.map((f) => f.identifier.key);
     expect(keys).not.toContain('flags');
-    expect(keys).not.toContain('termIds');
-    expect(keys).toContain('terms.features');
+    expect(keys).not.toContain('conceptIds');
+    expect(keys).toContain('concepts.features');
   });
 
-  it('passes a termIds facet filter through to the engine filter', () => {
+  it('passes a conceptIds facet filter through to the engine filter', () => {
     const payload = createCapability().buildPayload(
-      createQuery([{ facet: { key: 'termIds' }, key: 'features/outdoor-rated' }]),
+      createQuery([{ facet: { key: 'conceptIds' }, key: 'features/outdoor-rated' }]),
     );
 
-    expect(payload.filter).toBe('"termIds"="features/outdoor-rated"');
+    expect(payload.filter).toBe('"conceptIds"="features/outdoor-rated"');
   });
 });
