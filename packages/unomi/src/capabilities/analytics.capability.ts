@@ -2,6 +2,10 @@ import {
   AnalyticsProvider,
   productKey,
   summarizePlacedOrder,
+  type AnalyticsProductRef,
+  type ProductConcept,
+  type ProductIdentifier,
+  type ProductVariantIdentifier,
   searchOriginOf,
   type AnalyticsContext,
   type AnalyticsEvent,
@@ -13,6 +17,7 @@ import {
 } from '@reactionary/core';
 import { hash } from 'node:crypto';
 import { UnomiAPI } from '../core/client.js';
+import { conceptItemId, selectInterestConcepts, type InterestConcept } from '../core/concept-interest.js';
 import type { UnomiConfiguration } from '../schema/configuration.schema.js';
 
 interface UnomiEvent {
@@ -25,6 +30,12 @@ interface UnomiEvent {
 /**
  * Sends behavioural events to Apache Unomi's context endpoint, attributed to the visitor's marketing profile.
  *
+ * Interest in taxonomy concepts: after the events of a product view, product click, add to cart, order and content
+ * view, one `concept_interest` event is sent per concept (see the README for the shape). The concept ids have to travel
+ * in the events, as Unomi cannot resolve item data. The concepts of a product are its direct ones, found through the
+ * analytics context. Impressions (search results, carousels) are no interest. A lookup that fails or a product without
+ * concepts sends the events as before, without concept events.
+ *
  * Events are attributed to the marketing identifier captured when the event was emitted. Without one there is no profile to
  * attribute to (Unomi would create a throwaway profile per request), so the event is ignored.
  */
@@ -34,6 +45,7 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
     'product-carousel-viewed',
     'product-viewed',
     'product-clicked',
+    'content-viewed',
     'cart-item-added',
     'order-placed',
     'user-logged-in',
@@ -76,6 +88,107 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
   }
 
   protected async toUnomiEvents(event: AnalyticsEvent, ctx: AnalyticsContext): Promise<UnomiEvent[]> {
+    const events = await this.toBaseEvents(event, ctx);
+    // an event that sends nothing records no interest either, except a content view, which has no event of its own
+    if (events.length === 0 && event.type !== 'content-viewed') {
+      return events;
+    }
+    return [...events, ...(await this.conceptInterestEvents(event, ctx))];
+  }
+
+  /**
+   * The concept_interest events of an event, in one batch with its other events. Never throws, interest is an
+   * enrichment: whatever cannot be resolved is left out.
+   */
+  protected async conceptInterestEvents(event: AnalyticsEvent, ctx: AnalyticsContext): Promise<UnomiEvent[]> {
+    if (!this.config.conceptInterest) {
+      return [];
+    }
+    try {
+      switch (event.type) {
+        case 'product-viewed':
+          return this.interestEvents('product_view', await this.productInterest([event.payload.product], ctx, this.config.maxConceptsPerEvent), { productId: productKey(event.payload.product) });
+        case 'product-clicked':
+          return this.interestEvents('product_click', await this.productInterest([event.payload.product], ctx, this.config.maxConceptsPerEvent), { productId: productKey(event.payload.product) });
+        case 'cart-item-added': {
+          const line = event.payload.cart.items.find((item) => item.variant.sku === event.payload.variant.sku);
+          return line ? this.interestEvents('add_to_cart', await this.productInterest([line.product], ctx, this.config.maxConceptsPerEvent), { productId: line.product.key }) : [];
+        }
+        case 'order-placed': {
+          const placed = summarizePlacedOrder(event.payload);
+          if (!placed) {
+            return [];
+          }
+          // the lines of an order only carry the variant, so the products are found by sku, once per sku
+          const variants = new Map<string, ProductVariantIdentifier>();
+          for (const item of placed.items) {
+            variants.set(item.variant.sku, item.variant);
+          }
+          const looked = await Promise.all([...variants.values()].map((variant) => ctx.products.bySku(variant)));
+          return this.interestEvents(
+            'purchase',
+            selectInterestConcepts(
+              looked.map((result) => (result.success ? result.value.concepts : undefined)),
+              { vocabularies: this.config.conceptInterestVocabularies, max: this.config.maxConceptsPerOrder },
+            ),
+            { orderId: placed.transactionId },
+          );
+        }
+        case 'content-viewed': {
+          const concepts = selectInterestConcepts([event.payload.concepts.map(toProductConcept)], {
+            vocabularies: this.config.conceptInterestVocabularies,
+            max: this.config.maxConceptsPerEvent,
+          });
+          return this.interestEvents('content_view', concepts, {
+            contentId: event.payload.content.key,
+            ...(event.payload.content.type ? { contentType: event.payload.content.type } : {}),
+          });
+        }
+        default:
+          return [];
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * The interest concepts of products, from the concepts on the product when the event carries the model and from
+   * a lookup through the context otherwise. A product that cannot be resolved adds nothing.
+   */
+  protected async productInterest(
+    products: AnalyticsProductRef[],
+    ctx: AnalyticsContext,
+    max: number,
+  ): Promise<InterestConcept[]> {
+    const lists: Array<ProductConcept[] | undefined> = [];
+    const toLookUp: ProductIdentifier[] = [];
+    for (const product of products) {
+      if ('concepts' in product && Array.isArray(product.concepts)) {
+        lists.push(product.concepts);
+      } else {
+        toLookUp.push({ key: productKey(product) });
+      }
+    }
+    const looked = toLookUp.length > 0 ? await ctx.products.many(toLookUp) : [];
+    for (const result of looked) {
+      if (result.success) {
+        lists.push(result.value.concepts);
+      }
+    }
+    return selectInterestConcepts(lists, { vocabularies: this.config.conceptInterestVocabularies, max });
+  }
+
+  protected interestEvents(source: string, concepts: InterestConcept[], extra: Record<string, unknown> = {}): UnomiEvent[] {
+    return concepts.map((concept) => ({
+      eventType: 'concept_interest',
+      scope: this.config.scope,
+      target: { itemId: conceptItemId(concept.id, this.config.encodeConceptIdSlash), itemType: 'concept' },
+      properties: { source, vocabulary: concept.vocabulary, ...extra },
+    }));
+  }
+
+  protected async toBaseEvents(event: AnalyticsEvent, ctx: AnalyticsContext): Promise<UnomiEvent[]> {
     const scope = this.config.scope;
 
     switch (event.type) {
@@ -185,4 +298,16 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
       throw new Error(`Unomi event request failed with status ${response.status}`);
     }
   }
+}
+
+/**
+ * A concept id from a payload as the minimal concept the selection works on: no parents, so all are direct.
+ */
+function toProductConcept(id: string): ProductConcept {
+  const separator = id.indexOf('/');
+  return {
+    identifier: { key: id },
+    vocabulary: separator > 0 ? id.slice(0, separator) : '',
+    name: id,
+  };
 }
