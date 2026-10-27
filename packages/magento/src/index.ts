@@ -29,4 +29,3 @@ export * from './capabilities/checkout.capability.js';
 export * from './capabilities/product-associations.capability.js';
 export * from './capabilities/product-recommendations.capability.js';
 export * from './capabilities/product-reviews.capability.js';
-export * from './capabilities/taxonomy.capability.js';
