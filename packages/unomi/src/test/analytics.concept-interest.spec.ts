@@ -14,7 +14,7 @@ import {
 import type { Product, ProductConcept, ProductQueryBySKU, RequestContext, Result, SearchIdentifier } from '@reactionary/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UnomiAnalyticsCapability } from '../capabilities/analytics.capability.js';
-import { contentInterestConcepts, normalizeConceptId, selectInterestConcepts } from '../core/concept-interest.js';
+import { WarningThrottle, conceptInterestWarnings, contentInterestConcepts, normalizeConceptId, selectInterestConcepts } from '../core/concept-interest.js';
 import { withUnomiCapabilities } from '../core/initialize.js';
 import { UnomiConfigurationSchema } from '../schema/configuration.schema.js';
 
@@ -46,6 +46,8 @@ const otherConcepts = [concept('features/power'), concept('features/cordless', '
 
 const productConcepts: Record<string, ProductConcept[] | undefined> = {
   p1: richConcepts,
+  // ids as a sloppy producer or a custom product capability could return them
+  dirty: [concept('Features/Cordless'), concept('features/with.dot'), concept('noslash'), concept('features/Outdoor'), concept('Features/Cordless')],
   p2: otherConcepts,
   bare: [],
   unknown: undefined,
@@ -153,6 +155,7 @@ describe('Unomi concept interest events', () => {
     context = createInitialRequestContext();
     context.session.marketingContext.identifier.key = 'profile-1';
     products = new StubProductCapability(new NoOpCache(), context);
+    conceptInterestWarnings.reset();
   });
 
   afterEach(() => {
@@ -359,6 +362,115 @@ describe('Unomi concept interest events', () => {
       await off.analytics.flush();
 
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('one id for a concept on every path', () => {
+    it('sends only the normalized valid ids of a product, once each', async () => {
+      const client = buildClient();
+
+      await client.analytics.productViewed({ product: { key: 'dirty' } });
+      await client.analytics.flush();
+
+      expect(interest().map((row) => [row[0], row[2]])).toEqual([
+        ['features/cordless', 'features'],
+        ['features/outdoor', 'features'],
+      ]);
+    });
+
+    it('sends the same item id for a concept from a product and from an article', async () => {
+      const client = buildClient();
+
+      await client.analytics.productViewed({ product: { key: 'dirty' } });
+      await client.analytics.contentViewed({ content: { key: 'a1' }, concepts: ['  FEATURES/Cordless'] });
+      await client.analytics.flush();
+
+      const fromProduct = conceptEvents(0).find((e) => e.target?.['itemId'] === 'features/cordless');
+      const fromContent = conceptEvents(1)[0];
+      expect(fromProduct?.target).toEqual(fromContent.target);
+      expect(JSON.stringify(fromProduct?.target)).toBe(JSON.stringify(fromContent.target));
+    });
+
+    it('normalizes the same way for add to cart, order and the slash encoding', async () => {
+      products = new StubProductCapability(new NoOpCache(), context);
+      skuProducts['SKU-DIRTY'] = 'dirty';
+      try {
+        const client = buildClient({ encodeConceptIdSlash: true });
+        const dirtyCart = CartSchema.parse({
+          identifier: { key: 'cart-1' },
+          user: { userId: 'user-1' },
+          items: [{ identifier: { key: 'l1' }, product: { key: 'dirty' }, variant: { sku: 'SKU-DIRTY' }, quantity: 1, price: price(5) }],
+        });
+
+        await client.analytics.cartItemAdded({ cart: dirtyCart, variant: { sku: 'SKU-DIRTY' }, quantity: 1 });
+        await client.analytics.orderPlaced({ order: order(['SKU-DIRTY']) });
+        await client.analytics.flush();
+
+        expect(interest(0).map((row) => row[0])).toEqual(['features__cordless', 'features__outdoor']);
+        expect(interest(1).map((row) => row[0])).toEqual(['features__cordless', 'features__outdoor']);
+      } finally {
+        delete skuProducts['SKU-DIRTY'];
+      }
+    });
+
+    it('matches the configured vocabularies in lowercase on the product and the content path', async () => {
+      const client = buildClient({ conceptInterestVocabularies: [' Features '] });
+
+      await client.analytics.productViewed({ product: { key: 'p1' } });
+      await client.analytics.contentViewed({ content: { key: 'a1' }, concepts: ['brands/acme', 'features/outdoor', 'Features/Cordless'] });
+      await client.analytics.flush();
+
+      expect(interest(0).map((row) => row[0])).toEqual(['features/battery-18v', 'features/outdoor']);
+      expect(interest(1).map((row) => row[0])).toEqual(['features/outdoor', 'features/cordless']);
+    });
+  });
+
+  describe('warnings', () => {
+    it('writes at most one warning per event type per minute', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      try {
+        vi.setSystemTime(new Date('2026-01-01T10:00:00Z'));
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        products.failWith = 'throw';
+        const client = buildClient();
+
+        for (let i = 0; i < 3; i++) {
+          await client.analytics.productViewed({ product: { key: `p${i}` } });
+        }
+        await client.analytics.productClicked({ product: { key: 'p1' } });
+        await client.analytics.flush();
+        // one for product-viewed, one for product-clicked, the other two product views are throttled
+        expect(warn.mock.calls.map((call) => String(call[0]).includes('product-viewed'))).toEqual([true, false]);
+        expect(warn).toHaveBeenCalledTimes(2);
+
+        vi.setSystemTime(new Date('2026-01-01T10:00:59Z'));
+        await client.analytics.productViewed({ product: { key: 'p9' } });
+        await client.analytics.flush();
+        expect(warn).toHaveBeenCalledTimes(2);
+
+        vi.setSystemTime(new Date('2026-01-01T10:01:01Z'));
+        await client.analytics.productViewed({ product: { key: 'p9' } });
+        await client.analytics.flush();
+        expect(warn).toHaveBeenCalledTimes(3);
+        expect(warn.mock.calls.every((call) => !String(call[0]).includes('p9'))).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('lets a throttle be driven by its own clock', () => {
+      let now = 1000;
+      const throttle = new WarningThrottle(60_000, () => now);
+
+      expect(throttle.allow('a')).toBe(true);
+      expect(throttle.allow('a')).toBe(false);
+      expect(throttle.allow('b')).toBe(true);
+      now += 59_999;
+      expect(throttle.allow('a')).toBe(false);
+      now += 1;
+      expect(throttle.allow('a')).toBe(true);
+      throttle.reset();
+      expect(throttle.allow('b')).toBe(true);
     });
   });
 

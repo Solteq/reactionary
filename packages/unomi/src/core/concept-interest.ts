@@ -10,12 +10,11 @@ export interface InterestConcept {
   depth: number;
 }
 
-function vocabularyOf(concept: Pick<ProductConcept, 'identifier' | 'vocabulary'>): string {
-  if (concept.vocabulary) {
-    return concept.vocabulary;
-  }
-  const separator = concept.identifier.key.indexOf('/');
-  return separator > 0 ? concept.identifier.key.slice(0, separator) : '';
+/**
+ * The configured vocabularies, trimmed and lowercased like the ids they are compared with.
+ */
+function vocabularyFilter(vocabularies: string[] | undefined): Set<string> | undefined {
+  return vocabularies ? new Set(vocabularies.map((vocabulary) => vocabulary.trim().toLowerCase())) : undefined;
 }
 
 interface Candidate extends InterestConcept {
@@ -56,12 +55,16 @@ function interleaveByVocabulary(tier: Candidate[]): Candidate[] {
  * chain first), then by how many lists they are a direct concept of (an order: the concept of more lines first).
  * Within equal depth and frequency the vocabularies take turns in the order of first appearance, so a cap does
  * not favour one vocabulary. The result is deterministic and capped.
+ *
+ * Ids go through normalizeConceptId like the ids of content, so the same concept is always sent under the same
+ * id and counts once. Concepts whose id is not valid are dropped. The vocabularies are compared lowercased.
  */
 export function selectInterestConcepts(
   conceptLists: Array<ProductConcept[] | undefined>,
   options: { vocabularies?: string[]; max: number },
 ): InterestConcept[] {
   const candidates = new Map<string, Candidate>();
+  const allowedVocabularies = vocabularyFilter(options.vocabularies);
 
   for (const concepts of conceptLists) {
     if (!Array.isArray(concepts) || concepts.length === 0) {
@@ -82,21 +85,21 @@ export function selectInterestConcepts(
     };
 
     for (const id of direct) {
-      const concept = byId.get(id);
-      if (!concept) {
+      const normalized = normalizeConceptId(id);
+      if (!normalized || !byId.has(id)) {
         continue;
       }
-      const vocabulary = vocabularyOf(concept);
-      if (options.vocabularies && !options.vocabularies.includes(vocabulary)) {
+      const vocabulary = normalized.slice(0, normalized.indexOf('/'));
+      if (allowedVocabularies && !allowedVocabularies.has(vocabulary)) {
         continue;
       }
       const depth = depthOf(id);
-      const known = candidates.get(id);
+      const known = candidates.get(normalized);
       if (known) {
         known.frequency += 1;
         known.depth = Math.max(known.depth, depth);
       } else {
-        candidates.set(id, { id, vocabulary, depth, frequency: 1, order: candidates.size });
+        candidates.set(normalized, { id: normalized, vocabulary, depth, frequency: 1, order: candidates.size });
       }
     }
   }
@@ -143,6 +146,7 @@ export function contentInterestConcepts(
 ): InterestConcept[] {
   const seen = new Set<string>();
   const result: InterestConcept[] = [];
+  const allowedVocabularies = vocabularyFilter(options.vocabularies);
   for (const raw of ids) {
     const id = typeof raw === 'string' ? normalizeConceptId(raw) : undefined;
     if (!id || seen.has(id)) {
@@ -150,7 +154,7 @@ export function contentInterestConcepts(
     }
     seen.add(id);
     const vocabulary = id.slice(0, id.indexOf('/'));
-    if (options.vocabularies && !options.vocabularies.includes(vocabulary)) {
+    if (allowedVocabularies && !allowedVocabularies.has(vocabulary)) {
       continue;
     }
     result.push({ id, vocabulary, depth: 0 });
@@ -180,3 +184,35 @@ export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) =>
   await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), items.length) }, worker));
   return results;
 }
+
+/**
+ * Lets a warning through at most once per key and interval, so that a backend that is down cannot log on every event.
+ */
+export class WarningThrottle {
+  protected readonly lastWarned = new Map<string, number>();
+
+  constructor(
+    protected readonly intervalMs: number,
+    protected readonly clock: () => number = () => Date.now(),
+  ) {}
+
+  /** True when the key may warn now, which also starts its interval. */
+  public allow(key: string): boolean {
+    const now = this.clock();
+    const last = this.lastWarned.get(key);
+    if (last !== undefined && now - last < this.intervalMs) {
+      return false;
+    }
+    this.lastWarned.set(key, now);
+    return true;
+  }
+
+  public reset(): void {
+    this.lastWarned.clear();
+  }
+}
+
+/**
+ * The throttle of the concept interest warnings: one per event type per minute, for the whole process.
+ */
+export const conceptInterestWarnings = new WarningThrottle(60_000);

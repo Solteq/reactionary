@@ -17,7 +17,7 @@ import {
 } from '@reactionary/core';
 import { hash } from 'node:crypto';
 import { UnomiAPI } from '../core/client.js';
-import { conceptItemId, contentInterestConcepts, mapLimit, selectInterestConcepts, type InterestConcept } from '../core/concept-interest.js';
+import { conceptInterestWarnings, conceptItemId, contentInterestConcepts, mapLimit, selectInterestConcepts, type WarningThrottle, type InterestConcept } from '../core/concept-interest.js';
 import { UnomiConfigurationSchema, type UnomiConfiguration, type UnomiConfigurationInput } from '../schema/configuration.schema.js';
 
 interface UnomiEvent {
@@ -153,11 +153,18 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
     }
   }
 
+  /** At most one concept interest warning per event type per minute, shared by the process. */
+  protected readonly warnings: WarningThrottle = conceptInterestWarnings;
+
   /**
-   * Interest is an enrichment, so a failure sends the event without it. It is logged, once per failure, with the
-   * type of the event and the kind of error only: neither the payload nor ids go into the log.
+   * Interest is an enrichment, so a failure sends the event without it. It is logged with the type of the event and
+   * the kind of error only, neither the payload nor ids nor the message go into the log. At most one warning per
+   * event type per minute is written, so an outage of a backend cannot log on every view.
    */
   protected warnConceptInterest(eventType: string, cause: unknown): void {
+    if (!this.warnings.allow(eventType)) {
+      return;
+    }
     console.warn(`Unomi concept interest left out of ${eventType}: ${cause instanceof Error ? cause.name : 'unknown error'}`);
   }
 
