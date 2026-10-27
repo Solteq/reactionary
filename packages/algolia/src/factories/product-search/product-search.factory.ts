@@ -12,7 +12,8 @@ import type {
   RequestContext,
 } from '@reactionary/core';
 import {
-  getTermFacetName,
+  getTaxonomyFacetName,
+  isHiddenSearchFacet,
   parseSearchDocumentTaxonomy,
   FacetIdentifierSchema,
   FacetValueIdentifierSchema,
@@ -51,6 +52,10 @@ export class AlgoliaProductSearchFactory<
 
     let facets: ProductSearchResultFacet[] = [];
     for (const id in body.facets) {
+      // defensive, an index may facet attributes that must never reach the storefront
+      if (isHiddenSearchFacet(id)) {
+        continue;
+      }
       const values = body.facets[id];
       const facetId = FacetIdentifierSchema.parse({ key: id });
       const facet = this.parseFacet(facetId, values);
@@ -145,7 +150,7 @@ export class AlgoliaProductSearchFactory<
   ): ProductSearchResultFacet {
     const result = ProductSearchResultFacetSchema.parse({
       identifier: facetIdentifier,
-      name: getTermFacetName(facetIdentifier.key) ?? facetIdentifier.key,
+      name: getTaxonomyFacetName(facetIdentifier.key) ?? facetIdentifier.key,
       values: [],
     } satisfies Partial<ProductSearchResultFacet>);
 

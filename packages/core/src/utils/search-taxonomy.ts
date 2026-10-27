@@ -45,6 +45,31 @@ export function getTermFacetName(facetKey: string): string | undefined {
 }
 
 /**
+ * Facet keys that are never shown to the storefront: flags only drive behaviour, and termIds is a
+ * filter-only list of ids. Engines return facet distributions for every faceted attribute when asked
+ * for all of them, so providers drop these from the result.
+ */
+export function isHiddenSearchFacet(facetKey: string): boolean {
+  return facetKey.startsWith('flags') || facetKey.startsWith('termIds');
+}
+
+/**
+ * The facet of the product type name.
+ */
+export const SEARCH_PRODUCT_TYPE_FACET_KEY = 'productType.name';
+
+/**
+ * Display name of a taxonomy facet: the vocabulary for term facets, "Product type" for the product type
+ * facet. Returns undefined for other facets.
+ */
+export function getTaxonomyFacetName(facetKey: string): string | undefined {
+  if (facetKey === SEARCH_PRODUCT_TYPE_FACET_KEY) {
+    return 'Product type';
+  }
+  return getTermFacetName(facetKey);
+}
+
+/**
  * Maps the taxonomy fields of a search hit to the product type and terms of a search result item.
  * The localized names are listed per vocabulary and are matched to the term ids in order within the
  * vocabulary. A term without a matching name gets the last part of its id as name. Terms are only

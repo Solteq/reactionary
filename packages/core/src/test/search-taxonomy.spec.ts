@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getTermFacetName, parseSearchDocumentTaxonomy } from '../utils/search-taxonomy.js';
+import { getTaxonomyFacetName, getTermFacetName, isHiddenSearchFacet, parseSearchDocumentTaxonomy } from '../utils/search-taxonomy.js';
 
 describe('getTermFacetName', () => {
   it('names a term facet after its title-cased vocabulary', () => {
@@ -12,6 +12,23 @@ describe('getTermFacetName', () => {
     expect(getTermFacetName('termIds')).toBeUndefined();
     expect(getTermFacetName('terms.')).toBeUndefined();
     expect(getTermFacetName('brand')).toBeUndefined();
+  });
+});
+
+describe('getTaxonomyFacetName', () => {
+  it('names the product type facet and term facets', () => {
+    expect(getTaxonomyFacetName('productType.name')).toBe('Product type');
+    expect(getTaxonomyFacetName('terms.features')).toBe('Features');
+    expect(getTaxonomyFacetName('brand')).toBeUndefined();
+  });
+});
+
+describe('isHiddenSearchFacet', () => {
+  it('hides every facet starting with flags or termIds', () => {
+    expect(isHiddenSearchFacet('flags')).toBe(true);
+    expect(isHiddenSearchFacet('flags.value')).toBe(true);
+    expect(isHiddenSearchFacet('termIds')).toBe(true);
+    expect(isHiddenSearchFacet('terms.features')).toBe(false);
   });
 });
 
