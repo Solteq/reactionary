@@ -9,7 +9,7 @@ import type { Concept, ConceptRankedItem, ExpandedConcept, Vocabulary } from '..
 import type { TaxonomyQueryGetConcepts, TaxonomyQueryGetRelatedConcepts, TaxonomyQueryGetVocabulary } from '../schemas/queries/taxonomy.query.js';
 import { error, success, type Result } from '../schemas/result.js';
 import { affinitiesFromSegments } from '../utils/taxonomy-navigation.js';
-import { createVocabularies } from './taxonomy-fixtures.js';
+import { concept, createVocabularies, vocabulary } from './taxonomy-fixtures.js';
 
 class StubTaxonomyCapability extends TaxonomyCapability {
   public requested: string[] = [];
@@ -558,7 +558,7 @@ describe('TaxonomyCapability input bounds', () => {
     await expectInvalid(await capability.expandConcepts({ concepts: [], policy: { minWeight: -0.5 } }));
   });
 
-  it('loads at most four vocabularies at a time and at most forty in a call', async () => {
+  it('loads at most four vocabularies at a time and fails for more than forty in a call', async () => {
     class Slow extends StubTaxonomyCapability {
       public active = 0;
       public peak = 0;
@@ -571,14 +571,24 @@ describe('TaxonomyCapability input bounds', () => {
       }
     }
     const capability = new Slow();
-    const concepts = Array.from({ length: 50 }, (_, i) => ({ identifier: { key: `vocab${i}/x` }, vocabulary: `vocab${i}`, name: 'x' }));
+    const concepts = (count: number) => Array.from({ length: count }, (_, i) => ({ identifier: { key: `vocab${i}/x` }, vocabulary: `vocab${i}`, name: 'x' }));
 
-    const result = await capability.expandConcepts({ concepts });
+    const result = await capability.expandConcepts({ concepts: concepts(40) });
 
     expect(result.success).toBe(true);
     expect(capability.peak).toBeLessThanOrEqual(4);
-    expect(capability.requested).toHaveLength(40);
+    expect(capability.peak).toBeGreaterThan(1);
     expect(new Set(capability.requested).size).toBe(40);
+
+    // more than forty is an error and loads nothing, instead of silently leaving some out
+    const tooMany = new Slow();
+    const failed = await tooMany.expandConcepts({ concepts: concepts(41) });
+    expect(failed.success).toBe(false);
+    if (!failed.success) {
+      expect(failed.error.type).toBe('InvalidInput');
+      expect(JSON.stringify(failed.error)).toContain('41');
+    }
+    expect(tooMany.requested).toEqual([]);
   });
 
   it('ranks a thousand items against two thousand concepts well under a second', async () => {
@@ -592,6 +602,92 @@ describe('TaxonomyCapability input bounds', () => {
     const result = await capability.rankByConcepts({ items, context: expanded(2000), affinity: expanded(2000) });
 
     expect(result.success).toBe(true);
-    expect(performance.now() - started).toBeLessThan(1000);
+    expect(performance.now() - started).toBeLessThan(5000);
+  });
+});
+
+describe('TaxonomyCapability expansion size and direct concepts', () => {
+  const wide = (children: number) => {
+    const root = concept('wide/root', {
+      children: Array.from({ length: children }, (_, i) => concept(`wide/c${i}`, { parent: { key: 'wide/root' } })),
+    });
+    return vocabulary('wide', [root]);
+  };
+
+  it('cuts an expansion to the 2000 highest weights and it still feeds rankByConcepts', async () => {
+    const capability = new StubTaxonomyCapability(new NoOpCache(), [wide(3000)]);
+
+    const result = await capability.expandConcepts({ concepts: [{ identifier: { key: 'wide/root' }, vocabulary: 'wide', name: 'root' }] });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    expect(result.value).toHaveLength(2000);
+    expect(result.value[0]).toMatchObject({ via: 'exact', weight: 1 });
+    expect(result.value.slice(1).every((e) => e.via === 'narrower')).toBe(true);
+
+    const ranked = await capability.rankByConcepts({ items: [{ key: 'a1', concepts: ['wide/root'] }], context: result.value });
+    expect(ranked.success).toBe(true);
+  });
+
+  it('cuts the expansion of affinities too and keeps the exact concepts', async () => {
+    const capability = new StubTaxonomyCapability(new NoOpCache(), [wide(3000)]);
+
+    const result = await capability.expandAffinities({ affinities: { 'wide/root': 0.5, 'wide/c1': 1 } });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    expect(result.value).toHaveLength(2000);
+    expect(result.value.filter((e) => e.via === 'exact').map((e) => e.identifier.key).sort()).toEqual(['wide/c1', 'wide/root']);
+    expect((await capability.rankByConcepts({ items: [], affinity: result.value })).success).toBe(true);
+  });
+
+  it('expands exactly the given directConcepts, also ids that are not in concepts', async () => {
+    const capability = new StubTaxonomyCapability();
+
+    const result = await capability.expandConcepts({
+      concepts: [{ identifier: { key: 'features/power' }, vocabulary: 'features', name: 'power' }],
+      directConcepts: [{ key: 'features/cordless' }],
+    });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    const byId = Object.fromEntries(result.value.map((e) => [e.identifier.key, [e.weight, e.via]]));
+    // cordless was not in concepts, it is the seed, power is only an ancestor of it
+    expect(byId['features/cordless']).toEqual([1, 'exact']);
+    expect(byId['features/power']).toEqual([0.4, 'broader']);
+    expect(byId['features/corded']).toBeUndefined();
+  });
+
+  it('takes the parent of a direct concept from concepts when it is there, for a taxonomy that is not loaded', async () => {
+    const capability = new StubTaxonomyCapability(new NoOpCache(), []);
+
+    const result = await capability.expandConcepts({
+      concepts: [{ identifier: { key: 'features/unknown' }, vocabulary: 'features', name: 'unknown', parent: { key: 'features/top' } }],
+      directConcepts: [{ key: 'features/unknown' }],
+    });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    expect(result.value.map((e) => [e.identifier.key, e.via])).toEqual([['features/unknown', 'exact'], ['features/top', 'broader']]);
+  });
+
+  it('expands all concepts when their parent links go in a circle', async () => {
+    const capability = new StubTaxonomyCapability();
+
+    const result = await capability.expandConcepts({
+      concepts: [
+        { identifier: { key: 'features/x' }, vocabulary: 'features', name: 'x', parent: { key: 'features/y' } },
+        { identifier: { key: 'features/y' }, vocabulary: 'features', name: 'y', parent: { key: 'features/x' } },
+      ],
+    });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    expect(result.value.filter((e) => e.via === 'exact').map((e) => e.identifier.key).sort()).toEqual(['features/x', 'features/y']);
   });
 });

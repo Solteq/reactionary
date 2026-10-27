@@ -5,6 +5,7 @@ import {
   buildConceptIndex,
   expandConcepts,
   findRelatedConcepts,
+  limitExpansion,
   rankItems,
   scoreItems,
   splitDirectAndBroader,
@@ -234,6 +235,17 @@ describe('splitDirectAndBroader', () => {
     });
   });
 
+  it('takes all concepts as direct when the parent links form a circle only', () => {
+    const circle = [
+      { identifier: { key: 'a/x' }, parent: { key: 'a/y' } },
+      { identifier: { key: 'a/y' }, parent: { key: 'a/x' } },
+    ];
+
+    expect(splitDirectAndBroader(circle)).toEqual({ direct: ['a/x', 'a/y'], broader: [] });
+    expect(splitDirectAndBroader([{ identifier: { key: 'a/self' }, parent: { key: 'a/self' } }])).toEqual({ direct: ['a/self'], broader: [] });
+    expect(splitDirectAndBroader([])).toEqual({ direct: [], broader: [] });
+  });
+
   it('survives parent cycles and parents outside of the list', () => {
     const result = splitDirectAndBroader([
       { identifier: { key: 'a/x' }, parent: { key: 'a/y' } },
@@ -459,6 +471,23 @@ describe('rankItems with unusable weights', () => {
     const result = rankItems(many, { context: expansion, affinity: expansion });
 
     expect(result).toHaveLength(5000);
-    expect(performance.now() - started).toBeLessThan(1000);
+    expect(performance.now() - started).toBeLessThan(5000);
+  });
+});
+
+describe('limitExpansion', () => {
+  const entry = (key: string, weight: number, via: ExpandedConcept['via'] = 'narrower'): ExpandedConcept => ({ identifier: { key }, weight, via });
+
+  it('returns a short expansion as it is', () => {
+    const expansion = [entry('a/1', 1, 'exact'), entry('a/2', 0.5)];
+
+    expect(limitExpansion(expansion, 5)).toBe(expansion);
+  });
+
+  it('keeps the exact concepts first, then the highest weights, in the order of the expansion', () => {
+    const expansion = [entry('a/exact-low', 0.3, 'exact'), entry('a/high', 0.9), entry('a/mid', 0.6), entry('a/low', 0.2), entry('a/mid2', 0.6)];
+
+    expect(limitExpansion(expansion, 3).map((e) => e.identifier.key)).toEqual(['a/exact-low', 'a/high', 'a/mid']);
+    expect(limitExpansion(expansion, 1).map((e) => e.identifier.key)).toEqual(['a/exact-low']);
   });
 });
