@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  affinitiesFromSegments,
   affinitiesToSeeds,
   buildConceptIndex,
   expandConcepts,
@@ -277,5 +278,93 @@ describe('affinitiesToSeeds', () => {
     expect(affinitiesToSeeds({})).toEqual([]);
     expect(affinitiesToSeeds({ 'v/a': 0 })).toEqual([]);
     expect(affinitiesToSeeds({ 'v/a': 3 }, { topN: 0 })).toEqual([]);
+  });
+});
+
+describe('affinitiesToSeeds normalization', () => {
+  it('is idempotent for scores that are already within (0, 1]', () => {
+    const banded = { 'features/a': 1, 'features/b': 0.6, 'features/c': 0.3 };
+
+    const once = affinitiesToSeeds(banded);
+    const twice = affinitiesToSeeds(Object.fromEntries(once.map((s) => [s.identifier.key, s.weight ?? 0])));
+
+    expect(once.map((s) => s.weight)).toEqual([1, 0.6, 0.3]);
+    expect(twice).toEqual(once);
+  });
+
+  it('does not scale a profile with only low interests up to full weight', () => {
+    expect(affinitiesToSeeds({ 'features/a': 0.3 }).map((s) => s.weight)).toEqual([0.3]);
+  });
+
+  it('still scales raw scores above 1 down by the highest one', () => {
+    expect(affinitiesToSeeds({ 'features/a': 200, 'features/b': 50 }).map((s) => s.weight)).toEqual([1, 0.25]);
+  });
+});
+
+describe('affinitiesFromSegments', () => {
+  it('reads the banded affinity segments as concept ids with their weights', () => {
+    expect(
+      affinitiesFromSegments([
+        'affinity.features.cordless.high',
+        'affinity.features.outdoor.medium',
+        'affinity.brands.acme.low',
+        'affinity.power-tools.drill_bit-2.high',
+      ]),
+    ).toEqual({
+      'features/cordless': 1,
+      'features/outdoor': 0.6,
+      'brands/acme': 0.3,
+      'power-tools/drill_bit-2': 1,
+    });
+  });
+
+  it('ignores segments that are not affinity segments', () => {
+    expect(
+      affinitiesFromSegments([
+        'vip',
+        'trait.craftsmantype.lumberjack.high',
+        'affinity.features.cordless',
+        'affinity.features.cordless.high.extra',
+        'affinity.features',
+        'affinity..cordless.high',
+        'affinity.features..high',
+        'affinity.features.cordless.extreme',
+        'affinity.features.cordless.HIGH',
+        'affinity.features.cordless.High',
+        'Affinity.features.cordless.high',
+        'affinity/features/cordless/high',
+        '',
+      ]),
+    ).toEqual({});
+  });
+
+  it('ignores values that are not strings', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(affinitiesFromSegments([null, 3, { name: 'affinity.features.cordless.high' }, 'affinity.features.cordless.low'] as any)).toEqual({
+      'features/cordless': 0.3,
+    });
+  });
+
+  it('keeps the highest band of a concept, whatever the order', () => {
+    expect(affinitiesFromSegments(['affinity.features.cordless.low', 'affinity.features.cordless.high', 'affinity.features.cordless.medium'])).toEqual({ 'features/cordless': 1 });
+    expect(affinitiesFromSegments(['affinity.features.cordless.high', 'affinity.features.cordless.low'])).toEqual({ 'features/cordless': 1 });
+    expect(affinitiesFromSegments(['affinity.features.cordless.low', 'affinity.features.cordless.medium'])).toEqual({ 'features/cordless': 0.6 });
+  });
+
+  it('takes custom band weights and ignores unusable ones', () => {
+    const segments = ['affinity.a.x.low', 'affinity.a.y.medium', 'affinity.a.z.high'];
+
+    expect(affinitiesFromSegments(segments, { bandWeights: { low: 0.1, medium: 0.5, high: 0.9 } })).toEqual({ 'a/x': 0.1, 'a/y': 0.5, 'a/z': 0.9 });
+    // garbage falls back to the defaults per band, weights above 1 are capped
+    expect(
+      affinitiesFromSegments(segments, { bandWeights: { low: Number.NaN, medium: -1, high: 7 } }),
+    ).toEqual({ 'a/x': 0.3, 'a/y': 0.6, 'a/z': 1 });
+    expect(affinitiesFromSegments(segments, { bandWeights: { low: 0, medium: Number.POSITIVE_INFINITY } })).toEqual({ 'a/x': 0.3, 'a/y': 0.6, 'a/z': 1 });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(affinitiesFromSegments(segments, { bandWeights: 'bad' as any })).toEqual({ 'a/x': 0.3, 'a/y': 0.6, 'a/z': 1 });
+  });
+
+  it('returns an empty record for no segments', () => {
+    expect(affinitiesFromSegments([])).toEqual({});
   });
 });
