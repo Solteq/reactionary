@@ -22,7 +22,8 @@ import {
   ProductSearchResultItemComplianceDataSchema,
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
-  getTermFacetName,
+  getTaxonomyFacetName,
+  isHiddenSearchFacet,
   parseSearchDocumentTaxonomy,
   ProductSearchResultSchema,
   Reactionary,
@@ -202,6 +203,10 @@ export class MeilisearchProductSearchCapability<
 
     if (body.facetDistribution) {
       for (const id in body.facetDistribution) {
+        // facets: ['*'] also returns the facets that must never reach the storefront
+        if (isHiddenSearchFacet(id)) {
+          continue;
+        }
         const f = body.facetDistribution[id];
         const facetId = FacetIdentifierSchema.parse({
           key: id
@@ -261,7 +266,7 @@ export class MeilisearchProductSearchCapability<
   protected parseFacet(facetIdentifier: FacetIdentifier, facetValues: Record<string, number>): ProductSearchResultFacet {
     const result: ProductSearchResultFacet = ProductSearchResultFacetSchema.parse({
       identifier: facetIdentifier,
-      name: getTermFacetName(facetIdentifier.key) ?? facetIdentifier.key.replace(/_/g, ' '),
+      name: getTaxonomyFacetName(facetIdentifier.key) ?? facetIdentifier.key.replace(/_/g, ' '),
       values: []
     });
 

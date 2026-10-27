@@ -68,7 +68,10 @@ const response: SearchResponse<MeilisearchNativeRecord> = {
   facetDistribution: {
     'terms.features': { Cordless: 3 },
     'terms.power-source': { Battery: 2 },
+    'productType.name': { Drills: 1 },
     brand_name: { Acme: 4 },
+    flags: { ageRestricted: 1 },
+    termIds: { 'features/cordless': 3 },
   },
 };
 
@@ -90,8 +93,18 @@ describe('Meilisearch product search taxonomy', () => {
     expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
       ['terms.features', 'Features'],
       ['terms.power-source', 'Power Source'],
+      ['productType.name', 'Product type'],
       ['brand_name', 'brand name'],
     ]);
+  });
+
+  it('never exposes the flags and termIds facets', () => {
+    const result = createCapability().parseResponse(response, createQuery());
+
+    const keys = result.facets.map((f) => f.identifier.key);
+    expect(keys).not.toContain('flags');
+    expect(keys).not.toContain('termIds');
+    expect(keys).toContain('terms.features');
   });
 
   it('passes a termIds facet filter through to the engine filter', () => {

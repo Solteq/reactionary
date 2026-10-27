@@ -47,7 +47,10 @@ const response = {
   facets: {
     'terms.features': { Cordless: 3, 'Outdoor rated': 1 },
     'terms.power-source': { Battery: 2 },
+    'productType.name': { Drills: 1 },
     brand: { Acme: 4 },
+    flags: { ageRestricted: 1 },
+    termIds: { 'features/cordless': 3 },
   },
 };
 
@@ -77,8 +80,18 @@ describe('Algolia product search taxonomy', () => {
     expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
       ['terms.features', 'Features'],
       ['terms.power-source', 'Power Source'],
+      ['productType.name', 'Product type'],
       ['brand', 'brand'],
     ]);
+  });
+
+  it('never exposes the flags and termIds facets', () => {
+    const result = factory.parseSearchResult(createInitialRequestContext(), response, createQuery());
+
+    const keys = result.facets.map((f) => f.identifier.key);
+    expect(keys).not.toContain('flags');
+    expect(keys).not.toContain('termIds');
+    expect(keys).toContain('terms.features');
   });
 });
 
