@@ -24,11 +24,28 @@ describe('getTaxonomyFacetName', () => {
 });
 
 describe('isHiddenSearchFacet', () => {
-  it('hides every facet starting with flags or conceptIds', () => {
+  it('hides the keys themselves and what is nested under them', () => {
     expect(isHiddenSearchFacet('flags')).toBe(true);
     expect(isHiddenSearchFacet('flags.value')).toBe(true);
+    expect(isHiddenSearchFacet('flags.a.b')).toBe(true);
     expect(isHiddenSearchFacet('conceptIds')).toBe(true);
+    expect(isHiddenSearchFacet('conceptIds.x')).toBe(true);
     expect(isHiddenSearchFacet('concepts.features')).toBe(false);
+  });
+
+  it('does not hide other facets that only start with the same letters', () => {
+    for (const key of ['flagship', 'flags_extra', 'flagsOther', 'conceptIdsLegacy', 'conceptIds_old', 'xflags', 'flag']) {
+      expect(isHiddenSearchFacet(key), key).toBe(false);
+    }
+  });
+
+  it('follows the same rule for configured keys', () => {
+    const policy = createSearchFacetPolicy({ hidden: ['internal'] });
+
+    expect(isHiddenSearchFacet('internal', policy)).toBe(true);
+    expect(isHiddenSearchFacet('internal.x', policy)).toBe(true);
+    expect(isHiddenSearchFacet('internal_x', policy)).toBe(false);
+    expect(isHiddenSearchFacet('internalOther', policy)).toBe(false);
   });
 });
 

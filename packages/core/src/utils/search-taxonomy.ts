@@ -49,7 +49,7 @@ export function getConceptFacetName(facetKey: string): string | undefined {
  * for every faceted attribute, and not every one is for display.
  */
 export const SearchFacetPolicyOptionsSchema = z.looseObject({
-  hidden: z.array(z.string()).optional().meta({ description: 'Facet keys to hide on top of the default ones (flags and conceptIds). A facet whose key starts with one of them is hidden.' }),
+  hidden: z.array(z.string()).optional().meta({ description: 'Facet keys to hide on top of the default ones (flags and conceptIds). A key hides itself and the facets nested under it: "internal" hides "internal" and "internal.x", but not "internal_x" or "internalOther".' }),
   names: z.record(z.string(), z.string()).optional().meta({ description: 'Display names by facet key, on top of the default ones. They win over the default names, a facet without a name keeps the one of the engine.' }),
 });
 
@@ -87,11 +87,13 @@ export function createSearchFacetPolicy(options?: SearchFacetPolicyOptions): Sea
 }
 
 /**
- * Whether a facet is never shown to the storefront. Engines return facet distributions for every faceted
+ * Whether a facet is never shown to the storefront: a hidden key or a key nested under it (`flags`, `flags.x`),
+ * but not another facet that starts with the same letters (`flagship`). Engines return facet distributions for every faceted
  * attribute when asked for all of them, so providers drop the hidden ones from the result.
  */
 export function isHiddenSearchFacet(facetKey: string, policy: SearchFacetPolicy = DEFAULT_SEARCH_FACET_POLICY): boolean {
-  return policy.hidden.some((hidden) => facetKey.startsWith(hidden));
+  // the key itself or a nested key, not any facet that merely starts with the same letters
+  return policy.hidden.some((hidden) => facetKey === hidden || facetKey.startsWith(`${hidden}.`));
 }
 
 /**

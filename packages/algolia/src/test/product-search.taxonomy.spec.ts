@@ -95,6 +95,35 @@ describe('Algolia product search taxonomy', () => {
   });
 });
 
+describe('Algolia product search facets that only look like hidden ones', () => {
+  const factory = new AlgoliaProductSearchFactory(AlgoliaProductSearchResultSchema);
+
+  it('keeps flagship, flags_extra and conceptIdsLegacy and hides flags, flags.x and conceptIds', () => {
+    const body = {
+      ...response,
+      facets: {
+        brand: { Acme: 4 },
+        flags: { ageRestricted: 1 },
+        'flags.x': { y: 1 },
+        conceptIds: { 'features/cordless': 3 },
+        flagship: { yes: 2 },
+        flags_extra: { a: 1 },
+        conceptIdsLegacy: { 'features/cordless': 1 },
+      },
+    };
+
+    const result = factory.parseSearchResult(createInitialRequestContext(), body, createQuery());
+
+    // other facets are neither hidden nor renamed, they keep the name of the engine
+    expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
+      ['brand', 'brand'],
+      ['flagship', 'flagship'],
+      ['flags_extra', 'flags_extra'],
+      ['conceptIdsLegacy', 'conceptIdsLegacy'],
+    ]);
+  });
+});
+
 describe('Algolia product search facet configuration', () => {
   const configured = AlgoliaConfigurationSchema.parse({
     appId: 'app',
