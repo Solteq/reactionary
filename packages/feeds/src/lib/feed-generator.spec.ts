@@ -993,7 +993,7 @@ function createProduct(sku = 'sku-1'): Product {
     options: [],
     mainVariant: createVariant(sku),
     variants: [createVariant(sku)],
-    terms: [],
+    concepts: [],
     flags: [],
   };
 }

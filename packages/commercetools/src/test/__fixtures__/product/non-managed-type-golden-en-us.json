@@ -45,6 +45,22 @@
     },
     {
       "identifier": {
+        "key": "concept_length"
+      },
+      "group": "",
+      "name": "concept_length",
+      "values": [
+        {
+          "identifier": {
+            "key": "7 m"
+          },
+          "value": "7 m",
+          "label": "7 m"
+        }
+      ]
+    },
+    {
+      "identifier": {
         "key": "flags"
       },
       "group": "",
@@ -165,6 +181,21 @@
             "key": "5 m"
           },
           "label": "5 m"
+        }
+      },
+      {
+        "identifier": {
+          "key": "concept_length"
+        },
+        "name": "concept_length",
+        "value": {
+          "identifier": {
+            "option": {
+              "key": "concept_length"
+            },
+            "key": "7 m"
+          },
+          "label": "7 m"
         }
       },
       {

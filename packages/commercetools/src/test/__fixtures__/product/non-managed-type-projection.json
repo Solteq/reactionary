@@ -28,6 +28,20 @@
           }
         },
         {
+          "name": "concept_length",
+          "label": {
+            "en": "Length"
+          },
+          "level": "Product",
+          "isRequired": false,
+          "attributeConstraint": "SameForAll",
+          "inputHint": "SingleLine",
+          "isSearchable": false,
+          "type": {
+            "name": "text"
+          }
+        },
+        {
           "name": "colour",
           "label": {
             "en": "Colour"
@@ -70,6 +84,13 @@
         "value": {
           "en": "5 m",
           "da": "5 meter"
+        }
+      },
+      {
+        "name": "concept_length",
+        "value": {
+          "en": "7 m",
+          "da": "7 meter"
         }
       },
       {

@@ -469,7 +469,7 @@ function createConformanceClient(state: { authorized: boolean }, declinePayments
           options: [],
         },
         variants: [],
-        terms: [],
+        concepts: [],
         flags: [],
       }),
     },

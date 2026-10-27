@@ -237,7 +237,7 @@ export class HclProductFactory<
       mainVariant,
       variants,
       complianceData: this.parseComplianceData(_context, data),
-      terms: [],
+      concepts: [],
       flags: [],
     } satisfies Product;
 

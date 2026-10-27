@@ -70,11 +70,11 @@ function createProjection(attributes: Attribute[], withType = true): ProductProj
 
 const taxonomyAttributes: Attribute[] = [
   { name: 'icecat-feature-1765', value: [{ en: '18 V', da: '18 volt' }, { en: '12 V' }] },
-  { name: 'term_features', value: [
+  { name: 'concept_features', value: [
     { key: 'features__cordless', label: { en: 'Cordless', da: 'Traadloes' } },
     { key: 'features__outdoor__rated', label: { en: 'Outdoor rated' } },
   ] },
-  { name: 'term_brands', value: [{ key: 'brands__acme', label: { en: 'Acme' } }] },
+  { name: 'concept_brands', value: [{ key: 'brands__acme', label: { en: 'Acme' } }] },
   { name: 'flags', value: [{ key: 'ageRestricted', label: 'Age restricted' }, { key: 'bogus', label: 'Bogus' }] },
   { name: 'colour', value: 'red' },
 ];
@@ -116,12 +116,12 @@ describe('Commercetools product factory taxonomy mapping', () => {
     expect(product.productType).toEqual({ identifier: { key: 'icecat-cat-8862' }, name: 'Drills' });
   });
 
-  it('maps term attributes to terms and decodes the term id', () => {
+  it('maps concept attributes to concepts and decodes the concept id', () => {
     const { context, factory } = setup('da-DK');
 
     const product = factory.parseProduct(context, createProjection(taxonomyAttributes));
 
-    expect(product.terms).toEqual([
+    expect(product.concepts).toEqual([
       { identifier: { key: 'features/cordless' }, vocabulary: 'features', name: 'Traadloes' },
       { identifier: { key: 'features/outdoor__rated' }, vocabulary: 'features', name: 'Outdoor rated' },
       { identifier: { key: 'brands/acme' }, vocabulary: 'brands', name: 'Acme' },
@@ -135,8 +135,8 @@ describe('Commercetools product factory taxonomy mapping', () => {
 
     const keys = product.sharedAttributes.map((a) => a.identifier.key);
     expect(keys).not.toContain('flags');
-    expect(keys.filter((k) => k.startsWith('term_'))).toEqual([]);
-    // the shared feature is SameForAll and the term and flag attributes are no options, the colour is
+    expect(keys.filter((k) => k.startsWith('concept_'))).toEqual([]);
+    // the shared feature is SameForAll and the concept and flag attributes are no options, the colour is
     expect(product.mainVariant.options.map((o) => o.identifier.key)).toEqual(['colour']);
   });
 
@@ -170,7 +170,7 @@ function readFixture<T>(name: string): T {
 
 describe('Commercetools product factory for product types that are not managed', () => {
   // The golden files were produced by the factory as it was before the taxonomy support, for the same projection.
-  // The projection has attributes named term_length and flags, SameForAll style names and mixed value shapes.
+  // The projection has attributes named term_length, concept_length and flags, SameForAll style names and mixed value shapes.
   const projection = readFixture<ProductProjection>('non-managed-type-projection.json');
 
   it.each([
@@ -181,11 +181,13 @@ describe('Commercetools product factory for product types that are not managed',
 
     const product = factory.parseProduct(context, projection);
 
-    expect(product).toEqual({ ...readFixture<object>(golden), terms: [], flags: [] });
+    expect(product).toEqual({ ...readFixture<object>(golden), concepts: [], flags: [] });
     expect(product.productType).toBeUndefined();
     expect(product.sharedAttributes.map((a) => a.identifier.key)).toContain('term_length');
+    expect(product.sharedAttributes.map((a) => a.identifier.key)).toContain('concept_length');
     expect(product.sharedAttributes.map((a) => a.identifier.key)).toContain('flags');
     expect(product.mainVariant.options.map((o) => o.identifier.key)).toContain('term_length');
+    expect(product.mainVariant.options.map((o) => o.identifier.key)).toContain('concept_length');
   });
 
   it('applies the new behaviour to the same projection once the product type is managed', () => {
@@ -198,9 +200,11 @@ describe('Commercetools product factory for product types that are not managed',
     const product = factory.parseProduct(context, managed);
 
     const keys = product.sharedAttributes.map((a) => a.identifier.key);
-    expect(keys).not.toContain('term_length');
+    // term_length is an ordinary attribute, only concept_<vocabulary> attributes carry concepts
+    expect(keys).toContain('term_length');
+    expect(keys).not.toContain('concept_length');
     expect(keys).not.toContain('flags');
-    expect(product.terms).toEqual([{ identifier: { key: '5 meter' }, vocabulary: 'length', name: '5 meter' }]);
+    expect(product.concepts).toEqual([{ identifier: { key: '7 meter' }, vocabulary: 'length', name: '7 meter' }]);
     expect(product.flags).toEqual([]);
     expect(product.productType?.identifier.key).toBe('legacy');
     expect(product.sharedAttributes.find((a) => a.identifier.key === 'features')?.values.map((v) => v.label)).toEqual(['a', 'b']);
@@ -232,7 +236,7 @@ describe('Commercetools product capability product types', () => {
     expect(first.value.productType?.identifier.key).toBe('icecat-cat-8862');
     expect(second.value.productType?.identifier.key).toBe('icecat-cat-8862');
     expect(first.value.sharedAttributes.find((a) => a.identifier.key === 'icecat-feature-1765')?.name).toBe('Batterispaending');
-    expect(first.value.terms[0]).toMatchObject({ identifier: { key: 'features/cordless' }, name: 'Traadloes' });
+    expect(first.value.concepts[0]).toMatchObject({ identifier: { key: 'features/cordless' }, name: 'Traadloes' });
     expect(first.value.flags).toEqual(['ageRestricted']);
   });
 });

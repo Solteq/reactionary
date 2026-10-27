@@ -55,7 +55,7 @@
               ]
             },
             {
-              "name": "term_features",
+              "name": "concept_features",
               "value": [
                 {
                   "key": "features__cordless",

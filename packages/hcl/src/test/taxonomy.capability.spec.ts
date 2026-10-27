@@ -14,8 +14,8 @@ describe('HclTaxonomyCapability', () => {
     }
   });
 
-  it('reports that terms are not supported', async () => {
-    const result = await capability.getTerms({ terms: [{ key: 'features/cordless' }] });
+  it('reports that concepts are not supported', async () => {
+    const result = await capability.getConcepts({ concepts: [{ key: 'features/cordless' }] });
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -24,7 +24,7 @@ describe('HclTaxonomyCapability', () => {
   });
 
   it('validates the payload', async () => {
-    const result = await capability.getTerms({ terms: [{ key: '' }, { key: 'features/cordless' }] });
+    const result = await capability.getConcepts({ concepts: [{ key: '' }, { key: 'features/cordless' }] });
 
     expect(result.success).toBe(false);
   });

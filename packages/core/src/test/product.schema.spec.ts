@@ -29,25 +29,25 @@ const baseProduct = {
 };
 
 describe('ProductSchema taxonomy fields', () => {
-  it('defaults terms and flags and leaves productType undefined', () => {
+  it('defaults concepts and flags and leaves productType undefined', () => {
     const product = ProductSchema.parse(baseProduct);
 
-    expect(product.terms).toEqual([]);
+    expect(product.concepts).toEqual([]);
     expect(product.flags).toEqual([]);
     expect(product.productType).toBeUndefined();
   });
 
-  it('keeps product type, terms and attribute unit', () => {
+  it('keeps product type, concepts and attribute unit', () => {
     const product = ProductSchema.parse({
       ...baseProduct,
       productType: { identifier: { key: 'icecat-cat-8862' }, name: 'Drill' },
-      terms: [{ identifier: { key: 'features/cordless' }, vocabulary: 'features', name: 'Cordless', parent: { key: 'features/power' } }],
+      concepts: [{ identifier: { key: 'features/cordless' }, vocabulary: 'features', name: 'Cordless', parent: { key: 'features/power' } }],
       flags: ['ageRestricted'],
       sharedAttributes: [{ identifier: { key: 'weight' }, group: 'General', name: 'Weight', unit: 'kg', dataType: 'numeric', values: [] }],
     });
 
     expect(product.productType?.name).toBe('Drill');
-    expect(product.terms[0].parent?.key).toBe('features/power');
+    expect(product.concepts[0].parent?.key).toBe('features/power');
     expect(product.flags).toEqual(['ageRestricted']);
     expect(product.sharedAttributes[0].unit).toBe('kg');
     expect(product.sharedAttributes[0].dataType).toBe('numeric');
@@ -55,7 +55,7 @@ describe('ProductSchema taxonomy fields', () => {
 });
 
 describe('ProductSearchResultItemSchema taxonomy fields', () => {
-  it('accepts items without product type and terms', () => {
+  it('accepts items without product type and concepts', () => {
     const item = ProductSearchResultItemSchema.parse({
       identifier: { key: 'p1' },
       name: 'P',
@@ -64,20 +64,20 @@ describe('ProductSearchResultItemSchema taxonomy fields', () => {
     });
 
     expect(item.productType).toBeUndefined();
-    expect(item.terms).toBeUndefined();
+    expect(item.concepts).toBeUndefined();
   });
 
-  it('accepts product type and terms', () => {
+  it('accepts product type and concepts', () => {
     const item = ProductSearchResultItemSchema.parse({
       identifier: { key: 'p1' },
       name: 'P',
       slug: 'p',
       variants: [],
       productType: { identifier: { key: 't1' }, name: 'Type' },
-      terms: [{ identifier: { key: 'features/cordless' }, vocabulary: 'features', name: 'Cordless' }],
+      concepts: [{ identifier: { key: 'features/cordless' }, vocabulary: 'features', name: 'Cordless' }],
     });
 
     expect(item.productType?.identifier.key).toBe('t1');
-    expect(item.terms).toHaveLength(1);
+    expect(item.concepts).toHaveLength(1);
   });
 });

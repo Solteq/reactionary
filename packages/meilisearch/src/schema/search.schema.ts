@@ -25,6 +25,6 @@ export interface MeilisearchNativeRecord {
   complianceData?: ProductSearchResultItemComplianceData;
   canAddToCartDirectly?: boolean;
   productType?: SearchDocumentTaxonomy['productType'];
-  terms?: SearchDocumentTaxonomy['terms'];
-  termIds?: SearchDocumentTaxonomy['termIds'];
+  concepts?: SearchDocumentTaxonomy['concepts'];
+  conceptIds?: SearchDocumentTaxonomy['conceptIds'];
 }

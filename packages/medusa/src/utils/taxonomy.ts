@@ -1,5 +1,5 @@
 import type { StoreProduct } from '@medusajs/types';
-import { ProductFlagSchema, type ProductTerm } from '@reactionary/core';
+import { ProductFlagSchema, type ProductConcept } from '@reactionary/core';
 import * as z from 'zod';
 
 /**
@@ -140,12 +140,12 @@ function asStringRecord(value: unknown): Record<string, string> | undefined {
 }
 
 /**
- * Maps a Medusa product tag to a term. The id lives in external_id (or metadata.term_id), the tag value is
- * the term name and is translated by Medusa for the request locale. Tags without a term id are no terms.
+ * Maps a Medusa product tag to a concept. The id lives in external_id (or metadata.concept_id), the tag value is
+ * the concept name and is translated by Medusa for the request locale. Tags without a concept id are no concepts.
  */
-export function parseTagAsTerm(tag: MedusaTag, locale: string): ProductTerm | undefined {
+export function parseTagAsConcept(tag: MedusaTag, locale: string): ProductConcept | undefined {
   const metadata = tag.metadata ?? {};
-  const id = asString(tag.external_id) ?? asString(metadata['term_id']);
+  const id = asString(tag.external_id) ?? asString(metadata['concept_id']);
   if (!id) {
     return undefined;
   }
@@ -155,15 +155,15 @@ export function parseTagAsTerm(tag: MedusaTag, locale: string): ProductTerm | un
   const name = pickMetadataName(metadata, locale) ?? asString(tag.value) ?? slug;
   const parent = asString(metadata['parent']);
 
-  const term: ProductTerm = {
+  const concept: ProductConcept = {
     identifier: { key: id },
     vocabulary,
     name,
   };
   if (parent) {
-    term.parent = { key: parent };
+    concept.parent = { key: parent };
   }
-  return term;
+  return concept;
 }
 
 /**

@@ -107,7 +107,7 @@ export class FakeProductCapability<
       published: true,
       sharedAttributes: [],
       variants: [],
-      terms: [],
+      concepts: [],
       flags: [],
       complianceData: {
         ce_marking: generator.datatype.boolean({ probability: 0.2}),

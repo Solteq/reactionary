@@ -60,8 +60,8 @@ export const VocabularyIdentifierSchema = z.looseObject({
   key: z.string().meta({ description: 'The unique identifier (slug) of the vocabulary, e.g. "features".' }),
 });
 
-export const TermIdentifierSchema = z.looseObject({
-  key: z.string().meta({ description: 'The unique identifier of the term, prefixed by its vocabulary, e.g. "features/cordless".' }),
+export const ConceptIdentifierSchema = z.looseObject({
+  key: z.string().meta({ description: 'The unique identifier of the concept, prefixed by its vocabulary, e.g. "features/cordless".' }),
 });
 
 

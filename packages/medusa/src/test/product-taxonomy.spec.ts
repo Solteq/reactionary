@@ -84,7 +84,7 @@ describe('Medusa product factory taxonomy mapping', () => {
       ['Battery voltage', 'Battery voltage', ''],
     ]);
     expect(product.productType).toBeUndefined();
-    expect(product.terms).toEqual([]);
+    expect(product.concepts).toEqual([]);
     expect(product.flags).toEqual([]);
   });
 
@@ -170,7 +170,7 @@ describe('Medusa product factory taxonomy mapping', () => {
     expect(product.sharedAttributes[0].name).toBe('icecat-feature-1');
   });
 
-  it('maps tags to terms, preferring the metadata names over the tag value', () => {
+  it('maps tags to concepts, preferring the metadata names over the tag value', () => {
     const product = factory.parseProduct(
       createContext('da-DK'),
       createProduct({
@@ -182,7 +182,7 @@ describe('Medusa product factory taxonomy mapping', () => {
             created_at: '',
             updated_at: '',
             metadata: {
-              term_id: 'features/cordless',
+              concept_id: 'features/cordless',
               vocabulary: 'features',
               names: { en: 'Cordless', da: 'Traadloes' },
               parent: 'features/power',
@@ -194,14 +194,14 @@ describe('Medusa product factory taxonomy mapping', () => {
             external_id: null,
             created_at: '',
             updated_at: '',
-            metadata: { term_id: 'features/outdoor-rated', names: { en: 'Outdoor rated' } },
+            metadata: { concept_id: 'features/outdoor-rated', names: { en: 'Outdoor rated' } },
           },
           { id: 'ptag_3', value: 'Plain tag', created_at: '', updated_at: '' },
         ],
       }),
     );
 
-    expect(product.terms).toEqual([
+    expect(product.concepts).toEqual([
       {
         identifier: { key: 'features/cordless' },
         vocabulary: 'features',
@@ -224,7 +224,7 @@ describe('Medusa product factory taxonomy mapping', () => {
       }),
     );
 
-    expect(product.terms[0]).toMatchObject({ name: 'cordless', vocabulary: 'features' });
+    expect(product.concepts[0]).toMatchObject({ name: 'cordless', vocabulary: 'features' });
   });
 
   it('maps flags and drops unknown ones', () => {
@@ -243,7 +243,7 @@ describe('Medusa product factory taxonomy mapping', () => {
   });
 
 
-  it('names a term from the metadata for the request locale even when the value is English', () => {
+  it('names a concept from the metadata for the request locale even when the value is English', () => {
     const tags = [
       {
         id: 'ptag_1',
@@ -259,10 +259,10 @@ describe('Medusa product factory taxonomy mapping', () => {
     const en = factory.parseProduct(createContext('en-US'), createProduct({ tags }));
     const fr = factory.parseProduct(createContext('fr-FR'), createProduct({ tags }));
 
-    expect(da.terms[0].name).toBe('Traadloes');
-    expect(en.terms[0].name).toBe('Cordless');
+    expect(da.concepts[0].name).toBe('Traadloes');
+    expect(en.concepts[0].name).toBe('Cordless');
     // no french name, so en wins over the value
-    expect(fr.terms[0].name).toBe('Cordless');
+    expect(fr.concepts[0].name).toBe('Cordless');
   });
 
   it('falls back to the value when the metadata names have neither the locale nor en', () => {
@@ -282,7 +282,7 @@ describe('Medusa product factory taxonomy mapping', () => {
       }),
     );
 
-    expect(product.terms[0].name).toBe('Kabellos');
+    expect(product.concepts[0].name).toBe('Kabellos');
   });
 
   it('names the product type from the metadata, then the value', () => {

@@ -11,7 +11,7 @@ import {
   type ProductFactory,
   type ProductIdentifier,
   type ProductVariant,
-  type ProductTerm,
+  type ProductConcept,
   type ProductType,
   type ProductVariantIdentifier,
   type RequestContext,
@@ -42,9 +42,9 @@ import { getAttributeValueKeyAndLabel } from '../../core/attribute-utils.js';
  */
 const MANAGED_PRODUCT_TYPE_KEY_PREFIX = 'rc-';
 /**
- * Taxonomy terms are carried by attributes named term_<vocabulary>.
+ * Taxonomy concepts are carried by attributes named concept_<vocabulary>.
  */
-const TERM_ATTRIBUTE_PREFIX = 'term_';
+const CONCEPT_ATTRIBUTE_PREFIX = 'concept_';
 const FLAGS_ATTRIBUTE = 'flags';
 
 export class CommercetoolsProductFactory<
@@ -95,7 +95,7 @@ export class CommercetoolsProductFactory<
       .filter((x) => !managed || !this.isTaxonomyAttribute(x))
       .map((x) => this.parseAttribute(context, x, productType))
       .filter((x) => !managed || x.values.length > 0);
-    const terms = managed ? this.parseTerms(context, allAttributes) : [];
+    const concepts = managed ? this.parseConcepts(context, allAttributes) : [];
     const flags = managed ? this.parseFlags(allAttributes) : [];
 
     const mainVariant = this.parseVariant(context, data.masterVariant, data);
@@ -123,7 +123,7 @@ export class CommercetoolsProductFactory<
       variants: otherVariants,
       complianceData: this.parseComplianceData(context, data),
       productType: managed ? this.parseProductType(productType) : undefined,
-      terms,
+      concepts,
       flags,
     } satisfies Product;
 
@@ -155,24 +155,24 @@ export class CommercetoolsProductFactory<
   }
 
   /**
-   * The term_<vocabulary> and flags attributes carry taxonomy data, they are no product attributes.
+   * The concept_<vocabulary> and flags attributes carry taxonomy data, they are no product attributes.
    */
   protected isTaxonomyAttribute(attr: CTAttribute): boolean {
-    return attr.name === FLAGS_ATTRIBUTE || attr.name.startsWith(TERM_ATTRIBUTE_PREFIX);
+    return attr.name === FLAGS_ATTRIBUTE || attr.name.startsWith(CONCEPT_ATTRIBUTE_PREFIX);
   }
 
   /**
-   * Maps the term_<vocabulary> attributes (sets of enums) to terms. The enum key is the term id with
+   * Maps the concept_<vocabulary> attributes (sets of enums) to concepts. The enum key is the concept id with
    * the first '/' encoded as '__', and the enum label holds the localized names.
    */
-  protected parseTerms(context: RequestContext, attributes: CTAttribute[]): ProductTerm[] {
+  protected parseConcepts(context: RequestContext, attributes: CTAttribute[]): ProductConcept[] {
     const language = getLanguageCodeFromLocale(context.languageContext.locale) || 'en';
-    const terms: ProductTerm[] = [];
+    const concepts: ProductConcept[] = [];
     for (const attr of attributes) {
-      if (!attr.name.startsWith(TERM_ATTRIBUTE_PREFIX)) {
+      if (!attr.name.startsWith(CONCEPT_ATTRIBUTE_PREFIX)) {
         continue;
       }
-      const attributeVocabulary = attr.name.slice(TERM_ATTRIBUTE_PREFIX.length);
+      const attributeVocabulary = attr.name.slice(CONCEPT_ATTRIBUTE_PREFIX.length);
       const entries: unknown[] = Array.isArray(attr.value) ? attr.value : [attr.value];
       for (const entry of entries) {
         const { key, label } = getAttributeValueKeyAndLabel(entry, language);
@@ -180,18 +180,18 @@ export class CommercetoolsProductFactory<
           continue;
         }
         const id = key.replace('__', '/');
-        if (terms.some((term) => term.identifier.key === id)) {
+        if (concepts.some((concept) => concept.identifier.key === id)) {
           continue;
         }
         const separator = id.indexOf('/');
-        terms.push({
+        concepts.push({
           identifier: { key: id },
           vocabulary: separator > 0 ? id.slice(0, separator) : attributeVocabulary,
           name: label || (separator >= 0 ? id.slice(separator + 1) : id),
         });
       }
     }
-    return terms;
+    return concepts;
   }
 
   /**

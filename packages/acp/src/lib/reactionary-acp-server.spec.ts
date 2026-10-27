@@ -2057,7 +2057,7 @@ function createProduct(): Product {
       options: [],
     },
     variants: [],
-    terms: [],
+    concepts: [],
     flags: [],
   };
 }

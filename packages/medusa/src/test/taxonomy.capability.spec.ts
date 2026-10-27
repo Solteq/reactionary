@@ -3,7 +3,7 @@ import type { StoreProductTag } from '@medusajs/types';
 import {
   createInitialRequestContext,
   NoOpCache,
-  TermSchema,
+  ConceptSchema,
   VocabularySchema,
 } from '@reactionary/core';
 import { MedusaTaxonomyCapability } from '../capabilities/taxonomy.capability.js';
@@ -22,7 +22,7 @@ function tag(
     external_id: externalId,
     created_at: '',
     updated_at: '',
-    metadata: externalId ? { term_id: externalId, ...metadata } : metadata,
+    metadata: externalId ? { concept_id: externalId, ...metadata } : metadata,
   };
 }
 
@@ -70,14 +70,14 @@ function createCapability(locale = 'en-US') {
     new NoOpCache(),
     context,
     new MedusaAPI(getMedusaTestConfiguration(), context),
-    new MedusaTaxonomyFactory(TermSchema, VocabularySchema),
+    new MedusaTaxonomyFactory(ConceptSchema, VocabularySchema),
   );
   capability['tagPageSize'] = 2;
   return capability;
 }
 
 describe('Medusa taxonomy capability', () => {
-  it('builds the term tree of a vocabulary from its tags, across pages', async () => {
+  it('builds the concept tree of a vocabulary from its tags, across pages', async () => {
     const capability = createCapability();
 
     const result = await capability.getVocabulary({ vocabulary: { key: 'features' } });
@@ -87,9 +87,9 @@ describe('Medusa taxonomy capability', () => {
     }
     expect(result.value.identifier.key).toBe('features');
     expect(result.value.name).toBe('Features');
-    // a term whose parent is not among the tags is a root term
-    expect(result.value.terms.map((t) => t.identifier.key)).toEqual(['features/power', 'features/outdoor-rated']);
-    const power = result.value.terms[0];
+    // a concept whose parent is not among the tags is a root concept
+    expect(result.value.concepts.map((t) => t.identifier.key)).toEqual(['features/power', 'features/outdoor-rated']);
+    const power = result.value.concepts[0];
     expect(power.children?.map((t) => t.identifier.key)).toEqual(['features/cordless']);
     expect(power.children?.[0]).toMatchObject({
       parent: { key: 'features/power' },
@@ -101,7 +101,7 @@ describe('Medusa taxonomy capability', () => {
   });
 
   it('picks the synonyms of the request locale', async () => {
-    const result = await createCapability('da-DK').getTerms({ terms: [{ key: 'features/cordless' }] });
+    const result = await createCapability('da-DK').getConcepts({ concepts: [{ key: 'features/cordless' }] });
 
     if (!result.success) {
       assert.fail();
@@ -109,7 +109,7 @@ describe('Medusa taxonomy capability', () => {
     expect(result.value[0].synonyms).toEqual(['batteridrevet']);
   });
 
-  it('breaks parent cycles so that every term stays reachable', async () => {
+  it('breaks parent cycles so that every concept stays reachable', async () => {
     const original = [...tags];
     tags.push(
       tag('loops/a', 'A', { vocabulary: 'loops', parent: 'loops/b' }),
@@ -128,25 +128,25 @@ describe('Medusa taxonomy capability', () => {
         assert.fail();
       }
       const reachable: string[] = [];
-      const walk = (terms: typeof result.value.terms) => {
-        for (const term of terms) {
-          reachable.push(term.identifier.key);
-          walk(term.children ?? []);
+      const walk = (concepts: typeof result.value.concepts) => {
+        for (const concept of concepts) {
+          reachable.push(concept.identifier.key);
+          walk(concept.children ?? []);
         }
       };
-      walk(result.value.terms);
+      walk(result.value.concepts);
       expect(reachable.sort()).toEqual(['loops/a', 'loops/b', 'loops/c', 'loops/d', 'loops/e', 'loops/x', 'loops/y']);
       // the whole tree is plain data, nothing circular reached the schema
       expect(() => JSON.stringify(result.value)).not.toThrow();
-      // the term that would close a loop becomes a root, the others stay attached
-      expect(result.value.terms.map((t) => t.identifier.key)).toEqual(['loops/c', 'loops/d', 'loops/y']);
+      // the concept that would close a loop becomes a root, the others stay attached
+      expect(result.value.concepts.map((t) => t.identifier.key)).toEqual(['loops/c', 'loops/d', 'loops/y']);
     } finally {
       tags.length = 0;
       tags.push(...original);
     }
   });
 
-  it('returns NotFound for a vocabulary without terms', async () => {
+  it('returns NotFound for a vocabulary without concepts', async () => {
     const result = await createCapability().getVocabulary({ vocabulary: { key: 'unknown' } });
 
     expect(result.success).toBe(false);
@@ -155,11 +155,11 @@ describe('Medusa taxonomy capability', () => {
     }
   });
 
-  it('looks terms up by their ids, in request order, leaving out the unknown ones', async () => {
+  it('looks concepts up by their ids, in request order, leaving out the unknown ones', async () => {
     const capability = createCapability();
 
-    const result = await capability.getTerms({
-      terms: [{ key: 'brands/acme' }, { key: 'features/cordless' }, { key: 'features/nope' }],
+    const result = await capability.getConcepts({
+      concepts: [{ key: 'brands/acme' }, { key: 'features/cordless' }, { key: 'features/nope' }],
     });
 
     if (!result.success) {

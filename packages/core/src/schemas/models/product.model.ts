@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { CategoryIdentifierSchema, ProductAttributeIdentifierSchema, ProductAttributeValueIdentifierSchema, ProductIdentifierSchema, ProductOptionIdentifierSchema, ProductOptionValueIdentifierSchema, ProductTypeIdentifierSchema, ProductVariantIdentifierSchema, TermIdentifierSchema } from './identifiers.model.js';
+import { CategoryIdentifierSchema, ProductAttributeIdentifierSchema, ProductAttributeValueIdentifierSchema, ProductIdentifierSchema, ProductOptionIdentifierSchema, ProductOptionValueIdentifierSchema, ProductTypeIdentifierSchema, ProductVariantIdentifierSchema, ConceptIdentifierSchema } from './identifiers.model.js';
 import { BaseModelSchema, ImageSchema } from './base.model.js';
 import type { InferType } from '../../zod-utils.js';
 
@@ -99,13 +99,13 @@ export const ProductTypeSchema = z.looseObject({
 });
 
 /**
- * A taxonomy term assigned to a product, e.g. features/cordless in the vocabulary "features".
+ * A taxonomy concept assigned to a product, e.g. features/cordless in the vocabulary "features".
  */
-export const ProductTermSchema = z.looseObject({
-    identifier: TermIdentifierSchema.describe('The unique identifier of the term, prefixed by its vocabulary.'),
-    vocabulary: z.string().meta({ description: 'The vocabulary the term belongs to, e.g. "features".' }),
-    name: z.string().meta({ description: 'The localized name of the term.' }),
-    parent: TermIdentifierSchema.optional().meta({ description: 'The parent term, if the term is part of a hierarchy.' }),
+export const ProductConceptSchema = z.looseObject({
+    identifier: ConceptIdentifierSchema.describe('The unique identifier of the concept, prefixed by its vocabulary.'),
+    vocabulary: z.string().meta({ description: 'The vocabulary the concept belongs to, e.g. "features".' }),
+    name: z.string().meta({ description: 'The localized name of the concept.' }),
+    parent: ConceptIdentifierSchema.optional().meta({ description: 'The parent concept, if the concept is part of a hierarchy.' }),
 });
 
 /**
@@ -129,7 +129,7 @@ export const ProductSchema = BaseModelSchema.extend({
     variants: z.array(ProductVariantSchema).default([]).meta({ description: 'A list of all SKUs for the product. Can be empty or omitted if product is single-sku' }),
     complianceData: ProductComplianceDataSchema.optional().describe('Compliance information for the product, including certifications and regulatory markings.'),
     productType: ProductTypeSchema.optional().describe('The product type the product belongs to, if the platform has one.'),
-    terms: z.array(ProductTermSchema).default([]).meta({ description: 'The taxonomy terms assigned to the product, across all vocabularies.' }),
+    concepts: z.array(ProductConceptSchema).default([]).meta({ description: 'The taxonomy concepts assigned to the product, across all vocabularies.' }),
     flags: z.array(z.string()).default([]).meta({ description: 'Behavioural flags of the product, see ProductFlagSchema for the known values. Never displayed.' }),
 }).describe('A product is a wrapper around sellable items. It contains all the shared information for a set of SKUs. All products have at least one SKU, but can potentially have hundreds.');
 
@@ -139,7 +139,7 @@ export type Product = InferType<typeof ProductSchema>;
 export type ProductComplianceData  = InferType<typeof ProductComplianceDataSchema>;
 export type ProductAttribute = InferType<typeof ProductAttributeSchema>;
 export type ProductType = InferType<typeof ProductTypeSchema>;
-export type ProductTerm = InferType<typeof ProductTermSchema>;
+export type ProductConcept = InferType<typeof ProductConceptSchema>;
 export type ProductFlag = InferType<typeof ProductFlagSchema>;
 export type ProductAttributeValue = InferType<typeof ProductAttributeValueSchema>;
 export type ProductOption = InferType<typeof ProductOptionSchema>;
