@@ -45,12 +45,19 @@ export function getConceptFacetName(facetKey: string): string | undefined {
 }
 
 /**
- * Facet keys that are never shown to the storefront: flags only drive behaviour, and conceptIds is a
- * filter-only list of ids. Engines return facet distributions for every faceted attribute when asked
- * for all of them, so providers drop these from the result.
+ * Which facets of a search engine are hidden from the storefront and how they are named. The engine returns a facet
+ * for every faceted attribute, and not every one is for display.
  */
-export function isHiddenSearchFacet(facetKey: string): boolean {
-  return facetKey.startsWith('flags') || facetKey.startsWith('conceptIds');
+export const SearchFacetPolicyOptionsSchema = z.looseObject({
+  hidden: z.array(z.string()).optional().meta({ description: 'Facet keys to hide on top of the default ones (flags and conceptIds). A facet whose key starts with one of them is hidden.' }),
+  names: z.record(z.string(), z.string()).optional().meta({ description: 'Display names by facet key, on top of the default ones. They win over the default names, a facet without a name keeps the one of the engine.' }),
+});
+
+export type SearchFacetPolicyOptions = InferType<typeof SearchFacetPolicyOptionsSchema>;
+
+export interface SearchFacetPolicy {
+  hidden: string[];
+  names: Record<string, string>;
 }
 
 /**
@@ -59,14 +66,40 @@ export function isHiddenSearchFacet(facetKey: string): boolean {
 export const SEARCH_PRODUCT_TYPE_FACET_KEY = 'productType.name';
 
 /**
- * Display name of a taxonomy facet: the vocabulary for concept facets, "Product type" for the product type
- * facet. Returns undefined for other facets.
+ * The defaults: flags only drive behaviour and conceptIds is a filter-only list of ids, so neither is ever shown,
+ * and the product type facet is named "Product type". Concept facets (concepts.<vocabulary>) are named after the
+ * vocabulary, see getConceptFacetName.
  */
-export function getTaxonomyFacetName(facetKey: string): string | undefined {
-  if (facetKey === SEARCH_PRODUCT_TYPE_FACET_KEY) {
-    return 'Product type';
-  }
-  return getConceptFacetName(facetKey);
+export const DEFAULT_SEARCH_FACET_POLICY: SearchFacetPolicy = {
+  hidden: ['flags', 'conceptIds'],
+  names: { [SEARCH_PRODUCT_TYPE_FACET_KEY]: 'Product type' },
+};
+
+/**
+ * Builds the policy from the options of a provider, merged with the defaults. Hidden facets only add to the
+ * defaults, the flags and the concept ids can not be shown again. Names of the options win over the default ones.
+ */
+export function createSearchFacetPolicy(options?: SearchFacetPolicyOptions): SearchFacetPolicy {
+  return {
+    hidden: [...new Set([...DEFAULT_SEARCH_FACET_POLICY.hidden, ...(options?.hidden ?? [])])],
+    names: { ...DEFAULT_SEARCH_FACET_POLICY.names, ...(options?.names ?? {}) },
+  };
+}
+
+/**
+ * Whether a facet is never shown to the storefront. Engines return facet distributions for every faceted
+ * attribute when asked for all of them, so providers drop the hidden ones from the result.
+ */
+export function isHiddenSearchFacet(facetKey: string, policy: SearchFacetPolicy = DEFAULT_SEARCH_FACET_POLICY): boolean {
+  return policy.hidden.some((hidden) => facetKey.startsWith(hidden));
+}
+
+/**
+ * Display name of a facet from the policy: a configured name, the vocabulary for concept facets, "Product type"
+ * for the product type facet. Returns undefined for other facets, which keep the name the engine gives them.
+ */
+export function getTaxonomyFacetName(facetKey: string, policy: SearchFacetPolicy = DEFAULT_SEARCH_FACET_POLICY): string | undefined {
+  return policy.names[facetKey] ?? getConceptFacetName(facetKey);
 }
 
 /**

@@ -26,6 +26,7 @@ export function withAlgoliaCapabilities<T extends AlgoliaCapabilities>(
     if (capabilities.productSearch?.enabled) {
       const defaultFactory = new AlgoliaProductSearchFactory(
         AlgoliaProductSearchResultSchema,
+        configuration.facets,
       );
       client.productSearch = resolveCapabilityWithFactory(
         capabilities.productSearch,

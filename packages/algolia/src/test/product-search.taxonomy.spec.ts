@@ -95,6 +95,35 @@ describe('Algolia product search taxonomy', () => {
   });
 });
 
+describe('Algolia product search facet configuration', () => {
+  const configured = AlgoliaConfigurationSchema.parse({
+    appId: 'app',
+    apiKey: 'key',
+    indexName: 'products',
+    facets: { hidden: ['internal'], names: { brand: 'Brand', 'productType.name': 'Kind' } },
+  });
+
+  it('takes the facet options from the configuration and leaves the defaults when they are absent', () => {
+    expect(AlgoliaConfigurationSchema.parse({ appId: 'a', apiKey: 'k', indexName: 'i' }).facets).toBeUndefined();
+    expect(configured.facets).toEqual({ hidden: ['internal'], names: { brand: 'Brand', 'productType.name': 'Kind' } });
+    expect(AlgoliaConfigurationSchema.safeParse({ appId: 'a', apiKey: 'k', indexName: 'i', facets: { hidden: 'x' } }).success).toBe(false);
+  });
+
+  it('hides and renames the configured facets and keeps the defaults', () => {
+    const factory = new AlgoliaProductSearchFactory(AlgoliaProductSearchResultSchema, configured.facets);
+    const body = { ...response, facets: { ...response.facets, internal: { x: 1 }, 'internal.sub': { y: 1 } } };
+
+    const result = factory.parseSearchResult(createInitialRequestContext(), body, createQuery());
+
+    expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
+      ['concepts.features', 'Features'],
+      ['concepts.power-source', 'Power Source'],
+      ['productType.name', 'Kind'],
+      ['brand', 'Brand'],
+    ]);
+  });
+});
+
 describe('Algolia product search concept id filter', () => {
   class TestCapability extends AlgoliaProductSearchCapability {
     public buildPayload(payload: ProductSearchQueryByTerm) {
