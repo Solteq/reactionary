@@ -1,3 +1,4 @@
+import { affinitiesFromSegments } from '@reactionary/core';
 import type {
   AnyPersonalizationProfileSchema,
   PersonalizationProfileFactory,
@@ -36,6 +37,9 @@ export class UnomiPersonalizationProfileFactory<
     return this.personalizationProfileSchema.parse({
       identifier: { key: data.profileId },
       segments,
+      // The CDP exposes concept interest as banded affinity.<vocabulary>.<slug>.<low|medium|high> segments, never as
+      // raw scores. Any other CDP provider can fill affinities with this one line from its segments.
+      affinities: affinitiesFromSegments(segments),
       blurb,
     });
   }
