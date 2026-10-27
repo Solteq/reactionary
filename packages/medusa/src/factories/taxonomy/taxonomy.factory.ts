@@ -54,11 +54,15 @@ export class MedusaTaxonomyFactory<
     const byId = new Map(parsed.map((term) => [term.identifier.key, term]));
 
     const roots: Term[] = [];
+    // the parent each term is attached under, used to refuse an attachment that would close a loop
+    const attachedTo = new Map<Term, Term>();
     for (const term of parsed) {
       const parent = term.parent ? byId.get(term.parent.key) : undefined;
-      if (parent && parent !== term) {
+      if (parent && !this.isAncestorOrSelf(term, parent, attachedTo)) {
         parent.children = [...(parent.children ?? []), term];
+        attachedTo.set(term, parent);
       } else {
+        // no parent, an unknown parent, or a parent chain that loops back: the term is a root
         roots.push(term);
       }
     }
@@ -68,5 +72,20 @@ export class MedusaTaxonomyFactory<
       name: getVocabularyName(vocabulary),
       terms: roots,
     });
+  }
+
+  /**
+   * Whether the candidate is the term itself or one of its attached ancestors, in which case the term cannot
+   * become a child of the candidate without creating a cycle.
+   */
+  protected isAncestorOrSelf(term: Term, candidate: Term, attachedTo: Map<Term, Term>): boolean {
+    let current: Term | undefined = candidate;
+    while (current) {
+      if (current === term) {
+        return true;
+      }
+      current = attachedTo.get(current);
+    }
+    return false;
   }
 }

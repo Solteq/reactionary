@@ -109,6 +109,43 @@ describe('Medusa taxonomy capability', () => {
     expect(result.value[0].synonyms).toEqual(['batteridrevet']);
   });
 
+  it('breaks parent cycles so that every term stays reachable', async () => {
+    const original = [...tags];
+    tags.push(
+      tag('loops/a', 'A', { vocabulary: 'loops', parent: 'loops/b' }),
+      tag('loops/b', 'B', { vocabulary: 'loops', parent: 'loops/c' }),
+      tag('loops/c', 'C', { vocabulary: 'loops', parent: 'loops/a' }),
+      tag('loops/d', 'D', { vocabulary: 'loops', parent: 'loops/d' }),
+      tag('loops/e', 'E', { vocabulary: 'loops', parent: 'loops/a' }),
+      tag('loops/x', 'X', { vocabulary: 'loops', parent: 'loops/y' }),
+      tag('loops/y', 'Y', { vocabulary: 'loops', parent: 'loops/x' }),
+    );
+
+    try {
+      const result = await createCapability().getVocabulary({ vocabulary: { key: 'loops' } });
+
+      if (!result.success) {
+        assert.fail();
+      }
+      const reachable: string[] = [];
+      const walk = (terms: typeof result.value.terms) => {
+        for (const term of terms) {
+          reachable.push(term.identifier.key);
+          walk(term.children ?? []);
+        }
+      };
+      walk(result.value.terms);
+      expect(reachable.sort()).toEqual(['loops/a', 'loops/b', 'loops/c', 'loops/d', 'loops/e', 'loops/x', 'loops/y']);
+      // the whole tree is plain data, nothing circular reached the schema
+      expect(() => JSON.stringify(result.value)).not.toThrow();
+      // the term that would close a loop becomes a root, the others stay attached
+      expect(result.value.terms.map((t) => t.identifier.key)).toEqual(['loops/c', 'loops/d', 'loops/y']);
+    } finally {
+      tags.length = 0;
+      tags.push(...original);
+    }
+  });
+
   it('returns NotFound for a vocabulary without terms', async () => {
     const result = await createCapability().getVocabulary({ vocabulary: { key: 'unknown' } });
 
