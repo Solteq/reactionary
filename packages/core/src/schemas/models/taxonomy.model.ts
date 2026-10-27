@@ -13,6 +13,9 @@ export const ConceptSchema = BaseModelSchema.extend({
   name: z.string().meta({ description: 'The localized name of the concept.' }),
   synonyms: z.array(z.string()).optional().meta({ description: 'Localized alternative names of the concept, useful for search suggestions.' }),
   parent: ConceptIdentifierSchema.optional().meta({ description: 'The parent concept, if the concept is part of a hierarchy.' }),
+  notation: z.string().optional().meta({ description: 'A code that identifies the concept within its vocabulary, independent of language (SKOS notation).' }),
+  definition: z.string().optional().meta({ description: 'The localized definition of the concept (SKOS definition).' }),
+  related: z.array(ConceptIdentifierSchema).optional().meta({ description: 'Concepts that are associatively related to this one (SKOS related), not part of its hierarchy.' }),
   get children(): z.ZodOptional<z.ZodArray<typeof ConceptSchema>> {
     return z.array(ConceptSchema).optional().meta({ description: 'The child concepts. Only set where the concept is part of a vocabulary tree.' });
   },

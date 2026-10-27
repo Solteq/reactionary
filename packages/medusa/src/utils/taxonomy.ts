@@ -140,8 +140,9 @@ function asStringRecord(value: unknown): Record<string, string> | undefined {
 }
 
 /**
- * Maps a Medusa product tag to a concept. The id lives in external_id (or metadata.concept_id), the tag value is
- * the concept name and is translated by Medusa for the request locale. Tags without a concept id are no concepts.
+ * Maps a Medusa product tag to a concept. The id lives in external_id (or metadata.concept_id), the name comes
+ * from metadata.names for the request locale, then the tag value (translated by Medusa when it can). Tags
+ * without a concept id are no concepts.
  */
 export function parseTagAsConcept(tag: MedusaTag, locale: string): ProductConcept | undefined {
   const metadata = tag.metadata ?? {};
@@ -154,6 +155,7 @@ export function parseTagAsConcept(tag: MedusaTag, locale: string): ProductConcep
   const slug = slashIndex >= 0 ? id.slice(slashIndex + 1) : id;
   const name = pickMetadataName(metadata, locale) ?? asString(tag.value) ?? slug;
   const parent = asString(metadata['parent']);
+  const notation = asString(metadata['notation']);
 
   const concept: ProductConcept = {
     identifier: { key: id },
@@ -162,6 +164,9 @@ export function parseTagAsConcept(tag: MedusaTag, locale: string): ProductConcep
   };
   if (parent) {
     concept.parent = { key: parent };
+  }
+  if (notation) {
+    concept.notation = notation;
   }
   return concept;
 }
@@ -177,4 +182,39 @@ export function parseTagSynonyms(tag: MedusaTag, locale: string): string[] {
   const language = locale.split(/[-_]/)[0];
   const synonyms = parsed.data[locale] ?? parsed.data[language] ?? parsed.data['en'] ?? Object.values(parsed.data)[0];
   return synonyms ?? [];
+}
+
+/**
+ * The definition of a tag in the request locale, from the metadata.definition map: locale, language, then en.
+ * A plain string is taken as the definition for every locale.
+ */
+export function parseTagDefinition(tag: MedusaTag, locale: string): string | undefined {
+  const raw = tag.metadata?.['definition'];
+  if (typeof raw === 'string') {
+    return raw === '' ? undefined : raw;
+  }
+  const definitions = asStringRecord(raw);
+  if (!definitions) {
+    return undefined;
+  }
+  const language = locale.split(/[-_]/)[0];
+  return definitions[locale] || definitions[language] || definitions['en'] || undefined;
+}
+
+/**
+ * The ids of the concepts a tag is related to, from metadata.related. Entries that are not non-empty
+ * strings are ignored, as are duplicates and a reference to the concept itself.
+ */
+export function parseTagRelated(tag: MedusaTag, conceptId: string): string[] {
+  const raw = tag.metadata?.['related'];
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const related: string[] = [];
+  for (const entry of raw) {
+    if (typeof entry === 'string' && entry !== '' && entry !== conceptId && !related.includes(entry)) {
+      related.push(entry);
+    }
+  }
+  return related;
 }

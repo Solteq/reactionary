@@ -106,6 +106,7 @@ export const ProductConceptSchema = z.looseObject({
     vocabulary: z.string().meta({ description: 'The vocabulary the concept belongs to, e.g. "features".' }),
     name: z.string().meta({ description: 'The localized name of the concept.' }),
     parent: ConceptIdentifierSchema.optional().meta({ description: 'The parent concept, if the concept is part of a hierarchy.' }),
+    notation: z.string().optional().meta({ description: 'A code that identifies the concept within its vocabulary, independent of language.' }),
 });
 
 /**
