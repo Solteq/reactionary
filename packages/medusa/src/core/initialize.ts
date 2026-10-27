@@ -29,6 +29,8 @@ import {
   PersonalizationProfileSchema,
   ShippingMethodSchema,
   StoreSchema,
+  TermSchema,
+  VocabularySchema,
 } from '@reactionary/core';
 import { MedusaCartCapability } from '../capabilities/cart.capability.js';
 import { MedusaCategoryCapability } from '../capabilities/category.capability.js';
@@ -49,6 +51,7 @@ import { MedusaProductAssociationsCapability } from '../capabilities/product-ass
 import { MedusaProfileCapability } from '../capabilities/profile.capability.js';
 import { MedusaPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
 import { MedusaStoreCapability } from '../capabilities/store.capability.js';
+import { MedusaTaxonomyCapability } from '../capabilities/taxonomy.capability.js';
 import {
   MedusaCapabilitiesSchema,
   type MedusaCapabilities,
@@ -76,6 +79,7 @@ import {
   MedusaProfileFactory,
   MedusaPersonalizationProfileFactory,
   MedusaStoreFactory,
+  MedusaTaxonomyFactory,
 } from '../factories/index.js';
 import {
   type MedusaClientFromCapabilities,
@@ -435,6 +439,24 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
           factory: new MedusaStoreFactory(StoreSchema),
           capability: (args) =>
             new MedusaStoreCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.medusaApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.taxonomy?.enabled) {
+      client.taxonomy = resolveCapabilityWithFactory(
+        capabilities.taxonomy,
+        {
+          factory: new MedusaTaxonomyFactory(TermSchema, VocabularySchema),
+          capability: (args) =>
+            new MedusaTaxonomyCapability(
               args.config,
               args.cache,
               args.context,

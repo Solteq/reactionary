@@ -52,6 +52,9 @@ import type {
   StoreFactory,
   StoreFactoryWithOutput,
   StoreCapability,
+  TaxonomyFactory,
+  TaxonomyFactoryWithOutput,
+  TaxonomyCapability,
   RequestContext,
   Cache,
 } from '@reactionary/core';
@@ -88,6 +91,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
   personalizationProfile: true,
   company: true,
   store: true,
+  taxonomy: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -109,6 +113,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     productRecommendations: DirectCapabilitySchema.optional(),
     personalizationProfile: OverridableCapabilitySchema.optional(),
     store: OverridableCapabilitySchema.optional(),
+    taxonomy: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -226,6 +231,11 @@ export type MedusaStoreCapabilityConfig = MedusaCapabilityConfig<
   StoreCapability
 >;
 
+export type MedusaTaxonomyCapabilityConfig = MedusaCapabilityConfig<
+  TaxonomyFactoryWithOutput<TaxonomyFactory>,
+  TaxonomyCapability
+>;
+
 export type MedusaCapabilities<
   TProductFactory extends ProductFactory = ProductFactory,
   TProductCapability extends ProductCapability = ProductCapability,
@@ -263,6 +273,8 @@ export type MedusaCapabilities<
   TCompanyRegistrationCapability extends CompanyRegistrationCapability = CompanyRegistrationCapability,
   TStoreFactory extends StoreFactory = StoreFactory,
   TStoreCapability extends StoreCapability = StoreCapability,
+  TTaxonomyFactory extends TaxonomyFactory = TaxonomyFactory,
+  TTaxonomyCapability extends TaxonomyCapability = TaxonomyCapability,
 > = {
   product?: MedusaCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MedusaCapabilityConfig<
@@ -313,6 +325,7 @@ export type MedusaCapabilities<
     TPersonalizationProfileCapability
   >;
   store?: MedusaCapabilityConfig<StoreFactoryWithOutput<TStoreFactory>, TStoreCapability>;
+  taxonomy?: MedusaCapabilityConfig<TaxonomyFactoryWithOutput<TTaxonomyFactory>, TTaxonomyCapability>;
 };
 
 export type ParsedMedusaCapabilities = z.infer<typeof MedusaCapabilitiesSchema>;

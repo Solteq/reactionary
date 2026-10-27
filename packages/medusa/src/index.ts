@@ -24,3 +24,4 @@ export * from './capabilities/checkout.capability.js';
 export * from './capabilities/product.capability.js';
 export * from './capabilities/personalization-profile.capability.js';
 export * from './capabilities/store.capability.js';
+export * from './capabilities/taxonomy.capability.js';
