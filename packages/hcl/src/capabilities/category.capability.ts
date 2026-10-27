@@ -110,7 +110,13 @@ export class HclCategoryCapability<
       });
     }
 
-    return success(this.factory.parseCategory(this.context, data));
+    return success(
+      this.factory.parseCategory(this.context, {
+        ...data,
+        // SEO data only comes with the URL token, so it is only available on lookups by slug.
+        seoPage: token.page,
+      }),
+    );
   }
 
   @Reactionary({

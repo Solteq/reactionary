@@ -15,6 +15,7 @@ import {
 } from '@reactionary/core';
 import type * as z from 'zod';
 import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
+import { parseCommercetoolsSeo } from '../../core/seo-utils.js';
 
 export class CommercetoolsCategoryFactory<
   TCategorySchema extends AnyCategorySchema = typeof CategorySchema,
@@ -59,6 +60,7 @@ export class CommercetoolsCategoryFactory<
           height: asset.sources[0].dimensions?.h || 0,
           width: asset.sources[0].dimensions?.w || 0,
         })),
+      seo: parseCommercetoolsSeo(localeStr, data),
     } satisfies Category;
 
     return this.categorySchema.parse(result);
