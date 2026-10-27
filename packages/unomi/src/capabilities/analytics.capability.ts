@@ -17,8 +17,8 @@ import {
 } from '@reactionary/core';
 import { hash } from 'node:crypto';
 import { UnomiAPI } from '../core/client.js';
-import { conceptItemId, selectInterestConcepts, type InterestConcept } from '../core/concept-interest.js';
-import type { UnomiConfiguration } from '../schema/configuration.schema.js';
+import { conceptItemId, contentInterestConcepts, mapLimit, selectInterestConcepts, type InterestConcept } from '../core/concept-interest.js';
+import { UnomiConfigurationSchema, type UnomiConfiguration, type UnomiConfigurationInput } from '../schema/configuration.schema.js';
 
 interface UnomiEvent {
   eventType: string;
@@ -55,14 +55,15 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
   public readonly purpose: AnalyticsPurpose = 'marketing';
 
   protected readonly api: UnomiAPI;
+  protected readonly config: UnomiConfiguration;
 
-  constructor(
-    cache: Cache,
-    context: RequestContext,
-    protected readonly config: UnomiConfiguration,
-  ) {
+  /**
+   * The configuration may leave out the keys that have a default, the defaults are applied here.
+   */
+  constructor(cache: Cache, context: RequestContext, config: UnomiConfigurationInput) {
     super(cache, context);
-    this.api = new UnomiAPI(config, context);
+    this.config = UnomiConfigurationSchema.parse(config);
+    this.api = new UnomiAPI(this.config, context);
   }
 
   protected override getResourceName(): string {
@@ -70,16 +71,17 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
   }
 
   public async handle(event: AnalyticsEvent, ctx: AnalyticsContext): Promise<AnalyticsOutcome | void> {
-    const events = await this.toUnomiEvents(event, ctx);
-    if (events.length === 0) {
-      return 'ignored';
-    }
-
     // A login is sent on the profile the visitor had before it, so Unomi can merge it with the logged in one.
     const profileId = event.type === 'user-logged-in'
       ? (event.payload.previousMarketingId?.key || event.context.marketingIdentifier.key)
       : event.context.marketingIdentifier.key;
+    // without a profile there is nothing to attribute to, and nothing worth looking products up for
     if (!profileId) {
+      return 'ignored';
+    }
+
+    const events = await this.toUnomiEvents(event, ctx);
+    if (events.length === 0) {
       return 'ignored';
     }
 
@@ -104,40 +106,38 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
     if (!this.config.conceptInterest) {
       return [];
     }
+    const perEvent = this.config.maxConceptsPerEvent;
+    const perOrder = this.config.maxConceptsPerOrder;
     try {
       switch (event.type) {
         case 'product-viewed':
-          return this.interestEvents('product_view', await this.productInterest([event.payload.product], ctx, this.config.maxConceptsPerEvent), { productId: productKey(event.payload.product) });
+          return perEvent > 0
+            ? this.interestEvents('product_view', await this.productInterest([event.payload.product], ctx, perEvent), { productId: productKey(event.payload.product) })
+            : [];
         case 'product-clicked':
-          return this.interestEvents('product_click', await this.productInterest([event.payload.product], ctx, this.config.maxConceptsPerEvent), { productId: productKey(event.payload.product) });
+          return perEvent > 0
+            ? this.interestEvents('product_click', await this.productInterest([event.payload.product], ctx, perEvent), { productId: productKey(event.payload.product) })
+            : [];
         case 'cart-item-added': {
           const line = event.payload.cart.items.find((item) => item.variant.sku === event.payload.variant.sku);
-          return line ? this.interestEvents('add_to_cart', await this.productInterest([line.product], ctx, this.config.maxConceptsPerEvent), { productId: line.product.key }) : [];
+          return line && perEvent > 0
+            ? this.interestEvents('add_to_cart', await this.productInterest([line.product], ctx, perEvent), { productId: line.product.key })
+            : [];
         }
         case 'order-placed': {
           const placed = summarizePlacedOrder(event.payload);
-          if (!placed) {
+          if (!placed || perOrder <= 0) {
             return [];
           }
-          // the lines of an order only carry the variant, so the products are found by sku, once per sku
-          const variants = new Map<string, ProductVariantIdentifier>();
-          for (const item of placed.items) {
-            variants.set(item.variant.sku, item.variant);
-          }
-          const looked = await Promise.all([...variants.values()].map((variant) => ctx.products.bySku(variant)));
-          return this.interestEvents(
-            'purchase',
-            selectInterestConcepts(
-              looked.map((result) => (result.success ? result.value.concepts : undefined)),
-              { vocabularies: this.config.conceptInterestVocabularies, max: this.config.maxConceptsPerOrder },
-            ),
-            { orderId: placed.transactionId },
-          );
+          return this.interestEvents('purchase', await this.orderInterest(placed.items.map((item) => item.variant), ctx, event.type, perOrder), {
+            orderId: placed.transactionId,
+          });
         }
         case 'content-viewed': {
-          const concepts = selectInterestConcepts([event.payload.concepts.map(toProductConcept)], {
+          // the caller names the direct concepts of the content, most important first, that order is kept
+          const concepts = contentInterestConcepts(event.payload.concepts, {
             vocabularies: this.config.conceptInterestVocabularies,
-            max: this.config.maxConceptsPerEvent,
+            max: perEvent,
           });
           return this.interestEvents('content_view', concepts, {
             contentId: event.payload.content.key,
@@ -147,9 +147,48 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
         default:
           return [];
       }
-    } catch {
+    } catch (cause) {
+      this.warnConceptInterest(event.type, cause);
       return [];
     }
+  }
+
+  /**
+   * Interest is an enrichment, so a failure sends the event without it. It is logged, once per failure, with the
+   * type of the event and the kind of error only: neither the payload nor ids go into the log.
+   */
+  protected warnConceptInterest(eventType: string, cause: unknown): void {
+    console.warn(`Unomi concept interest left out of ${eventType}: ${cause instanceof Error ? cause.name : 'unknown error'}`);
+  }
+
+  /**
+   * The interest concepts of the lines of an order. The lines only carry the variant, so the products are found by
+   * sku, each distinct sku once and at most five at a time. A sku that cannot be looked up only leaves out its own
+   * concepts. A line counts for the concepts of its product, so a concept on more lines ranks higher.
+   */
+  protected async orderInterest(
+    variants: ProductVariantIdentifier[],
+    ctx: AnalyticsContext,
+    eventType: string,
+    max: number,
+  ): Promise<InterestConcept[]> {
+    const distinct = new Map<string, ProductVariantIdentifier>();
+    for (const variant of variants) {
+      distinct.set(variant.sku, variant);
+    }
+    const found = new Map<string, ProductConcept[] | undefined>();
+    await mapLimit([...distinct.values()], 5, async (variant) => {
+      try {
+        const result = await ctx.products.bySku(variant);
+        found.set(variant.sku, result.success ? result.value.concepts : undefined);
+      } catch (cause) {
+        this.warnConceptInterest(eventType, cause);
+      }
+    });
+    return selectInterestConcepts(
+      variants.map((variant) => found.get(variant.sku)),
+      { vocabularies: this.config.conceptInterestVocabularies, max },
+    );
   }
 
   /**
@@ -298,16 +337,4 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
       throw new Error(`Unomi event request failed with status ${response.status}`);
     }
   }
-}
-
-/**
- * A concept id from a payload as the minimal concept the selection works on: no parents, so all are direct.
- */
-function toProductConcept(id: string): ProductConcept {
-  const separator = id.indexOf('/');
-  return {
-    identifier: { key: id },
-    vocabulary: separator > 0 ? id.slice(0, separator) : '',
-    name: id,
-  };
 }

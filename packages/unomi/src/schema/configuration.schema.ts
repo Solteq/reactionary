@@ -9,8 +9,8 @@ export const UnomiConfigurationSchema = z.looseObject({
   scope: z.string().default('default'),
   conceptInterest: z.boolean().default(true).meta({ description: 'Send a concept_interest event per taxonomy concept next to the product and content events, so the CDP can build concept affinities. Nothing extra is sent when there are no concepts.' }),
   conceptInterestVocabularies: z.array(z.string()).optional().meta({ description: 'Only the concepts of these vocabularies are sent as interest. Defaults to all vocabularies.' }),
-  maxConceptsPerEvent: z.int().min(0).default(5).meta({ description: 'The most concept_interest events sent for one product or content event, the most specific concepts first.' }),
-  maxConceptsPerOrder: z.int().min(0).default(10).meta({ description: 'The most concept_interest events sent for one order, in total over all its lines.' }),
+  maxConceptsPerEvent: z.int().min(0).default(5).meta({ description: 'The most concept_interest events sent for one product or content event. Of a product the most specific concepts come first, of content the concepts in the order the caller gave them. 0 sends none.' }),
+  maxConceptsPerOrder: z.int().min(0).default(10).meta({ description: 'The most concept_interest events sent for one order, in total over all its lines, the most specific and most frequent concepts first. 0 sends none.' }),
   encodeConceptIdSlash: z.boolean().default(false).meta({ description: 'Encode the slash of a concept id as __ in the itemId of concept_interest events, for a CDP that cannot take a slash in an id. Concept ids stay vocabulary/slug everywhere else.' }),
 });
 

@@ -18,18 +18,50 @@ function vocabularyOf(concept: Pick<ProductConcept, 'identifier' | 'vocabulary'>
   return separator > 0 ? concept.identifier.key.slice(0, separator) : '';
 }
 
+interface Candidate extends InterestConcept {
+  /** The number of lists (the lines of an order) the concept is a direct concept of. */
+  frequency: number;
+  order: number;
+}
+
 /**
- * Picks the concepts to record as interest from the concepts of products.
+ * Puts the candidates of one tier (equal depth and frequency) in the order they first appeared in, but takes them
+ * round robin across the vocabularies, so that a cap that bites does not favour one vocabulary.
+ */
+function interleaveByVocabulary(tier: Candidate[]): Candidate[] {
+  const byVocabulary = new Map<string, Candidate[]>();
+  for (const candidate of tier) {
+    const group = byVocabulary.get(candidate.vocabulary) ?? [];
+    group.push(candidate);
+    byVocabulary.set(candidate.vocabulary, group);
+  }
+  const groups = [...byVocabulary.values()];
+  const result: Candidate[] = [];
+  for (let round = 0; result.length < tier.length; round++) {
+    for (const group of groups) {
+      if (round < group.length) {
+        result.push(group[round]);
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Picks the concepts to record as interest from the concepts of products. Each list is the Product.concepts of a
+ * product, an order passes one list per line.
  *
  * Product.concepts holds the closure over the ancestors, only the direct concepts are interest, the broader ones
- * are expanded when the interest is read. The concepts of several products (an order) are de-duplicated. The
- * result is ordered most specific first (the deepest parent chain), then by id, so it is deterministic, and capped.
+ * are expanded when the interest is read. The concepts are ordered by how specific they are (the deepest parent
+ * chain first), then by how many lists they are a direct concept of (an order: the concept of more lines first).
+ * Within equal depth and frequency the vocabularies take turns in the order of first appearance, so a cap does
+ * not favour one vocabulary. The result is deterministic and capped.
  */
 export function selectInterestConcepts(
   conceptLists: Array<ProductConcept[] | undefined>,
   options: { vocabularies?: string[]; max: number },
 ): InterestConcept[] {
-  const best = new Map<string, InterestConcept>();
+  const candidates = new Map<string, Candidate>();
 
   for (const concepts of conceptLists) {
     if (!Array.isArray(concepts) || concepts.length === 0) {
@@ -59,16 +91,71 @@ export function selectInterestConcepts(
         continue;
       }
       const depth = depthOf(id);
-      const known = best.get(id);
-      if (!known || known.depth < depth) {
-        best.set(id, { id, vocabulary, depth });
+      const known = candidates.get(id);
+      if (known) {
+        known.frequency += 1;
+        known.depth = Math.max(known.depth, depth);
+      } else {
+        candidates.set(id, { id, vocabulary, depth, frequency: 1, order: candidates.size });
       }
     }
   }
 
-  return [...best.values()]
-    .sort((a, b) => b.depth - a.depth || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-    .slice(0, Math.max(0, options.max));
+  const tiers = new Map<string, Candidate[]>();
+  const sorted = [...candidates.values()].sort((a, b) => b.depth - a.depth || b.frequency - a.frequency || a.order - b.order);
+  for (const candidate of sorted) {
+    const key = `${candidate.depth}:${candidate.frequency}`;
+    const tier = tiers.get(key) ?? [];
+    tier.push(candidate);
+    tiers.set(key, tier);
+  }
+
+  return [...tiers.values()]
+    .flatMap(interleaveByVocabulary)
+    .slice(0, Math.max(0, options.max))
+    .map(({ id, vocabulary, depth }) => ({ id, vocabulary, depth }));
+}
+
+/**
+ * The longest concept id taken from content.
+ */
+export const MAX_CONCEPT_ID_LENGTH = 128;
+
+const CONCEPT_ID_PATTERN = /^[a-z0-9_-]+\/[a-z0-9_-]+$/;
+
+/**
+ * A concept id as the sender accepts it: trimmed, lowercase, vocabulary/slug with letters, digits, _ and -.
+ * Anything else (no slash, a dot in the slug, an empty or over-long id) is not a concept id and gives undefined.
+ */
+export function normalizeConceptId(raw: string): string | undefined {
+  const id = raw.trim().toLowerCase();
+  return id.length <= MAX_CONCEPT_ID_LENGTH && CONCEPT_ID_PATTERN.test(id) ? id : undefined;
+}
+
+/**
+ * The interest concepts of content. The caller names the concepts of the content, most important first, and
+ * knows which are direct, so the order of the caller is kept and the cap is applied in that order. Ids that are not
+ * valid are dropped and duplicates only count once.
+ */
+export function contentInterestConcepts(
+  ids: string[],
+  options: { vocabularies?: string[]; max: number },
+): InterestConcept[] {
+  const seen = new Set<string>();
+  const result: InterestConcept[] = [];
+  for (const raw of ids) {
+    const id = typeof raw === 'string' ? normalizeConceptId(raw) : undefined;
+    if (!id || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    const vocabulary = id.slice(0, id.indexOf('/'));
+    if (options.vocabularies && !options.vocabularies.includes(vocabulary)) {
+      continue;
+    }
+    result.push({ id, vocabulary, depth: 0 });
+  }
+  return result.slice(0, Math.max(0, options.max));
 }
 
 /**
@@ -76,4 +163,20 @@ export function selectInterestConcepts(
  */
 export function conceptItemId(id: string, encodeSlash: boolean): string {
   return encodeSlash ? id.replace('/', '__') : id;
+}
+
+/**
+ * Runs the function over the items with at most `limit` running at the same time, results in input order.
+ */
+export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const position = next++;
+      results[position] = await fn(items[position]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), items.length) }, worker));
+  return results;
 }
