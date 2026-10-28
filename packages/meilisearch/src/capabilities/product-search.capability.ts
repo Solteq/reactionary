@@ -59,21 +59,32 @@ export class MeilisearchProductSearchCapability<
     this.facetPolicy = createSearchFacetPolicy(config.facets);
   }
 
+  /**
+   * Escapes a value for use between double quotes in a Meilisearch filter expression. A backslash escapes the
+   * following character inside a quoted string, so both the backslash and the double quote must be escaped, or the
+   * value can close the string and append filter clauses of its own.
+   */
+  protected escapeFilterValue(value: string): string {
+    return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
   protected queryByTermPayload(payload: ProductSearchQueryByTerm) {
 
     const facetsThatAreNotCategory = payload.search.facets.filter(x => x.facet.key !== 'categories');
     const categoryFacet = payload.search.facets.find(x => x.facet.key === 'categories') || payload.search.categoryFilter;
 
-    const finalFilters: string[] = [...payload.search.filters || []];
+    // Each filter is a complete expression. Parenthesised, so that an OR in one cannot take over the AND that joins it to
+    // the restrictions below.
+    const finalFilters: string[] = (payload.search.filters || []).map((f) => `(${f})`);
 
     const finalFacetFilters: string[] = [
       ...facetsThatAreNotCategory.map(
-        (x) => `"${x.facet.key}"="${x.key}"`
+        (x) => `"${this.escapeFilterValue(x.facet.key)}"="${this.escapeFilterValue(x.key)}"`
       ),
     ];
 
     if (categoryFacet) {
-      finalFilters.push(`categories = "${categoryFacet.key}"`);
+      finalFilters.push(`categories = "${this.escapeFilterValue(categoryFacet.key)}"`);
     }
 
     // Combine all filters
