@@ -89,6 +89,29 @@ describe('Fake Cart Provider', () => {
       expect(updatedCart.value.items.length).toBe(1);
       expect(updatedCart.value.items[0].variant.sku).toBe(testData.skuWithoutTiers);
       expect(updatedCart.value.items[0].quantity).toBe(3);
+
+      const reloaded = await provider.getById({ cart: cart.value.identifier });
+      if (!reloaded.success) {
+        assert.fail(JSON.stringify(reloaded.error));
+      }
+      expect(reloaded.value.items[0].quantity).toBe(3);
+      expect(reloaded.value.price.grandTotal.value).toBe(
+        reloaded.value.items[0].price.unitPrice.value * 3,
+      );
+    });
+
+    it('should return NotFound when changing quantity in a missing cart', async () => {
+      const result = await provider.changeQuantity({
+        cart: { key: 'missing-cart' },
+        item: { key: 'missing-item' },
+        quantity: 2,
+      });
+
+      expect(result.success).toBe(false);
+      if (result.success) {
+        assert.fail();
+      }
+      expect(result.error.type).toBe('NotFound');
     });
 
     it('should be able to remove an item from a cart', async () => {
@@ -115,6 +138,52 @@ describe('Fake Cart Provider', () => {
 
       expect(updatedCart.value.identifier.key).toBe(cart.value.identifier.key);
       expect(updatedCart.value.items.length).toBe(0);
+
+      const reloaded = await provider.getById({ cart: cart.value.identifier });
+      if (!reloaded.success) {
+        assert.fail(JSON.stringify(reloaded.error));
+      }
+      expect(reloaded.value.items.length).toBe(0);
+      expect(reloaded.value.price.grandTotal.value).toBe(0);
+    });
+
+    it('should return NotFound when removing from a missing cart', async () => {
+      const result = await provider.remove({
+        cart: { key: 'missing-cart' },
+        item: { key: 'missing-item' },
+      });
+
+      expect(result.success).toBe(false);
+      if (result.success) {
+        assert.fail();
+      }
+      expect(result.error.type).toBe('NotFound');
+    });
+
+    it('should be able to delete a cart', async () => {
+      const cart = await provider.add({
+        cart: { key: 'test-cart' },
+        variant: {
+          sku: testData.skuWithoutTiers,
+        },
+        quantity: 1,
+      });
+
+      if (!cart.success) {
+        assert.fail(JSON.stringify(cart.error));
+      }
+
+      const result = await provider.deleteCart({ cart: cart.value.identifier });
+      if (!result.success) {
+        assert.fail(JSON.stringify(result.error));
+      }
+
+      const reloaded = await provider.getById({ cart: cart.value.identifier });
+      expect(reloaded.success).toBe(false);
+      if (reloaded.success) {
+        assert.fail();
+      }
+      expect(reloaded.error.type).toBe('NotFound');
     });
   });
 
