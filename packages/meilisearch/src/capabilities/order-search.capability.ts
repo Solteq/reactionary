@@ -65,6 +65,15 @@ export class MeilisearchOrderSearchCapability<
     this.factory = factory;
   }
 
+  /**
+   * Escapes a value for use between double quotes in a Meilisearch filter expression. A backslash escapes the
+   * following character inside a quoted string, so both the backslash and the double quote must be escaped, or the
+   * value can close the string and append filter clauses of its own.
+   */
+  protected escapeFilterValue(value: string): string {
+    return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
   protected queryByTermPayload(payload: OrderSearchQueryByTerm): SearchParams {
 
     const filters: string[] = [];
@@ -79,7 +88,7 @@ export class MeilisearchOrderSearchCapability<
 
     // Add user ID filter for B2B use cases with hierarchical order access
     if (payload.search.user) {
-      filters.push(`userIdentifier = "${payload.search.user.userId}"`);
+      filters.push(`userIdentifier = "${this.escapeFilterValue(payload.search.user.userId)}"`);
     }
 
     // Add date range filters
@@ -93,7 +102,7 @@ export class MeilisearchOrderSearchCapability<
 
     if (payload.search.partNumber && payload.search.partNumber.length > 0) {
       const partNumberFilters = payload.search.partNumber
-        .map((partNumber) => `items.sku = "${partNumber}"`)
+        .map((partNumber) => `items.sku = "${this.escapeFilterValue(partNumber)}"`)
         .join(' OR ');
       filters.push(`(${partNumberFilters})`);
     }
