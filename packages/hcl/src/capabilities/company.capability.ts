@@ -16,6 +16,7 @@ import {
   CompanyMutationUpdateShippingAddressSchema,
   type CompanyPaginatedList,
   CompanyPaginatedListSchema,
+  CompanySchema,
   type CompanyQueryById,
   CompanyQueryByIdSchema,
   type CompanyQueryList,
@@ -65,7 +66,7 @@ export class HclCompanyCapability<
 
   @Reactionary({
     inputSchema: CompanyQueryByIdSchema,
-    outputSchema: CompanyPaginatedListSchema,
+    outputSchema: CompanySchema,
   })
   public override async getById(
     payload: CompanyQueryById,
@@ -126,7 +127,7 @@ export class HclCompanyCapability<
 
   @Reactionary({
     inputSchema: CompanyMutationAddShippingAddressSchema,
-    outputSchema: CompanyPaginatedListSchema,
+    outputSchema: CompanySchema,
   })
   public override async addShippingAddress(
     payload: CompanyMutationAddShippingAddress,
@@ -164,7 +165,7 @@ export class HclCompanyCapability<
 
   @Reactionary({
     inputSchema: CompanyMutationUpdateShippingAddressSchema,
-    outputSchema: CompanyPaginatedListSchema,
+    outputSchema: CompanySchema,
   })
   public override async updateShippingAddress(
     payload: CompanyMutationUpdateShippingAddress,
@@ -214,7 +215,7 @@ export class HclCompanyCapability<
 
   @Reactionary({
     inputSchema: CompanyMutationRemoveShippingAddressSchema,
-    outputSchema: CompanyPaginatedListSchema,
+    outputSchema: CompanySchema,
   })
   public override async removeShippingAddress(
     payload: CompanyMutationRemoveShippingAddress,
@@ -262,7 +263,7 @@ export class HclCompanyCapability<
 
   @Reactionary({
     inputSchema: CompanyMutationMakeShippingAddressDefaultSchema,
-    outputSchema: CompanyPaginatedListSchema,
+    outputSchema: CompanySchema,
   })
   public override async makeShippingAddressDefault(
     payload: CompanyMutationMakeShippingAddressDefault,
