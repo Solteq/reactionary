@@ -74,9 +74,87 @@ export class MeilisearchOrderSearchCapability<
     return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
 
-  protected queryByTermPayload(payload: OrderSearchQueryByTerm): SearchParams {
+  /**
+   * The users whose orders the search is restricted to, or undefined when the current session may not search the
+   * requested orders at all.
+   *
+   * By default a search is scoped to the signed-in user. A search naming another user, or made without being signed in,
+   * is not permitted: the order index holds every user's orders, so the caller's own claim about whose orders to list
+   * cannot be trusted. `search.company` is not honoured either, as the order index has no company to filter on.
+   *
+   * Override to let a session search more widely, for example a B2B buyer who may see the orders of their company, and
+   * do the authorisation check there.
+   */
+  protected async resolveScopedUserIds(payload: OrderSearchQueryByTerm): Promise<string[] | undefined> {
+    const identity = this.context.session.identityContext.identity;
+    if (identity.type !== 'Registered' || identity.id.userId === '') {
+      return undefined;
+    }
+
+    const requestedUserId = payload.search.user?.userId;
+    if (requestedUserId !== undefined && requestedUserId !== identity.id.userId) {
+      return undefined;
+    }
+
+    return [identity.id.userId];
+  }
+
+  /**
+   * Whether a caller supplied filter expression stays within its own parentheses. A filter that closes more
+   * parentheses than it opens, or leaves a quote open, could end the group it is wrapped in and add an OR of its own
+   * next to the user restriction.
+   */
+  protected isContainedFilterExpression(filter: string): boolean {
+    const structure = filter.replace(/"(?:[^"\\]|\\.)*"/g, '');
+    if (structure.includes('"')) {
+      return false;
+    }
+
+    let depth = 0;
+    for (const character of structure) {
+      if (character === '(') {
+        depth += 1;
+      } else if (character === ')') {
+        depth -= 1;
+        if (depth < 0) {
+          return false;
+        }
+      }
+    }
+    return depth === 0;
+  }
+
+  protected emptyResult(payload: OrderSearchQueryByTerm): OrderSearchResult {
+    return {
+      identifier: { ...payload.search } satisfies OrderSearchIdentifier,
+      pageNumber: payload.search.paginationOptions.pageNumber,
+      pageSize: payload.search.paginationOptions.pageSize,
+      totalCount: 0,
+      totalPages: 0,
+      items: [],
+    } satisfies OrderSearchResult;
+  }
+
+  /**
+   * @param scopedUserIds The users whose orders may be searched, as resolved by resolveScopedUserIds().
+   */
+  protected queryByTermPayload(payload: OrderSearchQueryByTerm, scopedUserIds: string[]): SearchParams {
 
     const filters: string[] = [];
+
+    // Always restrict to the users the session is allowed to see. When there are none, or a supplied filter is not
+    // contained, the filter matches nothing, so that a caller of this method cannot end up with an unscoped search.
+    const suppliedFilters = payload.search.filters ?? [];
+    const isPermitted =
+      scopedUserIds.length > 0 && suppliedFilters.every((filter) => this.isContainedFilterExpression(filter));
+    if (isPermitted) {
+      const userFilters = scopedUserIds
+        .map((userId) => `userIdentifier = "${this.escapeFilterValue(userId)}"`)
+        .join(' OR ');
+      filters.push(scopedUserIds.length > 1 ? `(${userFilters})` : userFilters);
+    } else {
+      filters.push('(userIdentifier = "" AND userIdentifier != "")');
+    }
 
     // Add status filter
     if (payload.search.orderStatus && payload.search.orderStatus.length > 0) {
@@ -84,11 +162,6 @@ export class MeilisearchOrderSearchCapability<
         .map((status) => `orderStatus = "${this.escapeFilterValue(this.mapOrderStatus(status))}"`)
         .join(' OR ');
       filters.push(`(${statusFilters})`);
-    }
-
-    // Add user ID filter for B2B use cases with hierarchical order access
-    if (payload.search.user) {
-      filters.push(`userIdentifier = "${this.escapeFilterValue(payload.search.user.userId)}"`);
     }
 
     // Add date range filters
@@ -105,6 +178,14 @@ export class MeilisearchOrderSearchCapability<
         .map((partNumber) => `items.sku = "${this.escapeFilterValue(partNumber)}"`)
         .join(' OR ');
       filters.push(`(${partNumberFilters})`);
+    }
+
+    // Each filter is a complete expression, parenthesised so that an OR in one cannot take over the AND that joins it to
+    // the user restriction.
+    if (isPermitted) {
+      for (const filter of suppliedFilters) {
+        filters.push(`(${filter})`);
+      }
     }
 
     const searchOptions: SearchParams = {
@@ -125,6 +206,16 @@ export class MeilisearchOrderSearchCapability<
   public async queryByTerm(
     payload: OrderSearchQueryByTerm,
   ): Promise<Result<OrderSearchFactoryOutput<TFactory>>> {
+    const scopedUserIds = await this.resolveScopedUserIds(payload);
+    const filtersAreContained = (payload.search.filters ?? []).every((filter) =>
+      this.isContainedFilterExpression(filter),
+    );
+    if (!scopedUserIds || scopedUserIds.length === 0 || !filtersAreContained) {
+      return success(
+        this.factory.parseOrderSearchResult(this.context, this.emptyResult(payload), payload),
+      );
+    }
+
     const client = new Meilisearch({
       host: this.config.apiUrl,
       apiKey: this.config.apiKey,
@@ -135,7 +226,7 @@ export class MeilisearchOrderSearchCapability<
 
     const remote = await index.search<MeilisearchNativeOrderRecord>(
       payload.search.term || '',
-      this.queryByTermPayload(payload)
+      this.queryByTermPayload(payload, scopedUserIds)
     );
 
     const result = this.parsePaginatedResult(remote, payload);
