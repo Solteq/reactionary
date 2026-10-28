@@ -81,7 +81,7 @@ export class MeilisearchOrderSearchCapability<
     // Add status filter
     if (payload.search.orderStatus && payload.search.orderStatus.length > 0) {
       const statusFilters = payload.search.orderStatus
-        .map((status) => `orderStatus = "${this.mapOrderStatus(status)}"`)
+        .map((status) => `orderStatus = "${this.escapeFilterValue(this.mapOrderStatus(status))}"`)
         .join(' OR ');
       filters.push(`(${statusFilters})`);
     }
