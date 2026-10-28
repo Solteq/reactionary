@@ -103,6 +103,7 @@ async function waitForReadyResponse(
         headers: {
           accept: 'application/json, text/event-stream',
           'content-type': 'application/json',
+          ...getAuthorizationHeader(),
         },
         body: JSON.stringify({
           jsonrpc: '2.0',
@@ -136,6 +137,12 @@ async function waitForReadyResponse(
   throw new Error(
     `Timed out waiting for Reactionary MCP server at ${url}: ${formatError(lastError)}`,
   );
+}
+
+function getAuthorizationHeader(): Record<string, string> {
+  const token = process.env['MCP_AUTH_TOKEN'];
+
+  return token ? { authorization: `Bearer ${token}` } : {};
 }
 
 function waitForEarlyExit(child: ChildProcess): Promise<never> {

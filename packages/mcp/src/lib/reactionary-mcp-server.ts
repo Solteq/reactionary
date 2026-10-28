@@ -1,7 +1,9 @@
 import {
   createMcpHandler,
   fromJsonSchema,
+  hostHeaderValidationResponse,
   McpServer,
+  originValidationResponse,
   type CallToolResult,
   type CreateMcpHandlerOptions,
   type GetPromptResult,
@@ -45,6 +47,23 @@ export interface ReactionaryMCPServerOptions
   version?: string;
   sessionCache?: Cache;
   sessionTtlSeconds?: number;
+  /**
+   * Hostnames (no port, IPv6 in brackets) accepted in the `Host` header. Requests for any other host are answered with 403.
+   * This is what stops DNS rebinding attacks against a locally reachable server. Not enforced unless set, so that hosts
+   * behind a custom domain keep working; servers reachable from a browser on the same machine should set it, for example
+   * to `localhostAllowedHostnames()` from `@modelcontextprotocol/server`.
+   */
+  allowedHostnames?: string[];
+  /**
+   * Hostnames (no scheme or port, IPv6 in brackets) accepted in the `Origin` header. Requests carrying any other origin are
+   * answered with 403. Requests without an `Origin` header (non-browser clients) pass. Not enforced unless set.
+   */
+  allowedOriginHostnames?: string[];
+  /**
+   * Decides whether a request may use the server, typically by checking its `Authorization` header. Runs after the host and
+   * origin checks and before any MCP handling. A request for which it returns false, or throws, is answered with 401.
+   */
+  authorize?: (request: Request) => boolean | Promise<boolean>;
   handler?: Pick<
     CreateMcpHandlerOptions,
     | 'bus'
@@ -75,17 +94,21 @@ export class ReactionaryMCPServer {
     );
   }
 
-  public fetch(
+  public async fetch(
     request: Request,
     options?: Parameters<McpHttpHandler['fetch']>[1],
   ): Promise<Response> {
+    const rejection = await this.rejectRequest(request);
+    if (rejection) {
+      return rejection;
+    }
+
     const sessionId = getOrCreateMcpSessionId(request);
     const sessionRequest = withMcpSessionId(request, sessionId);
 
-    return this.handler.fetch(sessionRequest, options).then((response) => {
-      response.headers.set(MCP_SESSION_ID_HEADER, sessionId);
-      return response;
-    });
+    const response = await this.handler.fetch(sessionRequest, options);
+    response.headers.set(MCP_SESSION_ID_HEADER, sessionId);
+    return response;
   }
 
   public getHandler(): McpHttpHandler {
@@ -108,6 +131,44 @@ export class ReactionaryMCPServer {
     return this.discoverToolsForClient(
       this.clientFactory(createInitialRequestContext()),
     );
+  }
+
+  /**
+   * Returns the response to answer with when the request must not reach the MCP handler, or undefined when it may proceed.
+   * Override to change how requests are screened.
+   */
+  protected async rejectRequest(request: Request): Promise<Response | undefined> {
+    const { allowedHostnames, allowedOriginHostnames } = this.options;
+
+    const rejection =
+      (allowedHostnames
+        ? hostHeaderValidationResponse(request, allowedHostnames)
+        : undefined) ??
+      (allowedOriginHostnames
+        ? originValidationResponse(request, allowedOriginHostnames)
+        : undefined);
+
+    if (rejection || !this.options.authorize) {
+      return rejection;
+    }
+
+    return (await this.isAuthorized(this.options.authorize, request))
+      ? undefined
+      : unauthorizedResponse();
+  }
+
+  private async isAuthorized(
+    authorize: NonNullable<ReactionaryMCPServerOptions['authorize']>,
+    request: Request,
+  ): Promise<boolean> {
+    try {
+      return await authorize(request);
+    } catch (error) {
+      this.options.handler?.onerror?.(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      return false;
+    }
   }
 
   private async createServer(sessionId: string | undefined): Promise<McpServer> {
@@ -264,6 +325,17 @@ class ReactionaryMCPSessionStore {
   private getDependencyId(sessionId: string): string {
     return `${SESSION_CACHE_KEY_PREFIX}:${sessionId}`;
   }
+}
+
+function unauthorizedResponse(): Response {
+  return Response.json(
+    {
+      jsonrpc: '2.0',
+      error: { code: -32000, message: 'Unauthorized' },
+      id: null,
+    },
+    { status: 401, headers: { 'www-authenticate': 'Bearer' } },
+  );
 }
 
 function getMcpSessionId(request: Request | undefined): string | undefined {
