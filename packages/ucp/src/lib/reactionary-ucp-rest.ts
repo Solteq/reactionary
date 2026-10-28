@@ -12,7 +12,7 @@ import type {
 import * as z from 'zod';
 import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPClient, UCPPaymentHandlers } from './reactionary-ucp-common.js';
-import { jsonResponse, secureEquals } from './reactionary-ucp-http.js';
+import { decodePathSegment, jsonResponse, secureEquals, UCPHttpError } from './reactionary-ucp-http.js';
 import { getOrder, notifyOrderPlaced, simulateShipping, UCPOrderUpdateSchema, updateOrder } from './reactionary-ucp-order.js';
 import type { ReactionaryUCPWebhooks } from './reactionary-ucp-webhooks.js';
 import type { ReactionaryUCPSessionStore } from './reactionary-ucp-session-store.js';
@@ -22,12 +22,23 @@ import {
   createCheckoutSession,
   getCheckoutSession,
   updateCheckoutSession,
-  type UCPCheckoutRequest,
   type UCPCheckoutSessionContext,
   type UCPInventoryOptions,
   type UCPPaymentAuthorizationWait,
   type UCPTestPaymentHandler,
 } from './reactionary-ucp-checkout-session.js';
+import {
+  UCPCartRequestSchema,
+  UCPCatalogGetProductRequestSchema,
+  UCPCatalogLookupRequestSchema,
+  UCPCatalogSearchRequestSchema,
+  UCPCheckoutRequestSchema,
+  type UCPCartRequest,
+  type UCPCatalogGetProductRequest,
+  type UCPCatalogLookupRequest,
+  type UCPCatalogSearchRequest,
+  type UCPLineItemRequest,
+} from './reactionary-ucp-requests.js';
 import {
   createUCPError,
   createUcpSuccessMetadata,
@@ -48,11 +59,8 @@ type UCPCart = Omit<components['schemas']['cart'], 'currency' | 'id' | 'line_ite
   ucp: components['schemas']['response_cart_schema'];
 };
 type UCPCartResponse = UCPCart | UCPErrorResponse;
-type UCPCatalogSearchRequest = components['schemas']['catalog_search_request'];
 type UCPCatalogSearchResponse = components['schemas']['catalog_search_response'];
-type UCPCatalogLookupRequest = components['schemas']['catalog_lookup_request'];
 type UCPCatalogLookupResponse = components['schemas']['catalog_lookup_response'];
-type UCPCatalogGetProductRequest = components['schemas']['catalog_get_product_request'];
 type UCPCatalogGetProductResponse = components['schemas']['catalog_get_product_response'];
 type UCPProduct = components['schemas']['product'];
 type UCPVariant = components['schemas']['variant'];
@@ -73,19 +81,19 @@ export async function handleRestRequest(
   });
 
   if (request.method === 'POST' && path === '/catalog/search') {
-    return jsonResponse(await handleCatalogSearch(client, await parseJsonBody<UCPCatalogSearchRequest>(request)));
+    return jsonResponse(await handleCatalogSearch(client, await parseJsonBody(request, UCPCatalogSearchRequestSchema)));
   }
 
   if (request.method === 'POST' && path === '/catalog/lookup') {
-    return jsonResponse(await handleCatalogLookup(client, await parseJsonBody<UCPCatalogLookupRequest>(request)));
+    return jsonResponse(await handleCatalogLookup(client, await parseJsonBody(request, UCPCatalogLookupRequestSchema)));
   }
 
   if (request.method === 'POST' && path === '/catalog/product') {
-    return jsonResponse(await handleCatalogProduct(client, await parseJsonBody<UCPCatalogGetProductRequest>(request)));
+    return jsonResponse(await handleCatalogProduct(client, await parseJsonBody(request, UCPCatalogGetProductRequestSchema)));
   }
 
   if (request.method === 'POST' && path === '/carts') {
-    const body = await parseJsonBody<UCPCart>(request);
+    const body = await parseJsonBody(request, UCPCartRequestSchema);
     return withRestIdempotency(
       request,
       sessionId,
@@ -106,17 +114,17 @@ export async function handleRestRequest(
 
   const cartMatch = /^\/carts\/([^/]+)$/.exec(path);
   if (cartMatch && request.method === 'GET') {
-    return jsonResponse(await handleGetCart(client, decodeURIComponent(cartMatch[1])));
+    return jsonResponse(await handleGetCart(client, decodePathSegment(cartMatch[1])));
   }
   if (cartMatch && request.method === 'PUT') {
-    const body = await parseJsonBody<UCPCart>(request);
+    const body = await parseJsonBody(request, UCPCartRequestSchema);
     return withRestIdempotency(
       request,
       sessionId,
-      `REST PUT /carts/${decodeURIComponent(cartMatch[1])}`,
+      `REST PUT /carts/${decodePathSegment(cartMatch[1])}`,
       body,
       sessionStore,
-      async () => jsonResponse(await handleUpdateCart(client, decodeURIComponent(cartMatch[1]), body)),
+      async () => jsonResponse(await handleUpdateCart(client, decodePathSegment(cartMatch[1]), body)),
     );
   }
 
@@ -125,15 +133,15 @@ export async function handleRestRequest(
     return withRestIdempotency(
       request,
       sessionId,
-      `REST POST /carts/${decodeURIComponent(cartCancelMatch[1])}/cancel`,
+      `REST POST /carts/${decodePathSegment(cartCancelMatch[1])}/cancel`,
       {},
       sessionStore,
-      async () => jsonResponse(await handleCancelCart(client, decodeURIComponent(cartCancelMatch[1]))),
+      async () => jsonResponse(await handleCancelCart(client, decodePathSegment(cartCancelMatch[1]))),
     );
   }
 
   if (request.method === 'POST' && path === '/checkout-sessions') {
-    const body = await parseJsonBody<UCPCheckoutRequest>(request);
+    const body = await parseJsonBody(request, UCPCheckoutRequestSchema);
     return withRestIdempotency(
       request,
       sessionId,
@@ -146,30 +154,30 @@ export async function handleRestRequest(
 
   const checkoutMatch = /^\/checkout-sessions\/([^/]+)$/.exec(path);
   if (checkoutMatch && request.method === 'GET') {
-    return checkoutResponse(await getCheckoutSession(checkoutContext, decodeURIComponent(checkoutMatch[1])));
+    return checkoutResponse(await getCheckoutSession(checkoutContext, decodePathSegment(checkoutMatch[1])));
   }
   if (checkoutMatch && request.method === 'PUT') {
-    const body = await parseJsonBody<UCPCheckoutRequest>(request);
+    const body = await parseJsonBody(request, UCPCheckoutRequestSchema);
     return withRestIdempotency(
       request,
       sessionId,
-      `REST PUT /checkout-sessions/${decodeURIComponent(checkoutMatch[1])}`,
+      `REST PUT /checkout-sessions/${decodePathSegment(checkoutMatch[1])}`,
       body,
       sessionStore,
-      async () => checkoutResponse(await updateCheckoutSession(checkoutContext, decodeURIComponent(checkoutMatch[1]), body)),
+      async () => checkoutResponse(await updateCheckoutSession(checkoutContext, decodePathSegment(checkoutMatch[1]), body)),
     );
   }
 
   const checkoutCompleteMatch = /^\/checkout-sessions\/([^/]+)\/complete$/.exec(path);
   if (checkoutCompleteMatch && request.method === 'POST') {
-    const body = await parseJsonBody<UCPCheckoutRequest>(request);
+    const body = await parseJsonBody(request, UCPCheckoutRequestSchema);
     return withRestIdempotency(
       request,
       sessionId,
-      `REST POST /checkout-sessions/${decodeURIComponent(checkoutCompleteMatch[1])}/complete`,
+      `REST POST /checkout-sessions/${decodePathSegment(checkoutCompleteMatch[1])}/complete`,
       body,
       sessionStore,
-      async () => checkoutResponse(await completeCheckoutSession(checkoutContext, decodeURIComponent(checkoutCompleteMatch[1]), body)),
+      async () => checkoutResponse(await completeCheckoutSession(checkoutContext, decodePathSegment(checkoutCompleteMatch[1]), body)),
     );
   }
 
@@ -178,26 +186,22 @@ export async function handleRestRequest(
     return withRestIdempotency(
       request,
       sessionId,
-      `REST POST /checkout-sessions/${decodeURIComponent(checkoutCancelMatch[1])}/cancel`,
+      `REST POST /checkout-sessions/${decodePathSegment(checkoutCancelMatch[1])}/cancel`,
       {},
       sessionStore,
-      async () => checkoutResponse(await cancelCheckoutSession(checkoutContext, decodeURIComponent(checkoutCancelMatch[1]))),
+      async () => checkoutResponse(await cancelCheckoutSession(checkoutContext, decodePathSegment(checkoutCancelMatch[1]))),
     );
   }
 
   const orderMatch = /^\/orders\/([^/]+)$/.exec(path);
   if (orderMatch && request.method === 'GET') {
-    return jsonResponse(await getOrder(orderContext, decodeURIComponent(orderMatch[1])));
+    return jsonResponse(await getOrder(orderContext, decodePathSegment(orderMatch[1])));
   }
 
   if (orderMatch && request.method === 'PUT' && options.testOrderUpdates) {
-    const update = UCPOrderUpdateSchema.safeParse(await parseJsonBody<unknown>(request));
+    const update = await parseJsonBody(request, UCPOrderUpdateSchema);
 
-    if (!update.success) {
-      throw new UCPHttpError(422, createUCPError('invalid_request', `Invalid order update: ${z.prettifyError(update.error)}`));
-    }
-
-    return jsonResponse(await updateOrder(orderContext, decodeURIComponent(orderMatch[1]), update.data));
+    return jsonResponse(await updateOrder(orderContext, decodePathSegment(orderMatch[1]), update));
   }
 
   const simulateShippingMatch = /^\/testing\/simulate-shipping\/([^/]+)$/.exec(path);
@@ -206,7 +210,7 @@ export async function handleRestRequest(
       throw new UCPHttpError(403, createUCPError('forbidden', 'A valid Simulation-Secret header is required.'));
     }
 
-    return jsonResponse(await simulateShipping(orderContext, decodeURIComponent(simulateShippingMatch[1])));
+    return jsonResponse(await simulateShipping(orderContext, decodePathSegment(simulateShippingMatch[1])));
   }
 
   return undefined;
@@ -263,14 +267,8 @@ function createCheckoutSessionContext(
       identityEmail ??= getRegisteredIdentityEmail(client, options.identity);
       return identityEmail;
     },
-    async createCart(lineItems: UCPLineItem[]) {
-      const created = await handleCreateCart(client, {
-        id: '',
-        line_items: lineItems,
-        currency: '',
-        totals: [],
-        ucp: createUcpSuccessMetadata(),
-      });
+    async createCart(lineItems: UCPLineItemRequest[]) {
+      const created = await handleCreateCart(client, { line_items: lineItems });
 
       if (!isUcpCart(created)) {
         return created;
@@ -279,14 +277,8 @@ function createCheckoutSessionContext(
       return (await getReactionaryCart(client, created.id))
         ?? createUCPError('not_found', `Cart was not found: ${created.id}`);
     },
-    async reconcileCart(cartId: string, lineItems: UCPLineItem[]) {
-      const updated = await handleUpdateCart(client, cartId, {
-        id: cartId,
-        line_items: lineItems,
-        currency: '',
-        totals: [],
-        ucp: createUcpSuccessMetadata(),
-      });
+    async reconcileCart(cartId: string, lineItems: UCPLineItemRequest[]) {
+      const updated = await handleUpdateCart(client, cartId, { line_items: lineItems });
 
       return isUcpCart(updated) ? undefined : updated;
     },
@@ -368,28 +360,37 @@ async function withRestIdempotency(
   return response;
 }
 
-async function parseJsonBody<TBody>(
+async function parseJsonBody<TSchema extends z.ZodType>(
   request: Request,
-): Promise<TBody> {
-  if (!request.body) {
-    return {} as TBody;
-  }
+  schema: TSchema,
+): Promise<z.output<TSchema>> {
+  let json: unknown = {};
 
-  try {
-    return await request.json() as TBody;
-  } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new UCPHttpError(400, createUCPError('invalid_json', 'Request body must be valid JSON.'));
+  if (request.body) {
+    try {
+      json = await request.json();
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        throw new UCPHttpError(400, createUCPError('invalid_json', 'Request body must be valid JSON.'));
+      }
+
+      throw error;
     }
-
-    throw error;
   }
+
+  const parsed = schema.safeParse(json);
+
+  if (!parsed.success) {
+    throw new UCPHttpError(422, createUCPError('invalid_request', `Invalid request body: ${z.prettifyError(parsed.error)}`));
+  }
+
+  return parsed.data;
 }
 
 async function handleCatalogSearch(
   client: ReactionaryUCPClient,
   body: UCPCatalogSearchRequest,
-): Promise<UCPCatalogSearchResponse> {
+): Promise<UCPCatalogSearchResponse | UCPErrorResponse> {
   if (!client.productSearch) {
     return createUCPError('not_available', 'Product search capability is not available.');
   }
@@ -463,7 +464,7 @@ async function handleCatalogProduct(
 
 async function handleCreateCart(
   client: ReactionaryUCPClient,
-  body: UCPCart,
+  body: UCPCartRequest,
 ): Promise<UCPCartResponse> {
   if (!client.cart) {
     return createUCPError('not_available', 'Cart capability is not available.');
@@ -476,7 +477,7 @@ async function handleCreateCart(
   }
 
   let cart = createResult.value;
-  for (const lineItem of body['line_items']) {
+  for (const lineItem of body.line_items) {
     if (!lineItem.item.id) {
       return createUCPError('cart_add_failed', 'Unable to add cart line item without an item id.');
     }
@@ -493,7 +494,7 @@ async function handleCreateCart(
       return createUCPError(
         'item_unavailable',
         `Item is not available for purchase: ${lineItem.item.id}`,
-        `$.line_items[${body['line_items'].indexOf(lineItem)}]`,
+        `$.line_items[${body.line_items.indexOf(lineItem)}]`,
       );
     }
 
@@ -523,7 +524,7 @@ async function handleGetCart(
 async function handleUpdateCart(
   client: ReactionaryUCPClient,
   cartId: string,
-  body: UCPCart,
+  body: UCPCartRequest,
 ): Promise<UCPCartResponse> {
   if (!client.cart) {
     return createUCPError('not_available', 'Cart capability is not available.');
@@ -535,7 +536,7 @@ async function handleUpdateCart(
     return createUCPError('not_found', `Cart was not found: ${cartId}`);
   }
 
-  const desiredItems = new Map<string, UCPLineItem>();
+  const desiredItems = new Map<string, UCPLineItemRequest>();
   for (const lineItem of body.line_items) {
     desiredItems.set(lineItem.item.id, lineItem);
   }
@@ -966,13 +967,4 @@ function toUcpPagination(
     has_next_page: hasNextPage,
     total_count: result.totalCount,
   };
-}
-
-export class UCPHttpError extends Error {
-  public constructor(
-    public readonly status: number,
-    public readonly body: unknown,
-  ) {
-    super('UCP HTTP error');
-  }
 }
