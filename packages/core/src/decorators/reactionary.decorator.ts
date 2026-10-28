@@ -144,10 +144,20 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
               const dependencyIds = this.generateDependencyIdsForModel(r.value);
 
               if (configuration.cache) {
-                this.cache.put(cacheKey, r.value, {
-                  ttlSeconds: configuration.cacheTimeToLiveInSeconds,
-                  dependencyIds: dependencyIds,
-                });
+                // Not awaited, so a slow cache does not delay the response.
+                // A failed write only costs a future cache miss, so it must not
+                // surface as an unhandled rejection.
+                this.cache
+                  .put(cacheKey, r.value, {
+                    ttlSeconds: configuration.cacheTimeToLiveInSeconds,
+                    dependencyIds: dependencyIds,
+                  })
+                  .catch((err: unknown) => {
+                    console.warn(
+                      `Cache write failed for '${scope}' and has been dropped`,
+                      err,
+                    );
+                  });
               }
             }
           } else {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BaseCapability,
   getReactionaryEntrypoints,
@@ -318,6 +318,38 @@ describe('@Reactionary decorator', () => {
       }
 
       expect(secondResult.meta.cache.hit).toBe(true);
+    });
+
+    it('should return the result and not leak a rejection when writing to the cache fails', async () => {
+      class FailingWriteCache extends MemoryCache {
+        public override async put(): Promise<void> {
+          throw new Error('Redis is down');
+        }
+      }
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const unhandled: unknown[] = [];
+      const onUnhandled = (reason: unknown) => unhandled.push(reason);
+      process.on('unhandledRejection', onUnhandled);
+
+      try {
+        const capability = createTestableCapability({
+          cache: true,
+        });
+        capability.cache = new FailingWriteCache();
+
+        const result = await capability.decoratedFunction();
+
+        // Give a stray rejection the chance to surface.
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        expect(result.success).toBe(true);
+        expect(unhandled).toEqual([]);
+        expect(warn).toHaveBeenCalledTimes(1);
+      } finally {
+        process.off('unhandledRejection', onUnhandled);
+        warn.mockRestore();
+      }
     });
   });
 });
