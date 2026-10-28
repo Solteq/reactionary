@@ -266,6 +266,8 @@ MCP_PORT=3000
 MCP_PATH=/mcp
 ```
 
+By default the CLI is locked down: it only exposes the read-only catalogue tools (`product-search`, `product`, `price`, `inventory`, `category`), only accepts requests whose `Host` and `Origin` are loopback, and refuses to listen on a non-loopback host unless a bearer token is configured. See [CLI security](#cli-security) for the flags that change this.
+
 The CLI:
 
 1. Loads `.env` from the project root.
@@ -331,6 +333,35 @@ pnpm --dir packages/mcp start
 ```
 
 You can also put these variables in the project root `.env`; the CLI loads that file automatically.
+
+### CLI security
+
+The CLI serves the provider credentials from the environment (for example `MEDUSA_ADMIN_KEY`), so it must not be reachable by anything other than its intended clients. A web page open in a browser on the same machine can otherwise reach a loopback server, through DNS rebinding or a cross-origin request.
+
+| Flag | Environment | Effect |
+| --- | --- | --- |
+| `--allowed-hosts a,b` | `MCP_ALLOWED_HOSTS` | Hostnames accepted in the `Host` header (no port). Default: `localhost`, `127.0.0.1`, `[::1]`, plus a specific non-loopback `--host`. Other hosts get `403`. |
+| `--allowed-origins a,b` | `MCP_ALLOWED_ORIGINS` | Hostnames accepted in the `Origin` header (no scheme or port). Default: the allowed hosts. Requests without an `Origin` header, such as from non-browser clients, pass. Other origins get `403`. |
+| none | `MCP_AUTH_TOKEN` | When set, every request must carry `Authorization: Bearer <token>`, otherwise `401`. Only available as an environment variable so it does not appear in the process list. |
+| `--allow-insecure-remote` | `MCP_ALLOW_INSECURE_REMOTE=true` | Allows a non-loopback `--host` without `MCP_AUTH_TOKEN`. Without it, the CLI refuses to start. |
+| `--enable-mutating-tools` | `MCP_ENABLE_MUTATING_TOOLS=true` | Exposes the tools of every enabled capability, including cart, checkout, identity, order, employee and company. |
+| `--capabilities a,b` | `MCP_CAPABILITIES` | Exposes exactly these capabilities (by capability name, for example `product,cart`). Cannot be combined with `--enable-mutating-tools`. |
+
+Examples:
+
+```bash
+# Read-only catalogue tools on loopback (the default)
+ENABLED_FAKE=true pnpm --dir packages/mcp start
+
+# Let an agent fill a cart as well
+ENABLED_MEDUSA=true pnpm --dir packages/mcp start -- --capabilities product-search,product,price,inventory,category,cart
+
+# All tools, reachable from other machines under mcp.example.com, behind a bearer token
+ENABLED_MEDUSA=true MCP_AUTH_TOKEN=... pnpm --dir packages/mcp start -- \
+  --enable-mutating-tools --host 0.0.0.0 --allowed-hosts mcp.example.com
+```
+
+Binding to a wildcard address (`0.0.0.0`, `::`) only accepts loopback `Host` headers until `--allowed-hosts` lists the names clients use.
 
 ### Inspector
 
@@ -418,6 +449,27 @@ createServer(async (request, response) => {
   await handler(request, response);
 }).listen(3000);
 ```
+
+## Securing the endpoint
+
+`ReactionaryMCPServer` does not authenticate or screen requests unless it is told to, so that existing hosts that already do this keep working unchanged. A server that a browser can reach, or that is exposed beyond a trusted network, should set these options:
+
+```ts
+import { localhostAllowedHostnames } from '@modelcontextprotocol/server';
+
+const mcp = new ReactionaryMCPServer(createClient, {
+  // DNS rebinding protection: only these Host header hostnames are served, others get 403.
+  allowedHostnames: ['mcp.example.com', ...localhostAllowedHostnames()],
+  // Cross-site request protection: browser requests from other origins get 403.
+  allowedOriginHostnames: ['app.example.com'],
+  // Authentication: runs after the checks above, a request it denies (or that makes it throw) gets 401.
+  authorize: async (request) => isValidToken(request.headers.get('authorization')),
+  // Only expose the tools the agent needs.
+  toolFilter: (tool) => tool.entrypoint.capabilityName !== 'identity',
+});
+```
+
+The checks apply to `fetch`, `getHandler().fetch` and `toNodeHandler()` alike. Subclasses can override the protected `rejectRequest(request)` to change how requests are screened.
 
 ## Guardrails and responsibilities
 

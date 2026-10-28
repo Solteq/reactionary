@@ -6,7 +6,7 @@ import {
   success,
   type Result,
 } from '@reactionary/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import * as z from 'zod';
 import { ReactionaryMCPServer } from './reactionary-mcp-server.js';
 
@@ -185,6 +185,202 @@ describe('ReactionaryMCPServer', () => {
     expect(tools).not.toContain('Broken test default');
 
     await server.close();
+  });
+});
+
+describe('ReactionaryMCPServer request screening', () => {
+  const requestFor = (headers: Record<string, string>): Request =>
+    new Request('http://127.0.0.1/mcp', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json, text/event-stream',
+        'content-type': 'application/json',
+        ...headers,
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    });
+
+  it('serves any host and origin unless screening is configured', async () => {
+    const server = new ReactionaryMCPServer(createTestClient);
+
+    const response = await server.fetch(
+      requestFor({ host: 'evil.example', origin: 'https://evil.example' }),
+    );
+
+    expect(response.status).toBe(200);
+    await server.close();
+  });
+
+  describe('allowedHostnames', () => {
+    it('rejects a foreign Host header before any client is created', async () => {
+      const clientFactory = vi.fn(createTestClient);
+      const server = new ReactionaryMCPServer(clientFactory, {
+        allowedHostnames: ['localhost', '127.0.0.1'],
+      });
+
+      // The hostname a DNS rebinding attack resolves to loopback.
+      const response = await server.fetch(
+        requestFor({ host: 'rebind.evil.example:3000' }),
+      );
+
+      expect(response.status).toBe(403);
+      expect(clientFactory).not.toHaveBeenCalled();
+      await server.close();
+    });
+
+    it('rejects a request without a Host header', async () => {
+      const server = new ReactionaryMCPServer(createTestClient, {
+        allowedHostnames: ['localhost'],
+      });
+
+      expect((await server.fetch(requestFor({}))).status).toBe(403);
+      await server.close();
+    });
+
+    it('serves an allowed Host header, ignoring the port', async () => {
+      const server = new ReactionaryMCPServer(createTestClient, {
+        allowedHostnames: ['localhost', '[::1]'],
+      });
+
+      for (const host of ['localhost:3000', '[::1]:3000']) {
+        expect((await server.fetch(requestFor({ host }))).status).toBe(200);
+      }
+      await server.close();
+    });
+  });
+
+  describe('allowedOriginHostnames', () => {
+    it('rejects a cross-site Origin before any client is created', async () => {
+      const clientFactory = vi.fn(createTestClient);
+      const server = new ReactionaryMCPServer(clientFactory, {
+        allowedOriginHostnames: ['localhost'],
+      });
+
+      for (const origin of ['https://evil.example', 'null']) {
+        const response = await server.fetch(requestFor({ origin }));
+        expect(response.status).toBe(403);
+      }
+      expect(clientFactory).not.toHaveBeenCalled();
+      await server.close();
+    });
+
+    it('serves an allowed Origin and requests without one', async () => {
+      const server = new ReactionaryMCPServer(createTestClient, {
+        allowedOriginHostnames: ['localhost'],
+      });
+
+      const allowedHeaders: Record<string, string>[] = [
+        { origin: 'http://localhost:5173' },
+        {},
+      ];
+      for (const headers of allowedHeaders) {
+        expect((await server.fetch(requestFor(headers))).status).toBe(200);
+      }
+      await server.close();
+    });
+  });
+
+  describe('authorize', () => {
+    it('answers 401 before any client is created when the hook denies', async () => {
+      const clientFactory = vi.fn(createTestClient);
+      const authorize = vi.fn(() => false);
+      const server = new ReactionaryMCPServer(clientFactory, { authorize });
+
+      const response = await server.fetch(requestFor({}));
+
+      expect(response.status).toBe(401);
+      expect(response.headers.get('www-authenticate')).toBe('Bearer');
+      expect(authorize).toHaveBeenCalledOnce();
+      expect(clientFactory).not.toHaveBeenCalled();
+      await server.close();
+    });
+
+    it('serves requests the hook accepts, passing it the request', async () => {
+      const server = new ReactionaryMCPServer(createTestClient, {
+        authorize: async (request) =>
+          request.headers.get('authorization') === 'Bearer secret',
+      });
+
+      const denied = await server.fetch(
+        requestFor({ authorization: 'Bearer wrong' }),
+      );
+      const allowed = await server.fetch(
+        requestFor({ authorization: 'Bearer secret' }),
+      );
+
+      expect(denied.status).toBe(401);
+      expect(allowed.status).toBe(200);
+      await server.close();
+    });
+
+    it('denies and reports when the hook throws', async () => {
+      const onerror = vi.fn();
+      const server = new ReactionaryMCPServer(createTestClient, {
+        authorize: () => {
+          throw new Error('token store down');
+        },
+        handler: { onerror },
+      });
+
+      expect((await server.fetch(requestFor({}))).status).toBe(401);
+      expect(onerror).toHaveBeenCalledWith(new Error('token store down'));
+      await server.close();
+    });
+
+    it('runs after host validation', async () => {
+      const authorize = vi.fn(() => true);
+      const server = new ReactionaryMCPServer(createTestClient, {
+        allowedHostnames: ['localhost'],
+        authorize,
+      });
+
+      expect(
+        (await server.fetch(requestFor({ host: 'evil.example' }))).status,
+      ).toBe(403);
+      expect(authorize).not.toHaveBeenCalled();
+      await server.close();
+    });
+  });
+
+  it('applies screening to the node and handler entry points', async () => {
+    const server = new ReactionaryMCPServer(createTestClient, {
+      allowedHostnames: ['localhost'],
+    });
+
+    const response = await server
+      .getHandler()
+      .fetch(requestFor({ host: 'evil.example' }));
+
+    expect(response.status).toBe(403);
+    await server.close();
+  });
+});
+
+describe('ReactionaryMCPServer toolFilter', () => {
+  it('only registers tools the filter accepts', async () => {
+    const server = new ReactionaryMCPServer(createTestClient, {
+      toolFilter: (tool) => tool.name !== 'productSearch.search',
+    });
+
+    expect(server.discoverTools()).toEqual([]);
+    const tools = await callMcp(server, 'tools/list');
+    expect(tools).not.toContain('productSearch.search');
+    await server.close();
+  });
+
+  it('receives the tool with its final name', () => {
+    const toolFilter = vi.fn(() => true);
+    const server = new ReactionaryMCPServer(createTestClient, {
+      toolName: (capabilityName, methodName) =>
+        `x.${capabilityName}.${methodName}`,
+      toolFilter,
+    });
+
+    server.discoverTools();
+
+    expect(toolFilter).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'x.productSearch.search' }),
+    );
   });
 });
 
