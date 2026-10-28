@@ -881,20 +881,30 @@ export class MedusaCartCapability<
     try {
       const client = await this.getClient();
 
-      const newRegionId = (await this.medusaApi.getActiveRegion()).id;
+      const newRegion = await this.medusaApi.getRegionByCurrency(payload.newCurrency);
+      if (!newRegion) {
+        return error<InvalidInputError>({
+          type: 'InvalidInput',
+          error: `No region serves currency ${payload.newCurrency}`,
+        });
+      }
+
       const updatedCartResponse = await client.store.cart.update(
         payload.cart.key,
-        this.changeCurrencyPayload(payload, newRegionId),
+        this.changeCurrencyPayload(payload, newRegion.id),
         {
           fields: this.includedFields,
         }
       );
 
       if (updatedCartResponse.cart) {
-        // Update session to use new cart
-        this.medusaApi.setSessionData({
-          activeCartId: this.factory.parseCartIdentifier(this.context, updatedCartResponse.cart),
-        });
+        // The cart keeps its id, but its region (and so the identifier) changed.
+        // Only refresh the session's active cart if this was the active one.
+        if (this.medusaApi.getSessionData().activeCartId?.key === updatedCartResponse.cart.id) {
+          this.medusaApi.setSessionData({
+            activeCartId: this.factory.parseCartIdentifier(this.context, updatedCartResponse.cart),
+          });
+        }
 
         return success(this.factory.parseCart(this.context, updatedCartResponse.cart));
       }
