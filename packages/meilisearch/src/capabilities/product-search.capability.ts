@@ -74,7 +74,7 @@ export class MeilisearchProductSearchCapability<
     const categoryFacet = payload.search.facets.find(x => x.facet.key === 'categories') || payload.search.categoryFilter;
 
     // Each filter is a complete expression. Parenthesised, so that an OR in one cannot take over the AND that joins it to
-    // the restrictions below.
+    // the restrictions below. They are raw Meilisearch expressions and must come from the application, never from user input.
     const finalFilters: string[] = (payload.search.filters || []).map((f) => `(${f})`);
 
     const finalFacetFilters: string[] = [
