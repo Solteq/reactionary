@@ -73,6 +73,8 @@ new ReactionaryUCPServer(createClient, {
 - Canonical Shopping REST endpoints are available below the configured `profile.endpoint` path.
 - `OPTIONS` returns allowed methods.
 - Unmatched routes return `404 NOT_FOUND`.
+- Request bodies are validated: malformed JSON answers `400`, a body that does not match the expected shape (for example a cart without `line_items`) answers `422`, and a malformed percent-escape in the path or an invalid `Host` header answers `400`.
+- `fetch()` and the Node handler never throw. Unexpected failures are logged and answered with `500`; subclasses can override the protected `handleError(error)` to customise this.
 
 ## UCP discovery profile
 

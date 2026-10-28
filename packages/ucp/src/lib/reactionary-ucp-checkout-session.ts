@@ -14,7 +14,6 @@ import {
   toUcpCartLineItem,
   toUcpCostTotals,
   type UCPCheckout,
-  type UCPLineItem,
   type UCPMessage,
   type UCPPostalAddress,
 } from './reactionary-ucp-mapping.js';
@@ -24,11 +23,15 @@ import {
   type ReactionaryUCPSessionStore,
   type UCPCheckoutSessionState,
 } from './reactionary-ucp-session-store.js';
+import {
+  UCPPostalAddressRequestSchema,
+  type UCPCheckoutRequest,
+  type UCPLineItemRequest,
+} from './reactionary-ucp-requests.js';
 import type { components } from './ucp-shopping.openapi.js';
 
 type UCPErrorResponse = components['schemas']['error_response'];
 type UCPCheckoutResponse = components['schemas']['checkout_response'];
-export type UCPCheckoutRequest = UCPCheckout & { cart_id?: string };
 
 export const DEFAULT_UCP_PLACEHOLDER_EMAIL = 'pending@checkout.invalid';
 
@@ -120,28 +123,15 @@ export interface UCPCheckoutSessionContext {
   onOrderPlaced?(orderId: string): void;
   /** Email of the session's registered identity, if logged in. */
   getIdentityEmail(): Promise<string | undefined>;
-  createCart(lineItems: UCPLineItem[]): Promise<Cart | UCPErrorResponse>;
-  reconcileCart(cartId: string, lineItems: UCPLineItem[]): Promise<UCPErrorResponse | undefined>;
+  createCart(lineItems: UCPLineItemRequest[]): Promise<Cart | UCPErrorResponse>;
+  reconcileCart(cartId: string, lineItems: UCPLineItemRequest[]): Promise<UCPErrorResponse | undefined>;
 }
-
-const PostalAddressRequestSchema = z.looseObject({
-  id: z.string().optional(),
-  first_name: z.string().optional(),
-  last_name: z.string().optional(),
-  street_address: z.string().optional(),
-  extended_address: z.string().optional(),
-  address_locality: z.string().optional(),
-  address_region: z.string().optional(),
-  address_country: z.string().optional(),
-  postal_code: z.string().optional(),
-  phone_number: z.string().optional(),
-});
 
 // The fulfillment extension is not part of the generated base schema.
 const FulfillmentRequestSchema = z.looseObject({
   methods: z.array(z.looseObject({
     selected_destination_id: z.string().nullish(),
-    destinations: z.array(PostalAddressRequestSchema).optional(),
+    destinations: z.array(UCPPostalAddressRequestSchema).optional(),
     groups: z.array(z.looseObject({
       selected_option_id: z.string().nullish(),
     })).optional(),

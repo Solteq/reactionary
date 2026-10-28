@@ -15,7 +15,15 @@ import {
   type ReactionaryUCPServerOptions,
   type UCPPaymentHandlers,
 } from './reactionary-ucp-common.js';
-import { getOrCreateSessionId, jsonResponse, sendWebResponse, toWebRequest, UCP_SESSION_ID_HEADER } from './reactionary-ucp-http.js';
+import {
+  decodePathSegment,
+  getOrCreateSessionId,
+  jsonResponse,
+  sendWebResponse,
+  toWebRequest,
+  UCP_SESSION_ID_HEADER,
+  UCPHttpError,
+} from './reactionary-ucp-http.js';
 import { ReactionaryUCPIdentity, type UCPBearerResolution } from './reactionary-ucp-identity.js';
 import { resolveLanguageContext } from './reactionary-ucp-localization.js';
 import {
@@ -25,7 +33,7 @@ import {
 } from './reactionary-ucp-checkout-session.js';
 import { createUCPError, UCP_VERSION } from './reactionary-ucp-mapping.js';
 import { createUCPProfile, getRequestRoute } from './reactionary-ucp-profile.js';
-import { handleRestRequest, UCPHttpError } from './reactionary-ucp-rest.js';
+import { handleRestRequest } from './reactionary-ucp-rest.js';
 import { ReactionaryUCPSessionStore } from './reactionary-ucp-session-store.js';
 import { ReactionaryUCPWebhooks } from './reactionary-ucp-webhooks.js';
 
@@ -135,6 +143,31 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
   }
 
   private async handleFetch(request: Request): Promise<Response> {
+    try {
+      return await this.processFetch(request);
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Turns anything thrown while serving a request into a response: the server
+   * never throws to its host. Override to customise error reporting.
+   */
+  protected handleError(error: unknown): Response {
+    if (error instanceof UCPHttpError) {
+      return jsonResponse(error.body, { status: error.status });
+    }
+
+    console.error('UCP: unhandled error while serving a request', error);
+
+    return jsonResponse(
+      createUCPError('internal_error', 'The request could not be processed.'),
+      { status: 500 },
+    );
+  }
+
+  private async processFetch(request: Request): Promise<Response> {
     const bearerResolution = await this.identity?.resolveBearer(request);
 
     if (bearerResolution instanceof Response) {
@@ -185,8 +218,17 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
 
   public toNodeHandler(): ReactionaryUCPNodeRequestHandler {
     return async (request, response) => {
-      const webResponse = await this.fetch(await toWebRequest(request));
-      await sendWebResponse(response, webResponse);
+      try {
+        const webResponse = await this.fetch(await toWebRequest(request));
+        await sendWebResponse(response, webResponse);
+      } catch (error) {
+        if (response.headersSent) {
+          response.destroy();
+          return;
+        }
+
+        await sendWebResponse(response, this.handleError(error));
+      }
     };
   }
 
@@ -204,9 +246,9 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
     const resourceId = /^\/(?:carts|checkout-sessions)\/([^/]+)/.exec(route.path)?.[1];
     const orderId = /^\/(?:orders|testing\/simulate-shipping)\/([^/]+)/.exec(route.path)?.[1];
     const boundSessionId = resourceId
-      ? await this.sessionStore.getResourceSession(decodeURIComponent(resourceId))
+      ? await this.sessionStore.getResourceSession(decodePathSegment(resourceId))
       : orderId
-        ? await this.resolveOrderSessionId(request, decodeURIComponent(orderId))
+        ? await this.resolveOrderSessionId(request, decodePathSegment(orderId))
         : undefined;
 
     return boundSessionId ?? getOrCreateSessionId(request);
@@ -322,11 +364,7 @@ export class ReactionaryUCPServer<TClient extends ReactionaryUCPClient = Reactio
         return restResponse;
       }
     } catch (error) {
-      if (error instanceof UCPHttpError) {
-        return jsonResponse(error.body, { status: error.status });
-      }
-
-      throw error;
+      return this.handleError(error);
     }
 
     return jsonResponse({

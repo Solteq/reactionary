@@ -8,23 +8,22 @@ import type {
 } from '@reactionary/core';
 import type { components } from './ucp-shopping.openapi.js';
 import type { UCPPaymentHandlers } from './reactionary-ucp-common.js';
+import type { UCPCheckoutRequest, UCPPaymentInstrumentRequest } from './reactionary-ucp-requests.js';
 
 export const UCP_VERSION = '2026-08-25';
 
 export type UCPCheckout = components['schemas']['checkout'];
 export type UCPLineItem = components['schemas']['line_item'];
+type UCPErrorResponse = components['schemas']['error_response'];
 export type UCPMessage = components['schemas']['message'];
 export type UCPTotal = components['schemas']['total'];
 export type UCPPostalAddress = components['schemas']['postal_address'];
-export type UCPSelectedPaymentInstrument = NonNullable<
-  NonNullable<UCPCheckout['payment']>['instruments']
->[number];
 
 type UCPCheckoutPaymentHandlers = components['schemas']['response_checkout_schema']['payment_handlers'];
 
 export function getSelectedPaymentInstrument(
-  checkout: Pick<UCPCheckout, 'payment'>,
-): UCPSelectedPaymentInstrument | undefined {
+  checkout: Pick<UCPCheckoutRequest, 'payment'>,
+): UCPPaymentInstrumentRequest | undefined {
   const instruments = checkout.payment?.instruments ?? [];
 
   return instruments.find((instrument) => instrument.selected) ?? instruments[0];
@@ -236,18 +235,18 @@ export function createUcpErrorMessage(
   };
 }
 
-export function createUCPError<TResponse>(
+export function createUCPError(
   code: string,
   message: string,
   path?: string,
-): TResponse {
+): UCPErrorResponse {
   return {
     ucp: {
       version: UCP_VERSION,
       status: 'error',
     },
     messages: [createUcpErrorMessage(code, message, path)],
-  } as TResponse;
+  };
 }
 
 export function createUcpWarning(
