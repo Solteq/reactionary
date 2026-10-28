@@ -38,7 +38,6 @@ import {
   Reactionary,
   error,
   success,
-  unwrapValue,
 } from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { Faker, en, base } from '@faker-js/faker';
@@ -169,8 +168,14 @@ export class FakeCartCapability<
     outputSchema: CartSchema,
   })
   public override async remove(payload: CartMutationItemRemove): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    const cartId = payload.cart.key || `cart-${this.generator.string.uuid()}`;
-    const cart = unwrapValue(await this.getById({ cart: { key: cartId } }));
+    // getById returns a parsed copy, so look up the stored cart to mutate it
+    const cart = this.carts.get(payload.cart.key);
+    if (!cart) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.cart.key,
+      });
+    }
 
     cart.items = cart.items.filter(
       (item) => item.identifier.key !== payload.item.key
@@ -187,8 +192,14 @@ export class FakeCartCapability<
   public override async changeQuantity(
     payload: CartMutationItemQuantityChange
   ): Promise<Result<CartFactoryCartOutput<TFactory>>> {
-    const cartId = payload.cart.key || `cart-${this.generator.string.uuid()}`;
-    const cart = unwrapValue(await this.getById({ cart: { key: cartId } }));
+    // getById returns a parsed copy, so look up the stored cart to mutate it
+    const cart = this.carts.get(payload.cart.key);
+    if (!cart) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.cart.key,
+      });
+    }
 
     const item = cart.items.find(
       (item) => item.identifier.key === payload.item.key
@@ -262,7 +273,6 @@ export class FakeCartCapability<
 
   @Reactionary({
     inputSchema: CartMutationDeleteCartSchema,
-    outputSchema: CartSchema,
   })
   public override async deleteCart(payload: CartMutationDeleteCart): Promise<Result<void>> {
     const cartId = payload.cart.key;
