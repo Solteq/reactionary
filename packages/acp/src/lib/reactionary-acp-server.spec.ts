@@ -1586,6 +1586,128 @@ describe('ReactionaryACPServer', () => {
     });
   });
 
+  describe('concurrent requests on one checkout session', () => {
+    const identity = (request: Request) => request;
+    const openSession = async (server: ReactionaryACPServer, decorate = identity) => {
+      const created = await json<{ id: string }>(await server.fetch(decorate(jsonRequest('http://127.0.0.1/checkout_sessions', {
+        line_items: [{ id: 'sku-1', quantity: 1 }],
+        currency: 'eur',
+        capabilities: agentCapabilities,
+        buyer: { first_name: 'Ada', last_name: 'Lovelace', email: 'ada@example.com' },
+        fulfillment_details: fulfillmentDetails,
+      }))));
+      const url = `http://127.0.0.1/checkout_sessions/${created.id}`;
+      await server.fetch(decorate(jsonRequest(url, selectStandardShipping)));
+
+      return url;
+    };
+    const completeRequest = (url: string) => jsonRequest(`${url}/complete`, { payment_data: cardPayment('spt_123') });
+    const asAgent = (request: Request) => {
+      request.headers.set('authorization', 'Bearer token-a');
+      return request;
+    };
+    const nextTick = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+    it('places one checkout when completes with different idempotency keys race', async () => {
+      const payments: unknown[] = [];
+      const gate = createGate();
+      const server = new ReactionaryACPServer(() => createTestClient({ payments, paymentGate: gate.opened }), {
+        sessionCache: new MemoryCache(),
+        paymentHandlers,
+      });
+      const url = await openSession(server);
+
+      const first = server.fetch(completeRequest(url));
+      const second = server.fetch(completeRequest(url));
+      await nextTick();
+      gate.resolve();
+      const responses = await Promise.all([first, second]);
+
+      expect(payments).toHaveLength(1);
+      expect(responses.map((response) => response.status)).toEqual([200, 200]);
+      await expect(Promise.all(responses.map((response) => response.json()))).resolves.toMatchObject([
+        { status: 'completed', order: { id: 'order-1' } },
+        { status: 'completed', order: { id: 'order-1' } },
+      ]);
+    });
+
+    it('answers complete_in_progress to a complete that another instance is placing', async () => {
+      const payments: unknown[] = [];
+      const gate = createGate();
+      const sessionCache = new MemoryCache();
+      const options = { sessionCache, paymentHandlers };
+      const instanceA = new ReactionaryACPServer(() => createTestClient({ payments, paymentGate: gate.opened }), options);
+      const instanceB = new ReactionaryACPServer(() => createTestClient({ payments }), options);
+      const url = await openSession(instanceA);
+
+      const placing = instanceA.fetch(completeRequest(url));
+      await nextTick();
+      const concurrent = await instanceB.fetch(completeRequest(url));
+
+      expect(concurrent.status).toBe(200);
+      await expect(concurrent.json()).resolves.toMatchObject({
+        status: 'complete_in_progress',
+        messages: [expect.objectContaining({ type: 'info' })],
+      });
+
+      gate.resolve();
+      await expect((await placing).json()).resolves.toMatchObject({ status: 'completed' });
+      expect(payments).toHaveLength(1);
+    });
+
+    it('does not let a stale read of the session undo a completion', async () => {
+      const payments: unknown[] = [];
+      const cartReadGate: { current?: Promise<void> } = {};
+      const server = new ReactionaryACPServer(() => createTestClient({ payments, cartReadGate }), {
+        sessionCache: new MemoryCache(),
+        paymentHandlers,
+      });
+      const url = await openSession(server);
+      const release = createGate();
+
+      // The read has loaded the session, which has no checkout yet, and waits.
+      cartReadGate.current = release.opened;
+      const staleRead = server.fetch(getRequest(url));
+      await nextTick();
+      cartReadGate.current = undefined;
+
+      await expect((await server.fetch(completeRequest(url))).json()).resolves.toMatchObject({ status: 'completed' });
+      release.resolve();
+      await staleRead;
+      await expect((await server.fetch(completeRequest(url))).json()).resolves.toMatchObject({ status: 'completed' });
+
+      expect(payments).toHaveLength(1);
+    });
+
+    it('announces an order once when it is read concurrently', async () => {
+      const payments: Array<{ checkout: { key: string } }> = [];
+      const events: string[] = [];
+      const client = createTestClient({ payments, notReady: new Set(['all']) });
+      const server = new ReactionaryACPServer(() => client, {
+        sessionCache: new MemoryCache(),
+        paymentHandlers,
+        paymentAuthorizationWait: { timeoutMs: 0 },
+        authenticate: createBearerTokenAuthenticator({ chatgpt: 'token-a' }),
+        webhooks: {
+          endpoints: [{ agentId: 'chatgpt', url: 'https://agent.example/webhooks', secret: 'whsec' }],
+          fetch: async (input, init) => {
+            events.push(String((JSON.parse(await new Request(input, init).text()) as { type: string }).type));
+            return new Response(null, { status: 200 });
+          },
+        },
+      });
+      const url = await openSession(server, asAgent);
+
+      await expect((await server.fetch(asAgent(completeRequest(url)))).json()).resolves.toMatchObject({ status: 'complete_in_progress' });
+      // The backend finalizes on the PSP's webhook, which retrieval picks up.
+      await client.checkout?.finalizeCheckout({ checkout: { key: payments[0]?.checkout.key ?? '' } });
+      await Promise.all([server.fetch(asAgent(getRequest(url))), server.fetch(asAgent(getRequest(url)))]);
+      await nextTick();
+
+      expect(events).toEqual(['order_create']);
+    });
+  });
+
   it('publishes feed products to the agent-hosted Feed API in batches', async () => {
     const requests: Array<{ method: string; url: string; headers: Headers; body: unknown }> = [];
     const observedLanguageContexts: RequestContext['languageContext'][] = [];
@@ -1667,6 +1789,10 @@ function createTestClient(options: {
   orderStatus?: Order['orderStatus'];
   couponCodes?: string[];
   failCartCreation?: boolean;
+  /** Holds every payment instruction until the promise settles. */
+  paymentGate?: Promise<void>;
+  /** While set, cart reads wait for the promise, which a test swaps at will. */
+  cartReadGate?: { current?: Promise<void> };
 } = {}): ReactionaryACPClient & ReactionaryFeedClient {
   const withReadiness = (checkout: Checkout): Checkout => ({
     ...checkout,
@@ -1717,6 +1843,7 @@ function createTestClient(options: {
         return success(updated);
       },
       async getById(payload) {
+        await options.cartReadGate?.current;
         const getPayload = payload as { cart: { key: string } };
         return success(carts.get(getPayload.cart.key) ?? createCart('missing', [], options.currency));
       },
@@ -1833,6 +1960,7 @@ function createTestClient(options: {
       },
       async addPaymentInstruction(payload) {
         options.payments?.push(payload);
+        await options.paymentGate;
         if (options.declinePayments) {
           return error<GenericError>({ type: 'Generic', message: 'card declined' });
         }
@@ -1880,6 +2008,16 @@ function createTestClient(options: {
       },
     },
   };
+}
+
+/** A promise that a test settles when it chooses. */
+function createGate(): { opened: Promise<void>; resolve: () => void } {
+  let resolve: () => void = () => undefined;
+  const opened = new Promise<void>((resolver) => {
+    resolve = resolver;
+  });
+
+  return { opened, resolve };
 }
 
 function createCart(

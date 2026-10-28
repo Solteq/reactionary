@@ -72,6 +72,8 @@ import {
 } from './acp-payment-handlers.js';
 
 const ACP_SESSION_ID_HEADER = 'acp-session-id';
+/** How long a started checkout placement blocks others, if it never finishes (e.g. a crash). */
+const CHECKOUT_PLACEMENT_TIMEOUT_MS = 2 * 60 * 1000;
 const SESSION_CACHE_KEY_PREFIX = 'reactionary:acp:session';
 const CHECKOUT_SESSION_CACHE_KEY_PREFIX = 'reactionary:acp:checkout-session';
 const ORDER_CACHE_KEY_PREFIX = 'reactionary:acp:order';
@@ -451,6 +453,8 @@ export class ReactionaryACPServer<
   private readonly webhooks: ACPOrderWebhooks | undefined;
   private readonly supportsDiscounts: boolean;
   private readonly mcp: ACPMcpEndpoint | undefined;
+  /** The tail of the work queued per lock key on this instance. */
+  private readonly exclusiveQueues = new Map<string, Promise<void>>();
 
   public constructor(
     private readonly clientFactory: ReactionaryACPClientFactory<TClient>,
@@ -959,26 +963,28 @@ export class ReactionaryACPServer<
     }
 
     if (isCheckoutSessionCompleteRequest(request, this.options.basePath)) {
-      return this.completeCheckoutSession(
+      const input = await parseJsonBody(request, ACPCompleteCheckoutSessionRequestSchema);
+
+      return this.withCheckoutSessionLock(
         checkoutSessionId,
-        await parseJsonBody(request, ACPCompleteCheckoutSessionRequestSchema),
-        client,
+        () => this.completeCheckoutSession(checkoutSessionId, input, client),
       );
     }
 
     if (isCheckoutSessionCancelRequest(request, this.options.basePath)) {
-      return this.cancelCheckoutSession(
+      const input = await parseOptionalJsonBody(request, ACPCancelCheckoutSessionRequestSchema);
+
+      return this.withCheckoutSessionLock(
         checkoutSessionId,
-        await parseOptionalJsonBody(request, ACPCancelCheckoutSessionRequestSchema),
-        client,
+        () => this.cancelCheckoutSession(checkoutSessionId, input, client),
       );
     }
 
-    return this.updateCheckoutSession(
+    const input = await parseJsonBody(request, ACPUpdateCheckoutSessionRequestSchema);
+
+    return this.withCheckoutSessionLock(
       checkoutSessionId,
-      await parseJsonBody(request, ACPUpdateCheckoutSessionRequestSchema),
-      client,
-      requestContext,
+      () => this.updateCheckoutSession(checkoutSessionId, input, client, requestContext),
     );
   }
 
@@ -1020,6 +1026,7 @@ export class ReactionaryACPServer<
     );
   }
 
+  /** Called holding the session's lock. */
   private async updateCheckoutSession(
     checkoutSessionId: string,
     input: ACPUpdateCheckoutSessionRequest,
@@ -1028,7 +1035,7 @@ export class ReactionaryACPServer<
   ): Promise<Response> {
     const state = await this.getRequiredCheckoutSessionState(checkoutSessionId);
 
-    if (state.checkoutId || state.status === 'canceled') {
+    if (state.checkoutId || state.status === 'canceled' || this.isCheckoutPlacementInFlight(state)) {
       return acpErrorResponse(405, {
         type: 'invalid_request',
         code: 'invalid',
@@ -1082,16 +1089,55 @@ export class ReactionaryACPServer<
     }
 
     return jsonResponse(
-      await this.toACPCheckoutSession(state, client),
+      await this.toACPCheckoutSession(state, client, undefined, [], 'derived'),
       { omitBody },
     );
+  }
+
+  /**
+   * Runs work on a checkout session one at a time. Reading, changing and
+   * storing a session as a whole is not atomic, so every request that
+   * changes one goes through here.
+   *
+   * This serializes the requests within this instance only. Instances
+   * sharing the cache are kept apart by the `placingCheckoutSince` marker
+   * for placing the checkout, which is checked and set without an atomic
+   * cache operation and therefore narrows the window rather than closing
+   * it. Override to take a distributed lock where the cache can provide one.
+   */
+  protected withCheckoutSessionLock<T>(checkoutSessionId: string, work: () => Promise<T>): Promise<T> {
+    return this.withExclusiveAccess(`checkout_session:${checkoutSessionId}`, work);
+  }
+
+  /** Runs work one at a time per key on this instance, in arrival order. */
+  protected async withExclusiveAccess<T>(key: string, work: () => Promise<T>): Promise<T> {
+    const previous = this.exclusiveQueues.get(key) ?? Promise.resolve();
+    const run = previous.then(work);
+    const settled = run.then(() => undefined, () => undefined);
+
+    this.exclusiveQueues.set(key, settled);
+
+    try {
+      return await run;
+    } finally {
+      if (this.exclusiveQueues.get(key) === settled) {
+        this.exclusiveQueues.delete(key);
+      }
+    }
+  }
+
+  private isCheckoutPlacementInFlight(state: ACPCheckoutSessionState): boolean {
+    return !state.checkoutId
+      && state.placingCheckoutSince !== undefined
+      && Date.now() - Date.parse(state.placingCheckoutSince) < CHECKOUT_PLACEMENT_TIMEOUT_MS;
   }
 
   /**
    * Creates the real checkout from the session state and finalizes it. A
    * payment the PSP has not authorized yet leaves the session
    * `complete_in_progress`, without an order yet;
-   * a repeated complete retries finalization.
+   * a repeated complete retries finalization. Called holding the session's
+   * lock, so a repeat never places a second checkout.
    */
   private async completeCheckoutSession(
     checkoutSessionId: string,
@@ -1120,6 +1166,13 @@ export class ReactionaryACPServer<
     };
 
     if (!current.checkoutId) {
+      if (this.isCheckoutPlacementInFlight(current)) {
+        // Another instance is placing the checkout: paying again would charge twice.
+        return jsonResponse(await this.toACPCheckoutSession(
+          current, client, undefined, this.getPaymentPendingMessages(), 'none',
+        ));
+      }
+
       const handler = this.resolvePaymentHandler(input.payment_data);
       const view = await this.priceSession(current, client);
 
@@ -1142,7 +1195,17 @@ export class ReactionaryACPServer<
         });
       }
 
-      const checkout = await this.placeCheckout(current, input, handler, client);
+      // Claimed in the cache before the backend is called, for other instances.
+      await this.checkoutSessionStore.put(state.id, { ...current, placingCheckoutSince: new Date().toISOString() });
+      let checkout: Checkout | undefined;
+
+      try {
+        checkout = await this.placeCheckout(current, input, handler, client);
+      } catch (error) {
+        await this.checkoutSessionStore.put(state.id, state);
+
+        throw error;
+      }
 
       if (!checkout) {
         // A declined payment leaves the session payable with another
@@ -1187,17 +1250,20 @@ export class ReactionaryACPServer<
       }
     }
 
-    const pending: ACPMessage[] = current.status === 'completed'
-      ? []
-      : [{
-          type: 'info',
-          content_type: 'plain',
-          content: 'The payment is awaiting authorization. Retrieve the session, or complete it again with a new Idempotency-Key, to receive the order.',
-        }];
+    const pending = current.status === 'completed' ? [] : this.getPaymentPendingMessages();
 
     return jsonResponse(await this.toACPCheckoutSession(current, client, undefined, pending));
   }
 
+  private getPaymentPendingMessages(): ACPMessage[] {
+    return [{
+      type: 'info',
+      content_type: 'plain',
+      content: 'The payment is awaiting authorization. Retrieve the session, or complete it again with a new Idempotency-Key, to receive the order.',
+    }];
+  }
+
+  /** Called holding the session's lock. */
   private async cancelCheckoutSession(
     checkoutSessionId: string,
     input: ACPCancelCheckoutSessionRequest,
@@ -1325,6 +1391,30 @@ export class ReactionaryACPServer<
     }
 
     return state;
+  }
+
+  /**
+   * Stores what a read of the session derived, on top of the stored state
+   * rather than the copy that was read, which another request may have
+   * changed since. Where it has, the stored state is newer than this view
+   * and is left alone.
+   */
+  private async persistDerivedState(read: ACPCheckoutSessionState, derived: ACPCheckoutSessionState): Promise<void> {
+    await this.withCheckoutSessionLock(read.id, async () => {
+      const stored = await this.checkoutSessionStore.get(read.id);
+
+      if (!stored || stored.updatedAt !== read.updatedAt) {
+        return;
+      }
+
+      await this.checkoutSessionStore.put(stored.id, {
+        ...stored,
+        createdAt: derived.createdAt,
+        updatedAt: derived.updatedAt,
+        status: derived.status,
+        ...(derived.orderId ? { orderId: derived.orderId } : {}),
+      });
+    });
   }
 
   private async placeCheckout(
@@ -1481,6 +1571,14 @@ export class ReactionaryACPServer<
     requestContext = createInitialRequestContext(),
     /** Messages about this request only, e.g. a declined payment. */
     extraMessages: ACPMessage[] = [],
+    /**
+     * `replace` stores the state as given, for a caller holding the session's
+     * lock that has just changed it. `derived` is for a caller that only
+     * read the state: it stores what it derived, and only if the session is
+     * unchanged since. `none` stores nothing, for a caller whose state is
+     * not the latest.
+     */
+    persistence: 'replace' | 'derived' | 'none' = 'replace',
   ): Promise<Record<string, unknown>> {
     const view = state.checkoutId
       ? await this.getPlacedView(state, client)
@@ -1492,7 +1590,9 @@ export class ReactionaryACPServer<
       ...state,
       createdAt: state.createdAt ?? now,
       updatedAt: now,
-      status: awaitingAuthentication ? 'authentication_required' : view.status,
+      status: awaitingAuthentication
+        ? 'authentication_required'
+        : this.isCheckoutPlacementInFlight(state) ? 'complete_in_progress' : view.status,
       ...(view.orderId ? { orderId: view.orderId } : {}),
     };
     const lineItems = view.checkout?.items ?? view.cart?.items ?? [];
@@ -1501,7 +1601,12 @@ export class ReactionaryACPServer<
     const selectedOption = view.options.find((option) => option.identifier.key === state.fulfillmentOptionId);
     const discountsActive = this.isDiscountExtensionActive(persisted.agentCapabilities, client);
 
-    await this.checkoutSessionStore.put(persisted.id, persisted);
+    if (persistence === 'replace') {
+      await this.checkoutSessionStore.put(persisted.id, persisted);
+    } else if (persistence === 'derived') {
+      await this.persistDerivedState(state, persisted);
+    }
+
     await this.recordOrder(persisted, client);
 
     return {
@@ -1675,18 +1780,35 @@ export class ReactionaryACPServer<
    * creating agent's webhook receiver.
    */
   private async recordOrder(state: ACPCheckoutSessionState, client: ValidatedReactionaryACPClient): Promise<void> {
-    if (state.status !== 'completed' || !state.orderId || await this.checkoutSessionStore.getOrder(state.orderId)) {
+    const orderId = state.orderId;
+
+    if (state.status !== 'completed' || !orderId) {
       return;
     }
 
     const record: ACPOrderRecord = {
-      id: state.orderId,
+      id: orderId,
       checkoutSessionId: state.id,
       ...(state.sessionId ? { sessionId: state.sessionId } : {}),
       ...(state.agentId ? { agentId: state.agentId } : {}),
     };
 
-    await this.checkoutSessionStore.putOrder(record);
+    // Whoever stores the record announces the order; the others see it and
+    // leave. Atomic within this instance, best effort across instances.
+    const claimed = await this.withExclusiveAccess(`order:${orderId}`, async () => {
+      if (await this.checkoutSessionStore.getOrder(orderId)) {
+        return false;
+      }
+
+      await this.checkoutSessionStore.putOrder(record);
+
+      return true;
+    });
+
+    if (!claimed) {
+      return;
+    }
+
     await this.reportAttribution(state, record);
     await this.reportMarketingConsents(state, record);
     await this.sendOrderEvent('order_create', record, client);
