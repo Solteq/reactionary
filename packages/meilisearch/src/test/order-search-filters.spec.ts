@@ -11,8 +11,8 @@ import { MeilisearchOrderSearchFactory } from '../factories/order-search/order-s
 import { MeilisearchConfigurationSchema } from '../schema/configuration.schema.js';
 
 class TestableOrderSearchCapability extends MeilisearchOrderSearchCapability {
-  public buildSearchParams(payload: OrderSearchQueryByTerm) {
-    return this.queryByTermPayload(payload);
+  public buildSearchParams(payload: OrderSearchQueryByTerm, scopedUserIds: string[]) {
+    return this.queryByTermPayload(payload, scopedUserIds);
   }
 }
 
@@ -60,30 +60,26 @@ describe('MeilisearchOrderSearchCapability filters', () => {
   it('builds the expected filter for ordinary input', () => {
     const params = createCapability().buildSearchParams(
       createPayload({
-        user: { userId: 'user-1' },
         orderStatus: ['Shipped', 'Cancelled'],
         partNumber: ['SKU-1', 'SKU-2'],
       }),
+      ['user-1'],
     );
     expect(params.filter).toBe(
-      '(orderStatus = "shipped" OR orderStatus = "cancelled") AND userIdentifier = "user-1" AND (items.sku = "SKU-1" OR items.sku = "SKU-2")',
+      'userIdentifier = "user-1" AND (orderStatus = "shipped" OR orderStatus = "cancelled") AND (items.sku = "SKU-1" OR items.sku = "SKU-2")',
     );
   });
 
   it('keeps a user id containing a quote and an OR clause inside its string', () => {
-    const params = createCapability().buildSearchParams(
-      createPayload({ user: { userId: 'x" OR userIdentifier != "' } }),
-    );
+    const params = createCapability().buildSearchParams(createPayload({}), ['x" OR userIdentifier != "']);
     expect(params.filter).toBe('userIdentifier = "x\\" OR userIdentifier != \\""');
     expect(withoutQuotedStrings(params.filter)).toBe('userIdentifier = ""');
   });
 
   it('keeps a part number containing a quote and an OR clause inside its string', () => {
     const params = createCapability().buildSearchParams(
-      createPayload({
-        user: { userId: 'user-1' },
-        partNumber: ['x" OR userIdentifier != "', 'SKU-2'],
-      }),
+      createPayload({ partNumber: ['x" OR userIdentifier != "', 'SKU-2'] }),
+      ['user-1'],
     );
     expect(params.filter).toBe(
       'userIdentifier = "user-1" AND (items.sku = "x\\" OR userIdentifier != \\"" OR items.sku = "SKU-2")',
@@ -93,10 +89,8 @@ describe('MeilisearchOrderSearchCapability filters', () => {
 
   it('escapes backslashes so a trailing backslash cannot escape the closing quote', () => {
     const params = createCapability().buildSearchParams(
-      createPayload({
-        user: { userId: 'user-1\\' },
-        partNumber: ['a\\" OR items.sku != "'],
-      }),
+      createPayload({ partNumber: ['a\\" OR items.sku != "'] }),
+      ['user-1\\'],
     );
     expect(params.filter).toBe(
       'userIdentifier = "user-1\\\\" AND (items.sku = "a\\\\\\" OR items.sku != \\"")',
@@ -105,9 +99,7 @@ describe('MeilisearchOrderSearchCapability filters', () => {
   });
 
   it('lets a subclass override the escaping', () => {
-    const params = createCapability(StricterEscapingCapability).buildSearchParams(
-      createPayload({ user: { userId: "o'neil" } }),
-    );
+    const params = createCapability(StricterEscapingCapability).buildSearchParams(createPayload({}), ["o'neil"]);
     expect(params.filter).toBe(`userIdentifier = "o\\'neil"`);
   });
 });
