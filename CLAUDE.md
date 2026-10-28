@@ -59,6 +59,8 @@ bd close <id>         # Complete work
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
 
+- Always ask the `review` agent to review the PR before pushing. Deal with issues automatically, unless it turns into a major rewrite. Anything suggestion, todo or chore etc, ask before fixing.
+
 
 # Other stuff
 - No mannered prose
