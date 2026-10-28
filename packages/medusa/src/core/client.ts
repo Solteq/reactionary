@@ -167,6 +167,27 @@ export class MedusaAPI {
     return selectedRegion;
   }
 
+  /**
+   * Finds the region that serves the given currency. Unlike getActiveRegion
+   * it does not fall back to another region and leaves the request currency
+   * and the session's selected region alone, so callers can tell when a
+   * currency is not offered by the store.
+   */
+  public async getRegionByCurrency(currency: Currency): Promise<MedusaRegion | undefined> {
+    const regions = await (await this.getClient()).store.region.list();
+    const region = regions.regions.find(
+      (r) => r.currency_code === currency.toLowerCase()
+    );
+    if (!region) {
+      return undefined;
+    }
+    return {
+      id: region.id,
+      name: region.name,
+      currency_code: region.currency_code,
+    };
+  }
+
 
   public async getClient(): Promise<Medusa> {
     if (!this.client) {
