@@ -289,6 +289,29 @@ Requirements:
 - Set `internalApiKey` (e.g. from `UCP_OAUTH_INTERNAL_KEY`) on the UCP server and in the storefront's environment. It is a server-to-server secret; never expose it to the browser.
 - `issuer` is the public origin; `baseUrl` defaults to `{issuer}/ucp` and must match where the UCP endpoint is actually served.
 
+## Order webhooks
+
+With `webhooks` set, order events are sent to the `webhook_url` the platform declares in its profile (order capability `config.webhook_url`). The profile URL comes from the `UCP-Agent` request header, which is unauthenticated, so the server treats both URLs as untrusted:
+
+- Only `https:` URLs without credentials are used, and URLs naming localhost, loopback, private, link-local, carrier-grade NAT, multicast or reserved addresses (IPv4 and IPv6) are refused.
+- Host names are resolved when connecting and refused if any address is non-public, so a name that resolves differently between a check and the connection (DNS rebinding) cannot reach an internal service. Redirects are never followed.
+- Profile responses are limited to `maxResponseBytes` (default 256 KiB), and at most `profileCacheMaxEntries` profiles (default 500) are cached, least recently used first, for five minutes.
+
+```ts
+new ReactionaryUCPServer(createClient, {
+  webhooks: {
+    signingKey,
+    // Optional: only talk to known platforms. Can only restrict, never admit URLs the checks above refused.
+    validateUrl: (url) => url.hostname.endsWith('.platform.example'),
+    // Local development only: accept http: URLs and a receiver on localhost.
+    allowInsecureUrls: true,
+    allowPrivateNetworks: true,
+  },
+});
+```
+
+The built-in transport connects directly and ignores `HTTP_PROXY`/`HTTPS_PROXY` (an environment proxy would resolve the host itself and bypass the address check). Behind an egress proxy, pass `webhooks.fetch` with a fetch that uses it; a custom `fetch` replaces the built-in transport and its connect-time address check, so only URLs naming a non-public IP literal or localhost are refused up front.
+
 ## Request IDs and idempotency
 
 `Request-Id` is optional and echoed in the response header so agents can correlate calls and responses.
