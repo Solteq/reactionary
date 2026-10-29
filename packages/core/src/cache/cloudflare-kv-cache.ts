@@ -4,28 +4,28 @@ import type { BaseModel } from '../schemas/models/index.js';
 import type { InferType } from '../zod-utils.js';
 import type { Cache, CacheEntryOptions } from './cache.interface.js';
 
-export interface KvGetOptions {
+export interface CloudflareKvGetOptions {
   type: 'text';
   cacheTtl?: number;
 }
 
-export interface KvPutOptions {
+export interface CloudflareKvPutOptions {
   expirationTtl?: number;
   metadata?: unknown;
 }
 
-export interface KvListOptions {
+export interface CloudflareKvListOptions {
   prefix?: string | null;
   cursor?: string | null;
   limit?: number;
 }
 
-export interface KvListKey {
+export interface CloudflareKvListKey {
   name: string;
 }
 
-export interface KvListResult {
-  keys: KvListKey[];
+export interface CloudflareKvListResult {
+  keys: CloudflareKvListKey[];
   list_complete: boolean;
   cursor?: string;
 }
@@ -35,11 +35,11 @@ export interface KvListResult {
  * the cache uses. Declared here so that core does not depend on
  * `@cloudflare/workers-types`. The real binding satisfies it.
  */
-export interface KvNamespaceLike {
-  get(key: string, options: 'text' | KvGetOptions): Promise<string | null>;
-  put(key: string, value: string, options?: KvPutOptions): Promise<void>;
+export interface CloudflareKvNamespaceLike {
+  get(key: string, options: 'text' | CloudflareKvGetOptions): Promise<string | null>;
+  put(key: string, value: string, options?: CloudflareKvPutOptions): Promise<void>;
   delete(key: string): Promise<void>;
-  list(options?: KvListOptions): Promise<KvListResult>;
+  list(options?: CloudflareKvListOptions): Promise<CloudflareKvListResult>;
 }
 
 export interface CloudflareKvCacheOptions {
@@ -59,6 +59,17 @@ export interface CloudflareKvCacheOptions {
   trackDependencies?: boolean;
 
   /**
+   * Whether the cache key and dependency ids are replaced by a SHA-256 digest
+   * in the KV keys. Defaults to true. KV keys are limited to 512 bytes, and
+   * hashing keeps every key far below that however long the cache key is. The
+   * original cache key is kept in the entry's metadata, so an entry can still
+   * be recognised in `list` output and the Cloudflare dashboard. With false the
+   * keys are readable, and an entry whose key would exceed 512 bytes is not
+   * stored.
+   */
+  hashKeys?: boolean;
+
+  /**
    * Passed to KV `get` as `cacheTtl`, in seconds. It keeps a read cached in the
    * Cloudflare location that served it, which lowers latency but means a write
    * or invalidation from another location is not seen for at least that long.
@@ -70,14 +81,26 @@ export interface CloudflareKvCacheOptions {
 
 /**
  * What is stored under a cache key. KV cannot expire a key in under 60 seconds,
- * so the expiry is kept in the value as well and checked on read.
+ * so the expiry is kept in the value as well and checked on read. The cache key
+ * is kept so that a read can tell it got the entry it asked for.
  */
 export const CloudflareKvCacheEnvelopeSchema = z.object({
+  key: z.string(),
   value: z.unknown(),
   expiresAt: z.number(),
 });
 
 export type CloudflareKvCacheEnvelope = InferType<typeof CloudflareKvCacheEnvelopeSchema>;
+
+/**
+ * The KV metadata written with an entry. It is not read back by the cache, it
+ * is there to identify entries in `list` output and the dashboard.
+ */
+export const CloudflareKvEntryMetadataSchema = z.object({
+  key: z.string(),
+});
+
+export type CloudflareKvEntryMetadata = InferType<typeof CloudflareKvEntryMetadataSchema>;
 
 /**
  * Cache backed by Cloudflare Workers KV, for storefronts running on Workers.
@@ -88,8 +111,10 @@ export type CloudflareKvCacheEnvelope = InferType<typeof CloudflareKvCacheEnvelo
  * therefore return the old state. Use it for data that tolerates that.
  *
  * Limits it works around (see the Cloudflare KV documentation):
- * - Keys are limited to 512 bytes and values to 25 MiB. A `put` that exceeds
- *   either is skipped with a warning.
+ * - Keys are limited to 512 bytes and values to 25 MiB. By default the cache
+ *   key is hashed, so the key limit is not reached. A `put` whose value
+ *   exceeds the limit, or whose key does when hashing is off, is skipped with
+ *   a warning.
  * - `expirationTtl` is at least 60 seconds. Shorter TTLs are enforced through
  *   the stored envelope and the key is left to KV for garbage collection.
  * - Writes to the same key are limited to one per second, and KV answers with
@@ -108,19 +133,23 @@ export class CloudflareKvCache implements Cache {
 
   protected readonly keyPrefix: string;
   protected readonly trackDependencies: boolean;
+  protected readonly hashKeys: boolean;
   protected readonly edgeCacheTtlSeconds: number | undefined;
 
+  protected readonly encoder = new TextEncoder();
   protected readonly maxKeyBytes = 512;
   protected readonly maxValueBytes = 25 * 1024 * 1024;
+  protected readonly maxMetadataBytes = 1024;
   protected readonly minExpirationTtlSeconds = 60;
   protected readonly minEdgeCacheTtlSeconds = 30;
 
   constructor(
-    protected readonly kv: KvNamespaceLike,
+    protected readonly kv: CloudflareKvNamespaceLike,
     options: CloudflareKvCacheOptions = {},
   ) {
     this.keyPrefix = options.keyPrefix ?? 'reactionary:';
     this.trackDependencies = options.trackDependencies ?? true;
+    this.hashKeys = options.hashKeys ?? true;
     this.edgeCacheTtlSeconds = options.edgeCacheTtlSeconds;
   }
 
@@ -147,13 +176,18 @@ export class CloudflareKvCache implements Cache {
       return;
     }
 
-    const entryKey = this.buildEntryKey(key);
+    const keySegment = await this.buildKeySegment(key);
+    const entryKey = this.buildEntryKey(keySegment);
     const dependencyKeys = this.trackDependencies
-      ? [...new Set(options.dependencyIds)].map((id) => this.buildDependencyKey(id, key))
+      ? await Promise.all(
+          [...new Set(options.dependencyIds)].map(async (id) =>
+            this.buildDependencyKey(await this.buildDependencyPrefix(id), keySegment),
+          ),
+        )
       : [];
 
     // An entry that cannot be indexed could not be invalidated, so it is not
-    // stored at all.
+    // stored at all. With hashed keys this cannot happen.
     const oversizedKey = [entryKey, ...dependencyKeys].find((kvKey) => !this.fitsKeyLimit(kvKey));
 
     if (oversizedKey !== undefined) {
@@ -161,10 +195,10 @@ export class CloudflareKvCache implements Cache {
       return;
     }
 
-    const serialized = this.encodeEnvelope(value, options.ttlSeconds);
+    const serialized = this.encodeEnvelope(key, value, options.ttlSeconds);
 
     if (this.byteLength(serialized) > this.maxValueBytes) {
-      this.warnSkipped(`the value is over ${this.maxValueBytes} bytes`, entryKey);
+      this.warnSkipped(`the value is over ${this.maxValueBytes} bytes`, key);
       return;
     }
 
@@ -178,7 +212,7 @@ export class CloudflareKvCache implements Cache {
       dependencyKeys.map((dependencyKey) => this.kv.put(dependencyKey, '1', { expirationTtl })),
     );
 
-    await this.kv.put(entryKey, serialized, { expirationTtl });
+    await this.kv.put(entryKey, serialized, { expirationTtl, metadata: this.buildMetadata(key) });
   }
 
   public async invalidate(dependencyIds: Array<string>): Promise<void> {
@@ -187,16 +221,14 @@ export class CloudflareKvCache implements Cache {
     }
 
     for (const dependencyId of new Set(dependencyIds)) {
-      const dependencyPrefix = this.buildDependencyPrefix(dependencyId);
+      const dependencyPrefix = await this.buildDependencyPrefix(dependencyId);
 
       for await (const names of this.listKeyPages(dependencyPrefix)) {
         await Promise.all(
           names.map(async (name) => {
-            const key = name.slice(dependencyPrefix.length);
-
             // The entry goes first, so a failed delete leaves the index key to
             // retry from.
-            await this.kv.delete(this.buildEntryKey(key));
+            await this.kv.delete(this.entryKeyFromDependencyKey(name, dependencyPrefix));
             await this.kv.delete(name);
           }),
         );
@@ -220,7 +252,7 @@ export class CloudflareKvCache implements Cache {
       return null;
     }
 
-    const entryKey = this.buildEntryKey(key);
+    const entryKey = this.buildEntryKey(await this.buildKeySegment(key));
 
     if (!this.fitsKeyLimit(entryKey)) {
       return null;
@@ -234,7 +266,9 @@ export class CloudflareKvCache implements Cache {
 
     const envelope = this.decodeEnvelope(serialized);
 
-    if (!envelope || envelope.expiresAt <= Date.now()) {
+    // The stored key can only differ from the requested one if two cache keys
+    // hash to the same digest, which is practically unreachable with SHA-256.
+    if (!envelope || envelope.key !== key || envelope.expiresAt <= Date.now()) {
       return null;
     }
 
@@ -265,8 +299,9 @@ export class CloudflareKvCache implements Cache {
     return Math.max(this.minEdgeCacheTtlSeconds, Math.ceil(this.edgeCacheTtlSeconds));
   }
 
-  protected encodeEnvelope(value: unknown, ttlSeconds: number): string {
+  protected encodeEnvelope(key: string, value: unknown, ttlSeconds: number): string {
     const envelope: CloudflareKvCacheEnvelope = {
+      key,
       value,
       expiresAt: Date.now() + ttlSeconds * 1000,
     };
@@ -288,20 +323,69 @@ export class CloudflareKvCache implements Cache {
     return parsed.success ? parsed.data : null;
   }
 
-  protected buildEntryKey(key: string): string {
-    return `${this.keyPrefix}entry:${key}`;
+  /**
+   * The metadata for an entry. KV allows 1024 bytes of JSON, so a long cache
+   * key is cut to fit. Metadata only helps recognise an entry, so it must never
+   * make the write fail.
+   */
+  protected buildMetadata(key: string): CloudflareKvEntryMetadata {
+    let shortened = key;
+    let size = this.byteLength(JSON.stringify({ key: shortened }));
+
+    while (shortened.length > 0 && size > this.maxMetadataBytes) {
+      shortened = shortened.slice(0, Math.min(shortened.length - 1, Math.floor((shortened.length * this.maxMetadataBytes) / size)));
+      size = this.byteLength(JSON.stringify({ key: shortened }));
+    }
+
+    return { key: shortened };
   }
 
   /**
-   * The dependency id is URI-encoded so that it cannot contain the `:` which
-   * ends it. Otherwise invalidating `a` would also match the keys of `a:b`.
+   * The part of a KV key that stands for a cache key: its digest, or the key
+   * itself when hashing is off. Dependency index keys end with the same
+   * segment as the entry they point to.
    */
-  protected buildDependencyPrefix(dependencyId: string): string {
-    return `${this.keyPrefix}dep:${encodeURIComponent(dependencyId)}:`;
+  protected async buildKeySegment(key: string): Promise<string> {
+    return this.hashKeys ? this.digest(key) : key;
   }
 
-  protected buildDependencyKey(dependencyId: string, key: string): string {
-    return `${this.buildDependencyPrefix(dependencyId)}${key}`;
+  /**
+   * The part of a dependency index key that stands for a dependency id. Without
+   * hashing the id is URI-encoded so that it cannot contain the `:` which ends
+   * it. Otherwise invalidating `a` would also match the keys of `a:b`.
+   */
+  protected async buildDependencySegment(dependencyId: string): Promise<string> {
+    return this.hashKeys ? this.digest(dependencyId) : encodeURIComponent(dependencyId);
+  }
+
+  protected buildEntryKey(keySegment: string): string {
+    return `${this.keyPrefix}entry:${keySegment}`;
+  }
+
+  protected async buildDependencyPrefix(dependencyId: string): Promise<string> {
+    return `${this.keyPrefix}dep:${await this.buildDependencySegment(dependencyId)}:`;
+  }
+
+  protected buildDependencyKey(dependencyPrefix: string, keySegment: string): string {
+    return `${dependencyPrefix}${keySegment}`;
+  }
+
+  protected entryKeyFromDependencyKey(dependencyKey: string, dependencyPrefix: string): string {
+    return this.buildEntryKey(dependencyKey.slice(dependencyPrefix.length));
+  }
+
+  /**
+   * Fixed length text for a piece of a key: SHA-256 as base64url without
+   * padding, 43 characters. Override to use another hash, keeping the output
+   * free of `:` and of a length that fits the 512 byte key limit.
+   */
+  protected async digest(text: string): Promise<string> {
+    const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', this.encoder.encode(text)));
+
+    return btoa(String.fromCharCode(...hash))
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replaceAll('=', '');
   }
 
   protected fitsKeyLimit(kvKey: string): boolean {
@@ -309,7 +393,7 @@ export class CloudflareKvCache implements Cache {
   }
 
   protected byteLength(text: string): number {
-    return new TextEncoder().encode(text).length;
+    return this.encoder.encode(text).length;
   }
 
   /**
@@ -320,7 +404,7 @@ export class CloudflareKvCache implements Cache {
     let cursor: string | undefined;
 
     do {
-      const page: KvListResult = await this.kv.list(cursor ? { prefix, cursor } : { prefix });
+      const page: CloudflareKvListResult = await this.kv.list(cursor ? { prefix, cursor } : { prefix });
 
       yield page.keys.map((listed) => listed.name);
 
