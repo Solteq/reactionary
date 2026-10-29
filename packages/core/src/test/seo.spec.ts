@@ -24,8 +24,8 @@ describe('resolveSeo', () => {
 
   it('prefers authored values over fallbacks', () => {
     expect(
-      resolveSeo({ ...fallbacks, seo: { title: 'Buy a coffee maker', description: 'Authored.', robots: 'noindex, follow' } }),
-    ).toEqual({ title: 'Buy a coffee maker', description: 'Authored.', robots: 'noindex, follow' });
+      resolveSeo({ ...fallbacks, seo: { title: 'Buy a coffee maker', description: 'Authored.' } }),
+    ).toEqual({ title: 'Buy a coffee maker', description: 'Authored.' });
   });
 
   it('falls back when nothing is authored', () => {
@@ -33,7 +33,7 @@ describe('resolveSeo', () => {
   });
 
   it('treats blank authored values as not authored', () => {
-    expect(resolveSeo({ ...fallbacks, seo: { title: '  ', description: '', robots: ' ' } })).toEqual({
+    expect(resolveSeo({ ...fallbacks, seo: { title: '  ', description: '' } })).toEqual({
       title: 'Coffee Maker',
       description: 'A fine coffee maker.',
     });
@@ -67,13 +67,5 @@ describe('resolveSeo', () => {
   it('does not truncate an authored description', () => {
     const long = 'x '.repeat(200).trim();
     expect(resolveSeo({ ...fallbacks, seo: { description: long } }).description).toBe(long);
-  });
-
-  it('lets forced robots replace the authored directive', () => {
-    expect(resolveSeo({ ...fallbacks, seo: { robots: 'index' }, forcedRobots: 'noindex' }).robots).toBe('noindex');
-  });
-
-  it('omits robots when neither authored nor forced', () => {
-    expect(resolveSeo(fallbacks)).not.toHaveProperty('robots');
   });
 });

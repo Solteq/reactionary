@@ -2,7 +2,7 @@ import type { RequestContext, Seo } from '@reactionary/core';
 
 /**
  * Medusa does not translate metadata, so authored SEO values live in flat keys:
- * `seo_title_<locale>` and `seo_description_<locale>` (e.g. `seo_title_da-DK`), and a single `seo_robots`.
+ * `seo_title_<locale>` and `seo_description_<locale>` (e.g. `seo_title_da-DK`).
  * The exact request locale wins, then the bare language (`seo_title_da`).
  * Another language is never borrowed, so an unauthored locale stays empty and falls through to the read-time fallback.
  *
@@ -11,10 +11,12 @@ import type { RequestContext, Seo } from '@reactionary/core';
  */
 const TITLE_PREFIX = 'seo_title_';
 const DESCRIPTION_PREFIX = 'seo_description_';
+// Written by recalcitrant for other consumers (e.g. an edge service). It is not part of the model,
+// but it is still ours, so it is kept out of the generic product attributes.
 const ROBOTS_KEY = 'seo_robots';
 
 /**
- * True for the metadata keys this mapping consumes, so they can be kept out of the generic attributes.
+ * True for the metadata keys written by recalcitrant for SEO, so they can be kept out of the generic attributes.
  * Other `seo_` keys a merchant may have are left alone.
  */
 export function isMedusaSeoMetadataKey(key: string): boolean {
@@ -69,15 +71,13 @@ export function parseMedusaSeo(
   const locale = context.languageContext.locale;
   const title = localizedValue(metadata, TITLE_PREFIX, locale);
   const description = localizedValue(metadata, DESCRIPTION_PREFIX, locale);
-  const robots = authoredString(metadata[ROBOTS_KEY]);
 
-  if (title === undefined && description === undefined && robots === undefined) {
+  if (title === undefined && description === undefined) {
     return undefined;
   }
 
   const seo: Seo = {};
   if (title !== undefined) seo.title = title;
   if (description !== undefined) seo.description = description;
-  if (robots !== undefined) seo.robots = robots;
   return seo;
 }

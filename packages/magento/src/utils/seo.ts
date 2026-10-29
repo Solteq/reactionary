@@ -15,7 +15,6 @@ function authoredAttribute(
 /**
  * Maps the authored `meta_title` and `meta_description` of a product or category.
  * Magento returns them per store view, so they follow the store code the client is configured for.
- * Stock Magento has no per-entity robots attribute (only extensions add one), so robots is not mapped.
  */
 export function parseMagentoSeo(
   data: { custom_attributes?: MagentoCustomAttribute[] },

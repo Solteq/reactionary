@@ -12,7 +12,6 @@ import type { InferType } from '../../zod-utils.js';
 export const SeoSchema = z.looseObject({
   title: z.string().optional().meta({ description: 'The authored page title (meta title), in the language of the request.' }),
   description: z.string().optional().meta({ description: 'The authored meta description, in the language of the request.' }),
-  robots: z.string().optional().meta({ description: 'The authored robots directive, written verbatim, e.g. "noindex, follow" or "max-image-preview:large".' }),
 });
 
 export type Seo = InferType<typeof SeoSchema>;

@@ -73,7 +73,6 @@ describe('parseMedusaSeo', () => {
     expect(parseMedusaSeo(contextWithLocale('da-DK'), metadata)).toEqual({
       title: 'Dansk titel (DK)',
       description: 'Dansk beskrivelse',
-      robots: 'noindex, follow',
     });
   });
 
@@ -98,12 +97,13 @@ describe('parseMedusaSeo', () => {
 
   it('ignores values that are not strings', () => {
     expect(
-      parseMedusaSeo(contextWithLocale('da-DK'), { seo_title_da: 12, seo_description_da: { a: 1 }, seo_robots: true }),
+      parseMedusaSeo(contextWithLocale('da-DK'), { seo_title_da: 12, seo_description_da: { a: 1 } }),
     ).toBeUndefined();
   });
 
-  it('applies robots regardless of locale', () => {
-    expect(parseMedusaSeo(contextWithLocale('fi-FI'), metadata)?.robots).toBe('noindex, follow');
+  it('does not map seo_robots, it is not part of the model', () => {
+    expect(parseMedusaSeo(contextWithLocale('da-DK'), { seo_robots: 'noindex, follow' })).toBeUndefined();
+    expect(parseMedusaSeo(contextWithLocale('da-DK'), metadata)).not.toHaveProperty('robots');
   });
 
   it('returns undefined when nothing is authored', () => {
@@ -112,7 +112,7 @@ describe('parseMedusaSeo', () => {
   });
 
   it('treats blank values as not authored', () => {
-    expect(parseMedusaSeo(contextWithLocale('da-DK'), { seo_title_da: '  ', seo_robots: '' })).toBeUndefined();
+    expect(parseMedusaSeo(contextWithLocale('da-DK'), { seo_title_da: '  ', seo_description_da: '' })).toBeUndefined();
   });
 });
 
@@ -124,7 +124,6 @@ describe('Medusa SEO in factories', () => {
     expect(factory.parseCategory(contextWithLocale('da-DK'), category).seo).toEqual({
       title: 'Dansk titel (DK)',
       description: 'Dansk beskrivelse',
-      robots: 'noindex, follow',
     });
   });
 

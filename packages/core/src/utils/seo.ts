@@ -9,14 +9,11 @@ export interface ResolveSeoInput {
   fallbackTitle: string;
   /** Used when no description was authored. May contain HTML, it is reduced to plain text. */
   fallbackDescription: string;
-  /** Replaces any authored robots directive, e.g. "noindex" when a feature flag hides the page. */
-  forcedRobots?: string;
 }
 
 export interface ResolvedSeo {
   title: string;
   description: string;
-  robots?: string;
 }
 
 const NAMED_ENTITIES: Record<string, string> = {
@@ -70,15 +67,12 @@ function authored(value: string | undefined): string | undefined {
  * Providers only map values that were authored, so a missing value means "not authored" and the fallback applies.
  * The description fallback is reduced to plain text and cut at a word boundary, as meta descriptions
  * should be short and free of markup.
- *
- * Pure, it does not read feature flags. Pass `forcedRobots` when a flag decides the robots directive.
  */
 export function resolveSeo(input: ResolveSeoInput): ResolvedSeo {
   const title = authored(input.seo?.title) ?? input.fallbackTitle.trim();
   const description =
     authored(input.seo?.description) ??
     truncateAtWord(stripHtml(input.fallbackDescription), MAX_DESCRIPTION_LENGTH);
-  const robots = authored(input.forcedRobots) ?? authored(input.seo?.robots);
 
-  return robots === undefined ? { title, description } : { title, description, robots };
+  return { title, description };
 }
