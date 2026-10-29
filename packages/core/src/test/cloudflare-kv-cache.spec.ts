@@ -483,6 +483,19 @@ describe('CloudflareKvCache with readable keys', () => {
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('waitUntil failed'), expect.any(Error));
     });
 
+    it('rejects, and does not throw, when an override of store throws at once', async () => {
+      class ThrowingStore extends CloudflareKvCache {
+        protected override store(): Promise<void> {
+          throw new Error('no store');
+        }
+      }
+      const kept = new ThrowingStore(kv, { hashKeys: false, waitUntil: vi.fn() });
+
+      const write = kept.put('a', { id: 'a' }, entryOptions);
+
+      await expect(write).rejects.toThrow('no store');
+    });
+
     it('is not called for reads and invalidation', async () => {
       const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
       const kept = setup(waitUntil);
