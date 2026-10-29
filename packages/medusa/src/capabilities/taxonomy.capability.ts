@@ -137,9 +137,18 @@ export class MedusaTaxonomyCapability<
     return success(this.factory.parseVocabulary(this.context, payload.vocabulary.key, tags));
   }
 
+  /**
+   * Cached for as long as getVocabulary, so a concept shows the same name in both. The cache holds the answer as it
+   * was given, also an empty or partial one: a concept that did not exist yet when it was asked for stays missing
+   * until the entry expires.
+   */
   @Reactionary({
     inputSchema: TaxonomyQueryGetConceptsSchema,
     outputSchema: z.array(ConceptSchema),
+    cache: true,
+    cacheTimeToLiveInSeconds: 300,
+    currencyDependentCaching: false,
+    localeDependentCaching: true,
   })
   public override async getConcepts(
     payload: TaxonomyQueryGetConcepts,
