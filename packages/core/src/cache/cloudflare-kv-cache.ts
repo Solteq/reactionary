@@ -42,6 +42,12 @@ export interface CloudflareKvNamespaceLike {
   list(options?: CloudflareKvListOptions): Promise<CloudflareKvListResult>;
 }
 
+/**
+ * Keeps a Worker running until a promise has settled, after the response has been sent: `ctx.waitUntil` of the
+ * Worker's execution context.
+ */
+export type CloudflareKvWaitUntil = (promise: Promise<unknown>) => void;
+
 export interface CloudflareKvCacheOptions {
   /**
    * Prepended to every key the cache writes, and the scope of `clear()`.
@@ -77,6 +83,16 @@ export interface CloudflareKvCacheOptions {
    * which leaves KV's own default of 60 seconds.
    */
   edgeCacheTtlSeconds?: number;
+
+  /**
+   * Called with the promise of every `put`, so that the Worker keeps running until the write has finished when the
+   * response is sent first. Pass `ctx.waitUntil.bind(ctx)`. `@Reactionary` does not wait for a cache write, and
+   * a Worker can stop work that is still running when its response has been sent, so without this a write can be
+   * cancelled and the entry is never stored. The write is not delayed by it: it starts at once, and `put` still
+   * returns the promise of the write, which rejects if the write fails. The promise handed to `waitUntil` never rejects.
+   * Not set by default, which leaves a write unattended.
+   */
+  waitUntil?: CloudflareKvWaitUntil;
 }
 
 /**
@@ -135,6 +151,7 @@ export class CloudflareKvCache implements Cache {
   protected readonly trackDependencies: boolean;
   protected readonly hashKeys: boolean;
   protected readonly edgeCacheTtlSeconds: number | undefined;
+  protected readonly waitUntil: CloudflareKvWaitUntil | undefined;
 
   protected readonly encoder = new TextEncoder();
   protected readonly maxKeyBytes = 512;
@@ -151,6 +168,7 @@ export class CloudflareKvCache implements Cache {
     this.trackDependencies = options.trackDependencies ?? true;
     this.hashKeys = options.hashKeys ?? true;
     this.edgeCacheTtlSeconds = options.edgeCacheTtlSeconds;
+    this.waitUntil = options.waitUntil;
   }
 
   public async get<T extends BaseModel>(key: string, schema: z.ZodType<T>): Promise<T | null> {
@@ -171,7 +189,30 @@ export class CloudflareKvCache implements Cache {
     return value;
   }
 
-  public async put(key: string, value: unknown, options: CacheEntryOptions): Promise<void> {
+  public put(key: string, value: unknown, options: CacheEntryOptions): Promise<void> {
+    const write = this.store(key, value, options);
+    this.keepAlive(write);
+
+    return write;
+  }
+
+  /**
+   * Hands a write to `waitUntil`, if there is one. The failure of the write is for the caller of `put`, so what is
+   * handed over never rejects. Never throws.
+   */
+  protected keepAlive(write: Promise<void>): void {
+    if (!this.waitUntil) {
+      return;
+    }
+
+    try {
+      this.waitUntil(write.catch(() => undefined));
+    } catch (err) {
+      console.warn('Cloudflare KV cache: waitUntil failed, the write is not kept alive', err);
+    }
+  }
+
+  protected async store(key: string, value: unknown, options: CacheEntryOptions): Promise<void> {
     if (!key || !Number.isFinite(options.ttlSeconds) || options.ttlSeconds <= 0) {
       return;
     }

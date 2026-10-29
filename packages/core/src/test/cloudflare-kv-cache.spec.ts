@@ -442,6 +442,64 @@ describe('CloudflareKvCache with readable keys', () => {
     });
   });
 
+  describe('waitUntil', () => {
+    const entryOptions = { ttlSeconds: 120, dependencyIds: ['product:1'] };
+    const setup = (waitUntil: (promise: Promise<unknown>) => void) => new CloudflareKvCache(kv, { hashKeys: false, waitUntil });
+
+    it('hands the write of every put to waitUntil, and it settles when the entry has been stored', async () => {
+      const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
+      const kept = setup(waitUntil);
+
+      await kept.put('a', { id: 'a' }, entryOptions);
+      const write = kept.put('b', { id: 'b' }, entryOptions);
+
+      expect(waitUntil).toHaveBeenCalledTimes(2);
+      await waitUntil.mock.calls[1][0];
+      await write;
+      expect(kv.entries.has('reactionary:entry:b')).toBe(true);
+      expect(kv.entries.has('reactionary:dep:product%3A1:b')).toBe(true);
+    });
+
+    it('lets the caller see a failing write, while the promise given to waitUntil does not reject', async () => {
+      const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
+      const kept = setup(waitUntil);
+      vi.spyOn(kv, 'put').mockRejectedValue(new Error('KV PUT failed: 429'));
+
+      const write = kept.put('a', { id: 'a' }, entryOptions);
+
+      await expect(write).rejects.toThrow('429');
+      await expect(waitUntil.mock.calls[0][0]).resolves.toBeUndefined();
+    });
+
+    it('stores the entry and warns when waitUntil throws', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const kept = setup(() => {
+        throw new Error('no execution context');
+      });
+
+      await expect(kept.put('a', { id: 'a' }, entryOptions)).resolves.toBeUndefined();
+
+      expect(kv.entries.has('reactionary:entry:a')).toBe(true);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('waitUntil failed'), expect.any(Error));
+    });
+
+    it('is not called for reads and invalidation', async () => {
+      const waitUntil = vi.fn<(promise: Promise<unknown>) => void>();
+      const kept = setup(waitUntil);
+
+      await kept.get('a', z.object({ id: z.string() }));
+      await kept.invalidate(['product:1']);
+
+      expect(waitUntil).not.toHaveBeenCalled();
+    });
+
+    it('does nothing extra without waitUntil', async () => {
+      await expect(cache.put('a', { id: 'a' }, entryOptions)).resolves.toBeUndefined();
+
+      expect(kv.entries.has('reactionary:entry:a')).toBe(true);
+    });
+  });
+
   describe('edge cache TTL', () => {
     it('reads with the text type and no cacheTtl by default', async () => {
       await cache.get('a', ProductSchema);

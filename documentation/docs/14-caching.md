@@ -23,10 +23,10 @@ Pass the binding to the cache:
 import { ClientBuilder, CloudflareKvCache } from '@reactionary/core';
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const client = new ClientBuilder(requestContext)
       .withCapability(/* ... */)
-      .withCache(new CloudflareKvCache(env.REACTIONARY_CACHE))
+      .withCache(new CloudflareKvCache(env.REACTIONARY_CACHE, { waitUntil: ctx.waitUntil.bind(ctx) }))
       .build();
 
     // ...
@@ -44,6 +44,7 @@ new CloudflareKvCache(env.REACTIONARY_CACHE, {
   trackDependencies: false,
   hashKeys: false,
   edgeCacheTtlSeconds: 120,
+  waitUntil: ctx.waitUntil.bind(ctx),
 });
 ```
 
@@ -51,6 +52,7 @@ new CloudflareKvCache(env.REACTIONARY_CACHE, {
 - `trackDependencies` (default `true`) writes one extra index key per dependency id of each entry, which `invalidate()` needs. Set it to `false` if you never invalidate and want to save KV writes. `invalidate()` then does nothing and entries only leave the cache when they expire.
 - `hashKeys` (default `true`) replaces the cache key and the dependency ids in the KV keys by a SHA-256 digest, see below. Set it to `false` for readable keys.
 - `edgeCacheTtlSeconds` is passed to KV as `cacheTtl`. It makes KV keep a read in the location that served it for that many seconds, which lowers latency, but a change made elsewhere is not seen for at least that long. Values under 30 are raised to 30. Not set by default, which leaves KV's default of 60 seconds.
+- `waitUntil` is called with the promise of every `put`, so that the Worker keeps running until the write has finished when the response is sent first. Pass `ctx.waitUntil.bind(ctx)`. Without it a write that is still running when the response is sent can be cancelled and the entry is never stored. It does not delay the write: the write starts at once, `put` still returns its promise (which rejects if the write fails), and the promise given to `waitUntil` never rejects. Reads, deletes and `invalidate()` do not use it. Not set by default.
 
 ### How it behaves
 
@@ -59,7 +61,7 @@ new CloudflareKvCache(env.REACTIONARY_CACHE, {
 - Keys are limited to 512 bytes (UTF-8, including the prefix) and values to 25 MiB. With hashed keys (the default) the key limit cannot be reached. A `put` whose value is over the limit, or whose key is over it with `hashKeys: false`, is skipped with a `console.warn` and no error, and the entry is never cached.
 - KV allows one write per second to the same key and answers with a 429 error beyond that. The error is thrown from `put`. `@Reactionary` does not wait for the cache write and logs the failure.
 - A corrupt entry, or one that does not match the schema of the query, is a miss. Errors from the KV binding itself are not caught by the cache. What the caller sees then is decided by `@Reactionary`: unless it treats a failing cache as a miss, a failed `get` turns the query into a `Generic` error result.
-- On Workers, work still running when the response is sent can be cancelled unless it is registered with `ctx.waitUntil`. A cache write that `@Reactionary` does not wait for can be lost that way, which only costs a later miss.
+- On Workers, work still running when the response is sent can be cancelled unless it is registered with `ctx.waitUntil`. `@Reactionary` does not wait for a cache write, so pass `waitUntil` as an option to get the write registered. Without it a write can be lost that way, which only costs a later miss.
 
 ### Hashed keys
 
