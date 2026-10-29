@@ -34,13 +34,13 @@ interface LoadedResult {
 
 /**
  * A copy of a result for a call that joined another one, so that callers of the same query do not share one mutable
- * object. A result that cannot be copied is shared as it is.
+ * object. Undefined when the result cannot be copied (it holds a function, for example), and such a call is not joined.
  */
-function copyOf<T>(value: T): T {
+function copyOf<T>(value: T): { value: T } | undefined {
   try {
-    return structuredClone(value);
+    return { value: structuredClone(value) };
   } catch {
-    return value;
+    return undefined;
   }
 }
 
@@ -222,7 +222,8 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
           };
 
           let loaded: LoadedResult;
-          if (configuration.cache) {
+          // A capability built without a request context cannot be told apart from others, so it is not joined
+          if (configuration.cache && typeof this.context === 'object' && this.context !== null) {
             let inRequest = running.get(this.context);
             if (!inRequest) {
               inRequest = new Map();
@@ -232,8 +233,14 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
             const sameCall = inRequest.get(cacheKey);
             if (sameCall) {
               const shared = await sameCall;
-              loaded = { result: copyOf(shared.result), fromCache: shared.fromCache };
-              cacheStatus = 'shared';
+              const copy = copyOf(shared.result);
+              if (copy) {
+                loaded = { result: copy.value, fromCache: shared.fromCache };
+                cacheStatus = 'shared';
+              } else {
+                // A result that cannot be copied is not shared, the call asks on its own
+                loaded = await load();
+              }
             } else {
               const own = load();
               inRequest.set(cacheKey, own);

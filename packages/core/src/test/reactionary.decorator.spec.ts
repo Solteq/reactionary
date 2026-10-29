@@ -393,6 +393,29 @@ describe('@Reactionary decorator', () => {
         expect((second.value as { tags: string[] }).tags).toEqual(['x']);
       });
 
+      it('does not join a call whose result cannot be copied, and every caller gets an answer of its own', async () => {
+        const { capability } = setup();
+        capability.answer = () => success({ id: 'a', tags: ['x'], notCloneable: () => 1 });
+
+        const results = await Promise.all([capability.cached({ id: 'a' }), capability.cached({ id: 'a' }), capability.cached({ id: 'a' })]);
+
+        for (const result of results) {
+          expect(result.success).toBe(true);
+        }
+        const values = results.map((result) => (result.success ? result.value : undefined));
+        expect(values[0]).not.toBe(values[1]);
+        expect(values[1]).not.toBe(values[2]);
+      });
+
+      it('works without a request context, without joining', async () => {
+        const capability = new CountingCapability(new MemoryCache(), undefined as unknown as RequestContext);
+
+        const result = await capability.cached({ id: 'a' });
+
+        expect(result.success).toBe(true);
+        expect(capability.calls).toBe(1);
+      });
+
       it('does not join calls with another payload', async () => {
         const { capability } = setup();
 

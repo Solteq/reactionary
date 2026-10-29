@@ -9,13 +9,16 @@ Queries decorated for caching store their result through the `Cache` you give th
 
 ## Concurrent calls
 
-Cached queries that run at the same time and have the same cache key (same query, and the same locale and currency when the query depends on them) in one request run once. The first call reads the cache and, on a miss, asks the backend and writes the result to the cache. The others wait for it and get their own copy of its result, so six parts of a page that need the same product cost one cache read, one backend call and one cache write. This also holds across capability instances that were built with the same `RequestContext`.
+Cached queries that run at the same time and have the same cache key (same query, and the same locale and currency when the query depends on them) in one request run once. The first call reads the cache and, on a miss, asks the backend and writes the result to the cache. The others wait for it and get their own copy of its result, so six parts of a page that need the same product cost one cache read, one backend call and one cache write.
 
-- A call that starts after the first one has finished is not joined, it is a cache hit.
+- Calls are joined when their capabilities were built with the same `RequestContext` object, also when they are different capability instances. Build one context per request, and do not share one context between requests, or concurrent calls of different requests are joined.
+- The first call does the work for the others: its capability instance and its cache are used, and the others do not read their own cache.
+- The copy is made with `structuredClone`, so a result has to be plain data, as the models are. A result that cannot be copied (it holds a function, for example) is not shared, and the call that was waiting asks on its own.
+- A call that starts after the first one has finished is not joined. It reads the cache like any other call, and it is a hit once the cache write has landed. The write is not waited for, so with a slow cache, a failed write or `NoOpCache` it can be a miss.
 - A failed result is given to every call that joined it, and the next call asks again. A query that throws gives every call that joined it a `Generic` error.
-- Calls of other requests (another `RequestContext`) are never joined, also when they share the cache.
-- Queries that are not cached are never joined.
-- The `cache_status` label of the metrics is `shared` for a call that joined another one.
+- Calls of other requests (another `RequestContext`) are not joined, also when they share the cache.
+- A capability built without a request context, and queries that are not cached, are never joined.
+- The `cache_status` label of the metrics is `shared` for a call that joined another one, so a hit ratio computed from `hit` and `miss` alone no longer counts those calls.
 
 ## Cloudflare Workers KV
 
