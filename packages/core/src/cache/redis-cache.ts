@@ -24,10 +24,20 @@ export class RedisCache implements Cache {
 
   protected async client(): Promise<ReturnType<typeof createClient>> {
     if (!this.connectPromise) {
-      this.connectPromise = this.redis.connect();
+      // A rejected connect is not kept, so that a later call can try again.
+      this.connectPromise = this.redis.connect().catch((err: unknown) => {
+        this.connectPromise = undefined;
+        throw err;
+      });
     }
 
     return this.connectPromise;
+  }
+
+  protected recordMiss(): void {
+    this.meter.misses.add(1, {
+      'labels.cache_type': 'redis',
+    });
   }
 
   public async get<T>(key: string, schema: z.ZodType<T>): Promise<T | null> {
@@ -40,6 +50,8 @@ export class RedisCache implements Cache {
     const serialized = await redis.get(key);
 
     if (serialized === null) {
+      this.recordMiss();
+
       return null;
     }
 
@@ -48,6 +60,8 @@ export class RedisCache implements Cache {
     try {
       unvalidated = JSON.parse(serialized);
     } catch {
+      this.recordMiss();
+
       return null;
     }
 
@@ -60,6 +74,8 @@ export class RedisCache implements Cache {
 
       return parsed.data;
     }
+
+    this.recordMiss();
 
     return null;
   }

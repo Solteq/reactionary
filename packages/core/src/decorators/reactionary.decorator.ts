@@ -17,6 +17,12 @@ import type {
 const TRACER_NAME = '@reactionary';
 const TRACER_VERSION = '0.0.1';
 
+/**
+ * A failing cache is reported at most once per decorated method within this
+ * interval, so an outage does not log once per request.
+ */
+const CACHE_FAILURE_LOG_INTERVAL_MS = 60_000;
+
 export function getTracer(): Tracer {
   return trace.getTracer(TRACER_NAME, TRACER_VERSION);
 }
@@ -90,6 +96,20 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
     const attributes = {
       'labels.scope': scope,
     };
+    let lastCacheFailureLoggedAt = Number.NEGATIVE_INFINITY;
+
+    // The cache is an optimisation, so a failing read is treated as a miss and
+    // a failing write is dropped. Only the first failure within
+    // CACHE_FAILURE_LOG_INTERVAL_MS is logged for this method.
+    const reportCacheFailure = (message: string, err: unknown) => {
+      const now = Date.now();
+      if (now - lastCacheFailureLoggedAt < CACHE_FAILURE_LOG_INTERVAL_MS) {
+        return;
+      }
+      lastCacheFailureLoggedAt = now;
+      console.warn(message, err);
+    };
+
     if (!original) {
       throw new Error(
         '@Reactionary decorator may only be applied to methods on classes extending BaseCapability.'
@@ -128,10 +148,17 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
           let fromCache = null;
 
           if (configuration.cache) {
-            fromCache = await this.cache.get(
-              cacheKey,
-              configuration.outputSchema as any
-            );
+            try {
+              fromCache = await this.cache.get(
+                cacheKey,
+                configuration.outputSchema as any
+              );
+            } catch (err) {
+              reportCacheFailure(
+                `Cache read failed for '${scope}' and has been treated as a miss`,
+                err,
+              );
+            }
           }
 
           let result;
@@ -146,18 +173,19 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
               if (configuration.cache) {
                 // Not awaited, so a slow cache does not delay the response.
                 // A failed write only costs a future cache miss, so it must not
-                // surface as an unhandled rejection.
-                this.cache
-                  .put(cacheKey, r.value, {
+                // surface as an unhandled rejection. The async wrapper also
+                // turns a synchronous throw from a custom cache into one.
+                const write = async () =>
+                  this.cache.put(cacheKey, r.value, {
                     ttlSeconds: configuration.cacheTimeToLiveInSeconds,
                     dependencyIds: dependencyIds,
-                  })
-                  .catch((err: unknown) => {
-                    console.warn(
-                      `Cache write failed for '${scope}' and has been dropped`,
-                      err,
-                    );
                   });
+                write().catch((err: unknown) =>
+                  reportCacheFailure(
+                    `Cache write failed for '${scope}' and has been dropped`,
+                    err,
+                  ),
+                );
               }
             }
           } else {
