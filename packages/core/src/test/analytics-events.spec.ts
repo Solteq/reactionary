@@ -35,7 +35,7 @@ describe('analytics event schemas', () => {
     const inUnion = AnalyticsEventSchema.options.map((option) => option.shape.type.value).sort();
 
     expect(inUnion).toEqual(registered);
-    expect(registered).toHaveLength(36);
+    expect(registered).toHaveLength(38);
   });
 
   it('uses noun-verb kebab-case names', () => {

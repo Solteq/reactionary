@@ -38,6 +38,8 @@ import {
     AnalyticsMutationReviewSubmittedSchema,
     AnalyticsMutationStoreSelectedSchema,
     AnalyticsMutationProductSharedSchema,
+    AnalyticsMutationExperimentExposedSchema,
+    AnalyticsMutationTraitDeclaredSchema,
     AnalyticsMutationCustomSchema,
 } from './account.mutation.js';
 
@@ -85,6 +87,8 @@ export const AnalyticsEventMutationSchemas = {
     'review-submitted': AnalyticsMutationReviewSubmittedSchema,
     'store-selected': AnalyticsMutationStoreSelectedSchema,
     'product-shared': AnalyticsMutationProductSharedSchema,
+    'experiment-exposed': AnalyticsMutationExperimentExposedSchema,
+    'trait-declared': AnalyticsMutationTraitDeclaredSchema,
     'custom': AnalyticsMutationCustomSchema,
 } as const;
 

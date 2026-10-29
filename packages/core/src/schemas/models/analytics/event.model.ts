@@ -37,6 +37,8 @@ import {
     AnalyticsMutationReviewSubmittedSchema,
     AnalyticsMutationStoreSelectedSchema,
     AnalyticsMutationProductSharedSchema,
+    AnalyticsMutationExperimentExposedSchema,
+    AnalyticsMutationTraitDeclaredSchema,
     AnalyticsMutationCustomSchema,
 } from '../../mutations/analytics/events/index.js';
 import { AnalyticsEventEnvelopeSchema } from './envelope.model.js';
@@ -224,6 +226,16 @@ export const AnalyticsEventProductSharedSchema = AnalyticsEventEnvelopeSchema.ex
     payload: AnalyticsMutationProductSharedSchema.omit(omitEnvelopeFields),
 });
 
+export const AnalyticsEventExperimentExposedSchema = AnalyticsEventEnvelopeSchema.extend({
+    type: z.literal('experiment-exposed'),
+    payload: AnalyticsMutationExperimentExposedSchema.omit(omitEnvelopeFields),
+});
+
+export const AnalyticsEventTraitDeclaredSchema = AnalyticsEventEnvelopeSchema.extend({
+    type: z.literal('trait-declared'),
+    payload: AnalyticsMutationTraitDeclaredSchema.omit(omitEnvelopeFields),
+});
+
 export const AnalyticsEventCustomSchema = AnalyticsEventEnvelopeSchema.extend({
     type: z.literal('custom'),
     payload: AnalyticsMutationCustomSchema.omit(omitEnvelopeFields),
@@ -265,6 +277,8 @@ export const AnalyticsEventSchema = z.discriminatedUnion('type', [
     AnalyticsEventReviewSubmittedSchema,
     AnalyticsEventStoreSelectedSchema,
     AnalyticsEventProductSharedSchema,
+    AnalyticsEventExperimentExposedSchema,
+    AnalyticsEventTraitDeclaredSchema,
     AnalyticsEventCustomSchema,
 ]);
 
@@ -303,6 +317,8 @@ export type AnalyticsEventBackInStockRequested = WithProperties<InferType<typeof
 export type AnalyticsEventReviewSubmitted = WithProperties<InferType<typeof AnalyticsEventReviewSubmittedSchema>>;
 export type AnalyticsEventStoreSelected = WithProperties<InferType<typeof AnalyticsEventStoreSelectedSchema>>;
 export type AnalyticsEventProductShared = WithProperties<InferType<typeof AnalyticsEventProductSharedSchema>>;
+export type AnalyticsEventExperimentExposed = WithProperties<InferType<typeof AnalyticsEventExperimentExposedSchema>>;
+export type AnalyticsEventTraitDeclared = WithProperties<InferType<typeof AnalyticsEventTraitDeclaredSchema>>;
 export type AnalyticsEventCustom = WithProperties<InferType<typeof AnalyticsEventCustomSchema>>;
 
 export type AnalyticsEventUnion = WithProperties<InferType<typeof AnalyticsEventSchema>>;
