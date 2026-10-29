@@ -2,9 +2,11 @@ import { assert, describe, expect, it } from 'vitest';
 import type { StoreProductTag } from '@medusajs/types';
 import {
   createInitialRequestContext,
+  MemoryCache,
   NoOpCache,
   ConceptSchema,
   VocabularySchema,
+  type Cache,
 } from '@reactionary/core';
 import { MedusaTaxonomyCapability } from '../capabilities/taxonomy.capability.js';
 import { MedusaTaxonomyFactory } from '../factories/taxonomy/taxonomy.factory.js';
@@ -62,12 +64,12 @@ class InMemoryTaxonomyCapability extends MedusaTaxonomyCapability {
   }
 }
 
-function createCapability(locale = 'en-US') {
+function createCapability(locale = 'en-US', cache: Cache = new NoOpCache()) {
   const context = createInitialRequestContext();
   context.languageContext.locale = locale;
   const capability = new InMemoryTaxonomyCapability(
     getMedusaTestConfiguration(),
-    new NoOpCache(),
+    cache,
     context,
     new MedusaAPI(getMedusaTestConfiguration(), context),
     new MedusaTaxonomyFactory(ConceptSchema, VocabularySchema),
@@ -98,6 +100,56 @@ describe('Medusa taxonomy capability', () => {
       name: 'Cordless',
     });
     expect(capability.requests.length).toBeGreaterThan(1);
+  });
+
+  it('serves getConcepts from the cache, also to another request', async () => {
+    const cache = new MemoryCache();
+    const first = createCapability('en-US', cache);
+    const second = createCapability('en-US', cache);
+
+    const fromBackend = await first.getConcepts({ concepts: [{ key: 'features/cordless' }] });
+    // the cache is written without being waited for
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const fromCache = await second.getConcepts({ concepts: [{ key: 'features/cordless' }] });
+
+    if (!fromBackend.success || !fromCache.success) {
+      assert.fail();
+    }
+    expect(first.requests).toHaveLength(1);
+    expect(second.requests).toHaveLength(0);
+    expect(fromCache.value).toEqual(fromBackend.value);
+  });
+
+  it('answers an unknown id with an empty list and serves that from the cache too', async () => {
+    const cache = new MemoryCache();
+    const first = createCapability('en-US', cache);
+    const second = createCapability('en-US', cache);
+
+    const unknown = await first.getConcepts({ concepts: [{ key: 'features/not-there' }] });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const again = await second.getConcepts({ concepts: [{ key: 'features/not-there' }] });
+
+    if (!unknown.success || !again.success) {
+      assert.fail();
+    }
+    expect(unknown.value).toEqual([]);
+    expect(again.value).toEqual([]);
+    expect(second.requests).toHaveLength(0);
+  });
+
+  it('caches getConcepts apart for each locale', async () => {
+    const cache = new MemoryCache();
+    await createCapability('en-US', cache).getConcepts({ concepts: [{ key: 'features/cordless' }] });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const danish = createCapability('da-DK', cache);
+
+    const result = await danish.getConcepts({ concepts: [{ key: 'features/cordless' }] });
+
+    if (!result.success) {
+      assert.fail();
+    }
+    expect(danish.requests).toHaveLength(1);
+    expect(result.value[0].synonyms).toEqual(['batteridrevet']);
   });
 
   it('picks the synonyms of the request locale', async () => {
