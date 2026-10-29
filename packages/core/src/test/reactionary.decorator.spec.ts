@@ -11,7 +11,7 @@ import {
 } from '../decorators/reactionary.decorator.js';
 import { createInitialRequestContext } from '../initialization.js';
 import * as z from 'zod';
-import { success, MemoryCache, type Result } from '../index.js';
+import { error, success, MemoryCache, type GenericError, type Result } from '../index.js';
 import { assert } from 'vitest';
 import {
   InMemorySpanExporter,
@@ -318,6 +318,190 @@ describe('@Reactionary decorator', () => {
       }
 
       expect(secondResult.meta.cache.hit).toBe(true);
+    });
+
+    describe('Concurrent calls', () => {
+      const OutputSchema = z.object({ id: z.string(), tags: z.array(z.string()) });
+      const pause = () => new Promise((resolve) => setTimeout(resolve, 10));
+
+      class CountingCapability extends BaseCapability {
+        public calls = 0;
+        public answer: () => Result<unknown> = () => success({ id: 'a', tags: ['x'] });
+
+        @Reactionary({
+          inputSchema: z.object({ id: z.string() }),
+          outputSchema: OutputSchema,
+          cache: true,
+        })
+        public async cached(payload: { id: string }): Promise<Result<unknown>> {
+          this.calls += 1;
+          await pause();
+          const answer = this.answer();
+          return answer.success ? success({ id: payload.id, tags: ['x'] }) : answer;
+        }
+
+        @Reactionary({
+          inputSchema: z.object({ id: z.string() }),
+          outputSchema: OutputSchema,
+          cache: false,
+        })
+        public async uncached(payload: { id: string }): Promise<Result<unknown>> {
+          this.calls += 1;
+          await pause();
+          return success({ id: payload.id, tags: ['x'] });
+        }
+
+        public getResourceName(): string {
+          return 'CountingCapability';
+        }
+      }
+
+      const setup = () => {
+        const cache = new MemoryCache();
+        const capability = new CountingCapability(cache, createInitialRequestContext());
+        return { cache, capability };
+      };
+      const six = [1, 2, 3, 4, 5, 6];
+
+      it('runs identical calls that are running at the same time once, and reads and writes the cache once', async () => {
+        const { cache, capability } = setup();
+        const get = vi.spyOn(cache, 'get');
+        const put = vi.spyOn(cache, 'put');
+
+        const results = await Promise.all(six.map(() => capability.cached({ id: 'a' })));
+
+        expect(capability.calls).toBe(1);
+        expect(get).toHaveBeenCalledTimes(1);
+        expect(put).toHaveBeenCalledTimes(1);
+        for (const result of results) {
+          if (!result.success) {
+            assert.fail();
+          }
+          expect(result.value).toEqual({ id: 'a', tags: ['x'] });
+        }
+      });
+
+      it('gives every caller its own copy of the answer', async () => {
+        const { capability } = setup();
+
+        const [first, second] = await Promise.all([capability.cached({ id: 'a' }), capability.cached({ id: 'a' })]);
+
+        if (!first.success || !second.success) {
+          assert.fail();
+        }
+        (first.value as { tags: string[] }).tags.push('changed');
+        expect((second.value as { tags: string[] }).tags).toEqual(['x']);
+      });
+
+      it('does not join a call whose result cannot be copied, and every caller gets an answer of its own', async () => {
+        const { capability } = setup();
+        capability.answer = () => success({ id: 'a', tags: ['x'], notCloneable: () => 1 });
+
+        const results = await Promise.all([capability.cached({ id: 'a' }), capability.cached({ id: 'a' }), capability.cached({ id: 'a' })]);
+
+        for (const result of results) {
+          expect(result.success).toBe(true);
+        }
+        const values = results.map((result) => (result.success ? result.value : undefined));
+        expect(values[0]).not.toBe(values[1]);
+        expect(values[1]).not.toBe(values[2]);
+      });
+
+      it('works without a request context, without joining', async () => {
+        const capability = new CountingCapability(new MemoryCache(), undefined as unknown as RequestContext);
+
+        const result = await capability.cached({ id: 'a' });
+
+        expect(result.success).toBe(true);
+        expect(capability.calls).toBe(1);
+      });
+
+      it('does not join calls with another payload', async () => {
+        const { capability } = setup();
+
+        await Promise.all([capability.cached({ id: 'a' }), capability.cached({ id: 'b' })]);
+
+        expect(capability.calls).toBe(2);
+      });
+
+      it('does not join calls of another request, also when they share the cache', async () => {
+        const cache = new MemoryCache();
+        const one = new CountingCapability(cache, createInitialRequestContext());
+        const other = new CountingCapability(cache, createInitialRequestContext());
+
+        await Promise.all([one.cached({ id: 'a' }), other.cached({ id: 'a' })]);
+
+        expect(one.calls + other.calls).toBe(2);
+      });
+
+      it('joins calls through different capability instances of the same request', async () => {
+        const cache = new MemoryCache();
+        const context = createInitialRequestContext();
+        const one = new CountingCapability(cache, context);
+        const other = new CountingCapability(cache, context);
+
+        await Promise.all([one.cached({ id: 'a' }), other.cached({ id: 'a' })]);
+
+        expect(one.calls + other.calls).toBe(1);
+      });
+
+      it('does not join calls of a method that is not cached', async () => {
+        const { capability } = setup();
+
+        await Promise.all(six.map(() => capability.uncached({ id: 'a' })));
+
+        expect(capability.calls).toBe(6);
+      });
+
+      it('serves a call that comes after the first has finished from the cache', async () => {
+        const { capability } = setup();
+
+        await capability.cached({ id: 'a' });
+        const second = await capability.cached({ id: 'a' });
+
+        if (!second.success) {
+          assert.fail();
+        }
+        expect(capability.calls).toBe(1);
+        expect(second.meta.cache.hit).toBe(true);
+      });
+
+      it('gives a failed result to every joined call and asks again for the next one', async () => {
+        const { capability } = setup();
+        capability.answer = () => error<GenericError>({ type: 'Generic', message: 'down' });
+
+        const results = await Promise.all(six.map(() => capability.cached({ id: 'a' })));
+
+        expect(capability.calls).toBe(1);
+        expect(results.every((result) => !result.success)).toBe(true);
+
+        capability.answer = () => success({ id: 'a', tags: ['x'] });
+        const next = await capability.cached({ id: 'a' });
+
+        expect(capability.calls).toBe(2);
+        expect(next.success).toBe(true);
+      });
+
+      it('gives every joined call a generic error when the method throws, and asks again for the next one', async () => {
+        const { capability } = setup();
+        capability.answer = () => {
+          throw new Error('boom');
+        };
+
+        const results = await Promise.all([capability.cached({ id: 'a' }), capability.cached({ id: 'a' })]);
+
+        expect(capability.calls).toBe(1);
+        for (const result of results) {
+          if (result.success) {
+            assert.fail();
+          }
+          expect(result.error.type).toBe('Generic');
+        }
+
+        capability.answer = () => success({ id: 'a', tags: ['x'] });
+        expect((await capability.cached({ id: 'a' })).success).toBe(true);
+        expect(capability.calls).toBe(2);
+      });
     });
 
     it('should return the result and not leak a rejection when writing to the cache fails', async () => {
