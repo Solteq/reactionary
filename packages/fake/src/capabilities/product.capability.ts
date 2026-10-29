@@ -143,7 +143,6 @@ export class FakeProductCapability<
         ? {
             title: `${name} | Buy online`,
             description: generator.lorem.sentence(),
-            robots: generator.datatype.boolean({ probability: 0.1 }) ? 'noindex, follow' : undefined,
           }
         : undefined,
     } satisfies Product;
