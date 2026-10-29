@@ -39,8 +39,12 @@ export class UnomiAPI {
 
     if (this.config.apiKey) {
       headers['authorization'] = `Bearer ${this.config.apiKey}`;
+      headers['x-unomi-api-key'] = this.config.apiKey;
     } else if (this.config.username && this.config.password) {
       headers['authorization'] = `Basic ${btoa(`${this.config.username}:${this.config.password}`)}`;
+    }
+    if (this.config.peerKey) {
+      headers['x-unomi-peer'] = this.config.peerKey;
     }
 
     return headers;
