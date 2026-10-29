@@ -189,7 +189,7 @@ export class CloudflareKvCache implements Cache {
     return value;
   }
 
-  public put(key: string, value: unknown, options: CacheEntryOptions): Promise<void> {
+  public async put(key: string, value: unknown, options: CacheEntryOptions): Promise<void> {
     const write = this.store(key, value, options);
     this.keepAlive(write);
 
