@@ -7,6 +7,16 @@ Queries decorated for caching store their result through the `Cache` you give th
 - `RedisCache` stores entries in Redis. It reads the connection URL from `REDIS_URL` unless you pass one.
 - `CloudflareKvCache` stores entries in Cloudflare Workers KV.
 
+## Concurrent calls
+
+Cached queries that run at the same time and have the same cache key (same query, and the same locale and currency when the query depends on them) in one request run once. The first call reads the cache and, on a miss, asks the backend and writes the result to the cache. The others wait for it and get their own copy of its result, so six parts of a page that need the same product cost one cache read, one backend call and one cache write. This also holds across capability instances that were built with the same `RequestContext`.
+
+- A call that starts after the first one has finished is not joined, it is a cache hit.
+- A failed result is given to every call that joined it, and the next call asks again. A query that throws gives every call that joined it a `Generic` error.
+- Calls of other requests (another `RequestContext`) are never joined, also when they share the cache.
+- Queries that are not cached are never joined.
+- The `cache_status` label of the metrics is `shared` for a call that joined another one.
+
 ## Cloudflare Workers KV
 
 Add a KV namespace binding to the Worker in `wrangler.toml`:

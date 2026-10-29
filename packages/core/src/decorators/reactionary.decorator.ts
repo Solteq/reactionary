@@ -13,6 +13,7 @@ import type {
   InvalidOutputError,
   GenericError,
 } from '../schemas/index.js';
+import type { RequestContext } from '../schemas/session.schema.js';
 
 const TRACER_NAME = '@reactionary';
 const TRACER_VERSION = '0.0.1';
@@ -22,6 +23,26 @@ const TRACER_VERSION = '0.0.1';
  * interval, so an outage does not log once per request.
  */
 const CACHE_FAILURE_LOG_INTERVAL_MS = 60_000;
+
+/**
+ * What a call came to: the result, and the cached value it was served from, if it was served from the cache.
+ */
+interface LoadedResult {
+  result: Result<unknown>;
+  fromCache: unknown;
+}
+
+/**
+ * A copy of a result for a call that joined another one, so that callers of the same query do not share one mutable
+ * object. A result that cannot be copied is shared as it is.
+ */
+function copyOf<T>(value: T): T {
+  try {
+    return structuredClone(value);
+  } catch {
+    return value;
+  }
+}
 
 export function getTracer(): Tracer {
   return trace.getTracer(TRACER_NAME, TRACER_VERSION);
@@ -98,6 +119,11 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
     };
     let lastCacheFailureLoggedAt = Number.NEGATIVE_INFINITY;
 
+    // The cached calls that are running, by request context and cache key. Parts of a page that ask for the same thing
+    // at the same time (six components that need the same product) then cost one cache read, one backend call and
+    // one cache write, and a call that comes after the first has finished is a cache hit as before.
+    const running = new WeakMap<RequestContext, Map<string, Promise<LoadedResult>>>();
+
     // The cache is an optimisation, so a failing read is treated as a miss and
     // a failing write is dropped. Only the first failure within
     // CACHE_FAILURE_LOG_INTERVAL_MS is logged for this method.
@@ -145,26 +171,29 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
             localeCacheKey,
             currencyCacheKey,
           );
-          let fromCache = null;
+          // Reads the cache and, on a miss, asks the backend and writes the answer to the cache
+          const load = async (): Promise<LoadedResult> => {
+            let fromCache = null;
 
-          if (configuration.cache) {
-            try {
-              fromCache = await this.cache.get(
-                cacheKey,
-                configuration.outputSchema as any
-              );
-            } catch (err) {
-              reportCacheFailure(
-                `Cache read failed for '${scope}' and has been treated as a miss`,
-                err,
-              );
+            if (configuration.cache) {
+              try {
+                fromCache = await this.cache.get(
+                  cacheKey,
+                  configuration.outputSchema as any
+                );
+              } catch (err) {
+                reportCacheFailure(
+                  `Cache read failed for '${scope}' and has been treated as a miss`,
+                  err,
+                );
+              }
             }
-          }
 
-          let result;
-          if (!fromCache) {
-            result = await original.apply(this, [input.value]);
+            if (fromCache) {
+              return { result: success(fromCache), fromCache };
+            }
 
+            const result = await original.apply(this, [input.value]);
             const r = result as Result<unknown>;
 
             if (r.success) {
@@ -188,8 +217,37 @@ export function Reactionary(options: Partial<ReactionaryDecoratorOptions>) {
                 );
               }
             }
+
+            return { result, fromCache: null };
+          };
+
+          let loaded: LoadedResult;
+          if (configuration.cache) {
+            let inRequest = running.get(this.context);
+            if (!inRequest) {
+              inRequest = new Map();
+              running.set(this.context, inRequest);
+            }
+
+            const sameCall = inRequest.get(cacheKey);
+            if (sameCall) {
+              const shared = await sameCall;
+              loaded = { result: copyOf(shared.result), fromCache: shared.fromCache };
+              cacheStatus = 'shared';
+            } else {
+              const own = load();
+              inRequest.set(cacheKey, own);
+              try {
+                loaded = await own;
+              } finally {
+                inRequest.delete(cacheKey);
+              }
+            }
           } else {
-            result = success(fromCache);
+            loaded = await load();
+          }
+          const { result, fromCache } = loaded;
+          if (fromCache && cacheStatus === 'miss') {
             cacheStatus = 'hit';
           }
 
