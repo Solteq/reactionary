@@ -61,6 +61,16 @@ export const AnalyticsMutationProductSharedSchema = AnalyticsEventMutationBaseSc
     channel: AnalyticsChannelSchema.optional(),
 });
 
+export const AnalyticsMutationExperimentExposedSchema = AnalyticsEventMutationBaseSchema.extend({
+    experimentKey: z.string().min(1).meta({ description: 'The experiment, as defined in the CMS.' }),
+    version: z.string().min(1).meta({ description: 'The version of the experiment the visitor was shown, the control included. Send it once per session, when the version is rendered.' }),
+});
+
+export const AnalyticsMutationTraitDeclaredSchema = AnalyticsEventMutationBaseSchema.extend({
+    trait: z.string().min(1).meta({ description: 'What the visitor declared about themselves, e.g. "trade". A lowercase slug.' }),
+    value: z.string().min(1).meta({ description: 'The declared value, e.g. "electrician". A lowercase slug. Never personal data.' }),
+});
+
 // Escape hatch
 export const AnalyticsMutationCustomSchema = AnalyticsEventMutationBaseSchema.extend({
     name: z.string().min(1).meta({ description: 'The custom event name. Providers ignore names they do not recognise.' }),
@@ -79,4 +89,6 @@ export type AnalyticsMutationBackInStockRequested = InferType<typeof AnalyticsMu
 export type AnalyticsMutationReviewSubmitted = InferType<typeof AnalyticsMutationReviewSubmittedSchema>;
 export type AnalyticsMutationStoreSelected = InferType<typeof AnalyticsMutationStoreSelectedSchema>;
 export type AnalyticsMutationProductShared = InferType<typeof AnalyticsMutationProductSharedSchema>;
+export type AnalyticsMutationExperimentExposed = InferType<typeof AnalyticsMutationExperimentExposedSchema>;
+export type AnalyticsMutationTraitDeclared = InferType<typeof AnalyticsMutationTraitDeclaredSchema>;
 export type AnalyticsMutationCustom = InferType<typeof AnalyticsMutationCustomSchema>;

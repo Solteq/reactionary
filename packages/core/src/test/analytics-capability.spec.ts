@@ -141,6 +141,41 @@ describe('client.analytics', () => {
     expect(recorder.events).toHaveLength(1);
   });
 
+  it('records which version of an experiment was shown, end to end', async () => {
+    const recorder = new RecordingAnalyticsSubscriber();
+    const client = builder().withAnalyticsSubscriber(recorder).build();
+
+    const result = await client.analytics.experimentExposed({ experimentKey: 'hero-banner', version: 'b' });
+    await client.analytics.flush();
+
+    expect(result.success && result.value.eventId).toBe(recorder.events[0].id);
+    expect(recorder.events[0]).toMatchObject({ type: 'experiment-exposed', payload: { experimentKey: 'hero-banner', version: 'b' } });
+  });
+
+  it('records what a visitor declared about themselves, end to end', async () => {
+    const recorder = new RecordingAnalyticsSubscriber();
+    const client = builder().withAnalyticsSubscriber(recorder).build();
+
+    const result = await client.analytics.traitDeclared({ trait: 'trade', value: 'electrician' });
+    await client.analytics.flush();
+
+    expect(result.success && result.value.eventId).toBe(recorder.events[0].id);
+    expect(recorder.events[0]).toMatchObject({ type: 'trait-declared', payload: { trait: 'trade', value: 'electrician' } });
+  });
+
+  it('refuses an experiment exposure or a trait without its fields', async () => {
+    const recorder = new RecordingAnalyticsSubscriber();
+    const client = builder().withAnalyticsSubscriber(recorder).build();
+
+    // @ts-expect-error the version is required
+    expect((await client.analytics.experimentExposed({ experimentKey: 'hero-banner' })).success).toBe(false);
+    expect((await client.analytics.experimentExposed({ experimentKey: '', version: 'b' })).success).toBe(false);
+    // @ts-expect-error the value is required
+    expect((await client.analytics.traitDeclared({ trait: 'trade' })).success).toBe(false);
+    await client.analytics.flush();
+    expect(recorder.events).toHaveLength(0);
+  });
+
   it('does not deliver a content view to a provider that does not handle the type', async () => {
     class ProductOnlyProvider extends AnalyticsProvider {
       public readonly types = ['product-viewed'] as const;

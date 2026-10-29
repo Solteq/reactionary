@@ -43,6 +43,8 @@ import {
   AnalyticsMutationReviewSubmittedSchema,
   AnalyticsMutationStoreSelectedSchema,
   AnalyticsMutationProductSharedSchema,
+  AnalyticsMutationExperimentExposedSchema,
+  AnalyticsMutationTraitDeclaredSchema,
   AnalyticsMutationCustomSchema,
   type AnalyticsEventResult,
   type AnalyticsMutationPageViewed,
@@ -80,6 +82,8 @@ import {
   type AnalyticsMutationReviewSubmitted,
   type AnalyticsMutationStoreSelected,
   type AnalyticsMutationProductShared,
+  type AnalyticsMutationExperimentExposed,
+  type AnalyticsMutationTraitDeclared,
   type AnalyticsMutationCustom,
   type GenericError,
   type RequestContext,
@@ -315,6 +319,16 @@ export class AnalyticsCapability extends BaseCapability {
   @Reactionary({ inputSchema: AnalyticsMutationProductSharedSchema, outputSchema: AnalyticsEventResultSchema })
   public async productShared(payload: AnalyticsMutationProductShared): Promise<Result<AnalyticsEventResult>> {
     return this.dispatcher.emit('product-shared', payload);
+  }
+
+  @Reactionary({ inputSchema: AnalyticsMutationExperimentExposedSchema, outputSchema: AnalyticsEventResultSchema })
+  public async experimentExposed(payload: AnalyticsMutationExperimentExposed): Promise<Result<AnalyticsEventResult>> {
+    return this.dispatcher.emit('experiment-exposed', payload);
+  }
+
+  @Reactionary({ inputSchema: AnalyticsMutationTraitDeclaredSchema, outputSchema: AnalyticsEventResultSchema })
+  public async traitDeclared(payload: AnalyticsMutationTraitDeclared): Promise<Result<AnalyticsEventResult>> {
+    return this.dispatcher.emit('trait-declared', payload);
   }
 
   @Reactionary({ inputSchema: AnalyticsMutationCustomSchema, outputSchema: AnalyticsEventResultSchema })
