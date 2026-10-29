@@ -75,7 +75,7 @@ export const OrderPropertiesSchema = z.object({
   couponCodes: z.array(z.string()).meta({ description: 'Coupon codes used. Empty when none.' }),
   deliveryMethod: z.string().optional().meta({ description: 'Chosen delivery method, e.g. "home" or "pickup".' }),
   shippingCountry: z.string().regex(/^[A-Z]{2}$/).optional().meta({ description: 'ISO 3166-1 alpha-2 of the shipping address.' }),
-  shippingPostalArea: z.string().optional().meta({ description: 'The postal code of the shipping address cut to an area, per country. Never the full code, never the street.' }),
+  shippingPostalArea: z.string().optional().meta({ description: 'The postal code of the shipping address cut to an area, per country (for example the four digits of a Danish code, which name a town, or the first three of a Swedish one). Left out for a country with no configured cut. Never the street.' }),
 });
 
 export const ExperimentPropertiesSchema = z.object({

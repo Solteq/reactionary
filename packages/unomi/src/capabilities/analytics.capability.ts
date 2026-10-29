@@ -1,12 +1,5 @@
 import {
   AnalyticsProvider,
-  productKey,
-  summarizePlacedOrder,
-  type AnalyticsProductRef,
-  type ProductConcept,
-  type ProductIdentifier,
-  type ProductVariantIdentifier,
-  searchOriginOf,
   type AnalyticsContext,
   type AnalyticsEvent,
   type AnalyticsEventType,
@@ -15,39 +8,69 @@ import {
   type Cache,
   type RequestContext,
 } from '@reactionary/core';
-import { hash } from 'node:crypto';
 import { UnomiAPI } from '../core/client.js';
-import { conceptInterestWarnings, conceptItemId, contentInterestConcepts, mapLimit, selectInterestConcepts, type WarningThrottle, type InterestConcept } from '../core/concept-interest.js';
+import { eurRate } from '../core/fx.js';
+import { UnomiEventMapper, type UnomiEvent } from '../core/mapper.js';
+import { unomiItemId } from '../contract/index.js';
 import { UnomiConfigurationSchema, type UnomiConfiguration, type UnomiConfigurationInput } from '../schema/configuration.schema.js';
 
-interface UnomiEvent {
-  eventType: string;
-  scope: string;
-  target?: Record<string, unknown>;
-  properties?: Record<string, unknown>;
-}
+/** The events that can carry an amount and so need an EUR rate. The rest do not wait for the exchange rates. */
+const MONEY_EVENTS: ReadonlySet<AnalyticsEventType> = new Set<AnalyticsEventType>([
+  'product-viewed',
+  'product-clicked',
+  'cart-item-added',
+  'cart-item-removed',
+  'coupon-applied',
+  'checkout-started',
+  'order-placed',
+  'quote-requested',
+  'order-reordered',
+  'wishlist-item-added',
+  'back-in-stock-requested',
+  'review-submitted',
+  'product-shared',
+]);
 
 /**
- * Sends behavioural events to Apache Unomi's context endpoint, attributed to the visitor's marketing profile.
+ * Sends the behaviour of a visitor to Apache Unomi's context endpoint, attributed to the visitor's marketing profile.
  *
- * Interest in taxonomy concepts: after the events of a product view, product click, add to cart, order and content
- * view, one `concept_interest` event is sent per concept (see the README for the shape). The concept ids have to travel
- * in the events, as Unomi cannot resolve item data. The concepts of a product are its direct ones, found through the
- * analytics context. Impressions (search results, carousels) are no interest. A lookup that fails or a product without
- * concepts sends the events as before, without concept events.
+ * One reactionary event becomes one Unomi event of the contract in `contract/` (generate its JSON schemas with
+ * `reactionary-unomi-schemas`). Product, category, store and price data that the event does not carry is looked up through the
+ * analytics context, and amounts get an EUR counterpart at the ECB rate of the day. Unomi drops an event that does not match its
+ * schema without a word, so an event is checked against the contract before it is sent, and left out with a warning if it fails.
+ *
+ * Not sent: impressions (search results, carousels, promotion views), quantity changes, cart views, shipping and payment steps,
+ * rejected coupons, logouts, profile updates, consent changes and custom events.
  *
  * Events are attributed to the marketing identifier captured when the event was emitted. Without one there is no profile to
- * attribute to (Unomi would create a throwaway profile per request), so the event is ignored.
+ * attribute to (Unomi would create a throwaway profile per request), so the event is ignored. A login is sent on the profile the
+ * visitor had before it. Bots are left out.
  */
 export class UnomiAnalyticsCapability extends AnalyticsProvider {
   public readonly types: ReadonlyArray<AnalyticsEventType | `${string}*`> = [
-    'search-results-viewed',
-    'product-carousel-viewed',
+    'page-viewed',
     'product-viewed',
     'product-clicked',
+    'category-viewed',
     'content-viewed',
+    'promotion-clicked',
     'cart-item-added',
+    'cart-item-removed',
+    'coupon-applied',
+    'checkout-started',
     'order-placed',
+    'quote-requested',
+    'order-reordered',
+    'wishlist-item-added',
+    'back-in-stock-requested',
+    'store-selected',
+    'review-submitted',
+    'product-shared',
+    'newsletter-subscribed',
+    'user-registered',
+    'company-registered',
+    'experiment-exposed',
+    'trait-declared',
     'user-logged-in',
   ];
 
@@ -71,6 +94,9 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
   }
 
   public async handle(event: AnalyticsEvent, ctx: AnalyticsContext): Promise<AnalyticsOutcome | void> {
+    if (event.context.isBot) {
+      return 'ignored';
+    }
     // A login is sent on the profile the visitor had before it, so Unomi can merge it with the logged in one.
     const profileId = event.type === 'user-logged-in'
       ? (event.payload.previousMarketingId?.key || event.context.marketingIdentifier.key)
@@ -80,263 +106,22 @@ export class UnomiAnalyticsCapability extends AnalyticsProvider {
       return 'ignored';
     }
 
-    const events = await this.toUnomiEvents(event, ctx);
-    if (events.length === 0) {
+    const rate = MONEY_EVENTS.has(event.type) ? await eurRate(event.context.currency, this.config) : undefined;
+    const mapped = await new UnomiEventMapper(event, ctx, this.config, rate).map();
+    if (!mapped) {
       return 'ignored';
     }
 
-    await this.postEvents(profileId, events);
+    await this.postEvents(profileId, event.context.sessionId, [mapped]);
     return 'accepted';
   }
 
-  protected async toUnomiEvents(event: AnalyticsEvent, ctx: AnalyticsContext): Promise<UnomiEvent[]> {
-    const events = await this.toBaseEvents(event, ctx);
-    // an event that sends nothing records no interest either, except a content view, which has no event of its own
-    if (events.length === 0 && event.type !== 'content-viewed') {
-      return events;
-    }
-    return [...events, ...(await this.conceptInterestEvents(event, ctx))];
-  }
-
-  /**
-   * The concept_interest events of an event, in one batch with its other events. Never throws, interest is an
-   * enrichment: whatever cannot be resolved is left out.
-   */
-  protected async conceptInterestEvents(event: AnalyticsEvent, ctx: AnalyticsContext): Promise<UnomiEvent[]> {
-    if (!this.config.conceptInterest) {
-      return [];
-    }
-    const perEvent = this.config.maxConceptsPerEvent;
-    const perOrder = this.config.maxConceptsPerOrder;
-    try {
-      switch (event.type) {
-        case 'product-viewed':
-          return perEvent > 0
-            ? this.interestEvents('product_view', await this.productInterest([event.payload.product], ctx, perEvent), { productId: productKey(event.payload.product) })
-            : [];
-        case 'product-clicked':
-          return perEvent > 0
-            ? this.interestEvents('product_click', await this.productInterest([event.payload.product], ctx, perEvent), { productId: productKey(event.payload.product) })
-            : [];
-        case 'cart-item-added': {
-          const line = event.payload.cart.items.find((item) => item.variant.sku === event.payload.variant.sku);
-          return line && perEvent > 0
-            ? this.interestEvents('add_to_cart', await this.productInterest([line.product], ctx, perEvent), { productId: line.product.key })
-            : [];
-        }
-        case 'order-placed': {
-          const placed = summarizePlacedOrder(event.payload);
-          if (!placed || perOrder <= 0) {
-            return [];
-          }
-          return this.interestEvents('purchase', await this.orderInterest(placed.items.map((item) => item.variant), ctx, event.type, perOrder), {
-            orderId: placed.transactionId,
-          });
-        }
-        case 'content-viewed': {
-          // the caller names the direct concepts of the content, most important first, that order is kept
-          const concepts = contentInterestConcepts(event.payload.concepts, {
-            vocabularies: this.config.conceptInterestVocabularies,
-            max: perEvent,
-          });
-          return this.interestEvents('content_view', concepts, {
-            contentId: event.payload.content.key,
-            ...(event.payload.content.type ? { contentType: event.payload.content.type } : {}),
-          });
-        }
-        default:
-          return [];
-      }
-    } catch (cause) {
-      this.warnConceptInterest(event.type, cause);
-      return [];
-    }
-  }
-
-  /** At most one concept interest warning per event type per minute, shared by the process. */
-  protected readonly warnings: WarningThrottle = conceptInterestWarnings;
-
-  /**
-   * Interest is an enrichment, so a failure sends the event without it. It is logged with the type of the event and
-   * the kind of error only, neither the payload nor ids nor the message go into the log. At most one warning per
-   * event type per minute is written, so an outage of a backend cannot log on every view.
-   */
-  protected warnConceptInterest(eventType: string, cause: unknown): void {
-    if (!this.warnings.allow(eventType)) {
-      return;
-    }
-    console.warn(`Unomi concept interest left out of ${eventType}: ${cause instanceof Error ? cause.name : 'unknown error'}`);
-  }
-
-  /**
-   * The interest concepts of the lines of an order. The lines only carry the variant, so the products are found by
-   * sku, each distinct sku once and at most five at a time. A sku that cannot be looked up only leaves out its own
-   * concepts. A line counts for the concepts of its product, so a concept on more lines ranks higher.
-   */
-  protected async orderInterest(
-    variants: ProductVariantIdentifier[],
-    ctx: AnalyticsContext,
-    eventType: string,
-    max: number,
-  ): Promise<InterestConcept[]> {
-    const distinct = new Map<string, ProductVariantIdentifier>();
-    for (const variant of variants) {
-      distinct.set(variant.sku, variant);
-    }
-    const found = new Map<string, ProductConcept[] | undefined>();
-    await mapLimit([...distinct.values()], 5, async (variant) => {
-      try {
-        const result = await ctx.products.bySku(variant);
-        found.set(variant.sku, result.success ? result.value.concepts : undefined);
-      } catch (cause) {
-        this.warnConceptInterest(eventType, cause);
-      }
-    });
-    return selectInterestConcepts(
-      variants.map((variant) => found.get(variant.sku)),
-      { vocabularies: this.config.conceptInterestVocabularies, max },
-    );
-  }
-
-  /**
-   * The interest concepts of products, from the concepts on the product when the event carries the model and from
-   * a lookup through the context otherwise. A product that cannot be resolved adds nothing.
-   */
-  protected async productInterest(
-    products: AnalyticsProductRef[],
-    ctx: AnalyticsContext,
-    max: number,
-  ): Promise<InterestConcept[]> {
-    const lists: Array<ProductConcept[] | undefined> = [];
-    const toLookUp: ProductIdentifier[] = [];
-    for (const product of products) {
-      if ('concepts' in product && Array.isArray(product.concepts)) {
-        lists.push(product.concepts);
-      } else {
-        toLookUp.push({ key: productKey(product) });
-      }
-    }
-    const looked = toLookUp.length > 0 ? await ctx.products.many(toLookUp) : [];
-    for (const result of looked) {
-      if (result.success) {
-        lists.push(result.value.concepts);
-      }
-    }
-    return selectInterestConcepts(lists, { vocabularies: this.config.conceptInterestVocabularies, max });
-  }
-
-  protected interestEvents(source: string, concepts: InterestConcept[], extra: Record<string, unknown> = {}): UnomiEvent[] {
-    return concepts.map((concept) => ({
-      eventType: 'concept_interest',
-      scope: this.config.scope,
-      target: { itemId: conceptItemId(concept.id, this.config.encodeConceptIdSlash), itemType: 'concept' },
-      properties: { source, vocabulary: concept.vocabulary, ...extra },
-    }));
-  }
-
-  protected async toBaseEvents(event: AnalyticsEvent, ctx: AnalyticsContext): Promise<UnomiEvent[]> {
-    const scope = this.config.scope;
-
-    switch (event.type) {
-      case 'search-results-viewed':
-      case 'product-carousel-viewed':
-        return event.payload.products.map((product) => ({
-          eventType: 'product_view',
-          scope,
-          target: { itemId: productKey(product), itemType: 'product' },
-        }));
-
-      case 'product-viewed':
-        return [{ eventType: 'product_view', scope, target: { itemId: productKey(event.payload.product), itemType: 'product' } }];
-
-      case 'product-clicked': {
-        const search = searchOriginOf(event.origin);
-        return [
-          {
-            eventType: 'selectItem',
-            scope,
-            target: { itemId: productKey(event.payload.product), itemType: 'product' },
-            properties: search ? { index: search.position, searchTerm: search.identifier.term } : undefined,
-          },
-        ];
-      }
-
-      case 'cart-item-added': {
-        const line = event.payload.cart.items.find((item) => item.variant.sku === event.payload.variant.sku);
-        if (!line) {
-          return [];
-        }
-        const product = await ctx.products.byId(line.product);
-        return [
-          {
-            eventType: 'addToCart',
-            scope,
-            target: {
-              itemId: line.product.key,
-              itemType: 'product',
-              customItemType: 'product',
-              properties: {
-                sku: line.variant.sku,
-                price: line.price.unitPrice.value,
-                currency: line.price.unitPrice.currency,
-                quantity: event.payload.quantity,
-                ...(product.success ? { productName: product.value.name } : {}),
-              },
-            },
-          },
-        ];
-      }
-
-      case 'order-placed': {
-        const placed = summarizePlacedOrder(event.payload);
-        if (!placed) {
-          return [];
-        }
-        return [
-          {
-            eventType: 'purchaseComplete',
-            scope,
-            target: { itemId: placed.transactionId, itemType: 'order' },
-            properties: {
-              orderId: placed.transactionId,
-              totalAmount: placed.price.grandTotal.value,
-              currency: placed.price.grandTotal.currency,
-              itemCount: placed.items.length,
-              items: placed.items.map((item) => ({
-                sku: item.variant.sku,
-                quantity: item.quantity,
-                price: item.price.unitPrice.value,
-              })),
-            },
-          },
-        ];
-      }
-
-      case 'user-logged-in': {
-        const identity = event.payload.identity;
-        return [
-          {
-            eventType: 'login',
-            scope,
-            // An opaque hash: the CDP should not receive the backend user id itself.
-            properties: identity.type === 'Anonymous' ? undefined : { userId: hash('sha256', identity.id.userId) },
-          },
-        ];
-      }
-
-      default:
-        return [];
-    }
-  }
-
-  protected async postEvents(profileId: string, events: UnomiEvent[]): Promise<void> {
+  protected async postEvents(profileId: string, sessionId: string | undefined, events: UnomiEvent[]): Promise<void> {
     const response = await this.api.postEvent({
-      source: {
-        itemType: 'page',
-        scope: this.config.scope,
-        itemId: 'backend',
-      },
+      source: { itemType: 'site', scope: this.config.scope, itemId: this.config.sourceId },
       profileId,
+      // Unomi only takes ids of a certain form, an id of another form is replaced by a stable hash.
+      ...(sessionId ? { sessionId: unomiItemId(sessionId) } : {}),
       events,
     });
 
