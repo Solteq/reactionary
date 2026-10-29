@@ -58,7 +58,7 @@ createServer((request, response) => {
 
 The server uses the `ucp-session-id` header. If the request does not include one, the server creates a new session id and returns it in the response.
 
-Session state is stored through the Reactionary `Cache` interface. The default is `MemoryCache`, which is useful for local development only.
+Session state is stored through the Reactionary `Cache` interface. The default is `MemoryCache`, which is useful for local development only. It keeps at most 10,000 entries by default and evicts the least recently used ones beyond that, which can drop live sessions; pass `new MemoryCache({ maxEntries })` to change the limit.
 
 ```ts
 new ReactionaryUCPServer(createClient, {

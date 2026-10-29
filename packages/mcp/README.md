@@ -196,7 +196,7 @@ Only `.session` is persisted. Other request context fields, such as locale, curr
 
 ### Session cache
 
-By default, the package uses Reactionary `MemoryCache` for MCP session state:
+By default, the package uses Reactionary `MemoryCache` for MCP session state. It keeps at most 10,000 entries by default and evicts the least recently used ones beyond that, which can drop live sessions; pass `new MemoryCache({ maxEntries })` through `sessionCache` to change the limit:
 
 ```ts
 const mcp = new ReactionaryMCPServer(createClient);

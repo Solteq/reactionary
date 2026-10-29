@@ -73,7 +73,8 @@ describe('Medusa taxonomy capability requests', () => {
     expect(requests).toHaveLength(1);
     const { url, headers } = requests[0];
     expect(url.pathname).toBe('/store/product-tags');
-    expect(url.searchParams.get('fields')).toBe('+external_id,+metadata');
+    // an explicit list: an additive one ('+metadata') makes the store API return the products of every tag
+    expect(url.searchParams.get('fields')).toBe('id,value,external_id,metadata');
     // the SDK encodes arrays with indices, which the Medusa query parser reads back as an array
     expect(url.searchParams.get('external_id[0]')).toBe('features/cordless');
     expect(url.searchParams.get('external_id[1]')).toBe('brands/acme');
@@ -101,7 +102,7 @@ describe('Medusa taxonomy capability requests', () => {
       ['/store/product-tags', '200', '100'],
     ]);
     expect(result.value.concepts).toHaveLength(250);
-    expect(requests.every((r) => r.url.searchParams.get('fields') === '+external_id,+metadata')).toBe(true);
+    expect(requests.every((r) => r.url.searchParams.get('fields') === 'id,value,external_id,metadata')).toBe(true);
     expect(requests.every((r) => r.headers.get('x-medusa-locale') === 'da-DK')).toBe(true);
   });
 });

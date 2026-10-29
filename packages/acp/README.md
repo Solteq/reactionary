@@ -109,7 +109,7 @@ The server uses two pieces of state:
 
 If the request does not include `acp-session-id`, the server creates a new one and returns it in the response.
 
-State is stored through the Reactionary `Cache` interface. The default is `MemoryCache`, which is useful for local development only.
+State is stored through the Reactionary `Cache` interface. The default is `MemoryCache`, which is useful for local development only. It keeps at most 10,000 entries by default and evicts the least recently used ones beyond that, which can drop live sessions; pass `new MemoryCache({ maxEntries })` to change the limit.
 
 ```ts
 new ReactionaryACPServer(createClient, {

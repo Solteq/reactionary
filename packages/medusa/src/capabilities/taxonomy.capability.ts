@@ -52,9 +52,12 @@ export class MedusaTaxonomyCapability<
   protected factory: TaxonomyFactoryWithOutput<TFactory>;
 
   /**
-   * The fields requested for tags. The external id and metadata are not part of the default tag fields.
+   * The fields requested for tags. The external id and metadata are not part of the default tag fields, so they are
+   * asked for. The list is explicit, not additive ('+external_id,+metadata'): the store API then also returns the
+   * products of every tag, which for a tag on thousands of products is megabytes per request, and getVocabulary
+   * makes one such request per vocabulary.
    */
-  protected tagFields = '+external_id,+metadata';
+  protected tagFields = 'id,value,external_id,metadata';
 
   /**
    * The page size used when listing tags.
