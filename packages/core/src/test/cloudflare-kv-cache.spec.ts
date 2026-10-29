@@ -4,11 +4,11 @@ import { BaseCapability } from '../capabilities/base.capability.js';
 import {
   CloudflareKvCache,
   type CloudflareKvCacheEnvelope,
-  type KvGetOptions,
-  type KvListOptions,
-  type KvListResult,
-  type KvNamespaceLike,
-  type KvPutOptions,
+  type CloudflareKvGetOptions,
+  type CloudflareKvListOptions,
+  type CloudflareKvListResult,
+  type CloudflareKvNamespaceLike,
+  type CloudflareKvPutOptions,
 } from '../cache/cloudflare-kv-cache.js';
 import { Reactionary } from '../decorators/reactionary.decorator.js';
 import { createInitialRequestContext } from '../initialization.js';
@@ -18,11 +18,13 @@ import { success, type Result } from '../schemas/result.js';
 interface StoredValue {
   value: string;
   expiresAt: number | undefined;
+  metadata: unknown;
 }
 
 interface PutCall {
   key: string;
   expirationTtl: number | undefined;
+  metadata: unknown;
 }
 
 /**
@@ -30,22 +32,22 @@ interface PutCall {
  * the cache depends on: a minimum expirationTtl of 60 seconds, the 512 byte
  * key limit, and key ordered list pages continued by a cursor.
  */
-class FakeKvNamespace implements KvNamespaceLike {
+class FakeKvNamespace implements CloudflareKvNamespaceLike {
   public readonly entries = new Map<string, StoredValue>();
   public readonly putCalls: PutCall[] = [];
-  public readonly getCalls: Array<{ key: string; options: 'text' | KvGetOptions }> = [];
-  public readonly listCalls: KvListOptions[] = [];
+  public readonly getCalls: Array<{ key: string; options: 'text' | CloudflareKvGetOptions }> = [];
+  public readonly listCalls: CloudflareKvListOptions[] = [];
 
   constructor(public pageSize = 1000) {}
 
-  public async get(key: string, options: 'text' | KvGetOptions): Promise<string | null> {
+  public async get(key: string, options: 'text' | CloudflareKvGetOptions): Promise<string | null> {
     this.getCalls.push({ key, options });
     this.assertKey(key);
 
     return this.live().get(key)?.value ?? null;
   }
 
-  public async put(key: string, value: string, options?: KvPutOptions): Promise<void> {
+  public async put(key: string, value: string, options?: CloudflareKvPutOptions): Promise<void> {
     this.assertKey(key);
 
     const expirationTtl = options?.expirationTtl;
@@ -54,11 +56,15 @@ class FakeKvNamespace implements KvNamespaceLike {
       throw new Error('KV PUT failed: expirationTtl must be at least 60');
     }
 
-    this.putCalls.push({ key, expirationTtl });
+    this.putCalls.push({ key, expirationTtl, metadata: options?.metadata });
     this.entries.set(key, {
       value,
       expiresAt: expirationTtl === undefined ? undefined : Date.now() + expirationTtl * 1000,
+      metadata: options?.metadata,
     });
+    if (options?.metadata !== undefined && new TextEncoder().encode(JSON.stringify(options.metadata)).length > 1024) {
+      throw new Error('KV PUT failed: metadata too large');
+    }
   }
 
   public async delete(key: string): Promise<void> {
@@ -66,7 +72,7 @@ class FakeKvNamespace implements KvNamespaceLike {
     this.entries.delete(key);
   }
 
-  public async list(options: KvListOptions = {}): Promise<KvListResult> {
+  public async list(options: CloudflareKvListOptions = {}): Promise<CloudflareKvListResult> {
     this.listCalls.push(options);
 
     const names = [...this.live().keys()]
@@ -89,7 +95,7 @@ class FakeKvNamespace implements KvNamespaceLike {
 
   /** Writes a value under a key, bypassing the cache. */
   public seed(key: string, value: string): void {
-    this.entries.set(key, { value, expiresAt: undefined });
+    this.entries.set(key, { value, expiresAt: undefined, metadata: undefined });
   }
 
   protected assertKey(key: string): void {
@@ -113,7 +119,14 @@ class FakeKvNamespace implements KvNamespaceLike {
 
 const ProductSchema = z.looseObject({ id: z.string() });
 
-describe('CloudflareKvCache', () => {
+/** The digest the cache is expected to produce: SHA-256 as unpadded base64url. */
+async function sha256(text: string): Promise<string> {
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
+
+  return btoa(String.fromCharCode(...hash)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+}
+
+describe('CloudflareKvCache with readable keys', () => {
   let kv: FakeKvNamespace;
   let cache: CloudflareKvCache;
 
@@ -121,7 +134,7 @@ describe('CloudflareKvCache', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
     kv = new FakeKvNamespace();
-    cache = new CloudflareKvCache(kv);
+    cache = new CloudflareKvCache(kv, { hashKeys: false });
   });
 
   afterEach(() => {
@@ -153,7 +166,7 @@ describe('CloudflareKvCache', () => {
     });
 
     it('uses a custom prefix', async () => {
-      const custom = new CloudflareKvCache(kv, { keyPrefix: 'shop-a:' });
+      const custom = new CloudflareKvCache(kv, { keyPrefix: 'shop-a:', hashKeys: false });
 
       await custom.put('a', { id: '1' }, { ttlSeconds: 300, dependencyIds: [] });
 
@@ -268,7 +281,7 @@ describe('CloudflareKvCache', () => {
       class SmallValueCache extends CloudflareKvCache {
         protected override readonly maxValueBytes = 100;
       }
-      const small = new SmallValueCache(kv);
+      const small = new SmallValueCache(kv, { hashKeys: false });
 
       await small.put('a', { id: 'x'.repeat(200) }, { ttlSeconds: 300, dependencyIds: ['dep'] });
 
@@ -327,7 +340,7 @@ describe('CloudflareKvCache', () => {
 
     it('follows the cursor across list pages', async () => {
       kv = new FakeKvNamespace(2);
-      cache = new CloudflareKvCache(kv);
+      cache = new CloudflareKvCache(kv, { hashKeys: false });
 
       for (let index = 0; index < 7; index++) {
         await cache.put(`key-${index}`, { id: `${index}` }, { ttlSeconds: 300, dependencyIds: ['shared'] });
@@ -342,7 +355,7 @@ describe('CloudflareKvCache', () => {
     });
 
     it('keeps going when a list page is empty but the listing is not complete', async () => {
-      const pages: KvListResult[] = [
+      const pages: CloudflareKvListResult[] = [
         { keys: [], list_complete: false, cursor: 'c1' },
         { keys: [{ name: 'reactionary:dep:d:a' }], list_complete: true },
       ];
@@ -388,7 +401,7 @@ describe('CloudflareKvCache', () => {
     });
 
     it('writes no index keys and invalidates nothing when tracking is off', async () => {
-      const untracked = new CloudflareKvCache(kv, { trackDependencies: false });
+      const untracked = new CloudflareKvCache(kv, { trackDependencies: false, hashKeys: false });
 
       await untracked.put('a', { id: '1' }, { ttlSeconds: 300, dependencyIds: ['d'] });
       await untracked.invalidate(['d']);
@@ -402,7 +415,7 @@ describe('CloudflareKvCache', () => {
   describe('clear', () => {
     it('removes the keys under the prefix and leaves other keys alone', async () => {
       kv = new FakeKvNamespace(2);
-      cache = new CloudflareKvCache(kv);
+      cache = new CloudflareKvCache(kv, { hashKeys: false });
       kv.seed('other:entry:a', 'x');
       kv.seed('reactionary', 'x');
 
@@ -417,8 +430,8 @@ describe('CloudflareKvCache', () => {
     });
 
     it('is scoped by a custom prefix', async () => {
-      const first = new CloudflareKvCache(kv, { keyPrefix: 'a:' });
-      const second = new CloudflareKvCache(kv, { keyPrefix: 'b:' });
+      const first = new CloudflareKvCache(kv, { keyPrefix: 'a:', hashKeys: false });
+      const second = new CloudflareKvCache(kv, { keyPrefix: 'b:', hashKeys: false });
       await first.put('k', { id: '1' }, { ttlSeconds: 300, dependencyIds: [] });
       await second.put('k', { id: '2' }, { ttlSeconds: 300, dependencyIds: [] });
 
@@ -437,7 +450,7 @@ describe('CloudflareKvCache', () => {
     });
 
     it('passes cacheTtl to get', async () => {
-      const edge = new CloudflareKvCache(kv, { edgeCacheTtlSeconds: 120 });
+      const edge = new CloudflareKvCache(kv, { edgeCacheTtlSeconds: 120, hashKeys: false });
 
       await edge.get('a', ProductSchema);
 
@@ -445,7 +458,7 @@ describe('CloudflareKvCache', () => {
     });
 
     it('raises a cacheTtl under the KV minimum of 30 seconds', async () => {
-      const edge = new CloudflareKvCache(kv, { edgeCacheTtlSeconds: 5 });
+      const edge = new CloudflareKvCache(kv, { edgeCacheTtlSeconds: 5, hashKeys: false });
 
       await edge.get('a', ProductSchema);
 
@@ -465,7 +478,7 @@ describe('CloudflareKvCache', () => {
           misses: { add: misses },
         };
       }
-      const metered = new MeteredCache(kv);
+      const metered = new MeteredCache(kv, { hashKeys: false });
       await metered.put('a', { id: '1' }, { ttlSeconds: 300, dependencyIds: [] });
       kv.seed('reactionary:entry:corrupt', 'not json');
 
@@ -483,8 +496,8 @@ describe('CloudflareKvCache', () => {
   describe('subclassing', () => {
     it('lets a subclass change the envelope', async () => {
       class PlainEnvelopeCache extends CloudflareKvCache {
-        protected override encodeEnvelope(value: unknown, ttlSeconds: number): string {
-          const envelope: CloudflareKvCacheEnvelope = { value, expiresAt: Date.now() + ttlSeconds * 1000 };
+        protected override encodeEnvelope(key: string, value: unknown, ttlSeconds: number): string {
+          const envelope: CloudflareKvCacheEnvelope = { key, value, expiresAt: Date.now() + ttlSeconds * 1000 };
           return `v1${JSON.stringify(envelope)}`;
         }
 
@@ -492,7 +505,7 @@ describe('CloudflareKvCache', () => {
           return super.decodeEnvelope(serialized.slice(2));
         }
       }
-      const custom = new PlainEnvelopeCache(kv);
+      const custom = new PlainEnvelopeCache(kv, { hashKeys: false });
 
       await custom.put('a', { id: '1' }, { ttlSeconds: 300, dependencyIds: [] });
 
@@ -529,11 +542,12 @@ describe('CloudflareKvCache', () => {
 
     it('misses first, then hits, then misses again after invalidation', async () => {
       calls.length = 0;
-      const capability = new KvCachedCapability(cache, createInitialRequestContext());
+      const hashed = new CloudflareKvCache(kv);
+      const capability = new KvCachedCapability(hashed, createInitialRequestContext());
 
       const first = await capability.getById({ id: '1' });
       // The decorator does not wait for the cache write.
-      await vi.advanceTimersByTimeAsync(0);
+      await vi.waitFor(() => expect(kv.names()).toHaveLength(2));
       const second = await capability.getById({ id: '1' });
 
       expect(first.success && first.meta.cache.hit).toBe(false);
@@ -541,7 +555,7 @@ describe('CloudflareKvCache', () => {
       expect(second.success && second.value).toEqual({ id: '1' });
       expect(calls).toEqual(['1']);
 
-      await cache.invalidate(['product:1']);
+      await hashed.invalidate(['product:1']);
 
       const third = await capability.getById({ id: '1' });
       expect(third.success && third.meta.cache.hit).toBe(false);
@@ -550,15 +564,176 @@ describe('CloudflareKvCache', () => {
 
     it('stops hitting once the TTL has passed', async () => {
       calls.length = 0;
-      const capability = new KvCachedCapability(cache, createInitialRequestContext());
+      const capability = new KvCachedCapability(new CloudflareKvCache(kv), createInitialRequestContext());
 
       await capability.getById({ id: '2' });
-      await vi.advanceTimersByTimeAsync(0);
+      await vi.waitFor(() => expect(kv.names()).toHaveLength(2));
       vi.advanceTimersByTime(301_000);
       const result = await capability.getById({ id: '2' });
 
       expect(result.success && result.meta.cache.hit).toBe(false);
       expect(calls).toEqual(['2', '2']);
     });
+  });
+});
+
+describe('CloudflareKvCache with hashed keys', () => {
+  let kv: FakeKvNamespace;
+  let cache: CloudflareKvCache;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+    kv = new FakeKvNamespace();
+    cache = new CloudflareKvCache(kv);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('is the default and stores the entry and index under digests', async () => {
+    await cache.put('product:1', { id: '1' }, { ttlSeconds: 300, dependencyIds: ['dep:1'] });
+
+    const keyDigest = await sha256('product:1');
+    expect(kv.names()).toEqual(
+      [`reactionary:dep:${await sha256('dep:1')}:${keyDigest}`, `reactionary:entry:${keyDigest}`].sort(),
+    );
+    expect(keyDigest).toHaveLength(43);
+    await expect(cache.get('product:1', ProductSchema)).resolves.toEqual({ id: '1' });
+  });
+
+  it('stores and reads back a cache key of more than 1 KB without skipping it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const key = `Scope.query:${'x'.repeat(2000)}:all:all`;
+    const dependencyId = `product:${'y'.repeat(1500)}`;
+
+    await cache.put(key, { id: '1' }, { ttlSeconds: 300, dependencyIds: [dependencyId] });
+
+    expect(kv.putCalls).toHaveLength(2);
+    expect(kv.putCalls.every((call) => new TextEncoder().encode(call.key).length < 200)).toBe(true);
+    expect(warn).not.toHaveBeenCalled();
+    await expect(cache.get(key, ProductSchema)).resolves.toEqual({ id: '1' });
+
+    await cache.invalidate([dependencyId]);
+
+    await expect(cache.get(key, ProductSchema)).resolves.toBeNull();
+    expect(kv.names()).toEqual([]);
+  });
+
+  it('accepts a dependency id that is not well-formed text', async () => {
+    await cache.put('a', { id: '1' }, { ttlSeconds: 300, dependencyIds: ['\ud800'] });
+
+    await cache.invalidate(['\ud800']);
+
+    expect(kv.names()).toEqual([]);
+  });
+
+  it('keeps the original key in the envelope and in the KV metadata', async () => {
+    await cache.put('product:1', { id: '1' }, { ttlSeconds: 300, dependencyIds: ['d'] });
+
+    const entry = kv.putCalls.find((call) => call.key.startsWith('reactionary:entry:'));
+    const index = kv.putCalls.find((call) => call.key.startsWith('reactionary:dep:'));
+    expect(entry?.metadata).toEqual({ key: 'product:1' });
+    expect(index?.metadata).toBeUndefined();
+    expect(JSON.parse(kv.entries.get(entry?.key ?? '')?.value ?? '')).toMatchObject({ key: 'product:1' });
+  });
+
+  it('truncates the metadata to 1024 bytes of JSON and still writes the entry', async () => {
+    const key = `${'ä'.repeat(3000)}"quoted"`;
+
+    await cache.put(key, { id: '1' }, { ttlSeconds: 300, dependencyIds: [] });
+
+    const metadata = kv.putCalls[0]?.metadata;
+    const size = new TextEncoder().encode(JSON.stringify(metadata)).length;
+    expect(size).toBeLessThanOrEqual(1024);
+    expect(size).toBeGreaterThan(900);
+    expect(metadata).toEqual({ key: expect.stringMatching(/^ä+$/) });
+    await expect(cache.get(key, ProductSchema)).resolves.toEqual({ id: '1' });
+  });
+
+  it('treats an entry stored for another key as a miss', async () => {
+    await cache.put('a', { id: '1' }, { ttlSeconds: 300, dependencyIds: [] });
+    const stored = kv.putCalls[0];
+    const impostor = JSON.stringify({ key: 'someone-else', value: { id: '1' }, expiresAt: Date.now() + 60_000 });
+    kv.seed(`reactionary:entry:${await sha256('b')}`, impostor);
+    kv.seed(stored?.key ?? '', impostor);
+
+    await expect(cache.get('a', ProductSchema)).resolves.toBeNull();
+    await expect(cache.get('b', ProductSchema)).resolves.toBeNull();
+  });
+
+  it('treats an entry without a stored key as a miss', async () => {
+    kv.seed(`reactionary:entry:${await sha256('a')}`, JSON.stringify({ value: { id: '1' }, expiresAt: Date.now() + 60_000 }));
+
+    await expect(cache.get('a', ProductSchema)).resolves.toBeNull();
+  });
+
+  it('invalidates entries and index keys across list pages', async () => {
+    kv = new FakeKvNamespace(2);
+    cache = new CloudflareKvCache(kv);
+
+    for (let index = 0; index < 7; index++) {
+      await cache.put(`key-${index}`, { id: `${index}` }, { ttlSeconds: 300, dependencyIds: ['shared', `own-${index}`] });
+    }
+    await cache.put('other', { id: 'o' }, { ttlSeconds: 300, dependencyIds: ['unrelated'] });
+
+    await cache.invalidate(['shared']);
+
+    const otherDigest = await sha256('other');
+    expect(kv.names().filter((name) => name.startsWith('reactionary:entry:'))).toEqual([`reactionary:entry:${otherDigest}`]);
+    // The index keys of the removed entries' other dependency ids stay until
+    // they expire; the shared ones are gone.
+    const sharedPrefix = `reactionary:dep:${await sha256('shared')}:`;
+    expect(kv.names().filter((name) => name.startsWith(sharedPrefix))).toEqual([]);
+    expect(kv.listCalls.length).toBeGreaterThan(3);
+    expect(kv.listCalls.every((call) => call.prefix === sharedPrefix)).toBe(true);
+    await expect(cache.get('other', ProductSchema)).resolves.toEqual({ id: 'o' });
+    await expect(cache.get('key-3', ProductSchema)).resolves.toBeNull();
+  });
+
+  it('clears only the keys under the prefix', async () => {
+    kv = new FakeKvNamespace(2);
+    cache = new CloudflareKvCache(kv);
+    kv.seed('other:entry:a', 'x');
+
+    for (let index = 0; index < 5; index++) {
+      await cache.put(`key-${index}`, { id: `${index}` }, { ttlSeconds: 300, dependencyIds: ['d'] });
+    }
+
+    await cache.clear();
+
+    expect(kv.names()).toEqual(['other:entry:a']);
+    expect(kv.listCalls.every((call) => call.prefix === 'reactionary:')).toBe(true);
+  });
+
+  it('still skips a value over the KV value limit', async () => {
+    class SmallValueCache extends CloudflareKvCache {
+      protected override readonly maxValueBytes = 100;
+    }
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await new SmallValueCache(kv).put('a', { id: 'x'.repeat(200) }, { ttlSeconds: 300, dependencyIds: ['d'] });
+
+    expect(kv.putCalls).toEqual([]);
+  });
+
+  it('lets a subclass change the hash', async () => {
+    class LengthCache extends CloudflareKvCache {
+      protected override async digest(text: string): Promise<string> {
+        return `len${text.length}`;
+      }
+    }
+    const custom = new LengthCache(kv);
+
+    await custom.put('abc', { id: '1' }, { ttlSeconds: 300, dependencyIds: ['xy'] });
+
+    expect(kv.names()).toEqual(['reactionary:dep:len2:len3', 'reactionary:entry:len3']);
+    await expect(custom.get('abc', ProductSchema)).resolves.toEqual({ id: '1' });
+
+    await custom.invalidate(['xy']);
+
+    expect(kv.names()).toEqual([]);
   });
 });
