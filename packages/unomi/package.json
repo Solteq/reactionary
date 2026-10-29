@@ -4,6 +4,9 @@
   "type": "module",
   "main": "./index.js",
   "types": "./src/index.d.ts",
+  "bin": {
+    "reactionary-unomi-schemas": "./cli.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Solteq/reactionary.git"
