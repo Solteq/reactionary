@@ -1,0 +1,84 @@
+# Caching
+
+Queries decorated for caching store their result through the `Cache` you give the `ClientBuilder` with `withCache`. Reactionary ships these implementations, all exported from `@reactionary/core`:
+
+- `NoOpCache` stores nothing. Useful for tests, or to turn caching off.
+- `MemoryCache` keeps entries in the memory of the process. For local development, not for production.
+- `RedisCache` stores entries in Redis. It reads the connection URL from `REDIS_URL` unless you pass one.
+- `CloudflareKvCache` stores entries in Cloudflare Workers KV.
+
+## Cloudflare Workers KV
+
+Add a KV namespace binding to the Worker in `wrangler.toml`:
+
+```toml
+[[kv_namespaces]]
+binding = "REACTIONARY_CACHE"
+id = "<namespace id from `wrangler kv namespace create REACTIONARY_CACHE`>"
+```
+
+Pass the binding to the cache:
+
+```ts
+import { ClientBuilder, CloudflareKvCache } from '@reactionary/core';
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const client = new ClientBuilder(requestContext)
+      .withCapability(/* ... */)
+      .withCache(new CloudflareKvCache(env.REACTIONARY_CACHE))
+      .build();
+
+    // ...
+  },
+};
+```
+
+`CloudflareKvCache` only needs the four methods of the binding it calls (`get`, `put`, `delete`, `list`), described by the exported `KvNamespaceLike` interface, so core does not depend on `@cloudflare/workers-types`. The binding from `@cloudflare/workers-types` satisfies it.
+
+### Options
+
+```ts
+new CloudflareKvCache(env.REACTIONARY_CACHE, {
+  keyPrefix: 'shop-a:',
+  trackDependencies: false,
+  edgeCacheTtlSeconds: 120,
+});
+```
+
+- `keyPrefix` is put in front of every key, and is what `clear()` is limited to. The default is `reactionary:`. Use a different prefix per storefront when several share a namespace, and not one that starts with another's, because `clear()` of the shorter prefix also removes the keys of the longer one.
+- `trackDependencies` (default `true`) writes one extra index key per dependency id of each entry, which `invalidate()` needs. Set it to `false` if you never invalidate and want to save KV writes. `invalidate()` then does nothing and entries only leave the cache when they expire.
+- `edgeCacheTtlSeconds` is passed to KV as `cacheTtl`. It makes KV keep a read in the location that served it for that many seconds, which lowers latency, but a change made elsewhere is not seen for at least that long. Values under 30 are raised to 30. Not set by default, which leaves KV's default of 60 seconds.
+
+### How it behaves
+
+- KV is eventually consistent. A write or delete can take 60 seconds or more to show in other locations, and a location that has read a key recently can keep returning the old value. A miss is cached as well, so an entry written after a miss can stay invisible for a while. A read after `put` or `invalidate` can therefore return the previous state. Cache data that tolerates that.
+- Cloudflare's minimum `expirationTtl` is 60 seconds. The cache also stores the expiry inside the value and treats an entry past it as a miss, so TTLs under 60 seconds are honoured. The KV key itself lives for at least 60 seconds and is then removed by KV.
+- Keys are limited to 512 bytes (UTF-8, including the prefix) and values to 25 MiB. A `put` over either limit is skipped with a `console.warn` and no error, and the entry is never cached.
+- KV allows one write per second to the same key and answers with a 429 error beyond that. The error is thrown from `put`. `@Reactionary` does not wait for the cache write and logs the failure.
+- A corrupt entry, or one that does not match the schema of the query, is a miss. Errors from the KV binding itself are not caught by the cache. What the caller sees then is decided by `@Reactionary`: unless it treats a failing cache as a miss, a failed `get` turns the query into a `Generic` error result.
+- On Workers, work still running when the response is sent can be cancelled unless it is registered with `ctx.waitUntil`. A cache write that `@Reactionary` does not wait for can be lost that way, which only costs a later miss.
+
+### Invalidation
+
+KV has no sets and no atomic read-modify-write, so a list of cache keys per dependency id would lose entries when two requests update it at once. The cache writes one small key per dependency id and cache key instead (`<prefix>dep:<dependency id>:<cache key>`), with the same expiry as the entry. `invalidate(ids)` lists the keys with the prefix of each id, deletes the entries and then the index keys, and follows the list cursor through all pages.
+
+`put` writes the index keys before the entry, so a `put` that fails part way cannot leave an entry without an index key, and an entry whose index keys do not fit in 512 bytes is not stored. A `put` that runs at the same moment as an `invalidate` for one of its dependency ids can still leave an entry that stays until its TTL. Listing is eventually consistent too, so an entry written moments before `invalidate` may not be found.
+
+A `put` costs one KV write for the entry plus one per dependency id. The default `generateDependencyIdsForModel` returns at most one id, so that is two writes. A capability that returns many ids multiplies the writes, and on the Workers Free plan 50 subrequests per invocation is the ceiling.
+
+Every key costs one KV operation to delete, and a Worker invocation can only make a limited number of them (1,000 according to the KV limits page, and 50 subrequests on the Workers Free plan, 10,000 on Paid). Invalidating dependency ids with many entries can reach that limit and fail part way. The remaining entries are removed by running it again.
+
+### Clearing
+
+`clear()` lists every key under the prefix and deletes them one by one. With a large cache that is many operations, so use it for tests and administration, not while serving requests. With an empty `keyPrefix` it removes every key in the namespace.
+
+### Cloudflare documentation
+
+- [Limits](https://developers.cloudflare.com/kv/platform/limits/)
+- [How KV works](https://developers.cloudflare.com/kv/concepts/how-kv-works/)
+- [Write key-value pairs](https://developers.cloudflare.com/kv/api/write-key-value-pairs/)
+- [Read key-value pairs](https://developers.cloudflare.com/kv/api/read-key-value-pairs/)
+- [List keys](https://developers.cloudflare.com/kv/api/list-keys/)
+- [Delete key-value pairs](https://developers.cloudflare.com/kv/api/delete-key-value-pairs/)
+- [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
