@@ -34,13 +34,36 @@ export interface RedisCacheOptions {
    * constructor.
    */
   clientOptions?: RedisClientOptions;
+
+  /**
+   * Prepended to every key this cache writes, and the only keys `clear()`
+   * removes, so the cache can share a Redis database with other data.
+   * Defaults to `reactionary:`. Changing it makes the existing entries
+   * unreachable, which for a cache only costs one round of misses; they expire
+   * on their own TTL. Must not be empty.
+   */
+  keyPrefix?: string;
+
+  /**
+   * The minimum time, in milliseconds, between two samples of the item count
+   * metric. The count is `DBSIZE` of the whole database and is sampled in the
+   * background after writes, not on every write. Defaults to 30000.
+   */
+  itemCountIntervalMs?: number;
 }
 
+/**
+ * A cache backed by Redis. Requires Redis 7.0 or later: the expiry of the
+ * dependency sets uses `EXPIRE` with the `NX` and `GT` options.
+ */
 export class RedisCache implements Cache {
   protected redis: ReturnType<typeof createClient>;
   protected connectPromise?: Promise<ReturnType<typeof createClient>>;
   protected meter = getReactionaryCacheMeter();
   protected operationTimeoutMs: number;
+  protected keyPrefix: string;
+  protected itemCountIntervalMs: number;
+  protected lastItemCountSampleAt = Number.NEGATIVE_INFINITY;
 
   constructor(
     redisUrl = process.env['REDIS_URL'],
@@ -50,7 +73,14 @@ export class RedisCache implements Cache {
       throw new Error('REDIS_URL is required');
     }
 
+    this.keyPrefix = options.keyPrefix ?? 'reactionary:';
+
+    if (!this.keyPrefix) {
+      throw new Error('keyPrefix must not be empty');
+    }
+
     this.operationTimeoutMs = options.operationTimeoutMs ?? 500;
+    this.itemCountIntervalMs = options.itemCountIntervalMs ?? 30_000;
     this.redis = this.createRedisClient(redisUrl, options);
 
     this.redis.on('error', (err: unknown) => {
@@ -120,6 +150,48 @@ export class RedisCache implements Cache {
     return this.connectPromise;
   }
 
+  protected entryKey(key: string): string {
+    return `${this.keyPrefix}${key}`;
+  }
+
+  protected dependencyKey(dependencyId: string): string {
+    return `${this.keyPrefix}dep:${dependencyId}`;
+  }
+
+  /**
+   * The SCAN pattern matching every key of this cache, with the glob
+   * characters of the prefix escaped.
+   */
+  protected scanPattern(): string {
+    return `${this.keyPrefix.replace(/[\\*?[\]^]/g, '\\$&')}*`;
+  }
+
+  /**
+   * Records the item count metric, at most once per `itemCountIntervalMs`. The
+   * count is fetched in the background so that it adds no round trip to the
+   * operation that triggered it.
+   */
+  protected sampleItemCount(): void {
+    const now = Date.now();
+
+    if (now - this.lastItemCountSampleAt < this.itemCountIntervalMs) {
+      return;
+    }
+
+    this.lastItemCountSampleAt = now;
+
+    this.execute((redis) => redis.dbSize())
+      .then((count) => {
+        this.meter.items.record(count, {
+          'labels.cache_type': 'redis',
+        });
+      })
+      .catch(() => {
+        // The metric is best effort. Failures of the cache itself surface in
+        // the operations that matter.
+      });
+  }
+
   protected recordMiss(): void {
     this.meter.misses.add(1, {
       'labels.cache_type': 'redis',
@@ -131,7 +203,7 @@ export class RedisCache implements Cache {
       return null;
     }
 
-    const serialized = await this.execute((redis) => redis.get(key));
+    const serialized = await this.execute((redis) => redis.get(this.entryKey(key)));
 
     if (serialized === null) {
       this.recordMiss();
@@ -174,51 +246,71 @@ export class RedisCache implements Cache {
     }
 
     const serialized = JSON.stringify(value);
+    const redisKey = this.entryKey(key);
 
     await this.execute(async (redis) => {
       const multi = redis.multi();
 
-      multi.set(key, serialized, {
+      multi.set(redisKey, serialized, {
         EX: options.ttlSeconds,
       });
 
+      // A dependency set must outlive every entry it lists, or invalidating
+      // by dependency would miss entries that are still cached. NX gives a new
+      // set its first expiry (GT treats a set without one as infinitely long
+      // and would never set it), GT only ever extends an existing one.
       for (const depId of options.dependencyIds) {
-        multi.sAdd(`dep:${depId}`, key);
+        const depKey = this.dependencyKey(depId);
+
+        multi.sAdd(depKey, redisKey);
+        multi.expire(depKey, options.ttlSeconds, 'NX');
+        multi.expire(depKey, options.ttlSeconds, 'GT');
       }
 
       await multi.exec();
-
-      this.meter.items.record(await redis.dbSize(), {
-        'labels.cache_type': 'redis',
-      });
     });
+
+    this.sampleItemCount();
   }
 
   public async invalidate(dependencyIds: Array<string>): Promise<void> {
     // One timeout per round trip: invalidating many ids takes longer than a
     // single get, and should not time out as a whole on a healthy Redis.
     for (const id of dependencyIds) {
-      const depKey = `dep:${id}`;
+      const depKey = this.dependencyKey(id);
       const keys = await this.execute((redis) => redis.sMembers(depKey));
 
       await this.execute((redis) => redis.del([...keys, depKey]));
     }
 
-    await this.execute(async (redis) => {
-      this.meter.items.record(await redis.dbSize(), {
-        'labels.cache_type': 'redis',
-      });
-    });
+    this.sampleItemCount();
   }
 
+  /**
+   * Removes every key with this cache's prefix and leaves the rest of the
+   * database alone. The keys are found with SCAN and removed in batches with
+   * UNLINK, so a large cache does not block Redis. The operation timeout
+   * applies to each round trip, not to the whole scan. If a round trip fails
+   * the operation rejects and the batches removed so far stay removed.
+   */
   public async clear(): Promise<void> {
-    await this.execute(async (redis) => {
-      this.meter.items.record(await redis.dbSize(), {
-        'labels.cache_type': 'redis',
-      });
+    let cursor = '0';
 
-      await redis.flushDb();
-    });
+    do {
+      const current = cursor;
+      const page = await this.execute((redis) =>
+        redis.scan(current, { MATCH: this.scanPattern(), COUNT: 1000 }),
+      );
+
+      if (page.keys.length > 0) {
+        await this.execute((redis) => redis.unlink(page.keys));
+      }
+
+      cursor = page.cursor;
+    } while (cursor !== '0');
+
+    this.lastItemCountSampleAt = Number.NEGATIVE_INFINITY;
+    this.sampleItemCount();
   }
 
   public async close(): Promise<void> {
