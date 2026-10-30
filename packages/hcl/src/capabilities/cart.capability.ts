@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import {
   CartCapability,
   CartIdentifierSchema,
@@ -255,6 +256,7 @@ export class HclCartCapability<
   }
 
   @Reactionary({
+    inputSchema: z.undefined(),
     outputSchema: CartIdentifierSchema,
   })
   public override async getActiveCartId(): Promise<

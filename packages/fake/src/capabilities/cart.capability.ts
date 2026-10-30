@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import type {
   Cart,
   CartFactory,
@@ -255,6 +256,7 @@ export class FakeCartCapability<
   }
 
   @Reactionary({
+    inputSchema: z.undefined(),
     outputSchema: CartIdentifierSchema,
   })
   public override async getActiveCartId(): Promise<

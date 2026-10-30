@@ -143,7 +143,7 @@ There are two important details:
 
    - safe defaults are preserved and shown to MCP clients
    - unsafe defaults are omitted from the MCP schema
-   - fields with unsafe defaults remain optional to preserve the "can be omitted" intent
+   - fields with unsafe defaults are published as required: a default that fails when it is evaluated fails every call that leaves the field out, so the field cannot be omitted, whatever its type says
    - descriptions/metadata are copied when schemas are rebuilt for JSON Schema generation
 
 ### Monetary and cost default note
@@ -157,6 +157,18 @@ Some aggregate cart/checkout cost-breakdown fields still use a temporary placeho
 ```
 
 That fallback is intentionally placed on the parent cost-breakdown fields, not on `MonetaryAmountSchema` itself. It should eventually be replaced by configured/request-context currency handling or explicit "unknown monetary amount" modeling.
+
+## Tool descriptions
+
+An agent chooses and calls a tool from its name, its description and its input schema, so the description is what makes `cart.add` different from `cart.changeQuantity` for it.
+
+- A description set on the method with `@Reactionary({ description })` is used as it is.
+- Otherwise `src/lib/tool-descriptions.ts` has one for each operation of the core capabilities, by `<capability name>.<method name>`. They are written for agents, not copied from the code documentation, and say what the operation is for, which tool its input comes from, and the details of the input that the schema cannot say: which fields have to be sent although they are empty, what an empty result means.
+- An operation that has neither is published without a description.
+
+`src/lib/tool-surface.spec.ts` looks at every operation of the providers, and fails when an operation has no description or declares no input schema, when a description is left for an operation that does not exist, or when a description has notes to the developers of the library in it. Add the description in `tool-descriptions.ts` when you add an operation.
+
+A method that declares no `inputSchema` gets the default one, which accepts anything. Such a tool is published as an object with any properties, its arguments are passed to the method, and a warning names it once. Declare the input schema on the method to describe what it takes.
 
 ## Tool result envelope
 

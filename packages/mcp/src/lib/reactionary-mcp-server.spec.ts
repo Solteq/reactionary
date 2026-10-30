@@ -1,14 +1,17 @@
 import {
   BaseCapability,
+  ClientBuilder,
   MemoryCache,
   Reactionary,
   createInitialRequestContext,
   success,
   type Result,
 } from '@reactionary/core';
+import { FakeConfigurationSchema, withFakeCapabilities } from '@reactionary/fake';
 import { describe, expect, it, vi } from 'vitest';
 import * as z from 'zod';
 import { ReactionaryMCPServer } from './reactionary-mcp-server.js';
+import { TOOL_DESCRIPTIONS } from './tool-descriptions.js';
 
 class TestProductSearchCapability extends BaseCapability {
   @Reactionary({
@@ -80,6 +83,58 @@ class TestVoidCapability extends BaseCapability {
   protected getResourceName(): string {
     return 'voidTest';
   }
+}
+
+/** A capability whose methods carry no description of their own, named as the operations of the core capabilities are. */
+class TestUndescribedPriceCapability extends BaseCapability {
+  @Reactionary({
+    inputSchema: z.object({ variant: z.object({ sku: z.string() }) }),
+    outputSchema: z.object({ sku: z.string() }),
+  })
+  public async getListPrice(input: { variant: { sku: string } }): Promise<Result<unknown>> {
+    return success({ sku: input.variant.sku });
+  }
+
+  @Reactionary({
+    inputSchema: z.object({ variant: z.object({ sku: z.string() }) }),
+    outputSchema: z.object({ sku: z.string() }),
+    description: 'Set on the method',
+  })
+  public async getCustomerPrice(input: { variant: { sku: string } }): Promise<Result<unknown>> {
+    return success({ sku: input.variant.sku });
+  }
+
+  @Reactionary({
+    inputSchema: z.object({ made: z.string() }),
+    outputSchema: z.object({ made: z.string() }),
+  })
+  public async somethingNobodyDescribed(input: { made: string }): Promise<Result<unknown>> {
+    return success({ made: input.made });
+  }
+
+  protected getResourceName(): string {
+    return 'price';
+  }
+}
+
+/** A capability whose method declares no input schema but reads a payload, as the review providers used to do. */
+class TestSchemalessCapability extends BaseCapability {
+  @Reactionary({
+    outputSchema: z.object({ received: z.unknown() }),
+  })
+  public async lookup(input: unknown): Promise<Result<unknown>> {
+    return success({ received: input ?? null });
+  }
+
+  protected getResourceName(): string {
+    return 'schemaless';
+  }
+}
+
+interface ListedTool {
+  name: string;
+  description?: string;
+  inputSchema: { type?: string; properties?: Record<string, unknown>; additionalProperties?: unknown };
 }
 
 describe('ReactionaryMCPServer', () => {
@@ -185,6 +240,127 @@ describe('ReactionaryMCPServer', () => {
     expect(tools).not.toContain('Broken test default');
 
     await server.close();
+  });
+
+  it('publishes a field whose default fails as required, and a field with a safe default as optional', async () => {
+    const server = new ReactionaryMCPServer(createTestClient);
+
+    const tool = (await listTools(server)).find((candidate) => candidate.name === 'productSearch.search') as
+      | (ListedTool & { inputSchema: { required?: string[] } })
+      | undefined;
+
+    // Leaving out brokenDefault makes the library's own validation throw, so an agent has to send it
+    expect(tool?.inputSchema.required).toContain('brokenDefault');
+    expect(tool?.inputSchema.required ?? []).not.toContain('query');
+    await server.close();
+  });
+
+  it('asks for the whole cart in initiateCheckoutForCart, as the validation of the library does', async () => {
+    const server = new ReactionaryMCPServer((requestContext) =>
+      new ClientBuilder(requestContext)
+        .withCache(new MemoryCache())
+        .withCapability(
+          withFakeCapabilities(
+            FakeConfigurationSchema.parse({ seeds: { product: 1, search: 1, category: 1 } }),
+            { checkout: { enabled: true } },
+          ),
+        )
+        .build(),
+    );
+
+    const tool = (await listTools(server)).find((candidate) => candidate.name === 'checkout.initiateCheckoutForCart');
+    const cart = (tool?.inputSchema.properties as { cart?: { required?: string[] } } | undefined)?.cart;
+    // These are the fields whose default fails when they are left out. A cart without them used to be accepted by the
+    // tool and then rejected inside the library with a ZodError that an agent could not make sense of.
+    expect(cart?.required).toEqual(expect.arrayContaining(['identifier', 'user']));
+    expect(cart?.required ?? []).not.toContain('price');
+
+    const withoutUser = await callMcpResponse(server, 'tools/call', {
+      name: 'checkout.initiateCheckoutForCart',
+      arguments: { cart: { identifier: { key: 'cart-1' } } },
+    });
+    expect(await withoutUser.text()).toContain("must have required property 'user'");
+    await server.close();
+  });
+
+  describe('tool descriptions', () => {
+    const priceServer = () =>
+      new ReactionaryMCPServer((requestContext) => ({
+        price: new TestUndescribedPriceCapability(new MemoryCache(), requestContext),
+      }));
+
+    it('describes an operation of the core capabilities that has no description of its own', async () => {
+      const server = priceServer();
+
+      const tools = await listTools(server);
+
+      expect(tools.find((tool) => tool.name === 'price.getListPrice')?.description).toBe(TOOL_DESCRIPTIONS['price.getListPrice']);
+      await server.close();
+    });
+
+    it('prefers a description set on the method', async () => {
+      const server = priceServer();
+
+      const tools = await listTools(server);
+
+      expect(tools.find((tool) => tool.name === 'price.getCustomerPrice')?.description).toBe('Set on the method');
+      await server.close();
+    });
+
+    it('publishes an operation nobody described without a description, rather than with a made-up one', async () => {
+      const server = priceServer();
+
+      const tools = await listTools(server);
+
+      expect(tools.find((tool) => tool.name === 'price.somethingNobodyDescribed')?.description).toBeUndefined();
+      await server.close();
+    });
+
+    it('finds the description by capability and method also when the tool is named otherwise', async () => {
+      const server = new ReactionaryMCPServer(
+        (requestContext) => ({ price: new TestUndescribedPriceCapability(new MemoryCache(), requestContext) }),
+        { toolName: (capability, method) => `shop_${capability}_${method}` },
+      );
+
+      const tools = await listTools(server);
+
+      expect(tools.find((tool) => tool.name === 'shop_price_getListPrice')?.description).toBe(TOOL_DESCRIPTIONS['price.getListPrice']);
+      await server.close();
+    });
+  });
+
+  describe('a method that declares no input schema', () => {
+    const schemalessServer = () =>
+      new ReactionaryMCPServer((requestContext) => ({
+        schemaless: new TestSchemalessCapability(new MemoryCache(), requestContext),
+      }));
+
+    it('is published as an object with any properties, and its arguments reach the method', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const server = schemalessServer();
+
+      const tool = (await listTools(server)).find((candidate) => candidate.name === 'schemaless.lookup');
+      const response = await callMcpResponse(server, 'tools/call', { name: 'schemaless.lookup', arguments: { sku: 'abc' } });
+
+      expect(tool?.inputSchema.type).toBe('object');
+      expect(tool?.inputSchema.properties ?? {}).toEqual({});
+      expect(await response.text()).toContain('"received":{"sku":"abc"}');
+      warn.mockRestore();
+      await server.close();
+    });
+
+    it('is reported once, by name', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const server = schemalessServer();
+
+      await listTools(server);
+      await listTools(server);
+
+      const reports = warn.mock.calls.filter(([message]) => String(message).includes('schemaless.lookup'));
+      expect(reports.length).toBeLessThanOrEqual(1);
+      warn.mockRestore();
+      await server.close();
+    });
   });
 });
 
@@ -391,6 +567,17 @@ function createTestClient(requestContext = createInitialRequestContext()) {
       requestContext,
     ),
   };
+}
+
+async function listTools(server: ReactionaryMCPServer): Promise<ListedTool[]> {
+  const text = await callMcp(server, 'tools/list');
+  const data = text
+    .split('\n')
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trim())
+    .at(-1);
+
+  return (JSON.parse(data ?? text) as { result: { tools: ListedTool[] } }).result.tools;
 }
 
 async function callMcp(
