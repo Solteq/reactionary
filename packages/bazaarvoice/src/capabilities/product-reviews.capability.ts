@@ -18,6 +18,9 @@ import {
   type ProductReviewsListQuery,
   type RequestContext,
   type Result,
+  ProductReviewsListQuerySchema,
+  ProductReviewsGetRatingSummaryQuerySchema,
+  ProductReviewMutationSubmitSchema,
 } from '@reactionary/core';
 import {
   BvReviewsResponseSchema,
@@ -46,6 +49,7 @@ export class BazaarvoiceProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewsGetRatingSummaryQuerySchema,
     outputSchema: ProductRatingSummarySchema,
     cache: true,
     cacheTimeToLiveInSeconds: 300,
@@ -73,6 +77,7 @@ export class BazaarvoiceProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewsListQuerySchema,
     outputSchema: ProductReviewPaginatedResultSchema,
     cache: true,
     cacheTimeToLiveInSeconds: 60,
@@ -104,6 +109,7 @@ export class BazaarvoiceProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewMutationSubmitSchema,
     outputSchema: ProductReviewSchema,
     cache: false,
     cacheTimeToLiveInSeconds: 0,

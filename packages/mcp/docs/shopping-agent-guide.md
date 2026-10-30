@@ -87,9 +87,11 @@ Recommended checkout flow:
 1. Ensure the user explicitly wants to start checkout.
 2. Read or use the latest cart.
 3. Verify price and inventory where tools exist.
-4. Initiate checkout from the cart.
-5. Use checkout tools to set shipping address, shipping instruction, payment instruction, and finalize according to available capabilities.
-6. Never claim payment has succeeded unless the relevant checkout/payment tool confirms it.
+4. Initiate checkout with `checkout.initiateCheckoutForCart`. Its `cart` input is the whole cart object: pass the result of `cart.getById` exactly as it was returned, do not build a partial cart. The `identifier.key` of the checkout that comes back is what the other checkout tools take.
+5. Set the shipping address with `checkout.setShippingAddress`, list `checkout.getAvailableShippingMethods`, and record the choice with `checkout.setShippingInstruction`. `pickupPoint`, `instructions` and `consentForUnattendedDelivery` have to be sent: use empty strings and `false` when they do not apply.
+6. List `checkout.getAvailablePaymentMethods` and add a payment with `checkout.addPaymentInstruction`, using the identifier of one of those methods. A payment provider usually needs the customer to complete the payment in its own page or form, so the payment may not be done when the tool returns. Read the checkout again before going on.
+7. Call `checkout.finalizeCheckout` only when the customer has asked to place the order. It fails when the checkout is not ready, for example when a payment is not complete, and then no order exists. An order is placed when `resultingOrder` is set on the checkout.
+8. Never claim payment has succeeded unless the relevant checkout/payment tool confirms it.
 
 For the current minimal demo scope, checkout/payment handoff may be intentionally disabled. In that case, stop after cart creation/addition and explain that checkout is not available in this MCP surface.
 

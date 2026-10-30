@@ -18,6 +18,9 @@ import {
   type ProductReviewsListQuery,
   type RequestContext,
   type Result,
+  ProductReviewsListQuerySchema,
+  ProductReviewsGetRatingSummaryQuerySchema,
+  ProductReviewMutationSubmitSchema,
 } from '@reactionary/core';
 import {
   LipscoreProductsListSchema,
@@ -46,6 +49,7 @@ export class LipscoreProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewsGetRatingSummaryQuerySchema,
     outputSchema: ProductRatingSummarySchema,
     cache: true,
     cacheTimeToLiveInSeconds: 300,
@@ -67,6 +71,7 @@ export class LipscoreProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewsListQuerySchema,
     outputSchema: ProductReviewPaginatedResultSchema,
     cache: true,
     cacheTimeToLiveInSeconds: 60,
@@ -111,6 +116,7 @@ export class LipscoreProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewMutationSubmitSchema,
     outputSchema: ProductReviewSchema,
     cache: false,
     cacheTimeToLiveInSeconds: 0,

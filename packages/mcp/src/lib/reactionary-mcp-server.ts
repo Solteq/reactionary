@@ -31,6 +31,7 @@ import {
   type ReactionaryMCPClient,
   type ReactionaryMCPTool,
 } from './tool-discovery.js';
+import { TOOL_DESCRIPTIONS } from './tool-descriptions.js';
 import {
   REACTIONARY_SHOPPING_AGENT_GUIDE,
   REACTIONARY_SHOPPING_AGENT_GUIDE_PROMPT,
@@ -250,15 +251,13 @@ export class ReactionaryMCPServer {
     sessionId: string | undefined,
     requestContext: RequestContext,
   ): void {
-    const inputSchema = acceptsUndefined(tool.entrypoint.inputSchema)
-      ? undefined
-      : toMcpSchema(tool.entrypoint.inputSchema);
+    const inputSchema = toMcpInputSchema(tool);
 
     server.registerTool(
       tool.name,
       {
         title: tool.entrypoint.title,
-        description: tool.entrypoint.description,
+        description: describeTool(tool),
         inputSchema,
         outputSchema: toMcpOutputSchema(tool.entrypoint.outputSchema),
       },
@@ -357,8 +356,48 @@ function withMcpSessionId(request: Request, sessionId: string): Request {
   return new Request(request, { headers });
 }
 
-function acceptsUndefined(schema: z.ZodType): boolean {
-  return schema.safeParse(undefined).success;
+/**
+ * What an agent is told about a tool: the description set on the method, otherwise the one of the operation in
+ * TOOL_DESCRIPTIONS. The tool name is left out of the lookup because it can be customized, the operation cannot.
+ */
+function describeTool(tool: ReactionaryMCPTool): string | undefined {
+  const { capabilityName, methodName, description } = tool.entrypoint;
+  return description ?? TOOL_DESCRIPTIONS[`${capabilityName}.${methodName}`];
+}
+
+/** An object with any properties, for a tool whose method declares no input schema. A constant so that its conversion is cached. */
+const ANY_PROPERTIES_SCHEMA = z.looseObject({});
+
+/** The tools that were published without a declared input schema, so that the warning is given once per tool. */
+const toolsWithoutInputSchema = new Set<string>();
+
+/**
+ * The input schema of a tool, or undefined when the tool takes no input.
+ *
+ * A method that declares no input schema gets the default one, which accepts anything, and there is no way to tell
+ * whether it takes a payload. Dropping the arguments of such a tool would make the method fail on a missing payload
+ * with nothing in the tool to say so, so it is published as an object with any properties and the arguments are
+ * passed on. Declare the input schema on the method to have its fields described.
+ */
+function toMcpInputSchema(tool: ReactionaryMCPTool): McpSchema | undefined {
+  const schema = tool.entrypoint.inputSchema;
+  const type = getZodDef(schema).type;
+
+  if (type === 'undefined' || type === 'void' || type === 'never') {
+    return undefined;
+  }
+
+  if (type === 'unknown' || type === 'any') {
+    if (!toolsWithoutInputSchema.has(tool.name)) {
+      toolsWithoutInputSchema.add(tool.name);
+      console.warn(
+        `@reactionary/mcp: ${tool.name} declares no input schema, so agents are not told what it takes. Declare inputSchema on the method.`,
+      );
+    }
+    return toMcpSchema(ANY_PROPERTIES_SCHEMA);
+  }
+
+  return toMcpSchema(schema);
 }
 
 type McpSchema = ReturnType<typeof convertToMcpSchema>;
@@ -456,8 +495,10 @@ function applySafeDefault(
 ): z.ZodType {
   const defaultValue = getSafeDefaultValue(schema);
 
+  // A default that throws when it is evaluated fails every call that leaves the field out, so the field is required.
+  // Publishing it as optional would invite exactly that call.
   if (!defaultValue.success) {
-    return copyMetadata(schema, preparedInnerType.optional());
+    return copyMetadata(schema, preparedInnerType);
   }
 
   return copyMetadata(

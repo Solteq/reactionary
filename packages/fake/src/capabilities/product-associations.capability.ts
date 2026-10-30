@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import {
   ProductAssociationsCapability,
   Reactionary,
@@ -10,6 +11,10 @@ import {
   type Cache,
   type ProductSearchResultItem,
   type RequestContext,
+  ProductAssociationsGetAccessoriesQuerySchema,
+  ProductAssociationSchema,
+  ProductAssociationsGetReplacementsQuerySchema,
+  ProductAssociationsGetSparepartsQuerySchema,
 } from '@reactionary/core';
 import type {
   ProductAssociationsFactory,
@@ -41,6 +46,8 @@ export class FakeProductAssociationsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetAccessoriesQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
@@ -63,6 +70,8 @@ export class FakeProductAssociationsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetSparepartsQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
@@ -85,6 +94,8 @@ export class FakeProductAssociationsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetReplacementsQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,

@@ -11,6 +11,9 @@ import {
   ProductReviewSchema,
   ProductRatingSummarySchema,
   ProductReviewPaginatedResultSchema,
+  ProductReviewsListQuerySchema,
+  ProductReviewsGetRatingSummaryQuerySchema,
+  ProductReviewMutationSubmitSchema,
 } from '@reactionary/core';
 import type {
   ProductRatingSummary,
@@ -65,6 +68,7 @@ export class CommercetoolsProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewsGetRatingSummaryQuerySchema,
     outputSchema: ProductRatingSummarySchema,
     cache: true,
     cacheTimeToLiveInSeconds: 300,
@@ -121,6 +125,7 @@ export class CommercetoolsProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewsListQuerySchema,
     outputSchema: ProductReviewPaginatedResultSchema,
     cache: true,
     cacheTimeToLiveInSeconds: 60,
@@ -208,6 +213,7 @@ export class CommercetoolsProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewMutationSubmitSchema,
     outputSchema: ProductReviewSchema,
     cache: false,
     cacheTimeToLiveInSeconds: 0,
