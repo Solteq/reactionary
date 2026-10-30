@@ -366,7 +366,7 @@ function describeTool(tool: ReactionaryMCPTool): string | undefined {
 }
 
 /** An object with any properties, for a tool whose method declares no input schema. A constant so that its conversion is cached. */
-const ANY_PROPERTIES_SCHEMA = z.looseObject({});
+const anyPropertiesSchema = z.looseObject({});
 
 /** The tools that were published without a declared input schema, so that the warning is given once per tool. */
 const toolsWithoutInputSchema = new Set<string>();
@@ -394,7 +394,7 @@ function toMcpInputSchema(tool: ReactionaryMCPTool): McpSchema | undefined {
         `@reactionary/mcp: ${tool.name} declares no input schema, so agents are not told what it takes. Declare inputSchema on the method.`,
       );
     }
-    return toMcpSchema(ANY_PROPERTIES_SCHEMA);
+    return toMcpSchema(anyPropertiesSchema);
   }
 
   return toMcpSchema(schema);

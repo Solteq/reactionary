@@ -6,7 +6,7 @@
  * fields have to be sent even when there is nothing to put in them, what an empty result means.
  *
  * A description set with `@Reactionary({ description })` on a method wins over these. Keep them to what the operation
- * does for every provider, and to what was checked against the schemas and the providers.
+ * does, and to what was checked against the schemas and the providers. Where providers differ the text says so or leaves it out.
  */
 export const TOOL_DESCRIPTIONS: Readonly<Record<string, string>> = {
   // Cart
@@ -15,15 +15,15 @@ export const TOOL_DESCRIPTIONS: Readonly<Record<string, string>> = {
   'cart.createCart':
     'Creates an empty cart for the current session and returns it, with its key in identifier.key. Optional: a name for the cart, and a company (B2B). Items are added with cart.add.',
   'cart.getById':
-    'Returns a cart with its items, quantities, prices and applied promotions. Input: cart.key from cart.getActiveCartId, cart.createCart or any cart tool.',
+    'Returns a cart with its items, quantities, prices and applied promotions. Input: cart, the cart identifier exactly as returned by cart.getActiveCartId, cart.createCart or another cart tool. Do not rebuild it from the key alone, some providers also need a version.',
   'cart.add':
-    'Adds a product variant to an existing cart and returns the updated cart with recalculated prices. The cart must exist: use cart.getActiveCartId, or cart.createCart when there is none. The variant is identified by its SKU (variant.sku, from the product tools). quantity defaults to 1 and must be at least 1. Adding a SKU that is already in the cart does not merge the lines on every provider: check the returned items.',
+    'Adds a product variant to an existing cart and returns the updated cart with recalculated prices. The cart must exist: use cart.getActiveCartId, or cart.createCart when there is none. The variant is identified by its SKU (variant.sku, from the product tools). quantity defaults to 1 and must be at least 1. Check the returned items to see how the provider treated a SKU that was already in the cart.',
   'cart.changeQuantity':
     'Sets the quantity of one cart item and returns the updated cart. item.key is the identifier.key of an item in the cart, not a SKU. The quantity must be at least 1: to remove an item use cart.remove.',
   'cart.remove':
     'Removes one item from the cart and returns the updated cart. item.key is the identifier.key of an item in the cart, not a SKU.',
   'cart.applyCouponCode':
-    'Applies a coupon code to the cart and returns the updated cart with recalculated prices. Fails when the code is not valid for the cart.',
+    'Applies a coupon code to the cart and returns the updated cart with recalculated prices. The provider decides whether the code is valid for the cart: check the returned promotions.',
   'cart.removeCouponCode': 'Removes a coupon code from the cart and returns the updated cart with recalculated prices.',
   'cart.changeCurrency':
     'Changes the currency of the cart, using a three letter ISO 4217 code such as EUR, and returns the cart with its prices recalculated.',
@@ -38,30 +38,30 @@ export const TOOL_DESCRIPTIONS: Readonly<Record<string, string>> = {
     'Lists the categories without a parent, a page at a time, for building a top menu. Send paginationOptions, which may be an empty object (page 1, 20 per page).',
   'category.findChildCategories':
     'Lists the child categories of a category, a page at a time. parentId.key is the identifier.key of the parent category. Send paginationOptions, which may be an empty object.',
-  'category.getById': 'Returns a category by its identifier.key. Fails with NotFound when there is no such category.',
+  'category.getById': 'Returns a category by its id.key. Fails with NotFound when there is no such category.',
   'category.getBySlug': 'Returns a category by its SEO slug, the part of a category URL that names it. Fails with NotFound when there is no such category.',
   'category.getBreadcrumbPathToCategory':
     'Returns the categories from the root down to the given one, root first, for showing a breadcrumb. id.key is the identifier.key of the category.',
 
   // Products
-  'product.getById': 'Returns a product with its description, attributes, options and variants. Input: identifier.key of a product, from a search result or a category.',
+  'product.getById': 'Returns a product with its description, attributes, options and variants. Input: identifier.key of a product, from a search result.',
   'product.getBySlug': 'Returns a product by its URL slug, with its description, attributes, options and variants. Fails with NotFound when there is no such product.',
   'product.getBySKU':
     'Returns the product that a variant (SKU) belongs to, with all its variants. Input: variant.sku. Use it to go from a SKU in a cart, an order or a list to the product.',
   'product-search.queryByTerm':
-    'Searches the catalogue and returns one page of products with facets for narrowing the search. Send search.term (use "*" to list products without a search word), search.facets and search.filters (both required: send empty arrays when not narrowing), and search.paginationOptions (required, may be empty: page 1, up to 50 per page, 20 by default). To narrow, send facet values taken from the facets of an earlier result in search.facets. Search results are summaries: get the full product with product.getById.',
+    'Searches the catalogue and returns one page of products with facets for narrowing the search. Send search.term (use "" to list products without a search word; "*" is only understood by some providers), search.facets and search.filters (both required: send empty arrays when not narrowing), and search.paginationOptions (required, may be empty: page 1, up to 50 per page, 20 by default). To narrow, send facet values taken from the facets of an earlier result in search.facets; send search.filters as [] (on some providers filters are raw expressions). Some providers return no facets. Search results are summaries: get the full product with product.getById.',
   'product-search.createCategoryNavigationFilter':
     'Turns the breadcrumb path of a category (the result of category.getBreadcrumbPathToCategory) into a filter that product-search.queryByTerm takes as search.categoryFilter, to list the products of that category and the ones below it.',
   'product-search.resolveCategoryFromKey':
     'Looks up the category that a search key refers to and returns its id, key and localized names. Input: key.',
   'product-associations.getAccessories':
-    'Returns products that are accessories of a product, such as a case for a phone: products bought together with it. Input: forProduct.key and numberOfAccessories (1 to 12). May return fewer than asked for.',
+    'Returns products that are accessories of a product, such as a case for a phone, as configured for the product in the catalogue. Input: forProduct.key and numberOfAccessories (1 to 12). May return fewer than asked for.',
   'product-associations.getSpareparts':
     'Returns products that are spare parts of a product. Input: forProduct.key and numberOfSpareparts (1 to 12). May return fewer than asked for.',
   'product-associations.getReplacements':
     'Returns products that replace a product, equivalent or newer ones. Input: forProduct.key and numberOfReplacements (1 to 12). May return fewer than asked for.',
   'product-recommendations.getRecommendations':
-    'Returns recommended products for one of several algorithms. algorithm selects how: frequentlyBoughtTogether, similar and related need sourceProduct; trendingInCategory needs sourceCategory. numberOfRecommendations is 1 to 12. The result may hold fewer.',
+    'Returns recommended products for one of several algorithms. algorithm selects how: frequentlyBoughtTogether, similar and related need sourceProduct; trendingInCategory needs sourceCategory; popular and topPicks need no source. Providers support only some of the algorithms. numberOfRecommendations is 1 to 12. The result may hold fewer.',
   'product-recommendations.getCollection':
     'Returns the products of a named collection, a curated list or a marketing zone. Input: collectionName and numberOfRecommendations (1 to 12); sourceProduct and sourceCategory give context. A collection the provider does not have gives a NotFound error or an empty list.',
   'product-reviews.getRatingSummary':
@@ -71,7 +71,7 @@ export const TOOL_DESCRIPTIONS: Readonly<Record<string, string>> = {
   'product-reviews.submitReview':
     'Posts a review of a product for the customer. Input: product.key, rating (1 to 5), title, content and authorName. Changes data: only call it when the customer has asked to post this review.',
   'price.getCustomerPrice':
-    'Returns the price that applies to the current customer for a variant: unit price, whether it is on sale, and tiered prices by quantity. Input: variant.sku, and company.taxIdentifier for a B2B customer. Use this price when showing or quoting a price.',
+    'Returns the price that applies to the current customer for a variant: unit price and whether it is on sale, and on some providers tiered prices by quantity. A SKU the provider does not know may come back with a placeholder unit price of -1 instead of an error. Input: variant.sku, and company.taxIdentifier for a B2B customer (not every provider uses it). Use this price when showing or quoting a price.',
   'price.getListPrice':
     'Returns the list price of a variant, the general price without any customer specific discount, as the "before" price. Input: variant.sku. For the price the customer pays use price.getCustomerPrice.',
   'inventory.getBySKU':
@@ -81,7 +81,7 @@ export const TOOL_DESCRIPTIONS: Readonly<Record<string, string>> = {
   'store.list': 'Lists the stores of the brand, a page at a time, with name, address, opening hours and the fulfillmentCenter.key that inventory.getBySKU needs. Send paginationOptions, which may be an empty object.',
   'store.getById': 'Returns one store by its identifier.key: name, address, opening hours and fulfillmentCenter.key.',
   'store.queryByProximity':
-    'Returns the stores near a position, nearest first. Input: latitude and longitude in degrees, distance (the largest distance to a store) and limit (the most stores to return).',
+    'Returns the stores within a distance of a position. Input: latitude and longitude in degrees, distance (the largest distance to a store, in kilometres) and limit (the most stores to return).',
 
   // Checkout
   'checkout.initiateCheckoutForCart':
@@ -99,14 +99,14 @@ export const TOOL_DESCRIPTIONS: Readonly<Record<string, string>> = {
   'checkout.addPaymentInstruction':
     'Adds a payment to the checkout and returns the checkout. Input: checkout.key and paymentInstruction with amount (value and currency) and paymentMethod, copied from the identifier of a method of checkout.getAvailablePaymentMethods, and protocolData (send [] when there is none). A payment provider usually needs the customer to complete the payment in its own page or form, so the payment is not done when this returns: check the checkout before finalizing.',
   'checkout.removePaymentInstruction':
-    'Removes a payment from the checkout, which usually cancels the payment started at the payment provider, and returns the checkout. Input: checkout.key and paymentInstruction.key.',
+    'Removes a payment from the checkout (not implemented by every provider, the Medusa provider fails), which usually cancels the payment started at the payment provider, and returns the checkout. Input: checkout.key and paymentInstruction.key.',
   'checkout.finalizeCheckout':
     'Places the order from the checkout and returns the checkout, with the key of the order in resultingOrder. It fails when the checkout is not ready, for example when a payment has not been completed, and then no order is created. Input: checkout.key. Only call it when the customer has asked to place the order, and only report an order as placed when resultingOrder is set.',
 
   // Orders
   'order.getById': 'Returns an order with its items, prices, addresses and the status of each item. Input: order.key, the resultingOrder of a finalized checkout or the identifier of an order from order-search.queryByTerm.',
   'order-search.queryByTerm':
-    'Searches orders and returns a page of order summaries with date, status and total. Input: search with term (required, the text to look for), paginationOptions and filters (both required: send [] and {} when there is nothing to filter), and optionally partNumber, orderStatus, user, startDate, endDate and company. Get the full order with order.getById.',
+    'Searches orders and returns a page of order summaries with date, status and total. Input: search with term (required, the text to look for), paginationOptions and filters (both required: send filters: [] and paginationOptions: {} when there is nothing to filter), and optionally partNumber, orderStatus, user, startDate, endDate and company. Get the full order with order.getById.',
 
   // Identity and profile
   'identity.getSelf': 'Returns who the current session is: Anonymous, Guest, or Registered with the userId. Takes no input. The userId is what the profile tools take as identifier.userId.',
@@ -139,7 +139,7 @@ export const TOOL_DESCRIPTIONS: Readonly<Record<string, string>> = {
   'product-lists.queryLists':
     'Lists the product lists of the customer of one type: favorite, wish, requisition or shopping. Input: search.listType and search.paginationOptions (which may be empty), and optionally search.company. Use it to find out whether a list exists before adding to it.',
   'product-lists.getById': 'Returns a product list by its identifier: listType and key, and user for lists of a user.',
-  'product-lists.addList': 'Creates a product list, for example a wish list, and returns it. Input: list with type (favorite, wish, requisition or shopping) and name, and optionally description, image and publishing.',
+  'product-lists.addList': 'Creates a product list, for example a wish list, and returns it. Input: list with type (favorite, wish, requisition or shopping) and name, and optionally description, image, published and publishDate.',
   'product-lists.updateList': 'Changes the name, description, image or publishing of a product list and returns it. Input: list (listType and key) and the fields to change.',
   'product-lists.deleteList': 'Deletes a product list with all its items. Input: list (listType and key). Returns nothing. Only call it when the customer has asked to delete the list.',
   'product-lists.queryListItems': 'Lists the items of a product list, a page at a time. Input: search.list (listType and key) and search.paginationOptions, which may be empty.',
@@ -152,7 +152,7 @@ export const TOOL_DESCRIPTIONS: Readonly<Record<string, string>> = {
   'taxonomy.getVocabulary':
     'Returns a vocabulary, a named set of concepts such as features or categories, as a tree of its concepts with names in the language of the request. Input: vocabulary.key.',
   'taxonomy.getConcepts':
-    'Returns concepts by their identifiers, with names in the language of the request. Concepts that do not exist are left out of the result. Input: concepts, a list of keys.',
+    'Returns concepts by their identifiers, with names in the language of the request. Concepts that do not exist are left out of the result. Input: concepts, a list of objects with a key, such as [{"key":"..."}].',
   'taxonomy.getRelatedConcepts': 'Returns the concepts around concepts: their broader concepts (ancestors), narrower concepts (descendants) and related concepts.',
   'taxonomy.expandConcepts':
     'Expands concepts, usually the concepts of a product, to the concepts around them with a weight: the concepts themselves, their narrower and related concepts and their ancestors. Sorted by weight, at most 2000. It is the context that taxonomy.rankByConcepts ranks against.',
