@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import {
   ProductRecommendationsCapability,
   ProductRecommendationsQuerySchema,
@@ -18,6 +19,7 @@ import {
   type RequestContext,
   type Result,
   success,
+  ProductRecommendationSchema,
 } from '@reactionary/core';
 import type { HclConfiguration } from '../schema/configuration.schema.js';
 import type { HclClient } from '../core/client.js';
@@ -39,6 +41,7 @@ export class HclProductRecommendationsCapability<
   }
 
   @Reactionary({
+    outputSchema: z.array(ProductRecommendationSchema),
     inputSchema: ProductRecommendationsQuerySchema,
   })
   public override getRecommendations(
@@ -48,6 +51,7 @@ export class HclProductRecommendationsCapability<
   }
 
   @Reactionary({
+    outputSchema: z.array(ProductRecommendationSchema),
     inputSchema: ProductRecommendationsByCollectionQuerySchema,
   })
   public override async getCollection(

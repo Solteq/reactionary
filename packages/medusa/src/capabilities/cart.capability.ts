@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import type {
   Cache,
   CartFactory,
@@ -40,7 +41,7 @@ import {
   CartSchema,
   error,
   Reactionary,
-  success
+  success,
 } from '@reactionary/core';
 
 import { FetchError } from '@medusajs/js-sdk';
@@ -660,6 +661,7 @@ export class MedusaCartCapability<
   }
 
   @Reactionary({
+    inputSchema: z.undefined(),
     outputSchema: CartIdentifierSchema,
   })
   public override async getActiveCartId(): Promise<

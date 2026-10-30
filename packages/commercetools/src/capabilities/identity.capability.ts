@@ -18,6 +18,7 @@ import {
   externalLoginResult,
   profileFromOidcClaims,
   success,
+  IdentityMutationLogoutSchema,
 } from '@reactionary/core';
 import { OidcIdentityCapability, type ExchangeExternalIdentityInput } from '@reactionary/oidc';
 import type { CommercetoolsConfiguration } from '../schema/configuration.schema.js';
@@ -79,6 +80,7 @@ export class CommercetoolsIdentityCapability<
   }
 
   @Reactionary({
+    inputSchema: IdentityMutationLogoutSchema,
     outputSchema: IdentitySchema,
   })
   public override async logout(payload: Record<string, never>): Promise<Result<IdentityFactoryOutput<TFactory>>> {

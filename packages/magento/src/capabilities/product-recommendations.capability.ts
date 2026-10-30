@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import {
   ProductRecommendationsCapability,
   Reactionary,
@@ -12,6 +13,8 @@ import {
   type ProductRecommendationsByCollectionQuery,
   type RequestContext,
   type Result,
+  ProductRecommendationsByCollectionQuerySchema,
+  ProductRecommendationSchema,
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type { MagentoClient } from '../core/client.js';
@@ -103,6 +106,8 @@ export class MagentoProductRecommendationsCapability extends ProductRecommendati
   }
 
   @Reactionary({
+    inputSchema: ProductRecommendationsByCollectionQuerySchema,
+    outputSchema: z.array(ProductRecommendationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
