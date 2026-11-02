@@ -52,6 +52,9 @@ What the events carry beyond what the storefront passes is looked up through the
   is sent on the event as `fxRate` and `fxDate`. When the ECB rates cannot be had, `fxFallbackRates` applies; a currency with neither gets no EUR amounts.
 - **Shipping area.** An order carries the shipping country and, for a country that has a configured cut (`shippingPostalAreaDigits`, default DK 4, NO 4, SE 3, FI 3), the postal code cut to an area. A country without one sends the country only. Never the street.
 - **Origin.** Where the visitor came from is sent flat (search term, active facet filters, category, carousel, promotion, ...), without positions.
+- **Page paths.** `pageInfo.pagePath` is the path of the page without host, query or fragment, and without a trailing slash (the root stays `/`),
+  so `/da-DK/campaign/springtime/` and `/da-DK/campaign/springtime` are one page. The language prefix is kept: storefront slugs are localized, so
+  the paths of two languages are not the same page. A condition on the path can match the end of it (`endsWith`) to cover the prefix.
 - **Coupons.** The checkout does not carry the coupon codes, so `orderPlaced.couponCodes` is always empty. `couponApplied` has the code.
 
 ## Authentication (Unomi 4)

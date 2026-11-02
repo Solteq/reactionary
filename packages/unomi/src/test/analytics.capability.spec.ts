@@ -577,6 +577,19 @@ describe('Unomi Analytics Capability', () => {
       expect(events()[0]).not.toHaveProperty('properties');
     });
 
+    it('sends the path of a page without its trailing slash, and keeps the language of the path', async () => {
+      const client = buildClient();
+
+      await client.analytics.pageViewed({ page: { type: 'content', url: 'https://shop.example/da-DK/campaign/springtime/?utm=x', title: 'Springtime' } });
+      await client.analytics.pageViewed({ page: { type: 'content', url: 'https://shop.example/da-DK/campaign/springtime', title: 'Springtime' } });
+      await client.analytics.pageViewed({ page: { type: 'content', url: 'https://shop.example/', title: 'Home' } });
+      await client.analytics.flush();
+
+      const pages = events().map((e) => e.target?.properties['pageInfo'] as { pagePath: string; pageID: string });
+      expect(pages.map((p) => p.pagePath)).toEqual(['/da-DK/campaign/springtime', '/da-DK/campaign/springtime', '/']);
+      expect(pages[0].pageID).toBe(pages[1].pageID);
+    });
+
     it('never sends a query string or a fragment of a page or its referrer', async () => {
       context.referrer = 'https://search.example/results?q=john@example.com';
       const client = buildClient();

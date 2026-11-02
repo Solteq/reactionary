@@ -27,6 +27,7 @@ import {
 import type { UnomiConfiguration } from '../schema/configuration.schema.js';
 import { toEur, type EurRate } from './fx.js';
 import { deviceClass, flattenOrigin } from './origin.js';
+import { pagePathOf } from './page-path.js';
 
 export interface UnomiItemPayload {
   itemType: string;
@@ -342,12 +343,7 @@ export class UnomiEventMapper {
     if (!url) {
       return undefined;
     }
-    let path = url;
-    try {
-      path = new URL(url, 'https://placeholder.invalid').pathname;
-    } catch {
-      // keep the url as the path
-    }
+    const path = pagePathOf(url);
     const itemId = unomiItemId(path);
     return {
       eventType: 'view',
