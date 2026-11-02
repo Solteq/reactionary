@@ -22,6 +22,7 @@ import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaNativeRecord } from '../schema/search.schema.js';
 import type { AlgoliaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { getProductIndexNameForLocale } from '../core/index-utils.js';
+import { segmentRuleContexts } from '../core/rule-contexts.js';
 
 export class AlgoliaProductSearchCapability<
   TFactory extends ProductSearchFactory = AlgoliaProductSearchFactory,
@@ -58,10 +59,7 @@ export class AlgoliaProductSearchCapability<
       finalFilters.push(`categories:"${categoryFacet.key}"`);
     }
 
-    const rulesContext = [];
-    if (payload.personalizationProfile) {
-      rulesContext.push(...payload.personalizationProfile.segments.map((s) => `segment_${s}`));
-    }
+    const rulesContext = segmentRuleContexts(payload.personalizationProfile);
 
     return {
       indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale, this.config),
