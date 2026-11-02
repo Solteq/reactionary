@@ -174,12 +174,13 @@ A method that declares no `inputSchema` gets the default one, which accepts anyt
 
 A client that offers tools per page, like a browser with WebMCP, should offer the tools that fit the page the customer is on, not all of them. Every listed tool carries the kinds of page it is useful on in `_meta['reactionary/pages']` (`TOOL_PAGE_KINDS_META_KEY`): `any`, `product`, `listing`, `cart`, `checkout`, `account`, `order`, `store` or `b2b`, see `ToolPageKind`.
 
-- The kinds are by operation, in `src/lib/tool-page-kinds.ts`, by `<capability name>.<method name>`. List every kind where the tool is useful: `cart.add` is used from a product page and a listing, so it is `any`.
+- The kinds are by operation, in `src/lib/tool-page-kinds.ts`, by `<capability name>.<method name>`. List every kind where the tool is useful, for example `product.getBySKU` is used from the cart, an order and the lists as well as from a product page. `any` is for the tools that are used from most pages, like `cart.add`.
 - An operation that is not in the map is `any`.
+- To give kinds to the operations of your own capabilities, or to change those of the library, set the `pageKinds` option of `ReactionaryMCPServer`. It receives the tool and returns the kinds, or undefined to use the library's. The kinds are free text, so a shop can use its own.
 - It is a hint for what to offer. Every tool can still be called on the MCP endpoint, and it is not a way to restrict what an agent may do.
 - A client that does not know the key ignores it.
 
-`src/lib/tool-surface.spec.ts` fails when an operation of a provider has no kinds, or when kinds are left for an operation that does not exist. Add the kinds in `tool-page-kinds.ts` when you add an operation.
+`src/lib/tool-surface.spec.ts` fails, naming the operation, when an operation of a provider has no kinds, or when kinds are left for an operation that does not exist. Add the kinds in `tool-page-kinds.ts` when you add an operation to the library.
 
 ## Tool result envelope
 

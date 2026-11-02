@@ -82,7 +82,10 @@ describe('the tools of the providers', () => {
   it('have page kinds', () => {
     const without = [...new Set(all.map((operation) => operation.name).filter((name) => !TOOL_PAGE_KINDS[name]))];
 
-    expect(without.sort()).toEqual([]);
+    expect(
+      without.sort(),
+      'Add these operations to TOOL_PAGE_KINDS in packages/mcp/src/lib/tool-page-kinds.ts, with the kinds of page they are useful on',
+    ).toEqual([]);
   });
 
   it('have no page kinds for an operation that no provider has', () => {
@@ -113,6 +116,6 @@ describe('the page kinds of the tools', () => {
     expect(kinds.length).toBeGreaterThan(0);
     expect(new Set(kinds).size).toBe(kinds.length);
     // any says that a tool is useful on every page, so another kind next to it means nothing
-    expect(kinds.includes('any') ? kinds : ['any']).toEqual(['any']);
+    expect(kinds.includes('any') && kinds.length > 1).toBe(false);
   });
 });

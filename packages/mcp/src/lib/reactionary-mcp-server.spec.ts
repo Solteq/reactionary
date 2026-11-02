@@ -345,6 +345,40 @@ describe('ReactionaryMCPServer', () => {
       await server.close();
     });
 
+    it('are found also when the tool is named otherwise', async () => {
+      const server = new ReactionaryMCPServer(
+        (requestContext) => ({ price: new TestUndescribedPriceCapability(new MemoryCache(), requestContext) }),
+        { toolName: (capability, method) => `shop_${capability}_${method}` },
+      );
+
+      const tools = await listTools(server);
+
+      expect(tools.find((tool) => tool.name === 'shop_price_getListPrice')?._meta?.[TOOL_PAGE_KINDS_META_KEY]).toEqual(
+        TOOL_PAGE_KINDS['price.getListPrice'],
+      );
+      await server.close();
+    });
+
+    it('can be set with pageKinds, and fall back to the library when it returns nothing', async () => {
+      const server = new ReactionaryMCPServer(createTestClient, {
+        pageKinds: (tool) => (tool.name === 'productSearch.search' ? ['wishlist', 'any'] : undefined),
+      });
+      const priceServer = new ReactionaryMCPServer(
+        (requestContext) => ({ price: new TestUndescribedPriceCapability(new MemoryCache(), requestContext) }),
+        { pageKinds: () => undefined },
+      );
+
+      const tools = await listTools(server);
+      const priceTools = await listTools(priceServer);
+
+      expect(tools.find((tool) => tool.name === 'productSearch.search')?._meta?.[TOOL_PAGE_KINDS_META_KEY]).toEqual(['wishlist', 'any']);
+      expect(priceTools.find((tool) => tool.name === 'price.getListPrice')?._meta?.[TOOL_PAGE_KINDS_META_KEY]).toEqual(
+        TOOL_PAGE_KINDS['price.getListPrice'],
+      );
+      await server.close();
+      await priceServer.close();
+    });
+
     it('are any for an operation that has none listed', async () => {
       const server = new ReactionaryMCPServer(createTestClient);
 

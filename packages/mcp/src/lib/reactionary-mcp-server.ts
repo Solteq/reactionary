@@ -66,6 +66,13 @@ export interface ReactionaryMCPServerOptions
    * origin checks and before any MCP handling. A request for which it returns false, or throws, is answered with 401.
    */
   authorize?: (request: Request) => boolean | Promise<boolean>;
+  /**
+   * The kinds of page a tool is useful on, published in its `_meta` for clients that offer tools per page. Return undefined
+   * to use the kinds of the library for the operation, which is `any` for an operation that has none. Use it to give kinds
+   * to the operations of your own capabilities, or to change those of the library. The kinds are free text: the ones of the
+   * library are in `ToolPageKind`.
+   */
+  pageKinds?: (tool: ReactionaryMCPTool) => readonly string[] | undefined;
   handler?: Pick<
     CreateMcpHandlerOptions,
     | 'bus'
@@ -261,7 +268,7 @@ export class ReactionaryMCPServer {
         description: describeTool(tool),
         inputSchema,
         outputSchema: toMcpOutputSchema(tool.entrypoint.outputSchema),
-        _meta: { [TOOL_PAGE_KINDS_META_KEY]: pageKindsOf(tool) },
+        _meta: { [TOOL_PAGE_KINDS_META_KEY]: this.options.pageKinds?.(tool) ?? pageKindsOf(tool) },
       },
       async (args: unknown): Promise<CallToolResult> =>
         traceProtocolInvocation(
