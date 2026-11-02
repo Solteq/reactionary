@@ -1,4 +1,5 @@
 import {
+  DEFAULT_AFFINITY_BAND_WEIGHTS,
   type Cache,
   type FacetIdentifier,
   FacetIdentifierSchema,
@@ -22,6 +23,7 @@ import {
   ProductSearchResultItemComplianceDataSchema,
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
+  type PersonalizationProfile,
   createSearchFacetPolicy,
   getTaxonomyFacetName,
   isHiddenSearchFacet,
@@ -38,8 +40,14 @@ import type { MeilisearchConfiguration } from '../schema/configuration.schema.js
 import type { MeilisearchNativeRecord, MeilisearchNativeVariant } from '../schema/search.schema.js';
 import type { MeilisearchProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { getProductIndexNameForLocale } from '../core/index-utils.js';
-import { userContextOf } from '../core/user-context.js';
 
+/** The segments the CDP names `affinity.<vocabulary>.<slug>.<band>`: interest in a concept, which the affinities of the profile carry. */
+const AFFINITY_SEGMENT = /^affinity\./;
+
+/** Alphabetical by code point, so the order never depends on the locale of the server. */
+function byCodePoint(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
 
 export class MeilisearchProductSearchCapability<
   TFactory extends ProductSearchFactory = MeilisearchProductSearchFactory,
@@ -67,6 +75,75 @@ export class MeilisearchProductSearchCapability<
    */
   protected escapeFilterValue(value: string): string {
     return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
+  /** The longest user context sent: Meilisearch's personalization reads it as free text. */
+  protected readonly maxUserContextLength: number = 500;
+
+  /** The most concepts named as a strong interest. */
+  protected readonly maxStrongInterests: number = 5;
+
+  /**
+   * How a concept is named in the user context. The last part of its id, as words: `features/cordless` is "cordless" and
+   * `application/power-tools` is "power tools". Override it to use the localized name of the concept, say.
+   */
+  protected conceptNameOf(conceptId: string): string {
+    const slug = conceptId.split('/').pop() ?? conceptId;
+    return slug.replace(/[-_]+/g, ' ').trim();
+  }
+
+  /**
+   * The strong interests of a visitor for the user context, named: the concepts of the high band, at most `maxStrongInterests`, by concept
+   * id. The lower bands are weak signal and left out. A name is there once.
+   */
+  protected strongInterestsOf(profile: Pick<PersonalizationProfile, 'affinities'>): string[] {
+    const { high } = DEFAULT_AFFINITY_BAND_WEIGHTS;
+    const names = Object.entries(profile.affinities ?? {})
+      .flatMap(([id, weight]): string[] => (typeof weight === 'number' && weight >= high ? [id] : []))
+      .sort(byCodePoint)
+      .map((id) => this.conceptNameOf(id))
+      .filter((name) => name !== '');
+    return [...new Set(names)].slice(0, this.maxStrongInterests);
+  }
+
+  /**
+   * The segments the user context lists: all of them but the affinity segments, which the strong interests say better, alphabetically,
+   * so the same profile always gives the same text.
+   */
+  protected userContextSegmentsOf(profile: Pick<PersonalizationProfile, 'segments'>): string[] {
+    return [...new Set((profile.segments ?? []).filter((segment) => !AFFINITY_SEGMENT.test(segment)))].sort(byCodePoint);
+  }
+
+  /**
+   * The text Meilisearch's personalization ranks by (`personalize.userContext`), or undefined when there is nothing to say of the visitor.
+   * In this order:
+   * 1. The blurb of the profile, when it has one.
+   * 2. The strong interests, in words: "Strong interest in: cordless, power tools".
+   * 3. All the other segments: "The customer is in the following segments: lapsed, vip".
+   *
+   * Past `maxUserContextLength` characters the rest is cut off, so it is the segments that go first.
+   */
+  protected userContextOf(profile: Pick<PersonalizationProfile, 'blurb' | 'segments' | 'affinities'> | undefined): string | undefined {
+    if (!profile) {
+      return undefined;
+    }
+    const parts: string[] = [];
+
+    const blurb = (profile.blurb ?? '').trim();
+    if (blurb) {
+      parts.push(blurb);
+    }
+    const strong = this.strongInterestsOf(profile);
+    if (strong.length > 0) {
+      parts.push('Strong interest in: ' + strong.join(', '));
+    }
+    const segments = this.userContextSegmentsOf(profile);
+    if (segments.length > 0) {
+      parts.push('The customer is in the following segments: ' + segments.join(', '));
+    }
+
+    const text = parts.join('. ');
+    return text === '' ? undefined : text.slice(0, this.maxUserContextLength);
   }
 
   protected queryByTermPayload(payload: ProductSearchQueryByTerm) {
@@ -109,7 +186,7 @@ export class MeilisearchProductSearchCapability<
       };
     }
 
-    const userContext = userContextOf(payload.personalizationProfile);
+    const userContext = this.userContextOf(payload.personalizationProfile);
     if (userContext) {
       Object.assign(searchOptions, { personalize: { userContext } });
     }
