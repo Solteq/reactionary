@@ -32,6 +32,7 @@ import {
   type ReactionaryMCPTool,
 } from './tool-discovery.js';
 import { TOOL_DESCRIPTIONS } from './tool-descriptions.js';
+import { TOOL_PAGE_KINDS, TOOL_PAGE_KINDS_META_KEY, type ToolPageKind } from './tool-page-kinds.js';
 import {
   REACTIONARY_SHOPPING_AGENT_GUIDE,
   REACTIONARY_SHOPPING_AGENT_GUIDE_PROMPT,
@@ -260,6 +261,7 @@ export class ReactionaryMCPServer {
         description: describeTool(tool),
         inputSchema,
         outputSchema: toMcpOutputSchema(tool.entrypoint.outputSchema),
+        _meta: { [TOOL_PAGE_KINDS_META_KEY]: pageKindsOf(tool) },
       },
       async (args: unknown): Promise<CallToolResult> =>
         traceProtocolInvocation(
@@ -363,6 +365,12 @@ function withMcpSessionId(request: Request, sessionId: string): Request {
 function describeTool(tool: ReactionaryMCPTool): string | undefined {
   const { capabilityName, methodName, description } = tool.entrypoint;
   return description ?? TOOL_DESCRIPTIONS[`${capabilityName}.${methodName}`];
+}
+
+/** The kinds of page a tool is useful on. A tool of an operation that has none listed is useful on every page. */
+function pageKindsOf(tool: ReactionaryMCPTool): readonly ToolPageKind[] {
+  const { capabilityName, methodName } = tool.entrypoint;
+  return TOOL_PAGE_KINDS[`${capabilityName}.${methodName}`] ?? ['any'];
 }
 
 /** An object with any properties, for a tool whose method declares no input schema. A constant so that its conversion is cached. */

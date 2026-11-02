@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 import * as z from 'zod';
 import { ReactionaryMCPServer } from './reactionary-mcp-server.js';
 import { TOOL_DESCRIPTIONS } from './tool-descriptions.js';
+import { TOOL_PAGE_KINDS, TOOL_PAGE_KINDS_META_KEY } from './tool-page-kinds.js';
 
 class TestProductSearchCapability extends BaseCapability {
   @Reactionary({
@@ -134,6 +135,7 @@ class TestSchemalessCapability extends BaseCapability {
 interface ListedTool {
   name: string;
   description?: string;
+  _meta?: Record<string, unknown>;
   inputSchema: { type?: string; properties?: Record<string, unknown>; additionalProperties?: unknown };
 }
 
@@ -325,6 +327,30 @@ describe('ReactionaryMCPServer', () => {
       const tools = await listTools(server);
 
       expect(tools.find((tool) => tool.name === 'shop_price_getListPrice')?.description).toBe(TOOL_DESCRIPTIONS['price.getListPrice']);
+      await server.close();
+    });
+  });
+
+  describe('tool page kinds', () => {
+    it('are published in the _meta of a listed tool, found by capability and method', async () => {
+      const server = new ReactionaryMCPServer((requestContext) => ({
+        price: new TestUndescribedPriceCapability(new MemoryCache(), requestContext),
+      }));
+
+      const tools = await listTools(server);
+
+      expect(tools.find((tool) => tool.name === 'price.getListPrice')?._meta?.[TOOL_PAGE_KINDS_META_KEY]).toEqual(
+        TOOL_PAGE_KINDS['price.getListPrice'],
+      );
+      await server.close();
+    });
+
+    it('are any for an operation that has none listed', async () => {
+      const server = new ReactionaryMCPServer(createTestClient);
+
+      const tools = await listTools(server);
+
+      expect(tools.find((tool) => tool.name === 'productSearch.search')?._meta?.[TOOL_PAGE_KINDS_META_KEY]).toEqual(['any']);
       await server.close();
     });
   });
