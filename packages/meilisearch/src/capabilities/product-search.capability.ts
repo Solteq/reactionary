@@ -38,6 +38,7 @@ import type { MeilisearchConfiguration } from '../schema/configuration.schema.js
 import type { MeilisearchNativeRecord, MeilisearchNativeVariant } from '../schema/search.schema.js';
 import type { MeilisearchProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { getProductIndexNameForLocale } from '../core/index-utils.js';
+import { userContextOf } from '../core/user-context.js';
 
 
 export class MeilisearchProductSearchCapability<
@@ -108,22 +109,9 @@ export class MeilisearchProductSearchCapability<
       };
     }
 
-    if (payload.personalizationProfile) {
-      let blurb = payload.personalizationProfile.blurb || '';
-      const segments = payload.personalizationProfile.segments || [];
-
-      if (blurb || segments.length > 0) {
-        if (blurb.length > 500) {
-          blurb = blurb.substring(0, 500);
-        }
-        if (!blurb) {
-          blurb = 'The customer is in the following segments: ' + segments.join(', ');
-        }
-        (searchOptions as any).personalize = {
-          userContext: blurb
-        };
-
-      }
+    const userContext = userContextOf(payload.personalizationProfile);
+    if (userContext) {
+      Object.assign(searchOptions, { personalize: { userContext } });
     }
     return searchOptions;
   }
