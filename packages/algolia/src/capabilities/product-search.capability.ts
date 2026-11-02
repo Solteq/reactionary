@@ -23,6 +23,7 @@ import type { AlgoliaNativeRecord } from '../schema/search.schema.js';
 import type { AlgoliaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { getProductIndexNameForLocale } from '../core/index-utils.js';
 import { segmentRuleContexts } from '../core/rule-contexts.js';
+import { affinityOptionalFilters } from '../core/affinity-filters.js';
 
 export class AlgoliaProductSearchCapability<
   TFactory extends ProductSearchFactory = AlgoliaProductSearchFactory,
@@ -59,7 +60,8 @@ export class AlgoliaProductSearchCapability<
       finalFilters.push(`categories:"${categoryFacet.key}"`);
     }
 
-    const rulesContext = segmentRuleContexts(payload.personalizationProfile);
+    const rulesContext = segmentRuleContexts(payload.personalizationProfile, { allowed: this.config.ruleContextSegments });
+    const optionalFilters = affinityOptionalFilters(payload.personalizationProfile);
 
     return {
       indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale, this.config),
@@ -72,6 +74,7 @@ export class AlgoliaProductSearchCapability<
       facetFilters: finalFacetFilters,
       filters: finalFilters.join(' AND '),
       ruleContexts: rulesContext,
+      ...(optionalFilters.length > 0 ? { optionalFilters } : {}),
       userToken: payload.personalizationProfile?.identifier.key || 'anonymous',
     } satisfies SearchQuery;
   }

@@ -32,6 +32,7 @@ import type { AlgoliaProductRecommendationIdentifier } from '../schema/product-r
 import type { AlgoliaNativeRecord, AlgoliaNativeVariant } from '../schema/search.schema.js';
 import { getProductIndexNameForLocale } from '../core/index-utils.js';
 import { MAX_RULE_CONTEXTS, segmentRuleContexts } from '../core/rule-contexts.js';
+import { affinityOptionalFilters } from '../core/affinity-filters.js';
 
 
 /**
@@ -66,15 +67,20 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
 
   protected getQueryParametersForRecommendations(algorithm: string, query: ProductRecommendationBaseQuery ): RecommendSearchParams {
     // The labels count against what Algolia takes, so the segments get what is left
-    const ruleContexts = segmentRuleContexts(query.personalizationProfile, MAX_RULE_CONTEXTS - (query.labels?.length ?? 0));
+    const ruleContexts = segmentRuleContexts(query.personalizationProfile, {
+      max: MAX_RULE_CONTEXTS - (query.labels?.length ?? 0),
+      allowed: this.config.ruleContextSegments,
+    });
     if (query.labels) {
       ruleContexts.push(...query.labels);
     }
+    const optionalFilters = affinityOptionalFilters(query.personalizationProfile);
     return  {
       userToken: query.personalizationProfile?.identifier.key || 'anonymous',
       analytics: true,
       analyticsTags: ['reactionary', algorithm],
       ruleContexts,
+      ...(optionalFilters.length > 0 ? { optionalFilters } : {}),
       clickAnalytics: true
     } satisfies RecommendSearchParams;
   }
