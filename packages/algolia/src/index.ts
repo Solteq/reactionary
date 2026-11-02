@@ -1,4 +1,5 @@
 export * from './core/initialize.js';
+export * from './core/personalization.js';
 export * from './capabilities/index.js';
 export * from './factories/index.js';
 
