@@ -57,6 +57,25 @@ const withoutQuotedStrings = (filter: unknown): string => {
   return String(filter).replace(/"(?:[^"\\]|\\.)*"/g, '""');
 };
 
+describe('MeilisearchProductSearchCapability personalization', () => {
+  it('sends no personalize parameter without a profile', () => {
+    expect(createCapability().buildSearchParams(createPayload({}))).not.toHaveProperty('personalize');
+  });
+
+  it('sends the interests of the visitor in words as the user context', () => {
+    const payload = ProductSearchQueryByTermSchema.parse({
+      search: { term: '', facets: [], filters: [], paginationOptions: { pageNumber: 1, pageSize: 20 } },
+      personalizationProfile: {
+        identifier: { key: 'visitor-1' },
+        segments: ['affinity.features.cordless.high'],
+        affinities: { 'features/cordless': 1 },
+      },
+    });
+
+    expect(createCapability().buildSearchParams(payload)).toMatchObject({ personalize: { userContext: 'Strong interest in: cordless' } });
+  });
+});
+
 describe('MeilisearchProductSearchCapability filters', () => {
   it('has no filter when nothing restricts the search', () => {
     expect(createCapability().buildSearchParams(createPayload({})).filter).toBeUndefined();
