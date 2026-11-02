@@ -10,6 +10,7 @@ import * as meilisearch from '@reactionary/meilisearch';
 import * as unomi from '@reactionary/unomi';
 import { describe, expect, it } from 'vitest';
 import { TOOL_DESCRIPTIONS } from './tool-descriptions.js';
+import { TOOL_PAGE_KINDS } from './tool-page-kinds.js';
 
 // The providers of this package, and the others that the core capabilities have operations of that these do not
 const providers: Record<string, Record<string, unknown>> = {
@@ -78,6 +79,18 @@ describe('the tools of the providers', () => {
     expect(without.sort()).toEqual([]);
   });
 
+  it('have page kinds', () => {
+    const without = [...new Set(all.map((operation) => operation.name).filter((name) => !TOOL_PAGE_KINDS[name]))];
+
+    expect(without.sort()).toEqual([]);
+  });
+
+  it('have no page kinds for an operation that no provider has', () => {
+    const names = new Set(all.map((operation) => operation.name));
+
+    expect(Object.keys(TOOL_PAGE_KINDS).filter((name) => !names.has(name))).toEqual([]);
+  });
+
   it('have no description for an operation that no provider has', () => {
     const names = new Set(all.map((operation) => operation.name));
 
@@ -92,5 +105,14 @@ describe('the descriptions of the tools', () => {
     expect(description).toMatch(/[.)"]$/);
     // what is left of notes to the developers of the library
     expect(description).not.toMatch(/TODO|FIXME|Usecase|HOW did/i);
+  });
+});
+
+describe('the page kinds of the tools', () => {
+  it.each(Object.entries(TOOL_PAGE_KINDS))('%s lists a kind once, and any alone', (_name, kinds) => {
+    expect(kinds.length).toBeGreaterThan(0);
+    expect(new Set(kinds).size).toBe(kinds.length);
+    // any says that a tool is useful on every page, so another kind next to it means nothing
+    expect(kinds.includes('any') ? kinds : ['any']).toEqual(['any']);
   });
 });

@@ -170,6 +170,17 @@ An agent chooses and calls a tool from its name, its description and its input s
 
 A method that declares no `inputSchema` gets the default one, which accepts anything. Such a tool is published as an object with any properties, its arguments are passed to the method, and a warning names it once. Declare the input schema on the method to describe what it takes.
 
+## Tool page kinds
+
+A client that offers tools per page, like a browser with WebMCP, should offer the tools that fit the page the customer is on, not all of them. Every listed tool carries the kinds of page it is useful on in `_meta['reactionary/pages']` (`TOOL_PAGE_KINDS_META_KEY`): `any`, `product`, `listing`, `cart`, `checkout`, `account`, `order`, `store` or `b2b`, see `ToolPageKind`.
+
+- The kinds are by operation, in `src/lib/tool-page-kinds.ts`, by `<capability name>.<method name>`. List every kind where the tool is useful: `cart.add` is used from a product page and a listing, so it is `any`.
+- An operation that is not in the map is `any`.
+- It is a hint for what to offer. Every tool can still be called on the MCP endpoint, and it is not a way to restrict what an agent may do.
+- A client that does not know the key ignores it.
+
+`src/lib/tool-surface.spec.ts` fails when an operation of a provider has no kinds, or when kinds are left for an operation that does not exist. Add the kinds in `tool-page-kinds.ts` when you add an operation.
+
 ## Tool result envelope
 
 Successful MCP tool calls return structured content in a consistent envelope:
