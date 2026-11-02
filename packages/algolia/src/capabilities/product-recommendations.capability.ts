@@ -31,6 +31,7 @@ import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaProductRecommendationIdentifier } from '../schema/product-recommendation.schema.js';
 import type { AlgoliaNativeRecord, AlgoliaNativeVariant } from '../schema/search.schema.js';
 import { getProductIndexNameForLocale } from '../core/index-utils.js';
+import { segmentRuleContexts } from '../core/rule-contexts.js';
 
 
 /**
@@ -64,7 +65,7 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
   }
 
   protected getQueryParametersForRecommendations(algorithm: string, query: ProductRecommendationBaseQuery ): RecommendSearchParams {
-    const ruleContexts = query.personalizationProfile ? [ ...query.personalizationProfile.segments.map(segment => 'segment_' + segment) ] : [];
+    const ruleContexts = segmentRuleContexts(query.personalizationProfile);
     if (query.labels) {
       ruleContexts.push(...query.labels);
     }
