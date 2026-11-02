@@ -92,9 +92,9 @@ export const TOOL_PAGE_KINDS: Readonly<Record<string, readonly ToolPageKind[]>> 
   'identity.login': any,
   'identity.logout': any,
   'identity.register': accountAndCheckout,
-  'identity.listProviders': accountAndCheckout,
-  'identity.startExternalLogin': accountAndCheckout,
-  'identity.completeExternalLogin': accountAndCheckout,
+  'identity.listProviders': any,
+  'identity.startExternalLogin': any,
+  'identity.completeExternalLogin': any,
 
   'profile.getById': accountAndCheckout,
   'profile.update': ['account'],
