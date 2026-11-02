@@ -56,9 +56,13 @@ What the events carry beyond what the storefront passes is looked up through the
 
 ## Authentication (Unomi 4)
 
-The sender must be a **trusted caller**: set `username` to the tenant id and `password` to the tenant private key (the system administrator also
-works), and use HTTPS. Unomi then accepts the profile id the sender passes, and lets the login rule merge profiles. A public key (`apiKey`) is sent as
-`X-Unomi-Api-Key`, but it is not trusted: Unomi ignores the profile id and refuses merges, so events would land on a throwaway profile per request.
+The sender must be a **trusted caller**: set `tenantId` (default `default`) and `privateKey`, the tenant private key (the system administrator also
+works, with its own login as `tenantId` and password as `privateKey`), and use HTTPS. They are sent as Basic credentials. Unomi then accepts the
+profile id the sender passes, returns profiles, and lets the login rule merge profiles. A public key (`apiKey`) is sent as `X-Unomi-Api-Key`, but it is
+not trusted: Unomi ignores the profile id and refuses merges, so events would land on a throwaway profile per request. Without tenant credentials the
+public key is also sent as a bearer token, as before; with them it is not. The provider warns once when there is neither a private key nor a `peerKey`.
+
+`username` and `password` still work in place of `tenantId` and `privateKey`, and are deprecated.
 
 `peerKey` is sent as `X-Unomi-Peer`. Only Unomi in single-tenant compatibility mode (and Unomi 3) looks at it, together with the source address.
 
@@ -75,7 +79,9 @@ separate is sent for interest. `client.taxonomy.expandAffinities` and `rankByCon
 
 | key | default | |
 |---|---|---|
-| `username`, `password` | none | Tenant id and private key: a trusted caller. |
+| `tenantId` | `default` | The Unomi 4 tenant, the user of the Basic credentials. |
+| `privateKey` | none | The tenant private key: a trusted caller. |
+| `username`, `password` | none | Deprecated, the same as `tenantId` and `privateKey`. |
 | `apiKey` | none | A tenant public key. Not trusted. |
 | `peerKey` | none | Sent as `X-Unomi-Peer`. |
 | `scope` | `default` | The Unomi scope, one per storefront. |

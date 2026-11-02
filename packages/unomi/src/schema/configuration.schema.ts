@@ -2,9 +2,11 @@ import * as z from 'zod';
 
 export const UnomiConfigurationSchema = z.looseObject({
   apiUrl: z.string().url(),
-  username: z.string().optional().meta({ description: 'Unomi 4: the tenant id. Together with `password` (the tenant private key) this makes the sender a trusted caller, which Unomi needs to merge profiles and to take a `profileId` from a request. The system administrator also works.' }),
-  password: z.string().optional().meta({ description: 'Unomi 4: the tenant private key.' }),
-  apiKey: z.string().optional().meta({ description: 'A tenant public key, sent as `X-Unomi-Api-Key` (and as a bearer token). A public key is not a trusted caller: Unomi ignores the profile id and refuses merges. Use `username` and `password` for the event sender.' }),
+  tenantId: z.string().default('default').meta({ description: 'Unomi 4: the tenant id, the user name of the Basic credentials together with `privateKey`.' }),
+  privateKey: z.string().optional().meta({ description: 'Unomi 4: the tenant private key. With `tenantId` it makes the sender a trusted caller, which Unomi needs to take a `profileId` from a request, to merge profiles and to read profiles. A sender without it files its events on a throwaway profile per request.' }),
+  username: z.string().optional().meta({ description: 'Deprecated, use `tenantId` and `privateKey`. Still honoured as the user name of the Basic credentials when `privateKey` is not set, with `tenantId` as the fallback.' }),
+  password: z.string().optional().meta({ description: 'Deprecated, use `privateKey`. Still honoured as the password of the Basic credentials when `privateKey` is not set.' }),
+  apiKey: z.string().optional().meta({ description: 'A tenant public key, sent as `X-Unomi-Api-Key`, and also as a bearer token when there are no tenant credentials (Unomi 4 does not take it that way). A public key is not a trusted caller: Unomi ignores the profile id and refuses merges. It does not replace `privateKey`.' }),
   peerKey: z.string().optional().meta({ description: 'Sent as `X-Unomi-Peer`. Only Unomi in single-tenant compatibility mode (and Unomi 3) looks at it, together with the source address, to accept `login` events.' }),
   profilePath: z.string().default('/cxs/profiles'),
   scope: z.string().default('default').meta({ description: 'The Unomi scope of the events, one per storefront.' }),
