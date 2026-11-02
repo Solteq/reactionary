@@ -248,6 +248,57 @@ describe('Unomi Analytics Capability', () => {
     expect(headers['x-unomi-api-key']).toBe('public-key');
   });
 
+  describe('authentication', () => {
+    const send = async (override: Record<string, unknown>): Promise<Record<string, string>> => {
+      const client = buildClient({ username: undefined, password: undefined, ...override });
+      await client.analytics.productViewed({ product: { key: 'p1' } });
+      await client.analytics.flush();
+      return fetchMock.mock.calls[0][1]?.headers as Record<string, string>;
+    };
+
+    it('sends the private key as Basic credentials of the default tenant', async () => {
+      const headers = await send({ privateKey: 'tenant-key' });
+      expect(headers['authorization']).toBe(`Basic ${btoa('default:tenant-key')}`);
+    });
+
+    it('uses the configured tenant id', async () => {
+      const headers = await send({ tenantId: 'acme', privateKey: 'tenant-key' });
+      expect(headers['authorization']).toBe(`Basic ${btoa('acme:tenant-key')}`);
+    });
+
+    it('keeps the private key when a public key is set too, and sends the public key only as X-Unomi-Api-Key', async () => {
+      const headers = await send({ privateKey: 'tenant-key', apiKey: 'public-key' });
+      expect(headers['authorization']).toBe(`Basic ${btoa('default:tenant-key')}`);
+      expect(headers['x-unomi-api-key']).toBe('public-key');
+    });
+
+    it('keeps sending a public key alone as a bearer token as well', async () => {
+      const headers = await send({ apiKey: 'public-key' });
+      expect(headers['x-unomi-api-key']).toBe('public-key');
+      expect(headers['authorization']).toBe('Bearer public-key');
+    });
+
+    it('does not send the public key as a bearer token next to the tenant credentials', async () => {
+      const headers = await send({ privateKey: 'tenant-key', apiKey: 'public-key' });
+      expect(headers['authorization']).toBe(`Basic ${btoa('default:tenant-key')}`);
+    });
+
+    it('takes the tenant id as the user of the deprecated password', async () => {
+      const headers = await send({ tenantId: 'acme', password: 'tenant-key' });
+      expect(headers['authorization']).toBe(`Basic ${btoa('acme:tenant-key')}`);
+    });
+
+    it('still honours username and password', async () => {
+      const headers = await send({ username: 'tenant-1', password: 'private-key' });
+      expect(headers['authorization']).toBe(`Basic ${btoa('tenant-1:private-key')}`);
+    });
+
+    it('prefers the private key to username and password', async () => {
+      const headers = await send({ privateKey: 'tenant-key', username: 'tenant-1', password: 'private-key' });
+      expect(headers['authorization']).toBe(`Basic ${btoa('default:tenant-key')}`);
+    });
+  });
+
   describe('products', () => {
     it('sends the product with its categories root first, concepts, brand, type and price in two currencies', async () => {
       const client = buildClient();

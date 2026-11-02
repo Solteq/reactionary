@@ -91,6 +91,22 @@ const client = new ClientBuilder(requestContext)
 
 Events emitted at different times flush separately. Lookups that providers make are memoized for one flush and otherwise served by the client's shared cache.
 
+### Configuring Unomi 4
+
+```ts
+const unomiConfig = {
+  apiUrl: 'https://unomi.example.com',
+  tenantId: 'default',            // the default
+  privateKey: process.env.UNOMI_PRIVATE_KEY,
+  scope: 'my-storefront',         // one scope per storefront
+};
+```
+
+- **The private key is what makes the sender a trusted caller.** `tenantId` and `privateKey` are sent as Basic credentials. Without them Unomi 4 ignores the profile id in the request and files every event on a throwaway profile, and it refuses login merges. The provider logs one warning when there is no private key (and no `peerKey`, which is how Unomi 3 lets a sender in).
+- **The public key is not enough.** `apiKey` is sent as `X-Unomi-Api-Key`, and never replaces the private key. Next to the tenant credentials it is not sent as a bearer token.
+- **`username` and `password`** still work as the Basic credentials when `privateKey` is not set, but are deprecated.
+- **The scope must match the project's.** Rules, segments and goals are deployed in a scope, and a scoped rule only fires on events of that scope.
+
 ## Consent
 
 Every subscriber declares a purpose: `necessary`, `analytics` or `marketing`. The dispatcher skips a subscriber when its purpose is not granted in the consent captured with the event. `necessary` is always allowed.

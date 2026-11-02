@@ -25,8 +25,8 @@ function createCapability() {
   const cfg = UnomiConfigurationSchema.parse({
       apiUrl: process.env.UNOMI_API_URL!,
       scope: testData.scope,
-      username: process.env.UNOMI_USERNAME!,
-      password: process.env.UNOMI_PASSWORD!,
+      tenantId: process.env['UNOMI_TENANT_ID'] ?? process.env['UNOMI_USERNAME'] ?? 'default',
+      privateKey: (process.env['UNOMI_PRIVATE_KEY'] ?? process.env['UNOMI_PASSWORD'])!,
       profilePath: '/cxs/profiles',
     });
   const capability = new UnomiPersonalizationProfileCapability(
