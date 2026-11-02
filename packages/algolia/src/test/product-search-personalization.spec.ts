@@ -11,6 +11,7 @@ import { AlgoliaProductSearchResultSchema } from '../schema/search.schema.js';
 import { AlgoliaProductSearchCapability } from '../capabilities/product-search.capability.js';
 import { AlgoliaProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import { AlgoliaConfigurationSchema } from '../schema/configuration.schema.js';
+import { AlgoliaPersonalization } from '../core/personalization.js';
 
 class TestableSearch extends AlgoliaProductSearchCapability {
   public buildQuery(payload: ProductSearchQueryByTerm) {
@@ -83,5 +84,55 @@ describe('Algolia recommendations personalization', () => {
     const labels = Array.from({ length: 10 }, (_, i) => `label${i}`);
 
     expect(recommendations().buildParameters(labels).ruleContexts).toEqual(labels);
+  });
+});
+
+describe('Algolia personalization in a capability subclass', () => {
+  class Shouting extends AlgoliaPersonalization {
+    protected override ruleContextOf(segment: string): string {
+      return `shout_${segment}`;
+    }
+  }
+
+  it('can make search use another personalization', () => {
+    class Search extends TestableSearch {
+      protected override personalization() {
+        return new Shouting(this.config);
+      }
+    }
+    const sent = new Search(new NoOpCache(), createInitialRequestContext(), config(), new AlgoliaProductSearchFactory(AlgoliaProductSearchResultSchema)).buildQuery(
+      query(profile),
+    );
+
+    expect(sent.ruleContexts).toEqual(['shout_lapsed', 'shout_vip']);
+  });
+
+  it('can make recommendations use another personalization', () => {
+    class Recommendations extends TestableRecommendations {
+      protected override personalization() {
+        return new Shouting(this.config);
+      }
+    }
+    const sent = new Recommendations(config(), new NoOpCache(), createInitialRequestContext()).buildParameters(['pdp']);
+
+    expect(sent.ruleContexts).toEqual(['shout_lapsed', 'shout_vip', 'pdp']);
+  });
+
+  it('can change the contexts or the filters of one capability without a personalization of its own', () => {
+    class Search extends TestableSearch {
+      protected override ruleContextsOf(): string[] {
+        return ['only-this'];
+      }
+
+      protected override optionalFiltersOf(): string[] {
+        return ['conceptIds:x/y<score=1>'];
+      }
+    }
+    const sent = new Search(new NoOpCache(), createInitialRequestContext(), config(), new AlgoliaProductSearchFactory(AlgoliaProductSearchResultSchema)).buildQuery(
+      query(profile),
+    );
+
+    expect(sent.ruleContexts).toEqual(['only-this']);
+    expect(sent.optionalFilters).toEqual(['conceptIds:x/y<score=1>']);
   });
 });

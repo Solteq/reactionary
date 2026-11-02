@@ -4,6 +4,7 @@ import {
   FacetIdentifierSchema,
   type FacetValueIdentifier,
   FacetValueIdentifierSchema,
+  type PersonalizationProfile,
   ProductSearchCapability,
   type ProductSearchFactory,
   type ProductSearchFactoryOutput,
@@ -22,8 +23,7 @@ import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaNativeRecord } from '../schema/search.schema.js';
 import type { AlgoliaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { getProductIndexNameForLocale } from '../core/index-utils.js';
-import { segmentRuleContexts } from '../core/rule-contexts.js';
-import { affinityOptionalFilters } from '../core/affinity-filters.js';
+import { AlgoliaPersonalization } from '../core/personalization.js';
 
 export class AlgoliaProductSearchCapability<
   TFactory extends ProductSearchFactory = AlgoliaProductSearchFactory,
@@ -40,6 +40,24 @@ export class AlgoliaProductSearchCapability<
     super(cache, context);
     this.config = config;
     this.factory = factory;
+  }
+
+  /**
+   * How the segments and interests of a visitor become rule contexts and optional filters. Override it to change that. The search and the
+   * recommendations capabilities have no common base class, so override it in both to change both.
+   */
+  protected personalization(): AlgoliaPersonalization {
+    return new AlgoliaPersonalization(this.config);
+  }
+
+  /** The rule contexts of a visitor. `reserved` is the room other contexts sent next to these take. */
+  protected ruleContextsOf(profile: Pick<PersonalizationProfile, 'segments'> | undefined, reserved = 0): string[] {
+    return this.personalization().ruleContexts(profile, reserved);
+  }
+
+  /** The optional filters that rank by the interests of a visitor. */
+  protected optionalFiltersOf(profile: Pick<PersonalizationProfile, 'affinities'> | undefined): string[] {
+    return this.personalization().optionalFilters(profile);
   }
 
   protected queryByTermPayload(payload: ProductSearchQueryByTerm) {
@@ -60,8 +78,8 @@ export class AlgoliaProductSearchCapability<
       finalFilters.push(`categories:"${categoryFacet.key}"`);
     }
 
-    const rulesContext = segmentRuleContexts(payload.personalizationProfile, { allowed: this.config.ruleContextSegments });
-    const optionalFilters = affinityOptionalFilters(payload.personalizationProfile);
+    const rulesContext = this.ruleContextsOf(payload.personalizationProfile);
+    const optionalFilters = this.optionalFiltersOf(payload.personalizationProfile);
 
     return {
       indexName: getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale, this.config),
