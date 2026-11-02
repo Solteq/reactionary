@@ -19,8 +19,8 @@ export const TOOL_PAGE_KINDS_META_KEY = 'reactionary/pages';
 
 const everywhere: readonly ToolPageKind[] = ['any'];
 const shopping: readonly ToolPageKind[] = ['product', 'listing', 'cart'];
-/** Where a customer sees a product by its SKU or key only: the cart, an order, the lists and the checkout. */
-const productOfAnItem: readonly ToolPageKind[] = ['product', 'listing', 'cart', 'order', 'account', 'checkout'];
+/** Where a customer sees an item by its SKU: on top of the pages that show the product, an order, the lists and the checkout. */
+const productOfASku: readonly ToolPageKind[] = ['product', 'listing', 'cart', 'order', 'account', 'checkout'];
 const shoppingAndLists: readonly ToolPageKind[] = ['product', 'listing', 'cart', 'account'];
 const cartAndCheckout: readonly ToolPageKind[] = ['cart', 'checkout'];
 const accountAndCheckout: readonly ToolPageKind[] = ['account', 'checkout'];
@@ -53,9 +53,9 @@ export const TOOL_PAGE_KINDS: Readonly<Record<string, readonly ToolPageKind[]>> 
   'category.getBySlug': ['listing', 'product'],
   'category.getBreadcrumbPathToCategory': ['listing', 'product'],
 
-  'product.getById': productOfAnItem,
+  'product.getById': shopping,
   'product.getBySlug': shopping,
-  'product.getBySKU': productOfAnItem,
+  'product.getBySKU': productOfASku,
 
   'product-search.queryByTerm': everywhere,
   'product-search.createCategoryNavigationFilter': ['listing'],

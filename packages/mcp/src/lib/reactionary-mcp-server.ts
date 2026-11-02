@@ -70,7 +70,8 @@ export interface ReactionaryMCPServerOptions
    * The kinds of page a tool is useful on, published in its `_meta` for clients that offer tools per page. Return undefined
    * to use the kinds of the library for the operation, which is `any` for an operation that has none. Use it to give kinds
    * to the operations of your own capabilities, or to change those of the library. The kinds are free text: the ones of the
-   * library are in `ToolPageKind`.
+   * library are in `ToolPageKind`. Receives the tool with its final name. When it throws, the error is reported to `handler.onerror`
+   * and the library's kinds are used.
    */
   pageKinds?: (tool: ReactionaryMCPTool) => readonly string[] | undefined;
   handler?: Pick<
@@ -180,6 +181,18 @@ export class ReactionaryMCPServer {
     }
   }
 
+  /** The kinds of the `pageKinds` option, or those of the library when it gives none or throws: a bad hint must not stop the server. */
+  private pageKindsFor(tool: ReactionaryMCPTool): readonly string[] {
+    try {
+      return this.options.pageKinds?.(tool) ?? pageKindsOf(tool);
+    } catch (error) {
+      this.options.handler?.onerror?.(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      return pageKindsOf(tool);
+    }
+  }
+
   private async createServer(sessionId: string | undefined): Promise<McpServer> {
     const restoredSession = sessionId
       ? await this.sessionStore.get(sessionId)
@@ -268,7 +281,7 @@ export class ReactionaryMCPServer {
         description: describeTool(tool),
         inputSchema,
         outputSchema: toMcpOutputSchema(tool.entrypoint.outputSchema),
-        _meta: { [TOOL_PAGE_KINDS_META_KEY]: this.options.pageKinds?.(tool) ?? pageKindsOf(tool) },
+        _meta: { [TOOL_PAGE_KINDS_META_KEY]: this.pageKindsFor(tool) },
       },
       async (args: unknown): Promise<CallToolResult> =>
         traceProtocolInvocation(

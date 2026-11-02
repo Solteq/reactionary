@@ -379,6 +379,27 @@ describe('ReactionaryMCPServer', () => {
       await priceServer.close();
     });
 
+    it('fall back to the library, and are reported, when pageKinds throws', async () => {
+      const onerror = vi.fn();
+      const server = new ReactionaryMCPServer(
+        (requestContext) => ({ price: new TestUndescribedPriceCapability(new MemoryCache(), requestContext) }),
+        {
+          pageKinds: () => {
+            throw new Error('no kinds today');
+          },
+          handler: { onerror },
+        },
+      );
+
+      const tools = await listTools(server);
+
+      expect(tools.find((tool) => tool.name === 'price.getListPrice')?._meta?.[TOOL_PAGE_KINDS_META_KEY]).toEqual(
+        TOOL_PAGE_KINDS['price.getListPrice'],
+      );
+      expect(onerror).toHaveBeenCalledWith(expect.objectContaining({ message: 'no kinds today' }));
+      await server.close();
+    });
+
     it('are any for an operation that has none listed', async () => {
       const server = new ReactionaryMCPServer(createTestClient);
 
