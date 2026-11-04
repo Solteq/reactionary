@@ -9,6 +9,7 @@ export * from './initialization.js';
 export * from './metrics/protocol.js';
 export * from './utils/external-login-profile.js';
 export * from './utils/oidc-claims.js';
+export * from './utils/search-ranking.js';
 export * from './utils/search-taxonomy.js';
 export * from './utils/taxonomy-navigation.js';
 export type { InferType } from './zod-utils.js';
