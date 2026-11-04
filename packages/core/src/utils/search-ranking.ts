@@ -69,7 +69,10 @@ export interface AffinityRankableProfile {
  * relevance by. Equal scores keep the order of the engine, so a visitor with no interest in anything gets the page as it came.
  *
  * The interest of a hit is the highest weight among its concepts. A hit carries its concepts with their ancestors, so the interest in a
- * concept reaches the products below it, and a hit in two related concepts is not counted twice.
+ * concept reaches the products below it, and a hit in two related concepts is not counted twice. The weights are the affinities of the
+ * profile as they are (banded, from the segments of the CDP): the interest is not spread to related or broader concepts, which needs the
+ * vocabularies and is what `TaxonomyCapability.expandAffinities` does. A provider cannot reach that capability, so override
+ * `affinityWeightsOf` if a project needs it.
  *
  * Every step is a protected method: subclass and override what a project needs, for example `baseRelevanceOf` to measure relevance some
  * other way or `affinityWeightsOf` to spread the interest to related concepts, and return the subclass from `createSearchRanking` of
