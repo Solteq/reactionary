@@ -193,13 +193,11 @@ export class MeilisearchProductSearchCapability<
     return searchOptions;
   }
 
+  // Not cached: the personalization profile is part of the payload, and with it the cache key, so a search is cached per visitor
+  // and a profile that changes with every visit never finds its entry again.
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
     outputSchema: ProductSearchResultSchema,
-    cache: true,
-    cacheTimeToLiveInSeconds: 300,
-    currencyDependentCaching: false,
-    localeDependentCaching: true
   })
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
