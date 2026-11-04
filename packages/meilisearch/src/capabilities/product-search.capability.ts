@@ -193,6 +193,11 @@ export class MeilisearchProductSearchCapability<
       };
     }
 
+    // In affinity mode the ranking starts from how well Meilisearch matched each hit
+    if (this.personalizationMode === 'affinity') {
+      searchOptions.showRankingScore = true;
+    }
+
     // Only in engine mode: in affinity mode Reactionary personalizes the page itself, and the engine ranking by the same interests as well
     // would count them twice
     const userContext = this.personalizationMode === 'engine' ? this.userContextOf(payload.personalizationProfile) : undefined;
@@ -241,7 +246,8 @@ export class MeilisearchProductSearchCapability<
    * to change it: that way the fields of the subclass are set when it runs.
    */
   protected get ranking(): AffinityRanking {
-    this.rankingOfVisitors ??= this.createSearchRanking(this.config.personalization);
+    const options = this.config.personalization;
+    this.rankingOfVisitors ??= this.createSearchRanking(options?.mode === 'affinity' ? options : undefined);
     return this.rankingOfVisitors;
   }
 
@@ -281,6 +287,7 @@ export class MeilisearchProductSearchCapability<
       slug: body.slug || body.objectID,
       complianceData: this.parseComplianceData(body),
       ...parseSearchDocumentTaxonomy(body),
+      ...(typeof body._rankingScore === 'number' ? { relevance: Math.min(1, Math.max(0, body._rankingScore)) } : {}),
       canAddToCartDirectly: body.canAddToCartDirectly ?? variants.length === 1,
       variants,
     } satisfies ProductSearchResultItem;

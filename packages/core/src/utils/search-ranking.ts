@@ -8,21 +8,30 @@ import type { InferType } from '../zod-utils.js';
  * - `affinity`: Reactionary, by reordering the page the engine returned by the interests of the visitor (see AffinityRanking).
  *   The provider then asks the engine for no personalization of its own, so the same interests are not counted twice.
  * - `none`: nobody.
+ *
+ * Only `affinity` has settings of its own, so only it has a `strength`.
  */
-export const SearchPersonalizationModeSchema = z.enum(['engine', 'affinity', 'none']);
-
-export type SearchPersonalizationMode = InferType<typeof SearchPersonalizationModeSchema>;
-
-export const SearchPersonalizationOptionsSchema = z.looseObject({
-  mode: SearchPersonalizationModeSchema.optional().meta({ description: 'Who personalizes a search: "engine" (default) lets the search engine do it as far as the provider supports it, "affinity" reorders the page the engine returned by the interests of the visitor (within the page only) and the provider asks the engine for no personalization, "none" turns it off.' }),
-  strength: z.number().min(0).max(1).optional().meta({ description: 'Only in affinity mode (ignored in the others): the most the interest of the visitor can add to the relevance of a hit, as a factor between 0 and 1. Default 0.4.' }),
-});
+export const SearchPersonalizationOptionsSchema = z.discriminatedUnion('mode', [
+  z.strictObject({ mode: z.literal('engine') }).meta({ description: 'The search engine personalizes, as far as the provider supports it. This is what a provider does without the option.' }),
+  z.strictObject({ mode: z.literal('none') }).meta({ description: 'Nobody personalizes.' }),
+  z
+    .strictObject({
+      mode: z.literal('affinity'),
+      strength: z.number().min(0).max(1).optional().meta({ description: 'The most the interest of the visitor can add to the relevance of a hit, as a factor between 0 and 1. Default 0.4.' }),
+    })
+    .meta({ description: 'Reactionary reorders the page the engine returned by the interests of the visitor, within that page only, and the provider asks the engine for no personalization.' }),
+]);
 
 export type SearchPersonalizationOptions = InferType<typeof SearchPersonalizationOptionsSchema>;
 
+export type SearchPersonalizationMode = SearchPersonalizationOptions['mode'];
+
+/** The options of the affinity mode, the ones AffinityRanking is made from. */
+export type AffinitySearchPersonalizationOptions = Extract<SearchPersonalizationOptions, { mode: 'affinity' }>;
+
 export const DEFAULT_SEARCH_PERSONALIZATION_MODE: SearchPersonalizationMode = 'engine';
 
-/** The mode of the options of a provider, `engine` when none is given. */
+/** The mode of the options of a provider, `engine` when none are given. */
 export function searchPersonalizationModeOf(options?: SearchPersonalizationOptions): SearchPersonalizationMode {
   return options?.mode ?? DEFAULT_SEARCH_PERSONALIZATION_MODE;
 }
@@ -36,6 +45,8 @@ export const AFFINITY_RANKING_LAST_HIT_RELEVANCE = 0.5;
 /** What the ranking reads of a search hit. A ProductSearchResultItem is one. */
 export interface AffinityRankableHit {
   identifier: { key: string };
+  /** How well the engine matched the hit, 0 to 1, when it says. Without it the position on the page is the relevance. */
+  relevance?: number;
   /** The concepts of the hit, with their ancestors. Hits without concepts have no interest to rank by. */
   concepts?: ReadonlyArray<{ identifier: { key: string } }>;
 }
@@ -51,24 +62,23 @@ export interface AffinityRankableProfile {
  * provider that lets Reactionary personalize (`mode: 'affinity'`), built from the options of the provider by
  * `ProductSearchCapability.createSearchRanking`.
  *
- * It reorders the page it is given and nothing more: a hit on another page is not pulled in, and the position it works from is the position
- * on the page. Each hit has a base relevance, the order of the engine: it falls in a straight line from 1 for the first hit to 0.5 for the last. The
- * interest of the hit, between 0 and 1, lifts it by up to `strength`: `base * (1 + strength * interest)`. It is the blend of
- * `rankByConcepts` (relevance * (1 + strength * affinity)), with the position as relevance, for a search that has no concepts of its own
- * to measure relevance by. Equal scores keep the order of the engine, so a visitor with no interest in anything gets the page as it
- * came.
+ * It reorders the page it is given and nothing more: a hit on another page is not pulled in. Each hit has a base relevance: how well the
+ * engine matched it when the item says (`relevance`), otherwise its position on the page, falling in a straight line from 1 for the first
+ * hit to 0.5 for the last. The interest of the hit, between 0 and 1, lifts it by up to `strength`: `base * (1 + strength * interest)`. It
+ * is the blend of `rankByConcepts` (relevance * (1 + strength * affinity)), for a search that has no concepts of its own to measure
+ * relevance by. Equal scores keep the order of the engine, so a visitor with no interest in anything gets the page as it came.
  *
  * The interest of a hit is the highest weight among its concepts. A hit carries its concepts with their ancestors, so the interest in a
  * concept reaches the products below it, and a hit in two related concepts is not counted twice.
  *
- * Every step is a protected method: subclass and override what a project needs, for example `baseRelevanceOf` to use the score of the
- * engine or `affinityWeightsOf` to spread the interest to related concepts, and return the subclass from `createSearchRanking` of the
- * provider.
+ * Every step is a protected method: subclass and override what a project needs, for example `baseRelevanceOf` to measure relevance some
+ * other way or `affinityWeightsOf` to spread the interest to related concepts, and return the subclass from `createSearchRanking` of
+ * the provider.
  */
 export class AffinityRanking {
   protected readonly strength: number;
 
-  constructor(options?: Pick<SearchPersonalizationOptions, 'strength'>) {
+  constructor(options?: { strength?: number }) {
     const strength = options?.strength;
     this.strength = typeof strength === 'number' && Number.isFinite(strength) ? Math.min(1, Math.max(0, strength)) : DEFAULT_AFFINITY_RANKING_STRENGTH;
   }
@@ -114,8 +124,14 @@ export class AffinityRanking {
     return Math.min(1, interest);
   }
 
-  /** How well the engine matched a hit, 0 to 1, by default from its position. Override to use the score of the engine. */
-  protected baseRelevanceOf(_hit: AffinityRankableHit, index: number, count: number): number {
+  /**
+   * How well the engine matched a hit, 0 to 1: the relevance of the item when the provider got one from the engine, otherwise from its
+   * position on the page. Override to measure it some other way.
+   */
+  protected baseRelevanceOf(hit: AffinityRankableHit, index: number, count: number): number {
+    if (typeof hit.relevance === 'number' && Number.isFinite(hit.relevance)) {
+      return Math.min(1, Math.max(0, hit.relevance));
+    }
     return 1 - (1 - AFFINITY_RANKING_LAST_HIT_RELEVANCE) * (index / Math.max(1, count - 1));
   }
 
