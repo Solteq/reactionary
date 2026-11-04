@@ -40,18 +40,16 @@ describe('AffinityRanking', () => {
     expect(strong).toBeLessThan(weak);
   });
 
-  it('takes the highest weight among the concepts of a hit, so a hit is not counted twice for related concepts', () => {
-    const hits = [hit('a'), hit('b', 'application/power-tools', 'application/drilling-fastening'), hit('c', 'application/power-tools')];
-    const ranking = new (class extends AffinityRanking {
-      public interest(ids: string[], weights: Map<string, number>) {
-        return this.interestOf(ids, weights);
+  it('takes the highest weight among the concepts of a hit, not their sum, so related concepts do not count twice', () => {
+    class EqualBase extends AffinityRanking {
+      protected override baseRelevanceOf(): number {
+        return 1;
       }
-    })();
+    }
+    // b has two concepts of 0.5 (a sum would be 1), c one of 0.8: by the highest weight c wins, by the sum b would
+    const hits = [hit('b', 'x/one', 'x/two'), hit('c', 'x/three')];
 
-    expect(ranking.interest(['x', 'y'], new Map([['x', 0.3], ['y', 0.6]]))).toBe(0.6);
-    expect(keys(ranking.rank(hits, { affinities: { 'application/power-tools': 0.6, 'application/drilling-fastening': 0.6 } })).indexOf('b')).toBe(
-      keys(ranking.rank(hits, { affinities: { 'application/power-tools': 0.6 } })).indexOf('b'),
-    );
+    expect(keys(new EqualBase({ strength: 1 }).rank(hits, { affinities: { 'x/one': 0.5, 'x/two': 0.5, 'x/three': 0.8 } }))).toEqual(['c', 'b']);
   });
 
   it('keeps the order of the engine between hits with the same interest', () => {

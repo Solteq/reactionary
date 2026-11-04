@@ -60,8 +60,7 @@ export class MeilisearchProductSearchCapability<
   protected facetPolicy: SearchFacetPolicy;
   /** Who personalizes a search: the engine (Meilisearch's own, the default), the `ranking` below, or nobody. */
   protected personalizationMode: SearchPersonalizationMode;
-  /** Reorders the page by the interests of the visitor in `affinity` mode. Made by `createSearchRanking`, override that to change it. */
-  protected ranking: AffinityRanking;
+  private rankingOfVisitors?: AffinityRanking;
 
   constructor(
     config: MeilisearchConfiguration,
@@ -74,7 +73,6 @@ export class MeilisearchProductSearchCapability<
     this.factory = factory;
     this.facetPolicy = createSearchFacetPolicy(config.facets);
     this.personalizationMode = searchPersonalizationModeOf(config.personalization);
-    this.ranking = this.createSearchRanking(config.personalization);
   }
 
   /**
@@ -239,8 +237,18 @@ export class MeilisearchProductSearchCapability<
   }
 
   /**
+   * Reorders the page by the interests of the visitor in `affinity` mode. Made on first use by `createSearchRanking`, which a subclass overrides
+   * to change it: that way the fields of the subclass are set when it runs.
+   */
+  protected get ranking(): AffinityRanking {
+    this.rankingOfVisitors ??= this.createSearchRanking(this.config.personalization);
+    return this.rankingOfVisitors;
+  }
+
+  /**
    * The page, reordered by the interests of the visitor in `affinity` mode. In the other modes it is as the engine returned it: the engine
-   * has already personalized it (`engine`) or nobody does (`none`).
+   * has already personalized it (`engine`) or nobody does (`none`). Only the page of the engine is reordered: a hit on another page is not
+   * pulled in, and a page boundary is a boundary.
    */
   protected personalize(result: ProductSearchResult, payload: ProductSearchQueryByTerm): ProductSearchResult {
     if (this.personalizationMode !== 'affinity') {
