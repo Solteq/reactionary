@@ -14,8 +14,8 @@ export const SearchPersonalizationModeSchema = z.enum(['engine', 'affinity', 'no
 export type SearchPersonalizationMode = InferType<typeof SearchPersonalizationModeSchema>;
 
 export const SearchPersonalizationOptionsSchema = z.looseObject({
-  mode: SearchPersonalizationModeSchema.optional().meta({ description: 'Who personalizes a search: "engine" (default) lets the search engine do it as far as the provider supports it, "affinity" reorders the page by the interests of the visitor, which the engine then does not do as well, "none" turns it off.' }),
-  strength: z.number().min(0).max(1).optional().meta({ description: 'In affinity mode, the most the interest of the visitor can add to the relevance of a hit, as a factor between 0 and 1. Default 0.4.' }),
+  mode: SearchPersonalizationModeSchema.optional().meta({ description: 'Who personalizes a search: "engine" (default) lets the search engine do it as far as the provider supports it, "affinity" reorders the page the engine returned by the interests of the visitor (within the page only) and the provider asks the engine for no personalization, "none" turns it off.' }),
+  strength: z.number().min(0).max(1).optional().meta({ description: 'Only in affinity mode (ignored in the others): the most the interest of the visitor can add to the relevance of a hit, as a factor between 0 and 1. Default 0.4.' }),
 });
 
 export type SearchPersonalizationOptions = InferType<typeof SearchPersonalizationOptionsSchema>;
@@ -51,7 +51,8 @@ export interface AffinityRankableProfile {
  * provider that lets Reactionary personalize (`mode: 'affinity'`), built from the options of the provider by
  * `ProductSearchCapability.createSearchRanking`.
  *
- * Each hit has a base relevance, the order of the engine: it falls in a straight line from 1 for the first hit to 0.5 for the last. The
+ * It reorders the page it is given and nothing more: a hit on another page is not pulled in, and the position it works from is the position
+ * on the page. Each hit has a base relevance, the order of the engine: it falls in a straight line from 1 for the first hit to 0.5 for the last. The
  * interest of the hit, between 0 and 1, lifts it by up to `strength`: `base * (1 + strength * interest)`. It is the blend of
  * `rankByConcepts` (relevance * (1 + strength * affinity)), with the position as relevance, for a search that has no concepts of its own
  * to measure relevance by. Equal scores keep the order of the engine, so a visitor with no interest in anything gets the page as it

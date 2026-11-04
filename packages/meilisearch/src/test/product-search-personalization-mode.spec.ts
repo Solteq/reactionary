@@ -116,7 +116,26 @@ describe('Meilisearch product search personalization mode', () => {
 
     const capability = create({ mode: 'affinity', strength: 0.9 }, Custom);
 
-    expect(seen).toMatchObject({ mode: 'affinity', strength: 0.9 });
+    // made on first use, not in the constructor
+    expect(seen).toBeUndefined();
     expect(keys(capability.reordered(result(item('a'), item('b')), interested))).toEqual(['b', 'a']);
+    expect(seen).toMatchObject({ mode: 'affinity', strength: 0.9 });
+  });
+
+  it('can read a field of its own when it makes the ranking, since that happens after the constructors', () => {
+    class WithField extends TestableCapability {
+      private readonly strengthOfMine = 0.123;
+
+      protected override createSearchRanking(options?: SearchPersonalizationOptions): AffinityRanking {
+        return new AffinityRanking({ ...options, strength: this.strengthOfMine });
+      }
+
+      public strengthOfRanking() {
+        return (this.ranking as unknown as { strength: number }).strength;
+      }
+    }
+
+    expect(create({ mode: 'affinity' }, WithField as unknown as typeof TestableCapability)).toBeDefined();
+    expect((create({ mode: 'affinity' }, WithField as unknown as typeof TestableCapability) as unknown as WithField).strengthOfRanking()).toBe(0.123);
   });
 });

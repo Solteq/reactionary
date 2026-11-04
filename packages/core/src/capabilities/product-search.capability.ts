@@ -16,8 +16,8 @@ export abstract class ProductSearchCapability<
 
   /**
    * The ranking a provider uses when its options say `mode: 'affinity'`: Reactionary reorders the page of the engine by the interests of
-   * the visitor. Providers call it once, from their constructor, and keep the result. Override it in a subclass to return a subclass of
-   * AffinityRanking with other steps. Override it as a method, not as a field: it runs before the fields of the subclass are set.
+   * the visitor. Providers call it once, when they first need it (not from their constructor, so that the fields of a subclass are set), and
+   * keep the result. Override it in a subclass to return a subclass of AffinityRanking with other steps.
    */
   protected createSearchRanking(options?: SearchPersonalizationOptions): AffinityRanking {
     return new AffinityRanking(options);
