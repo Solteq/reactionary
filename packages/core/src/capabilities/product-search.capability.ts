@@ -4,7 +4,7 @@ import type {
   ProductSearchQueryByTerm,
   ProductSearchQueryCreateNavigationFilter,
 } from '../schemas/queries/product-search.query.js';
-import { AffinityRanking, type SearchPersonalizationOptions } from '../utils/search-ranking.js';
+import { AffinityRanking, type AffinitySearchPersonalizationOptions } from '../utils/search-ranking.js';
 import { BaseCapability } from './base.capability.js';
 
 export abstract class ProductSearchCapability<
@@ -19,7 +19,7 @@ export abstract class ProductSearchCapability<
    * the visitor. Providers call it once, when they first need it (not from their constructor, so that the fields of a subclass are set), and
    * keep the result. Override it in a subclass to return a subclass of AffinityRanking with other steps.
    */
-  protected createSearchRanking(options?: SearchPersonalizationOptions): AffinityRanking {
+  protected createSearchRanking(options?: AffinitySearchPersonalizationOptions): AffinityRanking {
     return new AffinityRanking(options);
   }
 

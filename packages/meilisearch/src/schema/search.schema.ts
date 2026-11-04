@@ -27,4 +27,6 @@ export interface MeilisearchNativeRecord {
   productType?: SearchDocumentTaxonomy['productType'];
   concepts?: SearchDocumentTaxonomy['concepts'];
   conceptIds?: SearchDocumentTaxonomy['conceptIds'];
+  /** How well Meilisearch matched the hit, 0 to 1, when the search asked for it (`showRankingScore`). */
+  _rankingScore?: number;
 }

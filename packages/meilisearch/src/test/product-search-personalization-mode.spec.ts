@@ -7,11 +7,13 @@ import {
   createInitialRequestContext,
   type ProductSearchQueryByTerm,
   type ProductSearchResult,
+  type AffinitySearchPersonalizationOptions,
   type SearchPersonalizationOptions,
 } from '@reactionary/core';
 import { MeilisearchProductSearchCapability } from '../capabilities/product-search.capability.js';
 import { MeilisearchProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { MeilisearchConfigurationSchema } from '../schema/configuration.schema.js';
+import type { MeilisearchNativeRecord } from '../schema/search.schema.js';
 
 class TestableCapability extends MeilisearchProductSearchCapability {
   public searchParams(payload: ProductSearchQueryByTerm) {
@@ -20,6 +22,10 @@ class TestableCapability extends MeilisearchProductSearchCapability {
 
   public reordered(result: ProductSearchResult, payload: ProductSearchQueryByTerm) {
     return this.personalize(result, payload);
+  }
+
+  public parsed(body: MeilisearchNativeRecord) {
+    return this.parseSingle(body);
   }
 }
 
@@ -85,6 +91,30 @@ describe('Meilisearch product search personalization mode', () => {
     expect(reordered.pageNumber).toBe(2);
   });
 
+  it('asks Meilisearch for the ranking score only in affinity mode, where the ranking starts from it', () => {
+    expect(create({ mode: 'affinity' }).searchParams(interested)).toHaveProperty('showRankingScore', true);
+    expect(create({ mode: 'engine' }).searchParams(interested)).not.toHaveProperty('showRankingScore');
+    expect(create({ mode: 'none' }).searchParams(interested)).not.toHaveProperty('showRankingScore');
+    expect(create().searchParams(interested)).not.toHaveProperty('showRankingScore');
+  });
+
+  it('puts the ranking score of a hit on the item as its relevance, clamped, and leaves it out when there is none', () => {
+    const capability = create({ mode: 'affinity' });
+    const record = (extra: Partial<MeilisearchNativeRecord>): MeilisearchNativeRecord => ({ objectID: 'p1', variants: [], ...extra });
+
+    expect(capability.parsed(record({ _rankingScore: 0.83 })).relevance).toBe(0.83);
+    expect(capability.parsed(record({ _rankingScore: 7 })).relevance).toBe(1);
+    expect(capability.parsed(record({})).relevance).toBeUndefined();
+  });
+
+  it('starts from that relevance when it reorders the page', () => {
+    const capability = create({ mode: 'affinity', strength: 1 });
+    const weak = { ...item('b', 'features/cordless'), relevance: 0.2 };
+    const strong = { ...item('a'), relevance: 1 };
+
+    expect(keys(capability.reordered(result(strong, weak) as never, interested))).toEqual(['a', 'b']);
+  });
+
   it('personalizes nothing in none mode', () => {
     const capability = create({ mode: 'none' });
 
@@ -101,14 +131,14 @@ describe('Meilisearch product search personalization mode', () => {
   });
 
   it('uses the ranking a subclass makes, with the strength of the options', () => {
-    let seen: SearchPersonalizationOptions | undefined;
+    let seen: AffinitySearchPersonalizationOptions | undefined;
     class Reversing extends AffinityRanking {
       override rank<T extends { identifier: { key: string } }>(hits: readonly T[]): T[] {
         return [...hits].reverse();
       }
     }
     class Custom extends TestableCapability {
-      protected override createSearchRanking(options?: SearchPersonalizationOptions): AffinityRanking {
+      protected override createSearchRanking(options?: AffinitySearchPersonalizationOptions): AffinityRanking {
         seen = options;
         return new Reversing(options);
       }
@@ -126,7 +156,7 @@ describe('Meilisearch product search personalization mode', () => {
     class WithField extends TestableCapability {
       private readonly strengthOfMine = 0.123;
 
-      protected override createSearchRanking(options?: SearchPersonalizationOptions): AffinityRanking {
+      protected override createSearchRanking(options?: AffinitySearchPersonalizationOptions): AffinityRanking {
         return new AffinityRanking({ ...options, strength: this.strengthOfMine });
       }
 

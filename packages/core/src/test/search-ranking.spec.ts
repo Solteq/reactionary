@@ -11,6 +11,7 @@ const hit = (key: string, ...concepts: string[]): AffinityRankableHit => ({
   identifier: { key },
   concepts: concepts.map((id) => ({ identifier: { key: id } })),
 });
+const withRelevance = (relevance: number, h: AffinityRankableHit): AffinityRankableHit => ({ ...h, relevance });
 const keys = (hits: readonly AffinityRankableHit[]) => hits.map((h) => h.identifier.key);
 const page = (...names: string[]) => names.map((name) => hit(name));
 
@@ -78,6 +79,27 @@ describe('AffinityRanking', () => {
     expect(DEFAULT_AFFINITY_RANKING_STRENGTH).toBe(0.4);
   });
 
+  it('starts from the relevance the engine gave a hit, so a weak match with a strong interest does not pass a strong match', () => {
+    const profile = { affinities: { 'x/y': 1 } };
+    const weakButInteresting = [withRelevance(1, hit('a')), withRelevance(0.2, hit('b', 'x/y'))];
+    const nearlyAsGood = [withRelevance(1, hit('a')), withRelevance(0.9, hit('b', 'x/y'))];
+
+    expect(keys(new AffinityRanking({ strength: 1 }).rank(weakButInteresting, profile))).toEqual(['a', 'b']);
+    expect(keys(new AffinityRanking({ strength: 0.4 }).rank(nearlyAsGood, profile))).toEqual(['b', 'a']);
+    // by position alone the interesting hit at the bottom of three would pass the one above it, by what the engine said it does not
+    expect(keys(new AffinityRanking({ strength: 1 }).rank([hit('a'), hit('b'), hit('c', 'x/y')], profile))).toEqual(['a', 'c', 'b']);
+    expect(
+      keys(new AffinityRanking({ strength: 1 }).rank([withRelevance(1, hit('a')), withRelevance(0.75, hit('b')), withRelevance(0.2, hit('c', 'x/y'))], profile)),
+    ).toEqual(['a', 'b', 'c']);
+  });
+
+  it('clamps a relevance outside 0..1 and uses the position for one that is not a number', () => {
+    const profile = { affinities: { 'x/y': 1 } };
+
+    expect(keys(new AffinityRanking().rank([withRelevance(5, hit('a')), withRelevance(-1, hit('b', 'x/y'))], profile))).toEqual(['a', 'b']);
+    expect(keys(new AffinityRanking().rank([withRelevance(Number.NaN, hit('a')), hit('b', 'x/y')], profile))).toEqual(keys(new AffinityRanking().rank([hit('a'), hit('b', 'x/y')], profile)));
+  });
+
   it('lets a subclass change a step: the base relevance from a score of the engine', () => {
     class ByScore extends AffinityRanking {
       protected override baseRelevanceOf(h: AffinityRankableHit): number {
@@ -96,12 +118,21 @@ describe('AffinityRanking', () => {
 });
 
 describe('SearchPersonalizationOptions', () => {
-  it('defaults to the engine, accepts the three modes and refuses others', () => {
+  it('is the engine without options, accepts the three modes and refuses others', () => {
     expect(searchPersonalizationModeOf(undefined)).toBe('engine');
-    expect(searchPersonalizationModeOf({})).toBe('engine');
     expect(searchPersonalizationModeOf({ mode: 'affinity' })).toBe('affinity');
-    expect(SearchPersonalizationOptionsSchema.safeParse({ mode: 'none', strength: 0.2 }).success).toBe(true);
+    expect(SearchPersonalizationOptionsSchema.safeParse({ mode: 'engine' }).success).toBe(true);
+    expect(SearchPersonalizationOptionsSchema.safeParse({ mode: 'none' }).success).toBe(true);
+    expect(SearchPersonalizationOptionsSchema.safeParse({ mode: 'affinity', strength: 0.2 }).success).toBe(true);
     expect(SearchPersonalizationOptionsSchema.safeParse({ mode: 'cohere' }).success).toBe(false);
-    expect(SearchPersonalizationOptionsSchema.safeParse({ strength: 2 }).success).toBe(false);
+    expect(SearchPersonalizationOptionsSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('has a strength only in affinity mode, from 0 to 1', () => {
+    expect(SearchPersonalizationOptionsSchema.safeParse({ mode: 'engine', strength: 0.2 }).success).toBe(false);
+    expect(SearchPersonalizationOptionsSchema.safeParse({ mode: 'none', strength: 0.2 }).success).toBe(false);
+    expect(SearchPersonalizationOptionsSchema.safeParse({ strength: 0.2 }).success).toBe(false);
+    expect(SearchPersonalizationOptionsSchema.safeParse({ mode: 'affinity', strength: 2 }).success).toBe(false);
+    expect(SearchPersonalizationOptionsSchema.safeParse({ mode: 'affinity', strenght: 0.2 }).success).toBe(false);
   });
 });
