@@ -4,6 +4,7 @@ import type {
   ProductSearchQueryByTerm,
   ProductSearchQueryCreateNavigationFilter,
 } from '../schemas/queries/product-search.query.js';
+import { AffinityRanking, type SearchPersonalizationOptions } from '../utils/search-ranking.js';
 import { BaseCapability } from './base.capability.js';
 
 export abstract class ProductSearchCapability<
@@ -11,6 +12,15 @@ export abstract class ProductSearchCapability<
 > extends BaseCapability {
   protected override getResourceName(): string {
     return 'product-search';
+  }
+
+  /**
+   * The ranking a provider uses when its options say `mode: 'affinity'`: Reactionary reorders the page of the engine by the interests of
+   * the visitor. Providers call it once, from their constructor, and keep the result. Override it in a subclass to return a subclass of
+   * AffinityRanking with other steps. Override it as a method, not as a field: it runs before the fields of the subclass are set.
+   */
+  protected createSearchRanking(options?: SearchPersonalizationOptions): AffinityRanking {
+    return new AffinityRanking(options);
   }
 
   public abstract queryByTerm(

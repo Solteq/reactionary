@@ -24,6 +24,9 @@ import {
   type ProductSearchResultItemVariant,
   ProductSearchResultItemVariantSchema,
   type PersonalizationProfile,
+  type AffinityRanking,
+  type SearchPersonalizationMode,
+  searchPersonalizationModeOf,
   createSearchFacetPolicy,
   getTaxonomyFacetName,
   isHiddenSearchFacet,
@@ -55,6 +58,10 @@ export class MeilisearchProductSearchCapability<
   protected config: MeilisearchConfiguration;
   protected factory: ProductSearchFactoryWithOutput<TFactory>;
   protected facetPolicy: SearchFacetPolicy;
+  /** Who personalizes a search: the engine (Meilisearch's own, the default), the `ranking` below, or nobody. */
+  protected personalizationMode: SearchPersonalizationMode;
+  /** Reorders the page by the interests of the visitor in `affinity` mode. Made by `createSearchRanking`, override that to change it. */
+  protected ranking: AffinityRanking;
 
   constructor(
     config: MeilisearchConfiguration,
@@ -66,6 +73,8 @@ export class MeilisearchProductSearchCapability<
     this.config = config;
     this.factory = factory;
     this.facetPolicy = createSearchFacetPolicy(config.facets);
+    this.personalizationMode = searchPersonalizationModeOf(config.personalization);
+    this.ranking = this.createSearchRanking(config.personalization);
   }
 
   /**
@@ -186,7 +195,9 @@ export class MeilisearchProductSearchCapability<
       };
     }
 
-    const userContext = this.userContextOf(payload.personalizationProfile);
+    // Only in engine mode: in affinity mode Reactionary personalizes the page itself, and the engine ranking by the same interests as well
+    // would count them twice
+    const userContext = this.personalizationMode === 'engine' ? this.userContextOf(payload.personalizationProfile) : undefined;
     if (userContext) {
       Object.assign(searchOptions, { personalize: { userContext } });
     }
@@ -211,7 +222,7 @@ export class MeilisearchProductSearchCapability<
 
 
     const remote = await index.search<MeilisearchNativeRecord>(payload.search.term, this.queryByTermPayload(payload) as SearchParams);
-    const result = this.parsePaginatedResult(remote, payload);
+    const result = this.personalize(this.parsePaginatedResult(remote, payload), payload);
 
     // mark selected facets as active
     for (const selectedFacet of payload.search.facets) {
@@ -225,6 +236,17 @@ export class MeilisearchProductSearchCapability<
     }
 
     return success(this.factory.parseSearchResult(this.context, result, payload));
+  }
+
+  /**
+   * The page, reordered by the interests of the visitor in `affinity` mode. In the other modes it is as the engine returned it: the engine
+   * has already personalized it (`engine`) or nobody does (`none`).
+   */
+  protected personalize(result: ProductSearchResult, payload: ProductSearchQueryByTerm): ProductSearchResult {
+    if (this.personalizationMode !== 'affinity') {
+      return result;
+    }
+    return { ...result, items: this.ranking.rank(result.items, payload.personalizationProfile) };
   }
 
   public override async createCategoryNavigationFilter(payload: ProductSearchQueryCreateNavigationFilter): Promise<Result<FacetValueIdentifier>> {
