@@ -41,10 +41,16 @@ export const ProductSearchResultFacetValueSchema = z.looseObject({
     active: z.boolean(),
 });
 
+export const ProductSearchResultFacetStatsSchema = z.looseObject({
+    min: z.number().meta({ description: 'The lowest value of the facet.' }),
+    max: z.number().meta({ description: 'The highest value of the facet.' }),
+});
+
 export const ProductSearchResultFacetSchema = z.looseObject({
     identifier: FacetIdentifierSchema,
     name: z.string(),
     values: z.array(ProductSearchResultFacetValueSchema),
+    stats: ProductSearchResultFacetStatsSchema.optional().meta({ description: 'The lowest and highest value of a numeric facet, when the provider knows them. With ranges in the search, those of the search without its ranges.' }),
 });
 
 export const ProductSearchResultSchema = createPaginatedResponseSchema(ProductSearchResultItemSchema).extend({
@@ -58,3 +64,4 @@ export type ProductSearchResultItemComplianceData = InferType<typeof ProductSear
 export type ProductSearchResult = InferType<typeof ProductSearchResultSchema>;
 export type ProductSearchResultFacet = InferType<typeof ProductSearchResultFacetSchema>;
 export type ProductSearchResultFacetValue = InferType<typeof ProductSearchResultFacetValueSchema>;
+export type ProductSearchResultFacetStats = InferType<typeof ProductSearchResultFacetStatsSchema>;
