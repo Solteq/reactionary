@@ -60,6 +60,8 @@ export const TOOL_DESCRIPTIONS: Readonly<Record<string, string>> = {
     'Returns products that are spare parts of a product. Input: forProduct.key and numberOfSpareparts (1 to 12). May return fewer than asked for.',
   'product-associations.getReplacements':
     'Returns products that replace a product, equivalent or newer ones. Input: forProduct.key and numberOfReplacements (1 to 12). May return fewer than asked for.',
+  'product-assets.getAssets':
+    'Returns the manuals, guides, datasheets, certificates, warranties, safety data sheets, energy labels, videos and 3D models of a product. Input: forProduct.key; forVariant.sku adds the assets of that variant; types limits the result to some asset types. Each asset has a type, a title and one or more files, the same document in other languages or formats, each with an absolute url, a mimeType and often a language. A file with delivery embed is a player page to embed, not a file to download. May return an empty list.',
   'product-recommendations.getRecommendations':
     'Returns recommended products for one of several algorithms. algorithm selects how: frequentlyBoughtTogether, similar and related need sourceProduct; trendingInCategory needs sourceCategory; popular and topPicks need no source. Providers support only some of the algorithms. numberOfRecommendations is 1 to 12. The result may hold fewer.',
   'product-recommendations.getCollection':
