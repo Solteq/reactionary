@@ -10,6 +10,7 @@ import type { AnalyticsCapability, CheckoutCapability, OrderCapability, CompanyC
 import type { OrderSearchCapability } from "../capabilities/order-search.capability.js";
 import type { ProductRecommendationsCapability } from "../capabilities/product-recommendations.capability.js";
 import type { ProductAssociationsCapability } from "../capabilities/product-associations.capability.js";
+import type { ProductAssetsCapability } from "../capabilities/product-assets.capability.js";
 import type { ProductReviewsCapability } from "../capabilities/product-reviews.capability.js";
 import type { EmployeeInvitationCapability } from "../capabilities/employee-invitation.capability.js";
 import type { FeatureFlagCapability } from "../capabilities/feature-flag.capability.js";
@@ -21,6 +22,7 @@ export interface Client {
     productSearch: ProductSearchCapability,
     productRecommendations: ProductRecommendationsCapability,
     productAssociations: ProductAssociationsCapability,
+    productAssets: ProductAssetsCapability,
     productReviews: ProductReviewsCapability,
     productList: ProductListCapability,
     identity: IdentityCapability,

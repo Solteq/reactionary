@@ -16,6 +16,7 @@ export * from './order-search.capability.js';
 export * from './order.capability.js';
 export * from './price.capability.js';
 export * from './product-associations.capability.js';
+export * from './product-assets.capability.js';
 export * from './product-list.capability.js';
 export * from './product-recommendations.capability.js';
 export * from './product-reviews.capability.js';

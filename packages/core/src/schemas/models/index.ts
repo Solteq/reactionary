@@ -25,6 +25,7 @@ export * from './payment.model.js';
 export * from './order-search.model.js'
 export * from './product-recommendations.model.js';
 export * from './product-associations.model.js';
+export * from './product-assets.model.js';
 export * from './product-list.model.js';
 export * from './company.model.js';
 export * from './company-registration.model.js';
