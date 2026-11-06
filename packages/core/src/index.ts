@@ -12,6 +12,7 @@ export * from './utils/oidc-claims.js';
 export * from './utils/product-asset-embed.js';
 export * from './utils/search-ranking.js';
 export * from './utils/search-taxonomy.js';
+export * from './utils/search-multiselect.js';
 export * from './utils/taxonomy-navigation.js';
 export * from './utils/seo.js';
 export type { InferType } from './zod-utils.js';

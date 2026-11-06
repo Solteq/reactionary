@@ -102,6 +102,7 @@ export class AlgoliaProductSearchFactory<
       identifier: {
         term: query.search.term,
         facets: query.search.facets,
+        ...(query.search.multiselect ? { multiselect: query.search.multiselect } : {}),
         filters: query.search.filters,
         paginationOptions: query.search.paginationOptions,
         index: body.index || '',
