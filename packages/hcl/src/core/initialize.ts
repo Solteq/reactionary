@@ -8,6 +8,7 @@ import {
   OrderSearchResultSchema,
   PersonalizationProfileSchema,
   ProductAssociationSchema,
+  ProductAssetSchema,
   ProductListItemPaginatedResultsSchema,
   ProductListItemSchema,
   ProductListPaginatedResultsSchema,
@@ -34,6 +35,7 @@ import {
   type HclOrderSearchCapabilityConfig,
   type HclAnalyticsCapabilityConfig,
   type HclProductAssociationsCapabilityConfig,
+  type HclProductAssetsCapabilityConfig,
   type HclProductRecommendationsCapabilityConfig,
   type HclPersonalizationProfileCapabilityConfig,
   type HclCompanyCapabilityConfig,
@@ -61,6 +63,7 @@ import {
   HclPersonalizationProfileFactory,
   HclPriceFactory,
   HclProductAssociationsFactory,
+  HclProductAssetsFactory,
   HclProductFactory,
   HclProductListFactory,
   HclProductRecommendationsFactory,
@@ -81,6 +84,7 @@ import { HclOrderCapability } from '../capabilities/order.capability.js';
 import { HclOrderSearchCapability } from '../capabilities/order-search.capability.js';
 import { HclAnalyticsCapability } from '../capabilities/analytics.capability.js';
 import { HclProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import { HclProductAssetsCapability } from '../capabilities/product-assets.capability.js';
 import { HclProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import { HclPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
 import { HclCompanyCapability } from '../capabilities/company.capability.js';
@@ -358,6 +362,26 @@ export function withHclCapabilities<T extends HclCapabilities>(
           factory: new HclProductAssociationsFactory(ProductAssociationSchema),
           capability: (args) =>
             new HclProductAssociationsCapability(
+              args.cache,
+              args.context,
+              args.config,
+              args.hclClient,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.productAssets?.enabled) {
+      client.productAssets = resolveCapabilityWithFactory(
+        capabilities.productAssets as
+          | HclProductAssetsCapabilityConfig
+          | undefined,
+        {
+          factory: new HclProductAssetsFactory(ProductAssetSchema),
+          capability: (args) =>
+            new HclProductAssetsCapability(
               args.cache,
               args.context,
               args.config,

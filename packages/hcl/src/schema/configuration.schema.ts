@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { ProductAssetTypeSchema } from '@reactionary/core';
 import { ExternalIdentityProviderSchema } from '@reactionary/oidc';
 
 /**
@@ -112,6 +113,19 @@ export const HclConfigurationSchema = z.looseObject({
    * Each algorithm calls the corresponding named espot via the WCS Transaction Service.
    * These espots must be configured in HCL Commerce to return catalog entry data.
    */
+  productAssets: z
+    .looseObject({
+      usageTypeMap: z.record(z.string(), ProductAssetTypeSchema).optional().meta({
+        description:
+          'Maps HCL attachment usage identifiers (ATCHRLUS.IDENTIFIER) to product asset types, in addition to the defaults created by setup/product-asset-usages.changelog.xml. Attachments with an unmapped usage are ignored.',
+      }),
+      assetBaseUrl: z.string().optional().meta({
+        description:
+          'Base url that relative attachment asset paths are resolved against. Defaults to apiUrl.',
+      }),
+    })
+    .optional()
+    .meta({ description: 'Optional product asset (manuals, certificates, videos, 3D models) configuration.' }),
   externalIdentityProviders: z.array(HclExternalIdentityProviderSchema).optional().meta({
     description:
       'OpenID Connect identity providers shoppers can sign in with. HCL Commerce cannot list its own providers, so they are configured here.',
