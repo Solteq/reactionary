@@ -45,6 +45,7 @@ export const ProductAssetSchema = BaseModelSchema.extend({
   files: z.array(ProductAssetFileSchema).min(1).meta({ description: 'The renditions of this asset: the same asset in different languages or formats, e.g. a manual per language, or a 3D model as glb and usdz.' }),
 });
 
-export type ProductAssetType = InferType<typeof ProductAssetTypeSchema>;
+// z.infer, not InferType: InferType brands its result, which turns a union of literals into a type that cannot key a record
+export type ProductAssetType = z.infer<typeof ProductAssetTypeSchema>;
 export type ProductAssetFile = InferType<typeof ProductAssetFileSchema>;
 export type ProductAsset = InferType<typeof ProductAssetSchema>;
