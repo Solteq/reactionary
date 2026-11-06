@@ -64,6 +64,8 @@ export const TOOL_PAGE_KINDS: Readonly<Record<string, readonly ToolPageKind[]>> 
   'product-associations.getAccessories': ['product', 'cart'],
   'product-associations.getSpareparts': ['product', 'cart'],
   'product-associations.getReplacements': ['product', 'cart'],
+  // the manual or warranty of what is in the cart, or was bought, is looked up from those pages too
+  'product-assets.getAssets': ['product', 'cart', 'order', 'account'],
   'product-recommendations.getRecommendations': shopping,
   'product-recommendations.getCollection': everywhere,
 

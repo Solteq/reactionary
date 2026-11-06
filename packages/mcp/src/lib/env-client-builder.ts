@@ -149,6 +149,7 @@ export function createReactionaryClientFromEnv(
             productSearch: { enabled: true },
             productRecommendations: { enabled: true },
             productAssociations: { enabled: true },
+            productAssets: { enabled: true },
             orderSearch: { enabled: true },
             store: { enabled: true },
             profile: { enabled: true },
