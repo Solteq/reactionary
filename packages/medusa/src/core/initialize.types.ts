@@ -13,6 +13,7 @@ import type {
   OrderSearchFactory,
   PriceFactory,
   ProductAssociationsFactory,
+  ProductAssetsFactory,
   ProductFactory,
   ProductRecommendationsCapability,
   ProductSearchFactory,
@@ -33,6 +34,7 @@ import type { MedusaOrderFactory } from '../factories/order/order.factory.js';
 import type { MedusaOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
 import type { MedusaPriceFactory } from '../factories/price/price.factory.js';
 import type { MedusaProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
+import type { MedusaProductAssetsFactory } from '../factories/product-assets/product-assets.factory.js';
 import type { MedusaProductFactory } from '../factories/product/product.factory.js';
 import type { MedusaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import type { MedusaProfileFactory } from '../factories/profile/profile.factory.js';
@@ -51,6 +53,7 @@ import type { MedusaOrderCapability } from '../capabilities/order.capability.js'
 import type { MedusaOrderSearchCapability } from '../capabilities/order-search.capability.js';
 import type { MedusaPriceCapability } from '../capabilities/price.capability.js';
 import type { MedusaProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import type { MedusaProductAssetsCapability } from '../capabilities/product-assets.capability.js';
 import type { MedusaProductCapability } from '../capabilities/product.capability.js';
 import type { MedusaProductSearchCapability } from '../capabilities/product-search.capability.js';
 import type { MedusaProfileCapability } from '../capabilities/profile.capability.js';
@@ -72,6 +75,7 @@ type OverridableCapabilityKey =
   | 'inventory'
   | 'profile'
   | 'productAssociations'
+  | 'productAssets'
   | 'personalizationProfile'
   | 'employee'
   | 'employeeInvitation'
@@ -117,6 +121,7 @@ type FactoryContractMap = {
   inventory: InventoryFactory;
   profile: ProfileFactory;
   productAssociations: ProductAssociationsFactory;
+  productAssets: ProductAssetsFactory;
   personalizationProfile: PersonalizationProfileFactory;
   employee: EmployeeFactory;
   employeeInvitation: EmployeeInvitationFactory;
@@ -138,6 +143,7 @@ type DefaultFactoryMap = {
   inventory: MedusaInventoryFactory;
   profile: MedusaProfileFactory;
   productAssociations: MedusaProductAssociationsFactory;
+  productAssets: MedusaProductAssetsFactory;
   personalizationProfile: MedusaPersonalizationProfileFactory;
   employee: MedusaEmployeeFactory;
   employeeInvitation: MedusaEmployeeInvitationFactory;
@@ -168,6 +174,9 @@ type DefaultCapabilityMap<T extends MedusaCapabilities> = {
   profile: MedusaProfileCapability<ResolvedFactoryMap<T>['profile']>;
   productAssociations: MedusaProductAssociationsCapability<
     ResolvedFactoryMap<T>['productAssociations']
+  >;
+  productAssets: MedusaProductAssetsCapability<
+    ResolvedFactoryMap<T>['productAssets']
   >;
   personalizationProfile: MedusaPersonalizationProfileCapability<ResolvedFactoryMap<T>['personalizationProfile']>;
   employee: MedusaEmployeeCapability<ResolvedFactoryMap<T>['employee']>;

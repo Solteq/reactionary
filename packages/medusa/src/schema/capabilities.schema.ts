@@ -39,6 +39,9 @@ import type {
   ProductAssociationsFactory,
   ProductAssociationsFactoryWithOutput,
   ProductAssociationsCapability,
+  ProductAssetsFactory,
+  ProductAssetsFactoryWithOutput,
+  ProductAssetsCapability,
   ProductFactory,
   ProductFactoryWithOutput,
   ProductCapability,
@@ -88,6 +91,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
   identity: true,
   profile: true,
   productAssociations: true,
+  productAssets: true,
   personalizationProfile: true,
   company: true,
   store: true,
@@ -110,6 +114,7 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     companyRegistration: OverridableCapabilitySchema.optional(),
     profile: OverridableCapabilitySchema.optional(),
     productAssociations: OverridableCapabilitySchema.optional(),
+    productAssets: OverridableCapabilitySchema.optional(),
     productRecommendations: DirectCapabilitySchema.optional(),
     personalizationProfile: OverridableCapabilitySchema.optional(),
     store: OverridableCapabilitySchema.optional(),
@@ -218,6 +223,11 @@ export type MedusaProductAssociationsCapabilityConfig = MedusaCapabilityConfig<
   ProductAssociationsCapability
 >;
 
+export type MedusaProductAssetsCapabilityConfig = MedusaCapabilityConfig<
+  ProductAssetsFactoryWithOutput<ProductAssetsFactory>,
+  ProductAssetsCapability
+>;
+
 export type MedusaPersonalizationProfileCapabilityConfig = MedusaCapabilityConfig<
   PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
   PersonalizationProfileCapability
@@ -275,6 +285,8 @@ export type MedusaCapabilities<
   TStoreCapability extends StoreCapability = StoreCapability,
   TTaxonomyFactory extends TaxonomyFactory = TaxonomyFactory,
   TTaxonomyCapability extends TaxonomyCapability = TaxonomyCapability,
+  TProductAssetsFactory extends ProductAssetsFactory = ProductAssetsFactory,
+  TProductAssetsCapability extends ProductAssetsCapability = ProductAssetsCapability,
 > = {
   product?: MedusaCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MedusaCapabilityConfig<
@@ -318,6 +330,10 @@ export type MedusaCapabilities<
   productAssociations?: MedusaCapabilityConfig<
     ProductAssociationsFactoryWithOutput<TProductAssociationsFactory>,
     TProductAssociationsCapability
+  >;
+  productAssets?: MedusaCapabilityConfig<
+    ProductAssetsFactoryWithOutput<TProductAssetsFactory>,
+    TProductAssetsCapability
   >;
   productRecommendations?: MedusaDirectCapabilityConfig<TProductRecommendationsCapability>;
   personalizationProfile?: MedusaCapabilityConfig<

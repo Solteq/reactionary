@@ -23,6 +23,7 @@ import {
   PaymentMethodSchema,
   PriceSchema,
   ProductAssociationSchema,
+  ProductAssetSchema,
   ProductSchema,
   ProductSearchResultSchema,
   ProfileSchema,
@@ -48,6 +49,7 @@ import { MedusaProductSearchCapability } from '../capabilities/product-search.ca
 import { MedusaProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import { MedusaProductCapability } from '../capabilities/product.capability.js';
 import { MedusaProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import { MedusaProductAssetsCapability } from '../capabilities/product-assets.capability.js';
 import { MedusaProfileCapability } from '../capabilities/profile.capability.js';
 import { MedusaPersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
 import { MedusaStoreCapability } from '../capabilities/store.capability.js';
@@ -74,6 +76,7 @@ import {
   MedusaOrderSearchFactory,
   MedusaPriceFactory,
   MedusaProductAssociationsFactory,
+  MedusaProductAssetsFactory,
   MedusaProductFactory,
   MedusaProductSearchFactory,
   MedusaProfileFactory,
@@ -421,6 +424,24 @@ export function withMedusaCapabilities<T extends MedusaCapabilities>(
           factory: new MedusaProductAssociationsFactory(ProductAssociationSchema),
           capability: (args) =>
             new MedusaProductAssociationsCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.medusaApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.productAssets?.enabled) {
+      client.productAssets = resolveCapabilityWithFactory(
+        capabilities.productAssets,
+        {
+          factory: new MedusaProductAssetsFactory(ProductAssetSchema),
+          capability: (args) =>
+            new MedusaProductAssetsCapability(
               args.config,
               args.cache,
               args.context,
