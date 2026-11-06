@@ -4,6 +4,7 @@ import { ProductAssetsCapability } from '../capabilities/product-assets.capabili
 import { createInitialRequestContext } from '../initialization.js';
 import {
   ProductAssetSchema,
+  ProductAssetTypeSchema,
   ProductAssetFileSchema,
   type ProductAsset,
   type ProductAssetType,
@@ -34,6 +35,32 @@ function asset(key: string, type: ProductAssetType = 'manual'): ProductAsset {
     files: [{ url: `https://cdn.example.com/${key}.pdf`, mimeType: 'application/pdf' }],
   });
 }
+
+describe('ProductAssetType', () => {
+  it('is the union of the types, so a record can be keyed by it', () => {
+    // Does not compile if ProductAssetType is not a plain union of the literals
+    const labels: Record<ProductAssetType, true> = {
+      manual: true,
+      'user-guide': true,
+      'installation-guide': true,
+      datasheet: true,
+      certificate: true,
+      warranty: true,
+      'safety-data-sheet': true,
+      'energy-label': true,
+      'product-fiche': true,
+      video: true,
+      '3d-model': true,
+      other: true,
+    };
+
+    // Indexing by the options does not compile either if the type is branded
+    for (const option of ProductAssetTypeSchema.options) {
+      expect(labels[option]).toBe(true);
+    }
+    expect(Object.keys(labels).sort()).toEqual([...ProductAssetTypeSchema.options].sort());
+  });
+});
 
 describe('ProductAssetFileSchema', () => {
   it('defaults delivery to file and mimeType to empty', () => {
