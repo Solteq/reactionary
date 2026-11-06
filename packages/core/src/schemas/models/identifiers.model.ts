@@ -179,6 +179,7 @@ export const CompanyIdentifierSchema = z.looseObject({
 export const ProductSearchIdentifierSchema = z.looseObject({
   term: z.string().meta({ description: 'The search term used to find products.' }),
   facets: z.array(FacetValueIdentifierSchema).meta({ description: 'The facets applied to filter the search results.' }),
+  multiselect: z.array(FacetIdentifierSchema).optional().meta({ description: 'The facets that are multiselect. Without it a facet narrows the search: values selected within the same facet must all match, and a selected value hides its siblings. For the facets named here the selected values widen the search instead (any of them matches, across facets they still all must), and the facet keeps returning the values and counts it would have without its own selection, so that the shopper can add one more (Algolia and Meilisearch; commercetools widens the selection but returns its facet as the search does). Providers that do not support it ignore it, and a provider that always widens within a facet (Magento) is unaffected. Never applies to the categories facet.' }),
   filters: z.array(z.string()).meta({ description: 'Additional filters applied to the search results.' }),
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
   categoryFilter: FacetValueIdentifierSchema.optional().meta({ description: 'An optional category filter applied to the search results.' }),

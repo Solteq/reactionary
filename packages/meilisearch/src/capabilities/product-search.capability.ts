@@ -5,6 +5,7 @@ import {
   FacetIdentifierSchema,
   type FacetValueIdentifier,
   FacetValueIdentifierSchema,
+  groupFacetSelections,
   ImageSchema,
   ProductSearchCapability,
   type ProductSearchFactory,
@@ -34,6 +35,7 @@ import {
   parseSearchDocumentTaxonomy,
   ProductSearchResultSchema,
   Reactionary,
+  replaceFacets,
   type RequestContext,
   type Result,
   success
@@ -162,10 +164,12 @@ export class MeilisearchProductSearchCapability<
     // the restrictions below. They are raw Meilisearch expressions and must come from the application, never from user input.
     const finalFilters: string[] = (payload.search.filters || []).map((f) => `(${f})`);
 
+    // Meilisearch ANDs the expressions of the filter. A multiselect facet is one parenthesised group with an OR between its values.
+    const selections = groupFacetSelections(facetsThatAreNotCategory, payload.search.multiselect);
+    const equals = (x: FacetValueIdentifier) => `"${this.escapeFilterValue(x.facet.key)}"="${this.escapeFilterValue(x.key)}"`;
     const finalFacetFilters: string[] = [
-      ...facetsThatAreNotCategory.map(
-        (x) => `"${this.escapeFilterValue(x.facet.key)}"="${this.escapeFilterValue(x.key)}"`
-      ),
+      ...selections.single.map(equals),
+      ...Array.from(selections.multi.values(), (values) => `(${values.map(equals).join(' OR ')})`),
     ];
 
     if (categoryFacet) {
@@ -207,6 +211,32 @@ export class MeilisearchProductSearchCapability<
     return searchOptions;
   }
 
+  /** The multiselect facets that have a selected value, and so need a request of their own to offer their siblings. */
+  protected multiselectKeysWithSelection(payload: ProductSearchQueryByTerm): string[] {
+    const { multi } = groupFacetSelections(payload.search.facets, payload.search.multiselect);
+    return Array.from(multi.keys());
+  }
+
+  /** The search as if no value of the facet were selected. */
+  protected withoutSelectionOf(payload: ProductSearchQueryByTerm, facetKey: string): ProductSearchQueryByTerm {
+    return {
+      ...payload,
+      search: {
+        ...payload.search,
+        facets: payload.search.facets.filter((x) => x.facet.key !== facetKey),
+      },
+    };
+  }
+
+  /**
+   * The request that returns the values and counts of one multiselect facet as if none of its values were selected, with no hits.
+   * Neither ranking nor personalization matters to it.
+   */
+  protected siblingFacetPayload(payload: ProductSearchQueryByTerm, facetKey: string): SearchParams {
+    const request = this.queryByTermPayload({ ...this.withoutSelectionOf(payload, facetKey), personalizationProfile: undefined });
+    return { ...request, offset: 0, limit: 0, facets: [facetKey], showRankingScore: false };
+  }
+
   // Not cached: the personalization profile is part of the payload, and with it the cache key, so a search is cached per visitor
   // and a profile that changes with every visit never finds its entry again.
   @Reactionary({
@@ -224,8 +254,21 @@ export class MeilisearchProductSearchCapability<
     const index = client.index(getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale));
 
 
-    const remote = await index.search<MeilisearchNativeRecord>(payload.search.term, this.queryByTermPayload(payload) as SearchParams);
-    const result = this.personalize(this.parsePaginatedResult(remote, payload), payload);
+    // The search itself, and next to it one search without the selection of each multiselect facet that has one: its values and counts
+    // are what that facet offers. They run side by side.
+    const siblingKeys = this.multiselectKeysWithSelection(payload);
+    const [remote, ...siblings] = await Promise.all([
+      index.search<MeilisearchNativeRecord>(payload.search.term, this.queryByTermPayload(payload)),
+      ...siblingKeys.map((key) => index.search<MeilisearchNativeRecord>(payload.search.term, this.siblingFacetPayload(payload, key))),
+    ]);
+    let parsed = this.parsePaginatedResult(remote, payload);
+    if (siblingKeys.length > 0) {
+      const siblingFacets = siblingKeys.flatMap((key, i) =>
+        this.parsePaginatedResult(siblings[i], this.withoutSelectionOf(payload, key)).facets.filter((facet) => facet.identifier.key === key),
+      );
+      parsed = { ...parsed, facets: replaceFacets(parsed.facets, siblingFacets) };
+    }
+    const result = this.personalize(parsed, payload);
 
     // mark selected facets as active
     for (const selectedFacet of payload.search.facets) {
@@ -364,6 +407,7 @@ export class MeilisearchProductSearchCapability<
       identifier: {
         term: query.search.term,
         facets: query.search.facets,
+        ...(query.search.multiselect ? { multiselect: query.search.multiselect } : {}),
         filters: query.search.filters,
         paginationOptions: query.search.paginationOptions,
       },

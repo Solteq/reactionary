@@ -4,6 +4,7 @@ import {
   FacetIdentifierSchema,
   type FacetValueIdentifier,
   FacetValueIdentifierSchema,
+  groupFacetSelections,
   type PersonalizationProfile,
   ProductSearchCapability,
   type ProductSearchFactory,
@@ -16,6 +17,7 @@ import {
   type Result,
   ProductSearchResultSchema,
   Reactionary,
+  replaceFacets,
   success,
 } from '@reactionary/core';
 import { algoliasearch, type SearchQuery } from 'algoliasearch';
@@ -70,8 +72,11 @@ export class AlgoliaProductSearchCapability<
 
     const finalFilters = [...(payload.search.filters || [])];
 
-    const finalFacetFilters = [
-      ...facetsThatAreNotCategory.map((x) => `${x.facet.key}:${x.key}`),
+    // Algolia ANDs the entries of facetFilters and ORs the values of a nested array. A multiselect facet is one nested array.
+    const selections = groupFacetSelections(facetsThatAreNotCategory, payload.search.multiselect);
+    const finalFacetFilters: (string | string[])[] = [
+      ...selections.single.map((x) => `${x.facet.key}:${x.key}`),
+      ...Array.from(selections.multi.values(), (values) => values.map((x) => `${x.facet.key}:${x.key}`)),
     ];
 
     if (categoryFacet) {
@@ -97,6 +102,40 @@ export class AlgoliaProductSearchCapability<
     } satisfies SearchQuery;
   }
 
+  /** The multiselect facets that have a selected value, and so need a request of their own to offer their siblings. */
+  protected multiselectKeysWithSelection(payload: ProductSearchQueryByTerm): string[] {
+    const { multi } = groupFacetSelections(payload.search.facets, payload.search.multiselect);
+    return Array.from(multi.keys());
+  }
+
+  /** The search as if no value of the facet were selected. */
+  protected withoutSelectionOf(payload: ProductSearchQueryByTerm, facetKey: string): ProductSearchQueryByTerm {
+    return {
+      ...payload,
+      search: {
+        ...payload.search,
+        facets: payload.search.facets.filter((x) => x.facet.key !== facetKey),
+      },
+    };
+  }
+
+  /**
+   * The request that returns the values and counts of one multiselect facet as if none of its values were selected. It is kept out of the
+   * analytics, so that it neither counts as a search nor gets a queryID of its own. Only its facets are used: it asks for one hit because
+   * the result schema needs a page size of at least 1, and a response with no page size would not parse.
+   */
+  protected siblingFacetPayload(payload: ProductSearchQueryByTerm, facetKey: string) {
+    const request = this.queryByTermPayload(this.withoutSelectionOf(payload, facetKey));
+    return {
+      ...request,
+      page: 0,
+      hitsPerPage: 1,
+      facets: [facetKey],
+      analytics: false,
+      clickAnalytics: false,
+    } satisfies SearchQuery;
+  }
+
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
     outputSchema: ProductSearchResultSchema,
@@ -106,12 +145,27 @@ export class AlgoliaProductSearchCapability<
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
 
+    // The main request is the first, and the only one that counts for the analytics: its queryID is the one of the result.
+    const siblingKeys = this.multiselectKeysWithSelection(payload);
     const remote = await client.search<AlgoliaNativeRecord>({
-      requests: [this.queryByTermPayload(payload)],
+      requests: [
+        this.queryByTermPayload(payload),
+        ...siblingKeys.map((key) => this.siblingFacetPayload(payload, key)),
+      ],
     });
 
     const input = remote.results[0];
     const result = this.factory.parseSearchResult(this.context, input, payload);
+
+    if (siblingKeys.length > 0) {
+      // Each of the others is the search without the selection of one multiselect facet: its values and counts are what that facet offers
+      const siblingFacets = siblingKeys.flatMap(
+        (key, index) =>
+          this.factory.parseSearchResult(this.context, remote.results[index + 1], this.withoutSelectionOf(payload, key)).facets
+            .filter((facet) => facet.identifier.key === key),
+      );
+      result.facets = replaceFacets(result.facets, siblingFacets);
+    }
 
     for (const selectedFacet of payload.search.facets) {
       const facet = result.facets.find(

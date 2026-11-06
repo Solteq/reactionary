@@ -15,6 +15,7 @@ import type {
 } from '@reactionary/core';
 import {
   FacetValueIdentifierSchema,
+  groupFacetSelections,
   ProductSearchCapability,
   ProductSearchQueryByTermSchema,
   ProductSearchQueryCreateNavigationFilterSchema,
@@ -198,9 +199,15 @@ export class CommercetoolsProductSearchCapability<
       return undefined;
     }
 
-    const facetsToApply = await Promise.all(
-      payload.search.facets.map((facet) => this.getFacetQuery(payload, facet))
-    );
+    // The values of a multiselect facet are one `or`: any of them matches. Everything else is ANDed.
+    const selections = groupFacetSelections(payload.search.facets, payload.search.multiselect);
+    const facetsToApply = await Promise.all([
+      ...selections.single.map((facet) => this.getFacetQuery(payload, facet)),
+      ...Array.from(selections.multi.values(), async (values) => {
+        const alternatives = await Promise.all(values.map((facet) => this.getFacetQuery(payload, facet)));
+        return alternatives.length === 1 ? alternatives[0] : { or: alternatives };
+      }),
+    ]);
 
     if (facetsToApply.length === 0) {
       return undefined;
