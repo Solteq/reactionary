@@ -14,6 +14,7 @@ import {
   OrderSchema,
   PaymentMethodSchema,
   ProductAssociationSchema,
+  ProductAssetSchema,
   ProductListItemPaginatedResultsSchema,
   ProductListItemSchema,
   ProductListPaginatedResultsSchema,
@@ -48,6 +49,7 @@ import { CommercetoolsOrderFactory } from '../factories/order/order.factory.js';
 import { CommercetoolsOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
 import { CommercetoolsPriceFactory } from '../factories/price/price.factory.js';
 import { CommercetoolsProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
+import { CommercetoolsProductAssetsFactory } from '../factories/product-assets/product-assets.factory.js';
 import { CommercetoolsProductListFactory } from '../factories/product-list/product-list.factory.js';
 import { CommercetoolsProductFactory } from '../factories/product/product.factory.js';
 import { CommercetoolsProductReviewsFactory } from '../factories/product-reviews/product-reviews.factory.js';
@@ -64,6 +66,7 @@ import { CommercetoolsOrderCapability } from '../capabilities/order.capability.j
 import { CommercetoolsOrderSearchCapability } from '../capabilities/order-search.capability.js';
 import { CommercetoolsPriceCapability } from '../capabilities/price.capability.js';
 import { CommercetoolsProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import { CommercetoolsProductAssetsCapability } from '../capabilities/product-assets.capability.js';
 import { CommercetoolsProductListCapability } from '../capabilities/product-list.capability.js';
 import { CommercetoolsProductCapability } from '../capabilities/product.capability.js';
 import { CommercetoolsProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
@@ -85,6 +88,7 @@ export const capabilityKeys = [
   'profile',
   'productSearch',
   'productAssociations',
+  'productAssets',
   'productList',
   'productReviews',
   'identity',
@@ -192,6 +196,20 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
       ),
     createDefaultCapability: (args) =>
       new CommercetoolsProductListCapability(
+        args.config,
+        args.cache,
+        args.context,
+        args.commercetoolsApi,
+        args.factory,
+      ),
+  },
+  productAssets: {
+    isEnabled: (caps) => caps.productAssets?.enabled,
+    getOverride: (caps) => caps.productAssets,
+    createDefaultFactory: () =>
+      new CommercetoolsProductAssetsFactory(ProductAssetSchema),
+    createDefaultCapability: (args) =>
+      new CommercetoolsProductAssetsCapability(
         args.config,
         args.cache,
         args.context,
