@@ -161,18 +161,23 @@ describe('Commercetools product assets', () => {
     expect(capability.exposeCollectAssets(projection([asset('x', ['constructor'])]), undefined)[0]?.type).toBe('other');
   });
 
-  it('flags well-known video hosts as embeds and everything else as files', () => {
+  it('flags embeddable player urls as embeds and everything else, watch pages included, as files', () => {
     const capability = createCapability();
     const video = asset('v', ['video'], [
       { uri: 'https://www.youtube.com/embed/abc', contentType: 'text/html' },
+      { uri: 'https://player.vimeo.com/video/123', contentType: 'text/html' },
+      { uri: 'https://www.youtube.com/watch?v=abc', contentType: 'text/html' },
+      { uri: 'https://vimeo.com/123', contentType: 'text/html' },
       { uri: 'https://cdn.example.com/v.mp4', contentType: 'video/mp4' },
     ]);
 
-    const files = capability.exposeCollectAssets(projection([video]), undefined)[0]?.files;
+    const files = capability.exposeCollectAssets(projection([video]), undefined)[0]?.files ?? [];
 
-    expect(files?.[0]).toMatchObject({ delivery: 'embed', embedProvider: 'youtube' });
-    expect(files?.[1]).toMatchObject({ delivery: 'file', mimeType: 'video/mp4' });
-    expect(files?.[1]?.embedProvider).toBeUndefined();
+    expect(files[0]).toMatchObject({ delivery: 'embed', embedProvider: 'youtube' });
+    expect(files[1]).toMatchObject({ delivery: 'embed', embedProvider: 'vimeo' });
+    expect(files.slice(2).map((f) => f.delivery)).toEqual(['file', 'file', 'file']);
+    expect(files[4]?.mimeType).toBe('video/mp4');
+    expect(files[4]?.embedProvider).toBeUndefined();
   });
 
   it('resolves the title for the request locale and falls back to the first value', () => {
