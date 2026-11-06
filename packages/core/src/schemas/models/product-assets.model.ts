@@ -25,7 +25,7 @@ export const ProductAssetFileDeliverySchema = z
   .meta({ description: 'file: the url points at the file itself. embed: the url is a player/viewer page to be embedded, e.g. a YouTube or Vimeo video.' });
 
 export const ProductAssetFileSchema = z.looseObject({
-  url: z.url().meta({ description: 'Absolute URL of the file or embed page. Never relative: the asset may live on any host (backend, CDN, DAM).' }),
+  url: z.url({ protocol: /^https?$/ }).meta({ description: 'Absolute http(s) URL of the file or embed page. Never relative and never another scheme: the asset may live on any host (backend, CDN, DAM).' }),
   mimeType: z.string().default('').meta({ description: 'MIME type of the file, e.g. application/pdf, video/mp4, model/gltf-binary. Empty when unknown.' }),
   delivery: ProductAssetFileDeliverySchema.default('file'),
   embedProvider: z.string().optional().meta({ description: 'For embeds, the hosting provider, e.g. youtube or vimeo.' }),

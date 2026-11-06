@@ -46,6 +46,13 @@ describe('ProductAssetFileSchema', () => {
     expect(ProductAssetFileSchema.safeParse({ url: '/media/a.pdf' }).success).toBe(false);
   });
 
+  it('rejects schemes other than http and https', () => {
+    for (const url of ['javascript:alert(1)', 'data:text/html,<b>x</b>', 'file:///etc/passwd', 'ftp://host.example.com/a.pdf']) {
+      expect(ProductAssetFileSchema.safeParse({ url }).success).toBe(false);
+    }
+    expect(ProductAssetFileSchema.safeParse({ url: 'http://cdn.example.com/a.pdf' }).success).toBe(true);
+  });
+
   it('accepts an embed with a provider hint', () => {
     const file = ProductAssetFileSchema.parse({
       url: 'https://www.youtube.com/embed/abc',
