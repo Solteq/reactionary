@@ -108,11 +108,6 @@ export const HclConfigurationSchema = z.looseObject({
       spareparts: ['SPAREPART'],
       replacements: ['REPLACEMENT'],
     })),
-  /**
-   * Names of HCL marketing spots used for product recommendation algorithms.
-   * Each algorithm calls the corresponding named espot via the WCS Transaction Service.
-   * These espots must be configured in HCL Commerce to return catalog entry data.
-   */
   productAssets: z
     .looseObject({
       usageTypeMap: z.record(z.string(), ProductAssetTypeSchema).optional().meta({
@@ -126,6 +121,11 @@ export const HclConfigurationSchema = z.looseObject({
     })
     .optional()
     .meta({ description: 'Optional product asset (manuals, certificates, videos, 3D models) configuration.' }),
+  /**
+   * Names of HCL marketing spots used for product recommendation algorithms.
+   * Each algorithm calls the corresponding named espot via the WCS Transaction Service.
+   * These espots must be configured in HCL Commerce to return catalog entry data.
+   */
   externalIdentityProviders: z.array(HclExternalIdentityProviderSchema).optional().meta({
     description:
       'OpenID Connect identity providers shoppers can sign in with. HCL Commerce cannot list its own providers, so they are configured here.',

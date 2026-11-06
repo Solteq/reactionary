@@ -66,6 +66,8 @@ export class HclProductAssetsCapability<
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
+    // HCL returns the attachment assets, and their names, for the request language
+    localeDependentCaching: true,
   })
   public override async getAssets(
     query: ProductAssetsGetQuery,

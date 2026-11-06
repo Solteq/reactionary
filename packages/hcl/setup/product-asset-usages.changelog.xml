@@ -32,8 +32,8 @@
             <column name="SHORTDESCRIPTION" value="Product manual"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000000</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000000</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000000 AND ATCHRLUS_ID = 72000000</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000000 AND IDENTIFIER = 'MANUAL'</where></delete>
         </rollback>
     </changeSet>
 
@@ -56,8 +56,8 @@
             <column name="SHORTDESCRIPTION" value="User guide for the product"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000001</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000001</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000001 AND ATCHRLUS_ID = 72000001</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000001 AND IDENTIFIER = 'USER_GUIDE'</where></delete>
         </rollback>
     </changeSet>
 
@@ -80,8 +80,8 @@
             <column name="SHORTDESCRIPTION" value="Installation or assembly guide"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000002</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000002</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000002 AND ATCHRLUS_ID = 72000002</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000002 AND IDENTIFIER = 'INSTALLATION_GUIDE'</where></delete>
         </rollback>
     </changeSet>
 
@@ -104,8 +104,8 @@
             <column name="SHORTDESCRIPTION" value="Technical datasheet"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000003</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000003</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000003 AND ATCHRLUS_ID = 72000003</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000003 AND IDENTIFIER = 'DATASHEET'</where></delete>
         </rollback>
     </changeSet>
 
@@ -128,8 +128,8 @@
             <column name="SHORTDESCRIPTION" value="Certificate or declaration of conformity"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000004</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000004</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000004 AND ATCHRLUS_ID = 72000004</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000004 AND IDENTIFIER = 'CERTIFICATE'</where></delete>
         </rollback>
     </changeSet>
 
@@ -152,8 +152,8 @@
             <column name="SHORTDESCRIPTION" value="Warranty terms"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000005</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000005</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000005 AND ATCHRLUS_ID = 72000005</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000005 AND IDENTIFIER = 'WARRANTY'</where></delete>
         </rollback>
     </changeSet>
 
@@ -176,8 +176,8 @@
             <column name="SHORTDESCRIPTION" value="Safety data sheet (SDS/MSDS)"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000006</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000006</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000006 AND ATCHRLUS_ID = 72000006</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000006 AND IDENTIFIER = 'SAFETY_DATA_SHEET'</where></delete>
         </rollback>
     </changeSet>
 
@@ -200,8 +200,8 @@
             <column name="SHORTDESCRIPTION" value="EU energy label"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000007</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000007</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000007 AND ATCHRLUS_ID = 72000007</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000007 AND IDENTIFIER = 'ENERGY_LABEL'</where></delete>
         </rollback>
     </changeSet>
 
@@ -224,8 +224,8 @@
             <column name="SHORTDESCRIPTION" value="EU product information sheet"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000008</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000008</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000008 AND ATCHRLUS_ID = 72000008</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000008 AND IDENTIFIER = 'PRODUCT_FICHE'</where></delete>
         </rollback>
     </changeSet>
 
@@ -248,8 +248,8 @@
             <column name="SHORTDESCRIPTION" value="Product or instructional video"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000009</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000009</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000009 AND ATCHRLUS_ID = 72000009</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000009 AND IDENTIFIER = 'VIDEO'</where></delete>
         </rollback>
     </changeSet>
 
@@ -272,8 +272,8 @@
             <column name="SHORTDESCRIPTION" value="3D model, e.g. glb or usdz"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000010</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000010</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000010 AND ATCHRLUS_ID = 72000010</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000010 AND IDENTIFIER = 'MODEL_3D'</where></delete>
         </rollback>
     </changeSet>
 
@@ -296,8 +296,8 @@
             <column name="SHORTDESCRIPTION" value="Other product asset"/>
         </insert>
         <rollback>
-            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000011</where></delete>
-            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000011</where></delete>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000011 AND ATCHRLUS_ID = 72000011</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000011 AND IDENTIFIER = 'OTHER_ASSET'</where></delete>
         </rollback>
     </changeSet>
 
