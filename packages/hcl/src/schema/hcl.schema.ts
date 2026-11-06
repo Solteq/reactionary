@@ -139,6 +139,11 @@ export interface HclProductAttribute {
 }
 
 export interface HclAttachment {
+  /**
+   * The attachment relation usage identifier (ATCHRLUS.IDENTIFIER), e.g. MANUAL. Only present when the product
+   * profile includes it.
+   */
+  usage?: string;
   mimeType: string;
   attachmentAssetPath: string;
   name: string;

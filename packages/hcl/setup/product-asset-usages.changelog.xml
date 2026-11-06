@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Attachment relation usages for the Reactionary productAssets capability.
+
+  Creates one usage per product asset type in ATCHRLUS (identifier + sequence) and its English description in
+  ATCHRLUSDS (LANGUAGE_ID -1). Fixed ids from 72000000, so the script gives the same ids in every environment.
+
+  Idempotent: each changeSet is marked as ran, not failed, when the usage identifier or either id already exists.
+  Add descriptions in other languages as further ATCHRLUSDS rows (see README.md).
+-->
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- MANUAL -> asset type "manual" -->
+    <changeSet id="reactionary-product-asset-usage-manual" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'MANUAL' OR ATCHRLUS_ID = 72000000</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000000</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000000"/>
+            <column name="IDENTIFIER" value="MANUAL"/>
+            <column name="SEQUENCE" valueNumeric="1"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000000"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000000"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="Manual"/>
+            <column name="SHORTDESCRIPTION" value="Product manual"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000000</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000000</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- USER_GUIDE -> asset type "user-guide" -->
+    <changeSet id="reactionary-product-asset-usage-user-guide" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'USER_GUIDE' OR ATCHRLUS_ID = 72000001</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000001</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000001"/>
+            <column name="IDENTIFIER" value="USER_GUIDE"/>
+            <column name="SEQUENCE" valueNumeric="2"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000001"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000001"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="User guide"/>
+            <column name="SHORTDESCRIPTION" value="User guide for the product"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000001</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000001</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- INSTALLATION_GUIDE -> asset type "installation-guide" -->
+    <changeSet id="reactionary-product-asset-usage-installation-guide" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'INSTALLATION_GUIDE' OR ATCHRLUS_ID = 72000002</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000002</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000002"/>
+            <column name="IDENTIFIER" value="INSTALLATION_GUIDE"/>
+            <column name="SEQUENCE" valueNumeric="3"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000002"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000002"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="Installation guide"/>
+            <column name="SHORTDESCRIPTION" value="Installation or assembly guide"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000002</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000002</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- DATASHEET -> asset type "datasheet" -->
+    <changeSet id="reactionary-product-asset-usage-datasheet" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'DATASHEET' OR ATCHRLUS_ID = 72000003</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000003</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000003"/>
+            <column name="IDENTIFIER" value="DATASHEET"/>
+            <column name="SEQUENCE" valueNumeric="4"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000003"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000003"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="Datasheet"/>
+            <column name="SHORTDESCRIPTION" value="Technical datasheet"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000003</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000003</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- CERTIFICATE -> asset type "certificate" -->
+    <changeSet id="reactionary-product-asset-usage-certificate" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'CERTIFICATE' OR ATCHRLUS_ID = 72000004</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000004</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000004"/>
+            <column name="IDENTIFIER" value="CERTIFICATE"/>
+            <column name="SEQUENCE" valueNumeric="5"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000004"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000004"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="Certificate"/>
+            <column name="SHORTDESCRIPTION" value="Certificate or declaration of conformity"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000004</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000004</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- WARRANTY -> asset type "warranty" -->
+    <changeSet id="reactionary-product-asset-usage-warranty" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'WARRANTY' OR ATCHRLUS_ID = 72000005</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000005</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000005"/>
+            <column name="IDENTIFIER" value="WARRANTY"/>
+            <column name="SEQUENCE" valueNumeric="6"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000005"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000005"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="Warranty"/>
+            <column name="SHORTDESCRIPTION" value="Warranty terms"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000005</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000005</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- SAFETY_DATA_SHEET -> asset type "safety-data-sheet" -->
+    <changeSet id="reactionary-product-asset-usage-safety-data-sheet" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'SAFETY_DATA_SHEET' OR ATCHRLUS_ID = 72000006</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000006</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000006"/>
+            <column name="IDENTIFIER" value="SAFETY_DATA_SHEET"/>
+            <column name="SEQUENCE" valueNumeric="7"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000006"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000006"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="Safety data sheet"/>
+            <column name="SHORTDESCRIPTION" value="Safety data sheet (SDS/MSDS)"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000006</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000006</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- ENERGY_LABEL -> asset type "energy-label" -->
+    <changeSet id="reactionary-product-asset-usage-energy-label" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'ENERGY_LABEL' OR ATCHRLUS_ID = 72000007</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000007</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000007"/>
+            <column name="IDENTIFIER" value="ENERGY_LABEL"/>
+            <column name="SEQUENCE" valueNumeric="8"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000007"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000007"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="Energy label"/>
+            <column name="SHORTDESCRIPTION" value="EU energy label"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000007</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000007</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- PRODUCT_FICHE -> asset type "product-fiche" -->
+    <changeSet id="reactionary-product-asset-usage-product-fiche" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'PRODUCT_FICHE' OR ATCHRLUS_ID = 72000008</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000008</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000008"/>
+            <column name="IDENTIFIER" value="PRODUCT_FICHE"/>
+            <column name="SEQUENCE" valueNumeric="9"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000008"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000008"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="Product fiche"/>
+            <column name="SHORTDESCRIPTION" value="EU product information sheet"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000008</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000008</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- VIDEO -> asset type "video" -->
+    <changeSet id="reactionary-product-asset-usage-video" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'VIDEO' OR ATCHRLUS_ID = 72000009</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000009</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000009"/>
+            <column name="IDENTIFIER" value="VIDEO"/>
+            <column name="SEQUENCE" valueNumeric="10"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000009"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000009"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="Video"/>
+            <column name="SHORTDESCRIPTION" value="Product or instructional video"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000009</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000009</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- MODEL_3D -> asset type "3d-model" -->
+    <changeSet id="reactionary-product-asset-usage-model-3d" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'MODEL_3D' OR ATCHRLUS_ID = 72000010</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000010</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000010"/>
+            <column name="IDENTIFIER" value="MODEL_3D"/>
+            <column name="SEQUENCE" valueNumeric="11"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000010"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000010"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="3D model"/>
+            <column name="SHORTDESCRIPTION" value="3D model, e.g. glb or usdz"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000010</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000010</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- OTHER_ASSET -> asset type "other" -->
+    <changeSet id="reactionary-product-asset-usage-other-asset" author="reactionary">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUS WHERE IDENTIFIER = 'OTHER_ASSET' OR ATCHRLUS_ID = 72000011</sqlCheck>
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM ATCHRLUSDS WHERE ATCHRLUSDS_ID = 72000011</sqlCheck>
+        </preConditions>
+        <insert tableName="ATCHRLUS">
+            <column name="ATCHRLUS_ID" valueNumeric="72000011"/>
+            <column name="IDENTIFIER" value="OTHER_ASSET"/>
+            <column name="SEQUENCE" valueNumeric="12"/>
+        </insert>
+        <insert tableName="ATCHRLUSDS">
+            <column name="ATCHRLUSDS_ID" valueNumeric="72000011"/>
+            <column name="ATCHRLUS_ID" valueNumeric="72000011"/>
+            <column name="LANGUAGE_ID" valueNumeric="-1"/>
+            <column name="NAME" value="Other asset"/>
+            <column name="SHORTDESCRIPTION" value="Other product asset"/>
+        </insert>
+        <rollback>
+            <delete tableName="ATCHRLUSDS"><where>ATCHRLUSDS_ID = 72000011</where></delete>
+            <delete tableName="ATCHRLUS"><where>ATCHRLUS_ID = 72000011</where></delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
