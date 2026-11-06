@@ -153,6 +153,10 @@ export const ProductAssociationsIdentifierSchema = z.looseObject({
     key: z.string(),
 });
 
+export const ProductAssetIdentifierSchema = z.looseObject({
+    key: z.string().meta({ description: 'Stable key of the logical asset. The same asset shown on several products shares one key.' }),
+});
+
 export const ProductRatingIdentifierSchema = z.looseObject({
   product: ProductIdentifierSchema.meta({ description: 'The product this rating summary is for.' }),
 });
@@ -319,6 +323,7 @@ export type ProductAttributeIdentifier = InferType<typeof ProductAttributeIdenti
 export type ProductAttributeValueIdentifier = InferType<typeof ProductAttributeValueIdentifierSchema>;
 export type ProductRecommendationIdentifier = InferType<typeof ProductRecommendationIdentifierSchema>;
 export type ProductAssociationsIdentifier = InferType<typeof ProductAssociationsIdentifierSchema>;
+export type ProductAssetIdentifier = InferType<typeof ProductAssetIdentifierSchema>;
 export type ProductRatingIdentifier = InferType<typeof ProductRatingIdentifierSchema>;
 export type ProductReviewIdentifier = InferType<typeof ProductReviewIdentifierSchema>;
 export type ProductListIdentifier = InferType<typeof ProductListIdentifierSchema>;
@@ -375,6 +380,7 @@ export type IdentifierType =
   | ProductRatingIdentifier
   | ProductReviewIdentifier
   | ProductAssociationsIdentifier
+  | ProductAssetIdentifier
   | ProductListIdentifier
   | ProductListItemIdentifier
   | ProductListSearchIdentifier

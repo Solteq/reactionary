@@ -14,6 +14,7 @@ export * from './order-search.factory.js';
 export * from './price.factory.js';
 export * from './product.factory.js';
 export * from './product-associations.factory.js';
+export * from './product-assets.factory.js';
 export * from './product-list.factory.js';
 export * from './product-recommendations.factory.js';
 export * from './product-reviews.factory.js';
