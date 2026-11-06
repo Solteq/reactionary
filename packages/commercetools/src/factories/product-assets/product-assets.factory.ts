@@ -17,9 +17,13 @@ export interface CommercetoolsProductAssetFactoryInput {
   language?: string;
 }
 
-const EMBED_HOSTS: ReadonlyArray<{ provider: string; hosts: readonly string[] }> = [
-  { provider: 'youtube', hosts: ['youtube.com', 'www.youtube.com', 'youtu.be', 'www.youtube-nocookie.com'] },
-  { provider: 'vimeo', hosts: ['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'] },
+/**
+ * Urls that can be put in an iframe. A watch page (youtube.com/watch, vimeo.com/<id>) cannot: those hosts refuse
+ * framing, so such a url stays a plain file/link.
+ */
+const EMBED_URLS: ReadonlyArray<{ provider: string; hosts: readonly string[]; pathPrefix: string }> = [
+  { provider: 'youtube', hosts: ['youtube.com', 'www.youtube.com', 'www.youtube-nocookie.com'], pathPrefix: '/embed/' },
+  { provider: 'vimeo', hosts: ['player.vimeo.com'], pathPrefix: '/video/' },
 ];
 
 /**
@@ -66,15 +70,16 @@ export class CommercetoolsProductAssetsFactory<
     };
   }
 
-  /** Recognises the well-known video hosts whose urls are player pages rather than files. */
+  /** Recognises the urls of well-known video players that are meant to be embedded. */
   protected detectEmbedProvider(uri: string): string | undefined {
-    let host: string;
+    let parsed: URL;
     try {
-      host = new URL(uri).hostname.toLowerCase();
+      parsed = new URL(uri);
     } catch {
       return undefined;
     }
-    return EMBED_HOSTS.find((entry) => entry.hosts.includes(host))?.provider;
+    const host = parsed.hostname.toLowerCase();
+    return EMBED_URLS.find((entry) => entry.hosts.includes(host) && parsed.pathname.startsWith(entry.pathPrefix))?.provider;
   }
 
   /** The value for the request language, else the first value present. */
