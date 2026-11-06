@@ -67,6 +67,10 @@ export class AlgoliaProductSearchFactory<
       const values = body.facets[id];
       const facetId = FacetIdentifierSchema.parse({ key: id });
       const facet = this.parseFacet(facetId, values);
+      const stats = body.facets_stats?.[id];
+      if (stats?.min !== undefined && stats.max !== undefined) {
+        facet.stats = { min: stats.min, max: stats.max };
+      }
       if (facet.values.length > 0) {
         facets.push(facet);
       }
@@ -103,6 +107,7 @@ export class AlgoliaProductSearchFactory<
         term: query.search.term,
         facets: query.search.facets,
         ...(query.search.multiselect ? { multiselect: query.search.multiselect } : {}),
+        ...(query.search.ranges ? { ranges: query.search.ranges } : {}),
         filters: query.search.filters,
         paginationOptions: query.search.paginationOptions,
         index: body.index || '',

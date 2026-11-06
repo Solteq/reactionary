@@ -19,6 +19,7 @@ import {
   Reactionary,
   replaceFacets,
   success,
+  withFacetStats,
 } from '@reactionary/core';
 import { algoliasearch, type SearchQuery } from 'algoliasearch';
 import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
@@ -83,6 +84,12 @@ export class AlgoliaProductSearchCapability<
       finalFilters.push(`categories:"${categoryFacet.key}"`);
     }
 
+    // Every bound is a numeric filter of its own, and Algolia ANDs them
+    const numericFilters = (payload.search.ranges ?? []).flatMap((range) => [
+      ...(range.min !== undefined ? [`${range.facet.key}>=${range.min}`] : []),
+      ...(range.max !== undefined ? [`${range.facet.key}<=${range.max}`] : []),
+    ]);
+
     const rulesContext = this.ruleContextsOf(payload.personalizationProfile);
     const optionalFilters = this.optionalFiltersOf(payload.personalizationProfile);
 
@@ -96,6 +103,7 @@ export class AlgoliaProductSearchCapability<
       clickAnalytics: true,
       facetFilters: finalFacetFilters,
       filters: finalFilters.join(' AND '),
+      ...(numericFilters.length > 0 ? { numericFilters } : {}),
       ruleContexts: rulesContext,
       ...(optionalFilters.length > 0 ? { optionalFilters } : {}),
       userToken: payload.personalizationProfile?.identifier.key || 'anonymous',
@@ -119,6 +127,17 @@ export class AlgoliaProductSearchCapability<
     };
   }
 
+  /** The numeric facets the search is restricted on, once each. */
+  protected rangeKeysOf(payload: ProductSearchQueryByTerm): string[] {
+    const restricted = (payload.search.ranges ?? []).filter((range) => range.min !== undefined || range.max !== undefined);
+    return Array.from(new Set(restricted.map((range) => range.facet.key)));
+  }
+
+  /** The search as if it had no ranges. */
+  protected withoutRangesOf(payload: ProductSearchQueryByTerm): ProductSearchQueryByTerm {
+    return { ...payload, search: { ...payload.search, ranges: undefined } };
+  }
+
   /**
    * The request that returns the values and counts of one multiselect facet as if none of its values were selected. It is kept out of the
    * analytics, so that it neither counts as a search nor gets a queryID of its own. Only its facets are used: it asks for one hit because
@@ -136,6 +155,22 @@ export class AlgoliaProductSearchCapability<
     } satisfies SearchQuery;
   }
 
+  /**
+   * The request that returns the stats of the numeric facets that are restricted by a range, as the search has them without its ranges. It is
+   * kept out of the analytics and asks for one hit, like the one of a multiselect facet.
+   */
+  protected rangeBoundsPayload(payload: ProductSearchQueryByTerm, facetKeys: string[]) {
+    const request = this.queryByTermPayload(this.withoutRangesOf(payload));
+    return {
+      ...request,
+      page: 0,
+      hitsPerPage: 1,
+      facets: facetKeys,
+      analytics: false,
+      clickAnalytics: false,
+    } satisfies SearchQuery;
+  }
+
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
     outputSchema: ProductSearchResultSchema,
@@ -145,26 +180,38 @@ export class AlgoliaProductSearchCapability<
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
     const client = algoliasearch(this.config.appId, this.config.apiKey);
 
-    // The main request is the first, and the only one that counts for the analytics: its queryID is the one of the result.
-    const siblingKeys = this.multiselectKeysWithSelection(payload);
+    // The main request is the first, and the only one that counts for the analytics: its queryID is the one of the result. Next to it go
+    // the searches that offer what the selection hides. Only their facets are used: the values of a multiselect facet from the search without
+    // its selection, and the stats of the ranged facets from the search without its ranges.
+    const siblings = this.multiselectKeysWithSelection(payload).map((key) => ({
+      key,
+      search: this.withoutSelectionOf(payload, key),
+      request: this.siblingFacetPayload(payload, key),
+    }));
+    const rangeKeys = this.rangeKeysOf(payload);
+    const bounds =
+      rangeKeys.length > 0
+        ? { search: this.withoutRangesOf(payload), request: this.rangeBoundsPayload(payload, rangeKeys) }
+        : undefined;
     const remote = await client.search<AlgoliaNativeRecord>({
       requests: [
         this.queryByTermPayload(payload),
-        ...siblingKeys.map((key) => this.siblingFacetPayload(payload, key)),
+        ...siblings.map((sibling) => sibling.request),
+        ...(bounds ? [bounds.request] : []),
       ],
     });
 
     const input = remote.results[0];
     const result = this.factory.parseSearchResult(this.context, input, payload);
 
-    if (siblingKeys.length > 0) {
-      // Each of the others is the search without the selection of one multiselect facet: its values and counts are what that facet offers
-      const siblingFacets = siblingKeys.flatMap(
-        (key, index) =>
-          this.factory.parseSearchResult(this.context, remote.results[index + 1], this.withoutSelectionOf(payload, key)).facets
-            .filter((facet) => facet.identifier.key === key),
-      );
-      result.facets = replaceFacets(result.facets, siblingFacets);
+    if (siblings.length > 0 || bounds) {
+      const facetsOf = (response: unknown, search: ProductSearchQueryByTerm, keys: string[]) =>
+        this.factory
+          .parseSearchResult(this.context, response, search)
+          .facets.filter((facet) => keys.includes(facet.identifier.key));
+      const siblingFacets = siblings.flatMap((sibling, index) => facetsOf(remote.results[index + 1], sibling.search, [sibling.key]));
+      const boundsFacets = bounds ? facetsOf(remote.results[siblings.length + 1], bounds.search, rangeKeys) : [];
+      result.facets = withFacetStats(replaceFacets(result.facets, siblingFacets), boundsFacets);
     }
 
     for (const selectedFacet of payload.search.facets) {

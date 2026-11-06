@@ -60,3 +60,26 @@ export function replaceFacets(
   }
   return merged;
 }
+
+/**
+ * Puts the stats of the facets of another search on the facets of a search result, and nothing else: the values and counts of a facet stay
+ * those of the search itself. A facet the result lacks (nothing matched) is added without values, so that a slider keeps its bounds.
+ */
+export function withFacetStats(
+  facets: ProductSearchResultFacet[],
+  withStats: ProductSearchResultFacet[],
+): ProductSearchResultFacet[] {
+  const merged = [...facets];
+  for (const source of withStats) {
+    if (!source.stats) {
+      continue;
+    }
+    const index = merged.findIndex((facet) => facet.identifier.key === source.identifier.key);
+    if (index === -1) {
+      merged.push({ ...source, values: [] });
+    } else {
+      merged[index] = { ...merged[index], stats: source.stats };
+    }
+  }
+  return merged;
+}

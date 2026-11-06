@@ -38,7 +38,8 @@ import {
   replaceFacets,
   type RequestContext,
   type Result,
-  success
+  success,
+  withFacetStats,
 } from '@reactionary/core';
 import { Meilisearch, type SearchParams, type SearchResponse } from 'meilisearch';
 import type { MeilisearchConfiguration } from '../schema/configuration.schema.js';
@@ -167,9 +168,18 @@ export class MeilisearchProductSearchCapability<
     // Meilisearch ANDs the expressions of the filter. A multiselect facet is one parenthesised group with an OR between its values.
     const selections = groupFacetSelections(facetsThatAreNotCategory, payload.search.multiselect);
     const equals = (x: FacetValueIdentifier) => `"${this.escapeFilterValue(x.facet.key)}"="${this.escapeFilterValue(x.key)}"`;
+    // Every bound of a range is an expression of its own
+    const bounds = (payload.search.ranges ?? []).flatMap((range) => {
+      const attribute = `"${this.escapeFilterValue(range.facet.key)}"`;
+      return [
+        ...(range.min !== undefined ? [`${attribute} >= ${range.min}`] : []),
+        ...(range.max !== undefined ? [`${attribute} <= ${range.max}`] : []),
+      ];
+    });
     const finalFacetFilters: string[] = [
       ...selections.single.map(equals),
       ...Array.from(selections.multi.values(), (values) => `(${values.map(equals).join(' OR ')})`),
+      ...bounds,
     ];
 
     if (categoryFacet) {
@@ -228,6 +238,17 @@ export class MeilisearchProductSearchCapability<
     };
   }
 
+  /** The numeric facets the search is restricted on, once each. */
+  protected rangeKeysOf(payload: ProductSearchQueryByTerm): string[] {
+    const restricted = (payload.search.ranges ?? []).filter((range) => range.min !== undefined || range.max !== undefined);
+    return Array.from(new Set(restricted.map((range) => range.facet.key)));
+  }
+
+  /** The search as if it had no ranges. */
+  protected withoutRangesOf(payload: ProductSearchQueryByTerm): ProductSearchQueryByTerm {
+    return { ...payload, search: { ...payload.search, ranges: undefined } };
+  }
+
   /**
    * The request that returns the values and counts of one multiselect facet as if none of its values were selected, with no hits.
    * Neither ranking nor personalization matters to it.
@@ -235,6 +256,15 @@ export class MeilisearchProductSearchCapability<
   protected siblingFacetPayload(payload: ProductSearchQueryByTerm, facetKey: string): SearchParams {
     const request = this.queryByTermPayload({ ...this.withoutSelectionOf(payload, facetKey), personalizationProfile: undefined });
     return { ...request, offset: 0, limit: 0, facets: [facetKey], showRankingScore: false };
+  }
+
+  /**
+   * The request that returns the stats of the numeric facets that are restricted by a range, as the search has them without its ranges,
+   * with no hits.
+   */
+  protected rangeBoundsPayload(payload: ProductSearchQueryByTerm, facetKeys: string[]): SearchParams {
+    const request = this.queryByTermPayload({ ...this.withoutRangesOf(payload), personalizationProfile: undefined });
+    return { ...request, offset: 0, limit: 0, facets: facetKeys, showRankingScore: false };
   }
 
   // Not cached: the personalization profile is part of the payload, and with it the cache key, so a search is cached per visitor
@@ -254,19 +284,30 @@ export class MeilisearchProductSearchCapability<
     const index = client.index(getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale));
 
 
-    // The search itself, and next to it one search without the selection of each multiselect facet that has one: its values and counts
-    // are what that facet offers. They run side by side.
-    const siblingKeys = this.multiselectKeysWithSelection(payload);
-    const [remote, ...siblings] = await Promise.all([
+    // The search itself, and next to it the searches that offer what the selection hides: the values of a multiselect facet from the
+    // search without its selection, and the stats of the ranged facets from the search without its ranges. They run side by side.
+    const siblings = this.multiselectKeysWithSelection(payload).map((key) => ({
+      key,
+      search: this.withoutSelectionOf(payload, key),
+      request: this.siblingFacetPayload(payload, key),
+    }));
+    const rangeKeys = this.rangeKeysOf(payload);
+    const bounds =
+      rangeKeys.length > 0
+        ? { search: this.withoutRangesOf(payload), request: this.rangeBoundsPayload(payload, rangeKeys) }
+        : undefined;
+    const [remote, ...responses] = await Promise.all([
       index.search<MeilisearchNativeRecord>(payload.search.term, this.queryByTermPayload(payload)),
-      ...siblingKeys.map((key) => index.search<MeilisearchNativeRecord>(payload.search.term, this.siblingFacetPayload(payload, key))),
+      ...siblings.map((sibling) => index.search<MeilisearchNativeRecord>(payload.search.term, sibling.request)),
+      ...(bounds ? [index.search<MeilisearchNativeRecord>(payload.search.term, bounds.request)] : []),
     ]);
     let parsed = this.parsePaginatedResult(remote, payload);
-    if (siblingKeys.length > 0) {
-      const siblingFacets = siblingKeys.flatMap((key, i) =>
-        this.parsePaginatedResult(siblings[i], this.withoutSelectionOf(payload, key)).facets.filter((facet) => facet.identifier.key === key),
-      );
-      parsed = { ...parsed, facets: replaceFacets(parsed.facets, siblingFacets) };
+    if (siblings.length > 0 || bounds) {
+      const facetsOf = (response: SearchResponse<MeilisearchNativeRecord>, search: ProductSearchQueryByTerm, keys: string[]) =>
+        this.parsePaginatedResult(response, search).facets.filter((facet) => keys.includes(facet.identifier.key));
+      const siblingFacets = siblings.flatMap((sibling, i) => facetsOf(responses[i], sibling.search, [sibling.key]));
+      const boundsFacets = bounds ? facetsOf(responses[siblings.length], bounds.search, rangeKeys) : [];
+      parsed = { ...parsed, facets: withFacetStats(replaceFacets(parsed.facets, siblingFacets), boundsFacets) };
     }
     const result = this.personalize(parsed, payload);
 
@@ -370,6 +411,10 @@ export class MeilisearchProductSearchCapability<
           key: id
         });
         const facet = this.parseFacet(facetId, f);
+        const stats = body.facetStats?.[id];
+        if (typeof stats?.min === 'number' && typeof stats.max === 'number') {
+          facet.stats = { min: stats.min, max: stats.max };
+        }
         if (facet.values.length > 0) {
           facets.push(facet);
         }
@@ -408,6 +453,7 @@ export class MeilisearchProductSearchCapability<
         term: query.search.term,
         facets: query.search.facets,
         ...(query.search.multiselect ? { multiselect: query.search.multiselect } : {}),
+        ...(query.search.ranges ? { ranges: query.search.ranges } : {}),
         filters: query.search.filters,
         paginationOptions: query.search.paginationOptions,
       },

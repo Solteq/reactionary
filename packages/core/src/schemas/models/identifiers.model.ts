@@ -27,6 +27,12 @@ export const FacetValueIdentifierSchema = z.object({
   key: z.string(),
 });
 
+export const FacetRangeSchema = z.looseObject({
+  facet: FacetIdentifierSchema.meta({ description: 'The numeric facet to restrict, e.g. a price. The attribute must be numeric and declared filterable in the search index.' }),
+  min: z.number().optional().meta({ description: 'The lowest value that matches, inclusive. No lower limit when left out.' }),
+  max: z.number().optional().meta({ description: 'The highest value that matches, inclusive. No upper limit when left out.' }),
+});
+
 export const ProductVariantIdentifierSchema = z.looseObject({
   sku: z.string(),
 });
@@ -180,6 +186,7 @@ export const ProductSearchIdentifierSchema = z.looseObject({
   term: z.string().meta({ description: 'The search term used to find products.' }),
   facets: z.array(FacetValueIdentifierSchema).meta({ description: 'The facets applied to filter the search results.' }),
   multiselect: z.array(FacetIdentifierSchema).optional().meta({ description: 'The facets that are multiselect. Without it a facet narrows the search: values selected within the same facet must all match, and a selected value hides its siblings. For the facets named here the selected values widen the search instead (any of them matches, across facets they still all must), and the facet keeps returning the values and counts it would have without its own selection, so that the shopper can add one more (Algolia and Meilisearch; commercetools widens the selection but returns its facet as the search does). Providers that do not support it ignore it, and a provider that always widens within a facet (Magento) is unaffected. Never applies to the categories facet.' }),
+  ranges: z.array(FacetRangeSchema).optional().meta({ description: 'Numeric ranges the search results must fall in, for the numeric facets named. All of them must match, so a facet can have a range of its own, or be bounded by two entries. The facets named here come back with the stats (lowest and highest value) of the search without any range, so that a slider keeps its bounds while it is moved. Searches of providers that cannot filter by range are not restricted.' }),
   filters: z.array(z.string()).meta({ description: 'Additional filters applied to the search results.' }),
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
   categoryFilter: FacetValueIdentifierSchema.optional().meta({ description: 'An optional category filter applied to the search results.' }),
@@ -281,6 +288,7 @@ export const FeatureFlagIdentifierSchema = z.looseObject({
 });
 
 
+export type FacetRange = InferType<typeof FacetRangeSchema>;
 export type CartSearchIdentifier = InferType<typeof CartSearchIdentifierSchema>;
 export type OrderSearchIdentifier = InferType<typeof OrderSearchIdentifierSchema>;
 export type ProductIdentifier = InferType<typeof ProductIdentifierSchema>;
