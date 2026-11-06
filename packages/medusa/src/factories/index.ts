@@ -12,6 +12,7 @@ export * from './order-search/order-search.factory.js';
 export * from './price/price.factory.js';
 export * from './product/product.factory.js';
 export * from './product-associations/product-associations.factory.js';
+export * from './product-assets/product-assets.factory.js';
 export * from './product-search/product-search.factory.js';
 export * from './profile/profile.factory.js';
 export * from './personalization-profile/personalization-profile.factory.js';
