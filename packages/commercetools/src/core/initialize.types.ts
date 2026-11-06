@@ -10,6 +10,7 @@ import type {
   OrderSearchFactory,
   PriceFactory,
   ProductAssociationsFactory,
+  ProductAssetsFactory,
   ProductFactory,
   ProductListFactory,
   ProductReviewsFactory,
@@ -28,6 +29,7 @@ import type { CommercetoolsOrderFactory } from '../factories/order/order.factory
 import type { CommercetoolsOrderSearchFactory } from '../factories/order-search/order-search.factory.js';
 import type { CommercetoolsPriceFactory } from '../factories/price/price.factory.js';
 import type { CommercetoolsProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
+import type { CommercetoolsProductAssetsFactory } from '../factories/product-assets/product-assets.factory.js';
 import type { CommercetoolsProductFactory } from '../factories/product/product.factory.js';
 import type { CommercetoolsProductListFactory } from '../factories/product-list/product-list.factory.js';
 import type { CommercetoolsProductReviewsFactory } from '../factories/product-reviews/product-reviews.factory.js';
@@ -48,6 +50,7 @@ import type { CommercetoolsOrderSearchCapability } from '../capabilities/order-s
 import type { CommercetoolsOrderCapability } from '../capabilities/order.capability.js';
 import type { CommercetoolsPriceCapability } from '../capabilities/price.capability.js';
 import type { CommercetoolsProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
+import type { CommercetoolsProductAssetsCapability } from '../capabilities/product-assets.capability.js';
 import type { CommercetoolsProductListCapability } from '../capabilities/product-list.capability.js';
 import type { CommercetoolsProductCapability } from '../capabilities/product.capability.js';
 import type { CommercetoolsProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
@@ -86,6 +89,7 @@ type FactoryContractMap = {
   product: ProductFactory;
   productSearch: ProductSearchFactory;
   productAssociations: ProductAssociationsFactory;
+  productAssets: ProductAssetsFactory;
   productReviews: ProductReviewsFactory;
   productList: ProductListFactory;
   identity: IdentityFactory;
@@ -109,6 +113,7 @@ type DefaultFactoryMap = {
   product: CommercetoolsProductFactory;
   productSearch: CommercetoolsProductSearchFactory;
   productAssociations: CommercetoolsProductAssociationsFactory;
+  productAssets: CommercetoolsProductAssetsFactory;
   productReviews: CommercetoolsProductReviewsFactory;
   productList: CommercetoolsProductListFactory;
   identity: CommercetoolsIdentityFactory;
@@ -141,6 +146,9 @@ type DefaultCapabilityMap<T extends CommercetoolsCapabilities> = {
   productSearch: CommercetoolsProductSearchCapability<ResolvedFactoryMap<T>['productSearch']>;
   productAssociations: CommercetoolsProductAssociationsCapability<
     ResolvedFactoryMap<T>['productAssociations']
+  >;
+  productAssets: CommercetoolsProductAssetsCapability<
+    ResolvedFactoryMap<T>['productAssets']
   >;
   productReviews: CommercetoolsProductReviewsCapability<
     ResolvedFactoryMap<T>['productReviews']

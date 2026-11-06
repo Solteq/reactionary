@@ -27,6 +27,9 @@ import type {
   ProductAssociationsFactory,
   ProductAssociationsFactoryWithOutput,
   ProductAssociationsCapability,
+  ProductAssetsFactory,
+  ProductAssetsFactoryWithOutput,
+  ProductAssetsCapability,
   ProductFactory,
   ProductFactoryWithOutput,
   ProductListFactory,
@@ -77,6 +80,7 @@ export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
   product: true,
   productSearch: true,
   productAssociations: true,
+  productAssets: true,
   productReviews: true,
   productList: true,
   identity: true,
@@ -94,6 +98,7 @@ export const CommercetoolsCapabilitiesSchema = CapabilitiesSchema.pick({
   .extend({
     productSearch: EnabledCapabilitySchema.optional(),
     productAssociations: EnabledCapabilitySchema.optional(),
+    productAssets: EnabledCapabilitySchema.optional(),
     productReviews: EnabledCapabilitySchema.optional(),
     productList: EnabledCapabilitySchema.optional(),
     identity: EnabledCapabilitySchema.optional(),
@@ -146,6 +151,11 @@ export type CommercetoolsProductSearchCapabilityConfig = CommercetoolsCapability
   ProductSearchFactoryWithOutput<ProductSearchFactory>,
   ProductSearchCapability
 >;
+export type CommercetoolsProductAssetsCapabilityConfig = CommercetoolsCapabilityConfig<
+  ProductAssetsFactoryWithOutput<ProductAssetsFactory>,
+  ProductAssetsCapability
+>;
+
 export type CommercetoolsProductAssociationsCapabilityConfig = CommercetoolsCapabilityConfig<
   ProductAssociationsFactoryWithOutput<ProductAssociationsFactory>,
   ProductAssociationsCapability
@@ -232,6 +242,10 @@ export type CommercetoolsCapabilityConfigMap<
   productAssociations: EnabledCapabilityConfig<
     ProductAssociationsFactoryWithOutput<ProductAssociationsFactory>,
     ProductAssociationsCapability
+  >;
+  productAssets: EnabledCapabilityConfig<
+    ProductAssetsFactoryWithOutput<ProductAssetsFactory>,
+    ProductAssetsCapability
   >;
   productReviews: EnabledCapabilityConfig<
     ProductReviewsFactoryWithOutput<ProductReviewsFactory>,
