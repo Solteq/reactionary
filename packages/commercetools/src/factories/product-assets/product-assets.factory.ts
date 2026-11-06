@@ -6,6 +6,7 @@ import type {
   ProductAssetsFactory,
   RequestContext,
 } from '@reactionary/core';
+import { detectEmbedProvider } from '@reactionary/core';
 import type * as z from 'zod';
 import { getLanguageCodeFromLocale } from '../../core/locale-utils.js';
 
@@ -16,15 +17,6 @@ export interface CommercetoolsProductAssetFactoryInput {
   /** Language of the asset content, read from its language tag. */
   language?: string;
 }
-
-/**
- * Urls that can be put in an iframe. A watch page (youtube.com/watch, vimeo.com/<id>) cannot: those hosts refuse
- * framing, so such a url stays a plain file/link.
- */
-const EMBED_URLS: ReadonlyArray<{ provider: string; hosts: readonly string[]; pathPrefix: string }> = [
-  { provider: 'youtube', hosts: ['youtube.com', 'www.youtube.com', 'www.youtube-nocookie.com'], pathPrefix: '/embed/' },
-  { provider: 'vimeo', hosts: ['player.vimeo.com'], pathPrefix: '/video/' },
-];
 
 /**
  * Turns a commercetools asset into a core ProductAsset: the asset is the logical asset, each of its sources is a file
@@ -72,14 +64,7 @@ export class CommercetoolsProductAssetsFactory<
 
   /** Recognises the urls of well-known video players that are meant to be embedded. */
   protected detectEmbedProvider(uri: string): string | undefined {
-    let parsed: URL;
-    try {
-      parsed = new URL(uri);
-    } catch {
-      return undefined;
-    }
-    const host = parsed.hostname.toLowerCase();
-    return EMBED_URLS.find((entry) => entry.hosts.includes(host) && parsed.pathname.startsWith(entry.pathPrefix))?.provider;
+    return detectEmbedProvider(uri);
   }
 
   /** The value for the request language, else the first value present. */
