@@ -146,6 +146,27 @@ describe('HCL Product Assets Capability (offline)', () => {
     expect(await keysOf(provider, { forProduct: { key: 'p1' }, forVariant: { sku: 'nope' } })).toEqual(['manual', 'cert']);
   });
 
+  it('marks the url of an embeddable video player as an embed and any other url as a file', async () => {
+    const { provider } = buildProvider({
+      contents: [
+        product('p1', [
+          attachment('embed', 'VIDEO', 'https://www.youtube.com/embed/abc'),
+          attachment('watch', 'VIDEO', 'https://www.youtube.com/watch?v=abc'),
+          attachment('file', 'VIDEO', 'https://assets.example.com/v.mp4'),
+        ]),
+      ],
+    });
+
+    const result = await provider.getAssets({ forProduct: { key: 'p1' } });
+
+    assert(result.success);
+    const files = result.value.map((a) => a.files[0]);
+    expect(files[0]).toMatchObject({ delivery: 'embed', embedProvider: 'youtube' });
+    expect(files[1]?.delivery).toBe('file');
+    expect(files[2]?.delivery).toBe('file');
+    expect(files[2]?.embedProvider).toBeUndefined();
+  });
+
   it('filters by type', async () => {
     const { provider } = buildProvider({
       contents: [

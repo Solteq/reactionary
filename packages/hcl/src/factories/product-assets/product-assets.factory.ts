@@ -5,6 +5,7 @@ import type {
   ProductAssetsFactory,
   RequestContext,
 } from '@reactionary/core';
+import { detectEmbedProvider } from '@reactionary/core';
 import type * as z from 'zod';
 import type { HclAttachment } from '../../schema/hcl.schema.js';
 
@@ -19,7 +20,8 @@ export interface HclProductAssetFactoryInput {
 
 /**
  * Turns one HCL Commerce attachment into a core ProductAsset with a single file. HCL returns the attachment assets
- * for the request language and does not say which language that is, so the file language is left out.
+ * for the request language and does not say which language that is, so the file language is left out. A url of an
+ * embeddable video player (e.g. youtube.com/embed/…) is an embed, anything else a file.
  */
 export class HclProductAssetsFactory<
   TProductAssetSchema extends AnyProductAssetSchema = typeof ProductAssetSchema,
@@ -41,7 +43,22 @@ export class HclProductAssetsFactory<
       type: data.type,
       vendorType: data.vendorType,
       title: attachment.name,
-      files: [{ url: data.url, mimeType: attachment.mimeType }],
+      files: [this.parseFile(data.url, attachment.mimeType)],
     });
+  }
+
+  protected parseFile(url: string, mimeType: string) {
+    const embedProvider = this.detectEmbedProvider(url);
+    return {
+      url,
+      mimeType,
+      delivery: embedProvider ? ('embed' as const) : ('file' as const),
+      embedProvider,
+    };
+  }
+
+  /** Recognises the urls of well-known video players that are meant to be embedded. */
+  protected detectEmbedProvider(url: string): string | undefined {
+    return detectEmbedProvider(url);
   }
 }
