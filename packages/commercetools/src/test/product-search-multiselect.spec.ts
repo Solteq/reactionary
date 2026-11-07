@@ -34,10 +34,10 @@ const config = CommercetoolsConfigurationSchema.parse({
 });
 
 // Only the facet filter is built: the client is never asked for a token
-const capability = () => {
+const capability = (facets?: { multiselect: string[] }) => {
   const context = createInitialRequestContext();
   return new TestableCapability(
-    config,
+    { ...config, facets },
     new NoOpCache(),
     context,
     new CommercetoolsAPI(config, context),
@@ -49,7 +49,7 @@ const bucket = (key: string) => ({ facet: { key: 'reviewBucket' }, key });
 const brand = (key: string) => ({ facet: { key: 'manufacturer' }, key });
 
 describe('commercetools multiselect facets', () => {
-  it('ANDs every selected value, as before, without multiselect', async () => {
+  it('ANDs every selected value, as before, without a multiselect policy', async () => {
     expect(await capability().facetsQuery(query({ facets: [bucket('4'), bucket('5')] }))).toEqual({
       and: [exact('reviewBucket', '4'), exact('reviewBucket', '5')],
     });
@@ -58,13 +58,13 @@ describe('commercetools multiselect facets', () => {
   it('ORs the values of a multiselect facet and ANDs the rest', async () => {
     const facets = [bucket('4'), brand('Bosch'), bucket('5')];
 
-    expect(await capability().facetsQuery(query({ facets, multiselect: [{ key: 'reviewBucket' }] }))).toEqual({
+    expect(await capability({ multiselect: ['reviewBucket'] }).facetsQuery(query({ facets }))).toEqual({
       and: [exact('manufacturer', 'Bosch'), { or: [exact('reviewBucket', '4'), exact('reviewBucket', '5')] }],
     });
   });
 
   it('does not wrap a single selected value of a multiselect facet', async () => {
-    expect(await capability().facetsQuery(query({ facets: [bucket('4')], multiselect: [{ key: 'reviewBucket' }] }))).toEqual(
+    expect(await capability({ multiselect: ['reviewBucket'] }).facetsQuery(query({ facets: [bucket('4')] }))).toEqual(
       exact('reviewBucket', '4'),
     );
   });
