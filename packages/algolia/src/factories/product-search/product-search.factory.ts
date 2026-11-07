@@ -4,24 +4,32 @@ import type {
   FacetValueIdentifier,
   ProductSearchFactory,
   ProductSearchQueryByTerm,
+  ProductSearchResultAttributeFacet,
+  ProductSearchResultAvailabilityFacet,
   ProductSearchResultFacet,
   ProductSearchResultFacetValue,
   ProductSearchResultItem,
   ProductSearchResultItemComplianceData,
   ProductSearchResultItemVariant,
+  ProductSearchResultPriceFacet,
+  ProductSearchResultRatingFacet,
+  ProductSearchResultTaxonomyFacet,
   RequestContext,
   SearchFacetPolicy,
   SearchFacetPolicyOptions,
 } from '@reactionary/core';
 import {
   createSearchFacetPolicy,
+  fromMinorUnits,
   getTaxonomyFacetName,
+  getVocabularyName,
   isHiddenSearchFacet,
+  orderSearchFacets,
   parseSearchDocumentTaxonomy,
   FacetIdentifierSchema,
   FacetValueIdentifierSchema,
   ImageSchema,
-  ProductSearchResultFacetSchema,
+  ProductSearchResultAttributeFacetSchema,
   ProductSearchResultFacetValueSchema,
   ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
@@ -34,6 +42,7 @@ import type {
   AlgoliaProductSearchResult,
 } from '../../schema/search.schema.js';
 import type { AlgoliaProductSearchResultSchema } from '../../schema/search.schema.js';
+import { markSelectedFacets } from '../../core/facet-selection.js';
 
 export class AlgoliaProductSearchFactory<
   TProductSearchResultSchema extends AnyProductSearchResultSchema = typeof AlgoliaProductSearchResultSchema,
@@ -43,7 +52,7 @@ export class AlgoliaProductSearchFactory<
   protected readonly facetPolicy: SearchFacetPolicy;
 
   /**
-   * @param facets which facets to hide and how to name them, on top of the defaults, see the facets of the configuration
+   * @param facets which facets to hide, order, name and make multiselect, and which index fields stand behind price, rating, availability and taxonomy
    */
   constructor(productSearchResultSchema: TProductSearchResultSchema, facets?: SearchFacetPolicyOptions) {
     this.productSearchResultSchema = productSearchResultSchema;
@@ -51,20 +60,30 @@ export class AlgoliaProductSearchFactory<
   }
 
   public parseSearchResult(
-    _context: RequestContext,
+    context: RequestContext,
     data: unknown,
     query: ProductSearchQueryByTerm,
   ): z.output<TProductSearchResultSchema> {
     const body = this.parseInput(data);
     const items = body.hits.map((hit) => this.parseSingle(hit));
+    const fields = this.facetPolicy.fields;
+    const typedFields = [fields.priceMin, fields.priceMax, fields.rating, fields.online, fields.stores];
 
-    let facets: ProductSearchResultFacet[] = [];
+    let attributeFacets: ProductSearchResultAttributeFacet[] = [];
+    const taxonomyFacets: ProductSearchResultTaxonomyFacet[] = [];
     for (const id in body.facets) {
-      // defensive, an index may facet attributes that must never reach the storefront
-      if (isHiddenSearchFacet(id, this.facetPolicy)) {
+      const values = body.facets[id];
+      if (id.startsWith(fields.conceptFacetPrefix)) {
+        const taxonomy = this.parseTaxonomyFacet(id.slice(fields.conceptFacetPrefix.length), values);
+        if (taxonomy.values.length > 0) {
+          taxonomyFacets.push(taxonomy);
+        }
         continue;
       }
-      const values = body.facets[id];
+      // the fields behind price, rating and availability become typed facets below, and are never attributes
+      if (typedFields.includes(id) || isHiddenSearchFacet(id, this.facetPolicy)) {
+        continue;
+      }
       const facetId = FacetIdentifierSchema.parse({ key: id });
       const facet = this.parseFacet(facetId, values);
       const stats = body.facets_stats?.[id];
@@ -72,7 +91,7 @@ export class AlgoliaProductSearchFactory<
         facet.stats = { min: stats.min, max: stats.max };
       }
       if (facet.values.length > 0) {
-        facets.push(facet);
+        attributeFacets.push(facet);
       }
     }
 
@@ -83,16 +102,17 @@ export class AlgoliaProductSearchFactory<
     let subCategoryFacet;
     if (selectedCategoryFacet) {
       const valueDepth = selectedCategoryFacet.key.split(' > ').length;
-      subCategoryFacet = facets.find(
+      subCategoryFacet = attributeFacets.find(
         (f) => f.identifier.key === `hierarchy.lvl${valueDepth}`,
       );
     } else {
-      subCategoryFacet = facets.find((f) => f.identifier.key === 'hierarchy.lvl0');
+      subCategoryFacet = attributeFacets.find((f) => f.identifier.key === 'hierarchy.lvl0');
     }
 
     if (subCategoryFacet) {
       subCategoryFacet.identifier = FacetIdentifierSchema.parse({ key: 'categories' });
       subCategoryFacet.name = 'Categories';
+      subCategoryFacet.multiselect = false;
       for (const value of subCategoryFacet.values) {
         const pathParts = value.identifier.key.split(' > ');
         value.identifier.facet = subCategoryFacet.identifier;
@@ -100,13 +120,29 @@ export class AlgoliaProductSearchFactory<
       }
     }
 
-    facets = facets.filter((f) => !f.identifier.key.startsWith('hierarchy.lvl'));
+    attributeFacets = attributeFacets.filter((f) => !f.identifier.key.startsWith('hierarchy.lvl'));
+
+    const facets: ProductSearchResultFacet[] = [...attributeFacets, ...taxonomyFacets];
+    for (const typed of [
+      this.parsePriceFacet(context, body),
+      this.parseRatingFacet(body.facets?.[fields.rating]),
+      this.parseAvailabilityFacet(body.facets?.[fields.online], body.facets?.[fields.stores]),
+    ]) {
+      if (typed) {
+        facets.push(typed);
+      }
+    }
+    markSelectedFacets(facets, query.search);
 
     const result = {
       identifier: {
         term: query.search.term,
         facets: query.search.facets,
-        ...(query.search.multiselect ? { multiselect: query.search.multiselect } : {}),
+        ...(query.search.conceptContext ? { conceptContext: query.search.conceptContext } : {}),
+        ...(query.search.conceptFilter ? { conceptFilter: query.search.conceptFilter } : {}),
+        ...(query.search.priceFilter ? { priceFilter: query.search.priceFilter } : {}),
+        ...(query.search.ratingFilter ? { ratingFilter: query.search.ratingFilter } : {}),
+        ...(query.search.availabilityFilter ? { availabilityFilter: query.search.availabilityFilter } : {}),
         ...(query.search.ranges ? { ranges: query.search.ranges } : {}),
         filters: query.search.filters,
         paginationOptions: query.search.paginationOptions,
@@ -118,7 +154,7 @@ export class AlgoliaProductSearchFactory<
       totalCount: body.nbHits || 0,
       totalPages: body.nbPages || 0,
       items,
-      facets,
+      facets: orderSearchFacets(facets, this.facetPolicy),
     } satisfies AlgoliaProductSearchResult;
 
     return this.productSearchResultSchema.parse(result);
@@ -161,12 +197,14 @@ export class AlgoliaProductSearchFactory<
   protected parseFacet(
     facetIdentifier: FacetIdentifier,
     facetValues: Record<string, number>,
-  ): ProductSearchResultFacet {
-    const result = ProductSearchResultFacetSchema.parse({
+  ): ProductSearchResultAttributeFacet {
+    const result = ProductSearchResultAttributeFacetSchema.parse({
+      semantic: 'attribute',
       identifier: facetIdentifier,
       name: getTaxonomyFacetName(facetIdentifier.key, this.facetPolicy) ?? facetIdentifier.key,
+      multiselect: facetIdentifier.key !== 'categories' && this.facetPolicy.multiselect.includes(facetIdentifier.key),
       values: [],
-    } satisfies Partial<ProductSearchResultFacet>);
+    } satisfies Partial<ProductSearchResultAttributeFacet>);
 
     // never return the categories facet raw, as its only used for navigation and should be remapped to the hierarchy facet
     if (facetIdentifier.key === 'categories') {
@@ -184,6 +222,84 @@ export class AlgoliaProductSearchFactory<
     }
 
     return result;
+  }
+
+  /** The name of a typed facet: the policy wins, looked up by "taxonomy:<vocabulary>", "price", "rating" or "availability". */
+  protected getTypedFacetName(id: string, fallback: string): string {
+    return this.facetPolicy.names[id] ?? fallback;
+  }
+
+  /**
+   * The concepts of one vocabulary. The engine counts values written as "<concept id>|<localized name>", split on the first "|". A value
+   * without one is the concept id, named after the last part of it.
+   */
+  protected parseTaxonomyFacet(vocabulary: string, facetValues: Record<string, number>): ProductSearchResultTaxonomyFacet {
+    const indexKey = `${this.facetPolicy.fields.conceptFacetPrefix}${vocabulary}`;
+    return {
+      semantic: 'taxonomy',
+      vocabulary,
+      name: this.getTypedFacetName(`taxonomy:${vocabulary}`, this.facetPolicy.names[indexKey] ?? getVocabularyName(vocabulary)),
+      multiselect: true,
+      values: Object.entries(facetValues).map(([raw, count]) => {
+        const separator = raw.indexOf('|');
+        const id = separator >= 0 ? raw.slice(0, separator) : raw;
+        const name = separator >= 0 ? raw.slice(separator + 1) : '';
+        return { concept: { key: id }, name: name || id.split('/').pop() || id, count, active: false };
+      }),
+    };
+  }
+
+  /** The price, from the stats of the minor-unit fields: the lowest of the lowest prices, and the highest of the highest. */
+  protected parsePriceFacet(
+    context: RequestContext,
+    body: SearchResponse<AlgoliaNativeRecord>,
+  ): ProductSearchResultPriceFacet | undefined {
+    const { priceMin, priceMax } = this.facetPolicy.fields;
+    const min = body.facets_stats?.[priceMin]?.min;
+    const max = body.facets_stats?.[priceMax]?.max;
+    if (min === undefined || max === undefined) {
+      return undefined;
+    }
+    const currency = context.languageContext.currencyCode;
+    return {
+      semantic: 'price',
+      name: this.getTypedFacetName('price', 'Price'),
+      multiselect: false,
+      currency,
+      stats: { min: fromMinorUnits(min, currency), max: fromMinorUnits(max, currency) },
+    };
+  }
+
+  /** One bucket per whole star, the best first. */
+  protected parseRatingFacet(facetValues: Record<string, number> | undefined): ProductSearchResultRatingFacet | undefined {
+    const buckets = Object.entries(facetValues ?? {})
+      .map(([star, count]) => ({ star: Number(star), count }))
+      .filter((x) => Number.isFinite(x.star))
+      .sort((a, b) => b.star - a.star)
+      .map(({ star, count }) => ({ min: star, max: star, count, active: false }));
+    if (buckets.length === 0) {
+      return undefined;
+    }
+    return { semantic: 'rating', name: this.getTypedFacetName('rating', 'Rating'), multiselect: false, buckets };
+  }
+
+  /** Online when some product has the online flag, and the stores the products are in stock in. */
+  protected parseAvailabilityFacet(
+    online: Record<string, number> | undefined,
+    stores: Record<string, number> | undefined,
+  ): ProductSearchResultAvailabilityFacet | undefined {
+    const onlineCount = online?.['true'];
+    const storeList = Object.entries(stores ?? {}).map(([key, count]) => ({ store: { key }, count, active: false }));
+    if (onlineCount === undefined && storeList.length === 0) {
+      return undefined;
+    }
+    return {
+      semantic: 'availability',
+      name: this.getTypedFacetName('availability', 'Availability'),
+      multiselect: true,
+      ...(onlineCount !== undefined ? { online: { count: onlineCount, active: false } } : {}),
+      stores: storeList,
+    };
   }
 
   protected parseFacetValue(
