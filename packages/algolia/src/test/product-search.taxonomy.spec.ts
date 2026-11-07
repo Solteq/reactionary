@@ -5,6 +5,7 @@ import {
   ProductSearchQueryByTermSchema,
   type ProductSearchQueryByTerm,
 } from '@reactionary/core';
+import { attributeFacets } from './facet-helpers.js';
 import { AlgoliaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { AlgoliaProductSearchResultSchema } from '../schema/search.schema.js';
 import { AlgoliaProductSearchCapability } from '../capabilities/product-search.capability.js';
@@ -46,7 +47,8 @@ const response = {
   ],
   facets: {
     'concepts.features': { Cordless: 3, 'Outdoor rated': 1 },
-    'concepts.power-source': { Battery: 2 },
+    'conceptFacets.features': { 'features/cordless|Cordless': 3, 'features/outdoor-rated|Outdoor rated': 1 },
+    'conceptFacets.power-source': { 'power-source/battery|Battery': 2 },
     'productType.name': { Drills: 1 },
     brand: { Acme: 4 },
     flags: { ageRestricted: 1 },
@@ -77,21 +79,22 @@ describe('Algolia product search taxonomy', () => {
   it('names concept facets after their vocabulary and keeps other facets', () => {
     const result = factory.parseSearchResult(createInitialRequestContext(), response, createQuery());
 
-    expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
-      ['concepts.features', 'Features'],
-      ['concepts.power-source', 'Power Source'],
+    expect(result.facets.map((f) => [f.semantic === 'attribute' ? f.identifier.key : f.semantic === 'taxonomy' ? f.vocabulary : f.semantic, f.name])).toEqual([
       ['productType.name', 'Product type'],
       ['brand', 'brand'],
+      ['features', 'Features'],
+      ['power-source', 'Power Source'],
     ]);
   });
 
   it('never exposes the flags and conceptIds facets', () => {
     const result = factory.parseSearchResult(createInitialRequestContext(), response, createQuery());
 
-    const keys = result.facets.map((f) => f.identifier.key);
+    const keys = attributeFacets(result.facets).map((f) => f.identifier.key);
     expect(keys).not.toContain('flags');
     expect(keys).not.toContain('conceptIds');
-    expect(keys).toContain('concepts.features');
+    expect(keys).not.toContain('concepts.features');
+    expect(keys).not.toContain('conceptFacets.features');
   });
 });
 
@@ -115,7 +118,7 @@ describe('Algolia product search facets that only look like hidden ones', () => 
     const result = factory.parseSearchResult(createInitialRequestContext(), body, createQuery());
 
     // other facets are neither hidden nor renamed, they keep the name of the engine
-    expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
+    expect(attributeFacets(result.facets).map((f) => [f.identifier.key, f.name])).toEqual([
       ['brand', 'brand'],
       ['flagship', 'flagship'],
       ['flags_extra', 'flags_extra'],
@@ -144,11 +147,11 @@ describe('Algolia product search facet configuration', () => {
 
     const result = factory.parseSearchResult(createInitialRequestContext(), body, createQuery());
 
-    expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
-      ['concepts.features', 'Features'],
-      ['concepts.power-source', 'Power Source'],
+    expect(result.facets.map((f) => [f.semantic === 'attribute' ? f.identifier.key : f.semantic === 'taxonomy' ? f.vocabulary : f.semantic, f.name])).toEqual([
       ['productType.name', 'Kind'],
       ['brand', 'Brand'],
+      ['features', 'Features'],
+      ['power-source', 'Power Source'],
     ]);
   });
 });
