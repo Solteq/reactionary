@@ -1,7 +1,12 @@
 import 'dotenv/config';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createClient, PrimaryProvider } from '../utils.js';
-import { MemoryCache, type ProductSearchQueryCreateNavigationFilter } from '@reactionary/core';
+import { MemoryCache, type ProductSearchQueryCreateNavigationFilter, type ProductSearchResultAttributeFacet, type ProductSearchResultFacet } from '@reactionary/core';
+
+/** The facets of a result that are plain attributes, the ones selected with search.facets. */
+function attributeFacets(facets: ProductSearchResultFacet[]): ProductSearchResultAttributeFacet[] {
+  return facets.filter((facet): facet is ProductSearchResultAttributeFacet => facet.semantic === 'attribute');
+}
 
 const testData = {
   searchTerm: 'Bag',
@@ -151,7 +156,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
             pageNumber: 1,
             pageSize: 2,
           },
-          facets: [initial.value.facets[0].values[0].identifier],
+          facets: [attributeFacets(initial.value.facets)[0].values[0].identifier],
           filters: [],
         },
       });
@@ -185,7 +190,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
         assert.fail();
       }
 
-      for (const facet of result.value.facets) {
+      for (const facet of attributeFacets(result.value.facets)) {
         expect(facet.values.length).toBeGreaterThan(0);
       }
     });
@@ -212,7 +217,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
         assert.fail();
       }
 
-      const categoryFacet = result.value.facets.find(
+      const categoryFacet = attributeFacets(result.value.facets).find(
         (f) => f.identifier.key === 'categories'
       );
       expect(categoryFacet).toBeDefined();
@@ -430,11 +435,11 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.COMMERCETOOLS,PrimaryPro
       assert.fail(JSON.stringify(altResult.error));
     }
 
-    const firstFacet = result.value.facets.find(x => x.identifier.key.startsWith('attributes.'));
+    const firstFacet = attributeFacets(result.value.facets).find(x => x.identifier.key.startsWith('attributes.'));
     expect(firstFacet).toBeDefined();
 
 
-    const altFirstFacet = altResult.value.facets.find(x => x.identifier.key.startsWith('attributes.'));
+    const altFirstFacet = attributeFacets(altResult.value.facets).find(x => x.identifier.key.startsWith('attributes.'));
     expect(altFirstFacet).toBeDefined();
     expect(altFirstFacet!.values.length).toBeGreaterThan(0);
     expect(altFirstFacet!.values[0].name).not.toBe(firstFacet!.values[0].name);
@@ -469,7 +474,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fac
     if (!result.success) {
       assert.fail(JSON.stringify(result.error));
     }
-    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    const categoryFacets = attributeFacets(result.value.facets).filter(x => x.identifier.key === 'categories');
     expect(categoryFacets.length).toBe(1);
   });
   it('should only return one category facet when a category facet value lvl 0 is set ', async () => {
@@ -517,7 +522,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fac
     if (!result.success) {
       assert.fail(JSON.stringify(result.error));
     }
-    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    const categoryFacets = attributeFacets(result.value.facets).filter(x => x.identifier.key === 'categories');
     expect(categoryFacets.length).toBe(1);
     expect(result.value.totalCount).toBeGreaterThan(0);
 
@@ -567,7 +572,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fac
     if (!result.success) {
       assert.fail(JSON.stringify(result.error));
     }
-    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    const categoryFacets = attributeFacets(result.value.facets).filter(x => x.identifier.key === 'categories');
     expect(categoryFacets.length).toBe(1);
     expect(result.value.totalCount).toBeGreaterThan(0);
       expect(result.value.totalCount).toBeLessThan(baseResult.value.totalCount);
@@ -618,7 +623,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fac
     if (!result.success) {
       assert.fail(JSON.stringify(result.error));
     }
-    const categoryFacets = result.value.facets.filter(x => x.identifier.key === 'categories');
+    const categoryFacets = attributeFacets(result.value.facets).filter(x => x.identifier.key === 'categories');
     expect(categoryFacets.length).toBe(0);
     expect(result.value.totalCount).toBeGreaterThan(0);
     expect(result.value.totalCount).toBeLessThan(baseResult.value.totalCount);

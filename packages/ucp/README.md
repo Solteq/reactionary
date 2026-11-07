@@ -133,7 +133,7 @@ UCP catalog search filters are mapped to Reactionary search inputs where possibl
 
 - `filters.categories[0]` is treated as a breadcrumb string separated by `>` and resolved through `product-search.createCategoryNavigationFilter` when available. The resolved value is passed as Reactionary `categoryFilter`.
 - Additional category values are ignored for now because Reactionary search has a single `categoryFilter`; the response includes a warning message when this happens.
-- `filters.price` is ignored for now because Reactionary product search has no provider-neutral price filter; the response includes a warning message.
+- `filters.price` (`min` and `max` in ISO 4217 minor units, denominated in `context.currency`) is converted to decimal amounts and passed as Reactionary `priceFilter`. A price filter without `context.currency` is refused with `invalid_request`, as minor units mean nothing without the currency. A malformed price filter is ignored with a `price_filter_ignored` warning. A provider that cannot filter by price refuses the search, and its message is returned as `invalid_request`.
 - Other extension filter keys are passed through as Reactionary string filters in `key:value` form. Array values produce one filter string per item.
 
 `PUT /carts/{id}` is implemented as a best-effort reconciliation against the current authoritative cart. It fetches the cart, removes existing SKUs absent from the request, changes quantities for existing SKUs, adds new SKUs, and returns the latest cart from the final mutation.

@@ -8,7 +8,9 @@ import type {
   ProductSearchResultItem,
   ProductSearchResultItemVariant,
   ProductVariant,
+  SearchRange,
 } from '@reactionary/core';
+import { fromMinorUnits, InvalidInputErrorSchema } from '@reactionary/core';
 import * as z from 'zod';
 import type { components } from './ucp-shopping.openapi.js';
 import type { ReactionaryUCPClient, UCPPaymentHandlers } from './reactionary-ucp-common.js';
@@ -400,7 +402,11 @@ async function handleCatalogSearch(
   if (offset === undefined) {
     return createUCPError('invalid_request', 'Catalog search pagination cursor must be a non-negative integer offset.');
   }
-  const filterMapping = await getSearchFilterMapping(client, body.filters);
+  if (body.context?.currency === undefined && hasPriceBounds(body.filters?.price)) {
+    // minor units mean nothing without the currency: 5000 is 50 EUR but 5000 JPY, and a guess would filter on the wrong prices
+    return createUCPError('invalid_request', 'filters.price is in minor units of a currency, so it needs context.currency.');
+  }
+  const filterMapping = await getSearchFilterMapping(client, body.filters, body.context?.currency);
 
   const result = await client.productSearch.queryByTerm({
     search: {
@@ -412,10 +418,16 @@ async function handleCatalogSearch(
         pageSize,
       },
       ...(filterMapping.categoryFilter ? { categoryFilter: filterMapping.categoryFilter } : {}),
+      ...(filterMapping.priceFilter ? { priceFilter: filterMapping.priceFilter } : {}),
     },
   });
 
   if (!result.success) {
+    // a provider that cannot apply a filter says so, and the client needs to know it was not applied rather than that search failed
+    const invalidInput = InvalidInputErrorSchema.safeParse(result.error);
+    if (invalidInput.success) {
+      return createUCPError('invalid_request', invalidInput.data.error);
+    }
     return createUCPError('search_failed', 'Catalog search failed.');
   }
 
@@ -809,8 +821,10 @@ function getLimit(body: UCPCatalogSearchRequest): number {
 async function getSearchFilterMapping(
   client: ReactionaryUCPClient,
   filters: UCPCatalogSearchRequest['filters'],
+  currency: string | undefined,
 ): Promise<{
   categoryFilter?: FacetValueIdentifier;
+  priceFilter?: SearchRange;
   filters: string[];
   messages: UCPMessage[];
 }> {
@@ -824,18 +838,58 @@ async function getSearchFilterMapping(
   const messages: UCPMessage[] = [];
   const categoryFilter = await getCategoryFilter(client, filters.categories, messages);
 
-  if (filters.price) {
-    messages.push(createUcpWarning(
-      'price_filter_ignored',
-      'Price filters are not supported by Reactionary product search yet and were ignored.',
-      '$.filters.price',
-    ));
-  }
+  const priceFilter = getPriceFilter(filters.price, currency, messages);
 
   return {
     ...(categoryFilter ? { categoryFilter } : {}),
+    ...(priceFilter ? { priceFilter } : {}),
     filters: getExtensionFilters(filters),
     messages,
+  };
+}
+
+const UcpPriceFilterSchema = z.looseObject({
+  min: z.int().min(0).optional(),
+  max: z.int().min(0).optional(),
+});
+
+/** Whether a price filter has a bound to filter on. A malformed one has not, it is ignored with a warning. */
+function hasPriceBounds(price: unknown): boolean {
+  const parsed = UcpPriceFilterSchema.safeParse(price);
+  return parsed.success && (parsed.data.min !== undefined || parsed.data.max !== undefined);
+}
+
+/**
+ * UCP price filters are in ISO 4217 minor units, denominated in context.currency. Reactionary takes decimal amounts of the currency of
+ * the request, so the amounts are converted by the digits of that currency. A search with a price filter and no currency is refused
+ * before this, see `handleCatalogSearch`.
+ */
+function getPriceFilter(
+  price: unknown,
+  currency: string | undefined,
+  messages: UCPMessage[],
+): SearchRange | undefined {
+  if (price === undefined) {
+    return undefined;
+  }
+
+  const parsed = UcpPriceFilterSchema.safeParse(price);
+  if (!parsed.success) {
+    messages.push(createUcpWarning(
+      'price_filter_ignored',
+      'The price filter must have min and max as non-negative integers in minor units and was ignored.',
+      '$.filters.price',
+    ));
+    return undefined;
+  }
+
+  const { min, max } = parsed.data;
+  if (currency === undefined || (min === undefined && max === undefined)) {
+    return undefined;
+  }
+  return {
+    ...(min !== undefined ? { min: fromMinorUnits(min, currency) } : {}),
+    ...(max !== undefined ? { max: fromMinorUnits(max, currency) } : {}),
   };
 }
 
