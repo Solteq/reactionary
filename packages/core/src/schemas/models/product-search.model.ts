@@ -1,5 +1,6 @@
 import * as z from 'zod';
-import { ProductIdentifierSchema, FacetValueIdentifierSchema, FacetIdentifierSchema, ProductSearchIdentifierSchema, ProductVariantIdentifierSchema } from './identifiers.model.js';
+import { ConceptIdentifierSchema, ProductIdentifierSchema, FacetValueIdentifierSchema, FacetIdentifierSchema, ProductSearchIdentifierSchema, ProductVariantIdentifierSchema, SearchRangeSchema, StoreIdentifierSchema } from './identifiers.model.js';
+import { CurrencySchema } from './currency.model.js';
 import { BaseModelSchema, createPaginatedResponseSchema, ImageSchema } from './base.model.js';
 import { ProductConceptSchema, ProductTypeSchema, ProductVariantOptionSchema } from './product.model.js';
 import type { InferType } from '../../zod-utils.js';
@@ -46,12 +47,75 @@ export const ProductSearchResultFacetStatsSchema = z.looseObject({
     max: z.number().meta({ description: 'The highest value of the facet.' }),
 });
 
-export const ProductSearchResultFacetSchema = z.looseObject({
+export const ProductSearchResultAttributeFacetSchema = z.looseObject({
+    semantic: z.literal('attribute'),
     identifier: FacetIdentifierSchema,
     name: z.string(),
+    multiselect: z.boolean().default(false).meta({ description: 'Whether the values widen each other (any of the selected values matches) and the facet keeps offering the values it would without its own selection. Set by the provider configuration.' }),
     values: z.array(ProductSearchResultFacetValueSchema),
     stats: ProductSearchResultFacetStatsSchema.optional().meta({ description: 'The lowest and highest value of a numeric facet, when the provider knows them. With ranges in the search, those of the search without its ranges.' }),
+}).meta({ description: 'A plain attribute of the products, selected with the facets of the search.' });
+
+export const ProductSearchResultTaxonomyFacetValueSchema = z.looseObject({
+    concept: ConceptIdentifierSchema,
+    name: z.string(),
+    count: z.number(),
+    active: z.boolean(),
 });
+
+export const ProductSearchResultTaxonomyFacetSchema = z.looseObject({
+    semantic: z.literal('taxonomy'),
+    vocabulary: z.string().meta({ description: 'The vocabulary the concepts belong to, e.g. "features".' }),
+    name: z.string(),
+    multiselect: z.boolean().default(true).meta({ description: 'Always true: concepts of a vocabulary widen each other, and the facet keeps offering the other concepts.' }),
+    values: z.array(ProductSearchResultTaxonomyFacetValueSchema),
+}).meta({ description: 'The concepts of one vocabulary. Selecting one adds it to the conceptFilter of the search.' });
+
+export const ProductSearchResultPriceFacetSchema = z.looseObject({
+    semantic: z.literal('price'),
+    name: z.string(),
+    multiselect: z.boolean().default(false),
+    currency: CurrencySchema.describe('The currency of the amounts.'),
+    stats: ProductSearchResultFacetStatsSchema.optional().meta({ description: 'The lowest and highest price in decimal amounts, of the search without its priceFilter, so that a slider keeps its bounds.' }),
+    selected: SearchRangeSchema.optional().meta({ description: 'The price range of the search, when it has a priceFilter.' }),
+}).meta({ description: 'The price of the products. Selecting a range sets the priceFilter of the search.' });
+
+export const ProductSearchResultRatingFacetBucketSchema = z.looseObject({
+    min: z.number().meta({ description: 'The lowest rating of the bucket in whole stars, inclusive.' }),
+    max: z.number().meta({ description: 'The highest rating of the bucket in whole stars, inclusive. The same as min for a single star.' }),
+    count: z.number(),
+    active: z.boolean(),
+});
+
+export const ProductSearchResultRatingFacetSchema = z.looseObject({
+    semantic: z.literal('rating'),
+    name: z.string(),
+    multiselect: z.boolean().default(false),
+    buckets: z.array(ProductSearchResultRatingFacetBucketSchema),
+}).meta({ description: 'The average rating of the products in whole stars. Selecting buckets sets the ratingFilter of the search.' });
+
+export const ProductSearchResultAvailabilityFacetStoreSchema = z.looseObject({
+    store: StoreIdentifierSchema,
+    name: z.string().optional().meta({ description: 'The name of the store, when the provider knows it.' }),
+    count: z.number(),
+    active: z.boolean(),
+});
+
+export const ProductSearchResultAvailabilityFacetSchema = z.looseObject({
+    semantic: z.literal('availability'),
+    name: z.string(),
+    multiselect: z.boolean().default(true).meta({ description: 'Always true: online and the stores widen each other.' }),
+    online: z.looseObject({ count: z.number(), active: z.boolean() }).optional().meta({ description: 'The products that can be bought online.' }),
+    stores: z.array(ProductSearchResultAvailabilityFacetStoreSchema).meta({ description: 'The stores that have products in stock.' }),
+}).meta({ description: 'Where the products are available. Selecting sets the availabilityFilter of the search.' });
+
+export const ProductSearchResultFacetSchema = z.discriminatedUnion('semantic', [
+    ProductSearchResultAttributeFacetSchema,
+    ProductSearchResultTaxonomyFacetSchema,
+    ProductSearchResultPriceFacetSchema,
+    ProductSearchResultRatingFacetSchema,
+    ProductSearchResultAvailabilityFacetSchema,
+]).meta({ description: 'A facet of the search, in the order the storefront should show them. The semantic tells what the facet is, and which field of the search a selection goes to.' });
 
 export const ProductSearchResultSchema = createPaginatedResponseSchema(ProductSearchResultItemSchema).extend({
     identifier: ProductSearchIdentifierSchema,
@@ -63,5 +127,13 @@ export type ProductSearchResultItem = InferType<typeof ProductSearchResultItemSc
 export type ProductSearchResultItemComplianceData = InferType<typeof ProductSearchResultItemComplianceDataSchema>;
 export type ProductSearchResult = InferType<typeof ProductSearchResultSchema>;
 export type ProductSearchResultFacet = InferType<typeof ProductSearchResultFacetSchema>;
+export type ProductSearchResultAttributeFacet = InferType<typeof ProductSearchResultAttributeFacetSchema>;
+export type ProductSearchResultTaxonomyFacet = InferType<typeof ProductSearchResultTaxonomyFacetSchema>;
+export type ProductSearchResultTaxonomyFacetValue = InferType<typeof ProductSearchResultTaxonomyFacetValueSchema>;
+export type ProductSearchResultPriceFacet = InferType<typeof ProductSearchResultPriceFacetSchema>;
+export type ProductSearchResultRatingFacet = InferType<typeof ProductSearchResultRatingFacetSchema>;
+export type ProductSearchResultRatingFacetBucket = InferType<typeof ProductSearchResultRatingFacetBucketSchema>;
+export type ProductSearchResultAvailabilityFacet = InferType<typeof ProductSearchResultAvailabilityFacetSchema>;
+export type ProductSearchResultAvailabilityFacetStore = InferType<typeof ProductSearchResultAvailabilityFacetStoreSchema>;
 export type ProductSearchResultFacetValue = InferType<typeof ProductSearchResultFacetValueSchema>;
 export type ProductSearchResultFacetStats = InferType<typeof ProductSearchResultFacetStatsSchema>;

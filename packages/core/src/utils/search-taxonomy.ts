@@ -45,12 +45,52 @@ export function getConceptFacetName(facetKey: string): string | undefined {
 }
 
 /**
- * Which facets of a search engine are hidden from the storefront and how they are named. The engine returns a facet
+ * The index fields behind the facets and filters Reactionary knows from its own model (price, rating, availability, taxonomy). The defaults are the
+ * names the indexer (recalcitrant) writes, see its TARGET_FORMATS.md, so they only need setting for an index that names them differently.
+ */
+export const SearchFacetFieldsSchema = z.looseObject({
+  priceMin: z.string().optional().meta({ description: 'The lowest list price of a product in minor units. Default minPrice.' }),
+  priceMax: z.string().optional().meta({ description: 'The highest list price of a product in minor units. Default maxPrice.' }),
+  rating: z.string().optional().meta({ description: 'The average rating rounded down, 0 to 5. Default reviewBucket.' }),
+  online: z.string().optional().meta({ description: 'True when the product is available online. Default availableOnline.' }),
+  stores: z.string().optional().meta({ description: 'The ids of the stores that have the product in stock. Default availableStores.' }),
+  conceptIds: z.string().optional().meta({ description: 'The ids of the concepts of the product with their ancestors, prefixed by vocabulary. Used to filter. Default conceptIds.' }),
+  conceptFacetPrefix: z.string().optional().meta({ description: 'The prefix of the facets that count the concepts of a vocabulary, as "<concept id>|<name>" values. Default conceptFacets.' }),
+});
+
+export type SearchFacetFieldsOptions = InferType<typeof SearchFacetFieldsSchema>;
+
+export interface SearchFacetFields {
+  priceMin: string;
+  priceMax: string;
+  rating: string;
+  online: string;
+  stores: string;
+  conceptIds: string;
+  /** Includes the separating dot, e.g. "conceptFacets.". */
+  conceptFacetPrefix: string;
+}
+
+export const DEFAULT_SEARCH_FACET_FIELDS: SearchFacetFields = {
+  priceMin: 'minPrice',
+  priceMax: 'maxPrice',
+  rating: 'reviewBucket',
+  online: 'availableOnline',
+  stores: 'availableStores',
+  conceptIds: 'conceptIds',
+  conceptFacetPrefix: 'conceptFacets.',
+};
+
+/**
+ * Which facets of a search engine are returned to the storefront, in which order, and how they are named. The engine returns a facet
  * for every faceted attribute, and not every one is for display.
  */
 export const SearchFacetPolicyOptionsSchema = z.looseObject({
-  hidden: z.array(z.string()).optional().meta({ description: 'Facet keys to hide on top of the default ones (flags and conceptIds). A key hides itself and the facets nested under it: "internal" hides "internal" and "internal.x", but not "internal_x" or "internalOther".' }),
+  hidden: z.array(z.string()).optional().meta({ description: 'Facet keys to hide on top of the default ones (flags and the fields behind price, rating, availability and taxonomy). A key hides itself and the facets nested under it: "internal" hides "internal" and "internal.x", but not "internal_x" or "internalOther".' }),
   names: z.record(z.string(), z.string()).optional().meta({ description: 'Display names by facet key, on top of the default ones. They win over the default names, a facet without a name keeps the one of the engine.' }),
+  order: z.array(z.string()).optional().meta({ description: 'The facets to return, in the order to return them, as an allowlist: a facet that is not named is not returned. An entry is the key of an attribute facet, or one of "price", "rating", "availability", "taxonomy" (every vocabulary) and "taxonomy:<vocabulary>". An attribute whose key is one of those words is written "attribute:<key>". Without it every facet that is not hidden is returned, attributes first.' }),
+  multiselect: z.array(z.string()).optional().meta({ description: 'The keys of the attribute facets that are multiselect: the values selected within one widen the search (any of them matches, across facets they still all must), and the facet keeps returning the values and counts it would have without its own selection, so that the shopper can add one more. Price, rating, availability and taxonomy are fixed by their kind. Never applies to the categories facet.' }),
+  fields: SearchFacetFieldsSchema.optional(),
 });
 
 export type SearchFacetPolicyOptions = InferType<typeof SearchFacetPolicyOptionsSchema>;
@@ -58,6 +98,10 @@ export type SearchFacetPolicyOptions = InferType<typeof SearchFacetPolicyOptions
 export interface SearchFacetPolicy {
   hidden: string[];
   names: Record<string, string>;
+  /** Undefined returns every facet that is not hidden. */
+  order: string[] | undefined;
+  multiselect: string[];
+  fields: SearchFacetFields;
 }
 
 /**
@@ -66,23 +110,42 @@ export interface SearchFacetPolicy {
 export const SEARCH_PRODUCT_TYPE_FACET_KEY = 'productType.name';
 
 /**
- * The defaults: flags only drive behaviour and conceptIds is a filter-only list of ids, so neither is ever shown,
- * and the product type facet is named "Product type". Concept facets (concepts.<vocabulary>) are named after the
- * vocabulary, see getConceptFacetName.
+ * The facets that only drive behaviour or are filter-only fields are never shown: flags, the fields of the review summary and
+ * the old concept name facets (concepts.<vocabulary>), which taxonomy facets replace. The product type facet is named "Product type".
+ * Concept facets are named after the vocabulary, see getConceptFacetName.
  */
+const ALWAYS_HIDDEN_FACETS = ['flags', 'concepts', 'listprices', 'hasReviews', 'reviewScore', 'reviewCount', 'availableInStore'];
+
+/** The facets the fields behind a typed facet are returned as by the engine, so that they are not returned a second time as attributes. */
+function getFieldFacetKeys(fields: SearchFacetFields): string[] {
+  return [fields.priceMin, fields.priceMax, fields.rating, fields.online, fields.stores, fields.conceptIds, fields.conceptFacetPrefix.replace(/\.$/, '')];
+}
+
 export const DEFAULT_SEARCH_FACET_POLICY: SearchFacetPolicy = {
-  hidden: ['flags', 'conceptIds'],
+  hidden: [...ALWAYS_HIDDEN_FACETS, ...getFieldFacetKeys(DEFAULT_SEARCH_FACET_FIELDS)],
   names: { [SEARCH_PRODUCT_TYPE_FACET_KEY]: 'Product type' },
+  order: undefined,
+  multiselect: [],
+  fields: DEFAULT_SEARCH_FACET_FIELDS,
 };
 
 /**
  * Builds the policy from the options of a provider, merged with the defaults. Hidden facets only add to the
- * defaults, the flags and the concept ids can not be shown again. Names of the options win over the default ones.
+ * defaults, the flags and the fields behind a typed facet can not be shown again as attributes. Names of the options win over the default ones.
  */
 export function createSearchFacetPolicy(options?: SearchFacetPolicyOptions): SearchFacetPolicy {
+  const fields: SearchFacetFields = { ...DEFAULT_SEARCH_FACET_FIELDS };
+  for (const [name, value] of Object.entries(options?.fields ?? {})) {
+    if (typeof value === 'string' && name in fields) {
+      fields[name as keyof SearchFacetFields] = value;
+    }
+  }
   return {
-    hidden: [...new Set([...DEFAULT_SEARCH_FACET_POLICY.hidden, ...(options?.hidden ?? [])])],
+    hidden: [...new Set([...ALWAYS_HIDDEN_FACETS, ...getFieldFacetKeys(fields), ...(options?.hidden ?? [])])],
     names: { ...DEFAULT_SEARCH_FACET_POLICY.names, ...(options?.names ?? {}) },
+    order: options?.order,
+    multiselect: options?.multiselect ?? [],
+    fields,
   };
 }
 
