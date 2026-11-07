@@ -5,12 +5,17 @@ import {
   ProductSearchQueryByTermSchema,
   ProductSearchResultSchema,
   type ProductSearchQueryByTerm,
+  type ProductSearchResultFacet,
+  getSearchFacetId,
 } from '@reactionary/core';
 import type { SearchResponse } from 'meilisearch';
 import { MeilisearchProductSearchCapability } from '../capabilities/product-search.capability.js';
 import { MeilisearchProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import { MeilisearchConfigurationSchema } from '../schema/configuration.schema.js';
 import type { MeilisearchNativeRecord } from '../schema/search.schema.js';
+
+// the key of an attribute facet, the id of the other kinds
+const facetKey = (f: ProductSearchResultFacet) => (f.semantic === 'attribute' ? f.identifier.key : getSearchFacetId(f));
 
 function createQuery(facets: ProductSearchQueryByTerm['search']['facets'] = []): ProductSearchQueryByTerm {
   return ProductSearchQueryByTermSchema.parse({
@@ -67,7 +72,8 @@ const response: SearchResponse<MeilisearchNativeRecord> = {
   offset: 0,
   facetDistribution: {
     'concepts.features': { Cordless: 3 },
-    'concepts.power-source': { Battery: 2 },
+    'conceptFacets.features': { 'features/cordless|Cordless': 3 },
+    'conceptFacets.power-source': { 'power-source/battery|Battery': 2 },
     'productType.name': { Drills: 1 },
     brand_name: { Acme: 4 },
     flags: { ageRestricted: 1 },
@@ -93,7 +99,7 @@ describe('Meilisearch product search facets that only look like hidden ones', ()
     const result = createCapability().parseResponse(body, createQuery());
 
     // other facets are not renamed, Meilisearch only replaces underscores of its facet keys by spaces
-    expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
+    expect(result.facets.map((f) => [facetKey(f), f.name])).toEqual([
       ['brand_name', 'brand name'],
       ['flagship', 'flagship'],
       ['flags_extra', 'flags extra'],
@@ -117,11 +123,11 @@ describe('Meilisearch product search facet configuration', () => {
   it('leaves the defaults when the configuration has no facet options', () => {
     expect(MeilisearchConfigurationSchema.parse(baseConfig).facets).toBeUndefined();
     expect(MeilisearchConfigurationSchema.safeParse({ ...baseConfig, facets: { names: { a: 1 } } }).success).toBe(false);
-    expect(capabilityWith().parseResponse(response, createQuery()).facets.map((f) => f.identifier.key)).toEqual([
-      'concepts.features',
-      'concepts.power-source',
+    expect(capabilityWith().parseResponse(response, createQuery()).facets.map(facetKey)).toEqual([
       'productType.name',
       'brand_name',
+      'taxonomy:features',
+      'taxonomy:power-source',
     ]);
   });
 
@@ -133,11 +139,11 @@ describe('Meilisearch product search facet configuration', () => {
 
     const result = capabilityWith({ hidden: ['internal'], names: { brand_name: 'Brand', 'productType.name': 'Kind' } }).parseResponse(body, createQuery());
 
-    expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
-      ['concepts.features', 'Features'],
-      ['concepts.power-source', 'Power Source'],
+    expect(result.facets.map((f) => [facetKey(f), f.name])).toEqual([
       ['productType.name', 'Kind'],
       ['brand_name', 'Brand'],
+      ['taxonomy:features', 'Features'],
+      ['taxonomy:power-source', 'Power Source'],
     ]);
   });
 });
@@ -157,21 +163,22 @@ describe('Meilisearch product search taxonomy', () => {
   it('names concept facets after their vocabulary and keeps other facet naming', () => {
     const result = createCapability().parseResponse(response, createQuery());
 
-    expect(result.facets.map((f) => [f.identifier.key, f.name])).toEqual([
-      ['concepts.features', 'Features'],
-      ['concepts.power-source', 'Power Source'],
+    expect(result.facets.map((f) => [facetKey(f), f.name])).toEqual([
       ['productType.name', 'Product type'],
       ['brand_name', 'brand name'],
+      ['taxonomy:features', 'Features'],
+      ['taxonomy:power-source', 'Power Source'],
     ]);
   });
 
   it('never exposes the flags and conceptIds facets', () => {
     const result = createCapability().parseResponse(response, createQuery());
 
-    const keys = result.facets.map((f) => f.identifier.key);
+    const keys = result.facets.map(facetKey);
     expect(keys).not.toContain('flags');
     expect(keys).not.toContain('conceptIds');
-    expect(keys).toContain('concepts.features');
+    expect(keys).not.toContain('concepts.features');
+    expect(keys).toContain('taxonomy:features');
   });
 
   it('passes a conceptIds facet filter through to the engine filter', () => {

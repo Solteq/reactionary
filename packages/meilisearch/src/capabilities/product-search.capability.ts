@@ -5,7 +5,29 @@ import {
   FacetIdentifierSchema,
   type FacetValueIdentifier,
   FacetValueIdentifierSchema,
+  error,
+  fromMinorUnits,
+  getConceptVocabulary,
+  attributeFacetId,
+  getSearchFacetId,
+  taxonomyFacetId,
+  getSearchFilterProblem,
+  getVocabularyName,
+  groupConceptsByVocabulary,
   groupFacetSelections,
+  type InvalidInputError,
+  orderSearchFacets,
+  toMinorUnits,
+  type ProductSearchResultAttributeFacet,
+  ProductSearchResultAttributeFacetSchema,
+  type ProductSearchResultAvailabilityFacet,
+  ProductSearchResultAvailabilityFacetSchema,
+  type ProductSearchResultPriceFacet,
+  ProductSearchResultPriceFacetSchema,
+  type ProductSearchResultRatingFacet,
+  ProductSearchResultRatingFacetSchema,
+  type ProductSearchResultTaxonomyFacet,
+  ProductSearchResultTaxonomyFacetSchema,
   ImageSchema,
   ProductSearchCapability,
   type ProductSearchFactory,
@@ -16,7 +38,6 @@ import {
   type ProductSearchQueryCreateNavigationFilter,
   type ProductSearchResult,
   type ProductSearchResultFacet,
-  ProductSearchResultFacetSchema,
   type ProductSearchResultFacetValue,
   ProductSearchResultFacetValueSchema,
   type ProductSearchResultItem,
@@ -54,6 +75,19 @@ const AFFINITY_SEGMENT = /^affinity\./;
 function byCodePoint(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
+
+/** What a group of selections needs to offer the values its own selection hides: the search without the selection, and the facets to read. */
+export interface MeilisearchSiblingGroup {
+  /** The search as if nothing were selected in the group. */
+  search: ProductSearchQueryByTerm;
+  /** The index fields to ask the facet distribution of. */
+  facetKeys: string[];
+  /** The ids (see getSearchFacetId) of the result facets that are taken from the answer. */
+  ids: string[];
+}
+
+/** The typed filters this provider applies. */
+const SUPPORTED_TYPED_FILTERS = ['conceptContext', 'conceptFilter', 'priceFilter', 'ratingFilter', 'availabilityFilter'] as const;
 
 export class MeilisearchProductSearchCapability<
   TFactory extends ProductSearchFactory = MeilisearchProductSearchFactory,
@@ -166,7 +200,7 @@ export class MeilisearchProductSearchCapability<
     const finalFilters: string[] = (payload.search.filters || []).map((f) => `(${f})`);
 
     // Meilisearch ANDs the expressions of the filter. A multiselect facet is one parenthesised group with an OR between its values.
-    const selections = groupFacetSelections(facetsThatAreNotCategory, payload.search.multiselect);
+    const selections = groupFacetSelections(facetsThatAreNotCategory, this.facetPolicy.multiselect);
     const equals = (x: FacetValueIdentifier) => `"${this.escapeFilterValue(x.facet.key)}"="${this.escapeFilterValue(x.key)}"`;
     // Every bound of a range is an expression of its own
     const bounds = (payload.search.ranges ?? []).flatMap((range) => {
@@ -180,6 +214,7 @@ export class MeilisearchProductSearchCapability<
       ...selections.single.map(equals),
       ...Array.from(selections.multi.values(), (values) => `(${values.map(equals).join(' OR ')})`),
       ...bounds,
+      ...this.typedFiltersOf(payload),
     ];
 
     if (categoryFacet) {
@@ -221,13 +256,92 @@ export class MeilisearchProductSearchCapability<
     return searchOptions;
   }
 
-  /** The multiselect facets that have a selected value, and so need a request of their own to offer their siblings. */
+  /**
+   * The expressions of the typed filters, all hard filters that are ANDed with everything else.
+   * - conceptContext: every concept must match. conceptIds holds the ancestors of the concepts, so the products of the descendants match too.
+   * - conceptFilter: any concept of a vocabulary (parenthesised OR), all vocabularies.
+   * - priceFilter: the product has a price in the range, approximated from the lowest and highest price of the product: the highest is at least
+   *   the minimum and the lowest at most the maximum. A product whose prices lie on both sides of the range, with none in it, matches too.
+   *   The amounts are converted to the minor units the index keeps, in the currency of the request.
+   * - ratingFilter: the floored average rating, whole stars, both ends inclusive.
+   * - availabilityFilter: online or in stock in any of the stores.
+   */
+  protected typedFiltersOf(payload: ProductSearchQueryByTerm): string[] {
+    const { fields } = this.facetPolicy;
+    const search = payload.search;
+    const quote = (value: string) => `"${this.escapeFilterValue(value)}"`;
+    const filters: string[] = [];
+
+    for (const concept of search.conceptContext ?? []) {
+      filters.push(`${quote(fields.conceptIds)} = ${quote(concept.key)}`);
+    }
+    for (const concepts of groupConceptsByVocabulary(search.conceptFilter).values()) {
+      filters.push(`(${concepts.map((concept) => `${quote(fields.conceptIds)} = ${quote(concept.key)}`).join(' OR ')})`);
+    }
+    const currency = this.context.languageContext.currencyCode;
+    if (search.priceFilter?.min !== undefined) {
+      filters.push(`${quote(fields.priceMax)} >= ${toMinorUnits(search.priceFilter.min, currency)}`);
+    }
+    if (search.priceFilter?.max !== undefined) {
+      filters.push(`${quote(fields.priceMin)} <= ${toMinorUnits(search.priceFilter.max, currency)}`);
+    }
+    if (search.ratingFilter?.min !== undefined) {
+      filters.push(`${quote(fields.rating)} >= ${search.ratingFilter.min}`);
+    }
+    if (search.ratingFilter?.max !== undefined) {
+      filters.push(`${quote(fields.rating)} <= ${search.ratingFilter.max}`);
+    }
+    const availability = [
+      ...(search.availabilityFilter?.online === true ? [`${quote(fields.online)} = true`] : []),
+      ...(search.availabilityFilter?.stores ?? []).map((store) => `${quote(fields.stores)} = ${quote(store.key)}`),
+    ];
+    if (availability.length > 0) {
+      filters.push(`(${availability.join(' OR ')})`);
+    }
+    return filters;
+  }
+
+  /**
+   * The groups of selections that hide their own siblings, and so need a request of their own: the multiselect attribute facets that have a
+   * value selected, every vocabulary that has a concept in the conceptFilter, the rating with a ratingFilter and availability with an
+   * availabilityFilter.
+   */
+  protected siblingGroupsOf(payload: ProductSearchQueryByTerm): MeilisearchSiblingGroup[] {
+    const { fields } = this.facetPolicy;
+    const search = payload.search;
+    const groups: MeilisearchSiblingGroup[] = [];
+
+    for (const key of this.multiselectKeysWithSelection(payload)) {
+      groups.push({ search: this.withoutSelectionOf(payload, key), facetKeys: [key], ids: [attributeFacetId(key)] });
+    }
+    for (const vocabulary of groupConceptsByVocabulary(search.conceptFilter).keys()) {
+      const conceptFilter = (search.conceptFilter ?? []).filter((concept) => getConceptVocabulary(concept) !== vocabulary);
+      groups.push({
+        search: { ...payload, search: { ...search, conceptFilter } },
+        facetKeys: [`${fields.conceptFacetPrefix}${vocabulary}`],
+        ids: [taxonomyFacetId(vocabulary)],
+      });
+    }
+    if (search.ratingFilter?.min !== undefined || search.ratingFilter?.max !== undefined) {
+      groups.push({ search: { ...payload, search: { ...search, ratingFilter: undefined } }, facetKeys: [fields.rating], ids: ['rating'] });
+    }
+    if (search.availabilityFilter?.online === true || (search.availabilityFilter?.stores?.length ?? 0) > 0) {
+      groups.push({
+        search: { ...payload, search: { ...search, availabilityFilter: undefined } },
+        facetKeys: [fields.online, fields.stores],
+        ids: ['availability'],
+      });
+    }
+    return groups;
+  }
+
+  /** The multiselect attribute facets that have a selected value. */
   protected multiselectKeysWithSelection(payload: ProductSearchQueryByTerm): string[] {
-    const { multi } = groupFacetSelections(payload.search.facets, payload.search.multiselect);
+    const { multi } = groupFacetSelections(payload.search.facets, this.facetPolicy.multiselect);
     return Array.from(multi.keys());
   }
 
-  /** The search as if no value of the facet were selected. */
+  /** The search as if no value of the attribute facet were selected. */
   protected withoutSelectionOf(payload: ProductSearchQueryByTerm, facetKey: string): ProductSearchQueryByTerm {
     return {
       ...payload,
@@ -249,13 +363,20 @@ export class MeilisearchProductSearchCapability<
     return { ...payload, search: { ...payload.search, ranges: undefined } };
   }
 
-  /**
-   * The request that returns the values and counts of one multiselect facet as if none of its values were selected, with no hits.
-   * Neither ranking nor personalization matters to it.
-   */
-  protected siblingFacetPayload(payload: ProductSearchQueryByTerm, facetKey: string): SearchParams {
-    const request = this.queryByTermPayload({ ...this.withoutSelectionOf(payload, facetKey), personalizationProfile: undefined });
-    return { ...request, offset: 0, limit: 0, facets: [facetKey], showRankingScore: false };
+  /** Whether the search restricts the price, so that the stats of the price must come from a search without the restriction. */
+  protected hasPriceFilter(payload: ProductSearchQueryByTerm): boolean {
+    return payload.search.priceFilter?.min !== undefined || payload.search.priceFilter?.max !== undefined;
+  }
+
+  /** The search as if it had no priceFilter. */
+  protected withoutPriceFilterOf(payload: ProductSearchQueryByTerm): ProductSearchQueryByTerm {
+    return { ...payload, search: { ...payload.search, priceFilter: undefined } };
+  }
+
+  /** The request of a sibling group: the values and counts as if nothing were selected in it, with no hits. Neither ranking nor personalization matters to it. */
+  protected siblingFacetPayload(group: MeilisearchSiblingGroup): SearchParams {
+    const request = this.queryByTermPayload({ ...group.search, personalizationProfile: undefined });
+    return { ...request, offset: 0, limit: 0, facets: group.facetKeys, showRankingScore: false };
   }
 
   /**
@@ -267,6 +388,12 @@ export class MeilisearchProductSearchCapability<
     return { ...request, offset: 0, limit: 0, facets: facetKeys, showRankingScore: false };
   }
 
+  /** The request for the price bounds as the search has them without its priceFilter, with no hits, so that a price slider keeps its bounds. */
+  protected priceBoundsPayload(payload: ProductSearchQueryByTerm): SearchParams {
+    const request = this.queryByTermPayload({ ...this.withoutPriceFilterOf(payload), personalizationProfile: undefined });
+    return { ...request, offset: 0, limit: 0, facets: [this.facetPolicy.fields.priceMin, this.facetPolicy.fields.priceMax], showRankingScore: false };
+  }
+
   // Not cached: the personalization profile is part of the payload, and with it the cache key, so a search is cached per visitor
   // and a profile that changes with every visit never finds its entry again.
   @Reactionary({
@@ -276,6 +403,11 @@ export class MeilisearchProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
+    const problem = getSearchFilterProblem(payload.search, SUPPORTED_TYPED_FILTERS, this.facetPolicy);
+    if (problem !== undefined) {
+      return error<InvalidInputError>({ type: 'InvalidInput', error: problem });
+    }
+
     const client = new Meilisearch({
       host: this.config.apiUrl,
       apiKey: this.config.apiKey,
@@ -283,44 +415,42 @@ export class MeilisearchProductSearchCapability<
 
     const index = client.index(getProductIndexNameForLocale(this.config.indexName, this.context.languageContext.locale));
 
-
-    // The search itself, and next to it the searches that offer what the selection hides: the values of a multiselect facet from the
-    // search without its selection, and the stats of the ranged facets from the search without its ranges. They run side by side.
-    const siblings = this.multiselectKeysWithSelection(payload).map((key) => ({
-      key,
-      search: this.withoutSelectionOf(payload, key),
-      request: this.siblingFacetPayload(payload, key),
-    }));
+    // The search itself, and next to it the searches that offer what the selection hides: the values of a group (multiselect attribute,
+    // vocabulary, rating, availability) from the search without its selection, the stats of the ranged facets from the search without its
+    // ranges, and the price bounds from the search without its priceFilter. They run side by side.
+    const siblings = this.siblingGroupsOf(payload).map((group) => ({ group, request: this.siblingFacetPayload(group) }));
     const rangeKeys = this.rangeKeysOf(payload);
     const bounds =
       rangeKeys.length > 0
         ? { search: this.withoutRangesOf(payload), request: this.rangeBoundsPayload(payload, rangeKeys) }
         : undefined;
+    const price = this.hasPriceFilter(payload)
+      ? { search: this.withoutPriceFilterOf(payload), request: this.priceBoundsPayload(payload) }
+      : undefined;
     const [remote, ...responses] = await Promise.all([
       index.search<MeilisearchNativeRecord>(payload.search.term, this.queryByTermPayload(payload)),
       ...siblings.map((sibling) => index.search<MeilisearchNativeRecord>(payload.search.term, sibling.request)),
       ...(bounds ? [index.search<MeilisearchNativeRecord>(payload.search.term, bounds.request)] : []),
+      ...(price ? [index.search<MeilisearchNativeRecord>(payload.search.term, price.request)] : []),
     ]);
     let parsed = this.parsePaginatedResult(remote, payload);
-    if (siblings.length > 0 || bounds) {
-      const facetsOf = (response: SearchResponse<MeilisearchNativeRecord>, search: ProductSearchQueryByTerm, keys: string[]) =>
-        this.parsePaginatedResult(response, search).facets.filter((facet) => keys.includes(facet.identifier.key));
-      const siblingFacets = siblings.flatMap((sibling, i) => facetsOf(responses[i], sibling.search, [sibling.key]));
-      const boundsFacets = bounds ? facetsOf(responses[siblings.length], bounds.search, rangeKeys) : [];
-      parsed = { ...parsed, facets: withFacetStats(replaceFacets(parsed.facets, siblingFacets), boundsFacets) };
+    if (siblings.length > 0 || bounds || price) {
+      const facetsOf = (response: SearchResponse<MeilisearchNativeRecord>, search: ProductSearchQueryByTerm, ids: string[]) =>
+        this.parsePaginatedResult(response, search).facets.filter((facet) => ids.includes(getSearchFacetId(facet)));
+      const siblingFacets = siblings.flatMap((sibling, i) => facetsOf(responses[i], sibling.group.search, sibling.group.ids));
+      const boundsFacets = bounds ? facetsOf(responses[siblings.length], bounds.search, rangeKeys.map(attributeFacetId)) : [];
+      const priceFacets = price ? facetsOf(responses[siblings.length + (bounds ? 1 : 0)], price.search, ['price']) : [];
+      parsed = {
+        ...parsed,
+        facets: withFacetStats(withFacetStats(replaceFacets(parsed.facets, siblingFacets), boundsFacets), priceFacets),
+      };
     }
-    const result = this.personalize(parsed, payload);
-
-    // mark selected facets as active
-    for (const selectedFacet of payload.search.facets) {
-      const facet = result.facets.find((f) => f.identifier.key === selectedFacet.facet.key);
-      if (facet) {
-        const value = facet.values.find((v) => v.identifier.key === selectedFacet.key);
-        if (value) {
-          value.active = true;
-        }
-      }
-    }
+    // Active is marked from the search itself, after the merge: the siblings were searched without their selection.
+    // The order of the policy comes last, as a facet it leaves out must still be there for the merge.
+    const result = this.personalize(
+      { ...parsed, facets: orderSearchFacets(this.markActive(parsed.facets, payload), this.facetPolicy) },
+      payload,
+    );
 
     return success(this.factory.parseSearchResult(this.context, result, payload));
   }
@@ -398,32 +528,50 @@ export class MeilisearchProductSearchCapability<
 
   protected parsePaginatedResult(body: SearchResponse<MeilisearchNativeRecord>, query: ProductSearchQueryByTerm) {
     const items = body.hits.map((hit) => this.parseSingle(hit));
-    let facets: ProductSearchResultFacet[] = [];
+    let facets: ProductSearchResultAttributeFacet[] = [];
+    const taxonomy: ProductSearchResultTaxonomyFacet[] = [];
+    const { fields } = this.facetPolicy;
+    const distribution = body.facetDistribution ?? {};
 
-    if (body.facetDistribution) {
-      for (const id in body.facetDistribution) {
-        // facets: ['*'] also returns the facets that must never reach the storefront
-        if (isHiddenSearchFacet(id, this.facetPolicy)) {
-          continue;
-        }
-        const f = body.facetDistribution[id];
-        const facetId = FacetIdentifierSchema.parse({
-          key: id
-        });
-        const facet = this.parseFacet(facetId, f);
-        const stats = body.facetStats?.[id];
-        if (typeof stats?.min === 'number' && typeof stats.max === 'number') {
-          facet.stats = { min: stats.min, max: stats.max };
-        }
+    for (const id in distribution) {
+      const f = distribution[id];
+      if (id === fields.rating || id === fields.online || id === fields.stores || id === fields.priceMin || id === fields.priceMax) {
+        continue; // built below, from the typed fields
+      }
+      if (id.startsWith(fields.conceptFacetPrefix)) {
+        const facet = this.parseTaxonomyFacet(id.slice(fields.conceptFacetPrefix.length), f);
         if (facet.values.length > 0) {
-          facets.push(facet);
+          taxonomy.push(facet);
         }
+        continue;
+      }
+      // facets: ['*'] also returns the facets that must never reach the storefront
+      if (isHiddenSearchFacet(id, this.facetPolicy)) {
+        continue;
+      }
+      const facetId = FacetIdentifierSchema.parse({
+        key: id
+      });
+      const facet = this.parseFacet(facetId, f);
+      const stats = body.facetStats?.[id];
+      if (typeof stats?.min === 'number' && typeof stats.max === 'number') {
+        facet.stats = { min: stats.min, max: stats.max };
+      }
+      if (facet.values.length > 0) {
+        facets.push(facet);
       }
     }
 
+    const typed: ProductSearchResultFacet[] = [
+      ...taxonomy,
+      ...this.compact(this.parsePriceFacet(body)),
+      ...this.compact(this.parseRatingFacet(distribution[fields.rating])),
+      ...this.compact(this.parseAvailabilityFacet(distribution[fields.online], distribution[fields.stores])),
+    ];
+
     // Handle category hierarchy similar to Algolia
     const selectedCategoryFacet = query.search.facets.find(x => x.facet.key === 'categories') || query.search.categoryFilter;
-    let subCategoryFacet;
+    let subCategoryFacet: ProductSearchResultAttributeFacet | undefined;
     if (selectedCategoryFacet) {
       const valueDepth = selectedCategoryFacet.key.split(' > ').length;
       subCategoryFacet = facets.find(f => f.identifier.key === `hierarchy.lvl${valueDepth}`);
@@ -437,6 +585,7 @@ export class MeilisearchProductSearchCapability<
         key: 'categories'
       });
       subCategoryFacet.name = 'Categories';
+      subCategoryFacet.multiselect = false;
       for (const v of subCategoryFacet.values) {
         const pathParts = v.identifier.key.split(' > ');
         v.identifier.facet = subCategoryFacet.identifier;
@@ -452,8 +601,12 @@ export class MeilisearchProductSearchCapability<
       identifier: {
         term: query.search.term,
         facets: query.search.facets,
-        ...(query.search.multiselect ? { multiselect: query.search.multiselect } : {}),
         ...(query.search.ranges ? { ranges: query.search.ranges } : {}),
+        ...(query.search.conceptContext ? { conceptContext: query.search.conceptContext } : {}),
+        ...(query.search.conceptFilter ? { conceptFilter: query.search.conceptFilter } : {}),
+        ...(query.search.priceFilter ? { priceFilter: query.search.priceFilter } : {}),
+        ...(query.search.ratingFilter ? { ratingFilter: query.search.ratingFilter } : {}),
+        ...(query.search.availabilityFilter ? { availabilityFilter: query.search.availabilityFilter } : {}),
         filters: query.search.filters,
         paginationOptions: query.search.paginationOptions,
       },
@@ -462,14 +615,16 @@ export class MeilisearchProductSearchCapability<
       totalCount: body.estimatedTotalHits || 0,
       totalPages: totalPages,
       items: items,
-      facets,
+      facets: [...facets, ...typed],
     } satisfies ProductSearchResult;
 
     return result;
   }
 
-  protected parseFacet(facetIdentifier: FacetIdentifier, facetValues: Record<string, number>): ProductSearchResultFacet {
-    const result: ProductSearchResultFacet = ProductSearchResultFacetSchema.parse({
+  protected parseFacet(facetIdentifier: FacetIdentifier, facetValues: Record<string, number>): ProductSearchResultAttributeFacet {
+    const result = ProductSearchResultAttributeFacetSchema.parse({
+      semantic: 'attribute',
+      multiselect: this.facetPolicy.multiselect.includes(facetIdentifier.key) && facetIdentifier.key !== 'categories',
       identifier: facetIdentifier,
       name: getTaxonomyFacetName(facetIdentifier.key, this.facetPolicy) ?? facetIdentifier.key.replace(/_/g, ' '),
       values: []
@@ -491,6 +646,125 @@ export class MeilisearchProductSearchCapability<
       result.values.push(this.parseFacetValue(facetValueIdentifier, vid, fv));
     }
     return result;
+  }
+
+  /** A list of at most one facet, for spreading. */
+  private compact<T extends ProductSearchResultFacet>(facet: T | undefined): T[] {
+    return facet ? [facet] : [];
+  }
+
+  /** The name of a typed facet: the policy wins over the default. */
+  protected typedFacetName(keys: string[], fallback: string): string {
+    for (const key of keys) {
+      const name = this.facetPolicy.names[key];
+      if (name !== undefined) {
+        return name;
+      }
+    }
+    return fallback;
+  }
+
+  /**
+   * The facet of a vocabulary from the values of `conceptFacets.<vocabulary>`, each "<concept id>|<localized name>". Split on the first "|":
+   * the id is a concept key and has none. A value without one is the id itself, named after the last part of it.
+   */
+  protected parseTaxonomyFacet(vocabulary: string, values: Record<string, number>): ProductSearchResultTaxonomyFacet {
+    const engineKey = `${this.facetPolicy.fields.conceptFacetPrefix}${vocabulary}`;
+    return ProductSearchResultTaxonomyFacetSchema.parse({
+      semantic: 'taxonomy',
+      vocabulary,
+      name: this.typedFacetName([engineKey, `taxonomy:${vocabulary}`], getVocabularyName(vocabulary)),
+      multiselect: true,
+      values: Object.entries(values).map(([value, count]) => {
+        const separator = value.indexOf('|');
+        const id = separator >= 0 ? value.slice(0, separator) : value;
+        const name = separator >= 0 ? value.slice(separator + 1) : (id.split('/').pop() ?? id);
+        return { concept: { key: id }, name, count, active: false };
+      }),
+    });
+  }
+
+  /**
+   * The price facet from the stats of the price fields: the lowest of the lowest prices and the highest of the highest, in decimal amounts.
+   * Undefined when the engine has no stats, that is when nothing matched.
+   */
+  protected parsePriceFacet(body: SearchResponse<MeilisearchNativeRecord>): ProductSearchResultPriceFacet | undefined {
+    const { priceMin, priceMax } = this.facetPolicy.fields;
+    const low = body.facetStats?.[priceMin];
+    const high = body.facetStats?.[priceMax];
+    const min = typeof low?.min === 'number' ? low.min : typeof high?.min === 'number' ? high.min : undefined;
+    const max = typeof high?.max === 'number' ? high.max : typeof low?.max === 'number' ? low.max : undefined;
+    if (min === undefined || max === undefined) {
+      return undefined;
+    }
+    const currency = this.context.languageContext.currencyCode;
+    return ProductSearchResultPriceFacetSchema.parse({
+      semantic: 'price',
+      name: this.typedFacetName(['price'], 'Price'),
+      currency,
+      stats: { min: fromMinorUnits(min, currency), max: fromMinorUnits(max, currency) },
+    });
+  }
+
+  /** One bucket per whole star, the highest first. */
+  protected parseRatingFacet(values: Record<string, number> | undefined): ProductSearchResultRatingFacet | undefined {
+    const buckets = Object.entries(values ?? {})
+      .map(([key, count]) => ({ stars: Number(key), count }))
+      .filter((bucket) => Number.isFinite(bucket.stars))
+      .sort((a, b) => b.stars - a.stars)
+      .map((bucket) => ({ min: bucket.stars, max: bucket.stars, count: bucket.count, active: false }));
+    return buckets.length === 0
+      ? undefined
+      : ProductSearchResultRatingFacetSchema.parse({ semantic: 'rating', name: this.typedFacetName(['rating'], 'Rating'), buckets });
+  }
+
+  /** Online only when there is a count for true. */
+  protected parseAvailabilityFacet(
+    online: Record<string, number> | undefined,
+    stores: Record<string, number> | undefined,
+  ): ProductSearchResultAvailabilityFacet | undefined {
+    const onlineCount = online?.['true'];
+    const hasOnline = typeof onlineCount === 'number' && onlineCount > 0;
+    const storeList = Object.entries(stores ?? {}).map(([store, count]) => ({ store: { key: store }, count, active: false }));
+    if (!hasOnline && storeList.length === 0) {
+      return undefined;
+    }
+    return ProductSearchResultAvailabilityFacetSchema.parse({
+      semantic: 'availability',
+      name: this.typedFacetName(['availability'], 'Availability'),
+      ...(hasOnline ? { online: { count: onlineCount, active: false } } : {}),
+      stores: storeList,
+    });
+  }
+
+  /** Marks what the search has selected as active, and the price range as selected. */
+  protected markActive(facets: ProductSearchResultFacet[], payload: ProductSearchQueryByTerm): ProductSearchResultFacet[] {
+    const search = payload.search;
+    const concepts = new Set((search.conceptFilter ?? []).map((concept) => concept.key));
+    const stores = new Set((search.availabilityFilter?.stores ?? []).map((store) => store.key));
+    const rating = search.ratingFilter;
+    const inRating = (stars: number) => rating !== undefined && stars >= (rating.min ?? 0) && stars <= (rating.max ?? Infinity);
+    const price = search.priceFilter;
+    return facets.map((facet): ProductSearchResultFacet => {
+      switch (facet.semantic) {
+        case 'attribute': {
+          const selected = search.facets.filter((x) => x.facet.key === facet.identifier.key).map((x) => x.key);
+          return { ...facet, values: facet.values.map((v) => (selected.includes(v.identifier.key) ? { ...v, active: true } : v)) };
+        }
+        case 'taxonomy':
+          return { ...facet, values: facet.values.map((v) => ({ ...v, active: concepts.has(v.concept.key) })) };
+        case 'rating':
+          return { ...facet, buckets: facet.buckets.map((b) => ({ ...b, active: inRating(b.min) && inRating(b.max) })) };
+        case 'availability':
+          return {
+            ...facet,
+            ...(facet.online ? { online: { ...facet.online, active: search.availabilityFilter?.online === true } } : {}),
+            stores: facet.stores.map((s) => ({ ...s, active: stores.has(s.store.key) })),
+          };
+        case 'price':
+          return price && (price.min !== undefined || price.max !== undefined) ? { ...facet, selected: price } : facet;
+      }
+    });
   }
 
   protected parseFacetValue(facetValueIdentifier: FacetValueIdentifier, label: string, count: number): ProductSearchResultFacetValue {
