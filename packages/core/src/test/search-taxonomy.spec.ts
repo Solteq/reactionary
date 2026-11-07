@@ -30,7 +30,13 @@ describe('isHiddenSearchFacet', () => {
     expect(isHiddenSearchFacet('flags.a.b')).toBe(true);
     expect(isHiddenSearchFacet('conceptIds')).toBe(true);
     expect(isHiddenSearchFacet('conceptIds.x')).toBe(true);
-    expect(isHiddenSearchFacet('concepts.features')).toBe(false);
+    // the old concept name facets are replaced by taxonomy facets, and the fields behind the typed facets are not attributes
+    expect(isHiddenSearchFacet('concepts.features')).toBe(true);
+    expect(isHiddenSearchFacet('conceptFacets.features')).toBe(true);
+    for (const key of ['minPrice', 'maxPrice', 'listprices', 'reviewBucket', 'hasReviews', 'availableOnline', 'availableInStore', 'availableStores']) {
+      expect(isHiddenSearchFacet(key), key).toBe(true);
+    }
+    expect(isHiddenSearchFacet('manufacturer')).toBe(false);
   });
 
   it('does not hide other facets that only start with the same letters', () => {
@@ -129,8 +135,11 @@ describe('parseSearchDocumentTaxonomy', () => {
 });
 
 describe('search facet policy', () => {
-  it('has the defaults: flags and conceptIds hidden, the product type named, concept facets named after the vocabulary', () => {
-    expect(DEFAULT_SEARCH_FACET_POLICY).toEqual({ hidden: ['flags', 'conceptIds'], names: { 'productType.name': 'Product type' } });
+  it('has the defaults: flags and the fields behind the typed facets hidden, the product type named, no order and no multiselect', () => {
+    expect(DEFAULT_SEARCH_FACET_POLICY.names).toEqual({ 'productType.name': 'Product type' });
+    expect(DEFAULT_SEARCH_FACET_POLICY.order).toBeUndefined();
+    expect(DEFAULT_SEARCH_FACET_POLICY.multiselect).toEqual([]);
+    expect(DEFAULT_SEARCH_FACET_POLICY.fields).toEqual({ priceMin: 'minPrice', priceMax: 'maxPrice', rating: 'reviewBucket', online: 'availableOnline', stores: 'availableStores', conceptIds: 'conceptIds', conceptFacetPrefix: 'conceptFacets.' });
     expect(createSearchFacetPolicy()).toEqual(DEFAULT_SEARCH_FACET_POLICY);
     expect(createSearchFacetPolicy({})).toEqual(DEFAULT_SEARCH_FACET_POLICY);
     expect(isHiddenSearchFacet('flags')).toBe(true);
@@ -142,13 +151,28 @@ describe('search facet policy', () => {
   it('adds hidden facets to the defaults, which stay hidden', () => {
     const policy = createSearchFacetPolicy({ hidden: ['internal', 'flags'] });
 
-    expect(policy.hidden).toEqual(['flags', 'conceptIds', 'internal']);
+    expect(policy.hidden).toEqual([...DEFAULT_SEARCH_FACET_POLICY.hidden, 'internal']);
     expect(isHiddenSearchFacet('internal', policy)).toBe(true);
     expect(isHiddenSearchFacet('flags', policy)).toBe(true);
     expect(isHiddenSearchFacet('conceptIds', policy)).toBe(true);
     expect(isHiddenSearchFacet('brand', policy)).toBe(false);
     // the defaults are not changed by building a policy
-    expect(DEFAULT_SEARCH_FACET_POLICY.hidden).toEqual(['flags', 'conceptIds']);
+    expect(DEFAULT_SEARCH_FACET_POLICY.hidden).not.toContain('internal');
+  });
+
+  it('hides the fields behind the typed facets by the names configured for them, and the order and multiselect come from the options', () => {
+    const policy = createSearchFacetPolicy({
+      fields: { rating: 'avgRating', stores: 'inStores', conceptFacetPrefix: 'taxonomy.' },
+      order: ['price', 'brand'],
+      multiselect: ['brand'],
+    });
+
+    expect(isHiddenSearchFacet('avgRating', policy)).toBe(true);
+    expect(isHiddenSearchFacet('inStores', policy)).toBe(true);
+    expect(isHiddenSearchFacet('taxonomy.features', policy)).toBe(true);
+    expect(policy.fields.priceMin).toBe('minPrice');
+    expect(policy.order).toEqual(['price', 'brand']);
+    expect(policy.multiselect).toEqual(['brand']);
   });
 
   it('renames facets, a configured name wins over the defaults, other facets have no name', () => {
