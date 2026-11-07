@@ -1,5 +1,6 @@
 import type {
   ProductSearchFacetExpression,
+  SearchQuery,
 } from '@commercetools/platform-sdk';
 import type {
   Cache,
@@ -21,6 +22,8 @@ import {
   createSearchFacetPolicy,
   error,
   getSearchFilterProblem,
+  MAX_SEARCH_RATING,
+  toMinorUnits,
   groupFacetSelections,
   ProductSearchCapability,
   ProductSearchQueryByTermSchema,
@@ -48,11 +51,11 @@ export class CommercetoolsProductSearchCapability<
   protected facetPolicy: SearchFacetPolicy;
 
   /**
-   * The typed filters the commercetools Product Search can really express. None: the SDK types searchable fields as plain strings, so there is
-   * no verified field for price, rating or availability (and the product-level concept attributes have no verified search field either),
-   * and a hard filter must never be dropped silently, so they are refused.
+   * The typed filters the commercetools Product Search can express: price (variants.prices.centAmount in the currency of the request),
+   * rating (reviewRatingStatistics.averageRating) and online availability (variants.availability.isOnStock, not supported with the
+   * Modular ProductCatalogModel). Stores are refused, as are concepts: a hard filter must never be dropped silently.
    */
-  protected readonly supportedFilters: readonly TypedSearchFilter[] = [];
+  protected readonly supportedFilters: readonly TypedSearchFilter[] = ['priceFilter', 'ratingFilter', 'availabilityFilter'];
 
   /**
    * We assume all commercetools data is indexed on the language level, not the country subdivision
@@ -177,6 +180,49 @@ export class CommercetoolsProductSearchCapability<
     return undefined;
   }
 
+  protected getPriceFilterExpression(payload: ProductSearchQueryByTerm): SearchQuery | undefined {
+    const { priceFilter } = payload.search;
+    if (priceFilter?.min === undefined && priceFilter?.max === undefined) {
+      return undefined;
+    }
+    // original (list) prices only, as the index; the filter matches products with a variant price in range
+    const currency = this.context.languageContext.currencyCode;
+    return {
+      and: [
+        { exact: { field: 'variants.prices.currencyCode', value: currency } },
+        {
+          range: {
+            field: 'variants.prices.centAmount',
+            ...(priceFilter.min !== undefined ? { gte: toMinorUnits(priceFilter.min, currency) } : {}),
+            ...(priceFilter.max !== undefined ? { lte: toMinorUnits(priceFilter.max, currency) } : {}),
+          },
+        },
+      ],
+    };
+  }
+
+  protected getRatingFilterExpression(payload: ProductSearchQueryByTerm): SearchQuery | undefined {
+    const { ratingFilter } = payload.search;
+    if (ratingFilter?.min === undefined && ratingFilter?.max === undefined) {
+      return undefined;
+    }
+    // whole stars are the average rounded down: 4 is 4 <= average < 5, and 5 is the closed end
+    return {
+      range: {
+        field: 'reviewRatingStatistics.averageRating',
+        ...(ratingFilter.min !== undefined ? { gte: ratingFilter.min } : {}),
+        ...(ratingFilter.max !== undefined ? (ratingFilter.max >= MAX_SEARCH_RATING ? { lte: MAX_SEARCH_RATING } : { lt: ratingFilter.max + 1 }) : {}),
+      },
+    };
+  }
+
+  protected getAvailabilityFilterExpression(payload: ProductSearchQueryByTerm): SearchQuery | undefined {
+    if (payload.search.availabilityFilter?.online !== true) {
+      return undefined;
+    }
+    return { exact: { field: 'variants.availability.isOnStock', value: true } };
+  }
+
   protected async getSearchTermExpression(payload: ProductSearchQueryByTerm) {
     if (payload.search.term.trim().length === 0 || payload.search.term === '*') {
       return undefined;
@@ -298,6 +344,13 @@ export class CommercetoolsProductSearchCapability<
       return error<InvalidInputError>({ type: 'InvalidInput', error: problem });
     }
 
+    if ((payload.search.availabilityFilter?.stores?.length ?? 0) > 0) {
+      return error<InvalidInputError>({
+        type: 'InvalidInput',
+        error: 'This product search provider cannot apply availabilityFilter.stores (store availability). Search without stores, as the products would not be restricted.',
+      });
+    }
+
     const client = await this.getClient();
 
     const facetsToReturn = await this.getFacetsToReturn(payload);
@@ -317,6 +370,16 @@ export class CommercetoolsProductSearchCapability<
         };
       } else {
         finalFilterExpression = facetsToApply;
+      }
+    }
+
+    for (const typed of [
+      this.getPriceFilterExpression(payload),
+      this.getRatingFilterExpression(payload),
+      this.getAvailabilityFilterExpression(payload),
+    ]) {
+      if (typed) {
+        finalFilterExpression = finalFilterExpression ? { and: [finalFilterExpression, typed] } : typed;
       }
     }
 

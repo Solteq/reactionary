@@ -27,11 +27,23 @@ const config = (facets?: SearchFacetPolicyOptions) =>
     facets,
   });
 
+class TestableCapability extends CommercetoolsProductSearchCapability {
+  public price(payload: ProductSearchQueryByTerm) {
+    return this.getPriceFilterExpression(payload);
+  }
+  public rating(payload: ProductSearchQueryByTerm) {
+    return this.getRatingFilterExpression(payload);
+  }
+  public availability(payload: ProductSearchQueryByTerm) {
+    return this.getAvailabilityFilterExpression(payload);
+  }
+}
+
 // The client is never asked for a token: a refused search returns before any request
 const capability = () => {
   const context = createInitialRequestContext();
   const cfg = config();
-  return new CommercetoolsProductSearchCapability(
+  return new TestableCapability(
     cfg,
     new NoOpCache(),
     context,
@@ -59,9 +71,8 @@ const parse = (facets: SearchFacetPolicyOptions | undefined, search: Record<stri
 
 describe('commercetools typed search filters', () => {
   const refused: [string, Record<string, unknown>][] = [
-    ['priceFilter', { priceFilter: { min: 10, max: 20 } }],
-    ['ratingFilter', { ratingFilter: { min: 4 } }],
-    ['availabilityFilter', { availabilityFilter: { online: true } }],
+    ['availabilityFilter.stores', { availabilityFilter: { stores: [{ key: 's1' }] } }],
+    ['availabilityFilter.stores', { availabilityFilter: { online: true, stores: [{ key: 's1' }] } }],
     ['conceptFilter', { conceptFilter: [{ key: 'features/cordless' }] }],
     ['conceptContext', { conceptContext: [{ key: 'features/cordless' }] }],
   ];
@@ -80,6 +91,45 @@ describe('commercetools typed search filters', () => {
     const result = await capability().queryByTerm(query({ facets: [{ facet: { key: 'reviewBucket' }, key: '4' }] }));
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe('commercetools supported typed filters', () => {
+  const currency = createInitialRequestContext().languageContext.currencyCode;
+
+  it('scopes the price range to the currency, in minor units', () => {
+    expect(capability().price(query({ priceFilter: { min: 10.5, max: 20 } }))).toEqual({
+      and: [
+        { exact: { field: 'variants.prices.currencyCode', value: currency } },
+        { range: { field: 'variants.prices.centAmount', gte: 1050, lte: 2000 } },
+      ],
+    });
+  });
+
+  it('supports an open price range', () => {
+    expect(capability().price(query({ priceFilter: { max: 20 } }))).toMatchObject({
+      and: [expect.anything(), { range: { field: 'variants.prices.centAmount', lte: 2000 } }],
+    });
+    expect(capability().price(query({}))).toBeUndefined();
+  });
+
+  it('turns whole stars into average rating bounds', () => {
+    expect(capability().rating(query({ ratingFilter: { min: 3, max: 4 } }))).toEqual({
+      range: { field: 'reviewRatingStatistics.averageRating', gte: 3, lt: 5 },
+    });
+    expect(capability().rating(query({ ratingFilter: { min: 4, max: 5 } }))).toEqual({
+      range: { field: 'reviewRatingStatistics.averageRating', gte: 4, lte: 5 },
+    });
+    expect(capability().rating(query({ ratingFilter: { max: 2 } }))).toEqual({
+      range: { field: 'reviewRatingStatistics.averageRating', lt: 3 },
+    });
+  });
+
+  it('filters online availability on isOnStock', () => {
+    expect(capability().availability(query({ availabilityFilter: { online: true } }))).toEqual({
+      exact: { field: 'variants.availability.isOnStock', value: true },
+    });
+    expect(capability().availability(query({}))).toBeUndefined();
   });
 });
 
