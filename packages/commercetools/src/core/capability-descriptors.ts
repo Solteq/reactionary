@@ -125,7 +125,7 @@ export type CapabilityDescriptor = {
     factory?: any;
     capability?: (args: any) => any;
   } | undefined;
-  createDefaultFactory: () => any;
+  createDefaultFactory: (config: CommercetoolsConfiguration) => any;
   createDefaultCapability: (args: any) => any;
 };
 
@@ -159,8 +159,8 @@ export const capabilityDescriptors: Record<OverridableCapabilityKey, CapabilityD
   productSearch: {
     isEnabled: (caps) => caps.productSearch?.enabled,
     getOverride: (caps) => caps.productSearch,
-    createDefaultFactory: () =>
-      new CommercetoolsProductSearchFactory(ProductSearchResultSchema),
+    createDefaultFactory: (config) =>
+      new CommercetoolsProductSearchFactory(ProductSearchResultSchema, config.facets),
     createDefaultCapability: (args) =>
       new CommercetoolsProductSearchCapability(
         args.config,

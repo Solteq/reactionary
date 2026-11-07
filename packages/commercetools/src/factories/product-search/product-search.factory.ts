@@ -12,12 +12,18 @@ import {
   FacetIdentifierSchema,
   FacetValueIdentifierSchema,
   ImageSchema,
-  ProductSearchResultFacetSchema,
+  ProductSearchResultAttributeFacetSchema,
+  type ProductSearchResultAttributeFacet,
   ProductSearchResultFacetValueSchema,
   ProductSearchResultItemComplianceDataSchema,
   ProductSearchResultItemVariantSchema,
   ProductVariantIdentifierSchema,
   ProductVariantOptionSchema,
+  createSearchFacetPolicy,
+  isHiddenSearchFacet,
+  orderSearchFacets,
+  type SearchFacetPolicy,
+  type SearchFacetPolicyOptions,
   type AnyProductSearchResultSchema,
   type FacetIdentifier,
   type FacetValueIdentifier,
@@ -41,9 +47,14 @@ export class CommercetoolsProductSearchFactory<
 > implements ProductSearchFactory<TProductSearchResultSchema>
 {
   public readonly productSearchResultSchema: TProductSearchResultSchema;
+  protected readonly facetPolicy: SearchFacetPolicy;
 
-  constructor(productSearchResultSchema: TProductSearchResultSchema) {
+  /**
+   * @param facets the facet policy: hidden facets, names, order and which attribute facets are multiselect
+   */
+  constructor(productSearchResultSchema: TProductSearchResultSchema, facets?: SearchFacetPolicyOptions) {
     this.productSearchResultSchema = productSearchResultSchema;
+    this.facetPolicy = createSearchFacetPolicy(facets);
   }
 
   public parseSearchResult(
@@ -58,9 +69,12 @@ export class CommercetoolsProductSearchFactory<
     const items: ProductSearchResultItem[] = data.results.map((product) =>
       this.parseSingle(context, product.productProjection!),
     );
-    const facets: ProductSearchResultFacet[] = [];
+    let facets: ProductSearchResultFacet[] = [];
 
     for (const facet of data.facets) {
+      if (isHiddenSearchFacet(facet.name, this.facetPolicy)) {
+        continue;
+      }
       const facetIdentifier = FacetIdentifierSchema.parse({
         key: facet.name,
       } satisfies Partial<FacetIdentifier>);
@@ -70,6 +84,8 @@ export class CommercetoolsProductSearchFactory<
         facets.push(candidateFacet);
       }
     }
+
+    facets = orderSearchFacets(facets, this.facetPolicy);
 
     const result = {
       identifier,
@@ -115,10 +131,13 @@ export class CommercetoolsProductSearchFactory<
   protected parseFacet(
     facetIdentifier: FacetIdentifier,
     facet: CTProductSearchFacetResult,
-  ): ProductSearchResultFacet {
-    const result: ProductSearchResultFacet = ProductSearchResultFacetSchema.parse({
+  ): ProductSearchResultAttributeFacet {
+    const result = ProductSearchResultAttributeFacetSchema.parse({
+      semantic: 'attribute',
       identifier: facetIdentifier,
-      name: facet.name,
+      name: this.facetPolicy.names[facet.name] ?? facet.name,
+      // the categories facet is a navigation, never a multiselect
+      multiselect: facet.name !== 'categories' && this.facetPolicy.multiselect.includes(facet.name),
       values: [],
     });
 

@@ -1,6 +1,6 @@
 import * as z from 'zod';
 import { ExternalIdentityProviderSchema } from '@reactionary/oidc';
-import { PaymentMethodSchema, ProductAssetTypeSchema } from '@reactionary/core';
+import { PaymentMethodSchema, ProductAssetTypeSchema, SearchFacetPolicyOptionsSchema } from '@reactionary/core';
 
 export const CommercetoolsConfigurationSchema = z.looseObject({
     projectKey: z.string(),
@@ -13,6 +13,7 @@ export const CommercetoolsConfigurationSchema = z.looseObject({
     adminClientSecret: z.string().optional(),
     paymentMethods: PaymentMethodSchema.array().optional().default(() => []),
     facetFieldsForSearch: z.array(z.string()).default(() => []),
+    facets: SearchFacetPolicyOptionsSchema.optional().meta({ description: 'Facet policy of the product search: which facets are hidden, their names and order, and which attribute facets are multiselect (the values selected within one facet widen the search with OR). commercetools facets are all attributes, so price, rating, availability and taxonomy keys have no effect.' }),
     listPriceChannelKey: z.string().optional(),
     customerPriceChannelKey: z.string().optional(),
     externalIdentityProviders: z.array(ExternalIdentityProviderSchema).optional().meta({ description: 'OpenID Connect identity providers shoppers can sign in with. commercetools has no social login of its own: reactionary runs the OpenID Connect flow, then creates or finds the customer (externalId = <iss>|<sub>) with the admin client, and commercetools accepts the identity provider\'s access token on the /me endpoints through the project\'s externalOAuth introspection endpoint. The access token must be one that endpoint can verify (a JWT; for Auth0 set authorizationParams.audience). The admin API client needs manage_customers and manage_orders.' }),

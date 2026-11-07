@@ -46,7 +46,7 @@ export function withCommercetoolsCapabilities<
       client[key] = resolveCapabilityWithFactory(
         descriptor.getOverride(capabilities),
         {
-          factory: descriptor.createDefaultFactory(),
+          factory: descriptor.createDefaultFactory(config),
           capability: descriptor.createDefaultCapability,
         },
         buildCapabilityArgs,

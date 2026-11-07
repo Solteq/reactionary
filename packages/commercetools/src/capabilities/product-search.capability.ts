@@ -10,11 +10,17 @@ import type {
   ProductSearchFactoryWithOutput,
   ProductSearchQueryByTerm,
   ProductSearchQueryCreateNavigationFilter,
+  InvalidInputError,
   RequestContext,
   Result,
+  SearchFacetPolicy,
+  TypedSearchFilter,
 } from '@reactionary/core';
 import {
   FacetValueIdentifierSchema,
+  createSearchFacetPolicy,
+  error,
+  getSearchFilterProblem,
   groupFacetSelections,
   ProductSearchCapability,
   ProductSearchQueryByTermSchema,
@@ -39,6 +45,14 @@ export class CommercetoolsProductSearchCapability<
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
   protected factory: ProductSearchFactoryWithOutput<TFactory>;
+  protected facetPolicy: SearchFacetPolicy;
+
+  /**
+   * The typed filters the commercetools Product Search can really express. None: the SDK types searchable fields as plain strings, so there is
+   * no verified field for price, rating or availability (and the product-level concept attributes have no verified search field either),
+   * and a hard filter must never be dropped silently, so they are refused.
+   */
+  protected readonly supportedFilters: readonly TypedSearchFilter[] = [];
 
   /**
    * We assume all commercetools data is indexed on the language level, not the country subdivision
@@ -57,6 +71,7 @@ export class CommercetoolsProductSearchCapability<
     this.config = config;
     this.commercetools = commercetools;
     this.factory = factory;
+    this.facetPolicy = createSearchFacetPolicy(config.facets);
   }
 
   protected async getClient() {
@@ -200,7 +215,7 @@ export class CommercetoolsProductSearchCapability<
     }
 
     // The values of a multiselect facet are one `or`: any of them matches. Everything else is ANDed.
-    const selections = groupFacetSelections(payload.search.facets, payload.search.multiselect);
+    const selections = groupFacetSelections(payload.search.facets, this.facetPolicy.multiselect);
     const facetsToApply = await Promise.all([
       ...selections.single.map((facet) => this.getFacetQuery(payload, facet)),
       ...Array.from(selections.multi.values(), async (values) => {
@@ -278,6 +293,11 @@ export class CommercetoolsProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
+    const problem = getSearchFilterProblem(payload.search, this.supportedFilters, this.facetPolicy);
+    if (problem) {
+      return error<InvalidInputError>({ type: 'InvalidInput', error: problem });
+    }
+
     const client = await this.getClient();
 
     const facetsToReturn = await this.getFacetsToReturn(payload);
@@ -342,8 +362,8 @@ export class CommercetoolsProductSearchCapability<
 
     // mark selected facets as active
     for(const selectedFacet of payload.search.facets) {
-      const facet = result.facets.find((f) => f.identifier.key === selectedFacet.facet.key);
-      if(facet) {
+      const facet = result.facets.find((f) => f.semantic === 'attribute' && f.identifier.key === selectedFacet.facet.key);
+      if(facet && facet.semantic === 'attribute') {
           const value = facet.values.find((v) => v.identifier.key === selectedFacet.key);
           if(value) {
             value.active = true;
@@ -363,9 +383,9 @@ export class CommercetoolsProductSearchCapability<
 
   protected async patchCategoryFacetValues(result: ProductSearchFactoryOutput<TFactory>) {
     const categoryFacet = result.facets.find(
-      (f) => f.identifier.key === 'categories'
+      (f) => f.semantic === 'attribute' && f.identifier.key === 'categories'
     );
-    if (!categoryFacet) {
+    if (!categoryFacet || categoryFacet.semantic !== 'attribute') {
       return;
     }
 
