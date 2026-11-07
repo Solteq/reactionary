@@ -117,8 +117,10 @@ export class HclProductSearchFactory<
     );
 
     return {
+      semantic: 'attribute',
       identifier: facetId,
       name: f.name || f.value,
+      multiselect: false,
       values,
     } satisfies ProductSearchResultFacet;
   }

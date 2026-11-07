@@ -70,6 +70,9 @@ export const UCPCatalogSearchRequestSchema = z.looseObject({
     categories: z.array(z.string()).optional(),
     price: z.unknown().optional(),
   }).optional(),
+  context: z.looseObject({
+    currency: z.string().optional(),
+  }).optional(),
   pagination: z.looseObject({
     limit: z.int().min(1).optional(),
     cursor: z.string().optional(),

@@ -6,6 +6,12 @@ import {
   ProductSearchResultSchema,
   Reactionary,
   success,
+  error,
+  getActiveTypedSearchFilters,
+  getSearchFilterProblem,
+  type InvalidInputError,
+  type SearchIdentifier,
+  type TypedSearchFilter,
   type Cache,
   type FacetIdentifier,
   type FacetValueIdentifier,
@@ -25,6 +31,22 @@ import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { Faker, en, base } from '@faker-js/faker';
 import { jitter } from '../utilities/jitter.js';
 import type { FakeProductSearchFactory } from '../factories/product-search/product-search.factory.js';
+
+/** The fake can apply every typed filter, it only refuses facets that name the key of a typed field. */
+const FAKE_SUPPORTED_FILTERS: TypedSearchFilter[] = ['conceptContext', 'conceptFilter', 'priceFilter', 'ratingFilter', 'availabilityFilter'];
+
+const ATTRIBUTE_FACETS = [
+  { key: 'color', multiselect: false },
+  { key: 'size', multiselect: true },
+];
+
+const FEATURE_CONCEPTS = [
+  { key: 'features/cordless', name: 'Cordless', count: 12 },
+  { key: 'features/waterproof', name: 'Waterproof', count: 7 },
+  { key: 'features/wireless', name: 'Wireless', count: 4 },
+];
+
+const FAKE_STORE_KEY = 'store_1';
 
 export class FakeProductSearchCapability<
   TFactory extends ProductSearchFactory = FakeProductSearchFactory,
@@ -55,8 +77,18 @@ export class FakeProductSearchCapability<
 
     const query = payload.search;
 
+    const problem = getSearchFilterProblem(query, FAKE_SUPPORTED_FILTERS);
+    if (problem !== undefined) {
+      return error<InvalidInputError>({ type: 'InvalidInput', error: problem });
+    }
+
+    const typedFilterCount = getActiveTypedSearchFilters(query).length;
     const querySpecificity =
-      20 - query.term.length - query.paginationOptions.pageNumber - query.facets.length;
+      20 -
+      query.term.length -
+      query.paginationOptions.pageNumber -
+      query.facets.length -
+      typedFilterCount;
     const totalProducts = 10 * querySpecificity;
     const totalPages = Math.ceil(totalProducts / query.paginationOptions.pageSize);
     const productsOnPage = Math.min(totalProducts, query.paginationOptions.pageSize);
@@ -110,37 +142,7 @@ export class FakeProductSearchCapability<
       );
     }
 
-    for (const baseFacet of ['color', 'size']) {
-      const facet: ProductSearchResultFacet = {
-        identifier: {
-          key: baseFacet,
-        },
-        name: baseFacet,
-        values: [],
-      };
-
-      for (let i = 0; i < 10; i++) {
-        const valueKey = i.toString();
-        const isActive =
-          query.facets.find(
-            (x) => x.facet.key === facet.identifier.key && x.key === valueKey,
-          ) !== undefined;
-
-        facet.values.push({
-          active: isActive,
-          count: facetGenerator.number.int({ min: 1, max: 50 }),
-          identifier: {
-            facet: {
-              key: facet.identifier.key,
-            },
-            key: valueKey,
-          },
-          name: facetGenerator.color.human(),
-        });
-      }
-
-      facets.push(facet);
-    }
+    facets.push(...this.createFacets(query, facetGenerator));
 
     const result = {
       identifier: {
@@ -150,6 +152,11 @@ export class FakeProductSearchCapability<
           pageSize: query.paginationOptions.pageSize,
         },
         facets: query.facets,
+        conceptContext: query.conceptContext,
+        conceptFilter: query.conceptFilter,
+        priceFilter: query.priceFilter,
+        ratingFilter: query.ratingFilter,
+        availabilityFilter: query.availabilityFilter,
         filters: [],
       },
       facets,
@@ -161,6 +168,90 @@ export class FakeProductSearchCapability<
     } satisfies ProductSearchResult;
 
     return success(this.factory.parseSearchResult(this.context, result, payload));
+  }
+
+  /**
+   * Deterministic facets of every kind, with `active` derived from the typed filters of the search.
+   */
+  protected createFacets(query: SearchIdentifier, facetGenerator: Faker): ProductSearchResultFacet[] {
+    const facets: ProductSearchResultFacet[] = [];
+
+    for (const attribute of ATTRIBUTE_FACETS) {
+      const values = [];
+      for (let i = 0; i < 10; i++) {
+        const valueKey = i.toString();
+        values.push({
+          active: query.facets.some((x) => x.facet.key === attribute.key && x.key === valueKey),
+          count: facetGenerator.number.int({ min: 1, max: 50 }),
+          identifier: { facet: { key: attribute.key }, key: valueKey },
+          name: facetGenerator.color.human(),
+        });
+      }
+      facets.push({
+        semantic: 'attribute',
+        identifier: { key: attribute.key },
+        name: attribute.key,
+        multiselect: attribute.multiselect,
+        values,
+      });
+    }
+
+    const selectedConcepts = query.conceptFilter ?? [];
+    facets.push({
+      semantic: 'taxonomy',
+      vocabulary: 'features',
+      name: 'Features',
+      multiselect: true,
+      values: FEATURE_CONCEPTS.map((concept) => ({
+        concept: { key: concept.key },
+        name: concept.name,
+        count: concept.count,
+        active: selectedConcepts.some((x) => x.key === concept.key),
+      })),
+    });
+
+    const priceFilter = query.priceFilter;
+    const hasPriceFilter = priceFilter?.min !== undefined || priceFilter?.max !== undefined;
+    facets.push({
+      semantic: 'price',
+      name: 'Price',
+      multiselect: false,
+      currency: this.context.languageContext.currencyCode,
+      stats: { min: 5, max: 500 },
+      ...(hasPriceFilter ? { selected: priceFilter } : {}),
+    });
+
+    const ratingLow = query.ratingFilter?.min ?? 0;
+    const ratingHigh = query.ratingFilter?.max ?? 5;
+    const hasRatingFilter = query.ratingFilter?.min !== undefined || query.ratingFilter?.max !== undefined;
+    facets.push({
+      semantic: 'rating',
+      name: 'Rating',
+      multiselect: false,
+      buckets: [1, 2, 3, 4, 5].map((stars) => ({
+        min: stars,
+        max: stars,
+        count: 30 - stars * 4,
+        active: hasRatingFilter && stars >= ratingLow && stars <= ratingHigh,
+      })),
+    });
+
+    facets.push({
+      semantic: 'availability',
+      name: 'Availability',
+      multiselect: true,
+      online: { count: 40, active: query.availabilityFilter?.online === true },
+      stores: [
+        {
+          store: { key: FAKE_STORE_KEY },
+          name: 'Fake store',
+          count: 15,
+          active: query.availabilityFilter?.stores?.some((x) => x.key === FAKE_STORE_KEY) ?? false,
+        },
+      ],
+    });
+
+    return facets;
   }
 
   public override async createCategoryNavigationFilter(

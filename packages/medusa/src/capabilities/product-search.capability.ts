@@ -8,6 +8,10 @@ import {
   ProductSearchQueryByTermSchema,
   ProductSearchResultSchema,
   Reactionary,
+  DEFAULT_SEARCH_FACET_POLICY,
+  error,
+  getSearchFilterProblem,
+  type InvalidInputError,
   success,
   type Cache,
   type FacetValueIdentifier,
@@ -138,6 +142,11 @@ export class MedusaProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
+    const filterProblem = getSearchFilterProblem(payload.search, [], DEFAULT_SEARCH_FACET_POLICY);
+    if (filterProblem !== undefined) {
+      return error<InvalidInputError>({ type: 'InvalidInput', error: filterProblem });
+    }
+
     const client = await this.medusaApi.getClient();
 
     let categoryIdsToFind: string[] | null = null;

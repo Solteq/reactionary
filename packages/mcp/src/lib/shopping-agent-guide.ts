@@ -108,7 +108,7 @@ Reactionary list queries use paginationOptions with 1-based pages. Prefer small 
 When refining product search:
 
 1. Keep the prior search state where possible.
-2. Add selected facets/filters.
+2. Add the selected facet values to the field their semantic names: facets (attribute), conceptFilter (taxonomy), priceFilter, ratingFilter or availabilityFilter.
 3. Reset pageNumber to 1 after changing filters.
 4. Use additional pages only when the user asks for more.
 

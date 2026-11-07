@@ -5,6 +5,10 @@ import {
   ProductSearchQueryCreateNavigationFilterSchema,
   ProductSearchResultSchema,
   Reactionary,
+  DEFAULT_SEARCH_FACET_POLICY,
+  error,
+  getSearchFilterProblem,
+  type InvalidInputError,
   success,
   type Cache,
   type FacetValueIdentifier,
@@ -67,6 +71,11 @@ export class HclProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm,
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
+    const filterProblem = getSearchFilterProblem(payload.search, [], DEFAULT_SEARCH_FACET_POLICY);
+    if (filterProblem !== undefined) {
+      return error<InvalidInputError>({ type: 'InvalidInput', error: filterProblem });
+    }
+
     const response = await this.client.callGet<HclProductQueryResponse>(
       this.queryByTermUrl(payload),
       this.queryByTermPayload(payload),

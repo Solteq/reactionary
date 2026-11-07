@@ -116,8 +116,11 @@ describe('HCL Product Search Capability', () => {
     }
 
     const brandFacet = initial.value.facets.find(
-      (f) => f.identifier.key === 'manufacturer.raw',
+      (f) => f.semantic === 'attribute' && f.identifier.key === 'manufacturer.raw',
     );
+    if (brandFacet?.semantic !== 'attribute') {
+      assert.fail('Expected manufacturer.raw facet in results');
+    }
     if (!brandFacet || brandFacet.values.length === 0) {
       assert.fail('Expected manufacturer.raw facet in results');
     }
