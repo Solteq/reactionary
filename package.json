@@ -11,10 +11,10 @@
   "dependencies": {
     "@commercetools/platform-sdk": "^8.25.0",
     "@commercetools/ts-client": "^4.9.1",
-    "@faker-js/faker": "^10.5.0",
+    "@faker-js/faker": "^10.6.0",
     "@medusajs/js-sdk": "^2.21.0",
-    "@modelcontextprotocol/node": "2.1.0",
-    "@modelcontextprotocol/server": "2.3.1",
+    "@modelcontextprotocol/node": "2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
     "@opentelemetry/api": "^1.9.0",
     "algoliasearch": "^5.48.0",
     "commander": "^15.0.0",
@@ -26,7 +26,7 @@
     "redis": "^5.12.1",
     "sitemap": "^9.0.1",
     "xmlbuilder2": "^4.0.3",
-    "zod": "4.1.9"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
@@ -45,7 +45,7 @@
     "@types/debug": "^4.1.12",
     "@types/express": "^5.0.6",
     "@types/node": "^24.0.0",
-    "@vitest/coverage-v8": "^4.0.0",
+    "@vitest/coverage-v8": "^4.1.12",
     "ajv": "8.20.0",
     "ajv-formats": "2.1.1",
     "docusaurus-plugin-typedoc": "^1.4.2",
@@ -61,7 +61,7 @@
     "typescript": "5.9.3",
     "typescript-eslint": "^8.33.1",
     "verdaccio": "6.7.4",
-    "vite": "8.3.5",
+    "vite": "8.3.6",
     "vitest": "^4.1.12",
     "zod2md": "^0.2.5",
     "@docusaurus/core": "^3.9.2",

@@ -16,8 +16,8 @@
     "url": "git+https://github.com/Solteq/reactionary.git"
   },
   "dependencies": {
-    "@modelcontextprotocol/node": "2.1.0",
-    "@modelcontextprotocol/server": "2.3.1",
+    "@modelcontextprotocol/node": "2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
     "@reactionary/algolia": "0.0.1",
     "@reactionary/commercetools": "0.0.1",
     "@reactionary/core": "0.0.1",
@@ -27,7 +27,7 @@
     "@reactionary/meilisearch": "0.0.1",
     "@reactionary/unomi": "0.0.1",
     "dotenv": "^17.2.2",
-    "zod": "4.1.9"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@swc-node/register": "1.11.1",
