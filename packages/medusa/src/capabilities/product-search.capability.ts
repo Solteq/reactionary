@@ -10,10 +10,12 @@ import {
   Reactionary,
   DEFAULT_SEARCH_FACET_POLICY,
   error,
+  getConceptVocabulary,
   getSearchFilterProblem,
   type InvalidInputError,
   success,
   type Cache,
+  type ConceptIdentifier,
   type FacetValueIdentifier,
   type ProductSearchFactory,
   type ProductSearchFactoryOutput,
@@ -27,6 +29,7 @@ import createDebug from 'debug';
 import type { MedusaAPI } from '../core/client.js';
 import type { MedusaProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
+import { collectTags, getTagsWithDescendants, parseTagAsConcept, type MedusaTagPage } from '../utils/taxonomy.js';
 
 const debug = createDebug('reactionary:medusa:search');
 
@@ -84,13 +87,14 @@ export class MedusaProductSearchCapability<
   }
 
 
-  protected queryByTermPayload(payload: ProductSearchQueryByTerm, categoryIdsToFind: string[] | null): any {
+  protected queryByTermPayload(payload: ProductSearchQueryByTerm, categoryIdsToFind: string[] | null, tagIdsToFind: string[] | null = null): any {
 
     const finalSearch = (payload.search.term || '').trim().replace('*', '');
 
     return {
       q: finalSearch,
       ...(categoryIdsToFind?.length ? { category_id: categoryIdsToFind } : {}),
+      ...(tagIdsToFind?.length ? { tag_id: tagIdsToFind } : {}),
       limit: payload.search.paginationOptions.pageSize,
       fields: '+metadata.*,+external_id',
       offset:
@@ -131,6 +135,28 @@ export class MedusaProductSearchCapability<
   }
 
 
+  /**
+   * The Medusa tag ids that match a concept: its own tag and the tags of all its descendants, so that a page about "lighting" also
+   * lists the products tagged "ceiling lamps". Concepts are product tags, the concept id is the external id of the tag. Medusa cannot
+   * filter tags by metadata, so the tags of the vocabulary are read, which the 5 minutes cache of the search spares most searches.
+   * Empty when the store has no such concept.
+   */
+  protected async resolveConceptTagIds(concept: ConceptIdentifier): Promise<string[]> {
+    const client = await this.medusaApi.getClient();
+    const locale = this.context.languageContext.locale;
+    const vocabulary = getConceptVocabulary(concept);
+    const tags = await collectTags(
+      (page) =>
+        client.client.fetch<MedusaTagPage>('/store/product-tags', {
+          method: 'GET',
+          query: { fields: 'id,value,external_id,metadata', ...page },
+        }),
+      (tag) => parseTagAsConcept(tag, locale)?.vocabulary === vocabulary,
+      100,
+    );
+    return getTagsWithDescendants(tags, concept.key, locale).map((tag) => tag.id);
+  }
+
   @Reactionary({
     inputSchema: ProductSearchQueryByTermSchema,
     outputSchema: ProductSearchResultSchema,
@@ -142,12 +168,37 @@ export class MedusaProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
-    const filterProblem = getSearchFilterProblem(payload.search, [], DEFAULT_SEARCH_FACET_POLICY);
+    const filterProblem = getSearchFilterProblem(payload.search, ['conceptContext'], DEFAULT_SEARCH_FACET_POLICY);
     if (filterProblem !== undefined) {
       return error<InvalidInputError>({ type: 'InvalidInput', error: filterProblem });
     }
 
+    const conceptContext = payload.search.conceptContext ?? [];
+    if (conceptContext.length > 1) {
+      // tag_id matches any of the tags, so two concepts that must both match cannot be asked in one request
+      return error<InvalidInputError>({
+        type: 'InvalidInput',
+        error: 'This product search provider matches one conceptContext concept, as Medusa filters by tag with any of them matching. Search with one concept.',
+      });
+    }
+
     const client = await this.medusaApi.getClient();
+
+    let tagIdsToFind: string[] | null = null;
+    if (conceptContext.length === 1) {
+      tagIdsToFind = await this.resolveConceptTagIds(conceptContext[0]);
+      if (tagIdsToFind.length === 0) {
+        // an unknown concept matches nothing. Leaving the filter out would list every product on a page about nothing
+        const { pageNumber, pageSize } = payload.search.paginationOptions;
+        return success(
+          this.factory.parseSearchResult(
+            this.context,
+            { products: [], count: 0, offset: (pageNumber - 1) * pageSize, limit: pageSize },
+            payload,
+          ),
+        );
+      }
+    }
 
     let categoryIdsToFind: string[] | null = null;
     if (payload.search.categoryFilter?.key) {
@@ -176,7 +227,7 @@ export class MedusaProductSearchCapability<
 
 
     const response = await client.store.product.list(
-      this.queryByTermPayload(payload, categoryIdsToFind),
+      this.queryByTermPayload(payload, categoryIdsToFind, tagIdsToFind),
     );
 
     const result = this.factory.parseSearchResult(this.context, response, payload);

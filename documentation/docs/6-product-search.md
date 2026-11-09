@@ -136,6 +136,7 @@ const result = await client.productSearch.queryByTerm({
 - `conceptContext` is for concept pages, such as a landing page for `features/cordless`: all of them must match, products of the concepts below match too, and the shopper cannot remove them, so do not offer to.
 - The parts of `availabilityFilter` widen each other: online, or in one of the stores.
 - A provider that cannot apply a typed filter answers `InvalidInput` instead of dropping it, so that "in stock" never returns products that are not. A facet that names the key of a typed field (such as `reviewBucket`) is refused too: use the typed field.
+- What each provider applies: Algolia and Meilisearch apply all of them (`priceFilter` through the lowest and highest price of a product). commercetools applies `priceFilter`, `ratingFilter` and `availabilityFilter.online`, and refuses stores and concepts. Medusa applies `conceptContext` with one concept, the concept and everything below it matched through product tags, and refuses the rest, including `conceptFilter`. Magento and HCL apply none. The fake applies all.
 - The facet `multiselect` flag tells whether the values of a facet widen each other and whether the facet keeps offering the values it would without its own selection. It is fixed for taxonomy and availability, and set by the provider configuration for attributes.
 
 Search engine providers (Algolia, Meilisearch, commercetools) take a facet policy in their configuration (`facets`):
