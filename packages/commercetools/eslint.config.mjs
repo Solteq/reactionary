@@ -13,6 +13,8 @@ export default [
             '{projectRoot}/esbuild.config.{js,ts,mjs,mts}',
             '{projectRoot}/src/test/**',
           ],
+          // pnpm "catalog:" specifiers are not resolved by this rule.
+          ignoredDependencies: ['zod'],
         },
       ],
     },
