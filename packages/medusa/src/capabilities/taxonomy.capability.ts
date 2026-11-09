@@ -26,7 +26,7 @@ import * as z from 'zod';
 import type { MedusaAPI } from '../core/client.js';
 import type { MedusaTaxonomyFactory } from '../factories/taxonomy/taxonomy.factory.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
-import { parseTagAsConcept } from '../utils/taxonomy.js';
+import { collectTags, parseTagAsConcept } from '../utils/taxonomy.js';
 
 const debug = createDebug('reactionary:medusa:taxonomy');
 
@@ -96,21 +96,11 @@ export class MedusaTaxonomyCapability<
    * Medusa cannot filter tags by metadata, so the tags are paged through and the ones of the vocabulary kept.
    */
   protected async fetchVocabularyTags(vocabulary: string): Promise<StoreProductTag[]> {
-    const tags: StoreProductTag[] = [];
-    let offset = 0;
-
-    for (;;) {
-      const response = await this.listTags({ limit: this.tagPageSize, offset });
-      const page = response.product_tags ?? [];
-      tags.push(...page.filter((tag) => this.isConceptOfVocabulary(tag, vocabulary)));
-
-      offset += this.tagPageSize;
-      if (offset >= response.count || page.length === 0) {
-        break;
-      }
-    }
-
-    return tags;
+    return collectTags(
+      (page) => this.listTags(page),
+      (tag) => this.isConceptOfVocabulary(tag, vocabulary),
+      this.tagPageSize,
+    );
   }
 
   @Reactionary({

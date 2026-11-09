@@ -139,6 +139,67 @@ function asStringRecord(value: unknown): Record<string, string> | undefined {
   return parsed.success ? parsed.data : undefined;
 }
 
+/** One page of the product tags of the store API. */
+export interface MedusaTagPage {
+  product_tags?: MedusaTag[];
+  count: number;
+}
+
+/**
+ * Pages through the product tags of the store and keeps the ones that pass `keep`. Medusa cannot filter tags by their
+ * metadata, so every tag is read and the vocabulary of a tag is decided here.
+ */
+export async function collectTags(
+  listPage: (page: { limit: number; offset: number }) => Promise<MedusaTagPage>,
+  keep: (tag: MedusaTag) => boolean,
+  pageSize: number,
+): Promise<MedusaTag[]> {
+  const tags: MedusaTag[] = [];
+  let offset = 0;
+  for (;;) {
+    const response = await listPage({ limit: pageSize, offset });
+    const page = response.product_tags ?? [];
+    tags.push(...page.filter(keep));
+    offset += pageSize;
+    if (offset >= response.count || page.length === 0) {
+      break;
+    }
+  }
+  return tags;
+}
+
+/**
+ * The tag of a concept and the tags of all its descendants, from the `parent` of each concept. A concept the tags do not have gives
+ * nothing, and a loop in the parents ends where it closes.
+ */
+export function getTagsWithDescendants(tags: MedusaTag[], conceptKey: string, locale: string): MedusaTag[] {
+  const byConcept = new Map<string, MedusaTag>();
+  const childrenOf = new Map<string, string[]>();
+  for (const tag of tags) {
+    const concept = parseTagAsConcept(tag, locale);
+    if (!concept) {
+      continue;
+    }
+    byConcept.set(concept.identifier.key, tag);
+    if (concept.parent) {
+      childrenOf.set(concept.parent.key, [...(childrenOf.get(concept.parent.key) ?? []), concept.identifier.key]);
+    }
+  }
+  if (!byConcept.has(conceptKey)) {
+    return [];
+  }
+  // the queue grows while it is walked, a concept that is in it already is not added again, which also ends a loop of parents
+  const queue = [conceptKey];
+  for (let index = 0; index < queue.length; index++) {
+    for (const child of childrenOf.get(queue[index]) ?? []) {
+      if (!queue.includes(child)) {
+        queue.push(child);
+      }
+    }
+  }
+  return queue.flatMap((key) => byConcept.get(key) ?? []);
+}
+
 /**
  * Maps a Medusa product tag to a concept. The id lives in external_id (or metadata.concept_id), the name comes
  * from metadata.names for the request locale, then the tag value (translated by Medusa when it can). Tags
