@@ -24,7 +24,9 @@ import {
   type CartItem,
   type CostBreakDown,
   type Currency,
-  type RequestContext
+  type RequestContext,
+  fromMinorUnits,
+  toMinorUnits,
 } from '@reactionary/core';
 import type * as z from 'zod';
 import type {
@@ -141,38 +143,38 @@ export class CommercetoolsCartFactory<
     const shippingTotal = data.shippingInfo?.price.centAmount || 0;
     const productTotal = grandTotal - shippingTotal;
     const taxTotal = data.taxedPrice?.totalTax?.centAmount || 0;
+    const currency = data.totalPrice.currencyCode as Currency;
     const discountTotal =
       (data.discountOnTotalPrice?.discountedAmount.centAmount || 0) +
       items.reduce(
-        (sum, item) => sum + (item.price.totalDiscount.value * 100 || 0),
+        (sum, item) => sum + (toMinorUnits(item.price.totalDiscount.value, currency) || 0),
         0,
       );
     const surchargeTotal = 0;
-    const currency = data.totalPrice.currencyCode as Currency;
 
     const price = {
       totalTax: {
-        value: taxTotal / 100,
+        value: fromMinorUnits(taxTotal, currency),
         currency,
       },
       totalDiscount: {
-        value: discountTotal / 100,
+        value: fromMinorUnits(discountTotal, currency),
         currency,
       },
       totalSurcharge: {
-        value: surchargeTotal / 100,
+        value: fromMinorUnits(surchargeTotal, currency),
         currency,
       },
       totalShipping: {
-        value: shippingTotal / 100,
+        value: fromMinorUnits(shippingTotal, currency),
         currency,
       },
       totalProductPrice: {
-        value: productTotal / 100,
+        value: fromMinorUnits(productTotal, currency),
         currency,
       },
       grandTotal: {
-        value: grandTotal / 100,
+        value: fromMinorUnits(grandTotal, currency),
         currency,
       },
     } satisfies CostBreakDown;
@@ -196,7 +198,7 @@ export class CommercetoolsCartFactory<
           description:
             promo.discountCode.obj?.description?.[localeString] || '',
           ...(discountedCentAmount > 0
-            ? { amount: { value: discountedCentAmount / 100, currency } }
+            ? { amount: { value: fromMinorUnits(discountedCentAmount, currency), currency } }
             : {}),
         } satisfies Promotion);
       }
@@ -211,7 +213,7 @@ export class CommercetoolsCartFactory<
         name: applied.cartDiscount?.name?.[localeString] || '',
         description: applied.cartDiscount?.description?.[localeString] || '',
         ...(applied.centAmount > 0
-          ? { amount: { value: applied.centAmount / 100, currency } }
+          ? { amount: { value: fromMinorUnits(applied.centAmount, currency), currency } }
           : {}),
       } satisfies Promotion);
     }
@@ -314,7 +316,7 @@ export class CommercetoolsCartFactory<
         key: lineItem.id,
         ...(lineItem.priceMode === 'ExternalPrice' && {
           originalPrice: {
-            value: lineItem.price.value.centAmount / 100,
+            value: fromMinorUnits(lineItem.price.value.centAmount, currency),
             currency,
           },
         }),
@@ -328,19 +330,19 @@ export class CommercetoolsCartFactory<
       quantity: lineItem.quantity,
       price: {
         unitPrice: {
-          value: unitPrice / 100,
+          value: fromMinorUnits(unitPrice, currency),
           currency,
         },
         unitDiscount: {
-          value: unitDiscount / 100,
+          value: fromMinorUnits(unitDiscount, currency),
           currency,
         },
         totalPrice: {
-          value: totalPrice / 100,
+          value: fromMinorUnits(totalPrice, currency),
           currency,
         },
         totalDiscount: {
-          value: totalDiscount / 100,
+          value: fromMinorUnits(totalDiscount, currency),
           currency,
         },
       },
