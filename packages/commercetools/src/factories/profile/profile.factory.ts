@@ -50,6 +50,8 @@ export class CommercetoolsProfileFactory<
         userId: data.id,
       },
       email,
+      firstName: data.firstName || undefined,
+      lastName: data.lastName || undefined,
       emailVerified,
       alternateShippingAddresses,
       billingAddress,
