@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { createClient, PrimaryProvider } from '../utils.js';
 import { type FeatureFlag } from '@reactionary/core';
 
-describe.each([PrimaryProvider.FAKE])('Feature flag', (provider) => {
+describe.each([PrimaryProvider.FAKE])('Feature flag - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
   const flags: FeatureFlag[] = [];
   beforeEach(() => {
@@ -17,6 +17,7 @@ describe.each([PrimaryProvider.FAKE])('Feature flag', (provider) => {
           key: 'default-personalization-profile',
         },
         segments: [],
+        affinities: {},
         blurb: '',
       },
     });
@@ -39,6 +40,7 @@ describe.each([PrimaryProvider.FAKE])('Feature flag', (provider) => {
             key: 'default-personalization-profile',
           },
           segments: [],
+          affinities: {},
           blurb: '',
         },
       });

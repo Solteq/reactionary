@@ -9,7 +9,7 @@ const testData = {
     [PrimaryProvider.COMMERCETOOLS]: 'solteqPhysicalStore',
   }
 }
-describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Inventory Capability', (provider) => {
+describe.each([PrimaryProvider.COMMERCETOOLS, PrimaryProvider.MEDUSA])('Inventory Capability - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
