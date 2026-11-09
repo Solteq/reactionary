@@ -66,7 +66,8 @@ export class FakeProfileCapability<
   public override async update(
     payload: ProfileMutationUpdate,
   ): Promise<Result<ProfileFactoryOutput<TFactory>, NotFoundError>> {
-    return success(this.composeProfile(payload.identifier));
+    // like the rest of the fake it keeps nothing, but the names that are given are what the profile has
+    return success(this.composeProfile(payload.identifier, { firstName: payload.firstName, lastName: payload.lastName }));
   }
 
   @Reactionary({
@@ -119,10 +120,15 @@ export class FakeProfileCapability<
     return success(this.composeProfile(payload.identifier));
   }
 
-  protected composeProfile(identifier: IdentityIdentifier): ProfileFactoryOutput<TFactory> {
+  protected composeProfile(
+    identifier: IdentityIdentifier,
+    names: { firstName?: string; lastName?: string } = {},
+  ): ProfileFactoryOutput<TFactory> {
     const baseProfile = {
       identifier,
       email: this.generator.internet.email(),
+      firstName: names.firstName ?? this.generator.person.firstName(),
+      lastName: names.lastName ?? this.generator.person.lastName(),
       phone: this.generator.phone.number(),
       emailVerified: true,
       phoneVerified: true,
