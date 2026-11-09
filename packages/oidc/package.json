@@ -10,11 +10,11 @@
   },
   "dependencies": {
     "@reactionary/core": "0.0.1",
-    "zod": "4.1.9",
+    "zod": "4.6.7",
     "jose": "^6.1.0"
   },
   "devDependencies": {
-    "vitest": "^4.0.9"
+    "vitest": "^4.1.12"
   },
   "sideEffects": false,
   "peerDependencies": {

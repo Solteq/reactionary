@@ -13,10 +13,10 @@
     "@reactionary/core": "0.0.1",
     "debug": "^4.4.3",
     "@medusajs/types": "^2.21.0",
-    "zod": "4.1.9"
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "vitest": "^4.0.9"
+    "vitest": "^4.1.12"
   },
   "sideEffects": false
 }
