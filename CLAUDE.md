@@ -1,6 +1,7 @@
 # Verification commands
 - `npx nx affected:build` builds the projects affected by current changes.
 - `npx nx affected:lint` lints and verifies the projects affected by current changes.
+- `pnpm --dir examples/node e2e` runs the live capability specs against the real backends in `.env` (see the `e2e-verify` skill). Run it after large changes to core, a provider, search, cart or checkout.
 
 # Code style
 - Use ES modules (import/export) syntax, not CommonJS (require).

@@ -4,7 +4,8 @@
   "main": "index.js",
   "types": "src/index.d.ts",
   "scripts": {
-    "ucp:express": "node --loader @swc-node/register/esm src/ucp-express-server.ts"
+    "ucp:express": "node --loader @swc-node/register/esm src/ucp-express-server.ts",
+    "e2e": "node scripts/e2e.mjs"
   },
   "dependencies": {
     "@commercetools/platform-sdk": "^8.25.0",

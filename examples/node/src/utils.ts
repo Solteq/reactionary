@@ -25,6 +25,8 @@ export function getAlgoliaTestConfiguration() {
     indexName: process.env['ALGOLIA_INDEX'] || '',
     useRecommendationsForBots: process.env['ALGOLIA_USE_RECOMMENDATIONS_FOR_BOTS'] === 'true',
     useBaseIndexNameForEnglishLocale: false,
+    // One multiselect attribute facet, so that the specs can check that its values widen each other
+    facets: { multiselect: ['manufacturer'] },
   } satisfies AlgoliaConfiguration;
 }
 
@@ -37,6 +39,7 @@ export function getMeilisearchTestConfiguration() {
     semanticRatio: process.env['MEILISEARCH_SEMANTIC_RATIO'] ? parseFloat(process.env['MEILISEARCH_SEMANTIC_RATIO']) : 0.5,
     orderIndexName: process.env['MEILISEARCH_ORDER_INDEX'] || 'order',
     useRecommendationsForBots: process.env['MEILISEARCH_USE_RECOMMENDATIONS_FOR_BOTS'] === 'true',
+    facets: { multiselect: ['manufacturer'] },
   } satisfies MeilisearchConfiguration;
 }
 
@@ -216,6 +219,7 @@ export function createClient(provider: PrimaryProvider, contextOverrides: Partia
           productReviews: { enabled: true },
           productAssociations: { enabled: true },
           featureFlag: { enabled: true },
+          productSearch: { enabled: true },
         }
       ))
     }

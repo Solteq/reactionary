@@ -666,7 +666,7 @@ describe.each([PrimaryProvider.ALGOLIA, PrimaryProvider.MEILISEARCH])('Weird Fac
 
 
 
-describe.each([PrimaryProvider.COMMERCETOOLS])('Caching is multilingual', (provider) => {
+describe.each([PrimaryProvider.COMMERCETOOLS])('Caching is multilingual - %s', (provider) => {
   let client: ReturnType<typeof createClient>;
 
   beforeEach(() => {
