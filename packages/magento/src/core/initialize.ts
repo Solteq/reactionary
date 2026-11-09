@@ -22,6 +22,7 @@ import {
   ProductRatingSummarySchema,
   ProductReviewSchema,
   ProductReviewPaginatedResultSchema,
+  StoreSchema,
 } from '@reactionary/core';
 import { MagentoCartCapability } from '../capabilities/cart.capability.js';
 import { MagentoCategoryCapability } from '../capabilities/category.capability.js';
@@ -37,6 +38,7 @@ import { MagentoCheckoutCapability } from '../capabilities/checkout.capability.j
 import { MagentoProductAssociationsCapability } from '../capabilities/product-associations.capability.js';
 import { MagentoProductRecommendationsCapability } from '../capabilities/product-recommendations.capability.js';
 import { MagentoProductReviewsCapability } from '../capabilities/product-reviews.capability.js';
+import { MagentoStoreCapability } from '../capabilities/store.capability.js';
 import {
   MagentoCapabilitiesSchema,
   type MagentoCapabilities,
@@ -59,6 +61,7 @@ import {
   MagentoCheckoutFactory,
   MagentoProductAssociationsFactory,
   MagentoProductReviewsFactory,
+  MagentoStoreFactory,
 } from '../factories/index.js';
 import {
   type MagentoClientFromCapabilities,
@@ -350,6 +353,24 @@ export function withMagentoCapabilities<T extends MagentoCapabilities>(
           ),
           capability: (args) =>
             new MagentoProductReviewsCapability(
+              args.config,
+              args.cache,
+              args.context,
+              args.magentoApi,
+              args.factory,
+            ),
+        },
+        buildCapabilityArgs,
+      );
+    }
+
+    if (caps.store?.enabled) {
+      client.store = resolveCapabilityWithFactory(
+        capabilities.store,
+        {
+          factory: new MagentoStoreFactory(StoreSchema),
+          capability: (args) =>
+            new MagentoStoreCapability(
               args.config,
               args.cache,
               args.context,
