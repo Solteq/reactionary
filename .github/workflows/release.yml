@@ -12,6 +12,12 @@ on:
     branches:
       - main
 
+  # Opt-in preview publish: only runs for same-repo PRs carrying the
+  # `publish-preview` label. It lives in this file because the npm trusted
+  # publisher is configured for release.yml only.
+  pull_request:
+    types: [labeled, synchronize, reopened]
+
   workflow_dispatch:
     inputs:
       version_bump:
@@ -24,20 +30,21 @@ on:
           - major
         default: patch
 
-concurrency:
-  group: release
-  cancel-in-progress: false
-
 permissions:
   actions: read
   contents: write
-  pull-requests: read
+  pull-requests: write
   id-token: write
 
 
 jobs:
   release:
-    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main')
+    concurrency:
+      group: release
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment: release
     steps:
@@ -68,3 +75,84 @@ jobs:
           NPM_CONFIG_ACCESS: public
           NPM_CONFIG_PROVENANCE: true
           NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_WRITE_ACCESS_TOKEN }}
+
+  # Publishes every package as <next patch>-pr<PR>.<run> under the `preview`
+  # dist-tag. Caret ranges never resolve to prereleases and `latest` is not
+  # touched, so consumers only get one by pinning the exact version.
+  preview:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'publish-preview')
+    concurrency:
+      group: preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: 'pnpm'
+          registry-url: https://registry.npmjs.org/
+
+      - run: pnpm install
+
+      # Package manifests carry no real version; the last release tag is the source of truth.
+      - name: Compute preview version
+        id: version
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          latest=$(git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          latest=${latest#v}
+          IFS=. read -r major minor patch <<< "$latest"
+          echo "version=$major.$minor.$((patch + 1))-pr$PR_NUMBER.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+      # Same build as the release's preVersionCommand.
+      - name: Build
+        run: pnpm exec nx run-many -t build --skip-nx-cache
+        env:
+          # Read-only: this runs unreviewed PR code, so it must not write to the remote cache.
+          NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_ACCESS_TOKEN }}
+
+      # `nx release version` is unusable here (see the script), so stamp the built manifests directly.
+      - name: Stamp preview version
+        id: packages
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          {
+            echo 'list<<EOF'
+            node .github/scripts/set-preview-version.mjs "$VERSION"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        run: pnpm exec nx release publish --tag preview
+        env:
+          NPM_CONFIG_ACCESS: public
+          NPM_CONFIG_PROVENANCE: true
+          NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_READ_ACCESS_TOKEN }}
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: reactionary-preview
+          message: |
+            Preview packages published as `${{ steps.version.outputs.version }}` (dist-tag `preview`, commit ${{ github.event.pull_request.head.sha }}).
+
+            Pin the exact version of the packages you use in the consuming project, for example `yarn add @reactionary/core@${{ steps.version.outputs.version }}`.
+
+            <details><summary>All packages</summary>
+
+            ```
+            ${{ steps.packages.outputs.list }}
+            ```
+
+            </details>

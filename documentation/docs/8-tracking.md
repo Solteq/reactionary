@@ -28,15 +28,20 @@ A helper returns `Result<{ eventId }>` as soon as the event is validated and que
 
 | Family | Helpers |
 |---|---|
-| Browse | `pageViewed`, `searchResultsViewed`, `autocompleteSuggestionSelected`, `categoryViewed`, `productCarouselViewed`, `productClicked`, `productViewed`, `promotionViewed`, `promotionClicked` |
+| Browse | `pageViewed`, `searchResultsViewed`, `autocompleteSuggestionSelected`, `categoryViewed`, `productCarouselViewed`, `productClicked`, `productViewed`, `contentViewed({ content, concepts })`, `promotionViewed`, `promotionClicked` |
 | Cart | `cartItemAdded`, `cartItemRemoved`, `cartItemQuantityChanged`, `cartViewed`, `couponApplied`, `couponRejected` |
 | Checkout | `checkoutStarted`, `shippingInfoAdded`, `paymentInfoAdded`, `orderPlaced({ checkout })` |
 | Account | `userLoggedIn`, `userLoggedOut`, `userRegistered`, `profileUpdated`, `consentChanged`, `newsletterSubscribed` |
 | Engagement | `wishlistItemAdded`, `wishlistItemRemoved`, `backInStockRequested`, `reviewSubmitted`, `storeSelected`, `productShared` |
+| Experiments and traits | `experimentExposed({ experimentKey, version })`, `traitDeclared({ trait, value })` |
 | B2B | `quoteRequested`, `orderReordered`, `companyRegistered` |
 | Escape hatch | `custom({ name, payload })`. Providers ignore names they do not recognise. |
 
 `orderPlaced` takes the finalized checkout, as that is what the customer placed and it exists before the OMS has created the order. Passing `order` still works but is deprecated. Subscribers read it through `summarizePlacedOrder(event.payload)`, which returns the transaction id (the order key when known, else the checkout key), the lines and the price from whichever was given.
+
+`experimentExposed` records which version of an experiment the visitor was shown, the control included. Send it when the version is rendered, once per session. Reactionary does not assign versions: the storefront decides, and a CDP that supports it counts the exposures per version. `traitDeclared` records something the visitor declared about themselves, for example `{ trait: 'trade', value: 'electrician' }`. Both fields are lowercase slugs, and a trait is never personal data.
+
+`contentViewed` records a view of a CMS article or page. The CMS is not a capability, so the caller passes the ids of the taxonomy concepts the content is tagged with (`{ content: { key: 'article-1', type: 'article' }, concepts: ['features/cordless'] }`). Pass the direct tags of the article only, not their ancestors, most important first: a provider that follows visitor interests takes the list as it is and keeps the first ones when it has to cap it. At most 50 ids of at most 128 characters.
 
 Product, category and store arguments accept either the model or its identifier. The storefront does not need to load anything just to describe an event: a `cartItemRemoved` takes the line it rendered (or its sku), and providers look up what they need (names, prices, brands) through a cache-backed, read-only context.
 
@@ -85,6 +90,22 @@ const client = new ClientBuilder(requestContext)
 ```
 
 Events emitted at different times flush separately. Lookups that providers make are memoized for one flush and otherwise served by the client's shared cache.
+
+### Configuring Unomi 4
+
+```ts
+const unomiConfig = {
+  apiUrl: 'https://unomi.example.com',
+  tenantId: 'default',            // the default
+  privateKey: process.env.UNOMI_PRIVATE_KEY,
+  scope: 'my-storefront',         // one scope per storefront
+};
+```
+
+- **The private key is what makes the sender a trusted caller.** `tenantId` and `privateKey` are sent as Basic credentials. Without them Unomi 4 ignores the profile id in the request and files every event on a throwaway profile, and it refuses login merges. The provider logs one warning when there is no private key (and no `peerKey`, which is how Unomi 3 lets a sender in).
+- **The public key is not enough.** `apiKey` is sent as `X-Unomi-Api-Key`, and never replaces the private key. Next to the tenant credentials it is not sent as a bearer token.
+- **`username` and `password`** still work as the Basic credentials when `privateKey` is not set, but are deprecated.
+- **The scope must match the project's.** Rules, segments and goals are deployed in a scope, and a scoped rule only fires on events of that scope.
 
 ## Consent
 

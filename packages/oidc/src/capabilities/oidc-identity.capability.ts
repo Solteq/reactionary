@@ -22,8 +22,8 @@ import {
 } from '@reactionary/core';
 import type { JWTPayload } from 'jose';
 import { codeChallenge, randomToken } from '../client/pkce.js';
-import { resolveMetadata } from '../client/discovery.js';
-import { buildAuthorizationUrl, exchangeCode, verifyIdToken, type OidcTokens } from '../client/relying-party.js';
+import { resolveMetadata, type OidcMetadata } from '../client/discovery.js';
+import { buildAuthorizationUrl, exchangeCode, fetchUserinfo, verifyIdToken, type OidcTokens } from '../client/relying-party.js';
 import type { ExternalIdentityProvider } from '../schema/external-identity-provider.schema.js';
 
 export type ExchangeExternalIdentityInput = {
@@ -126,7 +126,10 @@ export abstract class OidcIdentityCapability<TIdentity extends Identity = Identi
 
     const metadata = await resolveMetadata(provider);
     const tokens = await exchangeCode(provider, metadata, { code, callbackUrl: payload.callbackUrl, codeVerifier });
-    const claims = await verifyIdToken(provider, metadata, tokens.idToken, nonce);
+    const idTokenClaims = await verifyIdToken(provider, metadata, tokens.idToken, nonce);
+    const withUserinfo = await this.withUserinfoClaims(provider, metadata, tokens, idTokenClaims);
+    const claims =
+      provider.assumeEmailVerified && withUserinfo['email_verified'] === undefined ? { ...withUserinfo, email_verified: true } : withUserinfo;
 
     if (provider.requireVerifiedEmail !== false && claims['email_verified'] !== true) {
       return error({ type: 'InvalidInput', error: 'The identity provider did not confirm a verified email address' });
@@ -137,5 +140,42 @@ export abstract class OidcIdentityCapability<TIdentity extends Identity = Identi
       this.updateIdentityContext(result.value);
     }
     return result;
+  }
+
+  /**
+   * email_verified only vouches for the email it arrived with. When the ID token has its own email, the userinfo
+   * response may only supply email_verified if it names that same address; otherwise it could mark an address
+   * the provider never verified as verified.
+   */
+  protected trustedUserinfo(userinfo: JWTPayload, claims: JWTPayload): JWTPayload {
+    const sameEmail = String(userinfo['email'] ?? '').toLowerCase() === String(claims['email'] ?? '').toLowerCase();
+    if (!claims['email'] || sameEmail) {
+      return userinfo;
+    }
+    return Object.fromEntries(Object.entries(userinfo).filter(([name]) => name !== 'email' && name !== 'email_verified'));
+  }
+
+  /**
+   * Fills what the ID token lacks from the userinfo endpoint (the ID token wins where both have a claim). Userinfo is
+   * best effort: any failure leaves the ID token claims as they are, and the login fails later only if a required
+   * claim is still missing.
+   */
+  protected async withUserinfoClaims(
+    provider: ExternalIdentityProvider,
+    metadata: OidcMetadata,
+    tokens: OidcTokens,
+    claims: JWTPayload,
+  ): Promise<JWTPayload> {
+    const mode = provider.userinfo ?? 'when-missing';
+    const complete = claims['email'] && claims['email_verified'] !== undefined && (claims['name'] || claims['given_name'] || claims['family_name']);
+    if (mode === 'never' || !tokens.accessToken || !metadata.userinfoEndpoint || (mode === 'when-missing' && complete)) {
+      return claims;
+    }
+    try {
+      const userinfo = await fetchUserinfo(metadata, tokens.accessToken, String(claims.sub));
+      return userinfo ? { ...this.trustedUserinfo(userinfo, claims), ...claims } : claims;
+    } catch {
+      return claims;
+    }
   }
 }

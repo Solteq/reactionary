@@ -16,6 +16,7 @@ import type {
   ProductSearchFactory,
   ProfileFactory,
   StoreFactory,
+  TaxonomyFactory,
 } from '@reactionary/core';
 import type { FakeCapabilities } from '../schema/capabilities.schema.js';
 import type { FakeCartFactory } from '../factories/cart/cart.factory.js';
@@ -32,6 +33,7 @@ import type { FakeProductReviewsFactory } from '../factories/product-reviews/pro
 import type { FakeProductSearchFactory } from '../factories/product-search/product-search.factory.js';
 import type { FakeProfileFactory } from '../factories/profile/profile.factory.js';
 import type { FakeStoreFactory } from '../factories/store/store.factory.js';
+import type { FakeTaxonomyFactory } from '../factories/taxonomy/taxonomy.factory.js';
 import type { FakeFeatureFlagFactory } from '../factories/feature-flag/feature-flag.factory.js';
 import type { FakePersonalizationProfileFactory } from '../factories/personalization-profile/personalization-profile.factory.js';
 import type { FakeCartCapability } from '../capabilities/cart.capability.js';
@@ -48,6 +50,7 @@ import type { FakeProductReviewsCapability } from '../capabilities/product-revie
 import type { FakeProductSearchCapability } from '../capabilities/product-search.capability.js';
 import type { FakeProfileCapability } from '../capabilities/profile.capability.js';
 import type { FakeStoreCapability } from '../capabilities/store.capability.js';
+import type { FakeTaxonomyCapability } from '../capabilities/taxonomy.capability.js';
 import type { FakeFeatureFlagCapability } from '../capabilities/feature-flag.capability.js';
 import type { FakePersonalizationProfileCapability } from '../capabilities/personalization-profile.capability.js';
 
@@ -91,6 +94,7 @@ type FactoryContractMap = {
   productAssociations: ProductAssociationsFactory;
   featureFlag: FeatureFlagFactory;
   personalizationProfile: PersonalizationProfileFactory;
+  taxonomy: TaxonomyFactory;
 };
 
 type DefaultFactoryMap = {
@@ -110,6 +114,7 @@ type DefaultFactoryMap = {
   productAssociations: FakeProductAssociationsFactory;
   featureFlag: FakeFeatureFlagFactory;
   personalizationProfile: FakePersonalizationProfileFactory;
+  taxonomy: FakeTaxonomyFactory;
 };
 
 type ResolvedFactoryMap<T extends FakeCapabilities> = {
@@ -139,6 +144,7 @@ type DefaultCapabilityMap<T extends FakeCapabilities> = {
   >;
   featureFlag: FakeFeatureFlagCapability<ResolvedFactoryMap<T>['featureFlag']>;
   personalizationProfile: FakePersonalizationProfileCapability<ResolvedFactoryMap<T>['personalizationProfile']>;
+  taxonomy: FakeTaxonomyCapability<ResolvedFactoryMap<T>['taxonomy']>;
 };
 
 type CapabilityImplementationMap<T extends FakeCapabilities> = {

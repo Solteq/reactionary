@@ -10,6 +10,24 @@ The storefront sees the same three calls either way: `listProviders`, `startExte
 
 Backends that use this package take an `externalIdentityProviders` list in their configuration. See `ExternalIdentityProviderSchema`.
 
+Two settings matter when moving to another identity provider:
+
+- `tokenEndpointAuthMethod`: how the client authenticates at the token endpoint. By default it is `client_secret_post`, unless the provider's discovery document lists methods and not that one, then `client_secret_basic`. Set it explicitly for providers whose discovery document is wrong or missing.
+- `userinfo` (`never`, `when-missing` (default) or `always`): claims the ID token lacks (email, name, `email_verified`) are filled from the userinfo endpoint. ID token claims win, and a userinfo answer for another subject is ignored. `userinfoEndpoint` is only needed when discovery is skipped.
+- `assumeEmailVerified`: treat the email as verified when the provider sends no `email_verified` claim, for providers that verify the address during sign-up without saying so (Azure B2C). Off by default, and a claim the provider does send is never overridden. Without it, such a provider needs `requireVerifiedEmail: false`, and the verification status stays unknown to the backend.
+
+`profileFromOidcClaims` in `@reactionary/core` reads the standard claims (names, phone, address) the same way for every backend.
+
+## Profile data after the first login
+
+Backends create the customer with the email and names only. What else the identity provider knows (phone number, a complete address) comes back on the identity that `completeExternalLogin` returns, as `externalLogin: { isNewCustomer, profile }` (never stored in the session). The storefront calls `applyExternalLoginProfile(client, identity)` from `@reactionary/core` after the login, which writes the phone number and the billing address to the profile, and only when the login created the customer (calling it after a later login writes nothing). The phone number is written only when the identity provider verified it (`phone_number_verified`); pass `{ requireVerifiedPhone: false }` for a provider you trust. The address claim has no verified flag. `onError` receives write failures (default `console.warn`).
+
+`profile.emailVerified` is what the provider says about the email: its `email_verified` claim, or `true` for a provider configured with `assumeEmailVerified` (Azure B2C). It is absent when the provider says nothing, which means unknown, not unverified. commercetools stores it as `isEmailVerified` on the new customer (false when unknown). Magento and Medusa cannot store it, so they only report it. The address may also come from an Azure B2C `emails` array.
+
+The profile data is personal data: do not serialise the identity to the browser or log it as it is.
+
+HCL creates the user inside its own login and reports no profile data. For Medusa the data comes from the auth provider's `user_metadata`, which only holds `email`, `name` and what the backend's `claim_mappings` add: map `phone_number`, `phone_number_verified` and `address` there for them to reach the profile.
+
 ## Testing
 
 `@reactionary/oidc/testing` exports a fake identity provider (a local HTTP server with discovery, JWKS, token endpoint and signed ID tokens) and `runExternalLoginConformance`, which every backend's spec should run.

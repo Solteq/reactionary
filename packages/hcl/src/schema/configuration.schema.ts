@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { ProductAssetTypeSchema } from '@reactionary/core';
 import { ExternalIdentityProviderSchema } from '@reactionary/oidc';
 
 /**
@@ -107,6 +108,19 @@ export const HclConfigurationSchema = z.looseObject({
       spareparts: ['SPAREPART'],
       replacements: ['REPLACEMENT'],
     })),
+  productAssets: z
+    .looseObject({
+      usageTypeMap: z.record(z.string(), ProductAssetTypeSchema).optional().meta({
+        description:
+          'Maps HCL attachment usage identifiers (ATCHRLUS.IDENTIFIER) to product asset types, in addition to the defaults created by setup/product-asset-usages.changelog.xml. Attachments with an unmapped usage are ignored.',
+      }),
+      assetBaseUrl: z.string().optional().meta({
+        description:
+          'Base url that relative attachment asset paths are resolved against. Defaults to apiUrl.',
+      }),
+    })
+    .optional()
+    .meta({ description: 'Optional product asset (manuals, certificates, videos, 3D models) configuration.' }),
   /**
    * Names of HCL marketing spots used for product recommendation algorithms.
    * Each algorithm calls the corresponding named espot via the WCS Transaction Service.

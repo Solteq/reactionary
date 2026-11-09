@@ -1,5 +1,6 @@
 import type {
   ProductSearchFacetExpression,
+  SearchQuery,
 } from '@commercetools/platform-sdk';
 import type {
   Cache,
@@ -10,11 +11,20 @@ import type {
   ProductSearchFactoryWithOutput,
   ProductSearchQueryByTerm,
   ProductSearchQueryCreateNavigationFilter,
+  InvalidInputError,
   RequestContext,
   Result,
+  SearchFacetPolicy,
+  TypedSearchFilter,
 } from '@reactionary/core';
 import {
   FacetValueIdentifierSchema,
+  createSearchFacetPolicy,
+  error,
+  getSearchFilterProblem,
+  MAX_SEARCH_RATING,
+  toMinorUnits,
+  groupFacetSelections,
   ProductSearchCapability,
   ProductSearchQueryByTermSchema,
   ProductSearchQueryCreateNavigationFilterSchema,
@@ -38,6 +48,14 @@ export class CommercetoolsProductSearchCapability<
   protected config: CommercetoolsConfiguration;
   protected commercetools: CommercetoolsAPI;
   protected factory: ProductSearchFactoryWithOutput<TFactory>;
+  protected facetPolicy: SearchFacetPolicy;
+
+  /**
+   * The typed filters the commercetools Product Search can express: price (variants.prices.centAmount in the currency of the request),
+   * rating (reviewRatingStatistics.averageRating) and online availability (variants.availability.isOnStock, not supported with the
+   * Modular ProductCatalogModel). Stores are refused, as are concepts: a hard filter must never be dropped silently.
+   */
+  protected readonly supportedFilters: readonly TypedSearchFilter[] = ['priceFilter', 'ratingFilter', 'availabilityFilter'];
 
   /**
    * We assume all commercetools data is indexed on the language level, not the country subdivision
@@ -56,6 +74,7 @@ export class CommercetoolsProductSearchCapability<
     this.config = config;
     this.commercetools = commercetools;
     this.factory = factory;
+    this.facetPolicy = createSearchFacetPolicy(config.facets);
   }
 
   protected async getClient() {
@@ -161,6 +180,49 @@ export class CommercetoolsProductSearchCapability<
     return undefined;
   }
 
+  protected getPriceFilterExpression(payload: ProductSearchQueryByTerm): SearchQuery | undefined {
+    const { priceFilter } = payload.search;
+    if (priceFilter?.min === undefined && priceFilter?.max === undefined) {
+      return undefined;
+    }
+    // original (list) prices only, as the index; the filter matches products with a variant price in range
+    const currency = this.context.languageContext.currencyCode;
+    return {
+      and: [
+        { exact: { field: 'variants.prices.currencyCode', value: currency } },
+        {
+          range: {
+            field: 'variants.prices.centAmount',
+            ...(priceFilter.min !== undefined ? { gte: toMinorUnits(priceFilter.min, currency) } : {}),
+            ...(priceFilter.max !== undefined ? { lte: toMinorUnits(priceFilter.max, currency) } : {}),
+          },
+        },
+      ],
+    };
+  }
+
+  protected getRatingFilterExpression(payload: ProductSearchQueryByTerm): SearchQuery | undefined {
+    const { ratingFilter } = payload.search;
+    if (ratingFilter?.min === undefined && ratingFilter?.max === undefined) {
+      return undefined;
+    }
+    // whole stars are the average rounded down: 4 is 4 <= average < 5, and 5 is the closed end
+    return {
+      range: {
+        field: 'reviewRatingStatistics.averageRating',
+        ...(ratingFilter.min !== undefined ? { gte: ratingFilter.min } : {}),
+        ...(ratingFilter.max !== undefined ? (ratingFilter.max >= MAX_SEARCH_RATING ? { lte: MAX_SEARCH_RATING } : { lt: ratingFilter.max + 1 }) : {}),
+      },
+    };
+  }
+
+  protected getAvailabilityFilterExpression(payload: ProductSearchQueryByTerm): SearchQuery | undefined {
+    if (payload.search.availabilityFilter?.online !== true) {
+      return undefined;
+    }
+    return { exact: { field: 'variants.availability.isOnStock', value: true } };
+  }
+
   protected async getSearchTermExpression(payload: ProductSearchQueryByTerm) {
     if (payload.search.term.trim().length === 0 || payload.search.term === '*') {
       return undefined;
@@ -198,9 +260,15 @@ export class CommercetoolsProductSearchCapability<
       return undefined;
     }
 
-    const facetsToApply = await Promise.all(
-      payload.search.facets.map((facet) => this.getFacetQuery(payload, facet))
-    );
+    // The values of a multiselect facet are one `or`: any of them matches. Everything else is ANDed.
+    const selections = groupFacetSelections(payload.search.facets, this.facetPolicy.multiselect);
+    const facetsToApply = await Promise.all([
+      ...selections.single.map((facet) => this.getFacetQuery(payload, facet)),
+      ...Array.from(selections.multi.values(), async (values) => {
+        const alternatives = await Promise.all(values.map((facet) => this.getFacetQuery(payload, facet)));
+        return alternatives.length === 1 ? alternatives[0] : { or: alternatives };
+      }),
+    ]);
 
     if (facetsToApply.length === 0) {
       return undefined;
@@ -271,6 +339,18 @@ export class CommercetoolsProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
+    const problem = getSearchFilterProblem(payload.search, this.supportedFilters, this.facetPolicy);
+    if (problem) {
+      return error<InvalidInputError>({ type: 'InvalidInput', error: problem });
+    }
+
+    if ((payload.search.availabilityFilter?.stores?.length ?? 0) > 0) {
+      return error<InvalidInputError>({
+        type: 'InvalidInput',
+        error: 'This product search provider cannot apply availabilityFilter.stores (store availability). Search without stores, as the products would not be restricted.',
+      });
+    }
+
     const client = await this.getClient();
 
     const facetsToReturn = await this.getFacetsToReturn(payload);
@@ -290,6 +370,16 @@ export class CommercetoolsProductSearchCapability<
         };
       } else {
         finalFilterExpression = facetsToApply;
+      }
+    }
+
+    for (const typed of [
+      this.getPriceFilterExpression(payload),
+      this.getRatingFilterExpression(payload),
+      this.getAvailabilityFilterExpression(payload),
+    ]) {
+      if (typed) {
+        finalFilterExpression = finalFilterExpression ? { and: [finalFilterExpression, typed] } : typed;
       }
     }
 
@@ -335,8 +425,8 @@ export class CommercetoolsProductSearchCapability<
 
     // mark selected facets as active
     for(const selectedFacet of payload.search.facets) {
-      const facet = result.facets.find((f) => f.identifier.key === selectedFacet.facet.key);
-      if(facet) {
+      const facet = result.facets.find((f) => f.semantic === 'attribute' && f.identifier.key === selectedFacet.facet.key);
+      if(facet && facet.semantic === 'attribute') {
           const value = facet.values.find((v) => v.identifier.key === selectedFacet.key);
           if(value) {
             value.active = true;
@@ -356,9 +446,9 @@ export class CommercetoolsProductSearchCapability<
 
   protected async patchCategoryFacetValues(result: ProductSearchFactoryOutput<TFactory>) {
     const categoryFacet = result.facets.find(
-      (f) => f.identifier.key === 'categories'
+      (f) => f.semantic === 'attribute' && f.identifier.key === 'categories'
     );
-    if (!categoryFacet) {
+    if (!categoryFacet || categoryFacet.semantic !== 'attribute') {
       return;
     }
 

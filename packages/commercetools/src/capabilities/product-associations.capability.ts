@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import {
   type ProductAssociationsFactory,
   type ProductAssociationsFactoryOutput,
@@ -6,6 +7,10 @@ import {
   Reactionary,
   success,
   error,
+  ProductAssociationsGetAccessoriesQuerySchema,
+  ProductAssociationSchema,
+  ProductAssociationsGetReplacementsQuerySchema,
+  ProductAssociationsGetSparepartsQuerySchema,
 } from '@reactionary/core';
 import type {
   ProductIdentifier,
@@ -95,6 +100,8 @@ export class CommercetoolsProductAssociationsCapability<
 
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetAccessoriesQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
@@ -118,6 +125,8 @@ export class CommercetoolsProductAssociationsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetSparepartsQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
@@ -140,6 +149,8 @@ export class CommercetoolsProductAssociationsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetReplacementsQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,

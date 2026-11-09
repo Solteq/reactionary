@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import type {
   Cache,
   ProductAssociationsFactory,
@@ -13,7 +14,11 @@ import type {
 import {
   ProductAssociationsCapability,
   Reactionary,
-  success
+  success,
+  ProductAssociationsGetAccessoriesQuerySchema,
+  ProductAssociationSchema,
+  ProductAssociationsGetReplacementsQuerySchema,
+  ProductAssociationsGetSparepartsQuerySchema,
 } from '@reactionary/core';
 import type { MedusaAPI } from '../core/client.js';
 import type { MedusaProductAssociationsFactory } from '../factories/product-associations/product-associations.factory.js';
@@ -87,6 +92,8 @@ export class MedusaProductAssociationsCapability<
 
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetAccessoriesQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
@@ -108,6 +115,8 @@ export class MedusaProductAssociationsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetSparepartsQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
@@ -129,6 +138,8 @@ export class MedusaProductAssociationsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetReplacementsQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,

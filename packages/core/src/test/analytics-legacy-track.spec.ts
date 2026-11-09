@@ -153,7 +153,7 @@ describe('legacy client.analytics.track', () => {
     await client.analytics.track({
       event: 'product-details-view',
       product: { key: 'p1' },
-      personalizationProfile: { identifier: { key: 'legacy-visitor' }, segments: ['vip'], blurb: '' },
+      personalizationProfile: { identifier: { key: 'legacy-visitor' }, segments: ['vip'], affinities: {}, blurb: '' },
     });
     await client.analytics.track({ event: 'product-details-view', product: { key: 'p2' } });
     await client.analytics.flush();
@@ -165,7 +165,7 @@ describe('legacy client.analytics.track', () => {
 
   it('applies the legacy profile to every converted event type', async () => {
     const { recorder, client } = setup();
-    const personalizationProfile = { identifier: { key: 'legacy-visitor' }, segments: [], blurb: '' };
+    const personalizationProfile = { identifier: { key: 'legacy-visitor' }, segments: [], affinities: {}, blurb: '' };
 
     await client.analytics.track({ event: 'product-summary-view', products: [{ key: 'p1' }], personalizationProfile });
     await client.analytics.track({ event: 'product-summary-click', product: { key: 'p1' }, position: 0, personalizationProfile });

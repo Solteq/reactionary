@@ -1,0 +1,92 @@
+import type { ExternalLoginProfile, ExternalLoginResult } from '../schemas/models/identity.model.js';
+import { AddressSchema, type Address } from '../schemas/models/profile.model.js';
+
+function text(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+/** A boolean claim; some providers (Cognito) send it as the string "true" or "false". */
+function flag(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  return value === 'true' ? true : value === 'false' ? false : undefined;
+}
+
+/**
+ * Reads the OpenID Connect standard claims (OpenID Connect Core section 5.1) the way every backend should:
+ * names fall back to splitting `name`, and the address becomes a billing address only if it is complete enough to ship to.
+ * What a storefront can put on a profile, from the standard claims of an OpenID Connect identity.
+ * Nothing is invented, so a backend that needs a value (Magento wants both names) applies its own default.
+ */
+export function profileFromOidcClaims(claims: Record<string, unknown>): ExternalLoginProfile {
+  let firstName = text(claims['given_name']);
+  let lastName = text(claims['family_name']);
+  if (!firstName && !lastName) {
+    const [first, ...rest] = (text(claims['name']) ?? '').split(/\s+/).filter(Boolean);
+    firstName = first;
+    lastName = rest.join(' ') || undefined;
+  }
+
+  // Azure B2C can deliver the address as an `emails` array instead of `email`.
+  const emails = claims['emails'];
+  const email = text(claims['email']) ?? (Array.isArray(emails) ? text(emails[0]) : undefined);
+  const phone = text(claims['phone_number']);
+  const emailVerified = flag(claims['email_verified']);
+  const phoneVerified = flag(claims['phone_number_verified']);
+
+  const rawAddress = claims['address'];
+  const address = rawAddress && typeof rawAddress === 'object' ? (rawAddress as Record<string, unknown>) : {};
+  const country = text(address['country'])?.toUpperCase();
+  const street = text(address['street_address']);
+  const city = text(address['locality']);
+  const postalCode = text(address['postal_code']);
+  let billingAddress: Address | undefined;
+  if (street && city && postalCode && country && /^[A-Z]{2}$/.test(country)) {
+    const parsed = AddressSchema.safeParse({
+      identifier: { nickName: 'billing' },
+      firstName: firstName ?? '',
+      lastName: lastName ?? '',
+      streetAddress: street,
+      streetNumber: '',
+      city,
+      region: text(address['region']) ?? '',
+      postalCode,
+      countryCode: country,
+    });
+    billingAddress = parsed.success ? parsed.data : undefined;
+  }
+
+  return {
+    ...(email ? { email } : {}),
+    ...(emailVerified !== undefined ? { emailVerified } : {}),
+    ...(firstName ? { firstName } : {}),
+    ...(lastName ? { lastName } : {}),
+    ...(phone ? { phone } : {}),
+    ...(phoneVerified !== undefined ? { phoneVerified } : {}),
+    ...(billingAddress ? { billingAddress } : {}),
+  };
+}
+
+/**
+ * What a backend reports about an external login, for the storefront to put on the profile (see applyExternalLoginProfile).
+ * A returning customer carries no profile data: nothing the identity provider says may overwrite what the shop knows.
+ */
+export function externalLoginResult(claims: Record<string, unknown>, isNewCustomer: boolean): ExternalLoginResult {
+  if (!isNewCustomer) {
+    return { isNewCustomer, profile: {} };
+  }
+  const { email, emailVerified, firstName, lastName, phone, phoneVerified, billingAddress } = profileFromOidcClaims(claims);
+  return {
+    isNewCustomer,
+    profile: {
+      ...(email ? { email } : {}),
+      ...(email && emailVerified !== undefined ? { emailVerified } : {}),
+      ...(firstName ? { firstName } : {}),
+      ...(lastName ? { lastName } : {}),
+      ...(phone ? { phone } : {}),
+      ...(phone && phoneVerified !== undefined ? { phoneVerified } : {}),
+      ...(billingAddress ? { billingAddress } : {}),
+    },
+  };
+}

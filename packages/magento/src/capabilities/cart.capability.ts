@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import {
   type Cache,
   type CartFactory,
@@ -180,6 +181,7 @@ export class MagentoCartCapability<
   }
 
   @Reactionary({
+    inputSchema: z.undefined(),
     outputSchema: CartIdentifierSchema,
   })
   public override async getActiveCartId(): Promise<

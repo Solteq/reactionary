@@ -1,7 +1,18 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from 'node:http';
+import { createUCPError } from './reactionary-ucp-mapping.js';
 
 export const UCP_SESSION_ID_HEADER = 'ucp-session-id';
+
+/** A failure that maps directly onto an HTTP error response. */
+export class UCPHttpError extends Error {
+  public constructor(
+    public readonly status: number,
+    public readonly body: unknown,
+  ) {
+    super('UCP HTTP error');
+  }
+}
 
 type ProtocolHeaders = Headers | Record<string, string>;
 
@@ -33,19 +44,42 @@ export function jsonResponse(
   );
 }
 
+/** Decodes a request path segment, answering 400 for a malformed percent-escape. */
+export function decodePathSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch (error) {
+    if (error instanceof URIError) {
+      throw new UCPHttpError(400, createUCPError('invalid_request', 'The request path contains a malformed percent-escape.'));
+    }
+
+    throw error;
+  }
+}
+
 export async function toWebRequest(request: IncomingMessage): Promise<Request> {
   const headers = toWebHeaders(request.headers);
-  const url = new URL(
-    request.url ?? '/',
-    `http://${request.headers.host ?? 'localhost'}`,
-  );
+  const url = toRequestUrl(request);
   const body = await readNodeRequestBody(request);
 
-  return new Request(url, {
-    method: request.method,
-    headers,
-    body,
-  });
+  try {
+    return new Request(url, {
+      method: request.method,
+      headers,
+      body,
+    });
+  } catch {
+    throw new UCPHttpError(400, createUCPError('invalid_request', 'The request method or headers are invalid.'));
+  }
+}
+
+/** The Host header is client supplied, so it may not form a valid URL. */
+function toRequestUrl(request: IncomingMessage): URL {
+  try {
+    return new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
+  } catch {
+    throw new UCPHttpError(400, createUCPError('invalid_request', 'The request URL or Host header is invalid.'));
+  }
 }
 
 function toWebHeaders(headers: IncomingHttpHeaders): Headers {

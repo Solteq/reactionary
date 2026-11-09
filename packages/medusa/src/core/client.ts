@@ -5,6 +5,7 @@ import {
   GuestIdentitySchema,
   Reactionary,
   RegisteredIdentitySchema,
+  externalLoginResult,
   type AnonymousIdentity,
   type Currency,
   type RegisteredIdentity,
@@ -166,6 +167,27 @@ export class MedusaAPI {
     return selectedRegion;
   }
 
+  /**
+   * Finds the region that serves the given currency. Unlike getActiveRegion
+   * it does not fall back to another region and leaves the request currency
+   * and the session's selected region alone, so callers can tell when a
+   * currency is not offered by the store.
+   */
+  public async getRegionByCurrency(currency: Currency): Promise<MedusaRegion | undefined> {
+    const regions = await (await this.getClient()).store.region.list();
+    const region = regions.regions.find(
+      (r) => r.currency_code === currency.toLowerCase()
+    );
+    if (!region) {
+      return undefined;
+    }
+    return {
+      id: region.id,
+      name: region.name,
+      currency_code: region.currency_code,
+    };
+  }
+
 
   public async getClient(): Promise<Medusa> {
     if (!this.client) {
@@ -244,6 +266,10 @@ export class MedusaAPI {
           await client.client.setToken(token);
         }
       }
+
+      // If an anonymous cart was created before this login, attach it to the
+      // now-authenticated customer so it isn't orphaned.
+      await this.transferAnonymousCartToCustomer(client);
 
       // Get customer details
       const customerResponse = await client.store.customer.retrieve();
@@ -328,6 +354,7 @@ export class MedusaAPI {
     await client.client.setToken(callbackResult);
 
     const claims = decodeJwtPayload(callbackResult);
+    const created = !claims.actor_id;
     if (!claims.actor_id) {
       const metadata = claims.user_metadata ?? {};
       const email = typeof metadata['email'] === 'string' ? metadata['email'] : undefined;
@@ -363,6 +390,9 @@ export class MedusaAPI {
       identity: {
         id: { userId: customerResponse.customer.id },
         type: 'Registered',
+        // Medusa's auth-oidc only keeps email, name and the claims in its `claim_mappings` in user_metadata, so phone_number,
+        // phone_number_verified and address reach the profile only when the backend maps them
+        externalLogin: externalLoginResult(claims.user_metadata ?? {}, created),
       } satisfies RegisteredIdentity,
     };
   }
@@ -384,6 +414,50 @@ export class MedusaAPI {
       await client.client.clearToken();
 
       return identity;
+    } finally {
+      // The token alone isn't the whole identity: activeCartId/allOwnedCarts
+      // identify this customer's carts, and selectedRegion can be customer-
+      // specific too. Without clearing them, the next identity to use this
+      // session (e.g. another shopper on a shared/kiosk session) would
+      // inherit the logged-out customer's carts and getSelf() would even
+      // report them as a "Guest" with an active cart instead of Anonymous.
+      this.clearIdentitySessionData();
+    }
+  }
+
+  /**
+   * Drops cart/region session data tied to the current identity. Must run on
+   * logout so a different identity reusing this session doesn't inherit the
+   * previous customer's active cart, owned carts, or selected region.
+   */
+  protected clearIdentitySessionData(): void {
+    this.setSessionData({
+      activeCartId: undefined,
+      allOwnedCarts: undefined,
+      selectedRegion: undefined,
+    });
+  }
+
+  /**
+   * If the session has an active cart from before login (i.e. an anonymous
+   * cart), transfer it to the now-authenticated customer so it isn't
+   * orphaned. Failing to transfer the cart shouldn't block login, so this
+   * only logs a debug warning on failure.
+   *
+   * Exercised by the login/logout integration tests in
+   * identity.capability.spec.ts against a live Medusa backend, same as the
+   * rest of this class's network-touching methods.
+   */
+  protected async transferAnonymousCartToCustomer(client: Medusa): Promise<void> {
+    const activeCartId = this.getSessionData().activeCartId;
+    if (!activeCartId) {
+      return;
+    }
+
+    try {
+      await client.store.cart.transferCart(activeCartId.key);
+    } catch (error) {
+      debug(`Failed to transfer anonymous cart ${activeCartId.key} to the logged in customer:`, error);
     }
   }
 

@@ -10,6 +10,8 @@ import {
   type Image,
   type Product,
   type ProductComplianceData,
+  type ProductConcept,
+  type ProductType,
   type ProductAttribute,
   type ProductAttributeIdentifier,
   type ProductAttributeValueIdentifier,
@@ -26,6 +28,15 @@ import type * as z from 'zod';
 import createDebug from 'debug';
 import { safeStringConvert } from '../../utils/medusa-helpers.js';
 import { parseProductSearchComplianceData } from '../../utils/product-compliance.js';
+import {
+  parseAttributeDefinitions,
+  parseFlags,
+  parseTagAsConcept,
+  pickLocalized,
+  pickMetadataName,
+  type MedusaAttributeDefinition,
+} from '../../utils/taxonomy.js';
+import { isMedusaSeoMetadataKey, parseMedusaSeo } from '../../utils/seo.js';
 
 const debug = createDebug('reactionary:medusa:product');
 
@@ -112,11 +123,37 @@ export class MedusaProductFactory<
     return attribute;
   }
 
+  /**
+   * Builds an attribute from its definition on the product type. The label, group and unit are
+   * taken in the request locale, the label falls back to the raw key.
+   */
+  protected createDefinedAttribute(
+    context: RequestContext,
+    definition: MedusaAttributeDefinition,
+    value: string,
+  ): ProductAttribute {
+    const locale = context.languageContext.locale;
+    const attribute = this.createSynthAttribute(
+      definition.key,
+      pickLocalized(definition.names, locale) ?? definition.key,
+      value,
+    );
+    attribute.group = pickLocalized(definition.groups, locale) ?? '';
+    const unit = pickLocalized(definition.unit, locale);
+    if (unit) {
+      attribute.unit = unit;
+    }
+    if (definition.data_type) {
+      attribute.dataType = definition.data_type;
+    }
+    return attribute;
+  }
+
   protected parseAttributes(
     _context: RequestContext,
     _body: StoreProduct,
   ): Array<ProductAttribute> {
-    const sharedAttributes = [];
+    const sharedAttributes: ProductAttribute[] = [];
 
     if (_body.origin_country) {
       sharedAttributes.push(
@@ -162,7 +199,14 @@ export class MedusaProductFactory<
         'reactionaryaccessories',
         'reactionaryreplacements',
         'reactionaryspareparts',
+        // the flag list is mapped to Product.flags
+        'flags',
       ];
+      const definitions = parseAttributeDefinitions(
+        _body.type?.metadata?.['attribute_definitions'],
+      );
+      const synthCount = sharedAttributes.length;
+      const defined: Array<{ order: number; attribute: ProductAttribute }> = [];
       for (const [key, value] of Object.entries(_body.metadata)) {
         if (keysToExclude.includes(key)) {
           continue;
@@ -170,10 +214,24 @@ export class MedusaProductFactory<
         if (key.startsWith('compliance_data')) {
           continue;
         }
+        const definition = definitions.get(key);
+        if (definition) {
+          defined.push({
+            order: definition.order,
+            attribute: this.createDefinedAttribute(_context, definition, String(value)),
+          });
+          continue;
+        }
+        if (isMedusaSeoMetadataKey(key)) {
+          continue;
+        }
         sharedAttributes.push(
           this.createSynthAttribute(key, key, String(value)),
         );
       }
+      // Array.sort is stable, so equal order values keep the metadata order
+      defined.sort((a, b) => a.order - b.order);
+      sharedAttributes.splice(synthCount, 0, ...defined.map((entry) => entry.attribute));
     }
     return sharedAttributes;
   }
@@ -226,6 +284,39 @@ export class MedusaProductFactory<
     return complianceData;
   }
 
+  protected parseProductType(
+    context: RequestContext,
+    data: StoreProduct,
+  ): ProductType | undefined {
+    const type = data.type;
+    if (!type) {
+      return undefined;
+    }
+    const key = type.external_id || type.id;
+    if (!key) {
+      return undefined;
+    }
+    return {
+      identifier: { key },
+      // the localized names are in the metadata, the value is the English name, translated by Medusa when it can
+      name: pickMetadataName(type.metadata, context.languageContext.locale) || type.value || key,
+    };
+  }
+
+  protected parseConcepts(
+    context: RequestContext,
+    data: StoreProduct,
+  ): ProductConcept[] {
+    const concepts: ProductConcept[] = [];
+    for (const tag of data.tags ?? []) {
+      const concept = parseTagAsConcept(tag, context.languageContext.locale);
+      if (concept) {
+        concepts.push(concept);
+      }
+    }
+    return concepts;
+  }
+
   public parseProduct(
     context: RequestContext,
     data: StoreProduct,
@@ -246,6 +337,10 @@ export class MedusaProductFactory<
 
 
     const complianceData = this.parseComplianceData(context, data);
+    const productType = this.parseProductType(context, data);
+    const concepts = this.parseConcepts(context, data);
+    const flags = parseFlags(data.metadata?.['flags']);
+    const seo = parseMedusaSeo(context, data.metadata);
 
 
     if (!data.variants) {
@@ -277,7 +372,11 @@ export class MedusaProductFactory<
       sharedAttributes,
       slug,
       variants: otherVariants,
-      complianceData: complianceData
+      complianceData: complianceData,
+      productType,
+      concepts,
+      flags,
+      seo,
     } satisfies Product;
 
     return this.productSchema.parse(result);

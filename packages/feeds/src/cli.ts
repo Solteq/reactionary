@@ -439,6 +439,7 @@ function createCliRequestContext(): RequestContext {
       marketingContext: {
         identifier: { key: '' },
         segments: [],
+        affinities: {},
         blurb: '',
       },
     },

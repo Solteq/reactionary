@@ -1,6 +1,7 @@
 import {
   createInitialRequestContext,
 } from '@reactionary/core';
+import { once } from 'node:events';
 import type {
   IncomingHttpHeaders,
   IncomingMessage,
@@ -60,10 +61,8 @@ export class ReactionaryFeedServer<
   public async fetch(request: Request): Promise<Response> {
     try {
       return await this.handleRequest(request);
-    } catch (error) {
-      return jsonResponse({
-        error: error instanceof Error ? error.message : String(error),
-      }, { status: 500 });
+    } catch {
+      return jsonResponse({ error: 'Internal server error' }, { status: 500 });
     }
   }
 
@@ -76,8 +75,30 @@ export class ReactionaryFeedServer<
 
   public toNodeHandler(): ReactionaryFeedNodeRequestHandler {
     return async (request, response) => {
-      const webResponse = await this.fetch(await toWebRequest(request));
-      await sendWebResponse(response, webResponse);
+      // Aborts when the client goes away before the response was fully sent,
+      // so abandoned requests stop generating feed output.
+      const abortController = new AbortController();
+      response.on('close', () => {
+        if (!response.writableFinished) {
+          abortController.abort();
+        }
+      });
+
+      try {
+        const webRequest = toWebRequest(request, abortController.signal);
+
+        if (!webRequest) {
+          sendNodeError(response, 400, 'Bad request');
+          return;
+        }
+
+        const webResponse = await this.fetch(webRequest);
+        await sendWebResponse(response, webResponse, abortController.signal);
+      } catch {
+        // The handler must never reject: a rejection would surface as an
+        // unhandled rejection when it is passed straight to http.createServer.
+        sendNodeError(response, 500, 'Internal server error');
+      }
     };
   }
 
@@ -397,16 +418,26 @@ function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
 }
 
-async function toWebRequest(request: IncomingMessage): Promise<Request> {
-  const headers = toWebHeaders(request.headers);
-  const url = new URL(
-    request.url ?? '/',
-    `http://${request.headers.host ?? 'localhost'}`,
-  );
+function toWebRequest(
+  request: IncomingMessage,
+  signal: AbortSignal,
+): Request | undefined {
+  let url: URL;
+
+  try {
+    url = new URL(
+      request.url ?? '/',
+      `http://${request.headers.host ?? 'localhost'}`,
+    );
+  } catch {
+    // Malformed Host header or request target.
+    return undefined;
+  }
 
   return new Request(url, {
     method: request.method,
-    headers,
+    headers: toWebHeaders(request.headers),
+    signal,
   });
 }
 
@@ -434,16 +465,67 @@ function toWebHeaders(headers: IncomingHttpHeaders): Headers {
 async function sendWebResponse(
   response: ServerResponse,
   webResponse: Response,
+  signal: AbortSignal,
 ): Promise<void> {
-  response.writeHead(
-    webResponse.status,
-    Object.fromEntries(webResponse.headers.entries()),
-  );
+  // Headers are only staged here and flushed with the first chunk, so a
+  // stream that fails before producing output can still be answered with a 500.
+  response.statusCode = webResponse.status;
+  response.setHeaders(webResponse.headers);
 
-  if (webResponse.body) {
-    response.end(Buffer.from(await webResponse.arrayBuffer()));
+  if (!webResponse.body) {
+    response.end();
     return;
   }
 
-  response.end();
+  const reader = webResponse.body.getReader();
+  const cancelReader = () => {
+    // Stops the feed generator when the client disconnects.
+    reader.cancel().catch(() => undefined);
+  };
+
+  signal.addEventListener('abort', cancelReader, { once: true });
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      if (!response.write(value)) {
+        await once(response, 'drain', { signal });
+      }
+    }
+
+    response.end();
+  } finally {
+    signal.removeEventListener('abort', cancelReader);
+    reader.releaseLock();
+  }
+}
+
+function sendNodeError(
+  response: ServerResponse,
+  status: number,
+  message: string,
+): void {
+  if (response.headersSent) {
+    // Part of the body is already on the wire; the only honest signal left
+    // is to cut the connection.
+    response.destroy();
+    return;
+  }
+
+  if (response.destroyed || response.writableEnded) {
+    return;
+  }
+
+  for (const name of response.getHeaderNames()) {
+    response.removeHeader(name);
+  }
+
+  response.statusCode = status;
+  response.setHeader('content-type', 'application/json; charset=utf-8');
+  response.end(JSON.stringify({ error: message }));
 }

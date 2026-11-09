@@ -298,6 +298,12 @@ export const ACPCheckoutSessionStateSchema = z.looseObject({
   currency: z.string().optional(),
   // Set once completion has created the real reactionary checkout.
   checkoutId: z.string().optional(),
+  /**
+   * When an instance started creating the real checkout, until it stores
+   * `checkoutId`. Other instances sharing the cache then do not place a
+   * second one; a marker older than the server's placement timeout is stale.
+   */
+  placingCheckoutSince: z.string().optional(),
   status: z.enum([
     'not_ready_for_payment',
     'ready_for_payment',

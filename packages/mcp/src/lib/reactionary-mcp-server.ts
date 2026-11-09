@@ -1,7 +1,9 @@
 import {
   createMcpHandler,
   fromJsonSchema,
+  hostHeaderValidationResponse,
   McpServer,
+  originValidationResponse,
   type CallToolResult,
   type CreateMcpHandlerOptions,
   type GetPromptResult,
@@ -29,6 +31,8 @@ import {
   type ReactionaryMCPClient,
   type ReactionaryMCPTool,
 } from './tool-discovery.js';
+import { TOOL_DESCRIPTIONS } from './tool-descriptions.js';
+import { TOOL_PAGE_KINDS, TOOL_PAGE_KINDS_META_KEY, type ToolPageKind } from './tool-page-kinds.js';
 import {
   REACTIONARY_SHOPPING_AGENT_GUIDE,
   REACTIONARY_SHOPPING_AGENT_GUIDE_PROMPT,
@@ -45,6 +49,31 @@ export interface ReactionaryMCPServerOptions
   version?: string;
   sessionCache?: Cache;
   sessionTtlSeconds?: number;
+  /**
+   * Hostnames (no port, IPv6 in brackets) accepted in the `Host` header. Requests for any other host are answered with 403.
+   * This is what stops DNS rebinding attacks against a locally reachable server. Not enforced unless set, so that hosts
+   * behind a custom domain keep working; servers reachable from a browser on the same machine should set it, for example
+   * to `localhostAllowedHostnames()` from `@modelcontextprotocol/server`.
+   */
+  allowedHostnames?: string[];
+  /**
+   * Hostnames (no scheme or port, IPv6 in brackets) accepted in the `Origin` header. Requests carrying any other origin are
+   * answered with 403. Requests without an `Origin` header (non-browser clients) pass. Not enforced unless set.
+   */
+  allowedOriginHostnames?: string[];
+  /**
+   * Decides whether a request may use the server, typically by checking its `Authorization` header. Runs after the host and
+   * origin checks and before any MCP handling. A request for which it returns false, or throws, is answered with 401.
+   */
+  authorize?: (request: Request) => boolean | Promise<boolean>;
+  /**
+   * The kinds of page a tool is useful on, published in its `_meta` for clients that offer tools per page. Return undefined
+   * to use the kinds of the library for the operation, which is `any` for an operation that has none. Use it to give kinds
+   * to the operations of your own capabilities, or to change those of the library. The kinds are free text: the ones of the
+   * library are in `ToolPageKind`. Receives the tool with its final name. When it throws, the error is reported to `handler.onerror`
+   * and the library's kinds are used.
+   */
+  pageKinds?: (tool: ReactionaryMCPTool) => readonly string[] | undefined;
   handler?: Pick<
     CreateMcpHandlerOptions,
     | 'bus'
@@ -75,17 +104,21 @@ export class ReactionaryMCPServer {
     );
   }
 
-  public fetch(
+  public async fetch(
     request: Request,
     options?: Parameters<McpHttpHandler['fetch']>[1],
   ): Promise<Response> {
+    const rejection = await this.rejectRequest(request);
+    if (rejection) {
+      return rejection;
+    }
+
     const sessionId = getOrCreateMcpSessionId(request);
     const sessionRequest = withMcpSessionId(request, sessionId);
 
-    return this.handler.fetch(sessionRequest, options).then((response) => {
-      response.headers.set(MCP_SESSION_ID_HEADER, sessionId);
-      return response;
-    });
+    const response = await this.handler.fetch(sessionRequest, options);
+    response.headers.set(MCP_SESSION_ID_HEADER, sessionId);
+    return response;
   }
 
   public getHandler(): McpHttpHandler {
@@ -108,6 +141,56 @@ export class ReactionaryMCPServer {
     return this.discoverToolsForClient(
       this.clientFactory(createInitialRequestContext()),
     );
+  }
+
+  /**
+   * Returns the response to answer with when the request must not reach the MCP handler, or undefined when it may proceed.
+   * Override to change how requests are screened.
+   */
+  protected async rejectRequest(request: Request): Promise<Response | undefined> {
+    const { allowedHostnames, allowedOriginHostnames } = this.options;
+
+    const rejection =
+      (allowedHostnames
+        ? hostHeaderValidationResponse(request, allowedHostnames)
+        : undefined) ??
+      (allowedOriginHostnames
+        ? originValidationResponse(request, allowedOriginHostnames)
+        : undefined);
+
+    if (rejection || !this.options.authorize) {
+      return rejection;
+    }
+
+    return (await this.isAuthorized(this.options.authorize, request))
+      ? undefined
+      : unauthorizedResponse();
+  }
+
+  private async isAuthorized(
+    authorize: NonNullable<ReactionaryMCPServerOptions['authorize']>,
+    request: Request,
+  ): Promise<boolean> {
+    try {
+      return await authorize(request);
+    } catch (error) {
+      this.options.handler?.onerror?.(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      return false;
+    }
+  }
+
+  /** The kinds of the `pageKinds` option, or those of the library when it gives none or throws: a bad hint must not stop the server. */
+  private pageKindsFor(tool: ReactionaryMCPTool): readonly string[] {
+    try {
+      return this.options.pageKinds?.(tool) ?? pageKindsOf(tool);
+    } catch (error) {
+      this.options.handler?.onerror?.(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      return pageKindsOf(tool);
+    }
   }
 
   private async createServer(sessionId: string | undefined): Promise<McpServer> {
@@ -189,17 +272,16 @@ export class ReactionaryMCPServer {
     sessionId: string | undefined,
     requestContext: RequestContext,
   ): void {
-    const inputSchema = acceptsUndefined(tool.entrypoint.inputSchema)
-      ? undefined
-      : toMcpSchema(tool.entrypoint.inputSchema);
+    const inputSchema = toMcpInputSchema(tool);
 
     server.registerTool(
       tool.name,
       {
         title: tool.entrypoint.title,
-        description: tool.entrypoint.description,
+        description: describeTool(tool),
         inputSchema,
         outputSchema: toMcpOutputSchema(tool.entrypoint.outputSchema),
+        _meta: { [TOOL_PAGE_KINDS_META_KEY]: this.pageKindsFor(tool) },
       },
       async (args: unknown): Promise<CallToolResult> =>
         traceProtocolInvocation(
@@ -266,6 +348,17 @@ class ReactionaryMCPSessionStore {
   }
 }
 
+function unauthorizedResponse(): Response {
+  return Response.json(
+    {
+      jsonrpc: '2.0',
+      error: { code: -32000, message: 'Unauthorized' },
+      id: null,
+    },
+    { status: 401, headers: { 'www-authenticate': 'Bearer' } },
+  );
+}
+
 function getMcpSessionId(request: Request | undefined): string | undefined {
   return request?.headers.get(MCP_SESSION_ID_HEADER) ?? undefined;
 }
@@ -285,8 +378,54 @@ function withMcpSessionId(request: Request, sessionId: string): Request {
   return new Request(request, { headers });
 }
 
-function acceptsUndefined(schema: z.ZodType): boolean {
-  return schema.safeParse(undefined).success;
+/**
+ * What an agent is told about a tool: the description set on the method, otherwise the one of the operation in
+ * TOOL_DESCRIPTIONS. The tool name is left out of the lookup because it can be customized, the operation cannot.
+ */
+function describeTool(tool: ReactionaryMCPTool): string | undefined {
+  const { capabilityName, methodName, description } = tool.entrypoint;
+  return description ?? TOOL_DESCRIPTIONS[`${capabilityName}.${methodName}`];
+}
+
+/** The kinds of page a tool is useful on. A tool of an operation that has none listed is useful on every page. */
+function pageKindsOf(tool: ReactionaryMCPTool): readonly ToolPageKind[] {
+  const { capabilityName, methodName } = tool.entrypoint;
+  return TOOL_PAGE_KINDS[`${capabilityName}.${methodName}`] ?? ['any'];
+}
+
+/** An object with any properties, for a tool whose method declares no input schema. A constant so that its conversion is cached. */
+const anyPropertiesSchema = z.looseObject({});
+
+/** The tools that were published without a declared input schema, so that the warning is given once per tool. */
+const toolsWithoutInputSchema = new Set<string>();
+
+/**
+ * The input schema of a tool, or undefined when the tool takes no input.
+ *
+ * A method that declares no input schema gets the default one, which accepts anything, and there is no way to tell
+ * whether it takes a payload. Dropping the arguments of such a tool would make the method fail on a missing payload
+ * with nothing in the tool to say so, so it is published as an object with any properties and the arguments are
+ * passed on. Declare the input schema on the method to have its fields described.
+ */
+function toMcpInputSchema(tool: ReactionaryMCPTool): McpSchema | undefined {
+  const schema = tool.entrypoint.inputSchema;
+  const type = getZodDef(schema).type;
+
+  if (type === 'undefined' || type === 'void' || type === 'never') {
+    return undefined;
+  }
+
+  if (type === 'unknown' || type === 'any') {
+    if (!toolsWithoutInputSchema.has(tool.name)) {
+      toolsWithoutInputSchema.add(tool.name);
+      console.warn(
+        `@reactionary/mcp: ${tool.name} declares no input schema, so agents are not told what it takes. Declare inputSchema on the method.`,
+      );
+    }
+    return toMcpSchema(anyPropertiesSchema);
+  }
+
+  return toMcpSchema(schema);
 }
 
 type McpSchema = ReturnType<typeof convertToMcpSchema>;
@@ -384,8 +523,10 @@ function applySafeDefault(
 ): z.ZodType {
   const defaultValue = getSafeDefaultValue(schema);
 
+  // A default that throws when it is evaluated fails every call that leaves the field out, so the field is required.
+  // Publishing it as optional would invite exactly that call.
   if (!defaultValue.success) {
-    return copyMetadata(schema, preparedInnerType.optional());
+    return copyMetadata(schema, preparedInnerType);
   }
 
   return copyMetadata(

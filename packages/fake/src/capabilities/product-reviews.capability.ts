@@ -21,6 +21,9 @@ import {
   type ProductReviewMutationSubmit,
   type RequestContext,
   type Result,
+  ProductReviewsListQuerySchema,
+  ProductReviewsGetRatingSummaryQuerySchema,
+  ProductReviewMutationSubmitSchema,
 } from '@reactionary/core';
 import type { FakeConfiguration } from '../schema/configuration.schema.js';
 import { base, en, Faker } from '@faker-js/faker';
@@ -91,6 +94,7 @@ export class FakeProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewsGetRatingSummaryQuerySchema,
     outputSchema: ProductRatingSummarySchema,
     cache: true,
     cacheTimeToLiveInSeconds: 300,
@@ -128,6 +132,7 @@ export class FakeProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewsListQuerySchema,
     outputSchema: ProductReviewPaginatedResultSchema,
     cache: true,
     cacheTimeToLiveInSeconds: 60,
@@ -155,6 +160,7 @@ export class FakeProductReviewsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductReviewMutationSubmitSchema,
     outputSchema: ProductReviewSchema,
     cache: false,
     cacheTimeToLiveInSeconds: 0,

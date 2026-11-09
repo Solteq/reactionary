@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import type { BusinessUnitResourceIdentifier, CartDraft, CartUpdateAction, CustomerResourceIdentifier, CustomFieldsDraft, MyCartUpdateAction } from '@commercetools/platform-sdk';
 import type {
   Cache,
@@ -43,7 +44,7 @@ import {
   success,
   type CartFactory,
   type CartFactoryCartOutput,
-  type CartFactoryWithOutput
+  type CartFactoryWithOutput,
 } from '@reactionary/core';
 import type { CommercetoolsAPI } from '../core/client.js';
 import type { CommercetoolsCartFactory } from '../factories/cart/cart.factory.js';
@@ -301,6 +302,7 @@ export class CommercetoolsCartCapability<
   }
 
   @Reactionary({
+    inputSchema: z.undefined(),
     outputSchema: CartIdentifierSchema,
   })
   public override async getActiveCartId(): Promise<

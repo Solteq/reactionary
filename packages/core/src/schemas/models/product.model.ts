@@ -1,6 +1,7 @@
 import * as z from 'zod';
-import { CategoryIdentifierSchema, ProductAttributeIdentifierSchema, ProductAttributeValueIdentifierSchema, ProductIdentifierSchema, ProductOptionIdentifierSchema, ProductOptionValueIdentifierSchema, ProductVariantIdentifierSchema } from './identifiers.model.js';
+import { CategoryIdentifierSchema, ProductAttributeIdentifierSchema, ProductAttributeValueIdentifierSchema, ProductIdentifierSchema, ProductOptionIdentifierSchema, ProductOptionValueIdentifierSchema, ProductTypeIdentifierSchema, ProductVariantIdentifierSchema, ConceptIdentifierSchema } from './identifiers.model.js';
 import { BaseModelSchema, ImageSchema } from './base.model.js';
+import { SeoSchema } from './seo.model.js';
 import type { InferType } from '../../zod-utils.js';
 
 
@@ -85,8 +86,34 @@ export const ProductAttributeSchema = z.looseObject({
     identifier: ProductAttributeIdentifierSchema.describe('The unique identifier for the attribute, also typically used as the facet key if the attribute is filterable.'),
     group: z.string(),
     name: z.string(),
+    unit: z.string().optional().meta({ description: 'The unit sign of the attribute values, e.g. "kg" or "W". Localized where the platform supports it.' }),
+    dataType: z.string().optional().meta({ description: 'The data type of the attribute as declared by the product type, e.g. "numeric" or "boolean".' }),
     values: z.array(ProductAttributeValueSchema)
 });
+
+/**
+ * The product type describes which attributes a product carries. The attribute labels of the product are localized from it.
+ */
+export const ProductTypeSchema = z.looseObject({
+    identifier: ProductTypeIdentifierSchema.describe('The unique identifier of the product type.'),
+    name: z.string().meta({ description: 'The localized name of the product type.' }),
+});
+
+/**
+ * A taxonomy concept assigned to a product, e.g. features/cordless in the vocabulary "features".
+ */
+export const ProductConceptSchema = z.looseObject({
+    identifier: ConceptIdentifierSchema.describe('The unique identifier of the concept, prefixed by its vocabulary.'),
+    vocabulary: z.string().meta({ description: 'The vocabulary the concept belongs to, e.g. "features".' }),
+    name: z.string().meta({ description: 'The localized name of the concept.' }),
+    parent: ConceptIdentifierSchema.optional().meta({ description: 'The parent concept, if the concept is part of a hierarchy.' }),
+    notation: z.string().optional().meta({ description: 'A code that identifies the concept within its vocabulary, independent of language.' }),
+});
+
+/**
+ * Closed list of product flags. Flags are never localized or displayed, they only drive behaviour.
+ */
+export const ProductFlagSchema = z.enum(['ageRestricted', 'marketingRestricted', 'discontinued', 'professionalUseOnly']);
 
 export const ProductSchema = BaseModelSchema.extend({
     identifier: ProductIdentifierSchema,
@@ -103,6 +130,10 @@ export const ProductSchema = BaseModelSchema.extend({
     mainVariant: ProductVariantSchema.describe('The primary SKU for the product'),
     variants: z.array(ProductVariantSchema).default([]).meta({ description: 'A list of all SKUs for the product. Can be empty or omitted if product is single-sku' }),
     complianceData: ProductComplianceDataSchema.optional().describe('Compliance information for the product, including certifications and regulatory markings.'),
+    productType: ProductTypeSchema.optional().describe('The product type the product belongs to, if the platform has one.'),
+    concepts: z.array(ProductConceptSchema).default([]).meta({ description: 'The taxonomy concepts assigned to the product, across all vocabularies.' }),
+    flags: z.array(z.string()).default([]).meta({ description: 'Behavioural flags of the product, see ProductFlagSchema for the known values. Never displayed.' }),
+    seo: SeoSchema.optional().describe('Authored SEO metadata for the product page. Only explicitly authored values are set, see resolveSeo for applying fallbacks.'),
 }).describe('A product is a wrapper around sellable items. It contains all the shared information for a set of SKUs. All products have at least one SKU, but can potentially have hundreds.');
 
 
@@ -110,6 +141,9 @@ export type ProductVariant = InferType<typeof ProductVariantSchema>;
 export type Product = InferType<typeof ProductSchema>;
 export type ProductComplianceData  = InferType<typeof ProductComplianceDataSchema>;
 export type ProductAttribute = InferType<typeof ProductAttributeSchema>;
+export type ProductType = InferType<typeof ProductTypeSchema>;
+export type ProductConcept = InferType<typeof ProductConceptSchema>;
+export type ProductFlag = InferType<typeof ProductFlagSchema>;
 export type ProductAttributeValue = InferType<typeof ProductAttributeValueSchema>;
 export type ProductOption = InferType<typeof ProductOptionSchema>;
 export type ProductOptionValue = InferType<typeof ProductOptionValueSchema>;

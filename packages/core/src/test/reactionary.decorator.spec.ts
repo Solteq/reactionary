@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BaseCapability,
   getReactionaryEntrypoints,
@@ -318,6 +318,129 @@ describe('@Reactionary decorator', () => {
       }
 
       expect(secondResult.meta.cache.hit).toBe(true);
+    });
+
+    it('should return the result and not leak a rejection when writing to the cache fails', async () => {
+      class FailingWriteCache extends MemoryCache {
+        public override async put(): Promise<void> {
+          throw new Error('Redis is down');
+        }
+      }
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const unhandled: unknown[] = [];
+      const onUnhandled = (reason: unknown) => unhandled.push(reason);
+      process.on('unhandledRejection', onUnhandled);
+
+      try {
+        const capability = createTestableCapability({
+          cache: true,
+        });
+        capability.cache = new FailingWriteCache();
+
+        const result = await capability.decoratedFunction();
+
+        // Give a stray rejection the chance to surface.
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        expect(result.success).toBe(true);
+        expect(unhandled).toEqual([]);
+        expect(warn).toHaveBeenCalledTimes(1);
+      } finally {
+        process.off('unhandledRejection', onUnhandled);
+        warn.mockRestore();
+      }
+    });
+
+    it('should treat a failing cache read as a miss and fall through to the provider', async () => {
+      class FailingReadCache extends MemoryCache {
+        public override async get(): Promise<never> {
+          throw new Error('Redis is down');
+        }
+      }
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      try {
+        const capability = createTestableCapability({
+          cache: true,
+        });
+        capability.cache = new FailingReadCache();
+
+        const result = await capability.decoratedFunction();
+
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.value).toBe('BASE');
+          expect(result.meta.cache.hit).toBe(false);
+        }
+        expect(warn).toHaveBeenCalledTimes(1);
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it('should survive a cache that throws synchronously', async () => {
+      class ThrowingCache extends MemoryCache {
+        public override get(): Promise<never> {
+          throw new Error('not even a promise');
+        }
+
+        public override put(): Promise<void> {
+          throw new Error('not even a promise');
+        }
+      }
+
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      try {
+        const capability = createTestableCapability({
+          cache: true,
+        });
+        capability.cache = new ThrowingCache();
+
+        const result = await capability.decoratedFunction();
+
+        // Give a stray rejection the chance to surface.
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        expect(result.success).toBe(true);
+        // The failing read is logged, the failing write falls in the same interval.
+        expect(warn).toHaveBeenCalledTimes(1);
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it('should log a failing cache once per interval rather than once per call', async () => {
+      class FailingCache extends MemoryCache {
+        public override async get(): Promise<never> {
+          throw new Error('Redis is down');
+        }
+      }
+
+      vi.useFakeTimers();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      try {
+        const capability = createTestableCapability({
+          cache: true,
+        });
+        capability.cache = new FailingCache();
+
+        await capability.decoratedFunction();
+        await capability.decoratedFunction();
+        await capability.decoratedFunction();
+        expect(warn).toHaveBeenCalledTimes(1);
+
+        vi.advanceTimersByTime(61_000);
+
+        await capability.decoratedFunction();
+        expect(warn).toHaveBeenCalledTimes(2);
+      } finally {
+        warn.mockRestore();
+        vi.useRealTimers();
+      }
     });
   });
 });

@@ -1,3 +1,5 @@
+import * as z from 'zod';
+import { ProductRecommendationSchema } from '../schemas/index.js';
 import type { Cache } from '../cache/cache.interface.js';
 import { Reactionary } from "../decorators/reactionary.decorator.js";
 import { success, type ProductRecommendation, type ProductRecommendationsByCollectionQuery, type RequestContext, type Result } from "../schemas/index.js";
@@ -103,6 +105,7 @@ export class MulticastProductRecommendationsCapability extends ProductRecommenda
   }
 
   @Reactionary({
+    outputSchema: z.array(ProductRecommendationSchema),
     inputSchema: ProductRecommendationsQuerySchema,
   })
   public override  async getRecommendations(query: ProductRecommendationsQuery): Promise<Result<ProductRecommendation[]>> {

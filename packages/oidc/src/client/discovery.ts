@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import type { ExternalIdentityProvider } from '../schema/external-identity-provider.schema.js';
+import { isSecureUrl, type ExternalIdentityProvider } from '../schema/external-identity-provider.schema.js';
 
 const DISCOVERY_TTL_MS = 60 * 60 * 1000;
 
@@ -10,6 +10,9 @@ export type OidcMetadata = {
   tokenEndpoint: string;
   jwksUri: string;
   endSessionEndpoint?: string;
+  userinfoEndpoint?: string;
+  /** token_endpoint_auth_methods_supported, when the provider lists it. */
+  tokenEndpointAuthMethods?: string[];
 };
 
 const DiscoveryDocumentSchema = z.looseObject({
@@ -18,7 +21,18 @@ const DiscoveryDocumentSchema = z.looseObject({
   token_endpoint: z.string(),
   jwks_uri: z.string(),
   end_session_endpoint: z.string().optional(),
+  userinfo_endpoint: z.string().optional(),
+  token_endpoint_auth_methods_supported: z.array(z.string()).optional(),
 });
+
+/** The access token is sent to the userinfo endpoint, so a discovered one is held to the same https rule as a configured one. */
+function secureUserinfoEndpoint(value: string | undefined): string | undefined {
+  try {
+    return value && isSecureUrl(value) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const cache = new Map<string, { expires: number; metadata: OidcMetadata }>();
 
@@ -38,6 +52,7 @@ export async function resolveMetadata(provider: ExternalIdentityProvider): Promi
       authorizationEndpoint: provider.authorizationEndpoint,
       tokenEndpoint: provider.tokenEndpoint,
       jwksUri: provider.jwksUri,
+      ...(provider.userinfoEndpoint ? { userinfoEndpoint: provider.userinfoEndpoint } : {}),
     };
   }
 
@@ -53,6 +68,7 @@ export async function resolveMetadata(provider: ExternalIdentityProvider): Promi
     if (document.issuer !== provider.issuer) {
       throw new Error(`Discovery document of ${provider.key} names a different issuer than configured`);
     }
+    const userinfoEndpoint = secureUserinfoEndpoint(document.userinfo_endpoint);
     discovered = {
       expires: Date.now() + DISCOVERY_TTL_MS,
       metadata: {
@@ -61,15 +77,21 @@ export async function resolveMetadata(provider: ExternalIdentityProvider): Promi
         tokenEndpoint: document.token_endpoint,
         jwksUri: document.jwks_uri,
         ...(document.end_session_endpoint ? { endSessionEndpoint: document.end_session_endpoint } : {}),
+        ...(userinfoEndpoint ? { userinfoEndpoint } : {}),
+        ...(document.token_endpoint_auth_methods_supported
+          ? { tokenEndpointAuthMethods: document.token_endpoint_auth_methods_supported }
+          : {}),
       },
     };
     cache.set(provider.issuer, discovered);
   }
 
+  const userinfoEndpoint = provider.userinfoEndpoint ?? discovered.metadata.userinfoEndpoint;
   return {
     ...discovered.metadata,
     authorizationEndpoint: provider.authorizationEndpoint ?? discovered.metadata.authorizationEndpoint,
     tokenEndpoint: provider.tokenEndpoint ?? discovered.metadata.tokenEndpoint,
     jwksUri: provider.jwksUri ?? discovered.metadata.jwksUri,
+    ...(userinfoEndpoint ? { userinfoEndpoint } : {}),
   };
 }

@@ -19,6 +19,7 @@ import type {
   EmployeeInvitationMutationInviteEmployee,
   EmployeeInvitationMutationRevokeInvitation,
   CompanyIdentifier,
+  GenericError,
   PaginationOptions,
   RequestContext,
   Result,
@@ -111,6 +112,85 @@ export class CommercetoolsEmployeeInvitationCapability<
     return businessUnit.associates.find(
       (associate) => associate.customer.obj?.email === email,
     );
+  }
+
+  protected findAssociateByCustomerId(
+    businessUnit: BusinessUnit,
+    customerId: string,
+  ): Associate | undefined {
+    return businessUnit.associates.find(
+      (associate) => associate.customer.id === customerId,
+    );
+  }
+
+  /**
+   * Who may invite, revoke and list invitations for a company. By default that is the associates
+   * holding the role the factory maps the 'admin' employee role to.
+   */
+  protected isCompanyAdmin(associate: Associate): boolean {
+    const adminRole = this.factory.mapRole('admin');
+    return associate.associateRoleAssignments.some(
+      (assignment) => assignment.associateRole.key === adminRole,
+    );
+  }
+
+  /**
+   * Invitations are stored with the admin client, so the caller must be proven to be an admin of the
+   * company first. The business unit is read through the associate endpoint, which only returns companies
+   * the caller belongs to; a company the caller is not part of is reported as not found.
+   */
+  protected async requireCompanyAdmin(
+    company: CompanyIdentifier,
+  ): Promise<Result<BusinessUnit, NotFoundError>> {
+    const identity = this.context.session.identityContext.identity;
+    if (identity.type !== 'Registered') {
+      return error<GenericError>({
+        type: 'Generic',
+        message: 'Only registered users can manage invitations',
+      });
+    }
+
+    const businessUnit = await this.getBusinessUnit(company.taxIdentifier);
+    const associate = businessUnit
+      ? this.findAssociateByCustomerId(businessUnit, identity.id.userId)
+      : undefined;
+    if (!businessUnit || !associate) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: company,
+      });
+    }
+
+    if (!this.isCompanyAdmin(associate)) {
+      return error<GenericError>({
+        type: 'Generic',
+        message: 'Only company admins can manage invitations',
+      });
+    }
+
+    return success(businessUnit);
+  }
+
+  protected async isOwnEmail(email: string): Promise<boolean> {
+    const identity = this.context.session.identityContext.identity;
+    if (identity.type !== 'Registered') {
+      return false;
+    }
+
+    const adminClient = await this.getAdminClient();
+    const customer = await adminClient
+      .customers()
+      .withId({ ID: identity.id.userId })
+      .get()
+      .execute()
+      .catch((err) => {
+        if (err?.statusCode === 404) {
+          return null;
+        }
+        throw err;
+      });
+
+    return customer?.body.email?.toLowerCase() === email.toLowerCase();
   }
 
   protected async getAdminClient() {
@@ -287,14 +367,11 @@ export class CommercetoolsEmployeeInvitationCapability<
   public override async inviteEmployee(
     payload: EmployeeInvitationMutationInviteEmployee,
   ): Promise<Result<EmployeeIssuedInvitation>> {
-    const key = payload.company.taxIdentifier;
-    const businessUnit = await this.getBusinessUnit(key);
-    if (!businessUnit) {
-      return error<NotFoundError>({
-        type: 'NotFound',
-        identifier: payload.company,
-      });
+    const access = await this.requireCompanyAdmin(payload.company);
+    if (!access.success) {
+      return access;
     }
+    const businessUnit = access.value;
 
     const customer = this.findAssociateByEmail(businessUnit, payload.email);
     if (customer) {
@@ -450,6 +527,16 @@ export class CommercetoolsEmployeeInvitationCapability<
       });
     }
 
+    // Anything but an admin of the invitation's company gets the same answer as an unknown key,
+    // so the existence of other companies' invitations is not revealed.
+    const access = await this.requireCompanyAdmin(invitation.value.company);
+    if (!access.success) {
+      return error<NotFoundError>({
+        type: 'NotFound',
+        identifier: payload.invitationIdentifier,
+      });
+    }
+
     if (invitation.value.status !== 'invited') {
       return error<InvalidInputError>({
         type: 'InvalidInput',
@@ -472,13 +559,47 @@ export class CommercetoolsEmployeeInvitationCapability<
         message: 'Only registered users can accept invitations',
       });
     }
-    const adminClient = await this.getAdminClient();
-    if (payload.search.email) {
-      const invitations = await this.fetchAllInvitationsForUser(adminClient, payload.search.email, false, payload.search.paginationOptions);
-      return success(this.factory.parseEmployeeInvitationPaginatedList(this.context, invitations, payload));
+    const { company, email, paginationOptions } = payload.search;
+
+    if (email) {
+      // Invitees may list their own invitations; anyone else must be an admin of the company they search within.
+      if (!(await this.isOwnEmail(email))) {
+        if (!company) {
+          return error<GenericError>({
+            type: 'Generic',
+            message: 'Only company admins can list invitations sent to other users',
+          });
+        }
+        const access = await this.requireCompanyAdmin(company);
+        if (!access.success) {
+          return access;
+        }
+      }
+
+      const adminClient = await this.getAdminClient();
+      if (!company) {
+        const invitations = await this.fetchAllInvitationsForUser(adminClient, email, false, paginationOptions);
+        return success(this.factory.parseEmployeeInvitationPaginatedList(this.context, invitations, payload));
+      }
+
+      // The email index spans companies, so narrow to the company before paginating.
+      const userInvitations = await this.fetchAllInvitationsForUser(adminClient, email, false);
+      const companyInvitations = userInvitations.filter(
+        (invitation) => invitation.value.company.taxIdentifier === company.taxIdentifier,
+      );
+      const start = (paginationOptions.pageNumber - 1) * paginationOptions.pageSize;
+      const page = companyInvitations.slice(start, start + paginationOptions.pageSize);
+      return success(this.factory.parseEmployeeInvitationPaginatedList(this.context, page, payload));
     }
-    if (payload.search.company) {
-      const invitations = await this.fetchAllInvitationsForCompany(adminClient, payload.search.company, false, payload.search.paginationOptions);
+
+    if (company) {
+      const access = await this.requireCompanyAdmin(company);
+      if (!access.success) {
+        return access;
+      }
+
+      const adminClient = await this.getAdminClient();
+      const invitations = await this.fetchAllInvitationsForCompany(adminClient, company, false, paginationOptions);
       return success(this.factory.parseEmployeeInvitationPaginatedList(this.context, invitations, payload));
     }
 

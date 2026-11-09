@@ -39,6 +39,9 @@ import type {
   ProductAssociationsFactory,
   ProductAssociationsFactoryWithOutput,
   ProductAssociationsCapability,
+  ProductAssetsFactory,
+  ProductAssetsFactoryWithOutput,
+  ProductAssetsCapability,
   ProductFactory,
   ProductFactoryWithOutput,
   ProductCapability,
@@ -52,6 +55,9 @@ import type {
   StoreFactory,
   StoreFactoryWithOutput,
   StoreCapability,
+  TaxonomyFactory,
+  TaxonomyFactoryWithOutput,
+  TaxonomyCapability,
   RequestContext,
   Cache,
 } from '@reactionary/core';
@@ -85,9 +91,11 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
   identity: true,
   profile: true,
   productAssociations: true,
+  productAssets: true,
   personalizationProfile: true,
   company: true,
   store: true,
+  taxonomy: true,
 })
   .extend({
     product: OverridableCapabilitySchema.optional(),
@@ -106,9 +114,11 @@ export const MedusaCapabilitiesSchema = CapabilitiesSchema.pick({
     companyRegistration: OverridableCapabilitySchema.optional(),
     profile: OverridableCapabilitySchema.optional(),
     productAssociations: OverridableCapabilitySchema.optional(),
+    productAssets: OverridableCapabilitySchema.optional(),
     productRecommendations: DirectCapabilitySchema.optional(),
     personalizationProfile: OverridableCapabilitySchema.optional(),
     store: OverridableCapabilitySchema.optional(),
+    taxonomy: OverridableCapabilitySchema.optional(),
   })
   .partial();
 
@@ -213,6 +223,11 @@ export type MedusaProductAssociationsCapabilityConfig = MedusaCapabilityConfig<
   ProductAssociationsCapability
 >;
 
+export type MedusaProductAssetsCapabilityConfig = MedusaCapabilityConfig<
+  ProductAssetsFactoryWithOutput<ProductAssetsFactory>,
+  ProductAssetsCapability
+>;
+
 export type MedusaPersonalizationProfileCapabilityConfig = MedusaCapabilityConfig<
   PersonalizationProfileFactoryWithOutput<PersonalizationProfileFactory>,
   PersonalizationProfileCapability
@@ -224,6 +239,11 @@ export type MedusaProductRecommendationsCapabilityConfig =
 export type MedusaStoreCapabilityConfig = MedusaCapabilityConfig<
   StoreFactoryWithOutput<StoreFactory>,
   StoreCapability
+>;
+
+export type MedusaTaxonomyCapabilityConfig = MedusaCapabilityConfig<
+  TaxonomyFactoryWithOutput<TaxonomyFactory>,
+  TaxonomyCapability
 >;
 
 export type MedusaCapabilities<
@@ -263,6 +283,10 @@ export type MedusaCapabilities<
   TCompanyRegistrationCapability extends CompanyRegistrationCapability = CompanyRegistrationCapability,
   TStoreFactory extends StoreFactory = StoreFactory,
   TStoreCapability extends StoreCapability = StoreCapability,
+  TTaxonomyFactory extends TaxonomyFactory = TaxonomyFactory,
+  TTaxonomyCapability extends TaxonomyCapability = TaxonomyCapability,
+  TProductAssetsFactory extends ProductAssetsFactory = ProductAssetsFactory,
+  TProductAssetsCapability extends ProductAssetsCapability = ProductAssetsCapability,
 > = {
   product?: MedusaCapabilityConfig<ProductFactoryWithOutput<TProductFactory>, TProductCapability>;
   productSearch?: MedusaCapabilityConfig<
@@ -307,12 +331,17 @@ export type MedusaCapabilities<
     ProductAssociationsFactoryWithOutput<TProductAssociationsFactory>,
     TProductAssociationsCapability
   >;
+  productAssets?: MedusaCapabilityConfig<
+    ProductAssetsFactoryWithOutput<TProductAssetsFactory>,
+    TProductAssetsCapability
+  >;
   productRecommendations?: MedusaDirectCapabilityConfig<TProductRecommendationsCapability>;
   personalizationProfile?: MedusaCapabilityConfig<
     PersonalizationProfileFactoryWithOutput<TPersonalizationProfileFactory>,
     TPersonalizationProfileCapability
   >;
   store?: MedusaCapabilityConfig<StoreFactoryWithOutput<TStoreFactory>, TStoreCapability>;
+  taxonomy?: MedusaCapabilityConfig<TaxonomyFactoryWithOutput<TTaxonomyFactory>, TTaxonomyCapability>;
 };
 
 export type ParsedMedusaCapabilities = z.infer<typeof MedusaCapabilitiesSchema>;

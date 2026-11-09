@@ -50,7 +50,7 @@ export class HclProductCapability<
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
-    localeDependentCaching: false,
+    localeDependentCaching: true,
   })
   public override async getById(
     payload: ProductQueryById,
@@ -83,7 +83,7 @@ export class HclProductCapability<
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
-    localeDependentCaching: false,
+    localeDependentCaching: true,
   })
   public override async getBySlug(
     payload: ProductQueryBySlug,
@@ -125,7 +125,11 @@ export class HclProductCapability<
 
     const value = this.factory.parseProduct(
       this.context,
-      await this.withResolvedParentCategories(data),
+      {
+        ...(await this.withResolvedParentCategories(data)),
+        // SEO data only comes with the URL token, so it is only available on lookups by slug.
+        seoPage: token.page,
+      },
     );
     return success(value);
   }
@@ -136,7 +140,7 @@ export class HclProductCapability<
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
-    localeDependentCaching: false,
+    localeDependentCaching: true,
   })
   public override async getBySKU(
     payload: ProductQueryBySKU,

@@ -87,6 +87,28 @@ describe('MagentoProductSearchCapability.queryByTerm', () => {
     return Object.fromEntries(params.entries());
   }
 
+  it.each([
+    ['priceFilter', { priceFilter: { min: 10 } }],
+    ['ratingFilter', { ratingFilter: { min: 4 } }],
+    ['conceptFilter', { conceptFilter: [{ key: 'features/cordless' }] }],
+    ['conceptContext', { conceptContext: [{ key: 'features/cordless' }] }],
+    ['availabilityFilter', { availabilityFilter: { online: true } }],
+  ])('refuses %s instead of dropping it', async (name, filter) => {
+    const result = await capability.queryByTerm(query(filter));
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.type).toBe('InvalidInput');
+      expect(JSON.stringify(result.error)).toContain(name);
+    }
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it('refuses a facet that names a typed field', async () => {
+    const result = await capability.queryByTerm(query({ facets: [facet('reviewBucket', '4')] }));
+    expect(result.success).toBe(false);
+    expect(search).not.toHaveBeenCalled();
+  });
+
   it('scopes to enabled, catalog/search-visible products when no filters are selected', async () => {
     expect(await sentParams(query())).toEqual({
       ...storefrontScope(0),

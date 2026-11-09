@@ -358,7 +358,7 @@ describe('Algolia analytics provider', async () => {
         product: { key: 'product-1' },
         position: 0,
         source,
-        personalizationProfile: { identifier: { key: 'unomi-profile' }, segments: [], blurb: '' },
+        personalizationProfile: { identifier: { key: 'unomi-profile' }, segments: [], affinities: {}, blurb: '' },
       });
       await client.analytics.track({ event: 'product-summary-click', product: { key: 'product-1' }, position: 0, source });
       await client.analytics.flush();
@@ -395,6 +395,7 @@ describe('Algolia analytics provider', async () => {
 
       await client.analytics.cartViewed({ cart: cartWithLine() });
       await client.analytics.productViewed({ product: { key: 'product-1' } });
+      await client.analytics.contentViewed({ content: { key: 'article-1' }, concepts: ['features/cordless'] });
       await client.analytics.flush();
 
       expect(mocks.pushEvents).not.toHaveBeenCalled();

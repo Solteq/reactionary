@@ -6,3 +6,4 @@ export * from './core/initialize.types.js';
 export * from './factories/index.js';
 export * from './capabilities/personalization-profile.capability.js';
 export * from './capabilities/analytics.capability.js';
+export * from './contract/index.js';

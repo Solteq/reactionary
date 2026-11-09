@@ -10,11 +10,13 @@ export * from './profile.query.js';
 export * from './product-search.query.js';
 export * from './product-reviews.query.js';
 export * from './store.query.js';
+export * from './taxonomy.query.js';
 export * from './order.query.js';
 export * from './checkout.query.js';
 export * from './order-search.query.js'
 export * from './product-recommendations.query.js';
 export * from './product-associations.query.js';
+export * from './product-assets.query.js';
 export * from './product-list.query.js';
 export * from './company-registration.query.js';
 export * from './employee.query.js';

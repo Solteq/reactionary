@@ -1,12 +1,14 @@
 import {
   BaseCapability,
   createInitialRequestContext,
+  error,
   MemoryCache,
   Reactionary,
   success,
   type Cache,
   type Cart,
   type FacetValueIdentifier,
+  type GenericError,
   type ProductSearchResult,
   type RequestContext,
   type Result,
@@ -29,6 +31,8 @@ const TestCartOutputSchema = z.looseObject({
 class TestProductSearchCapability extends BaseCapability {
   public lastPayload: unknown;
   public lastCategoryPath: unknown;
+  /** When set, search is refused with this InvalidInput message, like a provider that cannot apply a filter. */
+  public refuseWith: string | undefined;
 
   @Reactionary({
     inputSchema: z.looseObject({
@@ -49,6 +53,9 @@ class TestProductSearchCapability extends BaseCapability {
   public async queryByTerm(payload: unknown): Promise<Result<ProductSearchResult>> {
     this.lastPayload = payload;
     this.context.session['test.lastSearch'] = payload;
+    if (this.refuseWith !== undefined) {
+      return error({ type: 'InvalidInput', error: this.refuseWith });
+    }
     const pageNumber = getSearchPageNumber(payload);
     const pageSize = getSearchPageSize(payload);
 
@@ -464,6 +471,7 @@ describe('ReactionaryUCPServer', () => {
         method: 'POST',
         body: JSON.stringify({
           query: 'shirt',
+          context: { currency: 'EUR' },
           filters: {
             categories: ['Apparel > Shirts'],
             price: {
@@ -499,14 +507,8 @@ describe('ReactionaryUCPServer', () => {
         has_next_page: true,
         total_count: 12,
       },
-      messages: [
-        {
-          type: 'warning',
-          code: 'price_filter_ignored',
-          path: '$.filters.price',
-        },
-      ],
     });
+    expect(body).not.toHaveProperty('messages');
     expect(productSearch.lastCategoryPath).toMatchObject({
       categoryPath: [
         {
@@ -526,11 +528,73 @@ describe('ReactionaryUCPServer', () => {
           key: 'Apparel > Shirts',
         },
         filters: ['brand:Reactionary', 'brand:Solteq', 'in_stock:true'],
+        priceFilter: { min: 10 },
         paginationOptions: {
           pageNumber: 2,
           pageSize: 5,
         },
       },
+    });
+  });
+
+  describe('catalog search price filter', () => {
+    async function search(body: Record<string, unknown>, refuseWith?: string) {
+      const productSearch = new TestProductSearchCapability(new MemoryCache(), createInitialRequestContext());
+      productSearch.refuseWith = refuseWith;
+      const server = new ReactionaryUCPServer(() => ({ productSearch }), {
+        profile: {
+          endpoint: 'https://shop.example.com/ucp',
+          merchant: { name: 'Example shop', url: 'https://shop.example.com', contact: { email: 'support@example.com' } },
+          keys: [],
+        },
+      });
+      const response = await server.fetch(
+        new Request('https://shop.example.com/ucp/catalog/search', { method: 'POST', body: JSON.stringify(body) }),
+      );
+      return { productSearch, body: await response.json() };
+    }
+
+    it('converts minor units to decimal amounts', async () => {
+      const { productSearch, body } = await search({ query: 'shirt', context: { currency: 'EUR' }, filters: { price: { min: 1050, max: 25000 } } });
+      expect(body).not.toHaveProperty('messages');
+      expect(productSearch.lastPayload).toMatchObject({ search: { priceFilter: { min: 10.5, max: 250 } } });
+    });
+
+    it('uses the number of decimals of context.currency', async () => {
+      const { productSearch } = await search({ query: 'shirt', context: { currency: 'JPY' }, filters: { price: { max: 5000 } } });
+      expect(productSearch.lastPayload).toMatchObject({ search: { priceFilter: { max: 5000 } } });
+    });
+
+    it('refuses a price filter without a currency, as minor units mean nothing without one', async () => {
+      const { productSearch, body } = await search({ query: 'shirt', filters: { price: { min: 5000 } } });
+      expect(body).toMatchObject({ ucp: { status: 'error' }, messages: [{ type: 'error', code: 'invalid_request' }] });
+      expect(JSON.stringify(body)).toContain('context.currency');
+      expect(productSearch.lastPayload).toBeUndefined();
+    });
+
+    it('tells the client why when the provider cannot apply the price filter', async () => {
+      const { body } = await search(
+        { query: 'shirt', context: { currency: 'EUR' }, filters: { price: { min: 100 } } },
+        'This product search provider cannot apply priceFilter.',
+      );
+      expect(body).toMatchObject({ ucp: { status: 'error' }, messages: [{ code: 'invalid_request' }] });
+      expect(JSON.stringify(body)).toContain('cannot apply priceFilter');
+    });
+
+    it('still reports other failures of the search as search_failed', async () => {
+      const productSearch = new TestProductSearchCapability(new MemoryCache(), createInitialRequestContext());
+      productSearch.queryByTerm = async () => error<GenericError>({ type: 'Generic', message: 'boom' });
+      const server = new ReactionaryUCPServer(() => ({ productSearch }), {
+        profile: { endpoint: 'https://shop.example.com/ucp', merchant: { name: 'Example shop', url: 'https://shop.example.com', contact: { email: 'support@example.com' } }, keys: [] },
+      });
+      const response = await server.fetch(new Request('https://shop.example.com/ucp/catalog/search', { method: 'POST', body: JSON.stringify({ query: 'shirt' }) }));
+      expect(await response.json()).toMatchObject({ messages: [{ code: 'search_failed' }] });
+    });
+
+    it('warns about a malformed price filter and ignores it', async () => {
+      const { productSearch, body } = await search({ query: 'shirt', filters: { price: { min: 'cheap' } } });
+      expect(body).toMatchObject({ messages: [{ type: 'warning', code: 'price_filter_ignored', path: '$.filters.price' }] });
+      expect(productSearch.lastPayload).not.toHaveProperty('search.priceFilter');
     });
   });
 

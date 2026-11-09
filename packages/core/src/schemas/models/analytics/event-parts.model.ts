@@ -30,6 +30,14 @@ export const AnalyticsCarouselSchema = z.looseObject({
     carouselName: z.string().meta({ description: 'Storefront name of the carousel.' }),
 });
 
+/**
+ * A piece of content that is not a commerce entity, e.g. a CMS article or landing page.
+ */
+export const AnalyticsContentSchema = z.looseObject({
+    key: z.string().meta({ description: 'The id of the content in the CMS, e.g. the article id.' }),
+    type: z.string().optional().meta({ description: 'The kind of content, e.g. "article" or "landing-page".' }),
+});
+
 export const AnalyticsAutocompleteSuggestionSchema = z.discriminatedUnion('type', [
     z.looseObject({ type: z.literal('term'), term: z.string() }),
     z.looseObject({ type: z.literal('product'), product: ProductIdentifierSchema }),
@@ -49,6 +57,7 @@ export const AnalyticsChannelSchema = z.string().meta({ description: 'A channel,
 export type PageType = InferType<typeof PageTypeSchema>;
 export type AnalyticsPageView = InferType<typeof AnalyticsPageViewSchema>;
 export type AnalyticsPromotion = InferType<typeof AnalyticsPromotionSchema>;
+export type AnalyticsContent = InferType<typeof AnalyticsContentSchema>;
 export type AnalyticsCarousel = InferType<typeof AnalyticsCarouselSchema>;
 export type AnalyticsAutocompleteSuggestion = InferType<typeof AnalyticsAutocompleteSuggestionSchema>;
 export type AnalyticsProductRef = InferType<typeof AnalyticsProductRefSchema>;

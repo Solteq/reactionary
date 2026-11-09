@@ -5,6 +5,10 @@ import {
   ProductSearchQueryByTermSchema,
   ProductSearchResultSchema,
   Reactionary,
+  DEFAULT_SEARCH_FACET_POLICY,
+  error,
+  getSearchFilterProblem,
+  type InvalidInputError,
   success,
   type Cache,
   type FacetIdentifier,
@@ -66,6 +70,11 @@ export class MagentoProductSearchCapability<
   public override async queryByTerm(
     payload: ProductSearchQueryByTerm,
   ): Promise<Result<ProductSearchFactoryOutput<TFactory>>> {
+    const filterProblem = getSearchFilterProblem(payload.search, [], DEFAULT_SEARCH_FACET_POLICY);
+    if (filterProblem !== undefined) {
+      return error<InvalidInputError>({ type: 'InvalidInput', error: filterProblem });
+    }
+
     const finalSearch = (payload.search.term || '').trim().replace('*', '');
     const pageSize = payload.search.paginationOptions.pageSize;
     const currentPage = payload.search.paginationOptions.pageNumber;
@@ -178,11 +187,18 @@ export class MagentoProductSearchCapability<
     throw new Error('Method not implemented.');
   }
 
+  /** Magento's REST product search returns no facet counts, so a facet is an attribute facet without values. */
   protected parseFacet(
-    _facetIdentifier: FacetIdentifier,
+    facetIdentifier: FacetIdentifier,
     _facetValue: unknown,
   ): ProductSearchResultFacet {
-    throw new Error('Method not implemented.');
+    return {
+      semantic: 'attribute',
+      identifier: facetIdentifier,
+      name: facetIdentifier.key,
+      multiselect: false,
+      values: [],
+    };
   }
 
   protected parseVariant(): never {

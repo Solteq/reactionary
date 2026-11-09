@@ -18,6 +18,7 @@
       "options": {
         "outputPath": "dist/packages/unomi",
         "main": "packages/unomi/src/index.ts",
+        "additionalEntryPoints": ["packages/unomi/src/cli.ts"],
         "tsConfig": "packages/unomi/tsconfig.lib.json",
         "assets": ["packages/unomi/*.md"],
         "format": ["esm"],

@@ -7,13 +7,16 @@ import {
   type RequestContext,
   type Result,
 } from '@reactionary/core';
-import { afterAll, assert, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, assert, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ExternalIdentityProviderSchema,
   OidcIdentityCapability,
   clearDiscoveryCache,
   codeChallenge,
   randomToken,
+  refreshTokens,
+  resolveMetadata,
+  tokenEndpointAuthMethod,
   type ExchangeExternalIdentityInput,
   type ExternalIdentityProvider,
 } from '../index.js';
@@ -147,6 +150,216 @@ describe('OidcIdentityCapability', () => {
       callbackUrl,
     });
     assert(!started.success);
+  });
+});
+
+describe('client authentication and userinfo', () => {
+  const callbackUrl = 'https://shop.example/auth/callback/fake';
+  let idp: FakeOidcProvider;
+  let provider: ExternalIdentityProvider;
+  let context: RequestContext;
+
+  beforeAll(async () => {
+    idp = await FakeOidcProvider.start();
+  });
+  afterAll(async () => {
+    await idp.close();
+  });
+  beforeEach(() => {
+    clearDiscoveryCache();
+    idp.tokenEndpointAuthMethods = undefined;
+    idp.userinfoClaims = undefined;
+    idp.userinfoSubMismatch = false;
+    idp.omitIdTokenClaims = [];
+    context = createInitialRequestContext();
+    provider = { key: 'fake', displayName: 'Fake', issuer: idp.issuer, clientId: idp.clientId, clientSecret: idp.clientSecret };
+  });
+
+  function backend(overrides: Partial<ExternalIdentityProvider> = {}) {
+    return new TestBackendIdentityCapability(new NoOpCache(), context, [{ ...provider, ...overrides }]);
+  }
+
+  async function login(identity: TestBackendIdentityCapability) {
+    const started = await identity.startExternalLogin({ provider: { key: 'fake' }, callbackUrl });
+    assert(started.success);
+    const callback = new URL(idp.approve(started.value.location));
+    return identity.completeExternalLogin({
+      provider: { key: 'fake' },
+      callbackUrl,
+      callbackParameters: Object.fromEntries(callback.searchParams),
+    });
+  }
+
+  it('authenticates with client_secret_basic when that is the only method the provider lists', async () => {
+    idp.tokenEndpointAuthMethods = ['client_secret_basic'];
+    const completed = await login(backend());
+    expect(completed.success).toBe(true);
+  });
+
+  it('keeps client_secret_post when the provider lists it, even next to basic', async () => {
+    idp.tokenEndpointAuthMethods = ['client_secret_basic', 'client_secret_post'];
+    expect((await login(backend())).success).toBe(true);
+  });
+
+  it('uses the configured method over what discovery lists', async () => {
+    idp.tokenEndpointAuthMethods = ['client_secret_basic'];
+    const completed = await login(backend({ tokenEndpointAuthMethod: 'client_secret_post' }));
+    assert(!completed.success);
+  });
+
+  it('refreshes tokens with client_secret_basic too', async () => {
+    idp.tokenEndpointAuthMethods = ['client_secret_basic'];
+    const metadata = await resolveMetadata(provider);
+    expect(tokenEndpointAuthMethod(provider, metadata)).toBe('client_secret_basic');
+    const refreshed = await refreshTokens(provider, metadata, 'refresh-token');
+    expect(refreshed.accessToken).toMatch(/^access-token-/);
+  });
+
+  it('picks no authentication for a public client', async () => {
+    const publicClient: ExternalIdentityProvider = { ...provider };
+    delete publicClient.clientSecret;
+    expect(tokenEndpointAuthMethod(publicClient, await resolveMetadata(publicClient))).toBe('none');
+  });
+
+  it('fills a missing email from userinfo', async () => {
+    idp.omitIdTokenClaims = ['email', 'email_verified'];
+    idp.userinfoClaims = { email: 'info@example.com', email_verified: true };
+    const identity = backend();
+    const completed = await login(identity);
+    assert(completed.success);
+    expect(identity.exchanged[0]?.claims['email']).toBe('info@example.com');
+  });
+
+  it('lets ID token claims win over userinfo claims', async () => {
+    idp.userinfoClaims = { email: 'other@example.com', phone_number: '+4512345678' };
+    idp.omitIdTokenClaims = ['family_name'];
+    const identity = backend({ userinfo: 'always' });
+    const completed = await login(identity);
+    assert(completed.success);
+    expect(identity.exchanged[0]?.claims['email']).toBe('ada@example.com');
+    expect(identity.exchanged[0]?.claims['phone_number']).toBe('+4512345678');
+  });
+
+  it('does not call userinfo when the ID token is complete', async () => {
+    idp.userinfoClaims = { phone_number: '+4512345678' };
+    const identity = backend();
+    await login(identity);
+    expect(identity.exchanged[0]?.claims['phone_number']).toBeUndefined();
+  });
+
+  it('ignores a userinfo response for another subject', async () => {
+    idp.omitIdTokenClaims = ['email'];
+    idp.userinfoClaims = { email: 'victim@example.com' };
+    idp.userinfoSubMismatch = true;
+    const identity = backend();
+    const completed = await login(identity);
+    expect(identity.exchanged[0]?.claims['email']).toBeUndefined();
+    expect(completed.success).toBe(true);
+  });
+
+  it('does not let userinfo verify a different email than the ID token carries', async () => {
+    idp.omitIdTokenClaims = ['email_verified'];
+    idp.userinfoClaims = { email: 'other@example.com', email_verified: true };
+    const identity = backend();
+    const completed = await login(identity);
+    expect(completed.success).toBe(false);
+    expect(identity.exchanged).toHaveLength(0);
+  });
+
+  it('takes email_verified from userinfo when it names the same email', async () => {
+    idp.omitIdTokenClaims = ['email_verified'];
+    idp.userinfoClaims = { email: 'Ada@Example.com', email_verified: true };
+    const identity = backend();
+    const completed = await login(identity);
+    assert(completed.success);
+    expect(identity.exchanged[0]?.claims['email']).toBe('ada@example.com');
+    expect(identity.exchanged[0]?.claims['email_verified']).toBe(true);
+  });
+
+  it('refuses a provider that sends no email_verified unless the email is assumed verified', async () => {
+    idp.omitIdTokenClaims = ['email_verified'];
+    expect((await login(backend())).success).toBe(false);
+
+    const identity = backend({ assumeEmailVerified: true });
+    const completed = await login(identity);
+    assert(completed.success);
+    expect(identity.exchanged[0]?.claims['email_verified']).toBe(true);
+  });
+
+  it('leaves email_verified unknown when the provider opts out of the check without assuming', async () => {
+    idp.omitIdTokenClaims = ['email_verified'];
+    const identity = backend({ requireVerifiedEmail: false });
+    const completed = await login(identity);
+    assert(completed.success);
+    expect(identity.exchanged[0]?.claims['email_verified']).toBeUndefined();
+  });
+
+  it('does not override an email_verified the provider sends, even when assuming', async () => {
+    idp.omitIdTokenClaims = ['email_verified'];
+    idp.userinfoClaims = { email: 'ada@example.com', email_verified: false };
+    const identity = backend({ assumeEmailVerified: true });
+    const completed = await login(identity);
+    expect(completed.success).toBe(false);
+  });
+
+  it('drops a discovered userinfo endpoint that is not https', async () => {
+    const document = {
+      issuer: 'https://idp.example',
+      authorization_endpoint: 'https://idp.example/authorize',
+      token_endpoint: 'https://idp.example/token',
+      jwks_uri: 'https://idp.example/jwks',
+      userinfo_endpoint: 'http://idp.example/userinfo',
+    };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(document), { status: 200 }));
+    try {
+      const metadata = await resolveMetadata({ ...provider, issuer: 'https://idp.example' });
+      expect(metadata.userinfoEndpoint).toBeUndefined();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('never calls userinfo when the provider opts out', async () => {
+    idp.omitIdTokenClaims = ['email'];
+    idp.userinfoClaims = { email: 'info@example.com' };
+    const identity = backend({ userinfo: 'never' });
+    await login(identity);
+    expect(identity.exchanged[0]?.claims['email']).toBeUndefined();
+  });
+});
+
+describe('refreshTokens', () => {
+  let idp: FakeOidcProvider;
+  let provider: ExternalIdentityProvider;
+
+  beforeAll(async () => {
+    idp = await FakeOidcProvider.start();
+    provider = { key: 'fake', displayName: 'Fake', issuer: idp.issuer, clientId: idp.clientId, clientSecret: idp.clientSecret };
+  });
+  afterAll(async () => {
+    await idp.close();
+  });
+  beforeEach(() => {
+    clearDiscoveryCache();
+    idp.failTokenEndpoint = false;
+    idp.rotateRefreshToken = false;
+  });
+
+  it('gets a new access token and keeps the old refresh token when none is returned', async () => {
+    const refreshed = await refreshTokens(provider, await resolveMetadata(provider), 'refresh-token');
+    expect(refreshed.accessToken).toMatch(/^access-token-/);
+    expect(refreshed.refreshToken).toBeUndefined();
+    expect(refreshed.expiresIn).toBe(300);
+  });
+
+  it('returns a rotated refresh token', async () => {
+    idp.rotateRefreshToken = true;
+    const refreshed = await refreshTokens(provider, await resolveMetadata(provider), 'refresh-token');
+    expect(refreshed.refreshToken).toBe('refresh-token');
+  });
+
+  it('fails when the identity provider refuses the refresh token', async () => {
+    await expect(refreshTokens(provider, await resolveMetadata(provider), 'revoked')).rejects.toThrow(/refused the refresh token/);
   });
 });
 

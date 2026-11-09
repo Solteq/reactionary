@@ -58,7 +58,7 @@ createServer((request, response) => {
 
 The server uses the `ucp-session-id` header. If the request does not include one, the server creates a new session id and returns it in the response.
 
-Session state is stored through the Reactionary `Cache` interface. The default is `MemoryCache`, which is useful for local development only.
+Session state is stored through the Reactionary `Cache` interface. The default is `MemoryCache`, which is useful for local development only. It keeps at most 10,000 entries by default and evicts the least recently used ones beyond that, which can drop live sessions; pass `new MemoryCache({ maxEntries })` to change the limit.
 
 ```ts
 new ReactionaryUCPServer(createClient, {
@@ -73,6 +73,8 @@ new ReactionaryUCPServer(createClient, {
 - Canonical Shopping REST endpoints are available below the configured `profile.endpoint` path.
 - `OPTIONS` returns allowed methods.
 - Unmatched routes return `404 NOT_FOUND`.
+- Request bodies are validated: malformed JSON answers `400`, a body that does not match the expected shape (for example a cart without `line_items`) answers `422`, and a malformed percent-escape in the path or an invalid `Host` header answers `400`.
+- `fetch()` and the Node handler never throw. Unexpected failures are logged and answered with `500`; subclasses can override the protected `handleError(error)` to customise this.
 
 ## UCP discovery profile
 
@@ -131,7 +133,7 @@ UCP catalog search filters are mapped to Reactionary search inputs where possibl
 
 - `filters.categories[0]` is treated as a breadcrumb string separated by `>` and resolved through `product-search.createCategoryNavigationFilter` when available. The resolved value is passed as Reactionary `categoryFilter`.
 - Additional category values are ignored for now because Reactionary search has a single `categoryFilter`; the response includes a warning message when this happens.
-- `filters.price` is ignored for now because Reactionary product search has no provider-neutral price filter; the response includes a warning message.
+- `filters.price` (`min` and `max` in ISO 4217 minor units, denominated in `context.currency`) is converted to decimal amounts and passed as Reactionary `priceFilter`. A price filter without `context.currency` is refused with `invalid_request`, as minor units mean nothing without the currency. A malformed price filter is ignored with a `price_filter_ignored` warning. A provider that cannot filter by price refuses the search, and its message is returned as `invalid_request`.
 - Other extension filter keys are passed through as Reactionary string filters in `key:value` form. Array values produce one filter string per item.
 
 `PUT /carts/{id}` is implemented as a best-effort reconciliation against the current authoritative cart. It fetches the cart, removes existing SKUs absent from the request, changes quantities for existing SKUs, adds new SKUs, and returns the latest cart from the final mutation.
@@ -288,6 +290,29 @@ Requirements:
 - All UCP instances must share the same `stateSecret`; rotating it invalidates every outstanding token and link-in-progress.
 - Set `internalApiKey` (e.g. from `UCP_OAUTH_INTERNAL_KEY`) on the UCP server and in the storefront's environment. It is a server-to-server secret; never expose it to the browser.
 - `issuer` is the public origin; `baseUrl` defaults to `{issuer}/ucp` and must match where the UCP endpoint is actually served.
+
+## Order webhooks
+
+With `webhooks` set, order events are sent to the `webhook_url` the platform declares in its profile (order capability `config.webhook_url`). The profile URL comes from the `UCP-Agent` request header, which is unauthenticated, so the server treats both URLs as untrusted:
+
+- Only `https:` URLs without credentials are used, and URLs naming localhost, loopback, private, link-local, carrier-grade NAT, multicast or reserved addresses (IPv4 and IPv6) are refused.
+- Host names are resolved when connecting and refused if any address is non-public, so a name that resolves differently between a check and the connection (DNS rebinding) cannot reach an internal service. Redirects are never followed.
+- Profile responses are limited to `maxResponseBytes` (default 256 KiB), and at most `profileCacheMaxEntries` profiles (default 500) are cached, least recently used first, for five minutes.
+
+```ts
+new ReactionaryUCPServer(createClient, {
+  webhooks: {
+    signingKey,
+    // Optional: only talk to known platforms. Can only restrict, never admit URLs the checks above refused.
+    validateUrl: (url) => url.hostname.endsWith('.platform.example'),
+    // Local development only: accept http: URLs and a receiver on localhost.
+    allowInsecureUrls: true,
+    allowPrivateNetworks: true,
+  },
+});
+```
+
+The built-in transport connects directly and ignores `HTTP_PROXY`/`HTTPS_PROXY` (an environment proxy would resolve the host itself and bypass the address check). Behind an egress proxy, pass `webhooks.fetch` with a fetch that uses it; a custom `fetch` replaces the built-in transport and its connect-time address check, so only URLs naming a non-public IP literal or localhost are refused up front.
 
 ## Request IDs and idempotency
 

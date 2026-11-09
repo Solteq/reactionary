@@ -143,7 +143,7 @@ There are two important details:
 
    - safe defaults are preserved and shown to MCP clients
    - unsafe defaults are omitted from the MCP schema
-   - fields with unsafe defaults remain optional to preserve the "can be omitted" intent
+   - fields with unsafe defaults are published as required: a default that fails when it is evaluated fails every call that leaves the field out, so the field cannot be omitted, whatever its type says
    - descriptions/metadata are copied when schemas are rebuilt for JSON Schema generation
 
 ### Monetary and cost default note
@@ -157,6 +157,30 @@ Some aggregate cart/checkout cost-breakdown fields still use a temporary placeho
 ```
 
 That fallback is intentionally placed on the parent cost-breakdown fields, not on `MonetaryAmountSchema` itself. It should eventually be replaced by configured/request-context currency handling or explicit "unknown monetary amount" modeling.
+
+## Tool descriptions
+
+An agent chooses and calls a tool from its name, its description and its input schema, so the description is what makes `cart.add` different from `cart.changeQuantity` for it.
+
+- A description set on the method with `@Reactionary({ description })` is used as it is.
+- Otherwise `src/lib/tool-descriptions.ts` has one for each operation of the core capabilities, by `<capability name>.<method name>`. They are written for agents, not copied from the code documentation, and say what the operation is for, which tool its input comes from, and the details of the input that the schema cannot say: which fields have to be sent although they are empty, what an empty result means.
+- An operation that has neither is published without a description.
+
+`src/lib/tool-surface.spec.ts` looks at every operation of the providers, and fails when an operation has no description or declares no input schema, when a description is left for an operation that does not exist, or when a description has notes to the developers of the library in it. Add the description in `tool-descriptions.ts` when you add an operation.
+
+A method that declares no `inputSchema` gets the default one, which accepts anything. Such a tool is published as an object with any properties, its arguments are passed to the method, and a warning names it once. Declare the input schema on the method to describe what it takes.
+
+## Tool page kinds
+
+A client that offers tools per page, like a browser with WebMCP, should offer the tools that fit the page the customer is on, not all of them. Every listed tool carries the kinds of page it is useful on in `_meta['reactionary/pages']` (`TOOL_PAGE_KINDS_META_KEY`): `any`, `product`, `listing`, `cart`, `checkout`, `account`, `order`, `store` or `b2b`, see `ToolPageKind`.
+
+- The kinds are by operation, in `src/lib/tool-page-kinds.ts`, by `<capability name>.<method name>`. List every kind where the tool is useful, for example `product.getBySKU` is used from the cart, an order and the lists as well as from a product page. `any` is for the tools that are used from most pages, like `cart.add`.
+- An operation that is not in the map is `any`.
+- To give kinds to the operations of your own capabilities, or to change those of the library, set the `pageKinds` option of `ReactionaryMCPServer`. It receives the tool and returns the kinds, or undefined to use the library's. The kinds are free text, so a shop can use its own.
+- It is a hint for what to offer. Every tool can still be called on the MCP endpoint, and it is not a way to restrict what an agent may do.
+- A client that does not know the key ignores it.
+
+`src/lib/tool-surface.spec.ts` fails, naming the operation, when an operation of a provider has no kinds, or when kinds are left for an operation that does not exist. Add the kinds in `tool-page-kinds.ts` when you add an operation to the library.
 
 ## Tool result envelope
 
@@ -196,7 +220,7 @@ Only `.session` is persisted. Other request context fields, such as locale, curr
 
 ### Session cache
 
-By default, the package uses Reactionary `MemoryCache` for MCP session state:
+By default, the package uses Reactionary `MemoryCache` for MCP session state. It keeps at most 10,000 entries by default and evicts the least recently used ones beyond that, which can drop live sessions; pass `new MemoryCache({ maxEntries })` through `sessionCache` to change the limit:
 
 ```ts
 const mcp = new ReactionaryMCPServer(createClient);
@@ -266,6 +290,8 @@ MCP_PORT=3000
 MCP_PATH=/mcp
 ```
 
+By default the CLI is locked down: it only exposes the read-only catalogue tools (`product-search`, `product`, `price`, `inventory`, `category`), only accepts requests whose `Host` and `Origin` are loopback, and refuses to listen on a non-loopback host unless a bearer token is configured. See [CLI security](#cli-security) for the flags that change this.
+
 The CLI:
 
 1. Loads `.env` from the project root.
@@ -331,6 +357,35 @@ pnpm --dir packages/mcp start
 ```
 
 You can also put these variables in the project root `.env`; the CLI loads that file automatically.
+
+### CLI security
+
+The CLI serves the provider credentials from the environment (for example `MEDUSA_ADMIN_KEY`), so it must not be reachable by anything other than its intended clients. A web page open in a browser on the same machine can otherwise reach a loopback server, through DNS rebinding or a cross-origin request.
+
+| Flag | Environment | Effect |
+| --- | --- | --- |
+| `--allowed-hosts a,b` | `MCP_ALLOWED_HOSTS` | Hostnames accepted in the `Host` header (no port). Default: `localhost`, `127.0.0.1`, `[::1]`, plus a specific non-loopback `--host`. Other hosts get `403`. |
+| `--allowed-origins a,b` | `MCP_ALLOWED_ORIGINS` | Hostnames accepted in the `Origin` header (no scheme or port). Default: the allowed hosts. Requests without an `Origin` header, such as from non-browser clients, pass. Other origins get `403`. |
+| none | `MCP_AUTH_TOKEN` | When set, every request must carry `Authorization: Bearer <token>`, otherwise `401`. Only available as an environment variable so it does not appear in the process list. |
+| `--allow-insecure-remote` | `MCP_ALLOW_INSECURE_REMOTE=true` | Allows a non-loopback `--host` without `MCP_AUTH_TOKEN`. Without it, the CLI refuses to start. |
+| `--enable-mutating-tools` | `MCP_ENABLE_MUTATING_TOOLS=true` | Exposes the tools of every enabled capability, including cart, checkout, identity, order, employee and company. |
+| `--capabilities a,b` | `MCP_CAPABILITIES` | Exposes exactly these capabilities (by capability name, for example `product,cart`). Cannot be combined with `--enable-mutating-tools`. |
+
+Examples:
+
+```bash
+# Read-only catalogue tools on loopback (the default)
+ENABLED_FAKE=true pnpm --dir packages/mcp start
+
+# Let an agent fill a cart as well
+ENABLED_MEDUSA=true pnpm --dir packages/mcp start -- --capabilities product-search,product,price,inventory,category,cart
+
+# All tools, reachable from other machines under mcp.example.com, behind a bearer token
+ENABLED_MEDUSA=true MCP_AUTH_TOKEN=... pnpm --dir packages/mcp start -- \
+  --enable-mutating-tools --host 0.0.0.0 --allowed-hosts mcp.example.com
+```
+
+Binding to a wildcard address (`0.0.0.0`, `::`) only accepts loopback `Host` headers until `--allowed-hosts` lists the names clients use.
 
 ### Inspector
 
@@ -418,6 +473,27 @@ createServer(async (request, response) => {
   await handler(request, response);
 }).listen(3000);
 ```
+
+## Securing the endpoint
+
+`ReactionaryMCPServer` does not authenticate or screen requests unless it is told to, so that existing hosts that already do this keep working unchanged. A server that a browser can reach, or that is exposed beyond a trusted network, should set these options:
+
+```ts
+import { localhostAllowedHostnames } from '@modelcontextprotocol/server';
+
+const mcp = new ReactionaryMCPServer(createClient, {
+  // DNS rebinding protection: only these Host header hostnames are served, others get 403.
+  allowedHostnames: ['mcp.example.com', ...localhostAllowedHostnames()],
+  // Cross-site request protection: browser requests from other origins get 403.
+  allowedOriginHostnames: ['app.example.com'],
+  // Authentication: runs after the checks above, a request it denies (or that makes it throw) gets 401.
+  authorize: async (request) => isValidToken(request.headers.get('authorization')),
+  // Only expose the tools the agent needs.
+  toolFilter: (tool) => tool.entrypoint.capabilityName !== 'identity',
+});
+```
+
+The checks apply to `fetch`, `getHandler().fetch` and `toNodeHandler()` alike. Subclasses can override the protected `rejectRequest(request)` to change how requests are screened.
 
 ## Guardrails and responsibilities
 

@@ -27,6 +27,17 @@ export const FacetValueIdentifierSchema = z.object({
   key: z.string(),
 });
 
+export const FacetRangeSchema = z.looseObject({
+  facet: FacetIdentifierSchema.meta({ description: 'The numeric facet to restrict, e.g. a price. The attribute must be numeric and declared filterable in the search index.' }),
+  min: z.number().optional().meta({ description: 'The lowest value that matches, inclusive. No lower limit when left out.' }),
+  max: z.number().optional().meta({ description: 'The highest value that matches, inclusive. No upper limit when left out.' }),
+});
+
+export const SearchRangeSchema = z.looseObject({
+  min: z.number().optional().meta({ description: 'The lowest value that matches, inclusive. No lower limit when left out.' }),
+  max: z.number().optional().meta({ description: 'The highest value that matches, inclusive. No upper limit when left out.' }),
+});
+
 export const ProductVariantIdentifierSchema = z.looseObject({
   sku: z.string(),
 });
@@ -50,6 +61,18 @@ export const ProductOptionValueIdentifierSchema = z.looseObject({
 
 export const ProductIdentifierSchema = z.looseObject({
   key: z.string()
+});
+
+export const ProductTypeIdentifierSchema = z.looseObject({
+  key: z.string().meta({ description: 'The unique identifier of the product type, e.g. "icecat-cat-8862".' }),
+});
+
+export const VocabularyIdentifierSchema = z.looseObject({
+  key: z.string().meta({ description: 'The unique identifier (slug) of the vocabulary, e.g. "features".' }),
+});
+
+export const ConceptIdentifierSchema = z.looseObject({
+  key: z.string().meta({ description: 'The unique identifier of the concept, prefixed by its vocabulary, e.g. "features/cordless".' }),
 });
 
 
@@ -141,6 +164,10 @@ export const ProductAssociationsIdentifierSchema = z.looseObject({
     key: z.string(),
 });
 
+export const ProductAssetIdentifierSchema = z.looseObject({
+    key: z.string().meta({ description: 'Stable key of the logical asset. The same asset shown on several products shares one key.' }),
+});
+
 export const ProductRatingIdentifierSchema = z.looseObject({
   product: ProductIdentifierSchema.meta({ description: 'The product this rating summary is for.' }),
 });
@@ -160,9 +187,20 @@ export const CompanyIdentifierSchema = z.looseObject({
 });
 
 
+export const SearchAvailabilityFilterSchema = z.looseObject({
+  online: z.boolean().optional().meta({ description: 'True to match products that can be bought online. False or left out does not restrict on online availability.' }),
+  stores: z.array(StoreIdentifierSchema).optional().meta({ description: 'Match products that are in stock in any of these stores, for example for click and collect.' }),
+}).meta({ description: 'Restricts the search to available products. The parts widen each other: a product matches if it is available in any of the ways named, e.g. online or in one of the stores. A filter without any part does not restrict.' });
+
 export const ProductSearchIdentifierSchema = z.looseObject({
   term: z.string().meta({ description: 'The search term used to find products.' }),
-  facets: z.array(FacetValueIdentifierSchema).meta({ description: 'The facets applied to filter the search results.' }),
+  facets: z.array(FacetValueIdentifierSchema).meta({ description: 'The attribute facets applied to filter the search results, as returned in facets with semantic attribute. Price, rating, availability and taxonomy have fields of their own, see priceFilter, ratingFilter, availabilityFilter and conceptFilter. A provider refuses a facet that belongs to one of them.' }),
+  conceptContext: z.array(ConceptIdentifierSchema).optional().meta({ description: 'The taxonomy concepts the page is about, e.g. a concept landing page. All of them must match, products of the concepts below them match too, and the shopper cannot remove them, so a storefront should not offer to. Use conceptFilter for what the shopper selects.' }),
+  conceptFilter: z.array(ConceptIdentifierSchema).optional().meta({ description: 'The taxonomy concepts the shopper selected. Concepts of the same vocabulary widen each other (any of them matches), across vocabularies they all must match. The vocabulary is the prefix of the concept key.' }),
+  priceFilter: SearchRangeSchema.optional().meta({ description: 'The price range the products must fall in, in the decimal amounts of the currency of the request, like MonetaryAmount.value. Providers that index every price of a product (commercetools) match the products with a variant priced in the range. Providers that index only the lowest and highest price of a product (Algolia and Meilisearch, as recalcitrant writes them) match the products whose price span reaches into the range, so a product with variants at 10 and 100 also matches 40-60.' }),
+  ratingFilter: SearchRangeSchema.optional().meta({ description: 'The rating the products must have, in whole stars from 0 to 5, both ends inclusive: the average rating rounded down, so 4.7 is 4 stars. {min: 1, max: 2} finds the badly rated products.' }),
+  availabilityFilter: SearchAvailabilityFilterSchema.optional(),
+  ranges: z.array(FacetRangeSchema).optional().meta({ description: 'Numeric ranges the search results must fall in, for the numeric attribute facets named (price and rating have fields of their own). All of them must match, so a facet can have a range of its own, or be bounded by two entries. The facets named here come back with the stats (lowest and highest value) of the search without any range, so that a slider keeps its bounds while it is moved. Searches of providers that cannot filter by range are not restricted.' }),
   filters: z.array(z.string()).meta({ description: 'Additional filters applied to the search results.' }),
   paginationOptions: PaginationOptionsSchema.meta({ description: 'Pagination options for the search results.' }),
   categoryFilter: FacetValueIdentifierSchema.optional().meta({ description: 'An optional category filter applied to the search results.' }),
@@ -264,6 +302,10 @@ export const FeatureFlagIdentifierSchema = z.looseObject({
 });
 
 
+export type FacetRange = InferType<typeof FacetRangeSchema>;
+export type SearchRange = InferType<typeof SearchRangeSchema>;
+export type ConceptIdentifier = InferType<typeof ConceptIdentifierSchema>;
+export type SearchAvailabilityFilter = InferType<typeof SearchAvailabilityFilterSchema>;
 export type CartSearchIdentifier = InferType<typeof CartSearchIdentifierSchema>;
 export type OrderSearchIdentifier = InferType<typeof OrderSearchIdentifierSchema>;
 export type ProductIdentifier = InferType<typeof ProductIdentifierSchema>;
@@ -307,6 +349,7 @@ export type ProductAttributeIdentifier = InferType<typeof ProductAttributeIdenti
 export type ProductAttributeValueIdentifier = InferType<typeof ProductAttributeValueIdentifierSchema>;
 export type ProductRecommendationIdentifier = InferType<typeof ProductRecommendationIdentifierSchema>;
 export type ProductAssociationsIdentifier = InferType<typeof ProductAssociationsIdentifierSchema>;
+export type ProductAssetIdentifier = InferType<typeof ProductAssetIdentifierSchema>;
 export type ProductRatingIdentifier = InferType<typeof ProductRatingIdentifierSchema>;
 export type ProductReviewIdentifier = InferType<typeof ProductReviewIdentifierSchema>;
 export type ProductListIdentifier = InferType<typeof ProductListIdentifierSchema>;
@@ -363,6 +406,7 @@ export type IdentifierType =
   | ProductRatingIdentifier
   | ProductReviewIdentifier
   | ProductAssociationsIdentifier
+  | ProductAssetIdentifier
   | ProductListIdentifier
   | ProductListItemIdentifier
   | ProductListSearchIdentifier

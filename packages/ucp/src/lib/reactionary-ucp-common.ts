@@ -153,7 +153,8 @@ export interface ReactionaryUCPServerOptions {
    * Sends order events (created, and every update) to the webhook URL the
    * platform declares in its profile, as the order capability requires.
    * Unset (the default), no webhooks are sent and agent profiles are never
-   * fetched.
+   * fetched. Profile and webhook URLs are untrusted: loopback, private and
+   * link-local addresses are refused unless `allowPrivateNetworks` is set.
    */
   webhooks?: ReactionaryUCPWebhookOptions;
   /**

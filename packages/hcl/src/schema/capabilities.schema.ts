@@ -35,6 +35,9 @@ import type {
   ProductAssociationsCapability,
   ProductAssociationsFactory,
   ProductAssociationsFactoryWithOutput,
+  ProductAssetsCapability,
+  ProductAssetsFactory,
+  ProductAssetsFactoryWithOutput,
   ProductFactory,
   ProductFactoryWithOutput,
   ProductCapability,
@@ -81,6 +84,7 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
   orderSearch: true,
   analytics: true,
   productAssociations: true,
+  productAssets: true,
   productRecommendations: true,
   personalizationProfile: true,
   store: true,
@@ -101,6 +105,7 @@ export const HclCapabilitiesSchema = CapabilitiesSchema.pick({
     orderSearch: OverridableCapabilitySchema.optional(),
     analytics: OverridableCapabilitySchema.optional(),
     productAssociations: OverridableCapabilitySchema.optional(),
+    productAssets: OverridableCapabilitySchema.optional(),
     productRecommendations: OverridableCapabilitySchema.optional(),
     personalizationProfile: OverridableCapabilitySchema.optional(),
     store: OverridableCapabilitySchema.optional(),
@@ -191,6 +196,11 @@ export type HclAnalyticsCapabilityConfig = HclCapabilityConfig<
 export type HclProductAssociationsCapabilityConfig = HclCapabilityConfig<
   ProductAssociationsFactoryWithOutput<ProductAssociationsFactory>,
   ProductAssociationsCapability
+>;
+
+export type HclProductAssetsCapabilityConfig = HclCapabilityConfig<
+  ProductAssetsFactoryWithOutput<ProductAssetsFactory>,
+  ProductAssetsCapability
 >;
 
 /** Product recommendations uses a factory to parse espot activity data into recommendations. */

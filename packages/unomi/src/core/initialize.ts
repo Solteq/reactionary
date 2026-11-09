@@ -12,11 +12,11 @@ import {
   type UnomiAnalyticsCapabilityConfig,
   type UnomiPersonalizationProfileCapabilityConfig,
 } from '../schema/capabilities.schema.js';
-import { UnomiConfigurationSchema, type UnomiConfiguration } from '../schema/configuration.schema.js';
+import { UnomiConfigurationSchema, type UnomiConfigurationInput } from '../schema/configuration.schema.js';
 import { resolveCapabilityWithFactory, type UnomiClientFromCapabilities } from './initialize.types.js';
 
 export function withUnomiCapabilities<T extends UnomiCapabilities>(
-  configuration: UnomiConfiguration,
+  configuration: UnomiConfigurationInput,
   capabilities: T,
 ) {
   return (cache: Cache, context: RequestContext): UnomiClientFromCapabilities<T> => {

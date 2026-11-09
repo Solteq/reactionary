@@ -31,6 +31,7 @@ import type { AlgoliaConfiguration } from '../schema/configuration.schema.js';
 import type { AlgoliaProductRecommendationIdentifier } from '../schema/product-recommendation.schema.js';
 import type { AlgoliaNativeRecord, AlgoliaNativeVariant } from '../schema/search.schema.js';
 import { getProductIndexNameForLocale } from '../core/index-utils.js';
+import { AlgoliaPersonalization } from '../core/personalization.js';
 
 
 /**
@@ -63,16 +64,37 @@ export class AlgoliaProductRecommendationsCapability extends ProductRecommendati
     return 10;
   }
 
+  /**
+   * How the segments and interests of a visitor become rule contexts and optional filters. Override it to change that. The search and the
+   * recommendations capabilities have no common base class, so override it in both to change both.
+   */
+  protected personalization(): AlgoliaPersonalization {
+    return new AlgoliaPersonalization(this.config);
+  }
+
+  /** The rule contexts of a visitor. `reserved` is the room other contexts sent next to these take. */
+  protected ruleContextsOf(profile: Pick<PersonalizationProfile, 'segments'> | undefined, reserved = 0): string[] {
+    return this.personalization().ruleContexts(profile, reserved);
+  }
+
+  /** The optional filters that rank by the interests of a visitor. */
+  protected optionalFiltersOf(profile: Pick<PersonalizationProfile, 'affinities'> | undefined): string[] {
+    return this.personalization().optionalFilters(profile);
+  }
+
   protected getQueryParametersForRecommendations(algorithm: string, query: ProductRecommendationBaseQuery ): RecommendSearchParams {
-    const ruleContexts = query.personalizationProfile ? [ ...query.personalizationProfile.segments.map(segment => 'segment_' + segment) ] : [];
+    // The labels count against what Algolia takes, so the segments get what is left
+    const ruleContexts = this.ruleContextsOf(query.personalizationProfile, query.labels?.length ?? 0);
     if (query.labels) {
       ruleContexts.push(...query.labels);
     }
+    const optionalFilters = this.optionalFiltersOf(query.personalizationProfile);
     return  {
       userToken: query.personalizationProfile?.identifier.key || 'anonymous',
       analytics: true,
       analyticsTags: ['reactionary', algorithm],
       ruleContexts,
+      ...(optionalFilters.length > 0 ? { optionalFilters } : {}),
       clickAnalytics: true
     } satisfies RecommendSearchParams;
   }

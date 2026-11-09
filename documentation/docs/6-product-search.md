@@ -88,21 +88,63 @@ and then accessed further down like
 Facets can be rendered in the same way. When a customer clicks a facet, you can redo the existing search, with that facet selected, because the original searchresult has the query information it was made for, as part of it.
 
 ```ts
-// customer has clicked some facet-valie, and we are passed its identifier. The identifier should be considered opaque at this point...
+import { applySearchFacetSelection, getSearchFacetOptions } from '@reactionary/core';
 
+// customer has clicked an option of some facet. getSearchFacetOptions lists the options of every kind of facet in one shape,
+// and applySearchFacetSelection writes the choice to the right field of the search (and takes it off again when it is already chosen).
 const existingSearchState = mySession.lastKeywordSearch;
+const option = getSearchFacetOptions(clickedFacet).find((o) => o.key === clickedKey);
 
-const updatedFacets = [...existingSearchState.facets, newlyClickedFacetValue];
-const paginationOptions = { ...existingPaginationOptions, pageNumber: 1 };
+// keep everything in our search the same, except for the selection, and reset to page 1.
+const updated = applySearchFacetSelection(existingSearchState, option.selection);
+const newSearchQuery = { search: { ...updated, paginationOptions: { ...updated.paginationOptions, pageNumber: 1 } } };
+const newSearchState = await client.productSearch.queryByTerm(newSearchQuery);
 
-// keep everything in our search the same, except add the new facet, and reset to page 1.
-const newSearchQuery = { search: { ...existingSearchState, facets: updatedFacets, paginationOptions };
-const newSearchState = client.productSearch.queryByTerm(newSearchQuery, requestContext);
-
-mySession.lastKeywordSearch = newSearchState.identifier;
+mySession.lastKeywordSearch = newSearchState.value.identifier;
 ```
 
 The above example shows how the responsibility for state management is split between the UX framework and Reactionary. Reactionary has no insight into the routing patterns or page transitions that may have occured, and have no way of knowing if we are in a continuous interaction on the same search or not. 
+
+### Typed filters and facets
+
+Facets in the result are typed by their `semantic`, and a selection goes to the field of the search that belongs to it:
+
+| `semantic`     | Facet has                                   | Selected with                                              |
+| -------------- | ------------------------------------------- | ---------------------------------------------------------- |
+| `attribute`    | `identifier`, `values`, `multiselect`, `stats?` | `facets`: the `identifier` of the value                |
+| `taxonomy`     | `vocabulary`, `values` of `concept`s        | `conceptFilter`: the `concept` (key is `<vocabulary>/<slug>`) |
+| `price`        | `currency`, `stats?`, `selected?`           | `priceFilter: { min?, max? }` in decimal amounts, like `MonetaryAmount.value` |
+| `rating`       | `buckets` of whole stars                    | `ratingFilter: { min?, max? }`, whole stars 0 to 5, both inclusive |
+| `availability` | `online?`, `stores`                         | `availabilityFilter: { online?, stores? }`                 |
+
+```ts
+const result = await client.productSearch.queryByTerm({
+  search: {
+    term: 'drill',
+    facets: [],
+    filters: [],
+    paginationOptions: { pageNumber: 1, pageSize: 12 },
+    conceptFilter: [{ key: 'features/cordless' }],
+    priceFilter: { max: 150 },
+    ratingFilter: { min: 4, max: 5 },
+    availabilityFilter: { online: true, stores: [{ key: 'store-1' }] },
+  },
+});
+```
+
+- `conceptFilter` is what the shopper selects: concepts of one vocabulary widen each other (any matches), across vocabularies all must match.
+- `conceptContext` is for concept pages, such as a landing page for `features/cordless`: all of them must match, products of the concepts below match too, and the shopper cannot remove them, so do not offer to.
+- The parts of `availabilityFilter` widen each other: online, or in one of the stores.
+- A provider that cannot apply a typed filter answers `InvalidInput` instead of dropping it, so that "in stock" never returns products that are not. A facet that names the key of a typed field (such as `reviewBucket`) is refused too: use the typed field.
+- What each provider applies: Algolia and Meilisearch apply all of them (`priceFilter` through the lowest and highest price of a product). commercetools applies `priceFilter`, `ratingFilter` and `availabilityFilter.online`, and refuses stores and concepts. Medusa applies `conceptContext` with one concept, the concept and everything below it matched through product tags, and refuses the rest, including `conceptFilter`. Magento and HCL apply none. The fake applies all.
+- The facet `multiselect` flag tells whether the values of a facet widen each other and whether the facet keeps offering the values it would without its own selection. It is fixed for taxonomy and availability, and set by the provider configuration for attributes.
+
+Search engine providers (Algolia, Meilisearch, commercetools) take a facet policy in their configuration (`facets`):
+
+- `hidden` and `names`: facet keys to hide, and display names by key.
+- `order`: an allowlist of the facets to return, in order. An entry is an attribute key, or `price`, `rating`, `availability`, `taxonomy` (every vocabulary) or `taxonomy:<vocabulary>`. An attribute whose key is one of those words is written `attribute:<key>`. Without it every facet that is not hidden is returned, attributes first.
+- `multiselect`: the keys of the attribute facets that are multiselect.
+- `fields`: the index fields behind price, rating, availability and taxonomy when the index names them differently from the defaults (`minPrice`, `maxPrice`, `reviewBucket`, `availableOnline`, `availableStores`, `conceptIds`, `conceptFacets.`).
 
 ### Swatches / Variants on PLP
 

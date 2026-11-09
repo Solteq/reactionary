@@ -9,6 +9,7 @@ import {
     AnalyticsMutationProductCarouselViewedSchema,
     AnalyticsMutationProductClickedSchema,
     AnalyticsMutationProductViewedSchema,
+    AnalyticsMutationContentViewedSchema,
     AnalyticsMutationPromotionViewedSchema,
     AnalyticsMutationPromotionClickedSchema,
     AnalyticsMutationCartItemAddedSchema,
@@ -36,6 +37,8 @@ import {
     AnalyticsMutationReviewSubmittedSchema,
     AnalyticsMutationStoreSelectedSchema,
     AnalyticsMutationProductSharedSchema,
+    AnalyticsMutationExperimentExposedSchema,
+    AnalyticsMutationTraitDeclaredSchema,
     AnalyticsMutationCustomSchema,
 } from '../../mutations/analytics/events/index.js';
 import { AnalyticsEventEnvelopeSchema } from './envelope.model.js';
@@ -81,6 +84,11 @@ export const AnalyticsEventProductClickedSchema = AnalyticsEventEnvelopeSchema.e
 export const AnalyticsEventProductViewedSchema = AnalyticsEventEnvelopeSchema.extend({
     type: z.literal('product-viewed'),
     payload: AnalyticsMutationProductViewedSchema.omit(omitEnvelopeFields),
+});
+
+export const AnalyticsEventContentViewedSchema = AnalyticsEventEnvelopeSchema.extend({
+    type: z.literal('content-viewed'),
+    payload: AnalyticsMutationContentViewedSchema.omit(omitEnvelopeFields),
 });
 
 export const AnalyticsEventPromotionViewedSchema = AnalyticsEventEnvelopeSchema.extend({
@@ -218,6 +226,16 @@ export const AnalyticsEventProductSharedSchema = AnalyticsEventEnvelopeSchema.ex
     payload: AnalyticsMutationProductSharedSchema.omit(omitEnvelopeFields),
 });
 
+export const AnalyticsEventExperimentExposedSchema = AnalyticsEventEnvelopeSchema.extend({
+    type: z.literal('experiment-exposed'),
+    payload: AnalyticsMutationExperimentExposedSchema.omit(omitEnvelopeFields),
+});
+
+export const AnalyticsEventTraitDeclaredSchema = AnalyticsEventEnvelopeSchema.extend({
+    type: z.literal('trait-declared'),
+    payload: AnalyticsMutationTraitDeclaredSchema.omit(omitEnvelopeFields),
+});
+
 export const AnalyticsEventCustomSchema = AnalyticsEventEnvelopeSchema.extend({
     type: z.literal('custom'),
     payload: AnalyticsMutationCustomSchema.omit(omitEnvelopeFields),
@@ -231,6 +249,7 @@ export const AnalyticsEventSchema = z.discriminatedUnion('type', [
     AnalyticsEventProductCarouselViewedSchema,
     AnalyticsEventProductClickedSchema,
     AnalyticsEventProductViewedSchema,
+    AnalyticsEventContentViewedSchema,
     AnalyticsEventPromotionViewedSchema,
     AnalyticsEventPromotionClickedSchema,
     AnalyticsEventCartItemAddedSchema,
@@ -258,6 +277,8 @@ export const AnalyticsEventSchema = z.discriminatedUnion('type', [
     AnalyticsEventReviewSubmittedSchema,
     AnalyticsEventStoreSelectedSchema,
     AnalyticsEventProductSharedSchema,
+    AnalyticsEventExperimentExposedSchema,
+    AnalyticsEventTraitDeclaredSchema,
     AnalyticsEventCustomSchema,
 ]);
 
@@ -268,6 +289,7 @@ export type AnalyticsEventCategoryViewed = WithProperties<InferType<typeof Analy
 export type AnalyticsEventProductCarouselViewed = WithProperties<InferType<typeof AnalyticsEventProductCarouselViewedSchema>>;
 export type AnalyticsEventProductClicked = WithProperties<InferType<typeof AnalyticsEventProductClickedSchema>>;
 export type AnalyticsEventProductViewed = WithProperties<InferType<typeof AnalyticsEventProductViewedSchema>>;
+export type AnalyticsEventContentViewed = WithProperties<InferType<typeof AnalyticsEventContentViewedSchema>>;
 export type AnalyticsEventPromotionViewed = WithProperties<InferType<typeof AnalyticsEventPromotionViewedSchema>>;
 export type AnalyticsEventPromotionClicked = WithProperties<InferType<typeof AnalyticsEventPromotionClickedSchema>>;
 export type AnalyticsEventCartItemAdded = WithProperties<InferType<typeof AnalyticsEventCartItemAddedSchema>>;
@@ -295,6 +317,8 @@ export type AnalyticsEventBackInStockRequested = WithProperties<InferType<typeof
 export type AnalyticsEventReviewSubmitted = WithProperties<InferType<typeof AnalyticsEventReviewSubmittedSchema>>;
 export type AnalyticsEventStoreSelected = WithProperties<InferType<typeof AnalyticsEventStoreSelectedSchema>>;
 export type AnalyticsEventProductShared = WithProperties<InferType<typeof AnalyticsEventProductSharedSchema>>;
+export type AnalyticsEventExperimentExposed = WithProperties<InferType<typeof AnalyticsEventExperimentExposedSchema>>;
+export type AnalyticsEventTraitDeclared = WithProperties<InferType<typeof AnalyticsEventTraitDeclaredSchema>>;
 export type AnalyticsEventCustom = WithProperties<InferType<typeof AnalyticsEventCustomSchema>>;
 
 export type AnalyticsEventUnion = WithProperties<InferType<typeof AnalyticsEventSchema>>;

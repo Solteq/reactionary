@@ -27,6 +27,14 @@ export abstract class IdentityCapability<TIdentity extends Identity = Identity> 
 
   protected updateIdentityContext(identity: TIdentity) {
     this.context.session.identityContext.lastUpdated = new Date();
+    // What an external login learned about the shopper goes to the caller of completeExternalLogin, not into the session
+    if (identity.type === 'Registered') {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { externalLogin, ...registered } = identity;
+      // The cast is needed because TIdentity is generic: the compiler cannot see that what is left of a subclass's identity is an Identity
+      this.context.session.identityContext.identity = registered as Identity;
+      return;
+    }
     this.context.session.identityContext.identity = identity as Identity;
   }
 

@@ -15,6 +15,7 @@ import {
   AnalyticsMutationProductCarouselViewedSchema,
   AnalyticsMutationProductClickedSchema,
   AnalyticsMutationProductViewedSchema,
+  AnalyticsMutationContentViewedSchema,
   AnalyticsMutationPromotionViewedSchema,
   AnalyticsMutationPromotionClickedSchema,
   AnalyticsMutationCartItemAddedSchema,
@@ -42,6 +43,8 @@ import {
   AnalyticsMutationReviewSubmittedSchema,
   AnalyticsMutationStoreSelectedSchema,
   AnalyticsMutationProductSharedSchema,
+  AnalyticsMutationExperimentExposedSchema,
+  AnalyticsMutationTraitDeclaredSchema,
   AnalyticsMutationCustomSchema,
   type AnalyticsEventResult,
   type AnalyticsMutationPageViewed,
@@ -51,6 +54,7 @@ import {
   type AnalyticsMutationProductCarouselViewed,
   type AnalyticsMutationProductClicked,
   type AnalyticsMutationProductViewed,
+  type AnalyticsMutationContentViewed,
   type AnalyticsMutationPromotionViewed,
   type AnalyticsMutationPromotionClicked,
   type AnalyticsMutationCartItemAdded,
@@ -78,6 +82,8 @@ import {
   type AnalyticsMutationReviewSubmitted,
   type AnalyticsMutationStoreSelected,
   type AnalyticsMutationProductShared,
+  type AnalyticsMutationExperimentExposed,
+  type AnalyticsMutationTraitDeclared,
   type AnalyticsMutationCustom,
   type GenericError,
   type RequestContext,
@@ -163,6 +169,18 @@ export class AnalyticsCapability extends BaseCapability {
   @Reactionary({ inputSchema: AnalyticsMutationProductViewedSchema, outputSchema: AnalyticsEventResultSchema })
   public async productViewed(payload: AnalyticsMutationProductViewed): Promise<Result<AnalyticsEventResult>> {
     return this.dispatcher.emit('product-viewed', payload);
+  }
+
+  /**
+   * A CMS article or page was viewed. The CMS is not a capability, so the caller passes the ids of the taxonomy
+   * concepts the content is tagged with, which lets a provider record the interest of the visitor in them.
+   * Pass the direct tags of the content only, not the closure over their ancestors (a provider takes the list as it
+   * is, and an ancestor would count as interest of its own), most important first, as a provider that has to cap
+   * the list keeps the first ones. At most 50 ids of at most 128 characters.
+   */
+  @Reactionary({ inputSchema: AnalyticsMutationContentViewedSchema, outputSchema: AnalyticsEventResultSchema })
+  public async contentViewed(payload: AnalyticsMutationContentViewed): Promise<Result<AnalyticsEventResult>> {
+    return this.dispatcher.emit('content-viewed', payload);
   }
 
   @Reactionary({ inputSchema: AnalyticsMutationPromotionViewedSchema, outputSchema: AnalyticsEventResultSchema })
@@ -301,6 +319,16 @@ export class AnalyticsCapability extends BaseCapability {
   @Reactionary({ inputSchema: AnalyticsMutationProductSharedSchema, outputSchema: AnalyticsEventResultSchema })
   public async productShared(payload: AnalyticsMutationProductShared): Promise<Result<AnalyticsEventResult>> {
     return this.dispatcher.emit('product-shared', payload);
+  }
+
+  @Reactionary({ inputSchema: AnalyticsMutationExperimentExposedSchema, outputSchema: AnalyticsEventResultSchema })
+  public async experimentExposed(payload: AnalyticsMutationExperimentExposed): Promise<Result<AnalyticsEventResult>> {
+    return this.dispatcher.emit('experiment-exposed', payload);
+  }
+
+  @Reactionary({ inputSchema: AnalyticsMutationTraitDeclaredSchema, outputSchema: AnalyticsEventResultSchema })
+  public async traitDeclared(payload: AnalyticsMutationTraitDeclared): Promise<Result<AnalyticsEventResult>> {
+    return this.dispatcher.emit('trait-declared', payload);
   }
 
   @Reactionary({ inputSchema: AnalyticsMutationCustomSchema, outputSchema: AnalyticsEventResultSchema })

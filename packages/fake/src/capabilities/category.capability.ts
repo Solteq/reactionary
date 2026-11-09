@@ -61,6 +61,10 @@ export class FakeCategoryCapability<
       slug: `${identifier.key}-slug`,
       text: this.categoryGenerator.lorem.sentences(3),
       parentCategory: parent?.identifier,
+      seo: {
+        title: `${name} | Fake store`,
+        description: `Browse everything in ${name}.`,
+      },
     } satisfies Category;
 
     this.allCategories.set(identifier.key, category);

@@ -1,5 +1,6 @@
 import * as z from 'zod';
-import { PaymentMethodSchema } from '@reactionary/core';
+import { ExternalIdentityProviderSchema } from '@reactionary/oidc';
+import { PaymentMethodSchema, ProductAssetTypeSchema, SearchFacetPolicyOptionsSchema } from '@reactionary/core';
 
 export const CommercetoolsConfigurationSchema = z.looseObject({
     projectKey: z.string(),
@@ -12,8 +13,14 @@ export const CommercetoolsConfigurationSchema = z.looseObject({
     adminClientSecret: z.string().optional(),
     paymentMethods: PaymentMethodSchema.array().optional().default(() => []),
     facetFieldsForSearch: z.array(z.string()).default(() => []),
+    facets: SearchFacetPolicyOptionsSchema.optional().meta({ description: 'Facet policy of the product search: which facets are hidden, their names and order, and which attribute facets are multiselect (the values selected within one facet widen the search with OR). commercetools facets are all attributes, so price, rating, availability and taxonomy keys have no effect.' }),
     listPriceChannelKey: z.string().optional(),
     customerPriceChannelKey: z.string().optional(),
+    externalIdentityProviders: z.array(ExternalIdentityProviderSchema).optional().meta({ description: 'OpenID Connect identity providers shoppers can sign in with. commercetools has no social login of its own: reactionary runs the OpenID Connect flow, then creates or finds the customer (externalId = <iss>|<sub>) with the admin client, and commercetools accepts the identity provider\'s access token on the /me endpoints through the project\'s externalOAuth introspection endpoint. The access token must be one that endpoint can verify (a JWT; for Auth0 set authorizationParams.audience). The admin API client needs manage_customers and manage_orders.' }),
+    productAssets: z.looseObject({
+        tagTypeMap: z.record(z.string(), ProductAssetTypeSchema).optional().meta({ description: 'Maps commercetools asset tags to product asset types, in addition to the defaults (the asset type names themselves, e.g. the tag "manual" is a manual). An asset without a mapped tag is type "other".' }),
+        languageTagPrefix: z.string().default('lang:').meta({ description: 'Prefix of the asset tag that carries the language of the asset content, e.g. "lang:en".' }),
+    }).optional().meta({ description: 'Optional product asset (manuals, certificates, videos, 3D models) configuration.' }),
     bopis: z.looseObject({
         shippingMethodKeys: z.array(z.string()).default(() => []).meta({ description: 'The keys of the commercetools shipping methods that represent in-store pickup (BOPIS). Shipping methods with these keys are tagged with fulfillmentType "pickup"; all others are tagged "delivery".' }),
     }).optional().meta({ description: 'Optional buy-online-pickup-in-store (BOPIS) configuration.' }),

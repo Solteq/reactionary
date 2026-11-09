@@ -1,3 +1,4 @@
+import * as z from 'zod';
 import {
   ProductAssociationsCapability,
   Reactionary,
@@ -12,6 +13,10 @@ import {
   type ProductIdentifier,
   type RequestContext,
   type Result,
+  ProductAssociationsGetAccessoriesQuerySchema,
+  ProductAssociationSchema,
+  ProductAssociationsGetReplacementsQuerySchema,
+  ProductAssociationsGetSparepartsQuerySchema,
 } from '@reactionary/core';
 import createDebug from 'debug';
 import type { MagentoClient } from '../core/client.js';
@@ -102,6 +107,8 @@ export class MagentoProductAssociationsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetAccessoriesQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
@@ -120,6 +127,8 @@ export class MagentoProductAssociationsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetSparepartsQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
@@ -138,6 +147,8 @@ export class MagentoProductAssociationsCapability<
   }
 
   @Reactionary({
+    inputSchema: ProductAssociationsGetReplacementsQuerySchema,
+    outputSchema: z.array(ProductAssociationSchema),
     cache: true,
     cacheTimeToLiveInSeconds: 300,
     currencyDependentCaching: false,
