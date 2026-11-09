@@ -42,6 +42,7 @@ import {
   error,
   Reactionary,
   success,
+  toMinorUnits,
   type CartFactory,
   type CartFactoryCartOutput,
   type CartFactoryWithOutput,
@@ -289,7 +290,7 @@ export class CommercetoolsCartCapability<
         ...(lineIdentifier.originalPrice && {
           externalPrice: {
             currencyCode: lineIdentifier.originalPrice.currency,
-            centAmount: Math.round(lineIdentifier.originalPrice.value * 100),
+            centAmount: toMinorUnits(lineIdentifier.originalPrice.value, lineIdentifier.originalPrice.currency),
           },
         })
       },

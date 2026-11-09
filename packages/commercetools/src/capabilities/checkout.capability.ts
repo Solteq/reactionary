@@ -50,7 +50,8 @@ import {
   ShippingMethodSchema,
   success,
   error,
-  unwrapValue
+  unwrapValue,
+  toMinorUnits,
 } from '@reactionary/core';
 import * as z from 'zod';
 import type { CommercetoolsAPI } from '../core/client.js';
@@ -387,8 +388,9 @@ export class CommercetoolsCheckoutCapability<
       .post({
         body: {
           amountPlanned: {
-            centAmount: Math.round(
-              payload.paymentInstruction.amount.value * 100
+            centAmount: toMinorUnits(
+              payload.paymentInstruction.amount.value,
+              payload.paymentInstruction.amount.currency,
             ),
             currencyCode: payload.paymentInstruction.amount.currency,
           },

@@ -4,6 +4,7 @@ import type {
 import {
   type AnyPriceSchema,
   type Currency,
+  fromMinorUnits,
   type MonetaryAmount,
   type Price,
   type PriceFactory,
@@ -46,14 +47,14 @@ export class CommercetoolsPriceFactory<
     }
 
     let unitPrice = {
-      value: price.value.centAmount / 100,
+      value: fromMinorUnits(price.value.centAmount, price.value.currencyCode),
       currency: price.value.currencyCode as Currency,
     } satisfies MonetaryAmount;
 
     if (options.includeDiscounts) {
       const discountedPrice = price.discounted?.value || price.value;
       unitPrice = {
-        value: discountedPrice.centAmount / 100,
+        value: fromMinorUnits(discountedPrice.centAmount, discountedPrice.currencyCode),
         currency: price.value.currencyCode as Currency,
       } satisfies MonetaryAmount;
     }

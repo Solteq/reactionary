@@ -34,6 +34,8 @@ import {
   type ShippingMethod,
   type ShippingMethodIdentifier,
   type StoreIdentifier,
+  fromMinorUnits,
+  toMinorUnits,
 } from '@reactionary/core';
 import type * as z from 'zod';
 import type {
@@ -109,27 +111,27 @@ export class CommercetoolsCheckoutFactory<
 
     const price = {
       totalTax: {
-        value: taxTotal / 100,
+        value: fromMinorUnits(taxTotal, currency),
         currency,
       },
       totalDiscount: {
-        value: discountTotal / 100,
+        value: fromMinorUnits(discountTotal, currency),
         currency,
       },
       totalSurcharge: {
-        value: surchargeTotal / 100,
+        value: fromMinorUnits(surchargeTotal, currency),
         currency,
       },
       totalShipping: {
-        value: shippingTotal / 100,
+        value: fromMinorUnits(shippingTotal, currency),
         currency,
       },
       totalProductPrice: {
-        value: productTotal / 100,
+        value: fromMinorUnits(productTotal, currency),
         currency,
       },
       grandTotal: {
-        value: grandTotal / 100,
+        value: fromMinorUnits(grandTotal, currency),
         currency,
       },
     } satisfies CostBreakDown;
@@ -187,7 +189,7 @@ export class CommercetoolsCheckoutFactory<
       identifier,
       name: data.name,
       price: {
-        value: (rate?.price.centAmount || 0) / 100,
+        value: fromMinorUnits(rate?.price.centAmount || 0, rate?.price.currencyCode ?? context.languageContext.currencyCode),
         currency: rate?.price.currencyCode as Currency
       }
     } satisfies ShippingMethod;
@@ -219,19 +221,19 @@ export class CommercetoolsCheckoutFactory<
       quantity: remoteItem.quantity,
       price: {
         unitPrice: {
-          value: unitPrice / 100,
+          value: fromMinorUnits(unitPrice, currency),
           currency,
         },
         unitDiscount: {
-          value: unitDiscount / 100,
+          value: fromMinorUnits(unitDiscount, currency),
           currency,
         },
         totalPrice: {
-          value: totalPrice / 100,
+          value: fromMinorUnits(totalPrice, currency),
           currency,
         },
         totalDiscount: {
-          value: totalDiscount / 100,
+          value: fromMinorUnits(totalDiscount, currency),
           currency,
         },
       },
@@ -252,14 +254,13 @@ export class CommercetoolsCheckoutFactory<
     if (!shippingAddress && !shippingInstruction.pickupPoint) return false;
     if (paymentInstructions.length === 0) return false;
 
-    // Compare in cents, as summing decimal amounts is not exact
-    const toCents = (value: number) => Math.round(value * 100);
+    // Compare in minor units, as summing decimal amounts is not exact
     const authorizedPayments = paymentInstructions
       .filter((paymentInstruction) => paymentInstruction.status === 'authorized')
-      .map((paymentInstruction) => toCents(paymentInstruction.amount.value))
+      .map((paymentInstruction) => toMinorUnits(paymentInstruction.amount.value, paymentInstruction.amount.currency))
       .reduce((sum, value) => sum + value, 0);
 
-    if (toCents(price.grandTotal.value) !== authorizedPayments) return false;
+    if (toMinorUnits(price.grandTotal.value, price.grandTotal.currency) !== authorizedPayments) return false;
 
     return true;
   }
@@ -273,7 +274,7 @@ export class CommercetoolsCheckoutFactory<
     } satisfies PaymentInstructionIdentifier;
 
     const amount = {
-      value: data.amountPlanned.centAmount / 100,
+      value: fromMinorUnits(data.amountPlanned.centAmount, data.amountPlanned.currencyCode),
       currency: data.amountPlanned.currencyCode as Currency,
     } satisfies MonetaryAmount;
 

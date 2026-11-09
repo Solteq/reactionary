@@ -12,6 +12,7 @@ import {
   type OrderItem,
   type ProductVariantIdentifier,
   type RequestContext,
+  fromMinorUnits,
 } from '@reactionary/core';
 import type * as z from 'zod';
 import { getOrderStatusFromOrderState } from '../../core/order-status.js';
@@ -49,27 +50,27 @@ export class CommercetoolsOrderFactory<
 
     const price = {
       totalTax: {
-        value: taxTotal / 100,
+        value: fromMinorUnits(taxTotal, currency),
         currency,
       },
       totalDiscount: {
-        value: discountTotal / 100,
+        value: fromMinorUnits(discountTotal, currency),
         currency,
       },
       totalSurcharge: {
-        value: surchargeTotal / 100,
+        value: fromMinorUnits(surchargeTotal, currency),
         currency,
       },
       totalShipping: {
-        value: shippingTotal / 100,
+        value: fromMinorUnits(shippingTotal, currency),
         currency,
       },
       totalProductPrice: {
-        value: productTotal / 100,
+        value: fromMinorUnits(productTotal, currency),
         currency,
       },
       grandTotal: {
-        value: grandTotal / 100,
+        value: fromMinorUnits(grandTotal, currency),
         currency,
       },
     } satisfies CostBreakDown;
@@ -92,19 +93,19 @@ export class CommercetoolsOrderFactory<
 
       const linePrice = {
         unitPrice: {
-          value: unitPrice / 100,
+          value: fromMinorUnits(unitPrice, currency),
           currency,
         },
         unitDiscount: {
-          value: unitDiscount / 100,
+          value: fromMinorUnits(unitDiscount, currency),
           currency,
         },
         totalPrice: {
-          value: totalPrice / 100,
+          value: fromMinorUnits(totalPrice, currency),
           currency,
         },
         totalDiscount: {
-          value: totalDiscount / 100,
+          value: fromMinorUnits(totalDiscount, currency),
           currency,
         },
       } satisfies ItemCostBreakdown;

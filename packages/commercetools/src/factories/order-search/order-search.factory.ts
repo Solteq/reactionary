@@ -9,6 +9,7 @@ import {
   type Address,
   type AnyOrderSearchResultSchema,
   type Currency,
+  fromMinorUnits,
   type IdentityIdentifier,
   type MonetaryAmount,
   type OrderSearchFactory,
@@ -79,7 +80,7 @@ export class CommercetoolsOrderSearchFactory<
       currency: data.totalPrice
         ? (data.totalPrice.currencyCode as Currency)
         : context.languageContext.currencyCode,
-      value: data.totalPrice ? data.totalPrice.centAmount / 100 : 0,
+      value: data.totalPrice ? fromMinorUnits(data.totalPrice.centAmount, data.totalPrice.currencyCode) : 0,
     };
 
     return {
