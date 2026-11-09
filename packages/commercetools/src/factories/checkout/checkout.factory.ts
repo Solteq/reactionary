@@ -182,6 +182,7 @@ export class CommercetoolsCheckoutFactory<
     } satisfies ShippingMethodIdentifier;
 
     const rate = data.zoneRates[0]?.shippingRates.find(x => x.isMatching);
+    const shippingCurrency = (rate?.price.currencyCode ?? context.languageContext.currencyCode) as Currency;
 
     const result = {
       deliveryTime: '',
@@ -189,8 +190,8 @@ export class CommercetoolsCheckoutFactory<
       identifier,
       name: data.name,
       price: {
-        value: fromMinorUnits(rate?.price.centAmount || 0, rate?.price.currencyCode ?? context.languageContext.currencyCode),
-        currency: rate?.price.currencyCode as Currency
+        value: fromMinorUnits(rate?.price.centAmount || 0, shippingCurrency),
+        currency: shippingCurrency,
       }
     } satisfies ShippingMethod;
 
@@ -255,12 +256,14 @@ export class CommercetoolsCheckoutFactory<
     if (paymentInstructions.length === 0) return false;
 
     // Compare in minor units, as summing decimal amounts is not exact
+    // Only payments in the currency of the total count: minor units of different currencies cannot be added
+    const currency = price.grandTotal.currency;
     const authorizedPayments = paymentInstructions
-      .filter((paymentInstruction) => paymentInstruction.status === 'authorized')
-      .map((paymentInstruction) => toMinorUnits(paymentInstruction.amount.value, paymentInstruction.amount.currency))
+      .filter((paymentInstruction) => paymentInstruction.status === 'authorized' && paymentInstruction.amount.currency === currency)
+      .map((paymentInstruction) => toMinorUnits(paymentInstruction.amount.value, currency))
       .reduce((sum, value) => sum + value, 0);
 
-    if (toMinorUnits(price.grandTotal.value, price.grandTotal.currency) !== authorizedPayments) return false;
+    if (toMinorUnits(price.grandTotal.value, currency) !== authorizedPayments) return false;
 
     return true;
   }
