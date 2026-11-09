@@ -93,6 +93,12 @@ export class MedusaProfileCapability<
     if (payload.phone !== undefined) {
       updateData.phone = payload.phone;
     }
+    if (payload.firstName !== undefined) {
+      updateData.first_name = payload.firstName;
+    }
+    if (payload.lastName !== undefined) {
+      updateData.last_name = payload.lastName;
+    }
     return updateData;
   }
 

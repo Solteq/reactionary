@@ -60,6 +60,8 @@ export class MedusaProfileFactory<
         userId: data.id,
       },
       email,
+      firstName: data.first_name || undefined,
+      lastName: data.last_name || undefined,
       emailVerified,
       phone,
       phoneVerified,
