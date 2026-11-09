@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@reactionary/core": "0.0.1",
-    "zod": "4.6.7",
+    "zod": "catalog:",
     "jose": "^6.1.0"
   },
   "devDependencies": {

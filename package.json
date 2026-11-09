@@ -13,8 +13,8 @@
     "@commercetools/ts-client": "^4.9.1",
     "@faker-js/faker": "^10.6.0",
     "@medusajs/js-sdk": "^2.21.0",
-    "@modelcontextprotocol/node": "2.1.2",
-    "@modelcontextprotocol/server": "2.4.0",
+    "@modelcontextprotocol/node": "catalog:",
+    "@modelcontextprotocol/server": "catalog:",
     "@opentelemetry/api": "^1.9.0",
     "algoliasearch": "^5.48.0",
     "commander": "^15.0.0",
@@ -26,7 +26,7 @@
     "redis": "^5.12.1",
     "sitemap": "^9.0.1",
     "xmlbuilder2": "^4.0.3",
-    "zod": "4.6.7"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
