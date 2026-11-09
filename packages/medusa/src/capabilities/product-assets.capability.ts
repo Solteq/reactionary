@@ -17,6 +17,7 @@ import {
   Reactionary,
   success,
 } from '@reactionary/core';
+import { MEDUSA_ASSETS_METADATA_KEY } from '../utils/product-assets.js';
 import type { MedusaAPI } from '../core/client.js';
 import type { MedusaProductAssetsFactory } from '../factories/product-assets/product-assets.factory.js';
 import type { MedusaConfiguration } from '../schema/configuration.schema.js';
@@ -34,7 +35,7 @@ export class MedusaProductAssetsCapability<
   protected config: MedusaConfiguration;
   protected medusa: MedusaAPI;
   protected factory: ProductAssetsFactoryWithOutput<TFactory>;
-  protected metadataKey = 'assets';
+  protected metadataKey = MEDUSA_ASSETS_METADATA_KEY;
   protected alwaysIncludedFields = [
     '+metadata',
     '+external_id',

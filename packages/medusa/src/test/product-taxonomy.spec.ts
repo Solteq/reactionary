@@ -315,6 +315,62 @@ describe('Medusa product factory taxonomy mapping', () => {
   });
 });
 
+describe('Medusa product factory metadata that is not an attribute', () => {
+  const factory = new MedusaProductFactory(ProductSchema);
+
+  // The keys recalcitrant writes next to the attributes of a product, and the ones of the other readers of the metadata
+  const authored = {
+    'icecat-feature-1': '1.5',
+    manufacturer: 'Acme',
+    flags: 'ageRestricted',
+    assets: JSON.stringify([
+      {
+        identifier: { key: '2bf4cb89' },
+        type: 'manual',
+        files: [{ url: 'https://objects.icecat.biz/mmo_1.pdf', mimeType: 'application/pdf', delivery: 'file', language: 'da' }],
+      },
+    ]),
+    'seo_title_en-US': 'Drill title',
+    'seo_description_en-US': 'Drill description',
+    seo_robots: 'noindex',
+    compliance_data_ce_marking: 'true',
+    reactionaryaccessories: 'a;b',
+    reactionaryreplacements: 'c',
+    reactionaryspareparts: 'd',
+  };
+
+  it('keeps everything that has its own reader out of the attributes, with and without a product type', () => {
+    for (const type of [undefined, productType]) {
+      const product = factory.parseProduct(createContext('en-US'), createProduct({ type, metadata: authored }));
+
+      expect(product.sharedAttributes.map((a) => a.identifier.key)).toEqual(['icecat-feature-1', 'manufacturer']);
+    }
+  });
+
+  it('keeps assets out of the attributes whatever the value is', () => {
+    for (const assets of [JSON.stringify([{ type: 'manual' }]), [{ type: 'manual' }], '', null, 5]) {
+      const product = factory.parseProduct(createContext('en-US'), createProduct({ metadata: { assets, size: 'M' } }));
+
+      expect(product.sharedAttributes.map((a) => a.identifier.key)).toEqual(['size']);
+    }
+  });
+
+  it('lets a subclass change which metadata keys are not attributes', () => {
+    class CustomFactory extends MedusaProductFactory {
+      constructor() {
+        super(ProductSchema);
+        this.metadataKeysToExclude.push('internal_notes');
+      }
+    }
+    const product = new CustomFactory().parseProduct(
+      createContext('en-US'),
+      createProduct({ metadata: { internal_notes: 'x', assets: '[]', size: 'M' } }),
+    );
+
+    expect(product.sharedAttributes.map((a) => a.identifier.key)).toEqual(['size']);
+  });
+});
+
 describe('parseAttributeDefinitions', () => {
   it('accepts null maps and a null data type from the producer', () => {
     const definitions = parseAttributeDefinitions([

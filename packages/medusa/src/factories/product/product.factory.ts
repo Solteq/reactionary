@@ -36,6 +36,7 @@ import {
   pickMetadataName,
   type MedusaAttributeDefinition,
 } from '../../utils/taxonomy.js';
+import { MEDUSA_ASSETS_METADATA_KEY } from '../../utils/product-assets.js';
 import { isMedusaSeoMetadataKey, parseMedusaSeo } from '../../utils/seo.js';
 
 const debug = createDebug('reactionary:medusa:product');
@@ -46,6 +47,20 @@ export class MedusaProductFactory<
 > implements ProductFactory<TProductSchema>
 {
   public readonly productSchema: TProductSchema;
+
+  /**
+   * The metadata keys that have a reader of their own and so are not product attributes. The SEO texts are left out by
+   * `isMedusaSeoMetadataKey`, and the compliance data by its key prefix.
+   */
+  protected metadataKeysToExclude: string[] = [
+    'reactionaryaccessories',
+    'reactionaryreplacements',
+    'reactionaryspareparts',
+    // the flag list is mapped to Product.flags
+    'flags',
+    // the assets are read by the product assets capability
+    MEDUSA_ASSETS_METADATA_KEY,
+  ];
 
   constructor(productSchema: TProductSchema) {
     this.productSchema = productSchema;
@@ -195,20 +210,13 @@ export class MedusaProductFactory<
       );
     }
     if (_body.metadata) {
-      const keysToExclude = [
-        'reactionaryaccessories',
-        'reactionaryreplacements',
-        'reactionaryspareparts',
-        // the flag list is mapped to Product.flags
-        'flags',
-      ];
       const definitions = parseAttributeDefinitions(
         _body.type?.metadata?.['attribute_definitions'],
       );
       const synthCount = sharedAttributes.length;
       const defined: Array<{ order: number; attribute: ProductAttribute }> = [];
       for (const [key, value] of Object.entries(_body.metadata)) {
-        if (keysToExclude.includes(key)) {
+        if (this.metadataKeysToExclude.includes(key)) {
           continue;
         }
         if (key.startsWith('compliance_data')) {
