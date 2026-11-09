@@ -354,6 +354,18 @@ export class CommercetoolsProfileCapability<
         email: payload.email,
       });
     }
+    if (payload.firstName !== undefined) {
+      updateActions.push({
+        action: 'setFirstName',
+        firstName: payload.firstName,
+      });
+    }
+    if (payload.lastName !== undefined) {
+      updateActions.push({
+        action: 'setLastName',
+        lastName: payload.lastName,
+      });
+    }
 
 
     const mainAddress = customer.defaultBillingAddressId ?  customer.addresses.find(addr => addr.id === customer.defaultBillingAddressId): null;
