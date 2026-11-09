@@ -47,6 +47,8 @@ export class HclProfileFactory<
     const result = {
       identifier: { userId: data.userId },
       email: data.email1 ?? data.logonId ?? '',
+      firstName: data.firstName || undefined,
+      lastName: data.lastName || undefined,
       phone: data.phone1 ?? '',
       emailVerified: false,
       phoneVerified: false,
