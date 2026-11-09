@@ -91,8 +91,15 @@ export class HclProfileCapability<
   protected updatePersonPayload(
     email?: string,
     phone?: string,
-  ): { email1?: string; phone1?: string } {
-    return { email1: email, phone1: phone };
+    firstName?: string,
+    lastName?: string,
+  ): { email1?: string; phone1?: string; firstName?: string; lastName?: string } {
+    return {
+      email1: email,
+      phone1: phone,
+      ...(firstName !== undefined ? { firstName } : {}),
+      ...(lastName !== undefined ? { lastName } : {}),
+    };
   }
 
   protected personContactListUrl(): string {
@@ -128,7 +135,7 @@ export class HclProfileCapability<
     debug('update %o', payload.identifier);
     await this.client.callPut<HclPersonResponse>(
       this.personSelfUrl(),
-      this.updatePersonPayload(payload.email, payload.phone),
+      this.updatePersonPayload(payload.email, payload.phone, payload.firstName, payload.lastName),
     );
     return success(await this.fetchProfile());
   }
