@@ -171,18 +171,6 @@ export class HclCartCapability<
     };
   }
 
-  protected deleteOrderItemUrl(): string {
-    return `${this.client.transactionBaseUrl}/cart/@self/delete_order_item`;
-  }
-
-  protected deleteOrderItemPayload(orderItemId: string): object {
-    return {
-      orderItemId,
-      x_calculateOrder: '1',
-      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
-    };
-  }
-
   protected deleteCartUrl(orderId?: string): string {
     return orderId
       ? `${this.client.transactionBaseUrl}/cart/${encodeURIComponent(orderId)}/cancel_order`
@@ -308,9 +296,12 @@ export class HclCartCapability<
     if (payload.cart.key) {
       await this.fetchSetPendingOrder(payload.cart.key);
     }
-    await this.client.callPut<void>(
-      this.deleteOrderItemUrl(),
-      this.deleteOrderItemPayload(payload.item.key),
+    // Removed by setting the quantity to 0: delete_order_item leaves
+    // totalSalesTax (and gift-card-only shipping charge/tax) at the values
+    // from before the removal, while update_order_item recalculates them.
+    await this.client.callPut<HclWcsOrderItemUpdateResponse>(
+      this.updateOrderItemUrl(),
+      this.updateOrderItemPayload(payload.item.key, 0),
     );
     return success(await this.fetchCart(payload.cart.key || undefined));
   }
