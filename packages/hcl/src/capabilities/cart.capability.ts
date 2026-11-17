@@ -171,20 +171,6 @@ export class HclCartCapability<
     };
   }
 
-  /** @deprecated No longer used by `remove`, which updates the quantity to 0. */
-  protected deleteOrderItemUrl(): string {
-    return `${this.client.transactionBaseUrl}/cart/@self/delete_order_item`;
-  }
-
-  /** @deprecated No longer used by `remove`, which updates the quantity to 0. */
-  protected deleteOrderItemPayload(orderItemId: string): object {
-    return {
-      orderItemId,
-      x_calculateOrder: '1',
-      x_calculationUsage: '-1,-2,-3,-4,-5,-6,-7',
-    };
-  }
-
   protected deleteCartUrl(orderId?: string): string {
     return orderId
       ? `${this.client.transactionBaseUrl}/cart/${encodeURIComponent(orderId)}/cancel_order`
