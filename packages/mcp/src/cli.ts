@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { realpathSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { localhostAllowedHostnames } from '@modelcontextprotocol/server';
@@ -40,6 +41,15 @@ export const READ_ONLY_CAPABILITIES = [
 ];
 
 const BOOLEAN_FLAGS = new Set(['allow-insecure-remote', 'enable-mutating-tools']);
+
+const VALUE_FLAGS = new Set([
+  'host',
+  'port',
+  'path',
+  'allowed-hosts',
+  'allowed-origins',
+  'capabilities',
+]);
 
 async function main(): Promise<void> {
   loadProjectRootEnv(import.meta.url);
@@ -94,22 +104,37 @@ async function main(): Promise<void> {
 
   const close = async (): Promise<void> => {
     await mcp.close();
-    await new Promise<void>((resolve, reject) => {
-      server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-    });
+    await closeServer(server);
   };
 
-  process.once('SIGINT', () => {
-    void close().finally(() => process.exit(0));
-  });
-  process.once('SIGTERM', () => {
-    void close().finally(() => process.exit(0));
+  const shutdown = (): void => {
+    close().then(
+      () => process.exit(0),
+      (error: unknown) => {
+        console.error(error);
+        process.exit(1);
+      },
+    );
+  };
+
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+}
+
+/**
+ * Stops accepting connections and resolves once the server is closed. Connections that are still open (an idle keep-alive
+ * socket, or a long-lived SSE stream) are closed too, because `server.close` alone waits for them and would hang the shutdown.
+ */
+export function closeServer(server: Server): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+    server.closeAllConnections();
   });
 }
 
@@ -125,7 +150,14 @@ export function parseOptions(
       throw new Error(`Unknown argument: ${arg}`);
     }
 
-    const [rawKey, inlineValue] = arg.slice(2).split('=', 2);
+    // Split on the first "=" only, so a value may itself contain "=" (for example --path=/a=b).
+    const separator = arg.indexOf('=');
+    const rawKey = separator === -1 ? arg.slice(2) : arg.slice(2, separator);
+    const inlineValue = separator === -1 ? undefined : arg.slice(separator + 1);
+
+    if (!BOOLEAN_FLAGS.has(rawKey) && !VALUE_FLAGS.has(rawKey)) {
+      throw new Error(`Unknown argument: ${arg}`);
+    }
 
     if (BOOLEAN_FLAGS.has(rawKey)) {
       values.set(rawKey, inlineValue ?? 'true');
@@ -336,7 +368,27 @@ function getDefaultAllowedHosts(host: string): string[] {
     : [...hostnames, bracketedHost];
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+/**
+ * True when the module at `moduleUrl` is the entry point of the process. Both paths are resolved through symlinks first:
+ * Node reports `process.argv[1]` as given, which is the `node_modules/.bin` symlink when started through the package bin,
+ * while `import.meta.url` is already the real path.
+ */
+export function isMainModule(
+  entryPath: string | undefined,
+  moduleUrl: string,
+): boolean {
+  if (!entryPath) {
+    return false;
+  }
+
+  try {
+    return realpathSync(entryPath) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule(process.argv[1], import.meta.url)) {
   main().catch((error: unknown) => {
     console.error(error);
     process.exit(1);
